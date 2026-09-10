@@ -1,0 +1,358 @@
+{
+  "categories": [
+    {
+      "id": "codebase-map",
+      "name_en": "Codebase Map & Reference",
+      "name_ko": "코드베이스 지도·참조",
+      "definition": "Gives the agent a pre-built mental model of what the project is, where things live, and how its parts behave, so it can locate and understand code without exploratory reading.",
+      "includes": [
+        "project overview / purpose statements",
+        "directory trees, module maps, 'where to look' tables, key-files tables",
+        "architecture descriptions (layers, processes, data flow, package dependency graphs)",
+        "tech-stack and dependency inventories, platform support matrices",
+        "API/semantics mini-reference: component prop tables, plugin protocol method tables, fixed-point format tables, config file locations, env-var tables",
+        "project terminology definitions used descriptively"
+      ],
+      "excludes": [
+        "runnable command blocks belong to command-recipes — the agent executes those, it only reads a map",
+        "symptom-keyed caveats ('X fails because Y, do Z') belong to trap-notes even when they describe the environment",
+        "pointers that say 'read file X for area Y' belong to context-dispatch — the map contains content, a pointer routes to it"
+      ],
+      "discriminators": [
+        "Does the agent consume this text by reading it to orient (map), or by executing it (recipe)?",
+        "Is the description neutral ('what is'), or keyed to a known mistake with a corrective ('watch out, do this instead')? Neutral → map, corrective → trap-notes."
+      ],
+      "examples": [
+        {"file_id": "tursodatabase/turso::AGENTS.md", "quote": "SQLite rewrite in Rust. 40+ crate workspace."},
+        {"file_id": "streamlabs/desktop::CLAUDE.md", "quote": "Multi‑window Electron app. Every window runs the *same* JS bundle but plays a different role"},
+        {"file_id": "yichengchen/ATV-Bilibili-demo::AGENTS.md", "quote": "**`BLButton`** — Base `UIControl` with blur background and focus-driven parallax + shadow. Use `onPrimaryAction` callback instead of `addTarget`."}
+      ],
+      "est_share_of_blocks": 0.21,
+      "est_share_of_files_containing": 0.82
+    },
+    {
+      "id": "command-recipes",
+      "name_en": "Operational Command Recipes",
+      "name_ko": "실행 명령 레시피",
+      "definition": "Hands the agent copy-paste executable invocations and step sequences (build, test, lint, run, release, environment setup) so it never has to rediscover how to operate the project.",
+      "includes": [
+        "fenced command blocks with flags and inline comments",
+        "command → purpose tables",
+        "numbered operational procedures (patch export flow, release flow, tag maintenance, PR-conflict recovery)",
+        "environment/tooling setup steps (uv venv, poetry, bundle install, corepack enable)"
+      ],
+      "excludes": [
+        "commands mandated as a precondition for claiming done or committing belong to completion-gates — same text, different job",
+        "prescriptions about how to sequence one's own work (TDD, plan-first, branch flow) belong to work-process"
+      ],
+      "discriminators": [
+        "Is the command offered as how-to for when the agent needs it (recipe), or mandated as a gate before done/commit (completion-gate)?",
+        "Does the block give literal steps of domain work (recipe), or select which resource/tool/context to engage (context-dispatch)?"
+      ],
+      "examples": [
+        {"file_id": "grafana/grafana::AGENTS.md", "quote": "make run                          # Backend with hot reload (localhost:3000, admin/admin)"},
+        {"file_id": "vllm-project/vllm::AGENTS.md", "quote": "# Always use `uv` for Python environment management:\nuv venv --python 3.12\nsource .venv/bin/activate"},
+        {"file_id": "electron/electron::CLAUDE.md", "quote": "gh run download <run-id> --repo electron/electron --name update-patches"}
+      ],
+      "est_share_of_blocks": 0.17,
+      "est_share_of_files_containing": 0.75
+    },
+    {
+      "id": "house-style",
+      "name_en": "House Style & Conventions",
+      "name_ko": "하우스 스타일·컨벤션",
+      "definition": "Normalizes the surface form of everything the agent produces — code, commits, prose — so its output reads as native to the project.",
+      "includes": [
+        "naming conventions (files, variables, tests, branches)",
+        "import ordering, comment/docstring policy, formatting and line-length rules",
+        "commit-message and PR-title formats (conventional commits, scopes, sign-off syntax as format)",
+        "controlled vocabulary ('use these terms verbatim', spelling of names)",
+        "language/idiom preferences (never-nesting, functional-first, error-handling idioms)"
+      ],
+      "excludes": [
+        "rules whose violation breaks behavior, data, or policy belong to hard-constraints — style violations merely look non-native",
+        "value-laden tradeoff guidance ('simplicity first') belongs to engineering-values — style rules are mechanically checkable"
+      ],
+      "discriminators": [
+        "If violated, does something break or a policy get breached (hard-constraint), or does the diff merely look foreign (style)?",
+        "Can conformance be checked mechanically from the artifact alone (style), or does it require judgment about tradeoffs (values)?"
+      ],
+      "examples": [
+        {"file_id": "danny-avila/LibreChat::CLAUDE.md", "quote": "**Single-word file names** whenever possible (e.g., `permissions.ts`, `capabilities.ts`, `service.ts`)."},
+        {"file_id": "postgres-ai/database-lab-engine::CLAUDE.md", "quote": "IMPORTANT: all comments except godoc comments must be lowercase, test messages must be lowercase, log messages must be lowercase"},
+        {"file_id": "DIYgod/RSSHub::AGENTS.md", "quote": "**Naming Convention**: Use `camelCase` for variable names in JavaScript/TypeScript. Avoid `snake_case`"}
+      ],
+      "est_share_of_blocks": 0.11,
+      "est_share_of_files_containing": 0.62
+    },
+    {
+      "id": "hard-constraints",
+      "name_en": "Hard Constraints & Invariants",
+      "name_ko": "절대 금지·불변식",
+      "definition": "Removes options from the agent's action space outright: targets it must never touch, tools it must never use, invariants it must never break — no human can unlock them mid-task.",
+      "includes": [
+        "forbidden tools/commands ('never use npx', 'never npm — always pnpm', 'never --release')",
+        "forbidden targets (generated output, snapshots, versioned docs, i18n files, upstream golden tests)",
+        "artifact invariants (deps pinned exactly, every table has companyId, writes only through the lock module)",
+        "secret/credential prohibitions ('never commit secrets', 'no tokens in logs or snapshots')"
+      ],
+      "excludes": [
+        "actions permitted after asking belong to human-loop-contract ('ask before X' vs 'never X')",
+        "prohibitions whose content prescribes the legitimate work sequence ('never commit to main — use a PR') belong to work-process",
+        "cosmetic requirements belong to house-style"
+      ],
+      "discriminators": [
+        "Is the action forbidden unconditionally (constraint), or allowed once a human approves (human-loop-contract)?",
+        "Does the rule fence off a target/tool (constraint), or route the agent onto an approved workflow path (work-process)?"
+      ],
+      "examples": [
+        {"file_id": "electron/electron::CLAUDE.md", "quote": "**Never use `npx`.** It is considered dangerous because it can silently fetch and execute arbitrary packages from the registry."},
+        {"file_id": "wasp-lang/wasp::CLAUDE.md", "quote": "**E2E snapshots** (`waspc/e2e-tests/test-outputs/snapshots/`) must never be manually edited."},
+        {"file_id": "crbnos/carbon::AGENTS.md", "quote": "Never expose cross-tenant data or skip `companyId` scoping."}
+      ],
+      "est_share_of_blocks": 0.07,
+      "est_share_of_files_containing": 0.6
+    },
+    {
+      "id": "work-process",
+      "name_en": "Work Process Prescriptions",
+      "name_ko": "작업 프로세스 규정",
+      "definition": "Shapes the sequence and method of the agent's work — how to start, slice, branch, iterate, and log — rather than the content of the artifact itself.",
+      "includes": [
+        "TDD cycles ('write a failing test first'), plan-first / plan-mode entry rules",
+        "small-diff / vertical-slice / one-phase-at-a-time discipline",
+        "branch-and-PR flow, trunk-based rules, branch naming tied to flow",
+        "mandated work logging (append to CHANGELOG-AI.md, update lessons.md, keep Status.md current)"
+      ],
+      "excludes": [
+        "terminal checks before claiming done belong to completion-gates — process shapes the path, gates check the end state",
+        "companion edits to other artifacts belong to coupled-change-obligations",
+        "community-acceptability rules for the contribution itself (duplicate checks, AI disclosure) belong to ai-contribution-governance"
+      ],
+      "discriminators": [
+        "Does the block prescribe a concrete sequence/procedure for doing the work (process), or a tradeoff criterion requiring judgment (engineering-values)?",
+        "Is the obligation about how work proceeds (process) or about what must pass at the end (completion-gates)?"
+      ],
+      "examples": [
+        {"file_id": "natemcmaster/CommandLineUtils::CLAUDE.md", "quote": "1. Write a failing test that demonstrates the desired behavior or reproduces the bug"},
+        {"file_id": "quii/todo-eisenhower::CLAUDE.md", "quote": "Work in **very small vertical slices** - the smallest shippable increment"},
+        {"file_id": "bketelsen/clincus::CLAUDE.md", "quote": "**Never commit directly to `main`.** All changes must go through a feature branch and pull request"}
+      ],
+      "est_share_of_blocks": 0.06,
+      "est_share_of_files_containing": 0.45
+    },
+    {
+      "id": "trap-notes",
+      "name_en": "Trap Notes & Environment Quirks",
+      "name_ko": "함정 노트·환경 특이사항",
+      "definition": "Pre-loads hard-won empirical knowledge — known failure modes, misleading defaults, environment quirks — each keyed to a symptom or mistake with its corrective, so the agent doesn't lose time in a known trap.",
+      "includes": [
+        "symptom → cause → fix triplets ('jsxDEV is not a function → set web.output single')",
+        "misleading tool defaults ('yarn test includes --watch by default')",
+        "environment/PATH/hosting quirks (Cursor Cloud PATH injection, poetry not on PATH non-interactively, localhost vs 127.0.0.1)",
+        "'this is a common mistake' callouts (BASE_PATH only breaking after deploy)",
+        "version-compatibility pin tables born from past breakage"
+      ],
+      "excludes": [
+        "neutral environment description with no trap belongs to codebase-map",
+        "end-user troubleshooting for the product's own users (obfuscator option tuning) is residual or map, not an agent trap"
+      ],
+      "discriminators": [
+        "Is the note anticipatory/corrective, keyed to a concrete failure the agent would otherwise hit (trap), or a neutral description (map)?",
+        "Does it warn about a trap and give a workaround (trap-note), or forbid an action outright (hard-constraint)?"
+      ],
+      "examples": [
+        {"file_id": "grafana/grafana::AGENTS.md", "quote": "The `yarn test` script includes `--watch` by default. Always use `yarn jest --no-watch` or add `--watchAll=false` to run tests once and exit."},
+        {"file_id": "roshanbvadassery/zopu-expo-template::AGENTS.md", "quote": "`_reactJsxDevRuntime.jsxDEV is not a function` ... **Fix**: In `app.json`, set `\"web\": { \"output\": \"single\" }`"},
+        {"file_id": "abi/screenshot-to-code::AGENTS.md", "quote": "use `http://localhost:5173`, not `http://127.0.0.1:5173` (the latter refuses the connection)"}
+      ],
+      "est_share_of_blocks": 0.06,
+      "est_share_of_files_containing": 0.38
+    },
+    {
+      "id": "context-dispatch",
+      "name_en": "Context & Capability Dispatch",
+      "name_ko": "컨텍스트·능력 디스패치",
+      "definition": "Routes the agent to the right resource at the right moment — which deeper doc to read, which skill to load, which tool/subagent/model to engage — without inlining the content itself.",
+      "includes": [
+        "task → guide routing tables and directory-scoped AGENTS.md pointers",
+        "conditional reading triggers ('read tests/CLAUDE.md when touching coverage', 'do not load it for ordinary feature work')",
+        "skill catalogs with load/invoke conditions, @doc imports",
+        "tool-selection mandates ('use search-docs before other approaches', 'use context7 when working with bunqueue')",
+        "delegation/model-routing/subagent policy ('use subagents liberally', 'route code to executor with model=opus')",
+        "persona/mode activation blocks (trigger word → enter orchestrator mode)"
+      ],
+      "excludes": [
+        "the routed-to content itself, when inlined, belongs to its own category (map, recipes, etc.)",
+        "literal steps of domain work belong to command-recipes — dispatch selects the instrument, recipes wield it"
+      ],
+      "discriminators": [
+        "Does the block point elsewhere with a trigger condition (dispatch), or contain the substantive content (map/recipe)?",
+        "Does it name a resource to engage as an instrument — doc, skill, tool, subagent (dispatch) — or give the literal steps of the work (recipe)?"
+      ],
+      "examples": [
+        {"file_id": "crbnos/carbon::AGENTS.md", "quote": "IMPORTANT: Before any research or coding, match the task to this table. A single task often maps to **multiple rows** — read **all** matching guides before starting."},
+        {"file_id": "max-sixty/worktrunk::CLAUDE.md", "quote": "Load relevant skills before starting; reload when scope changes mid-session."},
+        {"file_id": "nunomaduro/whyphp.dev::CLAUDE.md", "quote": "You must use this tool to search for Laravel-ecosystem documentation before falling back to other approaches."}
+      ],
+      "est_share_of_blocks": 0.06,
+      "est_share_of_files_containing": 0.42
+    },
+    {
+      "id": "completion-gates",
+      "name_en": "Completion Verification Gates",
+      "name_ko": "완료 검증 게이트",
+      "definition": "Defines what must pass before the agent may claim done or commit — the checks, checklists, and evidence that gate completion.",
+      "includes": [
+        "'always run X after every code change' mandates",
+        "'run the full build script before committing — dotnet test alone is not enough'",
+        "pre-PR quality checklists, RSN-must-pass gates",
+        "evidence requirements ('run the command, read the output, then state the result'; 'verify before claiming completion')"
+      ],
+      "excludes": [
+        "the same commands offered as optional how-to belong to command-recipes",
+        "obligations to co-edit sibling artifacts belong to coupled-change-obligations — gates run checks, sync rules make edits"
+      ],
+      "discriminators": [
+        "Is the command mandated as a precondition for done/commit (gate), or offered as reference for when needed (recipe)?",
+        "Does the obligation say 'run a check' (gate) or 'also update artifact Y' (coupled-change)?"
+      ],
+      "examples": [
+        {"file_id": "abi/screenshot-to-code::AGENTS.md", "quote": "Always run backend tests after every code change: `cd backend && poetry run pytest`."},
+        {"file_id": "natemcmaster/CommandLineUtils::CLAUDE.md", "quote": "**IMPORTANT:** Always run the full `build.ps1` script before committing changes. `dotnet test` alone may pass while the full build fails"},
+        {"file_id": "crbnos/carbon::AGENTS.md", "quote": "Never claim work is complete without running verification commands. Evidence before assertions — run the command, read the output, then state the result."}
+      ],
+      "est_share_of_blocks": 0.05,
+      "est_share_of_files_containing": 0.48
+    },
+    {
+      "id": "coupled-change-obligations",
+      "name_en": "Coupled-Change Sync Obligations",
+      "name_ko": "연동 변경 동기화 의무",
+      "definition": "Obligates companion edits whenever one artifact changes — 'when you change X, also update Y in the same change' — preserving cross-artifact consistency the repo cannot enforce automatically.",
+      "includes": [
+        "docs-must-track-behavior rules (README/MkDocs/--help updated in the same PR)",
+        "N-piece rules (component + story + test; skill + README entry + plugin.json + docs page)",
+        "design-token ↔ token-doc sync tables, roadmap-slide ↔ deck-structure sync",
+        "multi-file registration drift rules (update install.sh + update-hyprland.sh + dry-run-build.sh together)",
+        "mandatory indirect channels for a coupled artifact (translations via Crowdin, manual port to cloudflare-docs)"
+      ],
+      "excludes": [
+        "run-a-check requirements belong to completion-gates",
+        "logging one's own work (changelog/lessons entries) belongs to work-process — sync rules mirror a content change into a sibling artifact"
+      ],
+      "discriminators": [
+        "Is the obligation triggered by a change to artifact X and discharged by editing artifact Y (sync), or by running a verification (gate)?",
+        "Does the companion artifact describe the same content (sync), or record the process of working (work-process logging)?"
+      ],
+      "examples": [
+        {"file_id": "palewire/cuny-jour-static-site-template::AGENTS.md", "quote": "Whenever you add, remove, or change any of the following, update `DesignTokens.mdx` in the same change"},
+        {"file_id": "mattpocock/skills::CLAUDE.md", "quote": "whenever you add, rename, remove, or change how a user-reachable skill fits the flows, re-read `ask-matt`'s `SKILL.md` and update it so the map stays accurate"},
+        {"file_id": "JaKooLit/Debian-Hyprland::AGENTS.md", "quote": "If you touch module ordering or add a new component, update `install.sh` (sequence + option), `update-hyprland.sh` (`DEFAULT_MODULES`), and `dry-run-build.sh` (`DEFAULT_MODULES`) to prevent drift."}
+      ],
+      "est_share_of_blocks": 0.05,
+      "est_share_of_files_containing": 0.3
+    },
+    {
+      "id": "engineering-values",
+      "name_en": "Engineering Values & Posture",
+      "name_ko": "엔지니어링 가치관·태세",
+      "definition": "Gives the agent decision criteria for open-ended tradeoffs — value orderings, quality philosophy, and the project's current posture — where no mechanical rule can decide.",
+      "includes": [
+        "value orderings ('crash > corrupt', 'a failed command that preserves data beats a successful one that destroys work')",
+        "minimalism/simplicity/reuse-first doctrine ('minimum code, nothing speculative', '先用现成的')",
+        "epistemic norms ('validate your hypotheses', 'assert invariants, don't hedge')",
+        "project posture calibration ('maturing mode — balance clean design with compatibility', 'stable/maintenance — no major features', recommended-use-cases ✅/⚠️ lists)"
+      ],
+      "excludes": [
+        "mechanically checkable rules belong to house-style or hard-constraints",
+        "concrete procedures belong to work-process — values inform judgment, they don't sequence steps"
+      ],
+      "discriminators": [
+        "Does applying the block require weighing tradeoffs (values), or is compliance checkable from the artifact (style/constraint)?",
+        "Does it calibrate what kind of change is welcome (posture/values), or prescribe how to carry a change out (process)?"
+      ],
+      "examples": [
+        {"file_id": "tursodatabase/turso::AGENTS.md", "quote": "**Correctness paramount.** Production DB, not a toy. Crash > corrupt"},
+        {"file_id": "max-sixty/worktrunk::CLAUDE.md", "quote": "Never risk data loss without explicit user consent. A failed command that preserves data beats a \"successful\" one that silently destroys work."},
+        {"file_id": "digoal/blog::CLAUDE.md", "quote": "**Minimum code that solves the problem. Nothing speculative.**"}
+      ],
+      "est_share_of_blocks": 0.05,
+      "est_share_of_files_containing": 0.38
+    },
+    {
+      "id": "human-loop-contract",
+      "name_en": "Human Interaction Contract",
+      "name_ko": "인간 상호작용 계약",
+      "definition": "Governs the live dialogue between agent and operating human: which actions need approval first, when to stop and ask, and in what form and tone to communicate.",
+      "includes": [
+        "approval gates on actions ('before git push, stop and get explicit human approval'; 'ask before reducing scope / changing schema')",
+        "escalation-and-refusal rules ('if the guide conflicts with the request, refuse the change and explain why'; 'report the problem and ask for guidance')",
+        "question-form mandates (AskUserQuestion with 2-4 options, no prose question dumps)",
+        "communication style and address ('be concise in explanations', '每次和我沟通，叫我【帅哥】')",
+        "division of labor ('leave the user to run these commands', 'ask the user for the version number')"
+      ],
+      "excludes": [
+        "unconditional prohibitions belong to hard-constraints — here the action is allowed after asking",
+        "rules aimed at project maintainers/reviewers rather than the live operator belong to ai-contribution-governance"
+      ],
+      "discriminators": [
+        "Is the action's blocker a human's live consent (human-loop), or is it never allowed at all (hard-constraint)?",
+        "Does the rule govern dialogue with the operating user (human-loop), or acceptability of the artifact to the project community (governance)?"
+      ],
+      "examples": [
+        {"file_id": "grafana/grafana::AGENTS.md", "quote": "Before running `git push`, stop and get explicit human approval. ... \"Open a PR\" in a task description is intent, not permission to push without review."},
+        {"file_id": "houbb/core-agent::AGENTS.md", "quote": "需要你向我提问时，必须使用选项列表，禁止用散文/段落罗列问题。"},
+        {"file_id": "crbnos/carbon::AGENTS.md", "quote": "Ask before reducing scope, changing architecture, changing public contracts, or adding production dependencies."}
+      ],
+      "est_share_of_blocks": 0.04,
+      "est_share_of_files_containing": 0.32
+    },
+    {
+      "id": "ai-contribution-governance",
+      "name_en": "AI Contribution Governance",
+      "name_ko": "AI 기여 거버넌스",
+      "definition": "Makes the agent's contribution acceptable to the project's human community: accountability, disclosure, anti-slop hygiene, and PR metadata policy that exist because the contributor is (or uses) an AI.",
+      "includes": [
+        "human-accountability mandates ('pure code-agent PRs are not allowed', 'you are responsible for quality and correctness')",
+        "duplicate-work checks and no-busywork/no-farming policies with fail-closed behavior",
+        "AI-noise cleanup requirements and AI-use disclosure in PR descriptions",
+        "PR metadata policy (semver/backport labels, mandatory Notes: sections, DCO sign-off, 'never mention Claude in commits')",
+        "evidence-for-reviewers requirements ('include dry-run logs when fixing installer issues')"
+      ],
+      "excludes": [
+        "how to sequence one's own work belongs to work-process",
+        "live-operator approval rules belong to human-loop-contract — governance addresses the asynchronous review community"
+      ],
+      "discriminators": [
+        "Is the rule about the contribution's acceptability to maintainers/community, especially as AI-assisted work (governance), or about the work's method (process)?",
+        "Would the rule exist if the contributor were a trusted human employee? Duplicate-PR checks, AI disclosure, anti-farming would not — governance."
+      ],
+      "examples": [
+        {"file_id": "vllm-project/vllm::AGENTS.md", "quote": "Pure code-agent PRs are **not allowed**. A human submitter must understand and defend the change end-to-end."},
+        {"file_id": "juice-shop/juice-shop::AGENTS.md", "quote": "❌ **Don't**: Use AI for contribution farming or trivial changes."},
+        {"file_id": "electron/electron::CLAUDE.md", "quote": "PR bodies must always include a `Notes:` section as the **last line** of the body. This is a consumer-facing release note"}
+      ],
+      "est_share_of_blocks": 0.03,
+      "est_share_of_files_containing": 0.15
+    }
+  ],
+  "residual": {
+    "est_share": 0.04,
+    "description": "Blocks with no discernible job for a coding agent: human-audience README copy pasted wholesale (license text, sponsorship/community/support sections, project statistics, marketing feature lists), changelog-of-this-file history tables, end-user product support content, and fragments too terse to carry intent. Concentrated in one file (javascript-obfuscator's 45KB doc-dump contributes roughly half of all residual blocks) plus scattered history tables (PVE-Tools 变更记录) and the 324-byte RPG-JS fragment's stray first line.",
+    "examples": [
+      "javascript-obfuscator 'License: BSD-2-Clause ... Copyright (C) 2016-2026 Timofei Kachalov'",
+      "javascript-obfuscator 'Support and Community: GitHub Sponsors: Direct sponsorship'",
+      "PVE-Tools-9 '变更记录 (Changelog)' table of past CLAUDE.md regenerations",
+      "RSamaium/RPG-JS 'View content of CONTRIBUTING.md' (bare pointer with no trigger or subject)"
+    ]
+  },
+  "observations": [
+    "Provenance is visibly trimodal — hand-authored, tool-generated, and vendor-injected — and it predicts content mix better than star count: nunomaduro/whyphp.dev is entirely Laravel Boost vendor boilerplate, TennyZhuang/iter-chunks reads as a generator's 'Repository Guidelines' template, onevcat/Kingfisher's AGENTS.md still carries the '# CLAUDE.md / This file provides guidance to Claude Code' header verbatim (a straight file copy), and digoal/blog concatenates a repo-specific file with a second generic '# CLAUDE.md' community rule-pack — people paste circulating rule-packs wholesale.",
+    "ai-contribution-governance appears almost exclusively in high-star infrastructure repos that receive unsolicited AI PRs (vllm 87k, electron 122k, juice-shop 13k, RSSHub 45k): duplicate-work checks, 'pure code-agent PRs are not allowed', anti-farming, fail-closed refusal. Low-star personal repos never carry it; their files instead optimize a single trusted operator's throughput (houbb even auto-approves all file changes and command executions — the exact opposite posture).",
+    "In agent-tooling repos the file stops being documentation and becomes the runtime program itself: oh-my-claudecode ships delegation policy, model routing, hook-pattern grammars and kill switches inside XML-ish tags; planckatron-claude-code is a persona bootloader (trigger word → splash screen → orchestrator mode). The same filename spans 'notes about the code' to 'the product's executable behavior'.",
+    "Several files instruct the agent to maintain the very knowledge base it reads — a self-updating loop: carbon's '.ai/lessons.md' (Context → Problem → Rule → Applies to), CarGuo's mandatory CHANGELOG-AI.md appends, worktrunk/clincus 'update the relevant rule when you learn something durable'. Trap-notes sections read as the sediment of this loop ('mismatches have caused repeated CI failures'), i.e. institutional memory accumulating in-file.",
+    "Coupled-change sync obligations cluster exactly where CI cannot see: cloudflare/agents states 'there is no automated sync workflow. Changes here must be manually ported'; where a checker exists the block instead documents the checker and its blind spot (formspec explains why plain api-extractor would trivially pass and CI diffs the regenerated reports instead). The category is a map of each repo's un-automated invariants.",
+    "Contradictory philosophies coexist across files with equal confidence, so an agent hopping repos must treat every rule as local: LibreChat mandates heavy mocking avoidance and 'never use any' TypeScript strictness while streamlabs declares strictNullChecks intentionally OFF repo-wide; postgres-ai bans any mention of Claude in commits while turso and vllm require AI co-author trailers; quii bans manual verification scripts in favor of tests while houbb bans mid-implementation verification runs entirely."
+  ]
+}

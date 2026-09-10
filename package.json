@@ -1,0 +1,91 @@
+{
+  "name": "agent-bios",
+  "version": "0.16.0",
+  "releaseDate": "2026-09-10",
+  "description": "A thin, low-level instruction layer for LLM CLI agents: one set of principles and behavior whichever model you run. Stores a private, editable corpus for explicitly activated sessions.",
+  "bin": {
+    "agent-bios": "install.sh"
+  },
+  "files": [
+    "claude/CLAUDE.md",
+    "claude/settings.template.json",
+    "claude/guides/",
+    "claude/hooks/",
+    "claude/agents/",
+    "claude/skills/",
+    "codex/AGENTS.md",
+    "codex/guides/",
+    "codex/agents/",
+    "codex/config-additions.toml",
+    "launch/agent-launch.toml",
+    "launch/i18n",
+    "compose/domains.json",
+    "learn/learning.schema.json",
+    "learn/promotions.json",
+    "launch/agent-launch.zsh",
+    "launch/agent-launch.py",
+    "launch/shell_integration.py",
+    "compose/pkgid.py",
+    "compose/register-hooks.py",
+    "compose/assemble.py",
+    "compose/prune-backups.py",
+    "compose/check-domains.py",
+    "compose/corpus-state.py",
+    "compose/write-update-cache.py",
+    "compose/canary.sh",
+    "compose/corpus.py",
+    "compose/corpus_ui.py",
+    "compose/corpus_store.py",
+    "compose/corpus_catalog.py",
+    "compose/corpus_session.py",
+    "compose/corpus_install.py",
+    "compose/corpus_transaction.py",
+    "compose/corpus_understand.py",
+    "compose/bootstrap/",
+    "launch/check-prompting-targets.sh",
+    "learn/check-learning.py",
+    "learn/collect-learning.py",
+    "learn/migrate-learnings.py",
+    "learn/redact.py",
+    "wrappers/codex-run.sh",
+    "wrappers/codex-helm.sh",
+    "wrappers/claude-run.sh",
+    "install.sh",
+    "launch/provision-venv.sh",
+    "session-cost.py",
+    "README.md",
+    "DEPENDENCIES.md",
+    "provenance.json"
+  ],
+  "scripts": {
+    "postinstall": "printf '\\n> agent-bios installed. Deploy into this environment with:  agent-bios install\\n> Then: agent-bios verify | status | uninstall\\n\\n'",
+    "prepack": "bash gates/check-publish.sh --stamp",
+    "prepublishOnly": "bash gates/check-publish.sh --guard",
+    "postpack": "rm -f provenance.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "os": [
+    "darwin",
+    "linux"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "llm",
+    "agents",
+    "bios",
+    "claude-code",
+    "codex",
+    "cli",
+    "instructions",
+    "dotfiles"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kangminlee-maker/agent-bios.git"
+  },
+  "license": "MIT"
+}

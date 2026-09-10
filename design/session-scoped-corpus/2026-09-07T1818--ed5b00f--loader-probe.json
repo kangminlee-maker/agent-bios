@@ -1,0 +1,34 @@
+{
+  "recorded_at": "2026-09-07T18:22:30.101269+09:00",
+  "cli": "codex-cli 0.153.4",
+  "method": "codex debug prompt-input; controlled temporary user/project files; no model generation",
+  "startup_instruction_cases": {
+    "off-before.json": {
+      "user_global_present": true,
+      "project_present": true,
+      "session_corpus_roles": []
+    },
+    "on.json": {
+      "user_global_present": true,
+      "project_present": true,
+      "session_corpus_roles": [
+        "developer"
+      ]
+    },
+    "off-after.json": {
+      "user_global_present": true,
+      "project_present": true,
+      "session_corpus_roles": []
+    }
+  },
+  "protected_files_unchanged_during_on_off_probe": true,
+  "skill_probe": {
+    "external_path_enablement": "skills.config=[{path=<private skill folder>,enabled=true}]",
+    "positive_control": "same SKILL.md copied into the temporary CODEX_HOME/skills directory",
+    "canary_visible": {
+      "off-after.json": false,
+      "skill-on.json": false,
+      "skill-positive.json": true
+    }
+  }
+}

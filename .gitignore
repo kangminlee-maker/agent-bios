@@ -1,0 +1,70 @@
+.DS_Store
+
+# Runtime state, logs, sessions, caches, and transient files should stay outside this repo.
+*.sqlite
+*.sqlite-*
+*.jsonl
+# ...except the decision record, which is the opposite of transient: it is the
+# durable, append-only answer to what was decided here and what it closed.
+!decisions/decisions.jsonl
+logs/
+# Agent worktrees the harness creates inside the repo — checkouts of this tree, not content.
+.claude/worktrees/
+sessions/
+archived_sessions/
+shell_snapshots/
+cache/
+.tmp/
+tmp/
+.onto/
+__pycache__/
+
+# Benchmark run outputs (raw model responses) — regenerated, not tracked.
+benchmarks/out/
+
+# Publication provenance: written by `npm pack`/`publish` (gates/check-publish.sh
+# --stamp), shipped in the tarball via files[], never committed — a committed copy
+# would go stale the commit after it was written.
+/provenance.json
+
+# Machine-specific / sensitive config — kept local, not version-controlled.
+codex/config.toml
+claude/settings.json
+# A pattern, not a list. This named only config/presets.local.toml while the
+# launcher had grown two more user-owned files it writes into a checkout —
+# launcher.local.toml (the UI language) and review-methods.local.toml (personal
+# reviewer definitions, the one it would actually hurt to publish). An enumeration
+# does not name what it happens to exclude, and the next *.local.toml would have
+# been missed the same way.
+*.local.toml
+
+# session-distill: heavy regenerable intermediates (keep BUNDLE.*)
+session-distill/out/digests.json
+session-distill/out/census.json
+session-distill/out/consolidated.json
+session-distill/out/candidates-*.json
+session-distill/out/baseline.txt
+session-distill/out/batches/
+session-distill/out/batch_index.json
+
+# collection-loop Phase 3: curator intake artifacts carry user_email (PII) +
+# free-text payloads — never commit them (design/collection-loop/CURATION-INTAKE.md).
+*worklist*.json
+*learnings-export*.json
+
+# research/agents-md bulk data stays local: raw/ is 123MB of third-party file
+# copies (refetchable via scripts/fetch.py) and these two derived files exceed
+# or brush GitHub's 100MB blob limit (units.jsonl 149MB, headings.json 16MB);
+# both are re-derivable from raw/ via scripts/. The committed set is the
+# knowledge: reports, scripts, labels, and small derived statistics.
+research/agents-md/raw/
+research/agents-md/derived/units.jsonl
+research/agents-md/derived/headings.json
+# ...but the labeling record and the labeled samples ARE the knowledge — the
+# judgments behind the report's agreement figures, not regenerable from the
+# committed set — so they override the global *.jsonl transient rule.
+!research/agents-md/labels/*.jsonl
+!research/agents-md/derived/sample_open.jsonl
+!research/agents-md/derived/sample_closed.jsonl
+session-distill/out/screen-schema.json
+session-distill/out/verify-codex.json

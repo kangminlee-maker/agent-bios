@@ -1,0 +1,2349 @@
+{
+  "schema": "agent-bios-ontology/instances/v1",
+  "status": "draft",
+  "note": "Instance layer. Entity/edge semantics are authored from concepts.md and structure_spec.md; the `derived` block and every anchor are held against real source by gates/check-ontology.py, which fails when they drift.",
+  "families": {
+    "F1": {
+      "label": "Instruction content",
+      "color": "#0078D4",
+      "icon": "📘"
+    },
+    "F2": {
+      "label": "Classification & packaging",
+      "color": "#107C10",
+      "icon": "📦"
+    },
+    "F3": {
+      "label": "Capability binding",
+      "color": "#8764B8",
+      "icon": "🔌"
+    },
+    "F4": {
+      "label": "Distribution mechanism",
+      "color": "#D13438",
+      "icon": "🚚"
+    },
+    "F5": {
+      "label": "Assurance",
+      "color": "#FFB900",
+      "icon": "🛡️"
+    }
+  },
+  "positions": [
+    "P1",
+    "P2",
+    "P3",
+    "P4",
+    "P5",
+    "P6"
+  ],
+  "entities": [
+    {
+      "id": "corpus-rule",
+      "class": "CorpusRule",
+      "name": "Corpus Rule",
+      "family": "F1",
+      "icon": "📜",
+      "pos": [
+        "P1",
+        "P2",
+        "P3",
+        "P4",
+        "P5",
+        "P6"
+      ],
+      "guard": "gated",
+      "anchor": "claude/CLAUDE.md",
+      "desc": "An always-on instruction bullet in the global file, identified by its anchor substring",
+      "evidence": "## Session Learning"
+    },
+    {
+      "id": "guide",
+      "class": "Guide",
+      "name": "Guide",
+      "family": "F1",
+      "icon": "📖",
+      "pos": [
+        "P1",
+        "P2",
+        "P3",
+        "P4",
+        "P5",
+        "P6"
+      ],
+      "guard": "gated",
+      "anchor": "claude/guides/*.md guide_id frontmatter",
+      "desc": "A scoped instruction document loaded when a corpus rule's pointer fires",
+      "evidence": "guide_id: tooling-gotchas"
+    },
+    {
+      "id": "agent-template",
+      "class": "AgentTemplate",
+      "name": "Agent Template",
+      "family": "F1",
+      "icon": "🤖",
+      "pos": [
+        "P1",
+        "P3",
+        "P4",
+        "P5",
+        "P6"
+      ],
+      "guard": "partial",
+      "anchor": "codex/agents/*.toml",
+      "desc": "A subagent role definition; reviewer.toml exists on Codex with no Claude counterpart",
+      "evidence": "description ="
+    },
+    {
+      "id": "hook",
+      "class": "Hook",
+      "name": "Hook",
+      "family": "F1",
+      "icon": "🪝",
+      "pos": [
+        "P1",
+        "P3",
+        "P4",
+        "P5",
+        "P6"
+      ],
+      "guard": "partial",
+      "anchor": "claude/hooks/*.py",
+      "desc": "Executable instruction that fires on a tool event, owned by manifest name not path marker",
+      "evidence": "def matches"
+    },
+    {
+      "id": "learning-record",
+      "class": "LearningRecord",
+      "name": "Learning Record",
+      "family": "F1",
+      "icon": "📝",
+      "pos": [
+        "P1",
+        "P4",
+        "P5",
+        "P6"
+      ],
+      "guard": "gated",
+      "anchor": "learn/learning.schema.json",
+      "desc": "The captured per-session artifact, minted by the collector",
+      "evidence": "\"title\":"
+    },
+    {
+      "id": "session-distill-pipeline",
+      "class": "SessionDistillPipeline",
+      "name": "Session Distill Pipeline",
+      "family": "F1",
+      "icon": "⚗️",
+      "pos": [
+        "P1",
+        "P5",
+        "P6"
+      ],
+      "guard": "partial",
+      "anchor": "session-distill/*.py",
+      "desc": "The heavy curator flow that mines many sessions into corpus-grade items",
+      "evidence": "distill"
+    },
+    {
+      "id": "packaging-tier",
+      "class": "PackagingTier",
+      "name": "Packaging Tier",
+      "family": "F2",
+      "icon": "🥇",
+      "pos": [
+        "P1",
+        "P5",
+        "P6"
+      ],
+      "guard": "gated",
+      "anchor": "compose/domains.json tiers",
+      "desc": "core, domain, env-personal or infra — decides whether a unit is universal, opt-in, or plumbing",
+      "evidence": "env-personal"
+    },
+    {
+      "id": "domain",
+      "class": "Domain",
+      "name": "Domain",
+      "family": "F2",
+      "icon": "🏷️",
+      "pos": [
+        "P1",
+        "P5",
+        "P6"
+      ],
+      "guard": "gated",
+      "anchor": "compose/domains.json domains",
+      "desc": "An opt-in bundle of instruction content; five exist today",
+      "evidence": "builder-base"
+    },
+    {
+      "id": "package-identity",
+      "class": "PackageIdentity",
+      "name": "Package Identity",
+      "family": "F2",
+      "icon": "🆔",
+      "pos": [
+        "P1",
+        "P5",
+        "P6"
+      ],
+      "guard": "gated",
+      "anchor": "compose/domains.json package_id (@agent-bios/core)",
+      "desc": "Unversioned by design; the pair (package_id, domain) is the real key",
+      "evidence": "@agent-bios/core"
+    },
+    {
+      "id": "selection",
+      "class": "Selection",
+      "name": "Selection",
+      "family": "F2",
+      "icon": "☑️",
+      "pos": [
+        "P4",
+        "P5"
+      ],
+      "guard": "unguarded",
+      "anchor": "compose/corpus_store.py, launch/agent-launch.py",
+      "desc": "Qualified package/domain choices seed private snapshots; a one-off launch can choose without rewriting the saved selection",
+      "evidence": "_validate_selection"
+    },
+    {
+      "id": "preset-mode",
+      "class": "PresetMode",
+      "name": "Preset Mode",
+      "family": "F2",
+      "icon": "🎛️",
+      "pos": [
+        "P1",
+        "P4",
+        "P5",
+        "P6"
+      ],
+      "guard": "gated",
+      "anchor": "launch/agent-launch.py:60 PRESET_MODES",
+      "desc": "software-engineer, builder or distill, plus the user-owned presets.local.toml",
+      "evidence": "PRESET_MODES"
+    },
+    {
+      "id": "backend",
+      "class": "Backend",
+      "name": "Backend",
+      "family": "F3",
+      "icon": "⚙️",
+      "pos": [
+        "P1",
+        "P4",
+        "P5",
+        "P6"
+      ],
+      "guard": "gated",
+      "anchor": "launch/agent-launch.toml [backends.*]",
+      "desc": "The CLI actually executed, with its passthrough arguments",
+      "evidence": "[backends.codex]"
+    },
+    {
+      "id": "host",
+      "class": "Host",
+      "name": "Host",
+      "family": "F3",
+      "icon": "🏢",
+      "pos": [
+        "P1",
+        "P4",
+        "P5",
+        "P6"
+      ],
+      "guard": "gated",
+      "anchor": "launch/agent-launch.toml [hosts.*]",
+      "desc": "A model family seat; the provider reverse map must be unique to resolve one validatable seat",
+      "evidence": "[hosts.codex]"
+    },
+    {
+      "id": "tier-binding",
+      "class": "TierBinding",
+      "name": "Tier Binding",
+      "family": "F3",
+      "icon": "🎯",
+      "pos": [
+        "P1",
+        "P4",
+        "P5",
+        "P6"
+      ],
+      "guard": "partial",
+      "anchor": "launch/agent-launch.toml [hosts.*.tiers.*]",
+      "desc": "(host, tier) to (model, effort); the parity gate hardcodes the very names it aligns",
+      "evidence": "[hosts.codex.tiers.frontier]"
+    },
+    {
+      "id": "capability",
+      "class": "Capability",
+      "name": "Capability",
+      "family": "F3",
+      "icon": "🧩",
+      "pos": [
+        "P1",
+        "P4",
+        "P5",
+        "P6"
+      ],
+      "guard": "gated",
+      "anchor": "launch/agent-launch.toml [capabilities.*]",
+      "desc": "An optional external tool; data-only, so no resolver branch reads its identity",
+      "evidence": "[capabilities.codex-exec]"
+    },
+    {
+      "id": "review-method",
+      "class": "ReviewMethod",
+      "name": "Review Method",
+      "family": "F3",
+      "icon": "🔍",
+      "pos": [
+        "P1",
+        "P4",
+        "P5",
+        "P6"
+      ],
+      "guard": "gated",
+      "anchor": "launch/agent-launch.toml [review_methods.*]",
+      "desc": "A named way to obtain a review, with perspectives, trials and a severity map",
+      "evidence": "[review_methods.panel]"
+    },
+    {
+      "id": "wrapper",
+      "class": "Wrapper",
+      "name": "Wrapper",
+      "family": "F3",
+      "icon": "📤",
+      "pos": [
+        "P1",
+        "P3",
+        "P4",
+        "P5"
+      ],
+      "guard": "unguarded",
+      "anchor": "wrappers/codex-*.sh",
+      "desc": "Internal dispatch script; codex-run is deployed and never byte-compared by verify",
+      "evidence": "codex-run"
+    },
+    {
+      "id": "managed-runtime",
+      "class": "ManagedRuntime",
+      "name": "Managed Runtime",
+      "family": "F3",
+      "icon": "🐍",
+      "pos": [
+        "P1",
+        "P3",
+        "P4",
+        "P5",
+        "P6"
+      ],
+      "guard": "partial",
+      "anchor": "launch/provision-venv.sh",
+      "desc": "An interpreter environment this repo provisions, carrying a declared numbered-prompt fallback",
+      "evidence": "textual"
+    },
+    {
+      "id": "cli-subcommand",
+      "class": "CliSubcommand",
+      "name": "CLI Subcommand",
+      "family": "F4",
+      "icon": "⌨️",
+      "pos": [
+        "P1",
+        "P3",
+        "P4",
+        "P5"
+      ],
+      "guard": "unguarded",
+      "anchor": "install.sh:838 / :859 / :799",
+      "desc": "A user-invocable entry with three dispatch and advertisement sites, not one",
+      "evidence": "if [ \"$CMD\" = \"learn\" ]; then"
+    },
+    {
+      "id": "deploy-target",
+      "class": "DeployTarget",
+      "name": "Deploy Target",
+      "family": "F4",
+      "icon": "📁",
+      "pos": [
+        "P1",
+        "P4",
+        "P6"
+      ],
+      "guard": "partial",
+      "anchor": "deploy_file install.sh:82",
+      "desc": "A (source, destination, mode) triple; removal is derived, verification is hand-authored",
+      "evidence": "deploy_file() {"
+    },
+    {
+      "id": "payload-entry",
+      "class": "PayloadEntry",
+      "name": "Payload Entry",
+      "family": "F4",
+      "icon": "📦",
+      "pos": [
+        "P1",
+        "P3",
+        "P6"
+      ],
+      "guard": "derived",
+      "anchor": "package.json files[]",
+      "desc": "A shipped path; breakage is visible only on npm installs, which no checkout test sees",
+      "evidence": "\"files\""
+    },
+    {
+      "id": "deployment-manifest",
+      "class": "DeploymentManifest",
+      "name": "Deployment Manifest",
+      "family": "F4",
+      "icon": "📋",
+      "pos": [
+        "P4",
+        "P5"
+      ],
+      "guard": "unguarded",
+      "anchor": "install.sh:82 deploy_file MANIFEST append",
+      "desc": "The record of what this install wrote, and the sole authority for uninstall",
+      "evidence": "MANIFEST"
+    },
+    {
+      "id": "state-artifact",
+      "class": "StateArtifact",
+      "name": "State Artifact",
+      "family": "F4",
+      "icon": "🗃️",
+      "pos": [
+        "P4",
+        "P5",
+        "P6"
+      ],
+      "guard": "partial",
+      "anchor": "compose/corpus-state.py, install.sh:152 migrate_state",
+      "desc": "Persisted deployment state; each has a writer, readers and a migration",
+      "evidence": "corpus-status"
+    },
+    {
+      "id": "migration",
+      "class": "Migration",
+      "name": "Migration",
+      "family": "F4",
+      "icon": "🔄",
+      "pos": [
+        "P1",
+        "P5"
+      ],
+      "guard": "unguarded",
+      "anchor": "install.sh:152 / :386 / :453",
+      "desc": "A one-way transform of previously deployed state; order-bearing",
+      "evidence": "migrate_state() {"
+    },
+    {
+      "id": "schema-version",
+      "class": "SchemaVersion",
+      "name": "Schema Version",
+      "family": "F4",
+      "icon": "🔢",
+      "pos": [
+        "P1",
+        "P5"
+      ],
+      "guard": "unguarded",
+      "anchor": "launch/agent-launch.toml schema_version, compose/domains.json version",
+      "desc": "The declared format contract of a persisted artifact, and migration's trigger",
+      "evidence": "schema_version"
+    },
+    {
+      "id": "user-owned-region",
+      "class": "UserOwnedFileRegion",
+      "name": "User-Owned File Region",
+      "family": "F4",
+      "icon": "🔒",
+      "pos": [
+        "P1",
+        "P4",
+        "P5",
+        "P6"
+      ],
+      "guard": "partial",
+      "anchor": "codex/config-additions.toml",
+      "desc": "A marked span written into a file this repo does not own, never manifested",
+      "evidence": "[features]"
+    },
+    {
+      "id": "shell-interception",
+      "class": "ShellInterception",
+      "name": "Shell Interception",
+      "family": "F4",
+      "icon": "🐚",
+      "pos": [
+        "P1",
+        "P4",
+        "P5",
+        "P6"
+      ],
+      "guard": "partial",
+      "anchor": "launch/agent-launch.zsh with install.sh:140 HOOK_MARK",
+      "desc": "The zero-argument launcher entry; an opt-in private shell connection owned by launch/shell_integration.py and a legacy compatibility adapter share launch/agent-launch.zsh",
+      "evidence": "add_zsh_hook() {"
+    },
+    {
+      "id": "environment-variable",
+      "class": "EnvironmentVariable",
+      "name": "Environment Variable",
+      "family": "F4",
+      "icon": "🌍",
+      "pos": [
+        "P5"
+      ],
+      "guard": "unguarded",
+      "anchor": "install.sh:55 ZDOTDIR, compose/corpus-state.py",
+      "desc": "A runtime override that moves where this repo reads or writes",
+      "evidence": "ZDOTDIR"
+    },
+    {
+      "id": "corpus-assembler",
+      "class": "CorpusAssembler",
+      "name": "Corpus Assembler",
+      "family": "F4",
+      "icon": "🔨",
+      "pos": [
+        "P1",
+        "P3",
+        "P5",
+        "P6"
+      ],
+      "guard": "gated",
+      "anchor": "compose/corpus_catalog.py, compose/corpus_store.py, compose/assemble.py",
+      "desc": "Compiles catalog items into private immutable snapshots; the legacy assembler is retained for explicit migration regression checks",
+      "evidence": "compile_items"
+    },
+    {
+      "id": "gate",
+      "class": "Gate",
+      "name": "Gate",
+      "family": "F5",
+      "icon": "🚦",
+      "pos": [
+        "P1",
+        "P5",
+        "P6"
+      ],
+      "guard": "gated",
+      "anchor": "gates/check-parity.sh driver",
+      "desc": "An executable check owning an invariant, a subject set and an enforcement claim",
+      "evidence": "Non-empty-subject guards"
+    },
+    {
+      "id": "golden",
+      "class": "Golden",
+      "name": "Golden",
+      "family": "F5",
+      "icon": "🏅",
+      "pos": [
+        "P1",
+        "P2",
+        "P5",
+        "P6"
+      ],
+      "guard": "derived",
+      "anchor": "gates/goldens/review-matrix.json",
+      "desc": "Captured expected behaviour; payload with a regeneration rule",
+      "evidence": "claude/ultracode/cross/cli-present/deleg-off"
+    },
+    {
+      "id": "negative-control",
+      "class": "NegativeControl",
+      "name": "Negative Control",
+      "family": "F5",
+      "icon": "❌",
+      "pos": [
+        "P1",
+        "P5"
+      ],
+      "guard": "unguarded",
+      "anchor": "gates/check_parity.py review-editor checks",
+      "desc": "A case asserting the gate fails when it should; without one a gate is unproven",
+      "evidence": "negative control"
+    },
+    {
+      "id": "self-test",
+      "class": "SelfTest",
+      "name": "Self Test",
+      "family": "F5",
+      "icon": "🧪",
+      "pos": [
+        "P1",
+        "P5",
+        "P6"
+      ],
+      "guard": "gated",
+      "anchor": "gates/check-parity.sh --self-test invocations",
+      "desc": "Seven entry points, each run by check-parity.sh",
+      "evidence": "--self-test"
+    },
+    {
+      "id": "activation-canary",
+      "class": "ActivationCanary",
+      "name": "Activation Canary",
+      "family": "F5",
+      "icon": "🐦",
+      "pos": [
+        "P1",
+        "P5"
+      ],
+      "guard": "unguarded",
+      "anchor": "compose/canary.sh",
+      "desc": "Separates bytes being on disk from the agent actually reading them",
+      "evidence": "canary"
+    },
+    {
+      "id": "measurement-instrument",
+      "class": "MeasurementInstrument",
+      "name": "Measurement Instrument",
+      "family": "F5",
+      "icon": "📐",
+      "pos": [
+        "P1",
+        "P5"
+      ],
+      "guard": "unguarded",
+      "anchor": "session-cost.py",
+      "desc": "Produces the numbers each guide's Evidence Base cites; the single owner of measurement",
+      "evidence": "session-cost"
+    },
+    {
+      "id": "host-prerequisite",
+      "class": "HostPrerequisite",
+      "name": "Host Prerequisite",
+      "family": "F3",
+      "icon": "🧱",
+      "pos": [
+        "P1",
+        "P5"
+      ],
+      "guard": "unguarded",
+      "anchor": "install.sh:67 check_prereqs",
+      "desc": "A host tool the install requires rather than degrades without; git and python3>=3.11 abort, zsh/codex/claude only warn",
+      "evidence": "missing prerequisite: git"
+    },
+    {
+      "id": "terminology-authority",
+      "class": "TerminologyAuthority",
+      "name": "Terminology Authority",
+      "family": "F5",
+      "icon": "🔤",
+      "pos": [
+        "P2",
+        "P5",
+        "P6"
+      ],
+      "guard": "gated",
+      "anchor": "LEXICON.md and gates/check-lexicon.py",
+      "evidence": "Concept homes",
+      "desc": "The naming contract — canonical terms, concept homes, deprecated aliases; LEXICON.md is its projection and check-lexicon.py enforces it"
+    },
+    {
+      "id": "dependency-map",
+      "class": "DependencyMap",
+      "name": "Dependency Map",
+      "family": "F5",
+      "icon": "🧭",
+      "pos": [
+        "P1",
+        "P5",
+        "P6"
+      ],
+      "guard": "gated",
+      "anchor": "ontology/instances/graph.json and ontology/check-ontology.py",
+      "evidence": "agent-bios-ontology/instances/v1",
+      "desc": "This ontology itself — entities, obligations and routes; canonical in graph.json and held against real source by check-ontology.py"
+    }
+  ],
+  "relationships": [
+    {
+      "id": "rule-points-to-guide",
+      "name": "points_to",
+      "from": "corpus-rule",
+      "to": "guide",
+      "card": "one-to-many",
+      "kind": "requires",
+      "guard": "gated",
+      "desc": "The private compiler emits router links for selected relevant guides; legacy global pointers remain only on the retained deployment route"
+    },
+    {
+      "id": "hook-enforces-guide",
+      "name": "enforces",
+      "from": "hook",
+      "to": "guide",
+      "card": "many-to-one",
+      "kind": "requires",
+      "guard": "gated",
+      "desc": "domains.json hooks[].source_guide binds a hook to the guide it enforces"
+    },
+    {
+      "id": "tier-classifies-rule",
+      "name": "tiered_in",
+      "from": "corpus-rule",
+      "to": "packaging-tier",
+      "card": "one-to-many",
+      "kind": "owes_entry",
+      "guard": "gated",
+      "desc": "An untiered unit lets the assembler's default decide distribution"
+    },
+    {
+      "id": "domain-groups-guide",
+      "name": "classified_in",
+      "from": "guide",
+      "to": "domain",
+      "card": "many-to-many",
+      "kind": "owes_entry",
+      "guard": "gated",
+      "desc": "Every instruction unit carries a domains[] membership"
+    },
+    {
+      "id": "package-scopes-domain",
+      "name": "scoped_under",
+      "from": "domain",
+      "to": "package-identity",
+      "card": "one-to-many",
+      "kind": "owes_entry",
+      "guard": "gated",
+      "desc": "Domains are package-local, so (package_id, domain) is the key"
+    },
+    {
+      "id": "selection-routes-assembler",
+      "name": "routes",
+      "from": "selection",
+      "to": "corpus-assembler",
+      "card": "one-to-one",
+      "kind": "controls",
+      "guard": "unguarded",
+      "desc": "The legacy assembler consumes a saved domain selection; private installation stores selection for future activated snapshots"
+    },
+    {
+      "id": "assembler-composes-rule",
+      "name": "composes",
+      "from": "corpus-assembler",
+      "to": "corpus-rule",
+      "card": "one-to-many",
+      "kind": "projects_to",
+      "guard": "gated",
+      "desc": "The private catalog compiler composes selected items into an activated snapshot; the legacy assembler composes a global bundle only on its retained legacy route"
+    },
+    {
+      "id": "assembler-registers-hook",
+      "name": "registers",
+      "from": "corpus-assembler",
+      "to": "hook",
+      "card": "one-to-many",
+      "kind": "controls",
+      "guard": "gated",
+      "desc": "The retained legacy assembler merges its owned hook registrations; private default installation registers no host hook"
+    },
+    {
+      "id": "distill-produces-learning",
+      "name": "produces",
+      "from": "session-distill-pipeline",
+      "to": "learning-record",
+      "card": "one-to-many",
+      "kind": "projects_to",
+      "guard": "partial",
+      "desc": "The heavy pipeline reduces many sessions into corpus-grade items"
+    },
+    {
+      "id": "learning-promotes-rule",
+      "name": "promotes_into",
+      "from": "learning-record",
+      "to": "corpus-rule",
+      "card": "many-to-one",
+      "kind": "projects_to",
+      "guard": "gated",
+      "desc": "LEARN then DISTILL then redistribute; promotions.json is derived from the ledger"
+    },
+    {
+      "id": "host-binds-tier",
+      "name": "binds",
+      "from": "host",
+      "to": "tier-binding",
+      "card": "one-to-many",
+      "kind": "lockstep_with",
+      "guard": "partial",
+      "desc": "Four surfaces restate the binding and the gate hardcodes the names it checks"
+    },
+    {
+      "id": "tier-lockstep-guide",
+      "name": "restated_in",
+      "from": "tier-binding",
+      "to": "guide",
+      "card": "one-to-many",
+      "kind": "lockstep_with",
+      "guard": "partial",
+      "desc": "The prompting guide's targets: is gated; its Environment Binding table is not"
+    },
+    {
+      "id": "host-uses-template",
+      "name": "uses",
+      "from": "host",
+      "to": "agent-template",
+      "card": "one-to-many",
+      "kind": "requires",
+      "guard": "partial",
+      "desc": "hosts.agent_templates points at deployed TOML role definitions"
+    },
+    {
+      "id": "backend-executes-host",
+      "name": "executes",
+      "from": "backend",
+      "to": "host",
+      "card": "one-to-one",
+      "kind": "controls",
+      "guard": "gated",
+      "desc": "The backend is the CLI a host seat actually runs"
+    },
+    {
+      "id": "method-uses-capability",
+      "name": "requires",
+      "from": "review-method",
+      "to": "capability",
+      "card": "many-to-one",
+      "kind": "requires",
+      "guard": "gated",
+      "desc": "A method names the capability and operation that realise it"
+    },
+    {
+      "id": "capability-offered-to-host",
+      "name": "offered_to",
+      "from": "capability",
+      "to": "host",
+      "card": "many-to-many",
+      "kind": "controls",
+      "guard": "gated",
+      "desc": "offers[] states operation, adapter and the hosts it serves"
+    },
+    {
+      "id": "wrapper-dispatches-host",
+      "name": "dispatches",
+      "from": "wrapper",
+      "to": "host",
+      "card": "many-to-one",
+      "kind": "requires",
+      "guard": "unguarded",
+      "desc": "codex-run and codex-helm carry cross-family review dispatch"
+    },
+    {
+      "id": "runtime-enables-preset",
+      "name": "enables",
+      "from": "managed-runtime",
+      "to": "preset-mode",
+      "card": "one-to-many",
+      "kind": "controls",
+      "guard": "partial",
+      "desc": "Without the venv the launcher degrades to numbered prompts"
+    },
+    {
+      "id": "shell-launches-preset",
+      "name": "launches",
+      "from": "shell-interception",
+      "to": "preset-mode",
+      "card": "one-to-many",
+      "kind": "controls",
+      "guard": "partial",
+      "desc": "The zero-argument entry is what opens the preflight"
+    },
+    {
+      "id": "subcommand-runs-deploy",
+      "name": "performs",
+      "from": "cli-subcommand",
+      "to": "deploy-target",
+      "card": "one-to-many",
+      "kind": "controls",
+      "guard": "partial",
+      "desc": "The retained legacy install route realises deploy targets; private corpus installation stores its baseline without writing host deploy targets"
+    },
+    {
+      "id": "deploy-records-manifest",
+      "name": "records_in",
+      "from": "deploy-target",
+      "to": "deployment-manifest",
+      "card": "many-to-one",
+      "kind": "owes_removal",
+      "guard": "unguarded",
+      "desc": "The manifest is what uninstall replays, so removal is derived and safe"
+    },
+    {
+      "id": "deploy-verified-by-gate",
+      "name": "asserts",
+      "from": "gate",
+      "to": "deploy-target",
+      "card": "many-to-many",
+      "kind": "asserts",
+      "guard": "unguarded",
+      "desc": "VIOLATED: 3 of 12 deploy writes have no, partial, or vacuous assertion"
+    },
+    {
+      "id": "payload-covers-deploy",
+      "name": "shipped_via",
+      "from": "deploy-target",
+      "to": "payload-entry",
+      "card": "one-to-many",
+      "kind": "owes_entry",
+      "guard": "derived",
+      "desc": "check-package.sh greps real $REPO references rather than holding a list"
+    },
+    {
+      "id": "wrapper-needs-payload",
+      "name": "shipped_as",
+      "from": "wrapper",
+      "to": "payload-entry",
+      "card": "one-to-one",
+      "kind": "owes_entry",
+      "guard": "derived",
+      "desc": "A file the installer executes but never ships is fatal on npm only"
+    },
+    {
+      "id": "version-triggers-migration",
+      "name": "triggers",
+      "from": "schema-version",
+      "to": "migration",
+      "card": "one-to-many",
+      "kind": "migrates",
+      "guard": "unguarded",
+      "desc": "Neither half is valid alone; a bump with no migration misreads deployed state"
+    },
+    {
+      "id": "migration-transforms-state",
+      "name": "transforms",
+      "from": "migration",
+      "to": "state-artifact",
+      "card": "one-to-many",
+      "kind": "migrates",
+      "guard": "unguarded",
+      "desc": "Order-bearing: preset migration must precede the deploy that overwrites it"
+    },
+    {
+      "id": "env-relocates-state",
+      "name": "relocates",
+      "from": "environment-variable",
+      "to": "state-artifact",
+      "card": "one-to-many",
+      "kind": "controls",
+      "guard": "unguarded",
+      "desc": "Recording the default path as a constant is wrong wherever the override is set"
+    },
+    {
+      "id": "region-excluded-manifest",
+      "name": "excluded_from",
+      "from": "user-owned-region",
+      "to": "deployment-manifest",
+      "card": "many-to-one",
+      "kind": "owes_removal",
+      "guard": "partial",
+      "desc": "Not manifested, so uninstall must remove them surgically by marker"
+    },
+    {
+      "id": "subcommand-advertises",
+      "name": "advertised_by",
+      "from": "cli-subcommand",
+      "to": "cli-subcommand",
+      "card": "one-to-many",
+      "kind": "precedes",
+      "guard": "unguarded",
+      "desc": "usage() is a hand copy of a dispatch set that lives at two other sites"
+    },
+    {
+      "id": "gate-captures-golden",
+      "name": "captures",
+      "from": "gate",
+      "to": "golden",
+      "card": "one-to-many",
+      "kind": "projects_to",
+      "guard": "derived",
+      "desc": "Goldens are regenerated by their capture script, not hand-edited"
+    },
+    {
+      "id": "negative-proves-gate",
+      "name": "proves",
+      "from": "negative-control",
+      "to": "gate",
+      "card": "many-to-one",
+      "kind": "asserts",
+      "guard": "unguarded",
+      "desc": "A gate without one is unproven, not merely untested"
+    },
+    {
+      "id": "selftest-proves-gate",
+      "name": "self_proves",
+      "from": "self-test",
+      "to": "gate",
+      "card": "many-to-one",
+      "kind": "asserts",
+      "guard": "gated",
+      "desc": "Seven entry points, each run by the parity driver"
+    },
+    {
+      "id": "canary-proves-load",
+      "name": "confirms_load",
+      "from": "activation-canary",
+      "to": "corpus-rule",
+      "card": "one-to-many",
+      "kind": "asserts",
+      "guard": "unguarded",
+      "desc": "Bytes on disk is not the agent reading them"
+    },
+    {
+      "id": "instrument-measures-guide",
+      "name": "measures",
+      "from": "measurement-instrument",
+      "to": "guide",
+      "card": "one-to-many",
+      "kind": "asserts",
+      "guard": "unguarded",
+      "desc": "Each guide's Evidence Base is the single owner of numbers this tool produces"
+    },
+    {
+      "id": "guide-projects-mirror",
+      "name": "projects_to",
+      "from": "guide",
+      "to": "guide",
+      "card": "one-to-many",
+      "kind": "projects_to",
+      "guard": "derived",
+      "desc": "emit-mirrors.py owns the claude to codex and ko projection rule"
+    },
+    {
+      "id": "subcommand-runs-migration",
+      "name": "runs",
+      "from": "cli-subcommand",
+      "to": "migration",
+      "card": "one-to-many",
+      "kind": "precedes",
+      "guard": "unguarded",
+      "desc": "The retained legacy install route runs migrations before its deploy writes; private migration is explicit and does not make global deployment the default"
+    },
+    {
+      "id": "subcommand-provisions-runtime",
+      "name": "provisions",
+      "from": "cli-subcommand",
+      "to": "managed-runtime",
+      "card": "one-to-one",
+      "kind": "controls",
+      "guard": "partial",
+      "desc": "The retained legacy launcher install provisions its venv best-effort; private corpus installation does not provision a launcher runtime"
+    },
+    {
+      "id": "deploy-writes-state",
+      "name": "writes",
+      "from": "deploy-target",
+      "to": "state-artifact",
+      "card": "one-to-many",
+      "kind": "projects_to",
+      "guard": "partial",
+      "desc": "install writes the version marker and appends it to the manifest"
+    },
+    {
+      "id": "preset-selects-tier",
+      "name": "selects",
+      "from": "preset-mode",
+      "to": "tier-binding",
+      "card": "one-to-many",
+      "kind": "requires",
+      "guard": "gated",
+      "desc": "a preset carries host-scoped tier overrides, so it resolves against the binding"
+    },
+    {
+      "id": "shell-deployed-as-target",
+      "name": "realised_by",
+      "from": "shell-interception",
+      "to": "deploy-target",
+      "card": "one-to-one",
+      "kind": "lockstep_with",
+      "guard": "partial",
+      "desc": "the deployed shell.zsh half is an ordinary deploy target; the .zshrc line is not"
+    },
+    {
+      "id": "env-relocates-deploy",
+      "name": "redirects",
+      "from": "environment-variable",
+      "to": "deploy-target",
+      "card": "one-to-many",
+      "kind": "controls",
+      "guard": "unguarded",
+      "desc": "CLAUDE_CONFIG_DIR and CODEX_HOME relocate destinations only on the retained legacy deployment route; private corpus state uses its own roots"
+    },
+    {
+      "id": "manifest-determines-removal",
+      "name": "determines_removal",
+      "from": "deployment-manifest",
+      "to": "cli-subcommand",
+      "card": "one-to-one",
+      "kind": "controls",
+      "guard": "unguarded",
+      "desc": "uninstall replays the manifest line by line, so what install records decides what removal can undo"
+    },
+    {
+      "id": "prereq-gates-install",
+      "name": "gates_entry",
+      "from": "host-prerequisite",
+      "to": "cli-subcommand",
+      "card": "one-to-many",
+      "kind": "controls",
+      "guard": "unguarded",
+      "desc": "check_prereqs returns nonzero and install exits before touching anything, so the prerequisite set decides whether any path runs at all"
+    },
+    {
+      "id": "subcommand-writes-learning",
+      "name": "captures",
+      "from": "cli-subcommand",
+      "to": "learning-record",
+      "card": "one-to-one",
+      "kind": "controls",
+      "guard": "unguarded",
+      "desc": "the learn branch execs the collector with the caller's stdin on fd 3; it is the only PATH-reachable route to capture"
+    },
+    {
+      "id": "migration-precedes-deploy",
+      "name": "must_precede",
+      "from": "migration",
+      "to": "deploy-target",
+      "card": "one-to-many",
+      "kind": "precedes",
+      "guard": "unguarded",
+      "desc": "migrate_user_presets must run before the deploy that overwrites profiles.toml (install.sh:496 says so in the source)"
+    },
+    {
+      "id": "map-projects-lexicon",
+      "name": "projects_to",
+      "from": "dependency-map",
+      "to": "terminology-authority",
+      "card": "one-to-one",
+      "kind": "projects_to",
+      "guard": "derived",
+      "desc": "LEXICON.md is emitted from the graph's lexicon block; emit-lexicon.py --check fails on a hand edit"
+    },
+    {
+      "id": "gate-asserts-map",
+      "name": "asserts",
+      "from": "gate",
+      "to": "dependency-map",
+      "card": "one-to-one",
+      "kind": "asserts",
+      "guard": "gated",
+      "desc": "check-ontology.py re-derives the map's facts from source and fails on disagreement"
+    },
+    {
+      "id": "gate-asserts-terminology",
+      "name": "asserts",
+      "from": "gate",
+      "to": "terminology-authority",
+      "card": "one-to-one",
+      "kind": "asserts",
+      "guard": "gated",
+      "desc": "check-lexicon.py forbids deprecated tokens and holds every concept home"
+    },
+    {
+      "id": "map-owes-lexicon-entry",
+      "name": "registers_names_in",
+      "from": "dependency-map",
+      "to": "terminology-authority",
+      "card": "one-to-many",
+      "kind": "owes_entry",
+      "guard": "gated",
+      "desc": "a new lasting name goes through LEXICON's concept homes — the rule AGENTS.md states and check-lexicon.py enforces"
+    }
+  ],
+  "derived": {
+    "note": "Extracted by ontology/extract.py from real source. gates/check-ontology.py fails if these drift from code.",
+    "deploy_targets": 10,
+    "deploy_uncovered": 3,
+    "guides": 19,
+    "domains": 5,
+    "tier_bindings": 8,
+    "subcommands": 14,
+    "payload_files": 49
+  },
+  "golden_relationships": [
+    {
+      "id": "GR-1",
+      "title": "canonical uniqueness",
+      "binds": "P1",
+      "status": "unguarded",
+      "verification": "per entity, |P1| == 1",
+      "serves": [
+        "PU-1",
+        "PU-15"
+      ]
+    },
+    {
+      "id": "GR-2",
+      "title": "derived closure",
+      "binds": "P1→P2",
+      "status": "derived",
+      "verification": "emit-mirrors.py --check, build-promotions.py --check",
+      "serves": [
+        "PU-2",
+        "PU-15",
+        "PU-3"
+      ]
+    },
+    {
+      "id": "GR-3",
+      "title": "payload completeness",
+      "binds": "P4/P5→P3",
+      "status": "derived",
+      "verification": "gates/check-package.sh greps live $REPO references",
+      "serves": [
+        "PU-2"
+      ]
+    },
+    {
+      "id": "GR-4",
+      "title": "deploy / verify coverage",
+      "binds": "P4→P6",
+      "status": "partial",
+      "verification": "deploy set minus verify set — computed by ontology/extract.py. The three uncovered targets are exempt by decision D-1: a wrapper and the agents directory are re-deployed whole on every install, so drift is self-healing",
+      "serves": [
+        "PU-5"
+      ]
+    },
+    {
+      "id": "GR-5",
+      "title": "deploy / removal coverage",
+      "binds": "P4",
+      "status": "unguarded",
+      "verification": "deploy set subset of manifest union region-remove",
+      "serves": [
+        "PU-7",
+        "PU-18"
+      ]
+    },
+    {
+      "id": "GR-6",
+      "title": "non-inertness",
+      "binds": "P5",
+      "status": "unguarded",
+      "verification": "each declared value has a reader on the live path",
+      "serves": [
+        "PU-13",
+        "PU-16"
+      ]
+    },
+    {
+      "id": "GR-7",
+      "title": "lockstep agreement",
+      "binds": "P1↔P1'",
+      "status": "partial",
+      "verification": "compare all bindings of one value; check_parity.py:318-346 compares to its own constants",
+      "serves": [
+        "PU-15"
+      ]
+    },
+    {
+      "id": "GR-8",
+      "title": "schema version ↔ migration",
+      "binds": "P1↔P5",
+      "status": "unguarded",
+      "verification": "each version has a migration accepting the prior",
+      "serves": [
+        "PU-4",
+        "PU-17"
+      ]
+    },
+    {
+      "id": "GR-9",
+      "title": "advertisement is derived",
+      "binds": "P1→P1'",
+      "status": "partial",
+      "verification": "install.sh:598 for --with; nothing for the subcommand list",
+      "serves": [
+        "PU-15"
+      ]
+    },
+    {
+      "id": "GR-10",
+      "title": "gate subjects non-empty",
+      "binds": "P6",
+      "status": "partial",
+      "verification": "check-parity.sh:18-22 guards its own inputs",
+      "serves": [
+        "PU-5"
+      ]
+    },
+    {
+      "id": "GR-11",
+      "title": "concept homes",
+      "binds": "P1",
+      "status": "gated",
+      "verification": "gates/check-lexicon.py",
+      "serves": [
+        "PU-1"
+      ]
+    },
+    {
+      "id": "GR-12",
+      "title": "ownership exclusivity",
+      "binds": "P4",
+      "status": "partial",
+      "verification": "deploy-target set intersect user-owned-region set is empty",
+      "serves": [
+        "PU-18"
+      ]
+    }
+  ],
+  "happy_paths": {
+    "note": "Steps are the SERVICE's paths, extracted from real call order — not the ontology tooling's. A null entity is an uncovered step; consecutive steps must be connected in the graph. `ordering` lists only hops the source calls order-bearing; adjacency in a sequence is not an obligation.",
+    "paths": {
+      "author-to-deployed": {
+        "source": "claude/ authoring -> gates/emit-mirrors.py -> compose/domains.json -> package.json files[]",
+        "steps": [
+          {
+            "step": "author a rule or guide",
+            "entity": "corpus-rule"
+          },
+          {
+            "step": "project to codex/ and ko/",
+            "entity": "guide"
+          },
+          {
+            "step": "classify into a tier",
+            "entity": "packaging-tier"
+          },
+          {
+            "step": "classify into a domain",
+            "entity": "domain"
+          },
+          {
+            "step": "ship in the npm payload",
+            "entity": "payload-entry"
+          }
+        ]
+      },
+      "install": {
+        "source": "install.sh cmd_install, in call order",
+        "steps": [
+          {
+            "step": "check_prereqs (git/python3>=3.11/zsh/codex/claude)",
+            "entity": "host-prerequisite"
+          },
+          {
+            "step": "migrate_state",
+            "entity": "migration"
+          },
+          {
+            "step": "assemble_packaged or deploy the corpus",
+            "entity": "corpus-assembler"
+          },
+          {
+            "step": "deploy_file / deploy_glob",
+            "entity": "deploy-target"
+          },
+          {
+            "step": "register_hooks_full",
+            "entity": "hook"
+          },
+          {
+            "step": "migrate_learnings",
+            "entity": "learning-record"
+          },
+          {
+            "step": "codex_config_additions merge",
+            "entity": "user-owned-region"
+          },
+          {
+            "step": "deploy the wrappers",
+            "entity": "wrapper"
+          },
+          {
+            "step": "migrate_user_presets",
+            "entity": "preset-mode"
+          },
+          {
+            "step": "deploy profiles.toml",
+            "entity": "tier-binding"
+          },
+          {
+            "step": "deploy shell.zsh",
+            "entity": "shell-interception"
+          },
+          {
+            "step": "handle_capabilities",
+            "entity": "capability"
+          },
+          {
+            "step": "provision-venv.sh",
+            "entity": "managed-runtime"
+          },
+          {
+            "step": "add_zsh_hook",
+            "entity": "shell-interception"
+          },
+          {
+            "step": "write the version marker",
+            "entity": "state-artifact"
+          },
+          {
+            "step": "append to the manifest",
+            "entity": "deployment-manifest"
+          },
+          {
+            "step": "cmd_verify",
+            "entity": "gate"
+          },
+          {
+            "step": "the agent session loads it",
+            "entity": "corpus-rule"
+          }
+        ],
+        "ordering": [
+          [
+            "migration",
+            "deploy-target"
+          ]
+        ]
+      },
+      "uninstall": {
+        "source": "install.sh cmd_uninstall, in call order",
+        "steps": [
+          {
+            "step": "migrate_state",
+            "entity": "migration"
+          },
+          {
+            "step": "codex_config_additions remove",
+            "entity": "user-owned-region"
+          },
+          {
+            "step": "replay the manifest",
+            "entity": "deployment-manifest"
+          },
+          {
+            "step": "remove_zsh_hook",
+            "entity": "shell-interception"
+          }
+        ]
+      },
+      "learn-loop": {
+        "source": "install.sh:838 early branch -> learn/ -> session-distill/ -> back into author-to-deployed",
+        "steps": [
+          {
+            "step": "agent-bios learn",
+            "entity": "cli-subcommand"
+          },
+          {
+            "step": "capture the record",
+            "entity": "learning-record"
+          },
+          {
+            "step": "curate and distill",
+            "entity": "session-distill-pipeline"
+          },
+          {
+            "step": "the distilled item becomes a learning record",
+            "entity": "learning-record"
+          },
+          {
+            "step": "promote into the corpus",
+            "entity": "corpus-rule"
+          }
+        ]
+      },
+      "launch": {
+        "source": "launch/agent-launch.zsh -> agent-launch.py preflight -> host dispatch",
+        "steps": [
+          {
+            "step": "zero-argument shell entry",
+            "entity": "shell-interception"
+          },
+          {
+            "step": "pick a preset/mode",
+            "entity": "preset-mode"
+          },
+          {
+            "step": "resolve the tier binding",
+            "entity": "tier-binding"
+          },
+          {
+            "step": "resolve the host seat",
+            "entity": "host"
+          },
+          {
+            "step": "run the backend CLI",
+            "entity": "backend"
+          }
+        ]
+      },
+      "review-dispatch": {
+        "source": "launch/agent-launch.toml review_methods -> capabilities -> wrappers/",
+        "steps": [
+          {
+            "step": "select a review method",
+            "entity": "review-method"
+          },
+          {
+            "step": "resolve its capability",
+            "entity": "capability"
+          },
+          {
+            "step": "resolve the offered host",
+            "entity": "host"
+          },
+          {
+            "step": "dispatch through the wrapper",
+            "entity": "wrapper"
+          }
+        ]
+      }
+    }
+  },
+  "lexicon": {
+    "note": "Terminology authority. LEXICON.md is generated from this by ontology/emit-lexicon.py; gates/check-lexicon.py parses the generated file and its DENY/ARCHIVE constants are held against this block by ontology/check-ontology.py.",
+    "core_concepts": [
+      {
+        "concept": "The per-session learning **artifact** (a captured lesson: prose + JSON record)",
+        "canonical_term": "**learning**",
+        "trigger": "—",
+        "bindings": "`learn/learning.schema.json`, `learn/check-learning.py`, `~/.claude/personal/learnings.md`, `@personal/learnings.md`, `POST /api/ingest/learnings`, `pending-learnings.jsonl`, ledger `entries[].lesson`"
+      },
+      {
+        "concept": "The **light**, per-user, single-session in-conversation capture flow that produces a learning; available in every session mode",
+        "canonical_term": "**session learning**",
+        "trigger": "`learn!`",
+        "bindings": "`claude/guides/learning-flow.md` (guide_id `learning-flow`), `learn/collect-learning.py`, the `## Session Learning` corpus rule, `~/.claude/personal/learnings.md` + `learnings.jsonl`, `@personal/learnings.md` import (Claude); the `agent-bios:personal-learnings` region of `~/.codex/AGENTS.md` (Codex, no import). Identifiers stay on the `learn`/`learning` root — the hyphen token `session-learning` is the deprecated heavy-subsystem alias (below), so it must NOT appear in light-flow identifiers"
+      },
+      {
+        "concept": "The **heavy** curator/power-user pipeline that mines many sessions and distills them into corpus-grade items; runs only in its dedicated preset",
+        "canonical_term": "**session distill**",
+        "trigger": "`distill!`",
+        "bindings": "`design/session-distill/` (HANDOFF, PLACEMENT-FRAMEWORK, ledger.json, versions.json), `session-distill/`, `claude/guides/session-distill-workflow.md` (+ codex/ + ko/ mirrors, `guide_id: session-distill-workflow`), `compose/domains.json` guides key, `[presets.session-distill]` + `[session_distill]` in `launch/agent-launch.toml`, `mode = \"distill\"`, `session-distill-state.json`, launcher `DISTILL_MODE`/`DISTILL_PRESET`/`distill_hub`/`session_distill_nudge`"
+      },
+      {
+        "concept": "The chronological record of **decisions about developing this repo** — what was decided here and which alternative it closed. Author-side: it never ships, which is exactly what separates it from **session distill** (a feature of the deployed package, run by its users). `gates/check-package.sh` declares `decisions/` author-side and fails if it enters `files[]`. Merging it into distill later stays open",
+        "canonical_term": "**decision record**",
+        "trigger": "—",
+        "bindings": "`decisions/record-decision.py`, `decisions/decisions.jsonl`, kinds `design`/`direction`/`stop`/`steering`, `AGENTS.md`"
+      },
+      {
+        "concept": "The **deployed instruction content** (installable packages, versions, rollback, applied status) — the output both flows ultimately feed",
+        "canonical_term": "**corpus**",
+        "trigger": "—",
+        "bindings": "launcher `load_corpus_status`/`corpus_summary_lines`/`_corpus_packages`/`_corpus_versions`/`_corpus_rollback`/`corpus_lines`, `corpus-status.json`, `AGENT_BIOS_CORPUS_STATUS`, `compose/corpus-state.py`, \"Corpus status\" / \"Corpus packages\" UI"
+      },
+      {
+        "concept": "A guided dialogue about why a coherent corpus bundle exists, its context, mechanisms and limits. Distinct from session learning (capture) and session distill (mining): this consumes pinned effective corpus as learning data. A meaningful user-first discovery may save a requested-only personal note and unlock a persistent UI trophy; semantic originality remains a judgment, not a provenance-check claim",
+        "canonical_term": "**corpus understanding**",
+        "trigger": "`understand!`",
+        "bindings": "`compose/corpus_understand.py`, `claude/skills/understand/SKILL.md`, `launch/agent-launch.py` Understand! menu and `--understand`, private user `understand/state.json` reset generation"
+      },
+      {
+        "concept": "**Deep review** — a deep check on an IMPLEMENTATION (functional, adversarial, logic, scenario, stress). **One concept, two host-bound mechanisms, both the host CLIs themselves**: `ultracode` runs on Claude (the Claude Code CLI's own dynamic workflow — many agents, each candidate finding adversarially verified — opened by the keyword in the prompt), `codex-exec` runs on Codex (the CLI's non-interactive exec mode: the whole packet handed to one frontier-effort pass). Personal or third-party reviewers are not shipped; they register in the user-owned methods file",
+        "canonical_term": "**deep review**",
+        "trigger": "—",
+        "bindings": "`[capabilities.ultracode]` + `[review_methods.ultracode]` (Claude, the `claude` backend); `[capabilities.codex-exec]` + `[review_methods.codex-exec]` (Codex, the `codex` backend). The legacy `review_setup`/route token `\"ultracode\"` is a **different namespace** — a setup name, frozen — and is bound to its tool through `LEGACY_ULTRACODE_CAPABILITY` in `launch/agent-launch.py` rather than by sharing the string, which is what lets the tool be replaced without renaming the route"
+      },
+      {
+        "concept": "The declared, per-review definition of defect for a system type × work goal — observer, defect, evidence bar, non-defects, classification enum (ONE class stop-relevant), stop condition, misclassification cost, goldens — chosen and declared BEFORE the review starts. Nearest neighbors, distinguished on purpose: the **severity ladder** answers *how bad*, never *whether* — a loop can plateau entirely inside \"material\"; **deep review** names mechanisms, and a criterion is what any mechanism is handed; **consumption surface** names where knowledge reaches a model. Ordering: system type + goal → defect criterion → classification → defect? → severity → materiality → stop evaluation",
+        "canonical_term": "**defect criterion**",
+        "trigger": "—",
+        "bindings": "`claude/guides/review-defect-criteria.md` (+ ko/ + generated codex mirrors, `guide_id: review-defect-criteria`), `compose/domains.json` guides key; routed from `claude/guides/review-request.md` (\"Declare the criterion\") and the Review Loop of `claude/guides/coding-staged-workflow.md`"
+      },
+      {
+        "concept": "A place knowledge or a tool reaches a model from — global bullet, guide, hook injection, agent description or body, launch contract, MCP tool list, personal learnings — together with the zero-context places that shape behavior without entering the window: enforcement defaults, gates, receipt adjudication, capability withholding. **Extends `capability surface`** rather than forking a second word: both name what the runtime makes available, one at call time and one at load time. The dated 2026-07-18 routing record calls its subset **layers** and orders them by cheapness; that word stays in that record and is not a live identifier",
+        "canonical_term": "**consumption surface**",
+        "trigger": "—",
+        "bindings": "`SURFACES.md` — the catalog and each surface's admission bar. Realized by `compose/assemble.py` (tiering, audience filtering), the router bullets in `claude/CLAUDE.md`, `claude/hooks/`, `claude/agents/` + `codex/agents/`, `launch/agent-launch.py` (contract projection, MCP registration, receipt adjudication), `wrappers/`, `gates/`"
+      },
+      {
+        "concept": "A **procedure for one task**, packaged as a directory the host scans and loads by name — `SKILL.md` with `name`/`description` frontmatter plus free subdirectories, the format both hosts share. Its description is registered every session, its body loads on call. One consumption surface among the others (see `SURFACES.md`), classified in the domain manifest like a guide, deployed as one tree to both hosts and owned by manifest name because the scan directory is shared with other tools",
+        "canonical_term": "**skill**",
+        "trigger": "—",
+        "bindings": "`claude/skills/<name>/SKILL.md`, the `skills` key of `compose/domains.json` (coverage in `compose/check-domains.py`), `compose/assemble.py --selected-skills`, `install.sh` `deploy_tree`/`shipped_skills`/`selected_skills`/`prune_stale_skills`/`rmdir_skill_dirs`, `$CLAUDE_DIR/skills/<name>`, `$CODEX_DIR/skills/<name>`, `SURFACES.md` \"Skill\""
+      },
+      {
+        "concept": "A repository's **own layer** of agent instruction — its `AGENTS.md` body and `CLAUDE.md` shim — which agent-bios **teaches how to fill and never fills**: the produced file belongs to that repository, carries no marker or version, and is never a deploy or prune target. The repo-charter skill produces it by reading invariants and traps out of the code",
+        "canonical_term": "**repo charter**",
+        "trigger": "—",
+        "bindings": "`claude/skills/repo-charter/`, `design/repo-charter/`, `SURFACES.md` \"Skill\" (the taught-not-filled distinction)"
+      },
+      {
+        "concept": "The declared, greppable marker — the literal `(private)` on a line — naming an author or environment binding an adopter swaps: the response-language preference in the global, a guide's Environment Binding author examples. One half of the content-hygiene bar: `gates/check-hygiene.py` scans the shipped distribution (npm payload + ko corpus trees) and refuses org identifiers everywhere and author identifiers outside marked lines or per-reason exemptions, so the already-clean distribution stays clean by construction",
+        "canonical_term": "**private binding**",
+        "trigger": "—",
+        "bindings": "`gates/check-hygiene.py`, `README.md` (Adopting elsewhere), `claude/CLAUDE.md` (the marked language bullet)"
+      },
+      {
+        "concept": "The core-owned **endpoint contract** — the network operations agent-bios speaks (`publish-corpus` / `fetch-corpus` / `ingest-learning`; `ingest-session`'s home is an open design question, its name only reserved): the ingest-learning wire contract extracted from the operating code, the transport-config resolution — the slot `~/.config/agent-bios/{ingest-url,token}`, whose resolution and failure rules `ENDPOINTS.md` owns rather than restates here, and the zero-egress default (a default install configures no endpoint and registers no collection hook)",
+        "canonical_term": "**endpoint contract**",
+        "trigger": "—",
+        "bindings": "`ENDPOINTS.md` (the contract, author-side), `gates/check-endpoints.py` (holds the doc's wire literals against the code and the default against the real resolver), `transport_config` in `learn/collect-learning.py`, `~/.config/agent-bios/{ingest-url,token}`"
+      }
+    ],
+    "homes": [
+      {
+        "concept": "The launch profile, preflight, and shell interception",
+        "slug": "agent-launch",
+        "home": "launch/"
+      },
+      {
+        "concept": "The **learning** artifact and the light capture flow",
+        "slug": "learn",
+        "home": "learn/"
+      },
+      {
+        "concept": "The secret-redaction floor shared by both capture flows",
+        "slug": "redact",
+        "home": "learn/"
+      },
+      {
+        "concept": "The **corpus** (deployed instruction content) and its state",
+        "slug": "corpus",
+        "home": "compose/"
+      },
+      {
+        "concept": "Package identity for the domain-package ecosystem",
+        "slug": "pkgid",
+        "home": "compose/"
+      },
+      {
+        "concept": "The domain manifest that classifies the corpus",
+        "slug": "domains",
+        "home": "compose/"
+      },
+      {
+        "concept": "**session distill**, the heavy curator pipeline",
+        "slug": "session-distill",
+        "home": "session-distill/"
+      },
+      {
+        "concept": "The repo's own dependency map — entities, obligation edges, code anchors",
+        "slug": "ontology",
+        "home": "ontology/"
+      },
+      {
+        "concept": "The **decision record** for this repo's own work",
+        "slug": "decision",
+        "home": "decisions/"
+      },
+      {
+        "concept": "The content-hygiene gate operating the private-binding marker",
+        "slug": "hygiene",
+        "home": "gates/check-hygiene.py"
+      }
+    ],
+    "deprecated": [
+      {
+        "token": "session-learning",
+        "replaced_by": "session-distill",
+        "reason": "heavy subsystem proper noun (paths, guide, domains key)",
+        "enforced": true
+      },
+      {
+        "token": "session_learning",
+        "replaced_by": "session_distill",
+        "reason": "same, snake_case (config table, py identifiers)",
+        "enforced": true
+      },
+      {
+        "token": "SESSION_LEARNING",
+        "replaced_by": "SESSION_DISTILL",
+        "reason": "same, env-var / constant form",
+        "enforced": true
+      },
+      {
+        "token": "distillation",
+        "replaced_by": "learning",
+        "reason": "the light-flow artifact is a learning, not a distillation",
+        "enforced": false
+      },
+      {
+        "token": "LEARNING_MODE",
+        "replaced_by": "DISTILL_MODE",
+        "reason": "launcher: the heavy hub mode",
+        "enforced": true
+      },
+      {
+        "token": "LEARNING_PRESET",
+        "replaced_by": "DISTILL_PRESET",
+        "reason": "launcher: the heavy preset key holder",
+        "enforced": true
+      },
+      {
+        "token": "learning_hub",
+        "replaced_by": "distill_hub",
+        "reason": "launcher: the heavy hub entry",
+        "enforced": true
+      },
+      {
+        "token": "learning-status",
+        "replaced_by": "corpus-status",
+        "reason": "deployed-corpus status projection (`corpus-status.json`)",
+        "enforced": true
+      },
+      {
+        "token": "learning-state.py",
+        "replaced_by": "corpus-state.py",
+        "reason": "deployed-corpus status/rollback tool",
+        "enforced": true
+      },
+      {
+        "token": "AGENT_BIOS_LEARNING_STATUS",
+        "replaced_by": "AGENT_BIOS_CORPUS_STATUS",
+        "reason": "env override for corpus status path",
+        "enforced": true
+      },
+      {
+        "token": "learning-rollback",
+        "replaced_by": "corpus-rollback",
+        "reason": "rollback backup directory under the state dir (`backups/corpus-rollback-<ts>`)",
+        "enforced": true
+      },
+      {
+        "token": "distillation.schema",
+        "replaced_by": "learning.schema",
+        "reason": "the light-flow record schema is `learning.schema.json`",
+        "enforced": true
+      },
+      {
+        "token": "check-distillation",
+        "replaced_by": "check-learning",
+        "reason": "the light-flow gate is `learn/check-learning.py`",
+        "enforced": true
+      },
+      {
+        "token": "distillations.md",
+        "replaced_by": "learnings.md",
+        "reason": "the personal landing file is `~/.claude/personal/learnings.md`",
+        "enforced": true
+      },
+      {
+        "token": "pending-distillations",
+        "replaced_by": "pending-learnings",
+        "reason": "the client retry queue is `pending-learnings.jsonl`",
+        "enforced": true
+      }
+    ],
+    "archive_allowlist": [
+      {
+        "prefixes": [
+          "design/session-distill/REVIEW-",
+          "design/session-distill/DESIGN-v13-exploration-record.md",
+          "design/session-distill/BUNDLE-ko-review.md"
+        ],
+        "reason": "dated design-review ledgers and a superseded revision, written against the pipeline before it was renamed",
+        "display": "`design/session-distill/REVIEW-*.md`, `design/session-distill/DESIGN-v13-exploration-record.md`, `design/session-distill/BUNDLE-ko-review.md` — dated design-review ledgers and a superseded revision, written against the pipeline before it was renamed"
+      },
+      {
+        "prefixes": [
+          "design/collection-loop/DISCUSSION-"
+        ],
+        "reason": "a discussion record, closed and dated on the day it finished",
+        "display": "`design/collection-loop/DISCUSSION-*.md` — a discussion record, closed and dated on the day it finished"
+      },
+      {
+        "prefixes": [
+          "session-distill/out/"
+        ],
+        "reason": "regenerable pipeline snapshots; headings regenerate current from `bundle*.py`",
+        "display": "`session-distill/out/` (regenerable pipeline snapshots; headings regenerate current from `bundle*.py`)"
+      },
+      {
+        "prefixes": [
+          "design/archive/"
+        ],
+        "reason": "dated records, never revised after the day they describe",
+        "display": "`design/archive/` — dated records, never revised after the day they describe. Historical prose keeps the terms it was written with, so recording a rename must not turn the gate red; separately, no runtime file may name a record inside it, which `archive_referenced_by_runtime` enforces"
+      },
+      {
+        "prefixes": [
+          "LEXICON.md",
+          "gates/check-lexicon.py",
+          "ontology/instances/graph.json"
+        ],
+        "reason": "they hold the deprecated tokens to project / enforce / author them",
+        "display": "`LEXICON.md`, `gates/check-lexicon.py`, and `ontology/instances/graph.json` themselves (they hold the deprecated tokens to project / enforce / author them)"
+      }
+    ]
+  },
+  "competency_questions": {
+    "note": "Questions this ontology must answer. A question with resolver.kind=none is a declared gap, not an oversight — ontology/check-ontology.py fails if a P1 question has no working resolver. Every question names the purpose clause whose decisions it serves; a question serving none is retired, with its reason kept so the retirement is auditable rather than a silent delete.",
+    "questions": [
+      {
+        "id": "CQ-I-01",
+        "priority": "P1",
+        "surface": "static",
+        "dimension": "relation",
+        "q": "I am changing X — what else must change with it?",
+        "resolver": {
+          "kind": "query",
+          "cmd": "python3 ontology/impact.py <entity|path>"
+        },
+        "serves": [
+          "PU-2",
+          "PU-15"
+        ]
+      },
+      {
+        "id": "CQ-I-02",
+        "priority": "P1",
+        "surface": "static",
+        "dimension": "evidence",
+        "q": "Of those obligations, which are enforced and which are enforced by nothing?",
+        "resolver": {
+          "kind": "query",
+          "cmd": "python3 ontology/impact.py <entity|path>"
+        },
+        "serves": [
+          "PU-5"
+        ]
+      },
+      {
+        "id": "CQ-I-03",
+        "priority": "P1",
+        "surface": "static",
+        "dimension": "evidence",
+        "q": "Which deployed artifacts carry no verification assertion?",
+        "resolver": {
+          "kind": "query",
+          "cmd": "python3 ontology/extract.py"
+        },
+        "serves": [
+          "PU-5"
+        ]
+      },
+      {
+        "id": "CQ-I-04",
+        "priority": "P1",
+        "surface": "static",
+        "dimension": "principle",
+        "q": "Which obligations across the whole graph are known and unenforced?",
+        "resolver": {
+          "kind": "graph",
+          "predicate": "relationships[].guard == 'unguarded'"
+        },
+        "serves": [
+          "PU-5"
+        ]
+      },
+      {
+        "id": "CQ-I-05",
+        "priority": "P1",
+        "surface": "static",
+        "dimension": "structure",
+        "q": "Where does a concept physically live — all of its manifestations?",
+        "resolver": {
+          "kind": "graph",
+          "predicate": "entities[].pos + entities[].anchor"
+        },
+        "serves": [
+          "PU-1"
+        ]
+      },
+      {
+        "id": "CQ-K-01",
+        "priority": "P1",
+        "surface": "kinetic",
+        "dimension": "relation",
+        "q": "What does the service actually do, step by step, on install?",
+        "resolver": {
+          "kind": "graph",
+          "predicate": "happy_paths.paths.install.steps"
+        },
+        "serves": [
+          "PU-6"
+        ]
+      },
+      {
+        "id": "CQ-K-02",
+        "priority": "P1",
+        "surface": "kinetic",
+        "dimension": "relation",
+        "q": "Which steps are shared by several routes, so one change lands in more than one?",
+        "resolver": {
+          "kind": "graph",
+          "predicate": "happy_paths route membership count > 1"
+        },
+        "serves": [
+          "PU-6"
+        ]
+      },
+      {
+        "id": "CQ-I-06",
+        "priority": "P1",
+        "surface": "static",
+        "dimension": "evidence",
+        "q": "Did one side of an obligation move in this diff without the other?",
+        "resolver": {
+          "kind": "query",
+          "cmd": "python3 ontology/impact.py --diff"
+        },
+        "serves": [
+          "PU-15"
+        ]
+      },
+      {
+        "id": "CQ-P-01",
+        "priority": "P2",
+        "surface": "static",
+        "dimension": "principle",
+        "q": "If I rename a concept, which surfaces carry its slug and where must its files live?",
+        "resolver": {
+          "kind": "graph",
+          "predicate": "lexicon.homes + lexicon.deprecated"
+        },
+        "serves": [
+          "PU-1"
+        ]
+      },
+      {
+        "id": "CQ-P-02",
+        "priority": "P2",
+        "surface": "static",
+        "dimension": "principle",
+        "q": "Which values are restated in more than one place and must agree?",
+        "resolver": {
+          "kind": "graph",
+          "predicate": "relationships[].kind == 'lockstep_with'"
+        },
+        "serves": [
+          "PU-15"
+        ]
+      },
+      {
+        "id": "CQ-P-03",
+        "priority": "P2",
+        "surface": "dynamic",
+        "dimension": "context",
+        "q": "What is the difference between a missing prerequisite and a missing capability?",
+        "resolver": {
+          "kind": "graph",
+          "predicate": "host-prerequisite vs capability entity descriptions"
+        },
+        "serves": [
+          "PU-4"
+        ]
+      },
+      {
+        "id": "CQ-D-01",
+        "priority": "P2",
+        "surface": "dynamic",
+        "dimension": "context",
+        "q": "Under which condition does install take a different path, and what changes about what verify may assert?",
+        "resolver": {
+          "kind": "none",
+          "gap": "the packaged/full branch is collapsed into one step of the install path; Selection is the branch condition and appears on no route"
+        },
+        "serves": [
+          "PU-13"
+        ]
+      },
+      {
+        "id": "CQ-D-02",
+        "priority": "P2",
+        "surface": "dynamic",
+        "dimension": "context",
+        "q": "What happens when a step degrades instead of failing — venv provisioning, absent codex/claude CLI?",
+        "resolver": {
+          "kind": "none",
+          "gap": "degradation paths are described in entity prose but declared as no route, so nothing can traverse them"
+        },
+        "serves": [
+          "PU-4"
+        ]
+      },
+      {
+        "id": "CQ-E-01",
+        "priority": "P2",
+        "surface": "dynamic",
+        "dimension": "external",
+        "q": "Which external systems does the service depend on, and at which boundary does its authority stop?",
+        "resolver": {
+          "kind": "none",
+          "gap": "no external boundary is modelled; npm, the Claude Code and Codex CLIs, and the review providers appear only inside entity descriptions"
+        },
+        "serves": [
+          "PU-4"
+        ]
+      }
+    ],
+    "retired": [
+      {
+        "id": "CQ-N-01",
+        "q": "Why does this entity exist, and which decision or action does it support?",
+        "reason": "Not a question about the target — it IS the admission bar every question must pass. Asking it per entity confuses the criterion with a query. It survives as the `serves` requirement each question now carries.",
+        "retired_on": "2026-07-31"
+      },
+      {
+        "id": "CQ-N-02",
+        "q": "What rule governs adding a new entity or edge of a given kind?",
+        "reason": "Asks about the ontology's own authoring process, not about the service the ontology describes. Meaning-reproduction with no decision about the target behind it; its content belongs in dependency_rules.md, where it already is.",
+        "retired_on": "2026-07-31"
+      }
+    ]
+  },
+  "extension_cases": [
+    {
+      "id": "EC-1",
+      "title": "Add a guide",
+      "entity": "guide",
+      "situation": "A new scoped guide is authored under claude/guides/."
+    },
+    {
+      "id": "EC-2",
+      "title": "Swap a tier binding's model",
+      "entity": "tier-binding",
+      "situation": "A tier is rebound to a different model or effort in launch/agent-launch.toml."
+    },
+    {
+      "id": "EC-3",
+      "title": "Add a deploy target",
+      "entity": "deploy-target",
+      "situation": "install.sh gains a new deploy_file/deploy_glob call."
+    },
+    {
+      "id": "EC-4",
+      "title": "Add a CLI subcommand",
+      "entity": "cli-subcommand",
+      "situation": "A new agent-bios subcommand is introduced."
+    },
+    {
+      "id": "EC-5",
+      "title": "Change a persisted format",
+      "entity": "schema-version",
+      "situation": "A persisted artifact's shape changes and its schema version is bumped."
+    },
+    {
+      "id": "EC-6",
+      "title": "Add a user-owned file region",
+      "entity": "user-owned-region",
+      "situation": "The installer starts writing a marked region into another file it does not own."
+    }
+  ],
+  "purpose": {
+    "note": "Purpose clauses EXTRACTED from source, not authored. Each carries a verbatim quote that must still be present in the named file; ontology/check-ontology.py greps it. `inferred` clauses are NOT admitted until confirmed.",
+    "stated": [
+      {
+        "id": "PU-1",
+        "clause": "One canonical source for the instruction set",
+        "source": "README.md",
+        "quote": "Single source of truth for the instructions and scoped guides"
+      },
+      {
+        "id": "PU-2",
+        "clause": "An edit made once is projected for each selected activated session",
+        "source": "README.md",
+        "quote": "Edit once; the private corpus\ncompiler projects the selected content for each activated session."
+      },
+      {
+        "id": "PU-3",
+        "clause": "The same principles and behaviour regardless of which model runs",
+        "source": "package.json",
+        "quote": "one set of principles and behavior whichever model you run"
+      },
+      {
+        "id": "PU-4",
+        "clause": "The CLI installs, verifies and evolves the corpus",
+        "source": "README.md",
+        "quote": "plus the CLI that\ninstalls, verifies, and evolves it"
+      },
+      {
+        "id": "PU-5",
+        "clause": "Deployed state can be checked against the source",
+        "source": "install.sh",
+        "quote": "check the deployed state matches the source"
+      },
+      {
+        "id": "PU-6",
+        "clause": "Corpus content is stored privately and applied only to explicitly activated sessions",
+        "source": "install.sh",
+        "quote": "manage private corpus content for explicitly activated sessions",
+        "enforcement": {
+          "kind": "elsewhere",
+          "note": "check_parity.purpose_obligations parses the postinstall script and fails unless it is a single print-only printf",
+          "site": "gates/check_parity.py"
+        }
+      },
+      {
+        "id": "PU-7",
+        "clause": "Install can be undone — deployed files and the shell hook removed",
+        "source": "install.sh",
+        "quote": "remove deployed files and the zsh hook"
+      },
+      {
+        "id": "PU-8",
+        "clause": "Only the domains a role needs are installed",
+        "source": "install.sh",
+        "quote": "assemble ONLY the named",
+        "enforcement": {
+          "kind": "elsewhere",
+          "note": "gates/test-assemble.sh scenario S1 asserts an unselected domain is absent from the assembled bundle — a direct executable assertion of this clause, never lifted into the golden set.",
+          "site": "gates/test-assemble.sh"
+        }
+      },
+      {
+        "id": "PU-9",
+        "clause": "The always-loaded layer is a token budget; each bullet dilutes the rest",
+        "source": "README.md",
+        "quote": "The always surface is a per-activated-session token budget",
+        "enforcement": {
+          "kind": "accepted",
+          "note": "Whether a bullet earns its share of an always-loaded budget is a judgement about dilution, not a decidable property. Enforcing a proxy (a byte cap) would gate the wrong thing. Closed without a gate, deliberately.",
+          "site": null
+        }
+      },
+      {
+        "id": "PU-10",
+        "clause": "Always-surface rules are compact; procedures and worked examples belong in scoped guides",
+        "source": "README.md",
+        "quote": "procedures, tables, numbers, and worked examples belong in guides",
+        "enforcement": {
+          "kind": "accepted",
+          "note": "Whether a rule still works when the agent fails to recognise the situation cannot be decided by inspecting text. The admission bar is applied by the author at review time. Closed without a gate.",
+          "site": null
+        }
+      },
+      {
+        "id": "PU-11",
+        "clause": "English is canonical and shipped; Korean is reference only",
+        "source": "README.md",
+        "quote": "English is canonical and shipped; Korean (`ko/`) is reference only",
+        "enforcement": {
+          "kind": "elsewhere",
+          "note": "check_parity.purpose_obligations fails if package.json files[] ships anything under ko/",
+          "site": "gates/check_parity.py"
+        }
+      },
+      {
+        "id": "PU-12",
+        "clause": "Capture works from any directory, not only from a clone",
+        "source": "install.sh",
+        "quote": "works from any directory, unlike a repo-relative path",
+        "enforcement": {
+          "kind": "elsewhere",
+          "note": "check_parity.capture_works_anywhere runs collect-learning's self-test from a temporary directory that is not a clone",
+          "site": "gates/check_parity.py"
+        }
+      },
+      {
+        "id": "PU-13",
+        "clause": "Deployment is not loading — a corpus that landed but is not read has changed nothing",
+        "source": "README.md",
+        "quote": "neither stored bytes nor a dry-run argv proves a\nhost loaded the snapshot"
+      },
+      {
+        "id": "PU-15",
+        "clause": "One value has one owner and every other surface is generated from it; a restatement survives only where the second surface is a semantic transformation, and a gate holding its own copy is a third restatement",
+        "source": "AGENTS.md",
+        "quote": "every other surface is generated from it"
+      },
+      {
+        "id": "PU-16",
+        "clause": "Promotion suppresses a personal copy only when the exact revision has a proven replacement in that snapshot",
+        "source": "README.md",
+        "quote": "promotion suppresses only an exact source revision when its replacement is proven in that snapshot"
+      },
+      {
+        "id": "PU-17",
+        "clause": "Private installed state is verified from its recorded immutable release and baseline",
+        "source": "README.md",
+        "quote": "matches the store's last successful baseline to\nthe install record"
+      },
+      {
+        "id": "PU-18",
+        "clause": "Legacy global migration removes only proven owned material after explicit apply confirmation",
+        "source": "README.md",
+        "quote": "removes only proven legacy-owned material"
+      }
+    ],
+    "limits": [
+      {
+        "id": "PL-1",
+        "clause": "Parity does NOT promise equal behavioural strength across harnesses",
+        "source": "README.md",
+        "quote": "it does not guarantee both harnesses respond to the same wording with the same strength"
+      },
+      {
+        "id": "PL-2",
+        "clause": "The Korean tree is never installed or loaded",
+        "source": "README.md",
+        "quote": "The private catalog and snapshot compiler consume the fixed-name English sources"
+      },
+      {
+        "id": "PL-3",
+        "clause": "Author-side gates are reachable only from a repo checkout",
+        "source": "README.md",
+        "quote": "reachable only from a repo checkout"
+      }
+    ],
+    "extraction_status": "settled",
+    "inferred": [],
+    "open_violations": [],
+    "target": [
+      {
+        "id": "PT-1",
+        "clause": "A corpus catalog exists and users select from it; a default-loaded corpus also exists, so deployment and loading are separate guarantees. A corpus package can be ADDED to an existing install regardless of how it was installed, and removal works both wholesale and per package — preferably by fetching the additional corpus from inside the service after install, not by re-running a different install mode.",
+        "source": "user, stated in session 2026-07-30",
+        "confirmed": true,
+        "confirmed_on": "2026-07-31",
+        "licenses": "foreclosure questions only — whether current work makes this impossible or expensive later; NOT questions about implementation that does not exist",
+        "open_foreclosure_questions": [
+          "Today assemble.py bundles only core+infra+SELECTED domains, so nothing is deployed-but-unloaded. Does the catalog keep select-then-deploy, or move to deploy-then-select? Only the latter puts R3 under tension."
+        ],
+        "answered_foreclosure_questions": [
+          {
+            "q": "canary echoes ONE bundle rev marker. If catalog items load independently, does that probe still prove what loaded — and does the prune it authorizes then delete the wrong thing?",
+            "a": "Nothing is foreclosed, because the rev was never the authorization. `learn/migrate-learnings.py::placed_here` is, and it asks the filesystem whether the promoted anchor is in this user's deployed corpus rather than trusting build-time audience metadata, which is per-item evidence that survives packages diverging. The rev (`corpus_loaded`) is a coarser precondition above it, and non-core packages are refused outright — `pkgid.resolve(p) != CORE` keeps, on the stated grounds that only core's composition can be confirmed today, with `foreign package -> KEEP` as a self-test control. So per-package loading cannot cause a wrong delete under current code. The requirement this leaves belongs to the stage that makes non-core packages prunable, not to today's work: presence is exactly what PU-13 says cannot prove loading, so when a foreign package becomes prunable, `placed_here` must be paired with per-package loading evidence. One global rev cannot supply that, and the failure it would allow is deployed-but-not-loaded content authorizing an unrecoverable delete.",
+            "answered_on": "2026-08-03"
+          },
+          {
+            "q": "Full mode writes the corpus into the entry file the user then owns and edits — how does a package get added later?",
+            "a": "User edits and additions are managed as a separate version from ours. Once our content and theirs are separable, adding a package edits only our side.",
+            "answered_on": "2026-07-31"
+          },
+          {
+            "q": "Per-package removal needs to know which bytes came from which package, and nothing records that.",
+            "a": "It does not need byte provenance. Removal is by artifact bundle — a set of versions — so install and uninstall need not be traceable to individual bytes.",
+            "answered_on": "2026-07-31"
+          },
+          {
+            "q": "What does uninstall owe the user's own content?",
+            "a": "Uninstall is a SECURITY operation: everything of ours goes, with nothing left behind. That is only safe once the user's own content is separately versioned, which is why the first answer is a prerequisite for this one.",
+            "answered_on": "2026-07-31"
+          }
+        ]
+      }
+    ]
+  },
+  "verdicts": {
+    "note": "Verdicts on apparent disagreements between sites; the five states and what each obliges are defined in AGENTS.md, 'Ontology rounds'. `transitional` lived under `purpose` before this block existed; purpose holds clauses, verdicts hold judgements about claims.",
+    "licensed_asymmetry": [
+      {
+        "id": "LA-1",
+        "claim": "every launch tier has a Codex agent template",
+        "differing_site": "codex/agents",
+        "declaration": {
+          "source": "gates/check_parity.py",
+          "quote": "(no helm): {sorted(fragment_agents)}",
+          "names": "helm"
+        },
+        "why": "helm is the main seat, not a spawnable subagent, so it has no template and must not appear in the config fragment."
+      },
+      {
+        "id": "LA-2",
+        "claim": "every agent template pins model and effort",
+        "differing_site": "codex/agents/frontier.toml",
+        "declaration": {
+          "source": "gates/check_parity.py",
+          "quote": "must omit model_reasoning_effort so HELM can pin task-fit effort per dispatch",
+          "names": "model_reasoning_effort"
+        },
+        "why": "FRONTIER's effort varies per dispatch, so pinning it in the template would remove the choice the caller is supposed to make. The gate fails if the field is PRESENT — the absence is enforced, not tolerated."
+      }
+    ],
+    "transitional": [
+      {
+        "id": "PT-T2",
+        "observation": "the multi-package composer that a corpus catalog needs is specified but not built",
+        "why_in_flight": "deliberately deferred until a real second package exists",
+        "deferral": {
+          "source": "design/adapter-split/ECOSYSTEM-ARCHITECTURE.md",
+          "quote": "is deferred to the first real second package"
+        },
+        "finding": null,
+        "durable_half": null
+      }
+    ],
+    "unlinked": [
+      {
+        "id": "UL-1",
+        "claim_as_drawn": "every Codex agent template corresponds to a launch tier",
+        "sites": [
+          "codex/agents/*.toml",
+          "launch/agent-launch.toml"
+        ],
+        "why_not_the_same_claim": "the launch profile's [hosts.codex.agent_templates] declares which tiers have a template — three of them. reviewer.toml is a review role and was never in that mapping, so comparing the directory against the tier list compared two different sets.",
+        "fix": "ontology, not code: tier_binding_sites now compares against the declared map and reports files outside it instead of calling them tiers without bindings.",
+        "resolved_on": "2026-07-31"
+      }
+    ],
+    "contradiction": [
+      {
+        "id": "CT-1",
+        "claim": "a span written into a user-owned file is identifiable as ours and carries matching merge/check/remove; the entry files are never manifested",
+        "sites": {
+          "install.sh full mode": "deploys the entry CLAUDE.md and AGENTS.md through deploy_file, which manifests unconditionally; uninstall replays the manifest with rm -f",
+          "install.sh packaged mode": "the entry is seeded and not manifested, as the comment above assemble_packaged says",
+          "compose/assemble.py": "writes settings hook registrations and the AGENTS.md central region with a merge path and no remover"
+        },
+        "no_declaration_because": "nothing states that the ownership rule is packaged-mode-only, and nothing states that those two spans are exempt from the removal half.",
+        "was": "the demoted PU-14, which is why GR-12 needed a new root",
+        "blocks": [
+          "GR-12"
+        ],
+        "status": "decided",
+        "decided_on": "2026-07-31",
+        "choice": "Keep the rule and fix the code, with one refinement the implementation forced: full mode's entry file stays a deploy target. In that mode the entry file IS the corpus, so not manifesting it would leave the whole corpus behind after uninstall — trading data loss for junk the user cannot identify as ours. The real defect was that uninstall deleted with no backup while install backs up before overwriting. That asymmetry is closed, and the two merge-only spans now have removers.",
+        "prevents": "gates/test-assemble.sh scenario S7 — our settings registration and the AGENTS.md central region are removed, another tool's hook and the personal section survive."
+      },
+      {
+        "id": "CT-2",
+        "claim": "the two install modes' coexistence is either a transition or the permanent design",
+        "sites": {
+          "compose/canary.sh": "calls the full-mode no-bundle shape 'by design'",
+          "install.sh usage": "calls full 'today's full-corpus deploy'",
+          "design/adapter-split/ECOSYSTEM-ARCHITECTURE.md": "defers the multi-package composer without saying what happens to the full path"
+        },
+        "no_declaration_because": "the shape is declared; which of the two it is, is not. That is the half deciding who owns the loading obligation.",
+        "was": "the undeclared half of PT-T1",
+        "blocks": [],
+        "status": "decided",
+        "decided_on": "2026-07-31",
+        "choice": "Transitional, with the end condition now stated. The two modes are not two permanent contracts: a full install must be able to gain a corpus package later, and removal must work both wholesale and per package. The install SHAPES may differ; what must converge is the capability. The preferred route is fetching additional corpus from inside the service after install rather than re-running a different install mode.",
+        "prevents": "PT-1 carries the requirement, so a foreclosure question is admitted against any work that would make post-install package acquisition harder.",
+        "outcome": "Closed by landing the end condition rather than by choosing a side: the modes converged the same day the decision was recorded."
+      }
+    ]
+  },
+  "decisions": {
+    "note": "Choices the ontology made. A5 exists because some were recorded as observations — a status asserted as though read off the code when it was a judgement between alternatives. An open decision names its alternatives so the next reader can see what was NOT chosen.",
+    "rows": [
+      {
+        "id": "D-1",
+        "about": "GR-4",
+        "claim": "Three of twelve deploy targets carry no verify assertion: the two Codex wrappers and the agents directory.",
+        "sites": "ontology/extract.py computes the uncovered set from real deploy_file / verify_match call sites; install.sh cmd_verify asserts none of the three.",
+        "options": [
+          "add verify_match for the wrappers and the agents directory, making the deployed copies byte-checked like the rest",
+          "declare the three exempt with a stated reason — a wrapper is re-deployed on every install, so drift is self-healing and byte-checking it buys little",
+          "move the wrapper deploy onto the assembler path, where coverage already exists, so the question stops existing"
+        ],
+        "consequence": "GR-4's status, and whether `verify` claims more coverage than it has.",
+        "status": "decided",
+        "recorded_retroactively": true,
+        "retro_note": "The graph carried status `violated` — the judgement that this gap is a defect rather than a licensed exemption — with no record that the second reading was considered. The status was authored; it read as observed.",
+        "decided_on": "2026-07-31",
+        "choice": "Declare the three exempt rather than add assertions.",
+        "rationale": "A wrapper and the agents directory are re-deployed in full on every install, so drift between source and deployed copy is self-healing on the next run and a byte assertion buys little. GR-4's status stops being `violated`; the exemption is the answer, not the absence of a check."
+      },
+      {
+        "id": "D-2",
+        "about": "GR-5",
+        "claim": "uninstall backs up what it removes and deliberately keeps the state dir",
+        "sites": "install.sh cmd_uninstall writes backups/uninstall-<ts> and prints 'Kept: managed venv + backups'; the same command is the one a user runs to get our content OFF the machine.",
+        "options": [
+          "purge the state dir and stop backing up on uninstall — correct once the user's own content is separable, wrong before it, since full mode's entry file still mixes both",
+          "keep the backup until user content is separated, then remove it — safe but leaves a security operation incomplete in the meantime",
+          "bundle everything into one artifact outside the managed paths, then purge — chosen"
+        ],
+        "consequence": "Whether `uninstall` means 'stop using it' or 'leave no trace'. The user says the latter.",
+        "status": "decided",
+        "recorded_retroactively": false,
+        "retro_note": "Today's change added the uninstall backup to close a data-loss path. The security framing arrived after, and inverts it: preserving what was removed is the defect, not the fix. Both readings are right about different content, which is why the separation has to land first.",
+        "decided_on": "2026-07-31",
+        "choice": "Neither option as posed. Everything removed leaves as ONE archive outside every managed path, and every managed location is then purged — state dir, backups, cache, venv, and the loose .bak-* copies sitting in the user's own config dirs. The archive can be collected centrally or deleted in a single act.",
+        "rationale": "The two constraints were only in conflict while the copy had to STAY on the machine. Moving it into one handoff artifact satisfies both at once, and it removes the ordering dependency: the purge no longer waits on separating the user's content from ours, because nothing is destroyed by it.",
+        "prevents": "gates/check_parity.py::uninstall_leaves_no_trace runs the real command against a throwaway HOME and asserts both halves — nothing of ours survives, and a line only the user wrote is inside the archive."
+      }
+    ]
+  }
+}

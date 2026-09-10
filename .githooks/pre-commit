@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+# Pre-commit gate. Lives in the repo, not in .git/hooks, so the rule travels with
+# the code instead of with one laptop. Enable once per clone:
+#
+#   git config core.hooksPath .githooks
+#
+# This repo has no CI. Without this hook, gates/check-parity.sh runs only when a
+# person remembers to run it, and a broken projection commits cleanly.
+#
+# The gates run against a SNAPSHOT OF THE INDEX, not the working tree and not the
+# live index. Git commits the index, so a gate reading the checkout judges something
+# else: staging a bad file and then restoring it in the worktree used to commit clean.
+# The index is copied once, up front; the tree, the staged-file count, and the gates'
+# own `git ls-files` all read that copy, materialised into a temp directory via its
+# tree object, with GIT_DIR/GIT_WORK_TREE pointing the git-reading gates at the same
+# state. Nothing is stashed and the working tree is never touched, so an interrupted
+# hook cannot leave the repo mid-surgery.
+#
+# check-package.sh is cheap and guards the one failure class that is invisible
+# from a clone: a runtime path the installer reads but the npm payload omits.
+# check-parity.sh (~15s) owns everything else, each leg with its own --self-test.
+set -u
+REPO="$(git rev-parse --show-toplevel)" || exit 1
+cd "$REPO" || exit 1
+# Ask git where its directory and index are rather than assuming `$REPO/.git` is a directory.
+# In a LINKED WORKTREE it is a file pointing elsewhere, so the assumption fails with "Not a
+# directory" and blocks every commit before either gate runs — and this repo uses worktrees.
+GIT_DIR_ABS="$(git rev-parse --absolute-git-dir)" || exit 1
+GIT_INDEX_ABS="$(git rev-parse --path-format=absolute --git-path index 2>/dev/null)" || GIT_INDEX_ABS=""
+[ -n "$GIT_INDEX_ABS" ] || GIT_INDEX_ABS="$GIT_DIR_ABS/index"   # --path-format needs git 2.31
+
+# The gates inherit GIT_DIR below, so a gate that runs `git init` in a scratch directory
+# re-initialises THIS repository and writes core.worktree = the stage directory into its
+# config — which outlives the stage and leaves the primary worktree unable to run
+# `git status`. It happened once. The value is read here and compared after the gates:
+# a change is restored and fails the commit by name, whichever gate caused it.
+WORKTREE_BEFORE="$(git config --get core.worktree 2>/dev/null || true)"
+
+# One trap for both temporaries, installed before either exists: a second `trap ... EXIT`
+# REPLACES the first rather than adding to it, so a per-file trap would leak the other.
+SNAP_INDEX=""
+STAGE=""
+cleanup() {
+  [ -n "$STAGE" ] && rm -rf "$STAGE"
+  [ -n "$SNAP_INDEX" ] && rm -f "$SNAP_INDEX"
+  return 0
+}
+trap cleanup EXIT
+
+# The index is COPIED before anything derives from it, and every step below reads the
+# copy. The live index is SHARED: another session working in this checkout can `git add`
+# or `git reset` while the gates run, and then the path list a gate enumerates no longer
+# describes the tree materialised here. Both directions were observed on this repo — a
+# path staged mid-run enters `git ls-files` with no bytes in $STAGE, which kills
+# check-package.sh's self-test copier and is reported as "self-test missed a planted
+# violation"; a path unstaged mid-run disappears from every gate's view while the commit
+# still carries it. Git writes the index atomically (index.lock, then rename), so this is
+# always a whole index, never a torn one.
+SNAP_INDEX="$(mktemp "${TMPDIR:-/tmp}/agent-bios-precommit-index.XXXXXX")" || exit 1
+cp "$GIT_INDEX_ABS" "$SNAP_INDEX" || {
+  echo "pre-commit: cannot snapshot the index at $GIT_INDEX_ABS" >&2; exit 1; }
+
+TREE="$(GIT_INDEX_FILE="$SNAP_INDEX" git write-tree)" || {
+  echo "pre-commit: cannot write the index as a tree (unmerged paths?)" >&2; exit 1; }
+STAGE="$(mktemp -d "${TMPDIR:-/tmp}/agent-bios-precommit.XXXXXX")" || exit 1
+git archive "$TREE" | tar -x -C "$STAGE" || { echo "pre-commit: cannot materialise the index" >&2; exit 1; }
+
+# Non-empty subject: an empty staged tree would let every gate pass over nothing.
+staged_count="$(GIT_INDEX_FILE="$SNAP_INDEX" git diff --cached --name-only | wc -l | tr -d ' ')"
+[ "$staged_count" -gt 0 ] || { echo "pre-commit: nothing staged"; exit 0; }
+
+fail=0
+for gate in gates/check-package.sh gates/check-parity.sh; do
+  [ -x "$STAGE/$gate" ] || { echo "pre-commit: missing or non-executable in the index: $gate"; exit 1; }
+  # GIT_DIR gives `git ls-files` the object store; GIT_WORK_TREE points the same
+  # command at the materialised copy, so path lists and file contents agree.
+  # GIT_INDEX_FILE must be overridden or it is inherited, and the inherited value
+  # bites twice: `git commit` exports it as the RELATIVE `.git/index`, which after
+  # the cd below resolves to $STAGE/.git/index — absent, so git reads an EMPTY index
+  # and every gate that lists tracked files judges nothing; and the live index moves
+  # under a concurrent session. The snapshot answers both.
+  if ! ( cd "$STAGE" && GIT_DIR="$GIT_DIR_ABS" GIT_WORK_TREE="$STAGE" \
+         GIT_INDEX_FILE="$SNAP_INDEX" "./$gate" ); then
+    echo "pre-commit: FAILED $gate"
+    fail=1
+  fi
+done
+
+# What the gates judged must be what the commit carries. The snapshot above keeps each
+# gate internally consistent, but it cannot change what git commits: git re-reads the
+# LIVE index when it builds the commit, so a `git add` or `git reset` landing while the
+# gates ran would commit a tree no gate ever saw. A tree hash is decidable, so this
+# blocks rather than warns. An empty value means write-tree itself failed (unmerged
+# paths appearing mid-run), which is the same class of answer: not what was judged.
+TREE_AFTER="$(git write-tree 2>/dev/null || true)"
+if [ "$TREE_AFTER" != "$TREE" ]; then
+  echo "pre-commit: FAILED — the index changed while the gates ran, so what they judged" \
+       "($TREE) is not what this commit would carry (${TREE_AFTER:-<unreadable>})." \
+       "Another session in this checkout staged or unstaged something. Re-run the commit."
+  fail=1
+fi
+
+WORKTREE_AFTER="$(git config --get core.worktree 2>/dev/null || true)"
+if [ "$WORKTREE_AFTER" != "$WORKTREE_BEFORE" ]; then
+  if [ -n "$WORKTREE_BEFORE" ]; then git config core.worktree "$WORKTREE_BEFORE"
+  else git config --unset core.worktree; fi
+  echo "pre-commit: FAILED — a gate rewrote this repository's core.worktree to '$WORKTREE_AFTER'" \
+       "(restored). A gate ran git against a scratch repo without clearing GIT_DIR/GIT_WORK_TREE."
+  fail=1
+fi
+
+if [ "$fail" -ne 0 ]; then
+  cat >&2 <<'MSG'
+
+pre-commit: commit blocked by a failing gate (see output above).
+
+The gates ran against what you STAGED, not what is in your working tree. If the
+output disagrees with what you see on disk, the difference is unstaged.
+
+Fix the violation rather than bypassing. If the projection is simply stale:
+  python3 gates/emit-mirrors.py && git add -u && ./gates/check-parity.sh
+
+The lexicon and concept-home checks read the index file list, so a new file is
+invisible to them until you `git add` it.
+MSG
+  exit 1
+fi
+exit 0

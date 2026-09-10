@@ -1,0 +1,267 @@
+{
+  "version": "v1",
+  "derived_from": "three independent open codings (A, B, C) over the same 45-file stratified packet",
+  "unit_of_analysis": "one heading section, or one ~1500-char slice of an oversized/headingless section",
+  "rule": "assign by the job the block does for the coding agent, never by its heading text",
+  "categories": [
+    {
+      "id": "repo-orientation",
+      "name_ko": "레포 오리엔테이션",
+      "definition": "Gives the agent a mental model of what this project is, how it is structured, and where things live, so it can navigate without exploring.",
+      "includes": [
+        "what the project does, who it is for, its domain vocabulary",
+        "directory/module maps, package layouts, monorepo topology",
+        "architecture descriptions, data/control flow, component responsibilities",
+        "tech stack and dependency inventories presented as facts to know"
+      ],
+      "excludes": [
+        "a rule the code must satisfy -> project-invariants",
+        "a pointer telling the agent to go read another file -> context-routing",
+        "a command to run -> command-recipes"
+      ],
+      "discriminators": [
+        "Is this describing what EXISTS, or prescribing what the agent must DO or SATISFY? Description -> here."
+      ]
+    },
+    {
+      "id": "command-recipes",
+      "name_ko": "명령 레시피",
+      "definition": "Supplies the exact invocations the agent should run — build, test, lint, run, generate, deploy — so it does not guess or invent commands.",
+      "includes": [
+        "copy-pasteable shell commands and their flags",
+        "how to run a single test vs the whole suite",
+        "package-manager, task-runner and script tables",
+        "tool invocation syntax specific to this repo"
+      ],
+      "excludes": [
+        "when the command must be run to call work finished -> completion-gates",
+        "an ordered multi-step method for a task class -> task-procedure",
+        "a ban on running something -> hard-boundaries"
+      ],
+      "discriminators": [
+        "Strip the surrounding prose: is the payload a literal invocation the agent would execute? Yes -> here.",
+        "A command listed as a required exit check belongs to completion-gates, not here."
+      ]
+    },
+    {
+      "id": "house-form",
+      "name_ko": "표기 형식",
+      "definition": "Fixes the surface form of whatever the agent writes — code, tests, comments, documentation, commit text — so its output is indistinguishable from the project's existing work.",
+      "includes": [
+        "naming, formatting, indentation, import order, language idioms",
+        "typing/annotation conventions, comment and docstring style",
+        "file placement and naming patterns for new files",
+        "wording and structure conventions for prose the agent writes"
+      ],
+      "excludes": [
+        "the mechanics/policy of submitting the change -> contribution-protocol",
+        "a semantic contract that makes code correct rather than consistent -> project-invariants",
+        "the command that reformats the code -> command-recipes"
+      ],
+      "discriminators": [
+        "If the agent violated this, would the result be WRONG or merely INCONSISTENT? Inconsistent -> here; wrong -> project-invariants."
+      ]
+    },
+    {
+      "id": "project-invariants",
+      "name_ko": "프로젝트 불변식",
+      "definition": "States semantic contracts that must hold in this codebase — rules that generic engineering knowledge would violate, where breaking them produces something broken, unsafe, or silently wrong.",
+      "includes": [
+        "always route through wrapper X, never call Y directly",
+        "this field/table/state is authoritative; never derive or duplicate it",
+        "required error-handling, concurrency, migration or security contracts",
+        "framework- or repo-specific correctness rules a competent outsider would get wrong"
+      ],
+      "excludes": [
+        "a ban on an ACTION the agent takes -> hard-boundaries",
+        "a cosmetic/consistency preference -> house-form",
+        "'when you change X also change Y' -> cochange-duties"
+      ],
+      "discriminators": [
+        "Is the constraint about a property the CODE must hold, or about an action the AGENT must not take? Code property -> here."
+      ]
+    },
+    {
+      "id": "hard-boundaries",
+      "name_ko": "하드 금지",
+      "definition": "Removes options from the agent's action space outright: things it must never do, touch, or run, with no conditional path back.",
+      "includes": [
+        "never force-push / never rewrite history / never touch main",
+        "never edit these files or directories",
+        "never run destructive, irreversible or production-affecting commands",
+        "never commit secrets, never disable tests to make them pass"
+      ],
+      "excludes": [
+        "stop and ask a human first -> human-authority",
+        "a property the code must satisfy -> project-invariants",
+        "a check that must pass before done -> completion-gates"
+      ],
+      "discriminators": [
+        "Is there ANY path where the agent may proceed? If it must ask first -> human-authority. If never -> here."
+      ]
+    },
+    {
+      "id": "completion-gates",
+      "name_ko": "완료 게이트",
+      "definition": "Defines the exit bar: what must be run and what evidence must exist before the agent may call work done, commit, or hand back.",
+      "includes": [
+        "run these checks before committing / before claiming done",
+        "required test, lint, typecheck, build gates and their pass criteria",
+        "definition-of-done checklists and required evidence",
+        "'never report success without X'"
+      ],
+      "excludes": [
+        "the command itself, listed as a capability -> command-recipes",
+        "the order of work steps -> task-procedure",
+        "who approves the result -> human-authority"
+      ],
+      "discriminators": [
+        "Does this block gate the CLAIM of completion? If it only tells you how to invoke something, it is command-recipes."
+      ]
+    },
+    {
+      "id": "task-procedure",
+      "name_ko": "작업 절차",
+      "definition": "Prescribes the ordered method for a class of task — the sequence of steps to follow when doing a kind of work in this repo.",
+      "includes": [
+        "how to add a feature / fix a bug / add an endpoint, step by step",
+        "TDD or plan-first workflows mandated for this repo",
+        "branch-and-work sequences, migration procedures, release runbooks",
+        "'first do A, then B, only then C'"
+      ],
+      "excludes": [
+        "how the agent should think, talk, or delegate -> agent-conduct",
+        "the checks that end the work -> completion-gates",
+        "the literal commands used inside the steps -> command-recipes"
+      ],
+      "discriminators": [
+        "Is there an ORDER being imposed on task work? Yes -> here. If it configures the agent rather than the task -> agent-conduct."
+      ]
+    },
+    {
+      "id": "agent-conduct",
+      "name_ko": "에이전트 운영 방식",
+      "definition": "Configures the agent as an actor rather than the codebase: how it reasons, how much it plans or delegates, how verbose or autonomous it is, what tone and response shape it uses, and how it weighs open-ended tradeoffs.",
+      "includes": [
+        "reasoning depth, planning before acting, self-verification habits",
+        "response length, tone, language, formatting of replies to the human",
+        "subagent/parallelism/tool-use policy",
+        "engineering value orderings used to settle tradeoffs (simplicity over cleverness, etc.)",
+        "persona or role definitions for the agent"
+      ],
+      "excludes": [
+        "an ordered procedure for a task -> task-procedure",
+        "when to hand control to a person -> human-authority",
+        "the form of code/commits it writes -> house-form"
+      ],
+      "discriminators": [
+        "Would this block still make sense in a different repo? Agent-configuration usually would; repo rules would not."
+      ]
+    },
+    {
+      "id": "context-routing",
+      "name_ko": "컨텍스트 라우팅",
+      "definition": "Routes the agent to the right resource at the right moment: which deeper document, rule file, skill, slash command, or MCP tool to load or use, and under what condition.",
+      "includes": [
+        "'for X, read docs/Y.md'",
+        "@-includes, nested AGENTS.md/CLAUDE.md precedence rules",
+        "inventories of installed skills, slash commands, MCP servers and when to reach for them",
+        "conditional dispatch tables mapping situations to resources"
+      ],
+      "excludes": [
+        "the content itself, inlined -> whichever category the content serves",
+        "a shell command to execute -> command-recipes"
+      ],
+      "discriminators": [
+        "Does the block's value lie in POINTING somewhere else rather than in its own content? Yes -> here."
+      ]
+    },
+    {
+      "id": "pitfall-warnings",
+      "name_ko": "함정 경고",
+      "definition": "Pre-loads hard-won empirical knowledge about how this environment actually behaves — known failure modes, misleading signals, surprising defaults — so the agent does not rediscover or misdiagnose them.",
+      "includes": [
+        "'X looks broken but is actually Y'",
+        "known-flaky tests, misleading error messages, stale caches",
+        "environment/platform quirks, version traps, tooling gotchas",
+        "symptom-keyed corrective notes"
+      ],
+      "excludes": [
+        "a flat prohibition with no diagnostic content -> hard-boundaries",
+        "a correctness contract of the codebase -> project-invariants"
+      ],
+      "discriminators": [
+        "Does the block explain a SURPRISE — something that would mislead a competent agent? Yes -> here."
+      ]
+    },
+    {
+      "id": "cochange-duties",
+      "name_ko": "동반 수정 의무",
+      "definition": "Binds artifacts together: when the agent changes X it must also update Y in the same change, so paired state does not drift.",
+      "includes": [
+        "change the schema -> regenerate types / write a migration",
+        "add a flag -> update docs, README, changelog, tests",
+        "edit source -> update the corresponding snapshot or fixture"
+      ],
+      "excludes": [
+        "a required check before done -> completion-gates",
+        "a general correctness contract -> project-invariants"
+      ],
+      "discriminators": [
+        "Is the trigger 'you edited a specific artifact'? Yes -> here."
+      ]
+    },
+    {
+      "id": "human-authority",
+      "name_ko": "인간 권한",
+      "definition": "Marks where the agent must stop and hand control to a person: which actions need approval, when to ask instead of assume, and how the agent and its human coordinate live.",
+      "includes": [
+        "ask before installing dependencies / changing architecture / deleting data",
+        "'when uncertain, ask rather than guess'",
+        "approval checkpoints, escalation rules, how to present options for a decision",
+        "what the agent must report back and when"
+      ],
+      "excludes": [
+        "an unconditional ban -> hard-boundaries",
+        "reply tone/verbosity in normal operation -> agent-conduct"
+      ],
+      "discriminators": [
+        "Does a HUMAN decision unblock the agent here? Yes -> here."
+      ]
+    },
+    {
+      "id": "contribution-protocol",
+      "name_ko": "기여 프로토콜",
+      "definition": "Governs how the agent's work enters the project: the mechanics and the policy of submitting a change so the project's humans will accept it.",
+      "includes": [
+        "branch naming, commit message format, conventional-commit types, DCO/sign-off",
+        "PR templates, required descriptions, review and CI expectations",
+        "duplicate-work checks before opening a PR, issue-claiming etiquette",
+        "rules about whether and how AI-generated contributions are accepted, disclosure requirements"
+      ],
+      "excludes": [
+        "the writing style of the commit text itself -> house-form",
+        "the checks that must pass before committing -> completion-gates",
+        "the git commands used -> command-recipes"
+      ],
+      "discriminators": [
+        "Is this about getting the change ACCEPTED by the project's humans/process? Yes -> here."
+      ]
+    }
+  ],
+  "OTHER": {
+    "definition": "The block does no job for a coding agent, or does a job this codebook has no home for.",
+    "typical": [
+      "end-user product documentation pasted wholesale (API usage examples, benchmarks, license text, sponsorship/community sections)",
+      "in-file changelogs and revision history",
+      "human-audience advice about supervising AI rather than instructions to the agent"
+    ],
+    "requirement": "always give a one-line reason naming the purpose you saw"
+  },
+  "merge_notes": [
+    "capability-surface (C only, 0.06) folded into context-routing — A and B both defined routing to explicitly include skills and tools.",
+    "engineering-values (A only, 0.05) folded into agent-conduct as tradeoff-weighting; if it resurfaces as OTHER in volume, promote it.",
+    "ai-contribution-governance (A, 0.03) merged with contribution-protocol (B, 0.06) — one job: get the change accepted by the project's humans.",
+    "project-invariants and hard-boundaries kept separate (2/3 support each) — C lumped them, but 'property the code must hold' and 'action the agent must not take' answer different questions."
+  ]
+}

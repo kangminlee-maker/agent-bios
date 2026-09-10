@@ -1,0 +1,225 @@
+{
+ "target_sha_seen": "c41669f13cb1",
+ "checked": [
+  {
+   "rubric": "R1",
+   "what_was_checked": "Traced each threshold-consumed cost delta to its cause: child-token inclusion in Codex delegated/fork runs, verdict scope (workhorse AND sweep) vs what cells can exercise, spawn topology per arm, the inline baseline's seat, the per-verified-item denominator (direction confirmed sound).",
+   "result": "findings_below"
+  },
+  {
+   "rubric": "R2",
+   "what_was_checked": "Units/denominators/populations per compared pair: five-kind Claude-vs-Codex input semantics (correctly asymmetric), modelled-vs-measured separation (sound), cost-per-verified-item across sizes (intended), cliff exclusion's population asymmetry, printed ratios vs the design's own rate table, copy-sharing across arms.",
+   "result": "findings_below"
+  },
+  {
+   "rubric": "R3",
+   "what_was_checked": "For controls 1–6, 4b and Stage-0 gates (a)(b): can each fire on its named failure, can it pass vacuously. Control 2's self-reported denominator is backstopped by the passing-items metric (noted, not filed); control 6 is sound; control 3 is vacuous on inline runs by construction (boundary note).",
+   "result": "findings_below"
+  },
+  {
+   "rubric": "R4",
+   "what_was_checked": "Stress-tested keep/delete/inconclusive against the packet's own noise ($0.688–$1.260 within one N=5 cell; 19%/36% N=2 excursions erased at N=5): keep's missing sample-size qualifier, keep's any-cell quantifier, the undefined Stage-2 gate. The 22%-at-N=5 middle case resolves coherently to 'stays'.",
+   "result": "findings_below"
+  },
+  {
+   "rubric": "R5",
+   "what_was_checked": "Design claims vs bundles: _parse_claude both-shapes/total_cost_usd (true per Bundle 4); 6.7×, +57–73%, cache_read:0 injection, 14–18% exec-fork reuse, haiku session-fork row, sweep/workhorse tool policies (all true per Bundles 1–3); '(60 files, N=2)' follows Bundle 1's Limits clause (defensible). Stage 0 omits Claude kind-extraction that Common basis needs — fails loudly (empty columns), not filed as false signal.",
+   "result": "findings_below"
+  },
+  {
+   "rubric": "R6",
+   "what_was_checked": "Internal consistency and application only (no fetching): write 1.25×/2× and read 0.1× ratios consistent across the table; thinking-billed-as-output applied consistently; Claude 5× claim vs the table's own 10×; cliff handled by exclusion where the table itself can price it; uncorroborated field names given hard-fail authority by control 4; Fable 5.1 0.025× read unused in cells.",
+   "result": "findings_below"
+  }
+ ],
+ "findings": [
+  {
+   "anchor_section": "Cells (Stage 0)",
+   "anchor_quote": "teach `dispatch.py` to read all five Codex token kinds (it reads none today); split Claude's `cache_creation` by TTL; build the price table; run the instrument controls below.",
+   "class": "false_signal",
+   "severity": "blocker",
+   "input_or_condition": "Any Stage-1 delegated or fork cell where a spawn_agent child's usage lives in the child's own rollout rather than the parent's `codex exec --json` turn stream, and the new parser sums only the parent stream.",
+   "signal_emitted": "Delegated-cheap shows cost per verified item ≥25% below inline; the pre-registered keep threshold fires and the record quotes a measured-looking saving.",
+   "truth_instead": "The saving is the child's entire bill going uncounted. No named control exercises parent+child summation: control 1 is whole-session (no children), control 4 passes (parent tokens nonzero), the seat receipt reads the child rollout's header but never its usage totals.",
+   "evidence": "Bundle 2 measured Codex usage only at `codex exec` top level ('reports per-turn usage on turn.completed'), never a spawn_agent child's; the harness table's seat proof 'reads the child's own rollout header'.",
+   "change_required": "Add a Stage-0 conservation gate beside (a) and (b): on a delegated probe run, independently read the child rollout's token totals and require the run's recorded cost to include them; a parent-only sum must FAIL the probe."
+  },
+  {
+   "anchor_section": "Pre-registered thresholds",
+   "anchor_quote": "**Keep the cheap seats** if delegated-to-cheap beats inline by **≥25%** cost per verified item at equal-or-better pass rate, at any tested size, on either host.",
+   "class": "false_signal",
+   "severity": "blocker",
+   "input_or_condition": "A Stage-1 cell at N=3 shows a ≥25% delta — the prior record measured a 36% excursion at N=2 that N=5 erased, with per-run spread of −25%/+37%.",
+   "signal_emitted": "'Pre-registered keep threshold met': a quotable ≥25% saving — exactly the over-quoted figure this design exists to prevent.",
+   "truth_instead": "The delete threshold carries 'at Stage 2 sample sizes'; keep does not, so as registered it fires on screen data the design itself disavows ('N=3 is deliberately not enough to conclude from'). The 20%-noise rule gives no protection: 25–36% clears it while still being small-N noise.",
+   "evidence": "Bundle 1 §3: N=2 showed −19%/−36%, 'Re-running... to N=5 removed all three'; target: 'treat any figure under roughly 20% as noise unless its cell is N=5'.",
+   "change_required": "Give keep the same qualifier as delete: the ≥25% cell must hold at Stage-2 sample size (N=5) before the threshold fires."
+  },
+  {
+   "anchor_section": "Controls",
+   "anchor_quote": "Run it first: if the harness does not reproduce a large gap where one is known to exist, the harness is broken and no cell means anything.",
+   "class": "false_signal",
+   "severity": "high",
+   "input_or_condition": "Stage 1 is Codex-only, but the 6.7× known value is measured Claude dollars; on Codex the 'known' spread is computed from the same rate table the pipeline multiplies by.",
+   "signal_emitted": "Control 1 passes (large spread reproduced) and is read as licensing every Stage-1 cell.",
+   "truth_instead": "On Codex the control checks arithmetic against itself, and a whole-session seat ratio survives arm-correlated miscounting — e.g., cumulative-vs-per-turn summation inflating multi-turn arms, the exact trap Bundle 2 logged as instrument error #5 — so a broken Stage-1 instrument passes it.",
+   "evidence": "Bundle 1 §1 (6.7× on measured total_cost_usd); Bundle 2 Limits: 'Codex cost was not measured in money and cannot be'; Bundle 2 error #5 (last usage record reported the end state for all turns).",
+   "change_required": "On Claude run control 1 twice — measured total_cost_usd AND the modelled five-kind pipeline — and require the spreads to agree; on Codex add a per-turn-vs-cumulative differential probe instead of a spread reproduction."
+  },
+  {
+   "anchor_section": "Common basis",
+   "anchor_quote": "**Codex** — an OAuth subscription pays no per-run dollar. Tokens by kind are measured; dollars are then **modelled** from the published rates below.",
+   "class": "false_signal",
+   "severity": "high",
+   "input_or_condition": "Any error in the five-kind field mapping, TTL split, or rate table; Claude — the only host with a billed ground truth — enters only at Stage 2, and only conditionally.",
+   "signal_emitted": "Stage-1 modelled dollars clearing or missing the 20/25% thresholds, correctly labelled 'modelled' and therefore looking disciplined.",
+   "truth_instead": "The kinds→dollars model is never reconciled against any measured total anywhere in the design; Σ(kind×rate) vs total_cost_usd on Claude is the one available end-to-end check and no control requires it, so a mapping or rate error propagates into every deciding figure while all named controls pass.",
+   "evidence": "Controls #1–#6 contain no reconciliation; staging: 'Codex (GPT) first, Claude second' and Stage 2 gated on Stage 1 showing an effect.",
+   "change_required": "Add to Stage 0: Claude probe runs must satisfy |Σ(kinds×rates) − total_cost_usd| within a stated tolerance before any modelled figure counts."
+  },
+  {
+   "anchor_section": "Cells",
+   "anchor_quote": "**Stage 2** — only if Stage 1 shows an effect: confirm at **N=5**, add L1 and L3, add Claude.",
+   "class": "false_signal",
+   "severity": "high",
+   "input_or_condition": "Stage 1's best delegated delta reads, say, 15% when the true effect is ≥25% — likely at N=3 given the record's −25%/+37% per-run spread. 'Shows an effect' has no registered criterion.",
+   "signal_emitted": "'No effect at the host with the largest ratio' → Stage 2 never runs → combined with 'an effect absent here is absent everywhere', a general negative that looks conclusive.",
+   "truth_instead": "The screen has low power against a threshold-sized effect at N=3, and the absent-everywhere inference covers only the seat-price mechanism: Bundle 2 shows the fork/cache mechanism runs the opposite way (Claude fork-same 98.9% reuse vs Codex 14–18%), so Codex absence cannot rule out a Claude fork-same advantage that is then never tested.",
+   "evidence": "Target: 'so an effect absent here is absent everywhere' and 'Stage 1 is a screen, not a verdict'; Bundle 1 Limits (inline $0.688–$1.260); Bundle 2 fork table.",
+   "change_required": "Pre-register the Stage-1 pass criterion in the noise's own units, and strike or host-qualify 'absent here is absent everywhere' — it does not cover the fork arms."
+  },
+  {
+   "anchor_section": "Pre-registered thresholds",
+   "anchor_quote": "**Keep the cheap seats** if delegated-to-cheap beats inline by **≥25%** cost per verified item at equal-or-better pass rate, at any tested size, on either host.",
+   "class": "false_signal",
+   "severity": "high",
+   "input_or_condition": "Stage 2 as written expands toward the full cross (arms × 3 sizes × 3 difficulties × 2 hosts); keep quantifies over ANY cell with no multiplicity control.",
+   "signal_emitted": "One cell of tens crosses ≥25% under the null and keep fires with a quotable pre-registered saving.",
+   "truth_instead": "With the record's spread, differences of N=5 means vary on the order of the 25% bar itself; the maximum over tens of cells crossing once is likely with no true effect, so 'any tested size, either host' converts noise into a registered verdict.",
+   "evidence": "Bundle 1 Limits (within-cell spread 'large enough to invert a conclusion'); the design's own multiplicity-free wording.",
+   "change_required": "Require the ≥25% effect to replicate in the same cell (pre-named arm×size×difficulty×host) at N=5, not merely appear somewhere in the grid."
+  },
+  {
+   "anchor_section": "Common basis (host asymmetries) / Controls 4b",
+   "anchor_quote": "Every Codex run records its peak input; a run that crosses 272K is flagged, and a saving that appears only in flagged runs is a cliff effect, not a seat effect.",
+   "class": "false_signal",
+   "severity": "high",
+   "input_or_condition": "Inline cells at N=160 on Codex, where late requests plausibly exceed 272K (the design's own datum: a live rollout at 266,137, '6K under the cliff').",
+   "signal_emitted": "After exclusion, inline@160 looks cheaper than its true billed cost (only its expensive crossed runs are removed; no delegated run crosses) → 'no delegated arm beats inline by >20%' at the largest size, or the 160 cell empties — and the censoring reads as principled.",
+   "truth_instead": "On GPT the cliff is real billing that inline structurally incurs at that size and delegation structurally avoids; it is part of the asked question ('at what size does the sign change'), not a confound. Arm-correlated exclusion biases the frontier toward inline exactly where the sign change is sought.",
+   "evidence": "Rate table row 'gpt-5.6-sol | 4 / 5 / 0.4 / 20 | ×2 input, ×1.5 output above 272K' — the design already holds the multiplier needed to price crossed runs instead of dropping them.",
+   "change_required": "Keep the flag, drop the exclusion: price crossed runs with the published above-cliff multipliers and report the comparison with and without them, labelled."
+  },
+  {
+   "anchor_section": "The decision this feeds",
+   "anchor_quote": "Whether agent-bios ships cheap seats (`workhorse`, `sweep`) as spawn targets at all, and if so, what a routing rule may say about them.",
+   "class": "false_signal",
+   "severity": "high",
+   "input_or_condition": "Thresholds resolve on write-task evidence, but sweep as shipped is read-only: 'disallowedTools: [Edit, Write, NotebookEdit]', 'Read-only: do not edit'.",
+   "signal_emitted": "A 'delete them' (or 'keep the cheap seats') verdict naming sweep, grounded in cells sweep's contract cannot run.",
+   "truth_instead": "No cell here can exercise sweep as shipped — write-dominated items are outside its contract — so the evidence speaks only to a write-capable cheap seat. Sweep's own value case is the scan shape: Bundle 1's only saving (−9%) and its $0.097 at 100% recall, which this experiment deliberately excludes.",
+   "evidence": "Bundle 3 sweep.md; the target's own 'Why this exists': 'workhorse.md is the only spawn target with no disallowedTools — the write-capable seat.'",
+   "change_required": "Scope the registered verdict per seat: these thresholds may decide workhorse; sweep's fate keys to scan-shape evidence or is declared out of scope."
+  },
+  {
+   "anchor_section": "Cells",
+   "anchor_quote": "so N parallel spawns cost one write and N−1 reads, not N writes. The parallel arms record `cache_creation` per child to confirm it.",
+   "class": "false_signal",
+   "severity": "high",
+   "input_or_condition": "Any delegated cell: the six-arm grid never fixes children per run (one child doing N items vs N parallel children), concurrency, or copies per item — and no arm in the grid is named 'parallel'.",
+   "signal_emitted": "(i) Arm deltas read as seat effects while injection fixed cost scales with child count (19,360 tokens per spawn at cache_read 0) and item interference varies with copy-sharing; (ii) the fan-out cache claim stands 'confirmed by the parallel arms' — cells the grid does not contain; (iii) wall-clock differences read as the parallelism benefit without a parallel arm defined.",
+   "truth_instead": "Topology is a hidden axis as large as the seat axis; until pinned per arm, no cross-arm delta is attributable to the seat, and the per-child confirmation additionally needs Claude per-child usage attribution that the bundled parser (session-level fields only) does not provide and Stage 0 does not list.",
+   "evidence": "Cells table arm row names no topology; 'wall-clock is free to collect in the same runs and settles one of them'; Bundle 4 `_parse_claude`; Bundle 1 §6 injection figures.",
+   "change_required": "Add topology to the cell definition (children per run, concurrency, pristine copy per item or per run), held identical across arms; add the parallel arm the confirmation needs or delete the claim."
+  },
+  {
+   "anchor_section": "Controls",
+   "anchor_quote": "plant the wrong edit into a pristine fixture and require the checker to fail it. A checker that has never failed is not checking.",
+   "class": "false_signal",
+   "severity": "high",
+   "input_or_condition": "A generated test that errors for a non-substantive reason — wrong path to the run-unique fixture, broken runner — fails everything, including the planted bad edit.",
+   "signal_emitted": "Control 5 passes, the checker is certified, and its rejections of good edits then read as seat quality failures — e.g., a fabricated 'cheap seats collapse at L3' frontier if one difficulty's generated tests are miswired.",
+   "truth_instead": "Failing the known-bad for any reason is indistinguishable from failing everything; the probe checks only the reject direction — the exact green-instrument shape where an exit-1-always runner 'kills' every mutation.",
+   "evidence": "The design's own wiring invites it: fixtures regenerated per repetition with run-unique identifiers while 'the tests live outside the working directory'.",
+   "change_required": "Pair every known-bad probe with a known-good probe (plant the correct edit, require a pass), and require the known-bad failure to be the item's own assertion, not any nonzero exit."
+  },
+  {
+   "anchor_section": "Cells",
+   "anchor_quote": "| Arm | inline · delegated-cheap (effort low) · delegated-cheap (effort high) · delegated-mid · fork-same · fork-cheap (Codex only) |",
+   "class": "false_signal",
+   "severity": "high",
+   "input_or_condition": "Every cell: the main's own model AND effort — for the inline arm and for the delegating parent — is nowhere declared.",
+   "signal_emitted": "'Delegated beats inline by X%' compared against 20/25% thresholds, where X moves with an unregistered implementation default.",
+   "truth_instead": "The comparison's denominator is unpinned: by the design's own numbers thinking is 57% of output and 'moves with effort, not with the model', so an inline baseline at a different effort shifts deltas by more than the threshold gap. Bundle 1 pinned this explicitly ('--model claude-opus-5 --effort medium'); this design drops the practice.",
+   "evidence": "Target: '28,817 reasoning of 50,617 output tokens (57%)'; no sentence in Cells, stages, or Common basis names the main's seat.",
+   "change_required": "Pin the main's model+effort per host in the cell table, identical across all arms of a host, registered with the thresholds."
+  },
+  {
+   "anchor_section": "Common basis",
+   "anchor_quote": "Output-rate ratio, top seat to cheapest: **GPT 16.7×, Claude 5×.**",
+   "class": "false_signal",
+   "severity": "medium",
+   "input_or_condition": "The design's own rate table: claude-fable-5 output 50, claude-haiku-4-5 output 5 — top-to-cheapest is 10×; 5× is opus-5/haiku, not the table's top seat.",
+   "signal_emitted": "Any consumer calibrated to '5×' — including a Claude modelled-spread sanity check — flags a correct 10× spread as instrument error or accepts a halved, buggy spread as correct; the host-ordering rationale overstates the GPT-vs-Claude gap 2×.",
+   "truth_instead": "On the table one paragraph above, the Claude ratio is 10×; the printed 5× is internally inconsistent with it.",
+   "evidence": "Rate table rows 'claude-fable-5 | 10 / 12.5 (5m) · 20 (1h) / 1 / 50' and 'claude-haiku-4-5 | 1 / 1.25 · 2 / 0.1 / 5' in the same section.",
+   "change_required": "Correct the ratio (10× fable→haiku) or name the seat behind 5×, and recompute anything calibrated to it."
+  },
+  {
+   "anchor_section": "Common basis",
+   "anchor_quote": "| cache write | `cache_creation.ephemeral_5m_input_tokens` / `ephemeral_1h_input_tokens` | `cache_write_input_tokens` | **1.25× (5m) / 2× (1h)** Claude; 1.25× GPT |",
+   "class": "false_signal",
+   "severity": "medium",
+   "input_or_condition": "Stage 0 builds the parser from this table's field names; the packet's only measured Codex record corroborates `cached_input_tokens` alone, and no bundled payload shows `cache_write_input_tokens` or `output_tokens_details.thinking_tokens`; control 4 then declares any null of these an instrument failure.",
+   "signal_emitted": "If a name is wrong for a host: every run on that host reports 'instrument failure' (a healthy host deadlocks the experiment), or the nearest field is mapped and a kind is fabricated — e.g., a 1.25×-priced GPT write column applied to every child injection, inflating delegated arms' modelled cost on a spawn's largest fixed cost.",
+   "truth_instead": "The field mapping is the experiment's data contract, and nothing in Stage 0 proves each field exists and is nonzero where forced before control 4's null rules arm themselves; the 2026-09-03 cross-check is asserted, not gated.",
+   "evidence": "Bundle 2: 'reports per-turn usage on turn.completed — including cached_input_tokens' is the packet's only corroborated Codex usage field; Controls #4: 'a null cache-write field: that is the parser not reading the kind, not the kind being absent'.",
+   "change_required": "Add a Stage-0 field-existence proof per host: a captured payload showing each of the five fields, with cache-write and thinking nonzero under conditions that force them, before control 4 takes effect."
+  },
+  {
+   "anchor_section": "Controls",
+   "anchor_quote": "A run reporting $0, zero output tokens, or zero items is an instrument failure, not a cheap run",
+   "class": "false_signal",
+   "severity": "medium",
+   "input_or_condition": "A cheap seat legitimately fails or declines every item in a hard cell (e.g., L3 at the cheapest seat), yielding zero items passing while diffs and checker logs exist.",
+   "signal_emitted": "'Instrument failure' — the run is excluded or re-run rather than entered as quality evidence.",
+   "truth_instead": "Zero can be an outcome, not only a malfunction: 'zero items' distinguishes neither attempted from passing nor parser fault from a genuine 0-for-N, so the arm's worst quality evidence is systematically relabelled harness noise — flattering exactly the cells where 'equal-or-better pass rate' should have failed the cheap seat.",
+   "evidence": "Bundle 1 §5's haiku fork at 84.7% recall shows cheap-seat quality collapse is a real outcome class; the control text draws no attempted/passing distinction.",
+   "change_required": "Split the rule: zero attempted / zero output / null fields = instrument failure; zero passing with nonzero attempted edits and checker logs = a counted quality result."
+  },
+  {
+   "anchor_section": "Cells",
+   "anchor_quote": "a fork onto a cheaper model is not a thing Claude Code offers.",
+   "class": "false_signal",
+   "severity": "medium",
+   "input_or_condition": "Stage 2 adds Claude; per Bundle 1 'there is no subagent-fork command' there, so the Claude fork-same arm can only be `--fork-session` — the mechanism under which forking to a cheaper model IS offered and was measured (haiku: $0.318, 0.0% reuse, 84.7% recall).",
+   "signal_emitted": "A grid showing fork-cheap 'Codex only', implying Claude lacks the capability, while the Claude fork-same cell quietly runs on the mechanism whose cheap variant was excluded by a fact about the other mechanism.",
+   "truth_instead": "On Claude either both fork arms exist (via --fork-session, cheap included — already measured, badly) or neither does; the asymmetric grid mixes the two mechanisms the design itself distinguishes ('a session fork, a different mechanism').",
+   "evidence": "Bundle 1 §5 headline and its three-target --fork-session table including sonnet and haiku.",
+   "change_required": "Name the fork mechanism per host in the arm table; exclude Claude fork-cheap because Bundle 1 already measured it worse, not because it is unavailable."
+  },
+  {
+   "anchor_section": "Cells (Stage 0, control a)",
+   "anchor_quote": "Read `cached_input_tokens` on a `spawn_agent` child's **first** request before any Codex fork cell is trusted.",
+   "class": "detected_miss",
+   "severity": "medium",
+   "input_or_condition": "The cited vendor fact (child inherits the parent's prompt_cache_key) predicts high fork reuse; the design's own cited measurement (14–18% on exec fork) predicts the opposite; a fork-same cell priced on the doc would look cheap falsely.",
+   "signal_emitted": "None reaches a cell: the design routes the contradiction to a measurement gated before any fork cell counts — the harness catching its own would-be false premise.",
+   "truth_instead": "This is the design working. The residual gap is that 'these pass' is undefined for a pure measurement: no criterion says what value licenses which fork-cell pricing.",
+   "evidence": "Target: 'Either `exec fork` and `spawn_agent` are different paths, or the key is shared and the prefix is not' beside 'No cell counts until these pass.'",
+   "change_required": "State the gate's pass criterion: record the measured first-request reuse and derive fork-cell pricing from the measured kind split, whichever way it comes out."
+  }
+ ],
+ "boundary_notes": [
+  "_parse_codex, seat_problem(), codex_seat_from_rollout(), run.py's postcondition path, and naive_edit are not in the bundled excerpt; the design's claims about them (including '_parse_codex ... extracts no token counts at all') could not be checked either way.",
+  "client.rs and its prompt_cache_key derivation are not bundled; only the design's use of the quote (as a probe target) was judged.",
+  "'workhorse.md is the only spawn target with no disallowedTools' — frontier.md (and Codex reviewer.toml) are not bundled, so 'only' is unverifiable; the two bundled definitions are consistent with it.",
+  "Whether Claude's total_cost_usd includes subagent usage is corroborated only in use (Bundle 1's delegated cells produced +57–73% surcharges through it), not by any bundled schema.",
+  "Whether a spawn_agent child's usage appears in the parent's codex exec --json stream or only in the child rollout is not in the packet — the first finding asks Stage 0 to produce exactly that receipt.",
+  "All 2026-09-03 published rates, field names, the 272K threshold, and 'Claude 4.6+ bills the full 1M window at standard rates' were judged for internal consistency and application only; none could be fetched.",
+  "Per-child usage attribution on Claude (needed for 'parallel arms record cache_creation per child' and any Claude-side child seat receipt) is not decidable from Bundle 4, which returns session-level fields only.",
+  "Control 3 is vacuous on inline runs by construction (no child exists); whether any main-process seat receipt exists is not answerable from the excerpt.",
+  "The deletion-cost inventory in 'The decision this feeds' (agent-launch.toml, TIER_ORDER/SPAWNABLE_TIERS, review-matrix goldens) names repo artifacts outside the packet; taken as stated.",
+  "Bundle 1 carries an internal tension ('Baselines and the pinned cells are N=5' in §2 vs the Limits clause's four-cells-only reading); the design's '(60 files, N=2)' follows the Limits reading and was not filed as a defect."
+ ]
+}

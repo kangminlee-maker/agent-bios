@@ -1,0 +1,167 @@
+{
+ "target_sha_seen": "1d40701ca97d",
+ "checked": [
+  {
+   "rubric": "R1",
+   "what_was_checked": "Whether any cell can show a cost or quality difference not caused by the seat: parent seat P pinned across arms (verified against the bundled agent-launch.toml HELM rows); packet held identical across delegated arms; nonce keeps the standing prefix equally warm for every arm; topology fixed at one child. Two attribution leaks found: the arm rows never pin the child's agent definition, and the delegated-shipped seat is resolved per-run from a moving HEAD.",
+   "result": "findings_below"
+  },
+  {
+   "rubric": "R2",
+   "what_was_checked": "Units, denominators, populations: saving = 1 − C_arm/C_same arithmetic (25% = three quarters, consistent); ratio-of-sums with paired blocks; family counts (2×3×3 = 18 retention, ×2 contrasts = 36 rebinding, consistent); measured Claude dollars never pooled with modelled Codex dollars; per-request cliff pricing. Three basis defects found: the REBIND bar never touches the incumbent binding, the eligibility label is a function of the treatment itself, and the under-cliff secondary's block-replenishment rule is ambiguous between a non-terminating and a per-contrast reading.",
+   "result": "findings_below"
+  },
+  {
+   "rubric": "R3",
+   "what_was_checked": "Each of controls 0–9 for a real failure path and a vacuous pass: the nonce cold-state receipt bounds the first request against a Stage-0 prefix measurement (sound); mixed-seat hand goldens fail aggregation-before-pricing, swapped mapping, wrong rate (sound); control 7 is bidirectional and its equivalent-mutant rule matches the ± golden; control 8's canary is elicited without naming its value, avoiding Bundle 2's error #10. Two gaps found: control 0's reconciliation leg is waived on Codex by 'where one exists', and the Stage-1 screen has neither a defined spread statistic nor a defined consequence.",
+   "result": "findings_below"
+  },
+  {
+   "rubric": "R4",
+   "what_was_checked": "Whether the pre-registered thresholds can decide wrongly on the design's own reported noise: KEEP and REBIND require a second crossing on fresh confirmatory blocks (guards the 36-bound family search); KEEP's false-fire direction lands on the default outcome (seat stays); Δ's sign is consistent between question and predicates; no threshold fires on Stage-1 data; undefined-saving draws block the predicate in both directions I could construct. One defect found: DELETE has no confirmation step and quantifies over a data-dependent eligible family that can shrink to a single cell.",
+   "result": "findings_below"
+  },
+  {
+   "rubric": "R5",
+   "what_was_checked": "Every claim about the bundled harness and records I could anchor: _parse_claude handles both JSON shapes and reads total_cost_usd (Bundle 4, true); _parse_codex absent from the excerpt (boundary note); workhorse has no disallowedTools and sweep is read-only (Bundle 3, true; 'only spawn target' unverifiable — frontier not bundled); shipped bindings terra/high and opus-5/medium and HELM P sol/xhigh and opus-5/xhigh (TOML, true); the N=5/N=2 self-inconsistency characterization (Bundle 1 §2 vs Limits, faithful); +57–73% escalation (true); fork reuse 98.9% vs 14–18% (Bundle 2, true); round tallies 38/37/3/0 and 15/15/2/0 (Bundles 5–6, true).",
+   "result": "nothing_found"
+  },
+  {
+   "rubric": "R6",
+   "what_was_checked": "Internal consistency and application of every cited vendor fact: all four Claude rows give exactly 1.25×/2× cache write, 0.1× read; GPT rows give 20× input and both cache kinds, 16.7× output, 0.1× read, 1.25× write; 10× fable→haiku and 5× opus→haiku ladders; cliff multipliers applied per request; thinking billed as output used consistently in the output-priced-share formula. One internal contradiction found: the Shape bullet's mechanism claim that reading is work 'the seat's price barely moves' against the same design's 20×/5–10× input and cache-read gaps.",
+   "result": "findings_below"
+  }
+ ],
+ "findings": [
+  {
+   "anchor_section": "Task",
+   "anchor_quote": "The label is an **eligibility condition**: only cells in which *both* compared arms are output-dominated enter the KEEP/DELETE predicates, and a Stage 2 with no eligible contrast returns INCONCLUSIVE, not DELETE.",
+   "class": "false_signal",
+   "severity": "high",
+   "input_or_condition": "A Claude retention cell where the saving is exactly the mechanism the design names — effort reduction cutting thinking tokens. Example with the design's own kinds: delegated-same (opus/xhigh) has input cost 0.30 and output-priced cost 0.70 (share 70%, eligible); delegated-shipped (opus/medium) on the identical fixture reads the same input 0.30 but thinks 4× less, output-priced 0.175 → share 0.175/0.475 = 37% < 40%.",
+   "signal_emitted": "The cell is labelled not output-dominated and barred from both predicates. A 52.5% real saving at intact quality returns INCONCLUSIVE, and the cell silently leaves DELETE's 'every eligible retention cell' conjunction — so DELETE can later fire over the remaining weak-saving cells while the excluded cells held the large savings, and KEEP can never be confirmed where the effect is strongest.",
+   "truth_instead": "Output dominance was meant to scope the QUESTION ('write-dominated bounded work'), a property of the task; measured per arm it is a function of the treatment, and the arm that saves output-priced tokens is disqualified by its own success. The cheap-lowE rebinding arms are hit hardest: low effort minimizes thinking, so the configuration the design itself calls the suspected lever ('the earlier WORKHORSE cost record already suspected [effort] is the lever that matters') is structurally the least likely to ever be eligible.",
+   "evidence": "The share formula '(visible output + thinking) × output rate ÷ modelled cost' makes the label move with effort; the Treatment matrix says 'On Claude, delegated-shipped against delegated-same is the same model at two efforts; the contrast isolates effort'; 'thinking is 57% of output on a live rollout and moves with effort'. Both-arms eligibility is revision 3's wording (Bundle 6 #11 fix column: 'Eligibility (both arms output-dominated) precedes the predicates').",
+   "change_required": "Make eligibility a property of the cell, not of each arm's execution: label the cell by the fixed comparator delegated-same's share alone (or by a task-level measurement made once per fixture), so the treatment arm's own share can never disqualify or de-list the contrast; report per-arm shares beside the verdicts.",
+   "provenance": "caused",
+   "caused_by_change": "Revision 3's eligibility condition answering round-2 #11 — 'only cells in which both compared arms are output-dominated enter the KEEP/DELETE predicates' — introduced the both-arms, per-execution scoping."
+  },
+  {
+   "anchor_section": "Pre-registered thresholds",
+   "anchor_quote": "**DELETE** only if, for **every** eligible retention cell at R=5, the **upper** 90% bound of the saving is ≤20%. A point estimate under 20% is not evidence of absence.",
+   "class": "false_signal",
+   "severity": "high",
+   "input_or_condition": "Stage 2 where eligibility (see the Task finding) leaves one or few retention cells — e.g., only small-M cells where fixed spawn overheads genuinely cap savings — and each surviving upper bound at R=5 falls ≤20%.",
+   "signal_emitted": "DELETE, phrased as an exhaustive verdict ('for every eligible retention cell'), authorizing the expensive irreversible direction: bindings, TIER_ORDER/SPAWNABLE_TIERS, agent definitions, deployed globals, and a full golden recapture.",
+   "truth_instead": "The quantifier's family is data-dependent and can shrink to a single cell, at which point DELETE rests on one unconfirmed one-sided percentile-bootstrap bound over 5 blocks — a statistic the design itself calls coarse ('R=5 makes this bound coarse') and whose true coverage at n=5 sits below nominal, giving a ≳10% false-delete rate at the boundary. KEEP and REBIND both require a fresh confirmatory block set ('KEEP and REBIND fire only on confirmation'); DELETE, the only irreversible verdict, fires on Stage-2 data alone.",
+   "evidence": "The threshold section gives confirmation to KEEP and REBIND only; DELETE's clause names no confirmation and no floor on eligible-family size; 'Deletion is the expensive direction' (The decision this feeds) establishes the asymmetric stakes.",
+   "change_required": "Require DELETE to reproduce on a fresh confirmatory block set in every eligible cell, and register a minimum eligible-family size (per host) below which DELETE is unavailable and the outcome is INCONCLUSIVE.",
+   "provenance": "caused",
+   "caused_by_change": "Revision 3's pair of repairs to round-2 #11 and #14: the eligibility gate made DELETE's family data-dependent, and search-then-confirm was scoped to 'KEEP and REBIND fire only on confirmation', leaving DELETE outside it."
+  },
+  {
+   "anchor_section": "Pre-registered thresholds",
+   "anchor_quote": "**REBIND candidate — `<seat>`** if an eligible **rebinding** cell meets the KEEP conditions after confirmation. It names the seat and the cells; it changes no binding by itself.",
+   "class": "false_signal",
+   "severity": "high",
+   "input_or_condition": "A cell where delegated-cheap-highE clears the bar against delegated-same (confirmed saving ≥25%, pass rate within Δ of the xhigh parent) while delegated-shipped in the same cell saves more than the cheap arm and out-passes it by more than Δ — arithmetically ordinary, since both bars are measured against the expensive xhigh parent seat, not against each other.",
+   "signal_emitted": "'REBIND candidate — haiku/high', presented as the answer to the design's own secondary question — 'the cheap arms answer a different question — whether a *rebinding* would be justified' — i.e., a yes-shaped signal that replacing the shipped binding is supported.",
+   "truth_instead": "A rebinding replaces the incumbent, and no predicate ever compares the candidate to the incumbent: a candidate can be strictly dominated by delegated-shipped on both cost and quality (saving 30% vs same where shipped saves 40% means the candidate costs MORE than shipped: 0.70·C_same vs 0.60·C_same) and still be named. The quality leg is equally misbased: within Δ of the xhigh parent says nothing about being within Δ of the shipped binding it would replace.",
+   "evidence": "Treatment matrix: 'Rebinding — `delegated-cheap-lowE − delegated-same` and `delegated-cheap-highE − delegated-same`' — both contrasts against delegated-same; The question: 'would a binding cheaper than the shipped one clear the same bar?' sets the bar at the parent seat, not the incumbent; delegated-shipped appears in no rebinding predicate.",
+   "change_required": "Add the incumbent to the REBIND predicate: a candidate must also beat delegated-shipped in the same eligible cells on the confirmed bounds (cost lower, pass rate within Δ of shipped), or the verdict must be renamed to what it measures (cheaper-than-parent-seat, not rebinding-justified).",
+   "provenance": "caused",
+   "caused_by_change": "Revision 3's verdict split answering round-2 #1: 'This revision splits the verdict in two (Pre-registered thresholds): retention quantifies over the shipped binding, and the cheap arms answer a different question — whether a rebinding would be justified' — the rebinding verdict was created with delegated-same as its only comparator."
+  },
+  {
+   "anchor_section": "Treatment matrix",
+   "anchor_quote": "Arms are not labels; each is a row that fixes everything an implementation would otherwise choose.",
+   "class": "false_signal",
+   "severity": "high",
+   "input_or_condition": "A conforming implementation of the retention pair on Claude: delegated-shipped naturally dispatched as the shipped `workhorse` subagent type (its agent body injected — the thing being retained), while delegated-same must be a custom generic subagent pinned to opus-5/xhigh, since no shipped agent binds the parent's seat. The rows fix parent seat, mechanism, child seat, children, and packet — and not the child's agent definition.",
+   "signal_emitted": "The retention contrast (cost saving and the pass-rate difference feeding the Δ leg) is attributed entirely to the seat.",
+   "truth_instead": "Part of the contrast is the agent body. Bundle 3's workhorse body changes behavior, not just tokens: 'escalate missing decisions or authority instead of resolving them' turns ambiguous items into 0-of-M under intention-to-treat on one side of the contrast only, and 'Run the narrowest reliable changed-path check' adds verification output on that side only. A confirmed 25% saving or a within-Δ quality verdict can be partly the body's doing while every receipt (seat, ledger, nonce) is green — a pure-seat conclusion from a seat-plus-body experiment.",
+   "evidence": "The matrix's own columns (Arm / Parent seat / Mechanism / Child seat / Children / Packet) contain no agent-definition column, against the row's quoted promise; Bundle 3 workhorse.md supplies the behavioral clauses; the packet ('workhorse 6-field') is fixed but a packet is not the agent body.",
+   "change_required": "Add an agent-body column to the rows and hold it constant within each compared pair: either both retention arms run the identical body (generic or workhorse) with only the seat differing, or the body is declared part of the 'shipped binding' treatment and the verdict's wording changes to binding-plus-body.",
+   "provenance": "caused",
+   "caused_by_change": "The delegated-shipped arm added by revision 3 (round-2 #1 repair): it created the decisive contrast without extending the matrix's columns to pin the child's agent definition."
+  },
+  {
+   "anchor_section": "Treatment matrix",
+   "anchor_quote": "read from `launch/agent-launch.toml` at the run's HEAD and pinned in the record — at this HEAD `terra / high` (Codex), `opus-5 / medium` (Claude)",
+   "class": "false_signal",
+   "severity": "medium",
+   "input_or_condition": "The workhorse binding in agent-launch.toml changes between Stage 1, Stage 2, and the temporally separated confirmatory re-runs — plausible in an actively rebound repo, and the design resolves the seat per run ('at the run's HEAD') rather than once.",
+   "signal_emitted": "A retention cell's estimator pools runs whose delegated-shipped children sat on different seats, and a confirmed 'delegated-shipped saving ≥25%' publishes with every per-run receipt green: control 4 checks each child against 'its row', and the row's resolved value moved with HEAD, so both sides of the drift pass.",
+   "truth_instead": "The cell's arm was two different treatments; the saving attributed to 'the shipped binding' belongs to no single binding, and the confirmation may have confirmed a different seat than the one that searched. The pin is per-run bookkeeping, not a cross-run invariant — no control compares bindings across the runs of a cell.",
+   "evidence": "The quoted clause resolves the binding per run; Staging and 'Search, then confirm' place Stage 1, Stage 2, and confirmation at different times by design; control 4's criterion is agreement with the row, which drifts with it.",
+   "change_required": "Freeze the shipped binding once at Stage 0 as literal model/effort values in the record; every delegated-shipped run's resolved binding must byte-match the frozen literal or the run is a control failure, and any HEAD whose binding differs splits the cell rather than pooling into it.",
+   "provenance": "caused",
+   "caused_by_change": "The delegated-shipped arm's binding clause introduced by revision 3 (round-2 #1 repair): 'read from launch/agent-launch.toml at the run's HEAD'."
+  },
+  {
+   "anchor_section": "Controls",
+   "anchor_quote": "Publication of a run's cost **fails** unless the participant count matches the arm's row in the treatment matrix and the summed usage reconciles with the parent-reported total where one exists.",
+   "class": "false_signal",
+   "severity": "medium",
+   "input_or_condition": "A Codex delegated run whose child rollout is located by `parent_thread_id` and parsed correctly, but is incomplete at read time — truncated mid-flush or missing its final turns.",
+   "signal_emitted": "The run's cost publishes bearing the ledger's conservation receipt: the participant count matches the row (the child artifact exists), and the amount-reconciliation leg is waived by 'where one exists' — the design's own table says no spawn-inclusive parent total exists on Codex ('Child accounting — absent on both hosts... a `spawn_agent` child's usage lives in the child's own rollout'). The cheap child's bill under-counts and its saving overstates.",
+   "truth_instead": "On Codex, control 0 conserves participant COUNT only, not amounts. The planted probe covers only wholly missing child usage ('whose child usage is missing is the planted case'), and control 1's per-turn-vs-cumulative differential is a probe of the summation method, not a per-run completeness check on each child artifact — a partially read child fails neither.",
+   "evidence": "The quoted waiver plus the 'What already exists' Child-accounting row; control 0's planted case names absence, not truncation; Bundle 2 establishes that Codex rollouts carry per-turn and cumulative usage that COULD anchor a per-run completeness identity, which the design does not require.",
+   "change_required": "Replace the waiver on Codex with a positive completeness requirement per child artifact: a terminal record must be present and the summed per-turn usage must reconcile with the rollout's own cumulative total for every run, not only in the Stage-0 probe.",
+   "provenance": "surfaced",
+   "caused_by_change": ""
+  },
+  {
+   "anchor_section": "Common basis",
+   "anchor_quote": "A secondary under-cliff estimand is computed only over complete matched blocks in which no arm crossed, and blocks are replenished until every compared arm has R such blocks.",
+   "class": "false_signal",
+   "severity": "medium",
+   "input_or_condition": "M=160, where by the design's own sentence the cliff 'is real billing that inline structurally incurs at large M' — so under the literal whole-block reading ('blocks in which no arm crossed'), essentially no block qualifies, and replenishment has no stopping rule.",
+   "signal_emitted": "Either an implementation replenishes indefinitely, or — the quiet path — it caps and emits an under-cliff figure at M=160 computed over the rare blocks in which every arm, including inline, happened to stay small: a sample selected on the outcome, published under a pre-registered label.",
+   "truth_instead": "The estimand as literally specified does not exist at that size; blocks that qualify are the cheap tail of every arm's distribution, so the secondary figure is biased low with no registered rule governing when to stop trying. A per-contrast reading ('neither arm of the compared pair crossed') terminates, but then 'every compared arm has R such blocks' defines different block subsets per contrast and the two readings yield different published numbers — conforming implementations diverge on a pre-registered estimand.",
+   "evidence": "The quoted sentence against the design's own 'the cliff is real billing that inline structurally incurs at large M and delegation structurally avoids' two sentences earlier.",
+   "change_required": "Scope the no-cross condition per compared pair, register a replenishment cap, and register what is published when the cap is reached (the secondary estimand is reported as unavailable for that cell, never as a number over outcome-selected blocks).",
+   "provenance": "surfaced",
+   "caused_by_change": ""
+  },
+  {
+   "anchor_section": "Staging",
+   "anchor_quote": "its pre-registered outcome is one bit per contrast — *the point estimate of the contrast exceeds the run-to-run spread of delegated-same at that size* — and it decides nothing about seats.",
+   "class": "false_signal",
+   "severity": "medium",
+   "input_or_condition": "Stage 1, a true contrast sitting near the noise floor of three runs. 'Spread' is not a defined statistic — range and standard deviation of R=3 differ by roughly 2×, so the bit's value depends on an unregistered choice; and what the bit gates is unstated, while 'Claude runs regardless of the Codex screen' implies Codex Stage 2 is conditional on it.",
+   "signal_emitted": "A conforming implementation whose spread statistic lands large marks the contrast a screen miss and skips it on Codex in Stage 2. Those Codex cells then never exist as eligible cells, and DELETE — which quantifies over both hosts' surviving eligible cells with no host scoping — can fire having measured the decisive contrasts on one host, wearing the 'every eligible retention cell' phrasing.",
+   "truth_instead": "The design's own cross-host rule forbids exactly this inference: 'Any null conclusion is scoped to the host it was observed on' and 'a null on one host says nothing about the other.' An R=3 screen with an undefined statistic silently removed a host from the decision family rather than deciding nothing.",
+   "evidence": "The quoted screen definition (no statistic named, no consequence named) plus 'Stage 2 — R=5, L1 and L3 added, and **Claude runs regardless of the Codex screen**', which is only meaningful if the screen can gate Codex Stage 2.",
+   "change_required": "Register the spread statistic and register the screen's consequence — either the bit gates nothing (purely reported, Stage 2 always runs both hosts in full) or any cell it prunes is recorded as unmeasured and DELETE becomes unavailable while any pruned retention cell exists.",
+   "provenance": "pre_existing",
+   "caused_by_change": ""
+  },
+  {
+   "anchor_section": "Why this exists",
+   "anchor_quote": "it is the least favourable because a scan's bill is dominated by *reading the same files at any seat*, which is work the seat's price barely moves.",
+   "class": "false_signal",
+   "severity": "medium",
+   "input_or_condition": "The sentence read as the mechanism behind the prior record's null — the role it plays in this section, justifying the shift to a write-dominated shape.",
+   "signal_emitted": "An established-looking mechanism: reading is seat-price-insensitive, so input-dominated work cannot benefit from a cheap seat. Sitting in a twice-reviewed design beside a real measurement, it reads as a finding, and a routing rule downstream could cite it.",
+   "truth_instead": "The design's own rate table says the opposite two sentences later: input and cache-read rates differ 20× between sol and luna and 5–10× across the Claude ladder — the same clause even concedes 'a scan is not the least favourable shape for a cheap seat by rate alone'. The seat's price moves the reading bill proportionally; what made the measured record break even was delegation overhead the record itself documents — the +57–73% unpinned escalation surcharge and the ~19,360-token corpus injection per spawn — and its one measured saving (−9%) was precisely a cheap seat doing pure reading. Wrong mechanism, coincidentally supported conclusion.",
+   "evidence": "The rate table rows (sol 4/5/0.4 vs luna 0.2/0.25/0.02); Bundle 1 §2 (sweep 60-file −9%; +57–73% unpinned) and §6 (19,360-token injection, cache_read: 0).",
+   "change_required": "Rewrite the mechanism sentence to attribute the null to delegation's fixed costs (brief, corpus injection, child cache warm-up) swamping per-token seat savings at the measured sizes, not to reading being insensitive to seat price.",
+   "provenance": "pre_existing",
+   "caused_by_change": ""
+  }
+ ],
+ "boundary_notes": [
+  "The harness excerpt contains only _parse_claude; the design's claims\n about `_parse_codex` (returns cost_usd None, extracts no token counts), `seat_problem()`, and `codex_seat_from_rollout()` could not be checked against any bundled text.",
+  "`parent_thread_id` as the Codex child-rollout locator and `fork_turns` as a spawn parameter appear in no bundle; if either is wrong, control 0 / control 4 fail loudly at Stage 0 rather than emitting a false figure, so this is a boundary, not a finding.",
+  "The five-kind table asserts a Codex `cache_write_input_tokens` field priced at 1.25x; Bundle 2's enumeration of the Codex usage object names only `cached_input_tokens` and the two totals. The citation ('official usage objects, 2026-09-03') cannot be fetched here. If the field does not exist, control 5's per-host nonzero-sentinel requirement blocks Stage 0 loudly — the design's own guard covers the failure.",
+  "'`claude/agents/workhorse.md` is the only spawn target with no `disallowedTools`' — only workhorse.md and sweep.md are bundled; frontier's definition is absent on both hosts, so 'only' is unverifiable.",
+  "Whether a child can be pinned to the parent's own seat for delegated-same (sol/xhigh on Codex, opus-5/xhigh on Claude) is unverifiable: no bundled agent template binds either seat (Codex templates are frontier/workhorse/sweep; helm has none). Building one is implementation, and control 4 discards wrong-seat children loudly, so this cannot silently corrupt a cell.",
+  "`TIER_ORDER`/`SPAWNABLE_TIERS`, `cli-multi-model-workflow.md`, and `gates/goldens/review-matrix.json` are not bundled; the deletion-cost enumeration is unverifiable.",
+  "'a draw in which an arm's summed passes is zero has an undefined saving and counts as failing to clear the bound' is written in the lower-bound (KEEP-clearing) direction; its treatment under DELETE's upper bound is unstated. Under both readings I could construct, the undefined draw blocks the predicate (conservative), so this is a spec gap, not a demonstrated false signal.",
+  "'thinking is 57% of output on a live rollout' traces only to round 1's finding summary; no raw rollout is bundled to confirm it.",
+  "Whether Codex Stage 2 redraws fresh L2 blocks at R=5 or tops up Stage 1's R=3 is unstated. Reuse plus a screen-conditional Stage 2 would select Codex L2 estimates upward, but confirmation on fresh blocks guards KEEP, and the DELETE-side exposure is already covered by the Staging finding.",
+  "'Fixtures are generated per repetition with run-unique identifiers' (Task) sits uneasily beside 'the block's shared fixture packet' (Cache order): identifiers cannot be run-unique inside a packet shared across a block's arms. Under either resolution (repetition-unique identifiers, or per-arm regeneration) I could not construct a wrong-deciding path — the nonce control and pairing survive both — so this is recorded as an ambiguity to resolve before Stage 0, not a finding.",
+  "The cache-read row's aside '(0.025x Fable 5.1)' references a seat absent from the rate table; nothing prices against it, so it is dangling text, not a defect."
+ ]
+}

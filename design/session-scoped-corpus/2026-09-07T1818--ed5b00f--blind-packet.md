@@ -1,0 +1,42 @@
+# Design task: opt-in, session-scoped agent-bios
+
+User requirements (authoritative):
+1. Software Engineer / Vanilla must apply no agent-bios corpus.
+2. Installing agent-bios must not modify the user's global AGENTS.md or CLAUDE.md. The user wants a clear difference between using agent-bios and not using it, without invading user-owned configuration.
+3. When agent-bios is used, apply its overrides only to that session. The user asks to think through the mechanism before changing this architecture.
+
+Audience: users know how to use a CLI, but do not independently architect advanced CLI environments. They need to know what a choice changes. Human UI translations are separate from AI-injected instruction text and do not require content-hash parity.
+
+This is a design draft, not implementation. Do not edit source, global config, credentials, or user sessions. No backend/model invocations or delegation. Recommend a concrete smallest viable architecture and implementation sequence. Identify any human choice actually needed. Separate supported facts from gaps needing a runtime probe. Keep your answer <=1000 words. You are one of two independent frontier drafts; neither sees the other before synthesis.
+
+Load-bearing code facts re-derived at /Users/kangmin/Documents/agent-bios, HEAD ed5b00f, dirty tree:
+- install.sh cmd_install calls assemble_corpus, deploys Codex agent templates to CODEX_DIR/agents, deploys selected corpus skills to both CLAUDE_DIR/skills and CODEX_DIR/skills, merges codex_config_additions, deploys wrappers under each host's bin, then unconditionally calls add_zsh_hook.
+- compose/assemble.py owns MARK_START='<!-- agent-bios:central:start -->', MARK_END='<!-- agent-bios:central:end -->'. It replaces that span in global Codex AGENTS.md, preserves surrounding personal text, seeds the Claude entry with @central/bundle.md and @personal/learnings.md, and merges hooks into settings.json. Claude's entry is user-owned after seeding.
+- install.sh codex_config_additions uses '# >>> agent-bios additions >>>' / '# <<< agent-bios additions <<<' around agent tables plus tagged '# agent-bios' lines. It preserves other TOML, validates with tomllib, and backs up writes.
+- install.sh cmd_verify currently requires global Claude import and global Codex central span. Current uninstall removes known owned regions and backs up before deleting files. Manifest-less cleanup is conservative. These behaviors would need migration, not just a new launcher option.
+- launch/agent-launch.py project_args returns [] when mode == software-engineer. Custom re-bases to builder. Active Codex projects --model, -c model_reasoning_effort, -c developer_instructions=<run_contract>, -c features.multi_agent, policy and per-agent config flags. Active Claude projects --model, --effort, --append-system-prompt <run_contract>, --agents JSON, and selected permission flag. main calls exec_backend on the projected argv and an environment copy. --dry-run renders the argv without executing the backend.
+- Native user/global instruction discovery still runs when argv is empty, so existing Vanilla is not corpus-free after the existing installer.
+- launch/agent-launch.zsh unconditionally replaces codex/claude shell functions and reasserts them at preexec. Zero-arg interactive calls go through the TUI; its direct Claude path adds --dangerously-skip-permissions. Ordinary unwrapped CLI behavior is therefore also an activation-boundary issue.
+- Corpus includes startup rules, routed guides, hook-injected text, agent descriptions/bodies, selected skills (currently repo-charter), and personal learnings. Installing a skill into an auto-discovery directory can expose corpus even without AGENTS.md. Owning only global entry files is insufficient.
+- Existing concepts: corpus, package, domain, consumption surface, preset, launch plan. compose/domains.json owns package/domain membership; presets currently own launch settings, not corpus content. Keep deterministic projections single-sourced.
+- App-owned state currently lives in ~/.local/share/agent-bios; launch-owned configuration in ~/.config/agent-launch with user-owned *.local.toml separate. Existing untracked proposal design/corpus-management/2026-09-04T2321--17862b3--proposed-design.md proposes immutable baselines + personal overlays and a corpus manager. It is PROPOSED, not implemented or permission to add that larger scope. Its always-available management skill/global realization premise must be revisited under the new user requirement; do not silently overwrite the dated record.
+
+Installed API facts:
+- Codex 0.153.4 --help supports per-call -c key=value and --strict-config. Global AGENTS.md reads CODEX_HOME (AGENTS.override.md then AGENTS.md), project instructions are separate. No skip-global-instructions-only flag found. --ignore-user-config and --ignore-rules are exec-only and do not mean skip global AGENTS.md. project_doc_max_bytes=0 affects project docs, not the separate global loader in current source.
+- Codex debug prompt-input renders model-visible prompt input as JSON, a possible real-loader verification route without model generation. App-server generated schema's instructionSources is response metadata, not a known suppression flag.
+- Claude 2.1.263 --help supports --append-system-prompt, --settings, --setting-sources user,project,local, --agents JSON, --plugin-dir, --safe-mode. --safe-mode suppresses project customizations too; --bare excludes OAuth/keychain authentication. --setting-sources project,local also drops the user's settings source, so it is not a selective corpus filter preserving every user setting.
+- Claude OAuth/subscription availability was confirmed by auth status: loggedIn=true, authMethod=claude.ai, apiProvider=firstParty. No metered-only API key provider is needed for the design.
+
+Constraints and rubric:
+- Prefer a portable mechanism first. Host CLI realization adapters are justified only for actual host differences; do not add a new daemon/framework when per-call facilities suffice.
+- Never rewrite shared global files on entry and restore them on exit: simultaneous Vanilla/Builder and crashes must be safe.
+- Preserve user auth, preferences, normal project instructions, and unrelated hooks/plugins/tool integrations; do not silently disable unrelated user security policy. Installation must not become activation. Settings and instructions have different precedence/merge semantics; identify those differences instead of claiming one universal 'override'.
+- Respect built-in/managed host instructions and permissions. Corpus prose steers judgment; tool/runtime contracts enforce structural scope. Do not conflate all instructions with security authorization.
+- New installs and migration of old installations are different paths. Current on-disk agent-bios remnants continue to affect a plain CLI until explicitly removed; no claim of zero exposure before that cleanup is proven.
+- Installation updates must not change the files a running session depends on underneath it. Session snapshots need a lifecycle and resume policy; no copying credentials into an unmanaged temp home or losing session history/config writes through an overlay.
+- No unrequested implementation of the broader corpus-manager proposal.
+- Concept economy: name nearest existing concepts and choose reuse/extend/rename/split; one value/selection has one source. An installed artifact, active session, and user customization have distinct ownership without requiring a new public vocabulary for each.
+- LLM/capability boundary: the model decides meaning/tradeoffs; code derives paths/ids, serializes/merges explicit settings, validates/launches, and records evidence. A registered field is not active until the actual downstream consumer is verified.
+- Staged workflow: smallest viable behavior, falsifiable done-when, real-path probes, failure recovery, and current-state docs. Use a rollout path that preserves the current release until the new contract is explicitly activated; do not leave two permanent content authorities.
+
+Compare 2-3 viable mechanisms by user-visible behavior, effort/cost, portability, risks, and completion criteria. Then supply your recommended architecture, per-host activation details (including skill/hook/agent delivery limitations), legacy migration boundary, and the shortest ordered implementation/test plan. Include a clear response to whether 'Vanilla with zero agent-bios corpus' can be attained without changing user-owned global files during ordinary launches.

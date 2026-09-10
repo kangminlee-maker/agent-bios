@@ -1,0 +1,327 @@
+schema_version = 1
+
+# `bare_launch_args` are appended ONLY on a bare launch — no preset, no --custom, no
+# --dry-run — where nothing else decides policy. A configured launch projects the
+# preset's own policy (`claude_permission_mode` / `codex_execution_policy`) and never
+# carries these: with them, a preset that chose `standard` would launch with
+# `--dangerously-skip-permissions` from here. The key was `passthrough_args`, which read
+# as universal and made that omission look like a defect (round 18, #3).
+[backends.codex]
+command = "codex"
+bare_launch_args = []
+
+[backends.claude]
+command = "claude"
+bare_launch_args = ["--dangerously-skip-permissions"]
+
+# Optional dependencies. `command` gates the route: unresolvable means the route
+# is unavailable and the review setup degrades without it. `install` is the single
+# source for both the one-line hint shown when it is missing and what
+# `agent-bios install --with <name>` runs. How a tool exposes an operation is its
+# `offers` list: the adapter there is a protocol codec owned by core, never a method
+# identity, so a second method reusing the tag is data-only, and `evidence` names what
+# the tool reports back about the dispatch it performed — a receipt missing any of it
+# is not credited.
+
+# ── deep review, one concept and two host-bound mechanisms ─────────────────
+# Both shipped deep reviewers are the host CLIs themselves — nothing to install beyond
+# the CLI, which is a host rather than a reviewer. `ultracode` runs ON CLAUDE (the
+# Claude Code workflow keyword); `codex-exec` runs ON CODEX (the CLI's non-interactive
+# exec mode). What they are FOR: a deep check on an IMPLEMENTATION — does it function,
+# does it survive an adversary, does the logic hold, does it hold under a real scenario,
+# does it hold under stress. The Claude side fans that across many agents; the Codex
+# side hands the whole packet to one frontier-effort pass. Personal or third-party
+# reviewers register in the user-owned methods file, never here.
+
+[capabilities.ultracode]
+# Not a separate tool: the Claude Code CLI's own dynamic workflow, opened by putting the
+# keyword in the prompt (read in the installed 2.1.220 bundle —
+# `workflowKeywordTriggerEnabled`: "including the keyword in a prompt opts that turn into
+# the Workflow tool", default true). So the command IS the claude backend, and there is
+# nothing extra to install.
+# `${backend}` and not the literal token: this tool IS the configured claude CLI, so a
+# duplicated default broke it for anyone whose backend is a wrapper or an absolute path —
+# dispatch worked, the reviewer reported NOT INSTALLED, and the review went on without it.
+# No `install`: that field is EXECUTED by `agent-bios install --with`, so prose there would
+# be run as a shell command, and a missing claude CLI is a missing host, not a missing
+# reviewer.
+command = "${backend}"
+# claude only: the keyword trigger is a Claude Code feature, so a codex seat cannot run it.
+offers = [{ operation = "workflow-review", adapter = "host-workflow-v1", hosts = ["claude"] }]
+
+[capabilities.codex-exec]
+# The Codex CLI's own non-interactive exec mode. As with `ultracode` above, the command
+# IS the configured backend — `${backend}` and not a duplicated literal, because a
+# duplicated default breaks for anyone whose backend is a wrapper or an absolute path.
+# No `install`: that field is EXECUTED by `agent-bios install --with`, and a missing
+# codex CLI is a missing host, not a missing reviewer.
+command = "${backend}"
+# codex only, and this is the tool's nature rather than a policy: `exec`,
+# `-s read-only`, `-c model_reasoning_effort` and `-c service_tier` are Codex CLI
+# surface (verified against installed codex-cli 0.146.0), so a claude seat cannot
+# run it. `-s read-only` pins the sandbox the descriptor promises; what stays
+# inherited is the ambient ~/.codex configuration (AGENTS.md, config.toml), so
+# this reviewer is read-only but not hermetic — the codex-run wrapper remains the
+# hermetic dispatch when that matters.
+#
+# Between the two, this review is available CROSS-FAMILY from a claude main — the
+# opposite family's CLI is dispatched as a fresh read-only subprocess.
+offers = [{ operation = "exec-review", adapter = "exec-stdio-v1", hosts = ["codex"] }]
+
+# ── review methods (DESIGN.md §1) ───────────────────────────────────────────
+# Data only. Adding a method here — including one this repo has never seen — must
+# need no code change; gates/check_parity.py proves that with a runtime-named canary.
+# `instructions` may use only the core slot vocabulary: command, model, effort,
+# provider, host, service_tier, perspectives, trials, severities. An unknown slot is
+# rejected at load, so this list going stale is an over-restriction with a real cost — a
+# reviewer that needs one of them cannot be authored from what the config says. The
+# launcher's own rejection message enumerates INSTRUCTION_SLOTS, which is the list to
+# trust if the two ever differ.
+
+[review_methods.panel]
+label = "Isolated panel"
+description = "The always-present base: an isolated multi-perspective panel, no install required."
+instructions = "dispatch {command} as a fresh read-only process for {trials} isolated passes over the perspectives {perspectives}, each pinned to {model}/{effort}, and aggregate"
+output = "review-v1"
+perspectives = ["correctness", "security", "reproduction"]
+trials = 3
+order = "randomized"
+swap_augmentation = true
+aggregation = "majority"
+# Our own subagents report on the canonical ladder itself. Stated rather than left
+# implicit, because an identity map is exactly what a wrongly copied one looks like.
+severity_emits = ["blocker", "high", "medium", "low", "info"]
+severity_map = { blocker = "blocker", high = "high", medium = "medium", low = "low", info = "info" }
+
+[review_methods.codex-exec]
+label = "Codex deep exec review"
+# Named for the mechanism, not for the legacy layer. The legacy route token `ultracode`
+# used to BE its capability's key, so naming another tool with the bare name silently
+# repointed the legacy route — the golden caught that, and the fix was to bind the legacy
+# token to a capability explicitly (`LEGACY_ULTRACODE_CAPABILITY`) rather than let a setup
+# name and a tool id be the same string.
+description = "One deep pass by the Codex CLI in non-interactive exec mode: the whole packet handed to a single frontier-effort model rather than fanned out over agents. Use it on things that have to WORK when the strongest single reader beats many angles; the Claude-side workflow below is the fan-out counterpart. Reviews whatever packet you hand it on stdin, so it needs no working-tree state and nothing installed beyond the codex CLI itself."
+capability = "codex-exec"
+operation = "exec-review"
+# The exec flags are the whole mechanism, so they are stated as literals rather than left
+# to the dispatcher's memory. The severity ladder is stated too, and that is what makes
+# the identity map below TRUE rather than copied: this reviewer has no vocabulary of its
+# own — it reports on the ladder because the request tells it to.
+instructions = 'dispatch {command} exec -s read-only -m {model} -c model_reasoning_effort="{effort}" as a fresh read-only process with a self-contained review packet on stdin (the -s flag is what makes read-only true rather than promised; append -c service_tier="fast" only when a faster, shallower turnaround is explicitly wanted), and require every finding to carry one of {severities}'
+output = "review-v1"
+perspectives = ["deep-exec"]
+trials = 1
+order = "fixed"
+swap_augmentation = false
+aggregation = "union"
+severity_emits = ["blocker", "high", "medium", "low", "info"]
+severity_map = { blocker = "blocker", high = "high", medium = "medium", low = "low", info = "info" }
+
+[review_methods.ultracode]
+label = "Ultracode workflow review (Claude)"
+description = "Claude Code's own dynamic workflow, on Claude. Decomposes the request across many agents and adversarially verifies each candidate finding before it survives. Use it on things that have to WORK — functional, adversarial, logic, scenario and stress passes; the Codex-side deep exec review above is the single-reader counterpart. Reviews whatever packet you hand it, so it needs no working-tree state. The keyword in the prompt is what opens the workflow: without it the turn is an ordinary session that will answer, plausibly, alone. PRECONDITION this launcher cannot establish: the keyword trigger must be enabled (`workflowKeywordTriggerEnabled`, default true, verified in claude 2.1.220). A resolvable claude CLI proves the command exists, not that the workflow opens — with that setting off the review runs as an ordinary session and would report as though it were orchestrated."
+capability = "ultracode"
+operation = "workflow-review"
+# The keyword is the whole mechanism, so it is stated as a literal rather than left to the
+# dispatcher's memory. The severity ladder is stated too, and that is what makes the
+# identity map below TRUE rather than copied: this reviewer has no vocabulary of its own —
+# it reports on the ladder because the request tells it to. A gate asserts the instruction
+# still names every value the descriptor claims, so the two cannot drift apart.
+instructions = "dispatch {command} as a fresh read-only process whose prompt carries the keyword ultracode, so the turn runs as an orchestrated workflow over a self-contained review packet on {model}/{effort} (confirm the workflow actually opened — a disabled keyword trigger yields an ordinary session), and require every finding to carry one of {severities}"
+output = "review-v1"
+perspectives = ["orchestration"]
+trials = 1
+order = "fixed"
+swap_augmentation = false
+aggregation = "union"
+severity_emits = ["blocker", "high", "medium", "low", "info"]
+severity_map = { blocker = "blocker", high = "high", medium = "medium", low = "low", info = "info" }
+
+[hosts.codex]
+# The model family this host speaks for. A review binding names a provider, and
+# the reverse map must be unique so it resolves to exactly one validatable seat.
+provider = "openai"
+models = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"]
+
+[hosts.codex.tiers.frontier]
+model = "gpt-6-astra"
+effort = "max"
+
+[hosts.codex.tiers.helm]
+model = "gpt-5.6-sol"
+effort = "xhigh"
+
+[hosts.codex.tiers.workhorse]
+model = "gpt-5.6-terra"
+effort = "xhigh"
+
+[hosts.codex.tiers.sweep]
+model = "gpt-5.6-luna"
+effort = "max"
+
+[hosts.codex.agent_templates]
+frontier = "${CODEX_HOME}/agents/frontier.toml"
+workhorse = "${CODEX_HOME}/agents/workhorse.toml"
+sweep = "${CODEX_HOME}/agents/sweep.toml"
+
+# Model id -> the name the human-readable guides write. The guides' Environment Binding tables
+# restate these bindings in prose that also carries policy the profile does not hold ("main Ultra
+# requires explicit selection"), so those tables are not generatable — but the MODEL IDENTITY in
+# them is this file's, and until this map existed the parity gate compared each table to display
+# names written inside the gate. That made the gate a third author of the binding. With the map
+# here, the gate compares two real surfaces and holds no copy of its own.
+[model_display]
+"claude-fable-5" = "Claude Fable 5"
+"claude-fable-5-1" = "Claude Fable 5.1"
+"claude-opus-5" = "Claude Opus 5"
+"claude-sonnet-5" = "Claude Sonnet 5"
+"claude-haiku-4-5" = "Claude Haiku 4.5"
+"gpt-6-astra" = "GPT-6 Astra"
+"gpt-5.6-sol" = "GPT-5.6 Sol"
+"gpt-5.6-terra" = "GPT-5.6 Terra"
+"gpt-5.6-luna" = "GPT-5.6 Luna"
+
+[hosts.claude]
+provider = "anthropic"
+models = ["claude-fable-5", "claude-fable-5-1", "claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5"]
+
+[hosts.claude.tiers.frontier]
+model = "claude-fable-5-1"
+effort = "max"
+
+[hosts.claude.tiers.helm]
+model = "claude-opus-5"
+effort = "xhigh"
+
+[hosts.claude.tiers.workhorse]
+model = "claude-sonnet-5"
+effort = "xhigh"
+
+[hosts.claude.tiers.sweep]
+model = "claude-haiku-4-5"
+
+[presets.balanced]
+label = "Balanced"
+description = "HELM default for everyday work with native multi-perspective review."
+mode = "builder"
+main_tier = "helm"
+delegation = true
+codex_execution_policy = "bypass"
+claude_permission_mode = "bypassPermissions"
+
+[presets.deep-review]
+label = "Deep review"
+description = "HELM with the base panel plus the deep reviewer from the OTHER provider — Codex exec at ultra when you launch Claude, the Claude workflow when you launch Codex — at FRONTIER effort."
+mode = "builder"
+main_tier = "helm"
+delegation = true
+codex_execution_policy = "bypass"
+claude_permission_mode = "bypassPermissions"
+
+[presets.fast-batch]
+label = "Fast batch"
+description = "WORKHORSE default for high-volume, cost-conscious execution."
+mode = "builder"
+main_tier = "workhorse"
+delegation = true
+codex_execution_policy = "bypass"
+claude_permission_mode = "bypassPermissions"
+
+[presets.solo]
+label = "Solo"
+description = "Single-model session: delegation off (no tier fan-out; the standing spawn policy is lifted) and no review route requested — review is whatever you run yourself."
+mode = "builder"
+main_tier = "helm"
+review_setup = "none"
+delegation = false
+codex_execution_policy = "bypass"
+claude_permission_mode = "bypassPermissions"
+
+[presets.vanilla]
+label = "Vanilla"
+description = "Plain CLI session: no launch contract, no tier bindings, standard permissions — exactly what the bare backend gives you."
+mode = "software-engineer"
+main_tier = "helm"
+review_setup = "none"
+delegation = false
+codex_execution_policy = "standard"
+claude_permission_mode = "standard"
+
+[presets.session-distill]
+# Author-only: the workflow edits the agent-bios corpus and needs a checkout, so
+# its mission names repo paths a packaged user does not have. Declaring it lets
+# gates/check-package.sh judge the mission text. NOTE: this declaration is read by
+# the gate, not yet by the launcher — the preset is still offered on a packaged
+# install. Closing that route belongs with the package-based distill work.
+audience = "author"
+label = "Session distill"
+description = "Dedicated session-distill run: mine recent sessions, verify, place, and apply per the session-distill workflow. Requires an agent-bios checkout."
+mode = "distill"
+main_tier = "helm"
+delegation = true
+codex_execution_policy = "bypass"
+claude_permission_mode = "bypassPermissions"
+mission = "This is a session-distill initiative session, gated on a trigger. When the user enters the trigger command '{trigger}': FIRST read 'Goal and desired outcomes' at the start of claude/guides/session-distill-workflow.md in the agent-bios checkout. Use that definition to guide this run and its delegated work before reading state or starting the pipeline. Then read the rest of that guide and the initiative state in design/session-distill/ledger.json in the same checkout, and run the next mining window per the guide. Until the trigger arrives, respond normally and do not start the workflow. Every promotion passes through explicit user approval; nothing is applied to the corpus without it."
+trigger = "distill!"
+
+
+# ── review, per host (DESIGN.md Corrections C7) ─────────────────────────────
+# A binding names a provider, which maps to one host, so cross-family review has to
+# be stated per launch host. Both answers live here rather than being inferred, and
+# the reviewer's tier now tracks the preset's intent instead of exposing the whole
+# opposite tier table for the reader to pick from.
+
+[presets.balanced.review.hosts.claude.base]
+provider = "openai"
+tier = "helm"
+
+[presets.balanced.review.hosts.codex.base]
+provider = "anthropic"
+tier = "helm"
+
+[presets.deep-review.review.hosts.claude.base]
+provider = "openai"
+tier = "frontier"
+
+[presets.deep-review.review.hosts.claude.methods."codex-exec"]
+provider = "openai"
+model = "gpt-5.6-sol"
+effort = "ultra"
+
+[presets.deep-review.review.hosts.codex.base]
+provider = "anthropic"
+tier = "frontier"
+
+[presets.deep-review.review.hosts.codex.methods."ultracode"]
+provider = "anthropic"
+tier = "frontier"
+
+[presets.fast-batch.review.hosts.claude.base]
+provider = "openai"
+tier = "workhorse"
+
+[presets.fast-batch.review.hosts.codex.base]
+provider = "anthropic"
+tier = "workhorse"
+
+[presets.session-distill.review.hosts.claude.base]
+provider = "openai"
+tier = "frontier"
+
+[presets.session-distill.review.hosts.claude.methods."codex-exec"]
+provider = "openai"
+model = "gpt-5.6-sol"
+effort = "ultra"
+
+[presets.session-distill.review.hosts.codex.base]
+provider = "anthropic"
+tier = "frontier"
+
+[presets.session-distill.review.hosts.codex.methods."ultracode"]
+provider = "anthropic"
+tier = "frontier"
+
+# Nudge baseline lives in ~/.local/share/agent-bios/session-distill-state.json,
+# written by session-distill/update-state.py at window close.
+[session_distill]
+nudge_after = 250

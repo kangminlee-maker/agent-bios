@@ -1,0 +1,95 @@
+{
+  "source": "learnings-export",
+  "exported_at": "2026-07-21T10:00:00+09:00",
+  "filters": { "domain": null, "from": null, "to": null, "includeExported": false },
+  "count": 5,
+  "capped": false,
+  "learnings": [
+    {
+      "learning_id": "0f8c1c2a-4d1e-4abc-9def-000000000002",
+      "user_email": "alice@day1company.co.kr",
+      "schema_version": 1,
+      "domain": "builder-base",
+      "received_at": "2026-07-20T14:31:02.500+09:00",
+      "status": "EXPORTED",
+      "payload": {
+        "schema_version": 1,
+        "learning_id": "0f8c1c2a-4d1e-4abc-9def-000000000002",
+        "lesson": "긴 LLM 하위 프로세스가 CPU 0%로 보이는 것은 I/O 대기의 정상 신호이므로, 프로세스 상태와 호출 경과 시간을 확인하기 전에는 중단하지 않는다",
+        "domain": "builder-base",
+        "created": "2026-07-20T14:30:00.250+09:00",
+        "supporting_sessions": ["codex:ab12cd34"],
+        "criteria": ["recurrent_error", "rare_high_cost"],
+        "classification": { "type": "B", "layer": "hook", "meets_bar": true },
+        "context": "세션 중 정상 동작하던 4분짜리 배치 호출을 행으로 오판해 중단할 뻔했음. ps 상태는 S(sleep), 호출 트레이스는 in-flight였고, 완료 후 결과는 정상이었다."
+      }
+    },
+    {
+      "learning_id": "0f8c1c2a-4d1e-4abc-9def-000000000001",
+      "user_email": "bob@day1company.co.kr",
+      "schema_version": 1,
+      "domain": "unclassified",
+      "received_at": "2026-07-20T05:01:00Z",
+      "status": "EXPORTED",
+      "payload": {
+        "schema_version": 1,
+        "learning_id": "0f8c1c2a-4d1e-4abc-9def-000000000001",
+        "lesson": "A shell pipeline's exit code reflects only the last stage, not the command under test",
+        "domain": "unclassified",
+        "created": "2026-07-20T05:00:00Z",
+        "supporting_sessions": ["claude:517fbcea"]
+      }
+    },
+    {
+      "learning_id": "0f8c1c2a-4d1e-4abc-9def-000000000004",
+      "user_email": "carol@day1company.co.kr",
+      "schema_version": 1,
+      "domain": "unclassified",
+      "received_at": "2026-07-20T07:02:00Z",
+      "status": "EXPORTED",
+      "payload": {
+        "schema_version": 1,
+        "learning_id": "0f8c1c2a-4d1e-4abc-9def-000000000004",
+        "lesson": "When a lesson clearly belongs to a not-yet-registered area, capture it as unclassified and propose the domain name for the curator to register",
+        "domain": "unclassified",
+        "created": "2026-07-20T07:00:00Z",
+        "supporting_sessions": ["claude:8e68f791"],
+        "classification": { "type": "G", "layer": "guide", "meets_bar": true },
+        "proposed_domain": "data-pipeline"
+      }
+    },
+    {
+      "learning_id": "0f8c1c2a-4d1e-4abc-9def-000000000009",
+      "user_email": "dave@day1company.co.kr",
+      "schema_version": 1,
+      "domain": "not-a-real-domain",
+      "received_at": "2026-07-20T09:00:00Z",
+      "status": "EXPORTED",
+      "payload": {
+        "schema_version": 1,
+        "learning_id": "0f8c1c2a-4d1e-4abc-9def-000000000009",
+        "lesson": "This row's domain is not in the vocabulary, so intake must reject it (negative control)",
+        "domain": "not-a-real-domain",
+        "created": "2026-07-20T09:00:00Z",
+        "supporting_sessions": ["claude:deadbeef"]
+      }
+    },
+    {
+      "learning_id": "0f8c1c2a-4d1e-4abc-9def-00000000000a",
+      "user_email": "erin@day1company.co.kr",
+      "schema_version": 2,
+      "domain": "builder-base",
+      "received_at": "2026-07-20T10:00:00Z",
+      "status": "EXPORTED",
+      "payload": {
+        "schema_version": 2,
+        "learning_id": "0f8c1c2a-4d1e-4abc-9def-00000000000a",
+        "lesson": "A future-schema (v2) row the v1 intake cannot classify yet, so it must be DEFERRED not rejected",
+        "domain": "builder-base",
+        "created": "2026-07-20T10:00:00Z",
+        "supporting_sessions": ["claude:cafef00d"],
+        "some_v2_field": "store-if-present forward-compat"
+      }
+    }
+  ]
+}

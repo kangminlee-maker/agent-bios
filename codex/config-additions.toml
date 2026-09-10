@@ -1,0 +1,22 @@
+# agent-bios additions for the LIVE ~/.codex/config.toml, which is user/
+# runtime-owned and never deployed wholesale. `agent-bios install` merges
+# exactly this content additively — the [agents.*] tables inside one marked
+# block, and features.multi_agent as one tagged line — and touches nothing
+# else in that file. `agent-bios uninstall` removes only that marked content.
+# ${CODEX_HOME} expands at install time. Descriptions are projections of the
+# canonical codex/agents/*.toml templates; check-parity fails on drift.
+
+[features]
+multi_agent = true
+
+[agents.frontier]
+description = "Bounded hardest decisions, first-of-kind design, triage, and final verdicts."
+config_file = "${CODEX_HOME}/agents/frontier.toml"
+
+[agents.workhorse]
+description = "Bounded implementation, fixes, and per-item judgment for delegated Codex work."
+config_file = "${CODEX_HOME}/agents/workhorse.toml"
+
+[agents.sweep]
+description = "Read-only checks applying one explicit rule to each item; report ambiguity as an exception."
+config_file = "${CODEX_HOME}/agents/sweep.toml"

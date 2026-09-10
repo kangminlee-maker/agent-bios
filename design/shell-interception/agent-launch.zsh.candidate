@@ -1,0 +1,79 @@
+# Interactive zero-argument entrypoints use agent-launch. Every argument-bearing
+# or non-TTY call skips profile projection; Claude retains its direct-path
+# permission-bypass default.
+_agent_launch_direct() {
+  local host="$1"
+  shift
+  # `builtin command`, not bare `command`. The point of this line is to reach the real
+  # binary without re-entering a shell function, and zsh lets a user define `command()`
+  # — at which point the bare form calls THAT, and the direct path this wrapper exists to
+  # provide is handed to whatever the user's function does. `builtin` cannot be shadowed,
+  # so the resolution is the one the comment above already promised.
+  if [[ "$host" == "claude" ]]; then
+    builtin command claude --dangerously-skip-permissions "$@"
+  else
+    builtin command codex "$@"
+  fi
+}
+
+_agent_launch_dispatch() {
+  local host="$1"
+  shift
+  local launcher="${AGENT_LAUNCH_BIN:-$HOME/.local/bin/agent-launch}"
+
+  if [[ $# -gt 0 && "$1" == "--no-tui" ]]; then
+    shift
+    _agent_launch_direct "$host" "$@"
+  elif [[ $# -eq 0 && -t 0 && -t 1 && "${AGENT_LAUNCH_TUI:-1}" != "0" ]]; then
+    "$launcher" "$host"
+  else
+    _agent_launch_direct "$host" "$@"
+  fi
+}
+
+# The entrypoints are (re)defined from one place so the reassert below installs the
+# same thing the initial source did.
+_agent_launch_define() {
+  unalias codex 2>/dev/null
+  unalias claude 2>/dev/null
+  codex() { _agent_launch_dispatch codex "$@"; }
+  claude() { _agent_launch_dispatch claude "$@"; }
+}
+_agent_launch_define
+
+# Reassert the entrypoints right before each command runs. "Last definer wins" is
+# the shell's rule, and a terminal or tool that defines `claude` after the rc files
+# (cmux does, on its first precmd — deliberately, "in case user startup replaced
+# them") would otherwise win in silence: bare `claude` skips the preflight while
+# `codex` keeps working. preexec runs after every precmd, whatever the registration
+# order, so the check is the last word at the only moment that matters. Cost: one
+# string compare per command. The downstream stays `builtin command <host>`, so a
+# tool that also owns a PATH shim (cmux) keeps its own injection.
+zmodload -i zsh/parameter 2>/dev/null
+typeset -gA _agent_launch_shadow_noted
+_agent_launch_note_shadow() {
+  setopt localoptions extendedglob
+  local host="$1" foreign="$2" state="$HOME/.local/share/agent-bios" first
+  local -a lines
+  # One line per host per shell, into the state dir agent-bios already owns — the
+  # evidence `agent-bios status`/`verify` read. Never create the dir: no install, no log.
+  [[ -n "${_agent_launch_shadow_noted[$host]-}" || ! -d "$state" ]] && return
+  _agent_launch_shadow_noted[$host]=1
+  lines=("${(@f)foreign}")
+  first="${lines[1]##[[:space:]]#}"
+  printf '%s\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$host" \
+    "${TERM_PROGRAM:-unknown}" "${first:-<undefined>}" >> "$state/shell-shadow.log" 2>/dev/null
+}
+_agent_launch_reassert() {
+  local host
+  for host in claude codex; do
+    if [[ "${functions[$host]-}" != *"_agent_launch_dispatch $host "* ]]; then
+      _agent_launch_note_shadow "$host" "${functions[$host]-}"
+      _agent_launch_define
+      return
+    fi
+  done
+}
+autoload -Uz add-zsh-hook
+add-zsh-hook -d preexec _agent_launch_reassert 2>/dev/null
+add-zsh-hook preexec _agent_launch_reassert

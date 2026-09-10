@@ -1,0 +1,1185 @@
+{
+ "screened": 249,
+ "candidates": [
+  {
+   "session_id": "a0f73345-5132-40ff-b471-2edceb321aba",
+   "title": "Anchor numeric error-code patterns in log-tail monitors to avoid substring false positives",
+   "criteria": [
+    "recurrent_error",
+    "rare_high_cost"
+   ],
+   "evidence": "A background Monitor watching a live pipeline's driver+server logs raised a false alarm on an HTTP '529' error; the actual log line contained an unrelated microsecond timing value ('...1529µs') whose digits happened to contain the substring '529'. The agent had to stop, diagnose the false positive, and rewrite the grep pattern with boundary anchoring (require whitespace/'in' context, exclude periodic heartbeat lines) to avoid repeat false alarms that risked the Monitor auto-stopping from event flooding and losing visibility into the real long-running job.",
+   "novelty": "Baseline's Tooling and Operational Safety section covers distinguishing I/O-wait hangs from real failures and reading raw provider logs instead of coarse signals, but says nothing about numeric substring collisions when building error-detection regexes over streamed/tailed logs.",
+   "principle": "When writing a regex to flag error/status codes (e.g. HTTP status) in streamed or tailed logs for a background monitor, anchor the match to field boundaries (preceded by whitespace or a labeled key, not preceded/followed by other digits) rather than a bare substring search. Unrelated numeric fields in the same log line -- timings in µs/ms, byte counts, ids, ports -- can contain the same digit sequence, and an unanchored pattern produces false alarms that waste investigation time or can trip an event-flood auto-stop on a long-running watch.",
+   "placement": "guides/cli-multi-model-workflow.md (or a Tooling and Operational Safety addition) -- the section governing background Monitor/task-notification use",
+   "confidence": 0.45,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "fed96cfb-5a36-473f-803b-ef885fed6a01",
+   "title": "Separate 'move processing downstream' from 'drop raw fields' when lightening a data pipeline",
+   "criteria": [
+    "rollback",
+    "quality_lever"
+   ],
+   "evidence": "Asked to redesign a usage-data collector to be 'lighter and more robust,' the agent proposed dropping fields it judged unused/dead as part of the redesign. The user corrected: '기존 정보량 대비 변경된 설계에서 정보량이 줄어들면 안돼. 우리는 프로세싱을 서버에서 하려는거지, 정보량을 줄이려는거아니야' (the goal was moving processing to the server, not shrinking captured information), forcing the agent to redo the design so raw signal was fully preserved and only derived/interpretive computation moved downstream.",
+   "novelty": "Baseline's Concept Economy and Coding Guidelines cover keeping scope narrow and deriving values from source authority, but do not name this specific conflation risk in pipeline-lightening work: treating 'currently unused field' as license to drop raw capture, versus the intended move of only relocating computation.",
+   "principle": "When asked to make a data-collection/normalization pipeline lighter or more robust, keep two moves explicit and separate: (a) relocating derived/interpretive processing to a stage that can already (or will) compute it downstream, and (b) removing raw fields because they look currently unused. Do (a) freely. Treat (b) as a distinct, materially different decision requiring explicit confirmation -- 'no current consumer reads this' is not evidence the raw signal is worthless, since raw retention preserves future reprocessing and analysis options that a derived value cannot recover.",
+   "placement": "CLAUDE.md Coding Guidelines or guides/coding-staged-workflow.md (design-stage guidance for pipeline/schema redesigns)",
+   "confidence": 0.45,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "fb0a27b1-91a3-49fb-9e18-0afd178ecf7c",
+   "title": "Diagnose 'command not found' for known-good binaries as a PATH-stripped network wrapper first",
+   "criteria": [
+    "recurrent_error",
+    "rare_high_cost"
+   ],
+   "evidence": "curl and python3 both reported 'command not found' inside a verification script. The agent first suspected sandbox restrictions and disabled sandboxing (no fix), then tried exporting PATH explicitly (still no fix), before discovering the actual cause: commands that touch the network execute inside a bare '(eval):' wrapper with an empty PATH that `export PATH` does not reach; only absolute binary paths (e.g. /usr/bin/curl) worked. Multiple diagnostic turns were spent before the correct cause was isolated.",
+   "novelty": "Baseline's Tooling and Operational Safety section addresses confirming env/config reached a subprocess via a cheap artifact and not trusting coarse ps signals, but has no entry for this specific harness behavior: network-touching Bash invocations losing PATH in an eval wrapper that export does not fix.",
+   "principle": "When a Bash command that performs network I/O reports 'command not found' for a binary independently confirmed to exist and be on PATH (e.g. via `which`), suspect an execution wrapper specific to network-touching commands that runs in a bare eval context with an empty PATH -- not fixed by `export PATH` -- before concluding the sandbox is blocking it. Isolate by testing the same binary in a non-network command; if that succeeds, route around the wrapper using the binary's absolute path instead of relying on PATH resolution.",
+   "placement": "CLAUDE.md Tooling and Operational Safety section (a harness-level quirk that recurs across any project using this environment)",
+   "confidence": 0.55,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "08a42ade-2563-4447-9cfb-bcb231564512",
+   "title": "Attribute a parallel session's git action by tool-execution evidence, not transcript mentions",
+   "criteria": [
+    "rollback",
+    "re_exploration"
+   ],
+   "evidence": "To determine which of three parallel Claude sessions created specific branches/commits, the agent first grepped all session transcripts for the commit hash and branch name. It caught its own error: '그럽이 오염되었습니다 — 메모(release-rollout-resume) 본문에 이 커밋 해시·브랜치명이 들어 있어 모든 세션 컨텍스트에 주입되므로, 단순 언급으로는 실제 작업한 세션을 못 가린다' -- because a shared handoff/memory doc loaded into every session's context contained the same identifiers, the mention-search matched every session. It then re-derived attribution from actual command executions (e.g. a literal `gh pr create --head ...` invocation) instead.",
+   "novelty": "The multi-model guide's Sessions/Branches/Worktrees section covers relocation, pwd/branch/HEAD re-verification, and handoff hygiene, but has no rule for this specific transcript-forensics pitfall: shared-context pollution defeating a naive text-mention search when attributing which parallel session performed an action.",
+   "principle": "When determining which of several parallel agent sessions actually performed a given git/infra action, do not attribute by grepping transcripts for mentions of the identifying token (commit hash, branch name, resource id) -- any handoff, resume note, or memory file loaded into multiple sessions' context will inject the same tokens into every one of them and produce matches everywhere. Attribute instead from evidence of actual execution -- the literal command invocation and its result in that session's own transcript -- not textual co-occurrence.",
+   "placement": "guides/cli-multi-model-workflow.md, Sessions/Branches/Worktrees section",
+   "confidence": 0.5,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "66a90f0b-0c1a-49cf-a660-1d413e3406bb",
+   "title": "Check baked config file permissions against a container's non-root runtime UID",
+   "criteria": [
+    "rare_high_cost",
+    "recurrent_error"
+   ],
+   "evidence": "A freshly built and deployed gateway container failed to boot with 'open /config/gateway.meta.json: permission denied'. Root cause: the signing tool wrote meta.json/evidence.json with 0600 permissions; the image runs as non-root UID 65532, so the root-owned 0600 files baked in via COPY were unreadable at runtime (a sibling file at 0644 booted fine). Fixed by changing the tool's output permissions to 0644 and rebuilding -- a full extra build-deploy-diagnose-rebuild cycle for a class of bug invisible at build time.",
+   "novelty": "Baseline has no coverage of container file-permission / non-root-UID interactions for baked artifacts anywhere in Tooling and Operational Safety or the Coding Guidelines' verification menus.",
+   "principle": "When a build step generates or signs files that get baked into a container image running as a non-root user, check the emitted files' permission bits before trusting the image will boot -- a generator or signing tool that defaults to owner-only permissions (0600) silently produces a root-owned, non-root-unreadable file once COPY'd in, and the failure only surfaces at container start, not at build time. Require the tool to emit permissions the runtime UID can read (typically 0644), or explicitly chmod after COPY, and verify this as part of the image build check rather than only at first live boot.",
+   "placement": "guides/coding-staged-workflow.md Verification Menus (code domain) -- container/deploy artifact checks",
+   "confidence": 0.5,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "66a90f0b-0c1a-49cf-a660-1d413e3406bb",
+   "title": "Verify the active cloud CLI project/context matches intent, not just git state",
+   "criteria": [
+    "rare_high_cost",
+    "quality_lever"
+   ],
+   "evidence": "Resuming a saved checklist to re-run a full test pass, the agent found the ambient `gcloud` active project was `d1-ai-dashboard` while the intended target from the checklist was `day1-ai-dashboard-dev`, and flagged this mismatch before running any command: '엉뉱한(혹시 prod) 프로젝트에 배포하지 않도록 먼저 확인이 필요합니다.' It then pinned every subsequent gcloud invocation with an explicit --project flag for the rest of the session rather than mutating or trusting the global default, avoiding a risk of acting against production infrastructure.",
+   "novelty": "Baseline's cli-multi-model-workflow guide has an explicit rule for git-state drift ('re-verify pwd; in a repo, branch and HEAD... against the pinned handoff') but nothing for cloud CLI (gcloud/aws/kubectl) active-context drift, which carries an equal or greater blast-radius risk -- a wrong-environment deploy or teardown -- and the same silent-ambient-default failure mode.",
+   "principle": "Ambient CLI context for cloud tools (active gcloud project, aws profile, kubectl context) drifts across sessions and unrelated work in exactly the way git branch/HEAD does, and using it implicitly before an environment-affecting command (deploy, IAM change, teardown, resource creation) risks acting on the wrong environment. On session resume, or before the first resource-affecting command of a session, explicitly diff the active cloud context against the intended target; if they differ, do not switch the global default -- pin the target explicitly on every command for the rest of the session (--project/--profile/--context) instead.",
+   "placement": "CLAUDE.md Tooling and Operational Safety section, as a sibling bullet to the existing git pwd/branch/HEAD verification rule; or guides/cli-multi-model-workflow.md Halt And Resume section",
+   "confidence": 0.6,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "6b5ffea5-6f3d-498b-9278-59551af0438c",
+   "title": "grep silently misdetects non-ASCII-heavy source files as binary, giving a false 'no match'",
+   "criteria": [
+    "recurrent_error"
+   ],
+   "evidence": "This exact failure recurred at least four times in the batch: session d64ecafd needed 'grep -a' to find a match in a UTF-8 file; session 6b5ffea5 found grep returned exit 1 (no match) on a .ts file with many Korean comments while `git diff` plainly showed the line was present, and the agent had to fall back to Read to confirm; session 9f75d597 hit a grep failure attributed to zsh globbing and switched to ripgrep; session d66cb116 again logged 'grep 도구가 이 파일에서 비정상입니다. 직접 읽겠습니다.' and fell back to a direct Read. In each case the agent burned a turn diagnosing before working around it, and in one case only caught the false negative because an independent source (git diff) contradicted it.",
+   "novelty": "The baseline's Tooling and Operational Safety section covers confirming tool flags/versions empirically and treating coarse runtime signals (ps reads, failure labels) as hypotheses to verify against low-level evidence, but it has no rule about grep's binary-detection heuristic misfiring on legitimate non-ASCII text files, which is a distinct and recurring failure class in this corpus (a silent false negative, not a crash or flag error).",
+   "principle": "Treat a no-match/failure result from `grep` on a source file with heavy non-ASCII content (e.g. non-English comments) as a hypothesis, not proof of absence: grep's binary-detection heuristic can misclassify such UTF-8 files as binary and silently return no matches instead of an error. When a grep miss contradicts another source of evidence (git diff, a prior read, a teammate's report), re-run with a flag that forces text mode (e.g. `grep -a`) or use a tool that does not binary-sniff (e.g. ripgrep) before concluding the pattern is absent.",
+   "placement": "global CLAUDE.md, Tooling and Operational Safety section — as a sibling bullet to the existing 'ps env read is unreliable' rule, since both are about not trusting a coarse tool signal without corroboration.",
+   "confidence": 0.78,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "6adf7862-d92f-473d-97e2-7e56820b3f3d",
+   "title": "Resource-creation CLIs can echo secret values into their own success output",
+   "criteria": [
+    "rare_high_cost"
+   ],
+   "evidence": "While registering scheduler jobs with a bearer-token secret injected as a shell variable (not typed literally), the agent found that the cloud CLI's job-creation command echoed the full created job configuration — including the secret header value — back to stdout, exposing the secret in the session transcript. The agent flagged this mid-session as a security issue it could not have prevented by variable injection alone, and advised treating the transcript as compromised.",
+   "novelty": "The baseline's secrets rule ('Never accept secrets through transcript- or history-logged channels; provide a gitignored env slot, read the value only from the environment... advise rotating anything already pasted') addresses secrets flowing IN (typed/pasted by a human or model). It does not address secrets flowing OUT: a tool's own response to a legitimate, variable-injected creation call can itself contain the secret in plaintext, which is a different leak direction with a different mitigation (suppress/redact the echoed output, or treat any resource-creation call that accepts a secret payload as a rotation trigger).",
+   "principle": "When a tool call creates or updates a resource whose payload includes a secret (a token, key, or credential), assume the command's own success output may echo that secret back verbatim — even when the secret was passed via a variable rather than typed literally — because some CLIs and APIs return the full resource state on creation. Redirect or suppress such output where possible, and treat any secret that was passed through a command whose output you did not fully control as exposed: rotate it, the same as a pasted secret.",
+   "placement": "global CLAUDE.md, Tooling and Operational Safety section — as a companion bullet to the existing secrets-input rule, extending it to cover secrets leaking through a command's own output.",
+   "confidence": 0.72,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "90cbb762-790c-4263-9817-2305779d2c39",
+   "title": "Prove the downstream consumption path before flipping an irreversible collection switch",
+   "criteria": [
+    "quality_lever"
+   ],
+   "evidence": "Before redeploying a gateway to turn on sensitive-data capture (an action described as hard to reverse and one that changes the system's data-collection posture), the agent explicitly ordered the work as: first build and validate the decryption/consumption tool against already-existing sealed records from a prior brief capture window, prove it can read what was captured, and only then perform the irreversible production redeploy that turns capture back on — reasoning '켜고 나서 못 읽으면 곤란하니까요' (no good turning it on if you can't read it afterward).",
+   "novelty": "The baseline's default-off/opt-in rule for risky changes ('Land risky or behavior-changing work behind a default-off path... enabled by an explicit opt-in, so the change stays reversible') covers making the change itself reversible via a flag, but this session's switch was inherently costly to leave off-then-on (each activation window collects data you cannot get back if you can't read it). The distinct, more specific practice — validate the consumer/decoder path against existing or historical samples before activating an irreversible collection step — is not stated.",
+   "principle": "Before activating a costly-to-reverse data-collection, capture, or side-effect switch, first build and verify the downstream consumption path (decoding, decryption, parsing, or analysis) against existing or historical samples of that data. Only flip the switch once you have proven you can actually use what you are about to collect — otherwise a successful activation can still be a wasted or unrecoverable window.",
+   "placement": "global CLAUDE.md, Coding Guidelines section — adjacent to the existing 'land risky work behind a default-off opt-in path' bullet, as a refinement for switches whose activation itself (not just the code) is hard to reverse.",
+   "confidence": 0.6,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "9c8a9c96-a63a-4e3f-9f59-3dbd7a7b0878",
+   "title": "Survey and catalog prior-art failure modes empirically before designing into an existing space",
+   "criteria": [
+    "quality_lever"
+   ],
+   "evidence": "Before designing an expanded tool-coverage surface, the user directed the agent to dispatch parallel agents against roughly ten existing open-source implementations in the same space, extract their actual tool/coverage designs from source, and explicitly catalog which patterns to adopt and which documented failures (e.g. exposing a raw passthrough operation) to avoid repeating — saving the result as a reusable prior-art failure study before writing the new design, which then explicitly designed against the cataloged failure ('passthrough is the very trap we ruled out').",
+   "novelty": "The coding-staged-workflow guide's high-level design stage lists goal/scope/architecture/tradeoffs/completion-criteria but does not mention surveying external prior art or cataloging competitor failure modes as part of design; the multi-model guide's fan-out patterns cover independent workstreams generically but not this specific competitive-analysis-before-design step.",
+   "principle": "When designing a system in a space with existing implementations, empirically survey a representative sample of those implementations (via parallel search/extraction agents, not memory), catalog their documented or observable failure modes explicitly, and design against those failures by name. Persist the survey as a reusable document so later design decisions can be traced back to a specific prior failure being avoided, rather than an unstated preference.",
+   "placement": "coding-staged-workflow.md guide, Stage 1 (High-level design) — add prior-art survey and failure cataloging as an optional input to the design stage when comparable systems exist.",
+   "confidence": 0.55,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "090974cd-3fdf-4976-ae7e-56c9c1c45a8f",
+   "title": "A single run cannot verify a probabilistic mechanism — repeat the probe to measure a failure rate",
+   "criteria": [
+    "quality_lever"
+   ],
+   "evidence": "After building and validating a falsifiable test harness (confirmed to pass on a faithful mock and fail on a broken mock), the agent ran the real LLM-backed mechanism once, observed a failure, and then explicitly re-ran it five more times specifically to measure a failure rate rather than stopping at the single result — arriving at a quantified 2/6 (~33%) failure rate that shaped the design conclusion, at a token cost the agent confirmed was negligible before running.",
+   "novelty": "The baseline's verification-proportionality rule says to 'probe at N=1 with inputs precondition-checked' before expensive live runs, which is framed for cost-gating a single confirmatory probe. It does not distinguish the case where the mechanism under test is itself non-deterministic (LLM-driven): for such mechanisms a single pass or single fail is not a reliable verdict, and the corpus shows this session explicitly recognized that and paid for repeated trials to get a rate instead of a binary verdict.",
+   "principle": "When probing a mechanism whose behavior includes LLM-introduced non-determinism, do not conclude soundness or failure from a single real-probe result. After the harness itself is validated with cheap negative controls, budget for a small number of repeated real trials (roughly 5-6) of the same probe to estimate a failure rate, and report that rate rather than a single pass/fail — a lone run can both understate and overstate a probabilistic mechanism's true reliability.",
+   "placement": "global CLAUDE.md, Verification Discipline section — as a refinement to the existing 'probe at N=1' bullet under proportional verification, scoped specifically to mechanisms with LLM/probabilistic non-determinism.",
+   "confidence": 0.62,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "b56ce5f6-b195-4efc-a707-9ce632f05325",
+   "title": "Pin exact handle/session id when polling concurrent async review jobs",
+   "criteria": [
+    "rollback"
+   ],
+   "evidence": "Mid-session the agent polled a 'latest' review-session selector to check its own design review and got back results from a different, unrelated concurrent review session (target 'internal') because another review had started more recently. It caught the mismatch itself, switched to the exact session id, and re-polled correctly — costing an extra round of investigation before the real results were read.",
+   "novelty": "The baseline's cli-multi-model-workflow.md says 'Idle/progress notifications are hypotheses; verify repo artifacts before re-dispatch' and 'Resume-first from artifacts that parse... and match their recorded fingerprint', which cover verifying resumed state, but nothing addresses the specific 'latest' selector failure mode where a convenience filter silently resolves to a different concurrent job's output rather than the caller's own.",
+   "principle": "When polling a long-running or async job by handle, avoid 'latest'/most-recent convenience filters once more than one such job can be in flight at the same time (parallel reviews, parallel builds, shared queues) — pin and re-use the exact id/handle returned at dispatch time, since 'latest' can silently resolve to a different concurrent job and produce plausible-looking but wrong results.",
+   "placement": "guides/cli-multi-model-workflow.md, Delegation Mechanics And Teammate Persistence or Halt And Resume section",
+   "confidence": 0.55,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "517fbcea-ff26-4faa-b242-fc4e947483c6",
+   "title": "Shell pipeline exit code reflects only the last command, not earlier failures",
+   "criteria": [
+    "recurrent_error",
+    "quality_lever"
+   ],
+   "evidence": "While validating a data-parity check built from a piped shell command, the agent explicitly flagged that the pipeline's exit code came back 0 even though an earlier stage in the pipe was the one that mattered ('exit code도 확인하고(파이프라인 때문에 0으로 나옴)') — catching that the exit status could not be trusted as-is before drawing a conclusion from it.",
+   "novelty": "The baseline's Verification Discipline section says to trust a green check only when it traversed real dispatch and calls, and to be suspicious of unexpectedly fast/empty green results, but it never names the concrete pipe-exit-code masking mechanism (only the last command's status survives a shell pipe unless pipefail is set) as a specific thing to check before trusting a shell-based verification step.",
+   "principle": "When a shell pipeline's exit code is used as a pass/fail verification signal, remember it reflects only the last command by default — enable pipefail or check each stage's exit code explicitly, because an early failing command can be masked by a later successful one and produce a false-green result.",
+   "placement": "global CLAUDE.md, Verification Discipline section (or Tooling and Operational Safety)",
+   "confidence": 0.68,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "bc441370-eec7-4875-8f7b-d888aa6db8bd",
+   "title": "Pass shell-metacharacter prompts (e.g. a literal $ skill name) via stdin, not as a CLI arg",
+   "criteria": [
+    "rare_high_cost",
+    "quality_lever"
+   ],
+   "evidence": "When dispatching a cross-CLI skill invocation whose name began with a literal '$', the agent explicitly chose to inject the prompt via stdin specifically to avoid shell expansion of the '$' ('프롬프트는 stdin으로 주입($ 셸 확장 회피)'), and repeated the same stdin-injection pattern for a later dispatch in the same environment.",
+   "novelty": "The baseline's cli-multi-model-workflow.md documents Codex direct-drive flags, sandbox/approval defaults, and dispatch packets in detail, but does not mention shell-metacharacter escaping as a dispatch-mechanics concern; this is a distinct, concrete technique not covered.",
+   "principle": "When invoking a CLI with a prompt or argument string that may contain shell metacharacters (a literal $, backticks, quotes, or a tool/skill name with a special prefix), pass it via stdin or a file rather than as a raw command-line argument, so the shell does not expand or mangle it before the target process sees it.",
+   "placement": "guides/cli-multi-model-workflow.md, Driving Codex CLI Directly section",
+   "confidence": 0.45,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "efca8296-1457-4255-8fd9-cd4946c8dc90",
+   "title": "A bare 'check memory for next task' is ambiguous across multiple tracked repos/workstreams",
+   "criteria": [
+    "rollback",
+    "high_token"
+   ],
+   "evidence": "Asked only to check memory for the next task, the agent picked a specific pending item from one repo and began verifying/planning it (several turns of real WIP investigation); the user then had to interrupt and explicitly redirect to a different, unrelated task in a different repo entirely ('docs_create는 우리 작업이 아니야... 브랜치와 워크트리가 맞는지도 확인해야 해'), pointing to separate memory files to establish the correct track.",
+   "novelty": "The baseline's cli-multi-model-workflow.md says to re-verify pwd/branch/HEAD against a pinned handoff after any resume, which addresses confirming state within a chosen track, but not the earlier ambiguity of *which* track/repo to choose when a memory index spans multiple independent, simultaneously-active workstreams across different repos.",
+   "principle": "When a memory or handoff index tracks multiple independent workstreams — especially across different repos or worktrees — treat a bare 'check memory / what's next' request as ambiguous rather than defaulting to the most salient or most-recently-touched entry; confirm which specific workstream and repo is meant before investigating or starting work, since guessing can lead to real (if reversible) work in the wrong track.",
+   "placement": "guides/cli-multi-model-workflow.md, Sessions, Branches, Worktrees or Halt And Resume section",
+   "confidence": 0.6,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "f1b98a77-91c3-44c7-b6bf-519c24c4e880",
+   "title": "Blind counterbalanced multi-persona LLM judges for subjective product decisions, checked for confounds",
+   "criteria": [
+    "quality_lever"
+   ],
+   "evidence": "To decide whether a page-layout variant actually improved persuasion (no objective ground truth available), the agent ran two rounds of blind matched-pair comparison with multiple distinct target-customer personas as judges, counterbalancing which variant was labeled A vs B across judges to null out position bias. After round 1 came back 8/8 in the variant's favor, the agent itself discovered a confound (the baseline's images were empty placeholder stubs, not the real content) that could have explained the result, then reran a second, decisive round with the confound removed before trusting the 6/6 convergent verdict.",
+   "novelty": "The baseline's review-request.md guide covers evidence bars, severity, and verdict shape for code review specifically, and the mock-realization guide covers mock-vs-real completion credit, but neither addresses the distinct pattern of using blind, position-counterbalanced, multi-persona LLM judges to evaluate a subjective product/UX quality question, nor the specific discipline of checking test-fixture parity (missing/placeholder assets) for confounds before trusting a comparative verdict.",
+   "principle": "For subjective or qualitative product-quality decisions with no direct ground-truth metric (persuasion, aesthetics, tone, UX variety), evaluate with blind matched-pair comparisons across multiple distinct judge personas, counterbalancing which option is labeled first/A across judges to cancel position bias; before trusting the result, verify both compared artifacts are rendered/populated equivalently (no missing assets or other fixture asymmetry), since an unintended difference in fixture fidelity can masquerade as the effect under test.",
+   "placement": "guides/coding-staged-workflow.md, Verification Menus (add a product/UX decision row) or global CLAUDE.md Verification Discipline section",
+   "confidence": 0.62,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "e64c937a-15ee-42e5-b5f4-4da3110f7196",
+   "title": "A teammate's 'idle' notification can arrive without its result ever having been reported",
+   "criteria": [
+    "recurrent_error"
+   ],
+   "evidence": "Across one session, multiple spawned teammate agents (used as parallel research/review workers) sent an 'idle, available' notification with no accompanying result message on several separate occasions; each time the agent had to notice the absence of a report and explicitly ask the teammate to send it before the actual findings arrived, including at least one case where a duplicate idle notification arrived after the report had already been received.",
+   "novelty": "The baseline's cli-multi-model-workflow.md already says 'Idle/progress notifications are hypotheses; verify repo artifacts before re-dispatch', which covers not blindly re-dispatching on a false idle signal, but does not cover the distinct, repeatedly-observed failure mode where idle and result-report are decoupled events that can arrive in either order (or duplicated) — requiring an explicit ask for the report rather than treating idle as completion.",
+   "principle": "Treat a teammate/subagent's idle-or-available notification as independent of whether it has actually delivered its result — idle can arrive before, after, or duplicated relative to the report. If idle arrives with no attached report, explicitly request the report rather than assuming none is coming or that the unit is simply done.",
+   "placement": "guides/cli-multi-model-workflow.md, Delegation Mechanics And Teammate Persistence section",
+   "confidence": 0.5,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "231ba654-0847-47df-b1b0-24e591fda741",
+   "title": "Diagnose shared-quota stalls via account-wide concurrency, not just the current job's own",
+   "criteria": [
+    "quality_lever"
+   ],
+   "evidence": "Investigating why a serial, single-concurrency production LLM batch job intermittently hit single-call timeouts, the agent measured account-wide process concurrency (including unrelated sibling sessions sharing the same provider account) at each stall timestamp against a no-stall baseline window, found stalls correlated with higher account-wide concurrency from other sessions, and reported the finding together with an explicit correction to its own earlier hypothesis.",
+   "novelty": "The baseline's Unattended Batch Safety section covers circuit breakers and backoff once a limit is hit, and the Tooling section covers treating coarse signals as hypotheses to be confirmed against authoritative evidence, but neither names the specific diagnostic technique of correlating intermittent shared-quota failures against total concurrent usage across all sessions/processes on that account (not just the job under investigation), using a negative-control time window.",
+   "principle": "When diagnosing intermittent stalls or timeouts under a quota or rate limit shared across sessions/processes, do not judge the cause only from the current job's own concurrency — measure total concurrent usage across everything sharing that quota at the failure timestamps and compare against a no-failure baseline window before attributing the cause.",
+   "placement": "guides/cli-multi-model-workflow.md, Unattended Batch Safety section",
+   "confidence": 0.42,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "80fda182-209e-4b84-afbe-dcc5310d47b6",
+   "title": "ISO timestamp string comparison breaks silently across producers with differing precision",
+   "criteria": [
+    "recurrent_error",
+    "rare_high_cost"
+   ],
+   "evidence": "During a multi-round adversarial cross-verification of a data-retention design (ultracode find + onto independent review + codex re-verify + direct code grounding), a load-bearing rule compared event timestamps as strings. A later verification round discovered that one producer emits timestamps without milliseconds ('...56Z') and another emits them with milliseconds ('...56.789Z'); because '.' (0x2E) sorts before 'Z' (0x5A) in ASCII, mixed-precision timestamps compare out of true chronological order under plain string comparison. This was confirmed against production data (mixed precision within the same session) and required switching the comparison to a real timestamp type (`::timestamptz` cast) — it survived to a second cross-verification round as a still-open high-severity finding (Q1) even after the first fix pass.",
+   "novelty": "The baseline's llm-capability-boundary-patterns guide discusses grounding/provenance and timestamp-like fields only as 'runtime-owned' metadata, and the coding guidelines mention 'root cause' and 'single-source the value' generally, but nowhere calls out the specific, recurring class of bug where multi-producer ISO-8601 timestamps compared as raw strings silently misorder when precision (millisecond presence) differs across producers. This is a concrete, reusable data-correctness gotcha absent from the baseline.",
+   "principle": "When ordering or comparing timestamps sourced from more than one producer/system, never compare them as raw strings — parse them into a real datetime/timestamp type before comparison. String-lexicographic comparison of ISO-8601 timestamps silently misorders whenever producers differ in precision (e.g., presence or absence of milliseconds), because punctuation and letter characters used as precision delimiters do not sort chronologically; verify this specifically whenever a design's core decision axis is 'newest wins' across heterogeneous event sources.",
+   "placement": "Coding Guidelines section of global CLAUDE.md (near the 'fix the root cause at its authority' bullet), or a new bullet in the llm-capability-boundary-patterns.md 'Runtime-Owned Deterministic Fields' section since timestamp comparison often backs a provenance/recency field.",
+   "confidence": 0.72,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "9fb51933-2cfb-4c7c-879d-6f1d2e88580f",
+   "title": "Allowlist config can pass boot checks yet silently deny a whole route class on key-format mismatch",
+   "criteria": [
+    "rare_high_cost",
+    "quality_lever"
+   ],
+   "evidence": "A live production tool gateway denied every request for an entire class of grouped tools (13 tools) with tool_not_allowed. Root cause: the config listed grouped tools by bare name (e.g. 'sheets_structure') while the gate compares against a composite per-action RouteKey ('sheets_structure:add_sheet'); the mismatch meant the config passed boot/deploy validation (no boot-time check verifies allowlist entries resolve against the live route table) but denied every actual request. The fix required correcting every entry to its RouteKey form, re-signing the config, redeploying, and validating with an explicit negative control (old config denies, new config allows, an intentionally-excluded scope still denies) plus a live E2E call through the redeployed gateway before declaring done.",
+   "novelty": "The baseline's llm-capability-boundary docs cover validator/schema/enum single-source-of-truth drift and runtime-owned fields, but do not name this specific, high-consequence pattern: an authorization/allowlist config whose entries must match a runtime-constructed composite key, where a format-mismatched entry (bare name vs. composite key) is invisible to boot-time validation and silently blocks 100% of the affected route class at request time. This is a distinct, generalizable operational-safety gap not covered by existing 'schema drift' or 'grounding' rules.",
+   "principle": "When a permission/allowlist config's entries must match a key the runtime constructs at request time (e.g., a composite 'resource:action' key for grouped routes vs. a bare name for flat ones), add a boot-time or deploy-time check that resolves every configured entry against the live route/gate key space — do not rely on schema-shape validation alone. A format-mismatched allowlist entry can pass boot successfully while silently denying every request in that class; after fixing such a gap, verify with an explicit negative control (old config denies, new config allows, deliberately-excluded scope still denies) and a live end-to-end call through the redeployed system before declaring the fix complete.",
+   "placement": "Tooling and Operational Safety section of global CLAUDE.md, or the llm-capability-boundary-patterns.md Security And Side Effects section (permission/allowlist validation).",
+   "confidence": 0.68,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "7cde4039-c726-493b-ab03-a59243e68af2",
+   "title": "Compare delegation cost by counterfactual output, not raw totals; exclude anomalous periods",
+   "criteria": [
+    "rollback",
+    "quality_lever"
+   ],
+   "evidence": "While measuring the cost/quality tradeoff of delegating coding work to a resident subagent (teammate) versus doing it in the main session, the assistant compared raw total dollar spend between the two and concluded the teammate was more expensive. The user corrected this: raw totals ignore that the teammate produced more actual coding output, and an earlier over-delegation mistake had contaminated the teammate's total. The assistant then re-derived the comparison by segmenting at dispatch boundaries and using a counterfactual cost (what the same output would have cost at the main model's rate) instead of raw totals, reversing its prior conclusion.",
+   "novelty": "The baseline's Verification Discipline covers falsifiable checks and negative controls for correctness testing, and the Multi-Model Workflow guide's Evidence Base table reports cost/efficiency numbers, but neither states the specific measurement-methodology rule that cost/efficiency comparisons across strategies must be normalized by comparable output (counterfactual cost) rather than raw totals, and must exclude known anomalous incident periods before drawing a steady-state conclusion. This is a distinct methodological correction not present in the existing guidance.",
+   "principle": "When comparing resource cost or efficiency between two execution strategies (e.g., delegated vs. direct, cheap-tier vs. expensive-tier), do not compare raw totals — normalize by a counterfactual cost for equivalent output (what the same work would have cost under the baseline strategy), and exclude known anomalous incident periods (e.g., a one-off over-delegation mistake) from the steady-state comparison before drawing a conclusion.",
+   "placement": "cli-multi-model-workflow.md guide, near the Evidence Base / Cross-Verification Economy sections where cost comparisons are reported.",
+   "confidence": 0.45,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "18df7a4d-4867-45dc-8ea5-425945376e3e",
+   "title": "Verify a multi-line pasted CLI command executed with all flags intact",
+   "criteria": [
+    "recurrent_error",
+    "rare_high_cost"
+   ],
+   "evidence": "The user ran `gcloud auth application-default login --scopes=https://www.googleapis.com/auth/spreadsheets,https://www.googleapis.com/auth/cloud-platform` as a multi-line paste; the `--scopes=...` continuation landed as a separate line/command, so the login silently completed with only the default `cloud-platform` scope and no `spreadsheets` scope. The agent only caught this by reading the actual granted token scopes (403 insufficient scopes), then had to walk the user through re-running it as one line, then through an unrelated Workspace admin app-block, before the token finally carried both scopes. The batch's last goal for this session ('OAuth가 계속 뜬대' - OAuth keeps popping up) suggests the class of problem kept recurring.",
+   "novelty": "Baseline's Tooling and Operational Safety section has 'confirm it empirically against the live or installed artifact' (for flags/capabilities in general) and 'confirm a config/env toggle reached a subprocess via a cheap artifact' (for env/config propagation), but neither names the specific, silent failure mode where a pasted multi-line shell command gets re-wrapped by terminal/chat rendering and loses a trailing flag onto an orphaned line — that hazard and the fix (verify the actual resulting state; collapse to one line or use explicit backslash continuation) is absent.",
+   "principle": "When a user pastes or is asked to run a multi-line shell/CLI command whose critical flag sits on a continuation line without an explicit line-continuation marker, do not assume the full command reached the binary as one invocation — terminal or chat rendering can silently re-wrap it into two commands, silently dropping the trailing flag. After running it, verify the actual resulting state (e.g., the granted token's scopes, the applied config value) directly rather than trusting that the pasted command executed as displayed, and when re-issuing it, collapse it to a single line or use an explicit continuation character.",
+   "placement": "global CLAUDE.md, Tooling and Operational Safety section",
+   "confidence": 0.5,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "6cfa9c30-e717-4d5b-9194-a2f219c8248a",
+   "title": "Prefer symbol-based over line-number anchors in handoffs and design docs",
+   "criteria": [
+    "quality_lever",
+    "re_exploration"
+   ],
+   "evidence": "The session opened by resuming a handoff that explicitly warned its own line-number citations had drifted after a prior merge ('라인번호는 §4-6a 머지로 이동 — 앵커 재검증(grep) 필수'), forcing the agent to re-derive every cited blocker location by grepping for the named symbols in current main before trusting any inherited claim, before it could even begin the actual §4-6b/2-C work.",
+   "novelty": "Baseline's Handoff Contract already has a reactive rule ('A broken evidence anchor demotes CONFIRMED to PROPOSED') for when a citation turns out wrong, but no preventive rule telling handoff/design-doc authors to anchor by stable symbol/function name instead of raw line number in the first place — that specific preventive guidance is absent.",
+   "principle": "When citing a code location as evidence in a handoff, design doc, or review packet, anchor it by stable symbol/function/const name (independently re-derivable by grep) rather than by raw line number whenever both are available. Line numbers drift silently after any later merge or rebase touching the file, so a citation that looked precise when written can point at unrelated code by the time it is consumed, with no signal to the reader that it has gone stale — a symbol anchor degrades to 'not found' instead of silently pointing at the wrong line.",
+   "placement": "claude/guides/cli-multi-model-workflow.md, Handoff Contract section",
+   "confidence": 0.45,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "442c0660-12c8-4573-b098-8891f4753358",
+   "title": "GUI-spawned CLI subprocess PATH failures need shell-mode diagnosis, not terminal-parity assumptions",
+   "criteria": [
+    "recurrent_error",
+    "quality_lever"
+   ],
+   "evidence": "The session debugged a native macOS app's 'account add' flow that failed with a login-URL error. The root cause (found only after reading LoginFlow.swift/ClaudeCLI.swift) was that the GUI app shells out via a non-interactive login shell (`zsh -lc`), which sources `.zprofile`/`.zshenv` but not `.zshrc` — and the machine's CLI PATH addition lived only in `.zshrc`, so the subprocess couldn't find the CLI even though it worked fine in the operator's interactive terminal. This required tracing through two Swift source files before the shell-init-file mismatch was identified as the cause.",
+   "novelty": "Baseline's Tooling and Operational Safety section covers confirming model/tool/API capabilities empirically and diagnosing coarse runtime signals (hang vs I/O wait, config-reached-subprocess checks), but has no rule about shell-init-file (login vs interactive) mismatches causing PATH/'command not found' failures specifically when a GUI or non-interactive subprocess invokes a CLI tool. This is a distinct, absent failure class.",
+   "principle": "When a GUI app or any non-interactive subprocess invokes a CLI tool and fails with 'not found' or similar despite the tool working in your interactive terminal, do not assume environment parity with your terminal — non-interactive login shells read different init files (e.g. `.zprofile`/`.zshenv`) than interactive shells (e.g. `.zshrc`). Reproduce the exact subprocess invocation (shell flags and mode) to inspect its actual PATH/env, and put required exports in an init file every relevant shell mode actually sources.",
+   "placement": "global CLAUDE.md, Tooling and Operational Safety section (alongside the existing empirical-verification and coarse-signal-diagnosis bullets)",
+   "confidence": 0.55,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "aef0976d-78d5-4474-addb-f9a772dcba98",
+   "title": "Prove a pre-implementation UI mockup with the real framework's headless render, not a described plan",
+   "criteria": [
+    "quality_lever"
+   ],
+   "evidence": "When asked to show a UI mockup before implementing a Textual TUI rebuild, the agent discovered `run_test(size=...)` + `export_screenshot()` gave real framework-rendered SVG output, built a prototype in that exact layout, captured actual renders for 5 screens, and additionally extracted the SVGs' text nodes to programmatically confirm content/order matched intent before sending them to the user — rather than describing the mockup in prose or trusting a hand-drawn approximation.",
+   "novelty": "Baseline's SVG Visualization Guide and Visual Explanations section cover diagrams for explaining architecture/decisions to the user, and Coding Guidelines' staged workflow covers a design stage with owner approval, but neither instructs producing/verifying a live framework render as evidence for a pre-implementation UI preview. This is a distinct technique absent from the baseline.",
+   "principle": "When a user asks to preview a UI before implementation, and the target framework/library supports headless rendering or test-mode export (screenshot, snapshot, SVG export), use it to produce and show the actual rendered output rather than a described or hand-drawn mockup, and verify the captured render's content programmatically (e.g. extract text/structure) before presenting it — real framework evidence catches layout and content mistakes a description would miss.",
+   "placement": "guides/coding-staged-workflow.md, in the Stages/Review Loop section covering the design stage and owner approval",
+   "confidence": 0.45,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "57115204-4a13-47fd-a8b2-f94d251a0cb9",
+   "title": "Isolate branch/version test builds from live production data before running them",
+   "criteria": [
+    "rollback",
+    "rare_high_cost",
+    "quality_lever"
+   ],
+   "evidence": "Running a locally built branch (older/incompatible data schema) against the live app's real config/state file silently rewrote and dropped fields the older schema didn't recognize. The env-var override meant to redirect the build's data directory did not cover every state sink the app touches (an OS keychain kept a fixed identifier), and the launch method used (a GUI opener) didn't propagate the override to the child process anyway. The corruption was caught only because the user reported a discrepancy, forcing an emergency backup, root-cause diagnosis, and a reconstruct-and-verify recovery against the real consuming binary.",
+   "novelty": "Baseline's Tooling and Operational Safety section covers scoping destructive actions to owned targets and confirming state via low-level evidence, and Coding Guidelines say to test against 'real inputs, real authority' — but neither addresses that testing a schema/version-mismatched build against real production data can silently corrupt it, nor that an isolation override must be checked against every state sink (files vs. OS keychain) and the actual launch path used. Absent from baseline.",
+   "principle": "Before running a locally built branch or version of an application against real production or user data/config files — especially when the branch's data schema may differ from the live schema — explicitly isolate its data directory rather than assuming isolation, and verify the isolation actually covers every state sink the app touches, including OS-level stores like a system keychain, which often ignore environment-variable overrides tied to fixed service/account identifiers. Also confirm the chosen launch method actually propagates the isolation variables to the child process — some launch paths (e.g., a GUI 'open' launcher) silently drop environment variables that a direct binary invocation would pass through. When a schema/version mismatch between the test build and the live data is possible, back up the live data before first launch and verify write behavior against the real consuming binary rather than assuming a mismatched schema passes data through unchanged — silently dropping unknown fields on write is data loss, not a no-op.",
+   "placement": "global CLAUDE.md, Tooling and Operational Safety section",
+   "confidence": 0.82,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "00fe3461-8d4d-428d-96f8-7966ec0f0a5e",
+   "title": "Reserved shell parameter names can trigger real system calls instead of storing a value",
+   "criteria": [
+    "rare_high_cost",
+    "quality_lever"
+   ],
+   "evidence": "A provisioning command assigned a value to a shell variable literally named UID, intending it as an arbitrary variable. In zsh, UID is a special/reserved parameter, and the assignment triggered real setuid-related behavior rather than just storing the string. The triggering command (a curl POST that created a live admin account) had already executed before the mistake was noticed, so recovery required verifying the resulting account state and separately re-setting the credential that was never captured.",
+   "novelty": "Baseline's Tooling and Operational Safety section covers scoping destructive actions and confirming runtime state empirically, but says nothing about shell-reserved parameter names as a hazard class. Absent from baseline.",
+   "principle": "When writing ad hoc shell variables for scripts or one-off commands — especially ones that drive live/production side effects such as account creation or credential handling — avoid names shells treat as special or reserved (e.g., UID, EUID, GID, PPID and similar). In some shells, assigning to these does not just store a value; it triggers real underlying system calls (such as changing the process's effective user id), which can silently change privilege state or otherwise misbehave in a way unrelated to the intended data storage. Use an unambiguous, non-reserved variable name instead, and if such a mistake is caught only after a side-effecting command already ran, verify the actual resulting state rather than assuming the mistaken assignment prevented execution.",
+   "placement": "global CLAUDE.md, Tooling and Operational Safety section",
+   "confidence": 0.72,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "6b22c2ef-8f2d-4824-a9ae-8b8768312f03",
+   "title": "Bash-only heredoc/read idioms can silently hang under zsh instead of erroring",
+   "criteria": [
+    "recurrent_error",
+    "rare_high_cost"
+   ],
+   "evidence": "An inline multi-line prompt block written with a bash-specific `read -r -d ''` idiom was executed under zsh (this environment's inline/interactive shell) rather than as a saved bash script. Zsh's different handling of that idiom left the target variable unset and the process waiting on stdin, which looked like a hang rather than an error; diagnosing it required inspecting process state before the idiom could be rewritten for the actual shell.",
+   "novelty": "Baseline already tells the agent to treat a long, quiet, low-CPU call as I/O wait rather than a hang and to check process state before intervening — that diagnostic half is covered. Not covered: the root-cause hazard class itself, that common bash-only multi-line/heredoc idioms silently misbehave rather than error when run inline under zsh, which is this environment's actual default interactive shell. Partial coverage only on the symptom side.",
+   "principle": "Do not assume bash-specific multi-line input idioms (such as `read -r -d ''` for slurping a heredoc into a variable) behave the same when run inline versus as a saved bash script — this environment's default interactive shell is zsh, and zsh can interpret the same idiom differently, leaving the target variable empty and the process blocked waiting on stdin instead of raising an error. When writing an inline multi-line command, either use an idiom confirmed to work in the shell that will actually run it, or write the command to a script file with an explicit bash shebang and execute that file instead of relying on inline shell-specific syntax.",
+   "placement": "global CLAUDE.md, Tooling and Operational Safety section, adjacent to the existing I/O-wait-vs-hang bullet",
+   "confidence": 0.65,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "075726cc-7d66-4b62-a701-68f47309c8ed",
+   "title": "A shell function shadowing a CLI binary name resolves differently than a spawned subprocess",
+   "criteria": [
+    "recurrent_error",
+    "quality_lever"
+   ],
+   "evidence": "An interactive probe of a CLI tool by its bare command name failed with an error specific to this environment's own shell-snapshot wrapper function, revealing the name was shadowed by a function rather than resolving to the installed binary. The actual test harness being verified spawns subprocesses via raw PATH resolution (not shell function resolution), so it would reach a different binary than the bare-name interactive probe suggested; the same class of shadowing (a different wrapper) recurred independently later in the same batch of sessions and had to be tracked down again before a probe could be trusted.",
+   "novelty": "Baseline already says to confirm tool/version/capability claims empirically against the live installed artifact rather than trusting memory — that much is covered generically. Not covered: the specific failure mode where an interactive shell's function/alias shadowing of a binary name diverges from what a programmatic subprocess spawn of the same name actually executes, meaning an interactive 'confirm empirically' probe using the bare command name can itself be misleading in an environment with such wrappers.",
+   "principle": "When an agent's own shell session has a name-shadowing function or wrapper for a CLI tool (e.g., a harness's shell-snapshot machinery, or a workspace launcher's alias), an interactive probe of that bare command name (such as a version check) does not necessarily reflect what a programmatic subprocess spawn of the same name will execute, because spawn-based dispatch typically does raw PATH resolution while an interactive shell resolves functions and aliases first. Before trusting a command-name-based capability or version probe as evidence for what a spawned subprocess (a test harness, a background job, another tool's process-spawn call) will actually run, resolve the real binary explicitly and verify that is what the subprocess dispatcher also resolves to.",
+   "placement": "global CLAUDE.md, Tooling and Operational Safety section; cross-reference from cli-multi-model-workflow.md's Codex direct-drive section",
+   "confidence": 0.6,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "1b70bb6e-2a87-495e-98fe-a2fa8077c8a4",
+   "title": "An install/deploy overwrite can silently destroy user-owned data colocated in a deploy-managed file",
+   "criteria": [
+    "rollback",
+    "rare_high_cost",
+    "quality_lever"
+   ],
+   "evidence": "An installer redeployed a config file via plain overwrite plus exact-match verification, while a live application feature separately persisted user-saved customization (a named launch preset) into that same file. Every redeploy silently discarded the user's saved preset, because the installer's file ownership model didn't distinguish deploy-managed defaults from user-written state. The fix required splitting the single file into a deploy-owned layer and a separate user-owned layer merged at load time, plus a one-time migration so the fix itself didn't lose the user's existing data.",
+   "novelty": "Baseline's Concept Economy section says to split a concept when it changes ownership, lifecycle, persistence, or user control — a generic principle that would eventually lead here — but nothing in the baseline names this specific, easy-to-miss, high-consequence pattern: an installer/deploy script managing a config file via overwrite-plus-verify silently destroys any live user data later written into that same file by the running application. Worth naming explicitly given how easily it's reached by accretion (a save-preset feature added later, into a file the installer already owned).",
+   "principle": "Before shipping or extending an install/deploy script that manages a config or state file via full overwrite (with or without an exact-match verification step), check whether the live application also writes user-generated or user-customized data into that same file. If it does, every future redeploy will silently discard that user data. Split deploy-owned defaults and user-owned state into separate files or layers merged at load time, with the deploy step touching only its own file, and add a one-time migration for any user data already trapped in the shared file so introducing the split does not itself destroy the data it is meant to protect.",
+   "placement": "global CLAUDE.md, Concept Economy or Coding Guidelines section",
+   "confidence": 0.78,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "60e74c7a-edb3-4b83-886b-6084ce7e2ef1",
+   "title": "Background job output directories can be cleaned up before you read them again",
+   "criteria": [
+    "rare_high_cost",
+    "quality_lever"
+   ],
+   "evidence": "A review workflow dispatched three independent reviews, two as background jobs writing into a tool-managed temp/cache directory. After reconciling findings into a decision that the user chose to pause and revisit later, the session explicitly recognized that one background tool's default output location is subject to periodic cleanup, and proactively copied the raw report text to a durable, non-cleanup-managed location before the paused decision could rely on it again.",
+   "novelty": "Baseline's cli-multi-model-workflow.md covers persisting handoffs, per-item outcomes, and resuming from artifacts, and says cross-reset state belongs in files not transcripts — but nothing states the specific hazard that a background job runner's own default output/cache directory can be garbage-collected, so a report that currently exists may not exist by the time it's needed again after a pause or context reset. Distinct, actionable addition to existing persistence guidance.",
+   "principle": "When a background or asynchronous job (a review pass, a benchmark run, any tool-managed subprocess) writes its report or artifacts into that tool's own default temp/cache directory, treat that location as ephemeral even while it currently holds the file — many such directories are subject to the tool's own periodic cleanup. Before relying on that report again later in the session, across a context reset, or as evidence for a paused or handed-off decision, copy or extract the raw output into a durable, project-owned location that the tool's cleanup routine does not manage.",
+   "placement": "cli-multi-model-workflow.md, Halt And Resume or Handoff Contract section",
+   "confidence": 0.6,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "6b22c2ef-8f2d-4824-a9ae-8b8768312f03",
+   "title": "Escalating adversarial-framing tests reveal whether a guideline actually changes model behavior",
+   "criteria": [
+    "quality_lever"
+   ],
+   "evidence": "To determine whether a repo's own instruction guides actually change agent behavior (versus the model already knowing the right behavior, or the guide never loading), the session ran a staged battery: explicit-signal cases, implicit/disguised-signal cases with no surface trigger words, de-confounded cases using real-looking fixtures so the scenario couldn't be dismissed as an obvious test, class-confirmation cases checking the finding generalized across a whole risk category, and neutral-framing single-variable-isolation cases with no stated justification either way. Only this staged design surfaced a real, narrow residual gap (silent weakening under neutral framing) that a single-round test had missed and would otherwise have reported clean.",
+   "novelty": "Baseline's per-family prompting guides already require validating prompt/guide changes against real evals rather than trusting inspection, and Verification Discipline already asks for falsifiable, contrast-style completion signals — both adjacent. Not present: the specific staged escalation design (explicit to implicit/disguised to de-confounded to class-confirmed to single-variable-isolated) as a reusable method for testing whether an instruction actually changes behavior under increasingly adversarial framing, nor the reminder that a fixed scenario set only proves the absence of already-known gaps and should be re-run when the underlying model changes.",
+   "principle": "When verifying whether a behavioral guideline or guardrail actually changes what a model does, rather than just confirming the model can recite the rule, escalate testing through stages instead of running one scenario type: explicit-signal cases where the trigger is obvious, then implicit/disguised-signal cases where the situation calls for the behavior but nothing names it, then de-confounded cases using real-looking fixtures so the model cannot dismiss the scenario as an obvious test, then cases confirming the finding generalizes across the whole risk category rather than one instance, and finally cases isolating a single variable (such as an unexplained numeric change) under neutral framing with no stated justification either way. Treat a clean pass on a fixed scenario set as proof of no currently known gap, not no gap, and re-run the same staged battery whenever the underlying model changes, since a new model can introduce failure modes the existing scenarios never probe.",
+   "placement": "cli-multi-model-workflow.md or the per-family prompting guides' verification_focus",
+   "confidence": 0.55,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "c60d5b66-e941-40f6-83d3-cc50e6651bd5",
+   "title": "Propagate design-doc fixes to their mirrored fixture/conformance sections",
+   "criteria": [
+    "rollback",
+    "recurrent_error",
+    "high_token"
+   ],
+   "evidence": "In this design-review session (v2 -> v3 -> v4 of a pipeline design, ~1.55M output / 318M input tokens across repeated cross-family review rounds), a v3 re-review from both tracks reported: '제 수정이 본문 계약에는 반영됐지만 \"Falsifiable verification\"(픽스처) 섹션에 전파되지 않았고, R8 규칙상 픽스처가 컨포먼스 권위라 고쳐진 결함이 그쪽에서 재생산되고 있습니다' — i.e. a fix applied to the design's main-body contract was not propagated to the document's separately-declared 'fixtures are conformance authority' section, so the already-fixed defect reappeared there and forced another review round (v3->v4) before convergence.",
+   "novelty": "Baseline's closest rule is the Coding Guidelines bullet 'when each fix only exposes another instance of the same defect, single-source the value and fix the whole class instead of patching instances' — but that is framed around repeated code-level defect instances from a shared root cause, not about a design/spec document that names a secondary section (fixtures/examples/conformance appendix) as an independent correctness authority that must be co-edited whenever the primary prose changes. No baseline text names fixture/conformance sections as a required propagation target.",
+   "principle": "When a design or spec document declares a secondary section (fixtures, examples, or a conformance/verification appendix) as an independent authority for correctness, treat that section as co-authoritative with the main body: propagate every edit that fixes or changes a normative rule to all sections stating or exemplifying that rule in the same pass, and have review explicitly check whether the fix propagated everywhere — not only whether the primary prose was corrected.",
+   "placement": "claude/CLAUDE.md Coding Guidelines (extend the 'Fix the root cause at its authority' bullet), or claude/guides/coding-staged-workflow.md's Review Loop section for design-doc reviews specifically",
+   "confidence": 0.6,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "5235292b-55aa-4eaa-8d23-5d3bd3433bfc",
+   "title": "Verify a repo's own commit/PR convention before applying the default attribution template",
+   "criteria": [
+    "quality_lever",
+    "re_exploration"
+   ],
+   "evidence": "Mid-session, before committing Phase 2 work, the operator checked: '프로젝트 커밋은 Claude attribution trailer를 쓰지 않습니다(핸드오프 명시 + git 히스토리 확인)... 프로젝트 컨벤션을 따르겠습니다' and then created the commit and PR with no attribution trailer, overriding the operator's own standing default (which otherwise appends a Co-Authored-By trailer to every commit). The same kind of ad hoc discovery-and-adaptation of a target repo's contribution convention (atomic, cherry-pickable commits matching a fork's 'commit directly to main' habit) also had to be re-derived from scratch in a separate session (mobius) before contributing upstream.",
+   "novelty": "Baseline's Coding Guidelines say to 'preserve existing style' when making surgical code changes, but that is framed around code style, not commit/PR mechanics. Nothing in the baseline addresses checking or overriding the tool's own default commit-attribution behavior per repository, or matching commit granularity/workflow (atomic cherry-pickable commits vs. squashed, direct-to-main vs. branch+PR) to the target repo's established convention. A grep of the full baseline for 'attribution', 'co-authored', and 'commit convention' found no matches.",
+   "principle": "Before creating commits or PRs in a repository, determine its actual convention (from CLAUDE.md/AGENTS.md, handoff docs, and real git log — not assumption or your own default) for attribution-trailer inclusion, commit granularity/atomicity, and commit-vs-branch-vs-PR workflow, and follow that convention even when it conflicts with your own default template; re-derive this per repository since it does not carry over from one project to the next.",
+   "placement": "claude/CLAUDE.md Coding Guidelines section, as a new bullet near 'Make surgical changes... preserve existing style'",
+   "confidence": 0.55,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "fb9e8383-1645-4b64-a791-a4d2f0aaea94",
+   "title": "Verify cross-PR conflicts separately from each PR's base-mergeable flag",
+   "criteria": [
+    "quality_lever",
+    "rare_high_cost"
+   ],
+   "evidence": "The user asked to check whether three concurrently open PRs (#33/#34/#35) had conflicts; the digest shows the agent explicitly reasoning that the platform's mergeable flag is computed only against main per PR, so cross-PR conflicts required a separate check via changed-file overlap and an actual test merge, since siblings could each be individually mergeable yet conflict with each other.",
+   "novelty": "The baseline's Tooling and Operational Safety section has a git-fetch/base-range rule (avoid a stale local base) and the multi-model guide says to 're-integrate branches serially and re-verify after each merge', but neither states that a PR platform's mergeable status is base-only and blind to sibling PRs — that specific mechanism and the resulting need for an explicit file-overlap/test-merge check before choosing a merge order is not covered.",
+   "principle": "When several pull requests are open concurrently against the same base branch, do not infer they are compatible with each other from each PR's individual 'mergeable' status — that flag is computed only against the base, not against sibling PRs. Before deciding a merge order, explicitly diff the changed-file sets for overlap and simulate the sequential merge to catch cross-PR conflicts the platform's per-PR status cannot see.",
+   "placement": "global CLAUDE.md, Tooling and Operational Safety section — add alongside the existing git-fetch/base-range rule.",
+   "confidence": 0.6,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "b35a5059-7ea2-4c15-9480-3c6c2bf89365",
+   "title": "Confirm a diff-scoped review tool has a non-empty, correctly targeted subject before trusting its verdict",
+   "criteria": [
+    "recurrent_error",
+    "re_exploration"
+   ],
+   "evidence": "Session b35a5059 shows repeated trial-and-error invoking a diff-based multi-lens review tool (a bundle-kind parameter rejected outside explicit bundle targets, a diff-range parameter requiring an explicit file target, a project-root parameter misread from the working directory). Session 05930c71 shows a distinct instance of the same category discovered only after the review had already run: the diff was empty because changes were staged but not committed, so HEAD still equaled the remote base.",
+   "novelty": "This is a specific, concrete instantiation of the existing 'assert a non-empty subject before trusting a green/empty verdict' rule in Verification Discipline, but that rule does not name the staged-vs-committed trap for diff-scoped tools, nor the target-parameter ambiguity pattern (file vs. bundle vs. project root) — both recurred with different specific symptoms across two different sessions and projects in this batch.",
+   "principle": "A diff-scoped review or analysis tool that computes its target from committed history (e.g., HEAD vs. a base ref) will silently operate on an empty diff if the changes are only staged, not committed — commit first. Also confirm the tool's target-selection parameters explicitly (file vs. bundle vs. project root) rather than relying on defaults or working-directory inference, since ambiguous target specification either errors outright or silently narrows the reviewed scope.",
+   "placement": "claude/guides/cli-multi-model-workflow.md, Cross-Verification Economy section (or as an operational note near the onto/VERIFIER-A binding in Environment Binding).",
+   "confidence": 0.65,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "4183dcc6-5f82-49f6-af1f-d5420ff0f64b",
+   "title": "Separate a certification gate from a spectrum-discriminating benchmark; MECE-audit gate fixtures",
+   "criteria": [
+    "quality_lever",
+    "re_exploration"
+   ],
+   "evidence": "Session 4183dcc6 designed a dose-response benchmark explicitly because a binary medium-effort pass/fail split could not reveal where the quality/effort tradeoff sits, requiring graduated complexity-level fixtures instead. Session 5664a9e4 independently reached the same structural conclusion auditing certification fixtures: the user stated certification is a benchmark that must cover from slight underperformance to large overperformance, not just match a baseline, the agent confirmed the existing fixtures were narrowly built as a 'regression + floor gate' rather than spectrum-discriminating, and the user then explicitly split certification-gate design (to be audited by MECE coverage) from performance-benchmark design (deferred to a backlog).",
+   "novelty": "The Verification Menus and Verification Discipline sections describe check types and individual-check validity, but nothing addresses fixture-suite-level design for a certification gate versus a comparative benchmark, or MECE-auditing a fixture set against its target failure-mode space using real completed-run data for non-vacuous discriminating power. This was reached independently in two unrelated sessions/repos, a stronger novelty and generalizability signal than a single incident.",
+   "principle": "A fixture or test suite designed only to answer pass/fail against a floor (a regression/certification gate) cannot discriminate quality across a spectrum from underperformance to overperformance — that requires fixtures with graduated difficulty or complexity levels built for comparison, not gating. When both a certification gate and a comparative benchmark are needed, treat them as separate artifacts: design the gate's fixtures by MECE coverage of its target failure-mode space, checked against real completed-run data for non-vacuous discriminating power, and design the benchmark's fixtures separately by graduated difficulty, rather than reusing one fixture set for both purposes.",
+   "placement": "claude/guides/coding-staged-workflow.md, Verification Menus section (add a benchmark/fixture-suite design sub-note).",
+   "confidence": 0.7,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "21af1559-527c-4628-9694-0463417887b1",
+   "title": "Diagnose self-caused regression vs. recurring root cause before choosing to keep patching or redesign",
+   "criteria": [
+    "quality_lever",
+    "rollback"
+   ],
+   "evidence": "After two NO-GO review rounds the user asked whether repeated rounds meant the design itself was flawed and redesign would beat continued verification; the agent's critical analysis found repeat rounds were caused by neither prior-fix side effects nor newly-learned information but a third pattern — every finding was pre-existing (zero regressions introduced by prior folds), all instances of a single root cause — and used that specific diagnosis as the basis for escalating to an architecture-level rewrite rather than a further patch round.",
+   "novelty": "The existing Stop Conditions rule triggers on 'issue boundary expansion' and the Problem Solving rule stops after 'the same loopback happens twice', and 'fix the whole class instead of patching instances' already exists — but none of them state the diagnostic step used here (classify whether new findings are self-caused regressions or recurring instances of one pre-existing root cause) as the input to deciding which of those existing rules applies.",
+   "principle": "When an iterative review loop keeps returning material findings across rounds, classify each round's new findings before deciding whether to keep iterating or escalate to redesign: findings that are regressions introduced by the previous round's own fix call for tighter-increment discipline, while findings that are newly-surfaced instances of one pre-existing root cause (zero regressions from prior folds) are the strong signal that instance-by-instance patching is whack-a-mole and the fix belongs at the class or architecture level.",
+   "placement": "claude/guides/coding-staged-workflow.md, Stop Conditions section.",
+   "confidence": 0.55,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "05930c71-0634-45f8-bdee-62be9c9c309f",
+   "title": "Confirm the underlying provider chain behind each verifier before trusting apparent kind-diversity",
+   "criteria": [
+    "rare_high_cost",
+    "recurrent_error"
+   ],
+   "evidence": "Both external reviewers were blocked by the same provider usage limit because the wrapped review tool's own runner also dispatches through the same underlying provider as the directly-invoked reviewer, degrading all of its lenses at once alongside the direct reviewer — a single shared-account outage silently collapsed what looked like two independent verifier kinds, which the agent recognized and reported honestly rather than treating one route's failure as leaving the other clean.",
+   "novelty": "The Cross-Verification Economy section already covers recognizing and recording family collapse and treating a silent/dead lens as incomplete, but it assumes the collapse is visible per-route; it does not name the specific risk that a wrapper/orchestrated verifier can hide a shared provider dependency with a directly-dispatched one, making apparent kind-diversity illusory.",
+   "principle": "Two verifier routes that look like different 'kinds' (e.g., a direct model dispatch and a wrapped review tool) may share the same underlying provider or account beneath the label. Before trusting that a rate limit or outage on one route leaves the other independent, confirm the actual dispatch chain — a wrapper tool can itself route through the same account as a directly-invoked reviewer, so both collapse together even though they appear diverse.",
+   "placement": "claude/guides/cli-multi-model-workflow.md, Cross-Verification Economy section.",
+   "confidence": 0.5,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "864e0186-9f14-4a26-b874-65f05dc904ed",
+   "title": "Isolate reviewer/subagent work from the live working tree; never trust its read of shared mutable state at face value",
+   "criteria": [
+    "rollback",
+    "rare_high_cost",
+    "recurrent_error"
+   ],
+   "evidence": "In this session, the operator temporarily reverted a fix to prove a negative control (falsifiability probe), confirmed the two tests failed on the old code, then restored the fix and re-ran the full suite green. A concurrently running background design-review subagent then reported a [BLOCKER] — but the agent determined the subagent had snapshotted the source mid-probe, during the temporary-revert window, not the final restored state. The agent had to independently re-confirm the current source was the restored/correct version before dismissing the finding. In a second, independent session (8579afd1-b157-49fc-b226-f5d901eda19a), a spawned test-quality review subagent itself ran `git checkout -- <file>` against a file with uncommitted changes as part of its own review process, then reported it had 'verbatim reconstructed' the file afterward — the main session had to independently diff/verify no work was lost or drifted before proceeding.",
+   "novelty": "The multi-model guide already says not to accept an orchestrated workflow's self-reported all-green, to verify idle/progress notifications against repo artifacts before re-dispatch, and separately scopes destructive commands (kill/rm/force-push/reset --hard) to targets 'you own.' None of that covers the specific gap these two incidents surface: a spawned reviewer/subagent operating directly on the same live, mutable working tree as the main session — reading transient state mid-edit, or itself issuing destructive git operations (checkout --) against uncommitted work — can produce false findings or risk data loss. There is no existing rule to isolate reviewers from shared mutable state or to forbid them from destructive git ops on a tree with uncommitted changes.",
+   "principle": "When spawning a reviewer or subagent against code that still has uncommitted changes, prefer giving it a read-only diff/snapshot or an isolated worktree/clone rather than letting it operate directly on the same live tree the main session is actively editing. Never let a reviewer perform destructive git operations (checkout --, reset --hard, stash) on a tree with uncommitted work as part of its own process. If a reviewer reports having read or temporarily mutated shared state — including a snapshot taken mid-way through your own temporary revert-and-restore probe — independently re-verify the current tree's integrity against the intended end state before trusting either the finding or the reviewer's claim of having restored it cleanly.",
+   "placement": "guides/cli-multi-model-workflow.md, in the Delegation Mechanics And Teammate Persistence section (or a new bullet under Sessions, Branches, Worktrees)",
+   "confidence": 0.72,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "eadc165f-9039-4d38-9d91-eff25332df44",
+   "title": "A piped command's exit code reflects the last pipe stage, not the command under test",
+   "criteria": [
+    "recurrent_error",
+    "quality_lever"
+   ],
+   "evidence": "Within this single session the same shell gotcha caused confusion twice: once during a negative-control smoke test where the real result was hidden because the invoking command's output went through `tail`, and again while diagnosing a Cloud Build failure, where the agent explicitly noted 'exit 0은 파이프 때문' (exit 0 was only because of the pipe) — the actual Cloud Build step had failed on a permissions issue, but the piped exit code reported success and had to be separately investigated to find the true cause.",
+   "novelty": "Baseline's Verification Discipline says to trust a green check only when it traversed the real dispatch/calls, and to be suspicious of unexpectedly-fast or empty green results, but it never names the specific, very common mechanism that produced this false-green signal here: piping a command's output (`cmd | tail`, `cmd | grep`, etc.) causes the shell's reported exit status to reflect the last pipeline stage, not the command being tested. That specific trap and its fix are absent from the baseline.",
+   "principle": "When a command's pass/fail decides a next step and its output is piped through another program (tail, grep, a formatter), do not read the pipeline's exit status ($?) as that command's verdict — it reflects only the last stage of the pipe. Capture the original command's own exit status directly (store it before piping, or use the shell's pipe-status mechanism) whenever a piped command's success or failure gates a decision.",
+   "placement": "global CLAUDE.md, Tooling and Operational Safety section (new bullet near the existing exit-code/process-signal guidance)",
+   "confidence": 0.55,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "e31511ec-3f68-4294-9766-d268d32932b3",
+   "title": "Gate irreversible identity-tied actions on a live identity check; block browser auto-open mixups",
+   "criteria": [
+    "rollback",
+    "rare_high_cost"
+   ],
+   "evidence": "An interactive OAuth consent step was needed for a disposable test identity before an irreversible probe (revoking that identity's token). The helper auto-opened the browser, which reused the operator's own already-logged-in session, so the operator ended up consenting as themselves instead of the disposable account. The mistake caused no harm only because the subsequent revoke step independently checked the token's identity against the expected disposable account first and aborted since it didn't match. The agent then fixed the flow by suppressing browser auto-open (shadowing `open`) so the operator had to manually paste the URL into an incognito/differently-authenticated window, eliminating the account-mixup risk going forward.",
+   "novelty": "Baseline covers gating security-weakening code changes behind explicit confirmation and scoping destructive shell commands (kill/rm/force-push) to targets identified precisely by PID/path/ancestry, but nothing addresses the browser-auto-open failure mode in interactive human-in-the-loop consent/login steps, nor states the general defense of verifying actor identity live immediately before an irreversible action as a safety net against exactly this class of operator/tooling mix-up.",
+   "principle": "When a workflow requires a human to complete an interactive browser login/consent step as a specific non-default identity (a disposable test account, a service identity, anything other than the operator's own logged-in session), do not let the helper auto-open the browser — it tends to reuse the operator's existing session and silently authenticate as the wrong identity. Output the URL for manual opening in an incognito or separately-authenticated window instead. Independently, whenever a step performs an irreversible action tied to a specific identity (revoke, delete, grant), verify the live identity immediately before acting and abort on mismatch, so an upstream mix-up cannot propagate into real damage.",
+   "placement": "global CLAUDE.md, Tooling and Operational Safety section",
+   "confidence": 0.6,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "8bfde0dd-624d-4ce1-9f48-ebb48aa8e97e",
+   "title": "Verify network perimeter controls via the enforcement mechanism's own logs, not a fetch tool of unknown origin",
+   "criteria": [
+    "rollback",
+    "rare_high_cost",
+    "quality_lever"
+   ],
+   "evidence": "The session used the WebFetch tool as an 'external' negative control to confirm an IP-allowlist/Cloud Armor block worked. WebFetch returned 200 (readable content) twice — even after disabling a CDN cache layer and busting the cache — and only after enabling the load balancer's own access logs did the session discover the 'external' WebFetch request actually originated from the same corporate IP as the operator, not from outside at all, in its own words: '제 검증이 가짜였습니다' (my verification was fake). A genuinely external probe then correctly returned 403, confirmed via the mechanism's deny log showing the real external IP. The session also found that an enabled CDN in front of the backend could independently serve cached content to blocked clients, bypassing the IP-based rule.",
+   "novelty": "Baseline's Tooling and Operational Safety section requires confirming coarse runtime signals against authoritative low-level evidence, and Verification Discipline requires real dispatch through the real path — both are close in spirit but neither names the specific, recurring trap of treating an agent-side fetch/browsing tool's response as proof of what an external client would see, when the tool's own egress IP, network path, and caching behavior are opaque to the operator. The CDN-bypasses-WAF caveat is also absent from baseline.",
+   "principle": "When verifying that a network perimeter control (IP allowlist, firewall rule, WAF/security policy) actually blocks or allows traffic as intended, do not treat an agent-side fetch/browsing tool's response as proof of what an external client would see — its egress IP, network path, and caching behavior are typically opaque and may silently share the operator's own network or return a cached response. Confirm both the allow and the deny direction against the enforcement mechanism's own access/deny logs, which show the actual source IP and decision, and separately check for any caching or CDN layer in front of the resource that could serve stale/cached responses without evaluating the access-control policy on each request.",
+   "placement": "global CLAUDE.md Tooling and Operational Safety section, as a network-verification-specific extension of the existing coarse-runtime-signal rule",
+   "confidence": 0.72,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "22aee846-379b-4cbf-b5e0-bc88e11cf65d",
+   "title": "Confirm a system's purpose framing before applying a default analytical lens",
+   "criteria": [
+    "rollback"
+   ],
+   "evidence": "Without confirming the target system's actual purpose, the session applied a default security/least-privilege lens (default-deny, 'amplifier risk', ingestion/access-control framing) to a knowledge-sharing MCP design. The user corrected this twice — first noting it doesn't ingest content, then more forcefully: '이건 완전히 잘못된 생각이야... 보안 관점이 아니라, 정보의 공유 관점으로 바라봐야 해' (this is completely wrong thinking — look at this from an information-sharing perspective, not a security one) — after which the entire analysis and the design SSOT had to be reframed and rewritten from scratch.",
+   "novelty": "Baseline's Decision Framing section covers evaluating user suggestions for goal fit and re-deriving claims from real code/data, and Problem Solving says to identify the goal before proceeding, but neither names the specific trap of importing a default analytical frame (e.g., security/restriction) onto a system whose actual purpose is the opposite (deliberate broad dissemination or enablement), which forces a full redo rather than a scoped correction.",
+   "principle": "Before analyzing or designing a system through a domain-default frame (e.g., security/least-privilege, restriction, access control), first establish from the user or the system's stated purpose whether that frame actually fits. Some systems are deliberately expansive — built to disseminate information or grant capability broadly — and applying a restrictive default lens to them produces an analysis that must be redone wholesale rather than merely narrowed. When it is unclear whether a system is meant to restrict or to enable/spread, ask before producing the full analysis.",
+   "placement": "global CLAUDE.md Decision Framing section, near the existing 'evaluate user suggestions for goal fit' bullet",
+   "confidence": 0.65,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "240963e9-8bbf-49c3-90a5-3d50ba4c1337",
+   "title": "Never emit tool-call syntax as literal text; it silently fails and truncates the turn",
+   "criteria": [
+    "recurrent_error",
+    "quality_lever"
+   ],
+   "evidence": "Multiple times in the session, the assistant's response contained a short markdown label followed by literal, unexecuted tool-call syntax (a line reading 'call <invoke name=\"Edit\"> ...') instead of an actual function call. This produced a harness error ('Your tool call was malformed and could not be parsed. Please retry.') and repeated user confusion ('왜 계속 진행하지 않고 중간중간 멈추는거야?' — why do you keep stopping partway?). The assistant itself diagnosed the cause afterward ('일부 Edit을 <invoke>로 잘못 적어 파싱이 실패했고'), and the same class of error recurred again later in the same session ('다시 같은 오류 발생 중이야').",
+   "novelty": "Nothing in the baseline addresses malformed/textual tool-call emission as a recurring failure mode; the closest existing material (claude-prompting.md's working rules, the capability-boundary guide's 'accepted output channel' concept) covers output channels for artifacts, not the mechanics of the model's own function-call emission failing mid-turn and how that reads to the user.",
+   "principle": "When a step needs both a short prose label and a tool call, keep them clearly separated — issue the label as plain text and the tool call through the real function-call mechanism. Never hand-write tool-invocation syntax as part of a text/prose response: a hand-written invocation is not executed, produces a parse error, and truncates or stalls the turn, which reads to the user as random, repeated stopping rather than a single clear failure to diagnose and fix.",
+   "placement": "guides/claude-prompting.md 'Working rules' section (a Claude-tier self-behavior issue), with a short cross-reference from global CLAUDE.md Coding Guidelines",
+   "confidence": 0.65,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "ac02e72d-0547-41c5-863d-318ce367de2c",
+   "title": "Verification and gate code should fail loud on unexpected shape, not silently fall back",
+   "criteria": [
+    "quality_lever",
+    "recurrent_error"
+   ],
+   "evidence": "The session's own schema-verification script used a defensive fallback, `s.$defs || s.definitions`, to read a JSON Schema key. Because the actual schema was draft-07 (key `definitions`, no `$defs`), the fallback silently absorbed the mismatch and the script kept passing, masking that a citation in the design pointed at a nonexistent key. An independent reviewer caught it, and the session confirmed: '제 확인 스크립트가 $defs || definitions 폴백을 써서 조용히 넘어가는 바람에 못 봤습니다' (my check script used a $defs||definitions fallback and silently passed over it, so I missed it).",
+   "novelty": "Baseline's Verification Discipline warns generally that a copied fixture can silently route into a dead branch and that a check going green unexpectedly should be inspected for what it actually ran over, but it does not name the specific, common anti-pattern of writing the verification/check code itself with a permissive `a || b` fallback across plausible key names or shapes, which absorbs a wrong assumption instead of asserting one shape and failing when it's absent.",
+   "principle": "When writing verification, audit, or gating code that inspects a schema, config, or artifact for a specific field or shape, assert the expected key/shape explicitly and fail loudly if it is absent, rather than reaching for a permissive fallback (`a || b`) across plausible alternatives. A fallback chain in the checking code itself can silently swallow a wrong assumption about the target's shape and let the check keep passing on the wrong data, hiding the very defect the check exists to catch.",
+   "placement": "global CLAUDE.md Verification Discipline section, adjacent to the existing 'when a check goes green unexpectedly fast or empty, dump what it actually ran over' bullet",
+   "confidence": 0.53,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "a1311c4b-4abc-4e5a-b209-874077c20056",
+   "title": "Distinguish the installed/disk version from the already-running process version when confirming an update took effect",
+   "criteria": [
+    "recurrent_error",
+    "quality_lever"
+   ],
+   "evidence": "After deploying a version bump, the session observed a stale version still appearing in live deny logs even though the local client's disk binary already reported the new version ('not newer than installed'). The session correctly diagnosed that the disk binary and the already-running process are different things — the running process needed a full quit/reopen to pick up the new version — rather than assuming the update had failed or was still propagating.",
+   "novelty": "Baseline's Tooling and Operational Safety section already generalizes 'confirm the cause against authoritative low-level evidence' for coarse runtime signals, but it does not name this specific, very common instance: a successfully updated on-disk artifact does not retroactively change an already-running process's in-memory version, so 'installed version' and 'running version' must be checked and reasoned about separately.",
+   "principle": "When confirming whether an update, config change, or version bump has actually taken effect for a live/running system, check the currently-running process's version or behavior directly (or force a restart), not just the freshly installed artifact on disk. An already-running process keeps its old in-memory state until it is restarted, so a fresh install can be verified correct while the live, observed behavior is still stale.",
+   "placement": "global CLAUDE.md Tooling and Operational Safety section, as a specific case of the existing coarse-runtime-signal rule",
+   "confidence": 0.46,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "b1099e0b-8ba0-44ae-89cc-253a78beea5e",
+   "title": "Verify A/B arms actually differ before trusting a null measurement result",
+   "criteria": [
+    "rollback",
+    "high_token"
+   ],
+   "evidence": "The session built a blind rubric judge (3 parallel subagents scoring 61 matched slot pairs) to measure a copy-tone toggle, concluded 'no measurable improvement over OFF... the earlier ON>OFF judgment was likely observation bias' (composite 3.51 vs 3.50, sign-test p=1.0), and documented this as overturning the backlog's premise. On the next turn the agent itself caught the flaw: 'OFF·ON 둘 다 voice C가 주입된 상태였습니다 — 톤 토글은 tone authority 선언 위치만 바꾸고, voice descriptor는 토글과 무관하게 항상 주입됩니다' (both arms received the same voice injection regardless of the toggle; OFF's own backup prompt contained both the 'confirmed_body is the tone source' declaration AND the voice-C directive simultaneously). The null result was reversed and reframed as a confound, then a real suppression mechanism (`copyVoiceGuidanceSuppressed`) was implemented and tested to actually separate the arms.",
+   "novelty": "The baseline's Verification Discipline has falsifiability rules (negative/contrast controls, non-empty subject sets, real-path vs mock) and treats reviewer/handoff claims as hypotheses to re-derive, but nothing addresses the specific failure mode of an A/B or on/off measurement where the toggle changes bookkeeping (which declaration is 'authoritative') without gating whether the effect is actually applied — so both arms silently receive the same treatment and a null result is trusted as informative when it is actually a confound. This is absent from baseline, not a restatement of an existing rule.",
+   "principle": "When an on/off or A/B measurement produces a null result (no measurable difference), do not accept the null as informative until you have structurally verified that the two arms actually differ in the mechanism under test. Check whether a shared default, global injection, or unconditional upstream step already applies the 'on' treatment to the 'off' arm as well — a toggle that only changes which declaration is authoritative, without gating whether the effect fires at all, produces two arms with the same underlying treatment and a spurious null.",
+   "placement": "global CLAUDE.md, Verification Discipline section — extend the falsifiable-completion-criteria bullet (negative/contrast controls) to cover measurement/experiment design, or add to coding-staged-workflow.md's Verification Menus",
+   "confidence": 0.78,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "a9adba6f-1b4a-416a-887c-eeb0d1064478",
+   "title": "Check the artifact directly when a background task's completion notification is overdue",
+   "criteria": [
+    "rare_high_cost",
+    "quality_lever"
+   ],
+   "evidence": "'job은 alive이나 마지막 progress가 4m elapsed에 멈춰 있습니다... 정체 아님' followed later by: '실 증거로 확인: result JSON(72KB)이 09:51에 이미 기록됨 = runReview가 반환·writeFile 완료 = onto 리뷰는 사실상 완료. 프로세스가 안 죽는 건 dangling handle(타이머/커넥션) 탓이고, 그래서 tail 파이프가 안 닫혀 완료 알림이 안 뜬 것뿐입니다.' The agent had to bypass the stalled notification channel and read the output JSON's timestamp/content directly to prove the review was actually finished.",
+   "novelty": "The baseline's Tooling and Operational Safety section already says a quiet, low-CPU subprocess is normally I/O wait rather than a hang and warns against premature intervention — but that rule addresses the opposite direction (don't kill something that looks stuck but is working). It does not cover the inverse failure: a process that has genuinely finished its work (artifact fully written) but stays alive and never emits its exit/notification-based completion signal because of an unclosed handle, making the notification channel itself unreliable while the artifact already proves completion. That specific mechanism and the fix (trust the artifact's own evidence over the process/notification channel when overdue) is not present in baseline.",
+   "principle": "When a background task's expected completion notification is overdue, do not assume the work is still in progress just because the process or monitor hasn't reported done. Check the target artifact directly — existence, size stability, mtime, or content — as ground truth. A process can finish its real work and still remain alive, so no exit-based notification ever fires, because of an unclosed handle such as a timer or open connection; in that case the notification channel is the unreliable signal, not the artifact.",
+   "placement": "global CLAUDE.md, Tooling and Operational Safety section — extend the bullet about coarse runtime signals (idle CPU / no-output) with this inverse case (overdue notification despite completed artifact)",
+   "confidence": 0.55,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "d948b7bc-a68f-4ee4-a96d-33a549f40863",
+   "title": "Treat a self-scheduled wake-up as unconfirmed until you verify it actually fired the promised action",
+   "criteria": [
+    "rollback",
+    "rare_high_cost"
+   ],
+   "evidence": "User: '11:50 지나면 resume 돌려줘'. Agent: '11:52경 자동으로 깨어나 resume를 실행하도록 예약해 두겠습니다... 예약 완료했습니다.' A later wake at 10:41 still correctly waited. But when the user checked in later with 'Resume 했어?', the agent's own answer was '아직 실행 안 했습니다 — 지금 12:36 KST로 리셋(11:50) 지났으니 바로 resume 돌리겠습니다' — nearly 45 minutes past both the original 11:50 reset and the rescheduled 11:42 check, the promised autonomous resume still had not executed, and only ran once the user manually prompted.",
+   "novelty": "The multi-model workflow guide covers rate-limit circuit breakers for authored batches and says 'idle/progress notifications are hypotheses; verify repo artifacts before re-dispatch' for signals received from spawned workers — but nothing addresses the case where the agent itself schedules its own future wake-up to perform a time-gated action and that self-issued schedule silently fails to trigger the follow-through, requiring a user check-in to surface the miss. This gap (self-scheduled deferred actions are not guaranteed to fire) is not covered.",
+   "principle": "When you schedule your own future wake-up or deferred check to perform a time-gated action (e.g., resume once a rate limit resets), do not treat the schedule as a guarantee of execution. If a later check-in shows the target time has already passed and the promised action still has not run, execute it immediately rather than deferring to another wake cycle — a self-scheduled wake can silently fail to trigger its follow-through action, so its firing needs to be confirmed, not assumed.",
+   "placement": "claude-prompting-adjacent guide: cli-multi-model-workflow.md, Unattended Batch Safety or Halt And Resume section",
+   "confidence": 0.5,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "397a9128-3f0f-4896-a0c0-73ed7cb017f9",
+   "title": "Clear language/test caches between rapid mutate-then-test cycles in mutation testing",
+   "criteria": [
+    "recurrent_error",
+    "rare_high_cost"
+   ],
+   "evidence": "While building defect-witness tests via mutation testing (sed-mutate a value on disk, cp/restore, run pytest, repeat), the digest shows: 'sed/cp/pytest가 1초 안에 실행돼 pytest의 assertion-rewrite 캐시(mtime+size 기준)가 무효화되지 않은 것' — the on-disk value was already restored to the correct value but pytest's assertion-rewrite cache (keyed on mtime+size) hadn't invalidated within the same second, so it reported a stale failure. The agent explicitly flagged this as invalidating all prior mutation results ('앞선 변이 검사 결과는 신뢰할 수 없습니다') and had to clear the cache and rerun all 10 mutations plus the baseline before trusting any of them.",
+   "novelty": "The baseline's Verification Discipline section (global CLAUDE.md) has strong rules about trusting green checks only over real dispatch, and about falsifiable/mutation-style controls ('prefer signals that fail when the mechanism is wrong'), but nothing addresses that the test tool's OWN caching layer can silently invalidate a mutation-testing loop by reusing stale compiled/rewritten bytecode when file mutations happen faster than the cache's mtime/size resolution. Searched baseline for 'cache', 'mutation', 'mtime', 'stale' — all 'cache' hits are about LLM prompt caching (a different concept entirely); no hit addresses local build/test tool caches. This is a genuinely absent, tool-level gotcha distinct from the existing data-freshness/provenance-staleness rules (which are about source documents, not local test infrastructure).",
+   "principle": "When running a rapid mutate-file → run-test → restore-file loop (mutation testing, defect-witness verification, or any tight edit-then-verify cycle), do not trust results at face value: many test/build tools cache compiled or rewritten artifacts keyed on file mtime+size (e.g. pytest's assertion-rewrite cache, bytecode caches, incremental compiler caches), and mutations executed within the same timestamp-resolution window as the prior run can silently reuse stale cached output instead of re-processing the mutated file — producing a result that looks like a real pass/fail but reflects the previous file state. Either clear the relevant tool cache before each iteration in such a loop, insert a cache-busting delay/flag, or use a tool invocation mode that disables caching, and re-verify the baseline (unmutated) case still passes after clearing the cache before trusting any mutation result from that loop.",
+   "placement": "global CLAUDE.md, Verification Discipline section — as a new bullet adjacent to the existing 'Trust a green check only when it traversed the actual changed code through the real dispatch and real calls' bullet, since it is the same trust-the-check-only-when-warranted family but targets a different failure mode (tool-level cache staleness rather than mock/dry-run substitution).",
+   "confidence": 0.72,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "bcebfe9c-21b8-493b-b119-a0a43dd987ba",
+   "title": "Calibrate benchmark fixtures for ceiling/floor effects before scaling N",
+   "criteria": [
+    "high_token",
+    "quality_lever"
+   ],
+   "evidence": "Session built an A/B harness to compare reasoning-effort tiers (medium/high/xhigh) on code-review quality. After committing to N=15/cell and launching a live batch, N=1 and N=2 calibration probes revealed all three tiers scored 7/7 and then 8/8 ('ceiling effect') on the initial fixture, meaning the fixture had zero power to discriminate between tiers regardless of sample size. The agent had to diagnose this explicitly ('전부 100% → 차이 없음이 아니라 구분 불가'), redesign the fixture around a different difficulty axis (reasoning depth / cross-file causal chains mined from real review findings, not just bug subtlety), before the full 45-run batch was worth running. Session spent 975k output / 121M input tokens, much of it on this harness-design cycle.",
+   "novelty": "Baseline's claude-prompting.md/gpt-prompting.md already say 'sweep effort levels on a real eval set rather than reaching for the top' and 'effort changes are swept across levels on a real eval set, not chosen by reputation' — but nowhere does it say the fixture itself must be checked for discriminative power (ceiling/floor) before spending the sweep budget. This is a missing calibration step, not a duplicate of the sweep instruction.",
+   "principle": "When building an evaluation/benchmark harness to compare tiers (model, effort level, prompt variant), calibrate the fixture at very small N (1-2 per cell) before committing to the full-scale run, and check for a ceiling or floor effect: if every tier scores at or near 100% (or 0%), the fixture has no power to discriminate between tiers no matter how large N is scaled — redesign the fixture toward the specific difficulty axis the comparison is meant to isolate, then re-probe, before spending the full run budget.",
+   "placement": "guides/claude-prompting.md and guides/gpt-prompting.md, verification_focus section (near 'effort changes are swept across levels on a real eval set') — or a shared eval-harness note in guides/cli-multi-model-workflow.md if one location is preferred.",
+   "confidence": 0.72,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "1b4e12b3-267a-4016-b443-347707e0a278",
+   "title": "Empty grep output on a text file can mean grep treated it as binary (embedded NUL bytes), not 'no match'",
+   "criteria": [
+    "recurrent_error"
+   ],
+   "evidence": "In this session the agent explicitly diagnosed: '파일에 \\0 바이트가 있어 grep이 binary로 처리했던 것입니다(ripgrep은 정상)' and later distrusted grep output again on the same file ('grep 출력이 신뢰가 안 갑니다(파일에 \\0 바이트)'), switching to reading the contract from source code directly. The same failure mode appeared independently in another session in this batch, where an empty grep result was first misattributed to a shell problem ('grep 출력이 비어 나옵니다(세션 셸 이상 의심)') before the agent fell back to Read — i.e. the same silent-binary-treatment trap recurred across unrelated sessions without a standing rule to shortcut the diagnosis.",
+   "novelty": "Baseline has a general 'green/empty check is suspect, dump what it actually ran over' rule and a 'confirm empirically before relying on a tool flag' rule, but nothing about grep's specific silent binary-file behavior on files containing embedded NUL bytes. This is a concrete, previously-undocumented failure signature.",
+   "principle": "When grep on what should be a text file returns unexpectedly empty output with no error, suspect the file contains embedded NUL/binary bytes that make grep silently treat it as binary (suppressing text matching) rather than assuming a shell or pattern problem — prefer ripgrep (which handles this correctly) or read the file directly before trusting an empty grep result as 'no match'.",
+   "placement": "Global CLAUDE.md, Tooling and Operational Safety section — as a sibling bullet to the existing 'treat a coarse runtime signal as a hypothesis... confirm against authoritative low-level evidence' rule.",
+   "confidence": 0.62,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "74aa7f5a-28cb-43e1-9c39-79374ac5ce9c",
+   "title": "A same-named package on PATH can silently shadow a system diagnostic tool, producing empty/wrong output",
+   "criteria": [
+    "rare_high_cost"
+   ],
+   "evidence": "While profiling a slow macOS menu-bar app, the agent's first `sample` invocation produced an empty output file with no visible error. It diagnosed: '`sample` 파일이 비었습니다 — sample이 실패했습니다... /opt/homebrew/bin/sample(파이썬 스크립트)가 macOS sample을 가리고 있습니다. 절대 경로로 macOS 도구를 씁니다' — a Homebrew Python package of the same name was shadowing the real macOS `/usr/bin/sample` profiler on PATH, and only using the absolute path revealed the actual hot path (a directory-enumeration bug scanning 49,296 files every 3 seconds).",
+   "novelty": "Baseline's Tooling and Operational Safety section requires confirming model ids/tool flags/dependency versions empirically against the live artifact, but has no rule about verifying that an invoked *system command name* actually resolves to the expected binary rather than a same-named package earlier on PATH — a distinct and previously undocumented failure class from stale/wrong config values.",
+   "principle": "Before trusting a system diagnostic or profiling command's output — especially when it looks suspiciously empty, trivial, or silently failed — verify the invoked binary actually resolves to the expected system tool and not a same-named package installed earlier on PATH (e.g., a Homebrew or pip package colliding with a macOS built-in command name); check with `which`/`type -a` or invoke the tool by its known absolute system path.",
+   "placement": "Global CLAUDE.md, Tooling and Operational Safety section — near the existing 'confirm empirically against the live or installed artifact' bullet.",
+   "confidence": 0.55,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "00289987-5d8f-4ef7-a566-83b2bee4fb09",
+   "title": "Don't amend a commit to insert that same commit's own hash into a handoff/doc",
+   "criteria": [
+    "rollback"
+   ],
+   "evidence": "The agent committed code + a handoff doc with a placeholder for the commit's own hash, then amended to fill in the real hash: 'amend가 커밋 해시를 cdf658d로 바꿔서 handoff가 참조하는 16d569b가 dangling이 됐습니다. self-referential 해시는 amend loop를 유발하므로... 코드 커밋 + 문서 커밋 2개로 분리하겠습니다.' It had to unwind the amend and split into a stable code commit followed by a separate doc commit referencing the now-fixed hash.",
+   "novelty": "Baseline has no mention of amend at all, and handoff-document guidance in the multi-model guide covers where to store handoffs and re-verifying claims on resume, but not this specific self-reference trap when a handoff records its own commit's hash.",
+   "principle": "When a document must record its own commit's hash (e.g., a handoff noting 'landed as <hash>'), do not amend the commit that contains the doc to insert that same commit's hash — amending changes the hash again, leaving a stale self-reference. Land the substantive change in one commit first, then add a small separate follow-up commit for the doc that references the now-stable, already-landed hash.",
+   "placement": "guides/cli-multi-model-workflow.md, handoff section — near the existing 'store handoffs in the working repo's isolated dated docs path... re-verify load-bearing claims on resume' bullet.",
+   "confidence": 0.5,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "5df38339-3f07-4e49-bfc1-e23ee001204a",
+   "title": "A diff/parity harness can produce false mismatches from an unfaithful input pipeline",
+   "criteria": [
+    "quality_lever"
+   ],
+   "evidence": "While validating a moved/extracted function (routeSection) against production-embedded ground truth (data-skill attributes in live fragments), the byte-parity diff harness reported 10 mismatches. Investigation found the harness fed raw section data while the real render path first applies a normalization step (normalizeLiveAuthoredSectionRoles); after applying the same normalization in the harness, 30/30 matched. The 'defect' was a harness gap, not a code regression.",
+   "novelty": "Baseline's Verification Discipline heavily covers false positives (mocks/dry-runs/bypasses that pass when they shouldn't) but has no guidance on the inverse failure: a real-code comparison harness reporting a false mismatch because its input-transformation pipeline diverges from the real call site. Nothing in coding-staged-workflow.md's Verification Menus or the global Verification Discipline section addresses harness-input fidelity specifically.",
+   "principle": "When validating moved or extracted code via a byte-parity/diff harness against production ground truth, first confirm the harness passes inputs through the exact same preprocessing/normalization pipeline the real call site uses, before concluding a reported mismatch is a genuine defect in the code — an unfaithful harness produces false mismatches that look like regressions in otherwise-correct code.",
+   "placement": "guides/coding-staged-workflow.md, Verification Menus (code) — or the global Verification Discipline section, alongside the existing false-positive guidance",
+   "confidence": 0.5,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "d02c3fb7-381a-4cca-b058-aba767e16f99",
+   "title": "Snapshot persisted state before an in-place resume/overwrite of a completed run",
+   "criteria": [
+    "rare_high_cost",
+    "quality_lever"
+   ],
+   "evidence": "Before resuming a completed live pipeline run in place to add a new toggle, the session first backed up the completed run (57M). The resume subsequently failed several layers downstream (a monthly billing-limit rejection inside an internal LLM adjustment-review call surfaced as a null field, then a merge failure). The session restored the completed run losslessly from the backup it had made beforehand.",
+   "novelty": "Baseline's Persistence/Idempotency guidance (llm-capability-boundary-patterns.md) is about designing a system's own artifact writes to be atomic (temp file + verify + rename) — it is advice for building the pipeline, not for an operator's own practice when invoking an existing risky in-place command against already-completed state. The Tooling and Operational Safety destructive-action rule covers scoping *which* target to touch, not backing up *before* a legitimate mutating operation on a valid artifact.",
+   "principle": "Before invoking an operation that resumes or re-runs a completed job in place (overwriting the existing persisted artifact/state), snapshot the current valid state first. A downstream failure during the resume — even one unrelated to the resume logic itself, such as a billing/quota rejection surfacing many layers later as malformed data — can otherwise corrupt or destroy the only copy of completed work, and restoring from the snapshot may be the only clean recovery path.",
+   "placement": "global CLAUDE.md, Tooling and Operational Safety section, next to the destructive-action-scoping bullet",
+   "confidence": 0.6,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "af2bb996-fc85-4e04-b250-d7b571fc7791",
+   "title": "Confirm a 'different-kind' reviewer's actual backing model before trusting cross-verification diversity",
+   "criteria": [
+    "quality_lever",
+    "rare_high_cost"
+   ],
+   "evidence": "While running a two-channel adversarial design review (onto-mcp review as the 'logic/authority kind' verifier, ultracode-for-codex as the 'code/execution kind' verifier), live process inspection revealed that onto-mcp's lens workers were themselves executing via the Codex CLI (gpt-5.5) — the same backing model as the other verifier. The two nominally 'different-kind' verifiers shared a model family even though both were properly diverse from the author (Claude).",
+   "novelty": "cli-multi-model-workflow.md's Cross-Verification Economy section only treats family collapse as a dynamic event caused by rate-limit fallback ('record the downgrade... until diversity is restored') and its Environment Binding table labels VERIFIER-A/B by review *kind* without recording each one's actual backing model. Nothing instructs confirming up front, before relying on the convergence/divergence heuristic, whether two kind-labeled verifier bindings are actually backed by different models.",
+   "principle": "Before relying on the convergence/divergence heuristic across two nominally different reviewer 'kinds', empirically confirm what model or process each one actually runs on (e.g., inspect the live process), not just its documented kind or binding label. A review tool exposed under one 'kind' can be internally implemented on the same underlying model as another 'independent' verifier, silently collapsing the model-family diversity the heuristic depends on.",
+   "placement": "guides/cli-multi-model-workflow.md, Cross-Verification Economy section (and note actual backing models in the Environment Binding table)",
+   "confidence": 0.55,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "7bcdb186-1ffd-414d-8a8a-49d649a6310e",
+   "title": "Hand off exactly the OTP/2FA-gated step and verify its outcome from the authoritative source",
+   "criteria": [
+    "quality_lever"
+   ],
+   "evidence": "During an npm publish + GitHub release flow, the session recognized that npm's OTP/2FA requirement meant the publish command itself had to be run by the user, prepared the exact command and completed every surrounding step (build, version bump, tag, push, release notes), then confirmed the published version against the live npm registry afterward rather than assuming success from the user's say-so.",
+   "novelty": "Baseline's secret-handling rule (Tooling and Operational Safety) addresses stored/pasted credentials via a gitignored env slot and rotation advice — a different case from a live interactive OTP/2FA prompt mid-command that the agent structurally cannot supply. No existing rule names the pattern of scoping a handoff to exactly the gated step plus post-hoc authoritative verification.",
+   "principle": "When a required step needs interactive secondary authentication (OTP/2FA) the agent cannot supply, prepare every other step (build, versioning, commit, tag, release notes) and hand off only that one gated action to the user with the exact command ready to run, rather than attempting a workaround. Afterward, confirm the outcome from the authoritative external source (e.g., the package registry) rather than trusting the user's report alone.",
+   "placement": "global CLAUDE.md, Tooling and Operational Safety section",
+   "confidence": 0.45,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "3e6f37a3-bdeb-4d00-9d6d-4aa041937fec",
+   "title": "Rule out pre-existing CI failure before debugging a local-pass/CI-fail gap as a regression",
+   "criteria": [
+    "high_token"
+   ],
+   "evidence": "The local test suite (including -race) was fully green after the redaction/recover change, but the gateway PR's CI 'test' job kept failing. Many turns went into hypotheses (module cache staleness, -race-specific timing, go.mod verify, SDK source inspection of tool-name validation) before checking whether the same CI job also failed on the commit immediately preceding this session's change — it did, on multiple prior commits, which reclassified the failure as pre-existing and environment-specific (CI linux/amd64 vs local darwin/arm64) rather than caused by the diff.",
+   "novelty": "The baseline's verification rules (Verification Discipline) describe when to trust a green result (real dispatch, non-mocked) but say nothing about efficiently triaging a CI-only FAIL against a locally-green change. Nothing in the corpus mentions checking prior-commit CI history as a first diagnostic step. Closest existing rule (git-fetch-before-diff) addresses a different failure mode (stale local base), not this one.",
+   "principle": "When a CI check fails but the same check passes locally, before deep-debugging on the assumption it is a regression, first check whether the same CI job also failed on the commit(s) immediately preceding the change (or on the base branch). If it did, the failure predates the diff and is very likely an environment difference (OS/arch, cache, toolchain flag) rather than something the change caused — investigate that gap first, not the diff.",
+   "placement": "coding-staged-workflow.md Verification Menus (Code), or a new bullet in the global Tooling and Operational Safety section near the existing git-fetch-before-diff rule",
+   "confidence": 0.75,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "5f2d3892-000e-4964-8fc1-177d8db9e4f1",
+   "title": "Add a cache/idempotency guard to any auth-minting path an unattended loop can call repeatedly",
+   "criteria": [
+    "rare_high_cost"
+   ],
+   "evidence": "The user reported 100+ OAuth authentication windows open after leaving the computer running unattended overnight. Root cause: an unattended overnight cross-verification batch's tool-discovery path minted a fresh auth token on every call with no cache, producing 103 real prompts over about 50 minutes — the exact defect class the day's planned architectural fix (a catalog cache) was designed to close.",
+   "novelty": "The baseline's existing circuit-breaker rule (Unattended Batch Safety) triggers on provider limit/auth/transport *failures*, halting after repeated failed attempts. It does not cover a code path that succeeds on every call but lacks a cache — a failure-triggered breaker never fires because nothing fails, yet the loop still floods the user with real side effects at loop frequency.",
+   "principle": "Before running any unattended or overnight agent loop or batch, check whether it repeatedly invokes an auth-minting, token-issuing, or other real-side-effect-triggering code path with no cache or idempotency guard. A call that succeeds every time is not covered by failure-based circuit breakers, yet it can still flood the user with real side effects (e.g. authentication prompts) at loop frequency. Add a cache or idempotency guard to that path, or bound the loop's call rate to it, before leaving it unattended.",
+   "placement": "cli-multi-model-workflow.md Unattended Batch Safety section, as an addition alongside the existing failure-triggered circuit breaker",
+   "confidence": 0.72,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "a0e63d0d-55bf-4cff-b325-7b7d38a9aca3",
+   "title": "Compact the cross-session memory index before it exceeds its read-size limit, preserving index-only detail first",
+   "criteria": [
+    "rare_high_cost",
+    "quality_lever"
+   ],
+   "evidence": "Mid-session a size warning showed the memory index nearing its read limit; on inspection it had already grown past the limit, meaning a future session would silently receive a truncated index. Before compacting to one-line-per-topic summaries, the agent checked whether any detail existed only in the index (not duplicated in a per-topic file), found one such case, migrated it out first, then compressed the index and confirmed every link still resolved and no topic file was left orphaned.",
+   "novelty": "Nothing in the baseline addresses the cross-session memory index's read-size limit or a safe compaction procedure. The existing Handoff Contract material governs user-authored handoff documents, a different artifact from this system's persistent auto-memory index.",
+   "principle": "The cross-session memory index has a read-size limit; if it grows past that limit, a future session silently receives a truncated index and loses information with no error. Periodically check the index's size, and before compacting it into one-line-per-topic summaries, verify whether any detail exists only in the index and not in a per-topic file, migrate that detail out first, then confirm every index link still resolves and no topic file is orphaned.",
+   "placement": "global Documentation Hygiene section, or a new subsection in cli-multi-model-workflow.md near Handoff Contract",
+   "confidence": 0.68,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "2546925e-62ee-4cc1-9093-9e86878467cf",
+   "title": "Correct a stale memory-index 'current track' pointer in the same session that finds it, not later",
+   "criteria": [
+    "quality_lever",
+    "rollback"
+   ],
+   "evidence": "The memory index was several days stale and pointed at a superseded work track while the actual branch and the most recently dated handoff document showed work had moved to a different track entirely. After resolving which state was authoritative (the recent dated handoff), the agent went back at the end of the session and fixed the index's own stale pointer so it would stop misdirecting future sessions.",
+   "novelty": "The baseline's hypotheses-not-facts rule covers not acting on a stale claim once discovered, but does not call out that a shared, persistent index pointer must itself be corrected once found wrong — otherwise the same misdirection recurs for every future session that trusts the index, not just the current one.",
+   "principle": "When the memory index's stated current track or pointer disagrees with actual repo/branch state, do not just work around the drift for this session — correct the index's pointer before ending the session. An uncorrected stale index actively misdirects every future session that trusts it.",
+   "placement": "global Documentation Hygiene section, alongside the index size-limit rule from the companion candidate",
+   "confidence": 0.62,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "6c1026ba-84c6-4cf5-a206-0e7f2002e6c1",
+   "title": "Upgrade major dependencies in isolated, verified layers; pin runtime-coupled packages to the deploy target",
+   "criteria": [
+    "quality_lever"
+   ],
+   "evidence": "A batch dependency update was grouped into risk-ordered layers with a full typecheck/lint/test gate run after each layer. Two major bumps (a lint plugin whose bundled dependency called an API removed by the new major version despite peer ranges technically allowing it, and a language toolchain major version incompatible with a downstream type-checking plugin's peer range) were independently caught as breaking and reverted without affecting the other successful layers. Separately, a type-definitions package was pinned to the version matching the production container's runtime major version rather than 'latest' or the higher version installed on the local development machine, confirmed empirically from the deployment config.",
+   "novelty": "The baseline's rule to confirm a dependency version empirically covers verifying a version claim, but not the layered-isolation upgrade strategy for multiple simultaneous major bumps, nor the specific case of pinning a runtime-coupled package to the deployment target instead of the local machine or 'latest'.",
+   "principle": "When bumping several outdated dependencies including major versions, upgrade in independent, risk-ordered layers and run the full verification gate (typecheck/lint/test) after each layer; a failing layer is isolated and reverted on its own rather than bisected across many simultaneous bumps. For packages whose correctness is coupled to a specific runtime (type-definition packages, engines constraints), pin the version to the actual deployment target's runtime version — confirmed from the deployment config — not to 'latest' and not to the local development machine's version, which can silently differ from production.",
+   "placement": "coding-staged-workflow.md Verification Menus (Code), or a new bullet under the global Coding Guidelines",
+   "confidence": 0.6,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "2e7bccfb-91a2-488c-a6ad-5dd9482a10ec",
+   "title": "zsh does not word-split unquoted variables by default — probes written for bash silently misbehave",
+   "criteria": [
+    "recurrent_error"
+   ],
+   "evidence": "A shell probe intended to expand a multi-token variable into separate CLI arguments produced distorted results because the active shell does not perform bash-style unquoted word-splitting by default; the agent had to explicitly separate the arguments to get a correct probe result.",
+   "novelty": "No shell-specific guidance exists anywhere in the baseline. This is a distinct failure mode from the covered runtime-signal and probe-verification rules: the script does not error, it silently returns a plausible but wrong result.",
+   "principle": "Do not assume bash's unquoted-variable word-splitting when writing shell probes or scripts. A common default shell (zsh) does not split an unquoted variable into multiple words by default, so a probe expecting `$var` to expand into several arguments will silently pass it as one argument instead of erroring. Confirm the active shell and use explicit splitting (arrays, or literal separate arguments) rather than relying on default word-splitting behavior.",
+   "placement": "global Tooling and Operational Safety section",
+   "confidence": 0.55,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "4cca6f0a-5d05-4b2b-9e29-01b337a29005",
+   "title": "unref/close stdio on a child process spawned for a one-shot CLI health check to avoid an event-loop hang",
+   "criteria": [
+    "recurrent_error"
+   ],
+   "evidence": "A new health-check CLI command spawned a subprocess to probe status, printed the correct result, but the parent process never exited because the spawned child's process handle (and its open stdin) kept the runtime's event loop alive. The fix was to unref the child process and destroy its stream handles once the probe result was captured.",
+   "novelty": "The baseline's spawn-related guidance is entirely about spawning LLM subagents/CLI agents for delegation (When To Spawn, Delegation Mechanics); it does not address OS-level child-process lifecycle management within a single tool's own runtime.",
+   "principle": "When a CLI command spawns a child process purely to run a bounded health or auth probe and should then exit, explicitly unref the child process and close or destroy its stdio handles once the result is captured. An un-unref'd child, or an open stdin pipe to it, keeps the runtime's event loop alive and makes an otherwise-successful one-shot command hang instead of exiting.",
+   "placement": "No clear existing home in the current guide structure; would be a narrow addition to the global Coding Guidelines or a runtime-specific note if one is created",
+   "confidence": 0.45,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "55c08f70-0138-4511-84be-9c5b41a129f3",
+   "title": "Untracked new files are invisible to git-diff-based review tools",
+   "criteria": [
+    "quality_lever",
+    "recurrent_error"
+   ],
+   "evidence": "The agent noted new component files were untracked and therefore invisible to the git-diff-based review harness ('새 컴포넌트 파일들이 untracked라 git diff 기반 리뷰 하네스에 안 잡힙니다'), and had to use git add with intent-to-add to bring them into the diff before dispatching the Codex cross-verification review (built-in code-review, level high).",
+   "novelty": "Baseline's verification-discipline rule about asserting a non-empty test/subject set ('assert the entity-under-test set has cardinality > 0 before any no-bad-X claim') covers the general empty-subject-set fallacy for tests, but nowhere states the concrete mechanism by which new files silently escape a diff-based review's coverage: such tools only see tracked changes by default.",
+   "principle": "Before dispatching a git-diff-based review (built-in code-review, cross-family verification, PR review), confirm new/untracked files are included in the diff scope — stage them (e.g. with git add --intent-to-add) first, since a diff-based reviewer silently skips untracked files and would return a 'clean' verdict without ever having seen them.",
+   "placement": "guides/review-request.md or coding-staged-workflow.md's Review Loop — alongside the existing 'read participation before believing a verdict' rule, as another mechanism by which a review can be silently non-authoritative.",
+   "confidence": 0.7,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "d3ee46d0-fb61-40cc-aca4-456570c73804",
+   "title": "git diff two-dot notation is a direct snapshot diff, not a commit-range exclusion like git log",
+   "criteria": [
+    "rollback",
+    "recurrent_error"
+   ],
+   "evidence": "The agent used origin/main..HEAD to diagnose a branch and misread unrelated file deletions (src/mcp/*, README, package.json) as part of the current change; it later determined this was because the branch's merge-base predated a separate upstream merge (#192), so those files' absence from the old branch showed up as apparent deletions in the two-dot diff, explicitly flagged as '오해의 소지' (misleading) once re-diagnosed via the actual merge-base.",
+   "novelty": "Baseline's Tooling and Operational Safety section already has a git-fetch/range rule about computing origin/<base>..HEAD instead of a stale local ref, but that rule addresses staleness of the LOCAL ref requiring a fetch, and is phrased for commit-range use (git log semantics). It does not state that git diff's two-dot notation behaves differently from git log's — for diff it is a direct tip-to-tip snapshot comparison, not limited to commits unique to one side — so even a freshly fetched origin ref can produce a misleading diff when the branch's merge-base is behind the target.",
+   "principle": "When diffing a branch against its target for review or PR purposes, remember that git diff A..B is a direct snapshot comparison between two tips (unlike git log/git rev-list two-dot ranges, which exclude common history). If the branch's merge-base may be behind the target, use three-dot git diff A...B (diff from the merge-base) so changes made independently on the target since divergence do not appear as spurious additions/deletions on the branch.",
+   "placement": "global CLAUDE.md, Tooling and Operational Safety section — as a follow-on to the existing git-fetch/origin-base rule, since it is the same class of git-range footgun but for diff rather than log.",
+   "confidence": 0.72,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "8cf11be7-9ef1-400b-a8e7-288ebbd5c501",
+   "title": "The Read tool renders NUL bytes as blank space, hiding byte-level differences",
+   "criteria": [
+    "recurrent_error",
+    "quality_lever"
+   ],
+   "evidence": "The agent needed to confirm two key-separator expressions used an identical \u0000 separator, and explicitly noted 'the Read tool renders NUL as a space,' so it verified the match via a byte-level check rather than trusting the rendered file content it had visually inspected.",
+   "novelty": "Nothing in the baseline addresses this specific rendering limitation of the file-reading tool. The closest general rule ('confirm it empirically against the live or installed artifact,' Tooling and Operational Safety) is about not trusting docs/memory for versions/capabilities, not about a specific tool's display fidelity for non-printable bytes.",
+   "principle": "The file-reading tool cannot faithfully display non-printable bytes (e.g. NUL) — it can render them as blank/space, visually indistinguishable from an actual space character. When byte-exact equality of separators, encodings, or binary content is load-bearing, verify with a byte-level check (hexdump/od, or a script comparing raw bytes) instead of trusting the tool's rendered text.",
+   "placement": "global CLAUDE.md, Tooling and Operational Safety section, as a tool-fidelity caveat next to the existing 'confirm empirically' rule.",
+   "confidence": 0.58,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "e51c26a7-6462-4a92-bec6-6ddb9ea4e2df",
+   "title": "A handoff's pinned resume-HEAD must not include the commit that carries the handoff itself",
+   "criteria": [
+    "rollback"
+   ],
+   "evidence": "Preparing to /clear, the agent found the just-written handoff pinned HEAD to a commit, but the handoff document was then committed on top of that pin, making the first resume-verification step fail; it had to amend the commit to fix the self-referential mismatch ('핸드오프가 HEAD를 aa23723으로 고정했는데, 핸드오프 자신이 담긴 docs 커밋이 그 위에 얹혀서 재개 시 첫 검증이 어긋납니다').",
+   "novelty": "The baseline's Handoff Contract (cli-multi-model-workflow.md) requires pinning worktree/branch/HEAD/merge-base but does not address the self-reference case where committing the handoff document itself moves HEAD out from under its own recorded pin.",
+   "principle": "When a handoff document records the current HEAD for resume verification, account for the fact that committing the handoff itself will move HEAD — either pin the commit that precedes the handoff commit, or phrase the pin as relative ('HEAD after this commit'), so the first resume-time verification does not fail against a self-referential mismatch.",
+   "placement": "guides/cli-multi-model-workflow.md, Handoff Contract section.",
+   "confidence": 0.5,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "c0dd1582-ef4b-48c8-9355-0cc7fe0c8c4d",
+   "title": "Clear or verify smoke-test-only limiting config before a declared full-scale run",
+   "criteria": [
+    "rare_high_cost",
+    "quality_lever"
+   ],
+   "evidence": "Before starting the '52 chapters, full run,' the agent explicitly checked for a known trap recorded in memory: a MAX_CHAPTERS=2 env var left over from an earlier smoke test, which would have silently truncated the declared full run to 2 chapters if not cleared ('메모리에 기록된 MAX_CHAPTERS=2 해제 트랩을 반드시 처리해야 합니다').",
+   "novelty": "Baseline's 'land risky work behind a default-off path' rule covers landing new behavior-changing code behind a flag, and the empty-subject-set rule covers vacuous test passes, but neither addresses this distinct pattern: a temporary narrowing override set for a cheap smoke-test run that must be actively found and cleared before the corresponding full run, or the full run silently underperforms its stated scope with no error.",
+   "principle": "When a smoke test is run against a limited slice via a temporary override (a max-item cap, a row limit, a chapter/page limit), treat clearing or verifying that override as an explicit precondition before the corresponding full-scale run — a leftover narrowing limit produces no error, only a silently truncated 'full' run.",
+   "placement": "global CLAUDE.md, Tooling and Operational Safety section, or coding-staged-workflow.md's Stop Conditions (as a pre-run precondition check).",
+   "confidence": 0.55,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "d12d811e-c00c-40c5-9ba0-07297cf908a1",
+   "title": "Recognize stale absolute-versioned plugin paths as a silent-breakage signature",
+   "criteria": [
+    "recurrent_error",
+    "re_exploration"
+   ],
+   "evidence": "In this session, a statusLine command in settings.json pointed at a plugin path pinned to an old version directory (1.26.1) that no longer existed on disk (actual installed version was 1.29.0), so the feature the user wanted (context-window display) was silently broken even though 'it looked configured'. The same failure shape recurred in session bf003740-46db-4710-8479-9640728eccca in this same batch (statusLine pointing at a deleted .claude-1/.../1.29.0 path after the user consolidated config directories), where the operator again had to rediscover the actual clone location and version from scratch before fixing the path.",
+   "novelty": "Baseline's Tooling and Operational Safety section says to confirm dependency versions empirically before relying on them, and to run git fetch before reasoning about branch state to avoid a stale local base — but it has no rule about recognizing 'a wired integration path embeds an absolute version string that can go stale after a plugin/tool auto-update or directory consolidation, causing silent failure with no error surfaced.' That specific recognition pattern is absent.",
+   "principle": "When a previously-working wired integration (e.g. a status line, hook, or plugin command in settings) appears configured but produces no visible effect, check whether its command path embeds an absolute version string pointing at a plugin/tool install directory; auto-updating plugin managers and manual config consolidations routinely leave these paths dangling without surfacing an error. Prefer resolving to the currently-installed version (via a stable/latest symlink or a version-lookup command) over hardcoding a version string in wiring config, and when a version string must be hardcoded, verify the path exists and the command actually runs before declaring the integration fixed.",
+   "placement": "guides/coding-staged-workflow.md (or a new note under the global Tooling and Operational Safety section) — this is a distinct silent-failure signature from the existing runtime-signal-is-a-hypothesis rule and warrants its own recognition line.",
+   "confidence": 0.68,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "b13204df-59f9-4adb-b6c9-73c40a7a6654",
+   "title": "Prefer verbatim section slicing over parse-and-reserialize when provisioning secrets-bearing user config",
+   "criteria": [
+    "quality_lever",
+    "rare_high_cost"
+   ],
+   "evidence": "While designing MCP-server provisioning into an isolated config home, the session explicitly rejected adding a TOML parser dependency and rejected parsing+reserializing the user's config.toml, choosing instead to slice the allowlisted [mcp_servers.*] sections verbatim from the raw text — reasoning that reserialization risks losing or mutating user-defined formatting and embedded env secrets, and that a new parser dependency violates the project's zero-runtime-dependency stance. The slicer was then validated against real config shapes (single server, multiple servers, multi-subtable-plus-.env, hyphenated names, missing-key detection) before being trusted.",
+   "novelty": "Baseline's Coding Guidelines say to build the smallest viable path and avoid unnecessary abstractions, and 'when exactness ... matter, use tools/code' — but there is no rule specifically about preferring byte-verbatim raw-text extraction over parse-and-reserialize when the source config may contain secrets, comments, or exact formatting that reserialization could silently corrupt. No guide mentions TOML/config reserialization risk or verbatim slicing as a technique.",
+   "principle": "When provisioning a subset of a user's existing structured config (TOML/YAML/INI/JSON with comments) into another environment or consumer, prefer verbatim raw-text extraction of the relevant section over parsing the whole file and re-serializing a subset — parse-then-write risks silently dropping comments, formatting, or secret values, and can require adding a new parser dependency for a narrow use case. Validate the extraction against the range of real shapes it must handle (single entry, multiple entries, nested sub-tables, unusual key names, missing keys) before trusting it in the provisioning path.",
+   "placement": "guides/coding-staged-workflow.md Coding Guidelines section, near the 'smallest viable functional path' and dependency-avoidance guidance — or a new bullet under the global Coding Guidelines about config/secret handling.",
+   "confidence": 0.6,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "395fea24-8adb-459b-a15a-daf7e2485761",
+   "title": "Verify concurrent-writer status before concluding an edit to a shared live config file was lost",
+   "criteria": [
+    "rare_high_cost",
+    "quality_lever"
+   ],
+   "evidence": "After unioning mcpServers across two global Claude Code config files (~/.claude.json and ~/.claude/.claude.json), a post-edit diff showed unrelated top-level fields had also changed versus the pre-edit backup, which looked like unintended data loss from the edit. Rather than assuming corruption, the session ran a live observation window and confirmed the file's mtime changed during that window (another running Claude Code session was concurrently rewriting it) while the target mcpServers field remained correctly unioned — concluding the apparent diff was caused by a concurrent writer's normal cache/counter updates, not data loss from the edit.",
+   "novelty": "Baseline's Tooling and Operational Safety rule to treat a coarse runtime signal as a hypothesis and confirm cause against authoritative low-level evidence is framed around process/CPU/log signals (hangs, pre-dispatch rejection), not around editing a config file that other live sessions concurrently rewrite. The concrete recognition — that a global settings file shared by multiple running agent sessions can show an unrelated diff purely from a concurrent writer, and this should be checked via a short live observation before concluding an edit caused data loss — is a distinct, absent case.",
+   "principle": "Before concluding that an edit to a shared state/config file caused data loss or was reverted, check whether another live process (e.g. a second running agent session) also writes that file; if so, a before/after diff can show unrelated changes purely from concurrent writes. Confirm by watching the file over a short live window (mtime plus the specific field you changed) rather than treating a single before/after comparison as proof, and scope any 'union' or 'fix' to only the fields you intend to change so concurrent unrelated writes are not mistaken for or masked by your edit.",
+   "placement": "global CLAUDE.md Tooling and Operational Safety section, as an addition alongside the existing 'coarse runtime signal is a hypothesis' rule — same epistemic pattern, new domain (shared config files vs. process/log signals).",
+   "confidence": 0.55,
+   "_provider": "claude"
+  },
+  {
+   "session_id": "019e6866-6800-72d3-b10f-6e51c21d9530",
+   "title": "Preserve the identity of connected cloud documents",
+   "criteria": [
+    "high_token",
+    "rollback",
+    "re_exploration",
+    "quality_lever"
+   ],
+   "evidence": "The initial workflow treated a cloud spreadsheet like a portable workbook, but the user pointed out that export-edit-reimport can break document and sheet identifiers, bound scripts, triggers, permissions, external references, webhooks, and import approvals. The approach was reversed to native in-place editing, followed by explicit handling of quota, timeout, loading, permission, and external-reference failure states.",
+   "novelty": "The baseline only directs spreadsheet work to an installed skill and contains no rule about preserving a connected document's identity or distinguishing live integration failures from ordinary file-editing failures.",
+   "principle": "Treat an existing connected cloud document as a live integration system, not as a portable file. Edit it in place through its native authority unless the user explicitly requests a clone; before writing, inventory identifiers, scripts, triggers, permissions, protections, named ranges, validations, and external links, then verify that external loads are complete and distinguish loading, timeout, quota, network, permission, and broken-reference states.",
+   "placement": "Coding Guidelines → connected cloud documents and spreadsheets",
+   "confidence": 0.98,
+   "_provider": "codex"
+  },
+  {
+   "session_id": "019f4181-42e1-7dd2-9e9f-7e22b9f3b6dd",
+   "title": "Normalize model prices before comparing providers",
+   "criteria": [
+    "high_token",
+    "rollback",
+    "quality_lever"
+   ],
+   "evidence": "A promotional student-credit equivalence was initially used to convert credits into dollars and was then explicitly retracted because it was not a general purchase rate. The comparison only became defensible after fixing the billing surface and units: direct API, standard processing, context tier, text tokens, and separate input, cache-hit, and output prices; accepted-output cost was identified as the practical benchmark metric.",
+   "novelty": "The baseline discusses model allocation, effort, and measured cost, but has no rule for cross-provider price normalization or for excluding promotional credit values from standard-rate comparisons.",
+   "principle": "Compare model costs only after fixing the same billing surface, processing mode, context tier, modality, currency, and token units; keep input, cache-hit/read, cache-write, and output prices separate. Never infer a general cash rate from promotional or plan-specific credits, and use measured cost per accepted output for workload decisions when retry and rejection rates differ.",
+   "placement": "Multi-Model Workflow → model selection and cost normalization",
+   "confidence": 0.97,
+   "_provider": "codex"
+  },
+  {
+   "session_id": "019f41d5-b078-79d0-9576-758ce7bb03da",
+   "title": "Minimize production-data exposure during diagnostic probes",
+   "criteria": [
+    "rare_high_cost",
+    "quality_lever"
+   ],
+   "evidence": "A production question involved records that could contain sensitive payloads. Instead of printing payload bodies, the session ran an explicitly scoped read-only job that returned only structural aggregates—record counts, entry counts, and whether argument fields existed—then deleted the temporary job after the decision was made.",
+   "novelty": "The baseline protects secrets in transcript-logged channels but does not define a data-minimizing pattern for probing production records that may contain personal or otherwise sensitive content.",
+   "principle": "When a production-data probe may touch personal, secret, or customer content, answer the question with server-side structural aggregation whenever possible: return only counts, types, key presence, bounded metadata, or hashes, never raw payloads. Scope the probe read-only, target the environment explicitly, suppress sensitive fields from logs, and remove temporary probe resources afterward.",
+   "placement": "Tooling and Operational Safety → production-data diagnostics",
+   "confidence": 0.96,
+   "_provider": "codex"
+  },
+  {
+   "session_id": "019f45ba-592d-7e41-bd6b-6efab39c00de",
+   "title": "Verify both mounts and latent volume definitions after secret rotation",
+   "criteria": [
+    "recurrent_error",
+    "rare_high_cost",
+    "quality_lever"
+   ],
+   "evidence": "A secret update correctly mounted the new revision but left an older unmounted volume definition in the live service template. A subsequent rotation again left the immediately previous definitions behind. Only an explicit removal step followed by readback of the newest revision made both the volume and mount lists clean.",
+   "novelty": "The baseline says to verify live artifacts and consumer wiring, but it does not capture the merge-not-replace behavior of deployment update flags or the distinction between active mounts and stale secret-volume definitions.",
+   "principle": "Assume managed-service update flags may merge configuration rather than replace it. After secret or volume rotation, inspect the newest live revision's volume definitions and volume mounts separately, explicitly remove every unmounted obsolete definition, and re-read the revision after any cleanup update before declaring drift resolved.",
+   "placement": "Tooling and Operational Safety → cloud deployment and secret-rotation hygiene",
+   "confidence": 0.98,
+   "_provider": "codex"
+  },
+  {
+   "session_id": "019f49de-1ad4-73e3-aafd-b0d065346e6e",
+   "title": "Digest-verify every release channel after publication",
+   "criteria": [
+    "rollback",
+    "rare_high_cost",
+    "quality_lever"
+   ],
+   "evidence": "The release used assets-first and manifest-last publication and appeared successful, yet post-publication hashing found two object-storage installers still had older bytes while the signed manifest, local staging directory, and release-host assets agreed. The objects were re-uploaded and the complete hash loop was rerun; the embedded updater was also exercised without an explicit manifest argument.",
+   "novelty": "The baseline has a generic atomic-persistence and checksum pattern, but it does not cover multi-channel release publication where a signed manifest, object storage, release hosting, and the installed updater can diverge independently.",
+   "principle": "For a multi-channel release, upload immutable assets before publishing the manifest, but never treat ordering as proof. After publication, verify every manifest-referenced object byte-for-byte or by digest against the staged artifact, verify release-host assets independently, and run the real updater or installer through its default discovery path; repair any mismatch and rerun the full verification matrix from the beginning.",
+   "placement": "Verification Discipline → release and distribution verification",
+   "confidence": 0.99,
+   "_provider": "codex"
+  },
+  {
+   "session_id": "019f683e-9ce8-7ca0-acb2-53c78296ec72",
+   "title": "Require positive human provenance when mining main-context sessions",
+   "criteria": [
+    "high_token",
+    "rollback",
+    "quality_lever"
+   ],
+   "evidence": "An initial Codex allowlist admitted 227 sessions, but only 20 intersected the observed human history and 195 were marked as automation. Later checks also found background sessions and history-missing sessions that defeated broader positive rules. The design was repeatedly revised so history became an independent observation rather than an oracle and ambiguous, background, automated, or provenance-missing sessions were quarantined.",
+   "novelty": "The baseline contains extensive multi-agent execution guidance but no rule for classifying stored AI sessions as directly handled human main contexts rather than dispatched, automated, or background work.",
+   "principle": "When mining AI-session logs for human main-context learnings, do not infer provenance from transcript existence, history membership, or broad message-shape heuristics alone. Require positive human-origin evidence plus negative checks for dispatch, automation, task, review, and background origins across independent metadata sources; treat history as an observation rather than an oracle, and quarantine ambiguous or provenance-missing sessions instead of promoting them.",
+   "placement": "New session-distill guide → census and provenance classification",
+   "confidence": 0.99,
+   "_provider": "codex"
+  },
+  {
+   "session_id": "019f2674-c316-7223-a8d5-100a58aab785",
+   "title": "Distinguish admission throttling from quota exhaustion",
+   "criteria": [
+    "rollback",
+    "recurrent_error",
+    "quality_lever"
+   ],
+   "evidence": "The failure was initially attributed to shared usage quota. The user corrected the diagnosis: quota remained available, only additional concurrent process creation failed, a delayed or serialized retry succeeded, and ordinary two-to-four-way concurrency later worked again. This signature pointed to a short-window admission or startup-concurrency limit rather than depletion.",
+   "novelty": "The baseline has rate-limit circuit-breaker guidance, but it does not identify the admission-throttle signature or explain that quota exhaustion and concurrent session-creation rejection need different recovery strategies.",
+   "principle": "Do not label concurrent session-start failures as quota exhaustion without evidence. If quota remains available, existing work continues, new concurrent starts fail, and delayed or serialized starts succeed, classify the event as admission or startup-concurrency throttling; stop fan-out, stagger creation with bounded jitter and a circuit breaker, preserve per-item state, and probe recovery at low concurrency instead of retry-storming.",
+   "placement": "Multi-Model Workflow → concurrency limits and circuit breakers",
+   "confidence": 0.97,
+   "_provider": "codex"
+  },
+  {
+   "session_id": "019f4a20-9895-73e3-a500-802141e1cddf",
+   "title": "Own and terminate the whole subprocess group",
+   "criteria": [
+    "rare_high_cost",
+    "quality_lever"
+   ],
+   "evidence": "A live model run produced its valid result quickly but the CLI never exited. Investigation showed a wrapper-to-binary child hierarchy; sending termination only to the wrapper could leave the actual server alive. The backend was changed to launch the owned server in an independent process group, close streams during shutdown, terminate only that group, and verify clean exit.",
+   "novelty": "The baseline requires destructive process actions to target owned PIDs or ancestry, but it does not state the lifecycle rule needed when wrappers create child processes and terminating the wrapper alone can orphan the real service.",
+   "principle": "When launching a long-lived subprocess through a wrapper, establish an owned process group or equivalent job boundary at startup. On shutdown, close owned streams, terminate that exact group rather than only the wrapper PID, wait for exit, and verify no owned descendants remain; never broaden cleanup to unrelated processes.",
+   "placement": "Tooling and Operational Safety → subprocess lifecycle and cleanup",
+   "confidence": 0.97,
+   "_provider": "codex"
+  },
+  {
+   "session_id": "019f59cc-dce8-7aa1-9e2d-20e97e7e5c1d",
+   "title": "Separate model availability, activation, and certification",
+   "criteria": [
+    "high_token",
+    "rollback",
+    "quality_lever"
+   ],
+   "evidence": "The initial answer treated the absence of a review certification as implying that the model needed separate validation for review. The user corrected this because the model was already registered without role restrictions and therefore routable through review. Subsequent investigation had to distinguish registry membership, route allowance, configured and conditional consumers, unwired helpers, and certification coverage; it also established that certification was tracked by model and role or pipeline rather than by every individual call site.",
+   "novelty": "The baseline already says to verify live capabilities and not mistake an inert configuration value for runtime authority, but it does not define the distinct status dimensions needed for model inventories or warn that route availability and certification are independent claims.",
+   "principle": "When inventorying an LLM or other pluggable runtime capability, report registry eligibility, route authorization, actual configured consumption, conditional or unwired consumption, and certification evidence as separate states. Never infer certification from availability, or unavailability from missing certification; state the certification unit explicitly, such as model-by-role or model-by-pipeline, rather than implying per-call-site coverage.",
+   "placement": "CLAUDE.md > Multi-Model Workflow, near model binding and live-capability verification",
+   "confidence": 0.97,
+   "_provider": "codex"
+  },
+  {
+   "session_id": "019f4a24-5228-7b22-8351-f1ce11bd186c",
+   "title": "Default repository tools to pinned project-local installation",
+   "criteria": [
+    "rollback",
+    "quality_lever"
+   ],
+   "evidence": "A CLI was first installed globally and verified from a fresh login shell. The user then requested a rollback and repository-only installation. The replacement used a pinned local development dependency, generated package metadata and a lockfile, ignored the installation directory, removed the global command, and independently verified local execution and global absence. The session explicitly identified reproducibility as the advantage of the local approach.",
+   "novelty": "The baseline has general scope and dependency-verification rules but no guidance for choosing between machine-global and repository-local CLI installation, nor for verifying that a scope migration actually removed the old command resolution path.",
+   "principle": "For a CLI used by one repository, prefer a pinned project-local development dependency with a lockfile and an ignored installation directory; reserve global installation for tools intentionally shared across projects. When changing installation scope, verify both sides independently: the old command resolution path is absent and the new repository-local invocation resolves the pinned version.",
+   "placement": "CLAUDE.md > Tooling and Operational Safety, under dependency and CLI installation scope",
+   "confidence": 0.89,
+   "_provider": "codex"
+  },
+  {
+   "session_id": "019f5a02-41e4-73f1-93da-a9cba21f718f",
+   "title": "Protect dirty worktrees before pulling remote changes",
+   "criteria": [
+    "quality_lever",
+    "rare_high_cost"
+   ],
+   "evidence": "Before pulling 97 remote commits into a worktree with four uncommitted files, the session fetched remote state, established that there were no local-only commits, compared incoming changed paths with the dirty paths, and used a fast-forward-only pull. Afterward it confirmed that the uncommitted changes were preserved and revalidated a generated HTML artifact because its source inputs had changed upstream.",
+   "novelty": "The baseline already requires fetching before branch-range reasoning and using authoritative remote refs, but it does not cover pull safety with a dirty worktree, path-overlap analysis, fast-forward-only integration, or post-pull regeneration checks for derived artifacts whose inputs changed.",
+   "principle": "Before pulling into a dirty worktree, fetch first, determine local-only and incoming commits, compare incoming changed paths against all staged, unstaged, and untracked paths, and stop if overlap or a non-fast-forward integration could endanger local work. Use fast-forward-only pull when applicable, then confirm the dirty state was preserved and revalidate any derived artifact whose inputs changed upstream.",
+   "placement": "CLAUDE.md > Tooling and Operational Safety, adjacent to the existing fetch and remote-range rule",
+   "confidence": 0.95,
+   "_provider": "codex"
+  }
+ ]
+}

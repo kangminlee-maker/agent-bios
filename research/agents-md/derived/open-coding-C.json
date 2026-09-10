@@ -1,0 +1,582 @@
+{
+  "categories": [
+    {
+      "id": "repo-orientation",
+      "name_en": "Codebase orientation",
+      "name_ko": "저장소 지형 파악",
+      "definition": "Gives the agent a mental model of what this repo is and where things live, so it can locate the right file or subsystem without searching or guessing.",
+      "includes": [
+        "One-paragraph 'what this project is' framing, often with language/framework/version inventory",
+        "Directory trees and module maps annotated with responsibility per path",
+        "Tables mapping a task or concept to the file that owns it ('Where to Look', 'Key Files')",
+        "Descriptions of the runtime/architecture model (process roles, layers, data flow, pipeline stages)",
+        "Project-specific vocabulary defined so the agent uses the same words as the codebase",
+        "Statements of project status/maturity that set the ambient bar (e.g. 'maturing mode', 'stable/maintenance')"
+      ],
+      "excludes": [
+        "'Read docs/x.md before touching y' belongs to context-routing — it defers the knowledge instead of carrying it",
+        "'Never put business logic in API handlers' belongs to protected-invariants — it constrains what you write, not what exists",
+        "Environment facts you would only learn by hitting a failure belong to pitfall-warnings"
+      ],
+      "discriminators": [
+        "Does the block itself carry the knowledge, or does it point at another artifact that carries it? (carry = orientation, point = context-routing)",
+        "Could a careful reader derive this by reading the repo (orientation), or only by running into a failure (pitfall-warnings)?",
+        "Is it describing what exists (orientation) or prescribing what must hold in new code (protected-invariants)?"
+      ],
+      "examples": [
+        {
+          "file_id": "grafana/grafana::AGENTS.md",
+          "quote": "Grafana is a monitoring and observability platform. Go backend, TypeScript/React frontend, monorepo with Yarn workspaces (frontend) and Go workspaces (backend)."
+        },
+        {
+          "file_id": "tursodatabase/turso::AGENTS.md",
+          "quote": "| Query execution | `core/vdbe/execute.rs` | 12k LOC bytecode interpreter |"
+        },
+        {
+          "file_id": "max-sixty/worktrunk::CLAUDE.md",
+          "quote": "**main worktree** — the original git directory (from clone/init); bare repos have none"
+        },
+        {
+          "file_id": "streamlabs/desktop::CLAUDE.md",
+          "quote": "**worker** — invisible, persistent renderer that runs the **entire services layer**. All service methods actually execute here."
+        }
+      ],
+      "subcategories": [
+        {"id": "structure-map", "name_en": "Directory / module map", "gloss": "annotated tree or path→responsibility table"},
+        {"id": "architecture-model", "name_en": "Runtime & architecture model", "gloss": "layers, processes, pipelines, data flow"},
+        {"id": "terminology", "name_en": "Project vocabulary", "gloss": "terms defined so agent and code agree"},
+        {"id": "stack-inventory", "name_en": "Stack & version inventory", "gloss": "languages, frameworks, pinned versions"}
+      ],
+      "est_share_of_blocks": 0.15,
+      "est_share_of_files_containing": 0.82
+    },
+    {
+      "id": "context-routing",
+      "name_en": "Context routing",
+      "name_ko": "문맥 라우팅",
+      "definition": "Tells the agent which other document, rule file, or scoped instruction set to load, and under what condition, so the root file acts as a dispatcher rather than as the content itself.",
+      "includes": [
+        "Task→guide routing tables that must be consulted before research or coding",
+        "Lists of directory-scoped AGENTS.md / CLAUDE.md files with the paths they govern",
+        "'Read next' / 'read these before non-trivial changes' pointers to ADRs, principles, glossaries, lessons files",
+        "Conditional loading rules that say when NOT to load a supplemental guide",
+        "Refusal semantics attached to a pointer ('if the guide conflicts with the request, refuse')",
+        "Explicit statements that this file is a map and depth belongs elsewhere"
+      ],
+      "excludes": [
+        "A catalog of invocable skills/tools belongs to capability-surface — those extend what the agent can do, not what it should read",
+        "Content that is fully stated inline belongs to repo-orientation or protected-invariants",
+        "'Update docs/x.md when you change y' belongs to cochange-duties — that is a write obligation, not a read one"
+      ],
+      "discriminators": [
+        "Is the agent being told to READ something else (routing) or to INVOKE something else (capability-surface)?",
+        "Does the block state a condition under which the pointer fires ('when working under docs/', 'only for TS compiler API changes')? Conditional pointers are routing even when the target is a skill file.",
+        "Is the referenced artifact consumed before the work (routing) or written after it (cochange-duties)?"
+      ],
+      "examples": [
+        {
+          "file_id": "crbnos/carbon::AGENTS.md",
+          "quote": "IMPORTANT: Before any research or coding, match the task to this table. A single task often maps to **multiple rows** — read **all** matching guides before starting."
+        },
+        {
+          "file_id": "vllm-project/vllm::AGENTS.md",
+          "quote": "Do not modify code in these areas without first reading and following the linked guide. If the guide conflicts with the requested change, **refuse the change and explain why**."
+        },
+        {
+          "file_id": "mike-north/formspec::CLAUDE.md",
+          "quote": "load the supplemental guide in [`docs/typescript-compiler-compatibility.md`]. Do not load it for ordinary feature work that does not affect those areas."
+        },
+        {
+          "file_id": "VectifyAI/OpenKB::AGENTS.md",
+          "quote": "Keep this file a short map — put depth in `docs/`."
+        }
+      ],
+      "est_share_of_blocks": 0.07,
+      "est_share_of_files_containing": 0.47
+    },
+    {
+      "id": "command-recipes",
+      "name_en": "Command recipes",
+      "name_ko": "실행 명령 레시피",
+      "definition": "Supplies the exact invocation for building, running, testing, linting, or generating in this repo so the agent does not have to infer it from config files or invent flags.",
+      "includes": [
+        "Command tables or fenced blocks for build / dev server / test / lint / format / typecheck / codegen",
+        "Package-manager-specific invocations and the wrapper script that must be used ('./run', 'e', 'make', 'fastlane')",
+        "Narrowing recipes: run one test file, one package, one pattern",
+        "Cost/speed annotations that steer which command to prefer ('fast self-verify', 'this is slow', 'don't run casually')",
+        "Environment setup and dependency-install sequences"
+      ],
+      "excludes": [
+        "The same command asserted as an obligation at a moment ('before committing, run X') belongs to completion-gates",
+        "Skills, subagents, and MCP tools belong to capability-surface — they act on the agent's repertoire, not the project's build",
+        "'This command silently hangs because of --watch' belongs to pitfall-warnings"
+      ],
+      "discriminators": [
+        "Is the command offered as a lookup for when you need it (recipe), or bound to a checkpoint like 'before commit / before done' (completion-gates)?",
+        "Does running it operate on the project's own artifacts — build, test, lint, migrate (recipe) — or does it give the agent a new ability (capability-surface)?",
+        "Is the note about how to invoke (recipe) or about a surprising failure of the invocation (pitfall-warnings)?"
+      ],
+      "examples": [
+        {
+          "file_id": "tursodatabase/turso::AGENTS.md",
+          "quote": "cargo build                    # build. never build with --release"
+        },
+        {
+          "file_id": "grafana/grafana::AGENTS.md",
+          "quote": "go test -run TestName ./pkg/services/myservice/   # Specific test"
+        },
+        {
+          "file_id": "streamlabs/desktop::CLAUDE.md",
+          "quote": "| Typecheck | `yarn typecheck` | **Fast self-verify.** `tsc --noEmit` for the app + React."
+        },
+        {
+          "file_id": "PaulRBerg/prb-math::CLAUDE.md",
+          "quote": "`bun run full-check` - Prettier + Solhint + Forge format check"
+        }
+      ],
+      "est_share_of_blocks": 0.11,
+      "est_share_of_files_containing": 0.78
+    },
+    {
+      "id": "capability-surface",
+      "name_en": "Agent capability surface",
+      "name_ko": "에이전트 능력 목록",
+      "definition": "Enumerates the extra powers this repo has installed for the agent — skills, slash commands, subagents, MCP tools, browser drivers — and the triggers that should activate each one.",
+      "includes": [
+        "Catalogs of skills / slash commands with a one-line 'what it does' and an invocation name",
+        "Keyword or phrase triggers that map user language onto a skill or mode",
+        "Named subagent roles and which kind of work routes to each",
+        "MCP tool descriptions with usage precedence ('use search-docs before any other approach')",
+        "Model-tier routing tables (haiku/sonnet/opus by task weight)",
+        "Purpose-built CLI verbs a project exposes specifically for agent use"
+      ],
+      "excludes": [
+        "Build/test/lint commands belong to command-recipes — they produce project artifacts, not agent leverage",
+        "'Use subagents liberally to keep context clean' belongs to agent-conduct — that is policy about using the surface, not the surface itself",
+        "'Read .claude/skills/x/SKILL.md before doing y' belongs to context-routing when the skill is being read rather than invoked"
+      ],
+      "discriminators": [
+        "Does the block enumerate available capabilities and their triggers (surface), or govern when/whether to reach for them (agent-conduct)?",
+        "Would the capability exist for a human developer with a shell (command-recipes), or only for an agent harness (capability-surface)?"
+      ],
+      "examples": [
+        {
+          "file_id": "garrytan/gstack::AGENTS.md",
+          "quote": "| `/investigate` | Systematic root-cause debugging. No fixes without investigation. |"
+        },
+        {
+          "file_id": "Yeachan-Heo/oh-my-claudecode::docs/CLAUDE.md",
+          "quote": "`haiku` (quick lookups), `sonnet` (standard), `opus` (architecture, deep analysis)."
+        },
+        {
+          "file_id": "nunomaduro/whyphp.dev::CLAUDE.md",
+          "quote": "Boost comes with a powerful `search-docs` tool you should use before any other approaches."
+        },
+        {
+          "file_id": "keon/browser-control::AGENTS.md",
+          "quote": "browser-control inspect    # compact title/url/text/headings/actions/links"
+        }
+      ],
+      "est_share_of_blocks": 0.06,
+      "est_share_of_files_containing": 0.31
+    },
+    {
+      "id": "house-form",
+      "name_en": "House form conventions",
+      "name_ko": "산출물 형식 규약",
+      "definition": "Fixes the shape of whatever the agent writes — code, tests, commit text, slides — so the output is indistinguishable in form from what the project already contains.",
+      "includes": [
+        "Naming, indentation, line length, import ordering, comment policy, type-usage rules",
+        "File and module organization rules (single-word filenames, one service file per module, size caps)",
+        "Test-authoring conventions: where tests live, which level to write at, naming, mocking philosophy, table-driven style",
+        "Commit-message grammar and PR/branch naming formats (conventional commits, imperative summary, branch prefixes)",
+        "Form rules for non-code artifacts the repo produces: blog post headers, doc types, slide typography and spacing"
+      ],
+      "excludes": [
+        "'Never use `any` in a way that would break tenancy or data safety' — security/correctness constraints belong to protected-invariants",
+        "'Run the formatter before committing' belongs to completion-gates",
+        "'Every new component needs a story and a test' belongs to cochange-duties — that is about a second artifact, not the form of one"
+      ],
+      "discriminators": [
+        "If violated, is the result merely inconsistent with house taste (house-form), or incorrect / unsafe / data-losing (protected-invariants)?",
+        "Is the rule about the shape of the thing you write (house-form), or about a second artifact you must also touch (cochange-duties)?",
+        "Is it a property of the artifact (house-form) or a check performed on it (completion-gates)?"
+      ],
+      "examples": [
+        {
+          "file_id": "danny-avila/LibreChat::CLAUDE.md",
+          "quote": "**Never use `any`**. Explicit types for all parameters, return values, and variables."
+        },
+        {
+          "file_id": "DIYgod/RSSHub::AGENTS.md",
+          "quote": "**Naming Convention**: Use `camelCase` for variable names in JavaScript/TypeScript. Avoid `snake_case` (e.g., use `videoUrl` instead of `video_url`)."
+        },
+        {
+          "file_id": "natemcmaster/CommandLineUtils::CLAUDE.md",
+          "quote": "**Format:** `<type>[optional scope]: <description>`"
+        },
+        {
+          "file_id": "danny-avila/LibreChat::CLAUDE.md",
+          "quote": "**Real logic over mocks.** Exercise actual code paths with real dependencies. Mocking is a last resort."
+        },
+        {
+          "file_id": "bebraw/2026-job-talk::AGENTS.md",
+          "quote": "Use dark infoboxes sparingly as emphasis devices, not as a default panel style."
+        }
+      ],
+      "subcategories": [
+        {"id": "code-style", "name_en": "Code style & organization", "gloss": "naming, imports, comments, file layout"},
+        {"id": "test-authoring", "name_en": "Test authoring conventions", "gloss": "level, location, naming, mocking stance"},
+        {"id": "vcs-text-format", "name_en": "Commit / PR / branch text form", "gloss": "message grammar and naming schemes"},
+        {"id": "artifact-form", "name_en": "Non-code artifact form", "gloss": "docs, posts, slides written to house shape"}
+      ],
+      "est_share_of_blocks": 0.13,
+      "est_share_of_files_containing": 0.73
+    },
+    {
+      "id": "protected-invariants",
+      "name_en": "Protected invariants and forbidden moves",
+      "name_ko": "보호 불변식·금지선",
+      "definition": "States constraints whose violation produces something broken, unsafe, or unrecoverable rather than merely unidiomatic — protected paths, banned tooling, security and tenancy rules, correctness properties that must hold.",
+      "includes": [
+        "Absolute prohibitions on tools or channels ('never npx', 'never npm — always pnpm', 'never bare pip')",
+        "Files and directories that must never be hand-edited (generated types, snapshots, versioned docs, build output, i18n)",
+        "Data-safety and destructive-operation rules (fail rather than lose data, atomic writes, no silent deletes)",
+        "Security, secrets, and multi-tenancy constraints (no cross-tenant reads, never commit credentials)",
+        "Correctness invariants of the domain ('crash > corrupt', 'mutations are pure', 'guid must be unique', 'assert invariants, don't hedge')",
+        "Dependency-introduction bans and version red lines"
+      ],
+      "excludes": [
+        "Constraints that lift once a human approves belong to human-authority — those are conditional, not absolute",
+        "Formatting or naming prohibitions belong to house-form",
+        "'This build flag OOMs, scope it' belongs to pitfall-warnings — it is a caveat, not a rule protecting an invariant"
+      ],
+      "discriminators": [
+        "Is the action forbidden outright (invariant), or permitted once someone approves it (human-authority)?",
+        "If violated, does something break, leak, or get lost (invariant), or does the code just look wrong (house-form)?",
+        "Is the block asserting a property that must hold in the system (invariant), or reporting a surprising fact about the environment (pitfall-warnings)?"
+      ],
+      "examples": [
+        {
+          "file_id": "electron/electron::CLAUDE.md",
+          "quote": "**Never use `npx`.** It is considered dangerous because it can silently fetch and execute arbitrary packages from the registry."
+        },
+        {
+          "file_id": "crbnos/carbon::AGENTS.md",
+          "quote": "Never expose cross-tenant data or skip `companyId` scoping."
+        },
+        {
+          "file_id": "max-sixty/worktrunk::CLAUDE.md",
+          "quote": "**Prefer failure over silent loss** — if an operation might destroy untracked files, uncommitted changes, or user data, fail with an error."
+        },
+        {
+          "file_id": "wasp-lang/wasp::CLAUDE.md",
+          "quote": "**E2E snapshots** (`waspc/e2e-tests/test-outputs/snapshots/`) must never be manually edited."
+        },
+        {
+          "file_id": "tursodatabase/turso::AGENTS.md",
+          "quote": "**Correctness paramount.** Production DB, not a toy. Crash > corrupt"
+        }
+      ],
+      "est_share_of_blocks": 0.09,
+      "est_share_of_files_containing": 0.62
+    },
+    {
+      "id": "cochange-duties",
+      "name_en": "Co-change duties",
+      "name_ko": "동반 변경 의무",
+      "definition": "Names the sibling artifacts that must be updated in the same change, so the agent's edit does not leave a derived file, index, registry, or document silently stale.",
+      "includes": [
+        "'Behavior change requires a doc update' rules, often with a change→target mapping table",
+        "Regeneration duties after a source edit (regenerate DB types after migrations, wire DI, CUE schemas, feature toggles, README index)",
+        "Hand-maintained registries that must be appended to (service registry, plugin manifest, sidebar/breadcrumb, skills array, module lists)",
+        "Bundled-artifact requirements ('a component ships with its story and its test')",
+        "Changelog / iteration-log / lessons-file entries required on completion",
+        "Mirror-sync duties across repos or doc trees"
+      ],
+      "excludes": [
+        "'Never hand-edit generated types' is the inverse rule and belongs to protected-invariants",
+        "'Run the test suite before pushing' belongs to completion-gates — it checks the change rather than extending it",
+        "'Read the ADR before changing this area' belongs to context-routing"
+      ],
+      "discriminators": [
+        "Does the block name another artifact that must CHANGE alongside the code (co-change), or a check that must PASS on the code as it stands (completion-gates)?",
+        "Is the second artifact written by the agent (co-change), or merely read by it beforehand (context-routing)?",
+        "Is the derived file forbidden to touch (protected-invariants) or required to be refreshed (co-change)?"
+      ],
+      "examples": [
+        {
+          "file_id": "bketelsen/clincus::CLAUDE.md",
+          "quote": "**Every change that affects user-facing behavior MUST update documentation:**"
+        },
+        {
+          "file_id": "palewire/cuny-jour-static-site-template::AGENTS.md",
+          "quote": "A PR that adds a new component without its story and test is incomplete."
+        },
+        {
+          "file_id": "crbnos/carbon::AGENTS.md",
+          "quote": "Run `pnpm run generate:types` after schema/migration changes, BEFORE typechecking."
+        },
+        {
+          "file_id": "streamlabs/desktop::CLAUDE.md",
+          "quote": "**Register new services** in `app/app-services.ts` — it's hand‑maintained, not generated. A service that isn't registered won't resolve."
+        }
+      ],
+      "est_share_of_blocks": 0.05,
+      "est_share_of_files_containing": 0.36
+    },
+    {
+      "id": "completion-gates",
+      "name_en": "Completion gates",
+      "name_ko": "완료 판정 게이트",
+      "definition": "Defines what must be run and what evidence must exist before the agent may call the work done, commit, or push — converting 'seems fine' into a checkable condition.",
+      "includes": [
+        "'Before committing / before pushing / before declaring complete, run X' obligations",
+        "Pre-PR quality checklists with tick boxes",
+        "Statements that a narrower check is insufficient ('dotnet test alone may pass while the full build fails')",
+        "Evidence standards: run the command, read the output, then state the result; no claim without proof",
+        "Definitions of what does NOT count as done (stub tests, test.skip, TODO placeholders, unimplemented branches)",
+        "Fail-closed conditions that stop the work and require reporting instead of proceeding"
+      ],
+      "excludes": [
+        "The command itself, offered as a lookup, belongs to command-recipes",
+        "'Get explicit human approval before pushing' belongs to human-authority — the blocker is a person, not a check",
+        "The ordered method for the whole task belongs to task-procedure"
+      ],
+      "discriminators": [
+        "Is the blocker a check the agent can run itself (gate), or a person whose consent is required (human-authority)?",
+        "Is the command bound to a moment ('before commit') and mandatory (gate), or listed for reference (command-recipes)?",
+        "Does it define a pass/fail condition at a boundary (gate), or the sequence of steps leading there (task-procedure)?"
+      ],
+      "examples": [
+        {
+          "file_id": "natemcmaster/CommandLineUtils::CLAUDE.md",
+          "quote": "**IMPORTANT:** Always run the full `build.ps1` script before committing changes. `dotnet test` alone may pass while the full build fails due to:"
+        },
+        {
+          "file_id": "crbnos/carbon::AGENTS.md",
+          "quote": "Never claim work is complete without running verification commands. Evidence before assertions — run the command, read the output, then state the result."
+        },
+        {
+          "file_id": "Yeachan-Heo/oh-my-claudecode::docs/CLAUDE.md",
+          "quote": "No fake completion: TODO-style placeholder notes, `test.skip`/`.only`, stub tests, and unimplemented branches are blockers, not evidence."
+        },
+        {
+          "file_id": "postgres-ai/database-lab-engine::CLAUDE.md",
+          "quote": "**Always run tests before pushing.** If tests fail, do not push. Fix the failing tests first."
+        }
+      ],
+      "est_share_of_blocks": 0.07,
+      "est_share_of_files_containing": 0.53
+    },
+    {
+      "id": "human-authority",
+      "name_en": "Human authority boundary",
+      "name_ko": "인간 승인 경계",
+      "definition": "Marks where the agent must stop and hand control to a person — which actions need approval, which decisions are not the agent's to make, and who remains accountable for the result.",
+      "includes": [
+        "Approval gates on outward-facing or irreversible actions (push, merge, tag, publish, rebuild the database)",
+        "'Ask first' trigger lists (scope reduction, architecture change, public contract, new dependency, auth/RBAC, schema in production tables)",
+        "Steps explicitly reserved for the human ('leave the user to run these', 'AI must not edit package.json — a human runs npm install')",
+        "Accountability requirements: a human must review every line, must disclose AI assistance, remains responsible for correctness",
+        "Instructions to consult maintainers before a class of work",
+        "The inverse: explicit grants of full autonomy that waive confirmation"
+      ],
+      "excludes": [
+        "Absolute bans that no approval can lift belong to protected-invariants",
+        "Self-runnable checks belong to completion-gates",
+        "'Ask one focused question with 2-4 options' is about how to ask, and belongs to agent-conduct"
+      ],
+      "discriminators": [
+        "Can the agent unblock itself by running something (completion-gates), or only by a person saying yes (human-authority)?",
+        "Would approval ever make the action permissible? If never, it is protected-invariants.",
+        "Is the rule about whether to ask (human-authority) or about the form of the asking (agent-conduct)?"
+      ],
+      "examples": [
+        {
+          "file_id": "grafana/grafana::AGENTS.md",
+          "quote": "Before running `git push`, stop and get explicit human approval. When changes are ready, show a summary of changes and wait for instruction."
+        },
+        {
+          "file_id": "vllm-project/vllm::AGENTS.md",
+          "quote": "Pure code-agent PRs are **not allowed**. A human submitter must understand and defend the change end-to-end."
+        },
+        {
+          "file_id": "crbnos/carbon::AGENTS.md",
+          "quote": "Ask before reducing scope, changing architecture, changing public contracts, or adding production dependencies."
+        },
+        {
+          "file_id": "CarGuo/GSYGithubAPP::AGENTS.md",
+          "quote": "**依赖版本红线（强约束）**：升级 / 新增依赖时只能采用 **发布时间 ≥ 15 天** 的版本；AI 不直接编辑 package.json，必须由人工执行 `npm install`。"
+        },
+        {
+          "file_id": "electron/electron::CLAUDE.md",
+          "quote": "# 5. Test your changes (Leave the user to do this, don't run these commands unless asked)"
+        }
+      ],
+      "est_share_of_blocks": 0.04,
+      "est_share_of_files_containing": 0.29
+    },
+    {
+      "id": "task-procedure",
+      "name_en": "Task procedure",
+      "name_ko": "작업 절차 순서",
+      "definition": "Prescribes the ordered method for a class of task — the sequence of steps and their order of operations — rather than any single check or command.",
+      "includes": [
+        "Numbered SOPs for making a change (read context → plan → small steps → test → log → gate)",
+        "TDD cycles stated as an ordered loop (failing test → confirm failure → minimal code → lint → refactor → commit)",
+        "Plan-first policies and where plans are written",
+        "Domain-specific workflows: dependency upgrade, patch export, release cut, PR flow, deploy verification",
+        "Slice-sizing and branching discipline as process (small vertical slices, trunk-based, one branch per change)",
+        "Ordering constraints between phases ('implement everything, then verify once', 'separate authoring and review passes')"
+      ],
+      "excludes": [
+        "A single pass/fail checkpoint belongs to completion-gates",
+        "The exact command text belongs to command-recipes",
+        "Reasoning posture that applies to every task regardless of type belongs to agent-conduct"
+      ],
+      "discriminators": [
+        "Does it prescribe an ORDER across multiple steps (procedure), or a condition at one boundary (completion-gates)?",
+        "Is it scoped to a class of task — bug fix, upgrade, release (procedure) — or to the agent's general disposition (agent-conduct)?"
+      ],
+      "examples": [
+        {
+          "file_id": "quii/todo-eisenhower::CLAUDE.md",
+          "quote": "2. **Write failing test** (black-box, `_test` package) 3. **Run test** - confirm it fails for the right reason 4. **Write minimal code** to pass the test"
+        },
+        {
+          "file_id": "CarGuo/GSYGithubAPP::AGENTS.md",
+          "quote": "1. **先读再改**：开工前阅读相关 harness/architecture、harness/requirements 与历史 CHANGELOG-AI.md。"
+        },
+        {
+          "file_id": "electron/electron::CLAUDE.md",
+          "quote": "If asked to fix a patch conflict on a branch that already has an open PR, check the PR's failed **Apply Patches** CI run for an `update-patches` artifact before running `e sync` locally."
+        },
+        {
+          "file_id": "crbnos/carbon::AGENTS.md",
+          "quote": "Enter plan mode for any non-trivial task (3+ steps or architectural decisions). If something goes wrong, stop and re-plan immediately."
+        }
+      ],
+      "est_share_of_blocks": 0.07,
+      "est_share_of_files_containing": 0.44
+    },
+    {
+      "id": "agent-conduct",
+      "name_en": "Agent conduct",
+      "name_ko": "에이전트 행동 지침",
+      "definition": "Shapes the agent as an actor rather than the codebase — how it reasons, how much it does unasked, how it delegates, how it handles uncertainty, and how it talks to the user.",
+      "includes": [
+        "Reasoning discipline: state assumptions, surface tradeoffs, do not silently convert uncertainty into an assumption, validate hypotheses before claiming a cause",
+        "Scope discipline framed as agent behavior: minimum viable code, no speculative abstractions, surgical changes, every changed line traces to the request",
+        "Delegation and self-review policy: offload to subagents, never self-approve in the same context, keep authoring and review as separate passes",
+        "Anti-slop output hygiene: remove verbose AI comments, no contribution farming, no blind acceptance of suggestions",
+        "Communication register: response length, language to speak, how to phrase questions (option lists, not prose), forms of address, activation personas and splash output",
+        "Explicit autonomy settings, including waivers of confirmation"
+      ],
+      "excludes": [
+        "Whether an action requires approval belongs to human-authority; conduct covers only how the agent conducts itself",
+        "The catalog of subagents/skills belongs to capability-surface",
+        "Ordered per-task methods belong to task-procedure"
+      ],
+      "discriminators": [
+        "Is the rule about the agent's own reasoning, output register, or working style regardless of task (conduct), or about the sequence of a specific task type (task-procedure)?",
+        "Does it enumerate an available capability (capability-surface) or govern the disposition toward using it (conduct)?",
+        "Does it decide who has authority over an action (human-authority) or how the agent should behave while acting (conduct)?"
+      ],
+      "examples": [
+        {
+          "file_id": "digoal/blog::CLAUDE.md",
+          "quote": "**Don't assume. Don't hide confusion. Surface tradeoffs.**"
+        },
+        {
+          "file_id": "houbb/core-agent::AGENTS.md",
+          "quote": "**需要你向我提问时，必须使用选项列表，禁止用散文/段落罗列问题。**"
+        },
+        {
+          "file_id": "Yeachan-Heo/oh-my-claudecode::docs/CLAUDE.md",
+          "quote": "Never self-approve in the same active context; use `code-reviewer` or `verifier` for the approval pass."
+        },
+        {
+          "file_id": "juice-shop/juice-shop::AGENTS.md",
+          "quote": "**Required** per CONTRIBUTING.md rule #6: Remove unnecessary AI-generated content before submitting PRs."
+        },
+        {
+          "file_id": "MagicCube/agentara::CLAUDE.md",
+          "quote": "IMPORTANT: No more Korean, I'm Chinese!"
+        }
+      ],
+      "subcategories": [
+        {"id": "reasoning-discipline", "name_en": "Reasoning & scope discipline", "gloss": "assumptions, minimalism, surgical edits"},
+        {"id": "delegation-policy", "name_en": "Delegation & self-review policy", "gloss": "when to fan out, never self-approve"},
+        {"id": "communication-register", "name_en": "Communication register", "gloss": "language, verbosity, question form, persona"}
+      ],
+      "est_share_of_blocks": 0.06,
+      "est_share_of_files_containing": 0.33
+    },
+    {
+      "id": "pitfall-warnings",
+      "name_en": "Pitfall warnings",
+      "name_ko": "함정·환경 경고",
+      "definition": "Pre-empts a specific known failure or misleading signal the agent would otherwise hit, so it does not burn a loop debugging something already understood or draw the wrong conclusion from a red result.",
+      "includes": [
+        "Environment quirks: PATH resolution, sandbox layouts, tool binaries that resolve to the wrong version, ports that only bind on one host",
+        "Commands that behave surprisingly (test script defaults to --watch, whole-repo typecheck OOMs, slow compile in one package)",
+        "Symptom→cause→fix triplets for recurring errors, including version-incompatibility tables",
+        "Pre-existing failures explicitly declared as baseline noise, not the agent's fault",
+        "Behaviors that look like a bug but are intentional, and inline markers that must be honored",
+        "Cross-version API traps (renumbered enum values, deprecated internals)"
+      ],
+      "excludes": [
+        "Rules that protect an invariant belong to protected-invariants — a pitfall explains reality rather than constraining behavior",
+        "Descriptions of how the system is designed belong to repo-orientation",
+        "'Run this command' belongs to command-recipes even when a caveat is attached; the caveat sentence is the pitfall part"
+      ],
+      "discriminators": [
+        "Would you learn this only by hitting the failure (pitfall), or by reading the code (repo-orientation)?",
+        "Does the block explain a surprising fact about the environment (pitfall), or forbid an action to protect something (protected-invariants)?",
+        "Is the point 'this signal is misleading / already known' (pitfall), or 'this must pass before you are done' (completion-gates)?"
+      ],
+      "examples": [
+        {
+          "file_id": "abi/screenshot-to-code::AGENTS.md",
+          "quote": "The Vite dev server binds to `localhost` only, so use `http://localhost:5173`, not `http://127.0.0.1:5173` (the latter refuses the connection)."
+        },
+        {
+          "file_id": "grafana/grafana::AGENTS.md",
+          "quote": "**Frontend tests**: The `yarn test` script includes `--watch` by default. Always use `yarn jest --no-watch` or add `--watchAll=false` to run tests once and exit."
+        },
+        {
+          "file_id": "bketelsen/clincus::CLAUDE.md",
+          "quote": "The `.gitignore` uses `/clincus` (with leading slash) to only ignore the binary at root, not the `cmd/clincus/` directory"
+        },
+        {
+          "file_id": "roshanbvadassery/zopu-expo-template::AGENTS.md",
+          "quote": "### 1. `_reactJsxDevRuntime.jsxDEV is not a function` - **Cause**: React 19 + Expo SDK 54 incompatibility with static rendering"
+        }
+      ],
+      "est_share_of_blocks": 0.05,
+      "est_share_of_files_containing": 0.36
+    }
+  ],
+  "residual": {
+    "est_share": 0.05,
+    "description": "Blocks that do not do a job for the coding agent at all. Dominated by end-user product documentation pasted into an agent file — public API usage examples, feature marketing, threat-model prose aimed at the library's users, integration plugin lists, licensing, download stats, community links — plus repository change-history tables, and one meta oddity: prompts written to test whether the agent actually read the file. Also here: exhaustively enumerated command permutations that add no information over the first example (dozens of near-identical `npx mocha --require ts-node/register …` lines), which read as generated padding rather than instruction.",
+    "examples": [
+      "javascript-obfuscator/javascript-obfuscator::CLAUDE.md — 'Copyright (C) 2016-2026 Timofei Kachalov' / 'Downloads: Widely used in production applications'",
+      "javascript-obfuscator/javascript-obfuscator::CLAUDE.md — '### What It Doesn't Protect - Determined attackers with time and tools' (aimed at library users, not the agent)",
+      "juice-shop/juice-shop::AGENTS.md — '## Verification of Agent Context ... you can use the following test prompts'",
+      "PVE-Tools/PVE-Tools-9::CLAUDE.md — '## 变更记录 (Changelog)' table of past refactors",
+      "AgriciDaniel/planckatron-claude-code::CLAUDE.md — the ASCII splash-screen art itself"
+    ]
+  },
+  "observations": [
+    "Topic and purpose come apart cleanly, and 'testing' is the sharpest case: in this packet it appears as a command lookup (grafana's `go test -run`), as a gate (postgres-ai's 'always run tests before pushing'), as an authoring convention (vllm's 'design before you write... reuse before create'), as an ordered procedure (quii's red-green-refactor loop), and as a philosophy about the agent's disposition (LibreChat's 'heavy mocking is a code smell, not a testing strategy'). Any taxonomy built on section headings would collapse five different jobs into one bucket.",
+    "The corpus openly contradicts itself on agent autonomy, and the contradictions are per-repo policy rather than drift. grafana: 'Before running `git push`, stop and get explicit human approval'; vllm: 'Pure code-agent PRs are not allowed'; carbon: a six-line 'Ask First' list — versus houbb/core-agent: '最少干扰 — 文件变更+命令执行全部自动确认，不给用户确认' (auto-confirm everything, never ask the user). Branching contradicts too: clincus 'Never commit directly to main' vs quii 'Work directly on `main` branch (no feature branches, no pull requests)'. There is no shared default the agent could fall back on.",
+    "A visible copy/generation lineage runs through the packet. The sentence 'This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository' appears verbatim in at least six unrelated repos; onevcat/Kingfisher's AGENTS.md is literally titled '# CLAUDE.md' and opens with that line; JaKooLit's AGENTS.md addresses WARP instead. Machine-authored provenance is explicit in others: `<!-- OMC:START --><!-- OMC:VERSION:4.15.7 -->`, `<laravel-boost-guidelines>` with `=== foundation rules ===` separators, and PVE-Tools crediting 'claude-init 架构师（自适应版）' in its changelog. Files are being cloned across tools and generated by installers, not only hand-written.",
+    "Awareness that the file itself costs context appears almost exclusively in agent-native repos, and correlates inversely with file size. streamlabs: 'Keep this file lean — it loads into every session'; OpenKB: 'Keep this file a short map — put depth in `docs/`'; meanwhile the largest file in the packet (45KB) spends most of its length on end-user product docs and enumerated lint/test permutations. Size in this corpus tracks lack of editing, not richness.",
+    "Context routing is the structural move that separates large/high-star repos from small ones. grafana lists four directory-scoped AGENTS.md files; carbon's root file is mostly a ~60-row task→guide router mixing `.claude/rules/*.md` docs and `.claude/skills/*/SKILL.md` skills in the same table; worktrunk delegates to per-directory CLAUDE.md in tests/, docs/, benches/, plugins/, src/commands/. Notably the routers do not distinguish 'document to read' from 'skill to invoke' — both are just 'load this when the task matches'.",
+    "One register appears only in large OSS projects that accept outside contributions: the agent is addressed as an untrusted submitter rather than a teammate. vllm opens with 'Breaching these guidelines can result in automatic banning' and specifies 'Fail-closed behavior'; juice-shop bans 'contribution farming'; RSSHub's file is 54 numbered rules that read as a maintainer's PR-review checklist retargeted at the author. Small personal repos (1–100 stars, high-follower owners) show the opposite shape — conduct, procedure, and taste, with almost no orientation, because the owner already knows the codebase.",
+    "The instruction file has become a maintained artifact with its own lifecycle rules. vllm links a guide titled 'Rules for modifying AGENTS.md or any domain-specific guide it references'; carbon ships a `create-agents-md` skill and requires updating `.ai/lessons.md` after corrections; mattpocock requires the `ask-matt` router skill be re-synced whenever a skill changes ('a router that lies'); juice-shop embeds prompts to verify an agent actually loaded the file; grafana version-stamps its file `<!-- version: 2.0.0 -->`.",
+    "Co-change duties are the most under-recognized purpose relative to how consequential they are: they encode the couplings a code-only view of the repo cannot show (regenerate DB types before typechecking, register the service in a hand-maintained file or it silently won't resolve, update DesignTokens.mdx in the same change, ship a component with its story and its test). Several files state these as the definition of 'complete' rather than as a nicety."
+  ]
+}
