@@ -183,56 +183,120 @@ def required_assets():
             mark_fail(f"required launch asset missing: {required}")
 
 
+LAYOUT_DOCS = ("CONTRIBUTING.md", "ko/CONTRIBUTING.md")
+LAUNCH_DOC_PHRASES = {
+    "docs/advanced-launch.md": (
+        "Every arrow-key TUI selection screen", "persistent settings hub",
+        "Start with these settings", "Exit without launching", "`b` is the back command",
+    ),
+    "ko/docs/advanced-launch.md": (
+        "화살표 키 TUI의 모든 선택 화면", "지속형 설정 허브",
+        "Start with these settings", "Exit without launching", "`b`가 뒤로가기 명령",
+    ),
+}
+README_REFERENCES = {
+    "README.md": ("CONTRIBUTING.md", "docs/corpus.md", "docs/session-model.md",
+                  "docs/recovery.md", "docs/advanced-launch.md", "docs/understand.md"),
+    "ko/README.md": ("CONTRIBUTING.md", "../docs/corpus.md", "../docs/session-model.md",
+                     "../docs/recovery.md", "docs/advanced-launch.md", "../docs/understand.md"),
+}
+
+
+def _layout_errors(trees, documents):
+    if not trees or not documents:
+        return ["layout contract has no trees or documents"]
+    errors = []
+    for doc, text in documents.items():
+        table = text.split("## Layout", 1)[-1].split("\n## ", 1)[0] if "## Layout" in text else ""
+        if not table:
+            errors.append(f"{doc} has no Layout section to check trees against")
+            continue
+        for tree in trees:
+            if f"`{tree}/" not in table and f"`{tree}`" not in table:
+                errors.append(f"{doc} Layout table does not mention the tracked tree {tree!r}")
+    return errors
+
+
+def _phrase_errors(documents, required):
+    if not required or any(not phrases for phrases in required.values()):
+        return ["documentation phrase contract has no subjects"]
+    return [f"agent-launch documentation contract missing from {doc}: {phrase!r}"
+            for doc, phrases in required.items() for phrase in phrases
+            if phrase not in documents.get(doc, "")]
+
+
+def _reference_errors(documents, required):
+    if not required or any(not links for links in required.values()):
+        return ["README reference contract has no subjects"]
+    errors = []
+    for doc, links in required.items():
+        for link in links:
+            if f"]({link})" not in documents.get(doc, ""):
+                errors.append(f"{doc} does not link to {link}")
+            target = os.path.normpath(str(pathlib.Path(doc).parent / link))
+            if not documents.get(target, "").strip():
+                errors.append(f"{doc} reference target is missing or empty: {target}")
+    return errors
+
+
+def _documentation_texts(paths):
+    return {path: pathlib.Path(path).read_text() if pathlib.Path(path).is_file() else ""
+            for path in paths}
+
+
 @check
 def readme_layout_covers_every_tree():
-    """Every tracked top-level directory must appear in the READMEs' Layout tables.
-
-    `ontology/` landed as a new top-level machinery tree and neither README mentioned
-    it — the table is the reader's map of the repo, and a tree missing from it is
-    invisible to anyone who has not read the commit. Derived from `git ls-files` rather
-    than a list, so a tree added later is covered without touching this gate; that is the
-    same contract check-package.sh holds for the npm payload.
-    """
+    """README-linked contributor maps cover the real tracked top-level trees."""
     tracked = subprocess.run(
         ["git", "ls-files"], capture_output=True, text=True, check=True
     ).stdout.split()
     trees = sorted({rel.split("/", 1)[0] for rel in tracked if "/" in rel})
-    if not trees:
-        mark_fail("no tracked top-level directory found; the layout check would pass vacuously")
-        return
-    for doc in ("README.md", "ko/README.md"):
-        text = pathlib.Path(doc).read_text()
-        table = text.split("## Layout", 1)[-1].split("\n## ", 1)[0] if "## Layout" in text else ""
-        if not table:
-            mark_fail(f"{doc} has no Layout section to check trees against")
-            continue
-        for tree in trees:
-            if f"`{tree}/" not in table and f"`{tree}`" not in table:
-                mark_fail(f"{doc} Layout table does not mention the tracked tree {tree!r}")
+    for error in _layout_errors(trees, _documentation_texts(LAYOUT_DOCS)):
+        mark_fail(error)
 
 
 @check
 def doc_phrases():
-    for doc_path, required_phrases in {
-        pathlib.Path("README.md"): (
-            "Every arrow-key TUI selection screen",
-            "persistent settings hub",
-            "Start with these settings",
-            "Exit without launching",
-            "`b` is the back command",
-        ),
-        pathlib.Path("ko/README.md"): (
-            "화살표 키 TUI의 모든 선택 화면",
-            "지속형 설정 허브",
-            "Start with these settings",
-            "Exit without launching",
-            "`b`가 뒤로가기 명령",
-        ),
-    }.items():
-        doc_text = doc_path.read_text()
-        for phrase in required_phrases:
-            if phrase not in doc_text:
-                mark_fail(f"agent-launch documentation contract missing from {doc_path}: {phrase!r}")
+    for error in _phrase_errors(_documentation_texts(LAUNCH_DOC_PHRASES), LAUNCH_DOC_PHRASES):
+        mark_fail(error)
+
+
+@check
+def readme_reference_navigation():
+    paths = set(README_REFERENCES)
+    paths.update(os.path.normpath(str(pathlib.Path(doc).parent / link))
+                 for doc, links in README_REFERENCES.items() for link in links)
+    for error in _reference_errors(_documentation_texts(paths), README_REFERENCES):
+        mark_fail(error)
+
+
+@check
+def documentation_contract_controls():
+    """Independent fixture data keeps controls alive when live docs are reorganized."""
+    layout = {"contribution.md": "## Layout\n| `source/` | code |\n| `docs/` | docs |\n"}
+    phrases = {"launch.md": ("launch contract",)}
+    required = {"ko/README.md": ("../docs/runtime.md",)}
+    linked = {"ko/README.md": "[Runtime](../docs/runtime.md)", "docs/runtime.md": "Runtime instructions"}
+    probes = (
+        (not _layout_errors(["source", "docs"], layout), "layout positive control"),
+        (any("'docs'" in e for e in _layout_errors(["source", "docs"],
+             {"contribution.md": "## Layout\n| `source/` | code |"})), "missing tree"),
+        (bool(_layout_errors([], layout)), "empty tree set"),
+        (bool(_layout_errors(["source"], {})), "empty layout set"),
+        (bool(_layout_errors(["source"], {"contribution.md": "no heading"})), "missing Layout heading"),
+        (not _phrase_errors({"launch.md": "launch contract"}, phrases), "phrase positive control"),
+        (any("launch contract" in e for e in _phrase_errors({"launch.md": "wrong"}, phrases)), "missing launch phrase"),
+        (bool(_phrase_errors({}, {})), "empty phrase contract"),
+        (not _reference_errors(linked, required), "relative link positive control"),
+        (any("does not link" in e for e in _reference_errors(
+            dict(linked, **{"ko/README.md": "no link"}), required)), "missing README link"),
+        (any("missing or empty" in e for e in _reference_errors(
+            {"ko/README.md": linked["ko/README.md"]}, required)), "missing destination"),
+        (bool(_reference_errors(linked, {})), "empty reference contract"),
+    )
+    for passed, name in probes:
+        if not passed:
+            mark_fail(f"documentation contract self-test: {name}")
 
 
 @check
@@ -1837,7 +1901,7 @@ def codex_run():
                     ("--sandbox",),
                 )
 
-            # README promises an explicit --sandbox disables the HELM default bypass
+            # Advanced launch docs promise an explicit --sandbox disables the HELM default bypass
             # "regardless of flag order", and the flag that would re-enable it is parsed
             # in the same loop — so the reversed order is the case worth pinning, not
             # the one a reader would write first.
@@ -4646,7 +4710,7 @@ tier = "frontier"
     # is the mechanism the CURRENT composable descriptor uses; the legacy layer may keep
     # describing its own.
     keyword_mechanism = "keyword `ultracode` in the prompt"
-    for doc in ("README.md", "DEPENDENCIES.md"):
+    for doc in ("docs/advanced-launch.md", "DEPENDENCIES.md"):
         text = pathlib.Path(doc).read_text()
         if keyword_mechanism not in text:
             mark_fail(

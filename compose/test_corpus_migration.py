@@ -12,6 +12,8 @@ from corpus_install import InstallError, PERSONAL_START, PERSONAL_END, CENTRAL_S
 from corpus_transaction import guard_pending, confirmed_release, TransactionPendingError
 import test_corpus_install as fixtures
 
+RECOVERY_DOCUMENT = fixtures.SOURCE / 'docs/recovery.md'
+
 # Exact seed emitted by the published 0.15.0 assembler; independent of today's writer.
 LEGACY_EMPTY_CLAUDE_SEED = "# Personal learnings\n\n<!-- Automation-owned: written by the session learning flow (`learn!`,\n     learn/collect-learning.py). Do NOT hand-edit — promote→migrate clears\n     applied items by learning_id when the org redistributes them. Your own\n     personal rules belong in the entry CLAUDE.md '## Personal' section, never\n     here. This file is pulled into context by the entry file's\n     `@personal/learnings.md` import. -->\n"
 
@@ -21,8 +23,8 @@ class CorpusMigrationTests(unittest.TestCase):
     tearDown = fixtures.CorpusInstallTests.tearDown
     installer = fixtures.CorpusInstallTests.installer
 
-    def recover_with_readme(self, journal: Path, *paths: Path) -> Path:
-        text = (fixtures.SOURCE / 'README.md').read_text()
+    def recover_with_documented_procedure(self, journal: Path, *paths: Path) -> Path:
+        text = RECOVERY_DOCUMENT.read_text()
         start = text.index('import base64, hashlib, json, os, sys, tempfile')
         end = text.index('\nPY\n```', start)
         completed = subprocess.run([sys.executable, '-B', '-c', text[start:end], str(journal),
@@ -30,8 +32,8 @@ class CorpusMigrationTests(unittest.TestCase):
         self.assertEqual(0, completed.returncode, completed.stderr)
         return Path(completed.stdout.strip().splitlines()[-1])
 
-    def restore_b_with_readme(self, recovery: Path, path: Path) -> None:
-        text = (fixtures.SOURCE / 'README.md').read_text()
+    def restore_b_with_documented_procedure(self, recovery: Path, path: Path) -> None:
+        text = RECOVERY_DOCUMENT.read_text()
         command = next(line for line in text.splitlines()
                        if line == 'cp "$RECOVERY_BACKUP/${B#/}" "$B"')
         completed = subprocess.run(['/bin/sh', '-c', command], text=True, capture_output=True,
@@ -417,14 +419,14 @@ class CorpusMigrationTests(unittest.TestCase):
         # Execute the README's deliberately narrow recovery: preserve B,
         # restore only B's named migration target to its journal after-state,
         # finish the old journal, then let a fresh migration import B.
-        recovery = self.recover_with_readme(journal_path, source)
+        recovery = self.recover_with_documented_procedure(journal_path, source)
         self.assertFalse(source.exists())
         self.assertEqual(json.dumps(first) + '\n' + json.dumps(late) + '\n',
                          (recovery / str(source).lstrip('/')).read_text())
 
         instance.migrate(apply=True, yes=True)
         source.parent.mkdir(parents=True, exist_ok=True)
-        self.restore_b_with_readme(recovery, source)
+        self.restore_b_with_documented_procedure(recovery, source)
         instance.migrate(apply=True, yes=True)
 
         private = self.user / 'learnings/codex/events.jsonl'
@@ -435,7 +437,7 @@ class CorpusMigrationTests(unittest.TestCase):
         self.assertFalse(instance.status()['pending'])
         self.assertTrue(instance.verify()['stored'])
 
-    def test_input_only_late_learning_uses_readme_recovery(self):
+    def test_input_only_late_learning_uses_documented_recovery(self):
         instance, _ = self.legacy()
         source = self.codex / 'personal/learnings.jsonl'
         late = {'schema_version': 1, 'learning_id': '92929292-9292-4292-8292-929292929292',
@@ -455,11 +457,11 @@ class CorpusMigrationTests(unittest.TestCase):
         self.assertNotIn(str(source), {entry['path'] for entry in journal['paths']})
         self.assertEqual({'exists': False}, journal['inputs'][str(source)])
 
-        recovery = self.recover_with_readme(journal_path, source)
+        recovery = self.recover_with_documented_procedure(journal_path, source)
         self.assertFalse(source.exists())
         instance.migrate(apply=True, yes=True)
         source.parent.mkdir(parents=True, exist_ok=True)
-        self.restore_b_with_readme(recovery, source)
+        self.restore_b_with_documented_procedure(recovery, source)
         instance.migrate(apply=True, yes=True)
 
         events = [json.loads(line) for line in (self.user / 'learnings/codex/events.jsonl').read_text().splitlines()]
@@ -467,7 +469,7 @@ class CorpusMigrationTests(unittest.TestCase):
         self.assertFalse(source.exists())
         self.assertFalse(instance.status()['pending'])
 
-    def test_existing_input_late_learning_uses_retained_bytes_and_readme_recovery(self):
+    def test_existing_input_late_learning_uses_retained_bytes_and_documented_recovery(self):
         instance, _ = self.legacy()
         entry = self.codex / 'AGENTS.md'
         original = 'My native Codex instructions.\n'
@@ -494,14 +496,14 @@ class CorpusMigrationTests(unittest.TestCase):
         self.assertEqual(original.encode(), base64.b64decode(journal['inputs'][str(entry)]['bytes_b64']))
         self.assertEqual({'exists': False}, journal['inputs'][str(source)])
 
-        recovery = self.recover_with_readme(journal_path, entry, source)
+        recovery = self.recover_with_documented_procedure(journal_path, entry, source)
         self.assertEqual(original, entry.read_text())
         self.assertEqual(0o640, entry.stat().st_mode & 0o777)
         self.assertFalse(source.exists())
         instance.migrate(apply=True, yes=True)
         self.assertEqual(original, entry.read_text())
         source.parent.mkdir(parents=True, exist_ok=True)
-        self.restore_b_with_readme(recovery, source)
+        self.restore_b_with_documented_procedure(recovery, source)
         instance.migrate(apply=True, yes=True)
 
         events = [json.loads(line) for line in (self.user / 'learnings/codex/events.jsonl').read_text().splitlines()]

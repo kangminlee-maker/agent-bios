@@ -114,7 +114,9 @@ def self_consistency():
     if not LEXICON.is_file():
         return [f"LEXICON.md missing at {LEXICON}"]
     doc = LEXICON.read_text(encoding="utf-8")
-    return [f"DENY token {tok!r} is not documented in LEXICON.md" for tok in DENY if tok not in doc]
+    problems = [f"DENY token {tok!r} is not documented in LEXICON.md" for tok in DENY if tok not in doc]
+    problems += documentation_mention_errors(DOC_MENTIONS, tracked_text_files())
+    return problems
 
 
 # Trees organized on an axis other than the concept graph: the corpus is laid out by
@@ -122,6 +124,23 @@ def self_consistency():
 # appearing under them is a mention of a concept, not a home for it.
 NOT_A_HOME = ("claude/", "codex/", "ko/", "design/", "benchmarks/", "research/",
               "packages/")
+
+# These two files describe a concept; they do not implement it. Keep the
+# exceptions by name so placing machinery under docs/ still fails the home rule.
+DOC_MENTIONS = {
+    "docs/corpus.md": "user reference for inspecting and editing corpus items",
+    "docs/assets/corpus-studio.svg": "static screenshot of the corpus UI, not runtime machinery",
+}
+
+
+def documentation_mention_errors(entries, files):
+    problems = []
+    for path, reason in entries.items():
+        if not path.startswith("docs/") or not path.endswith((".md", ".svg")):
+            problems.append(f"{path}: documentation mention must be named prose or SVG, not machinery")
+        if path not in files or not isinstance(reason, str) or not reason.strip():
+            problems.append(f"{path}: documentation mention is missing, untracked, or has no reason")
+    return problems
 
 HOME_ROW = re.compile(r"^\|[^|]+\|\s*`([^`]+)`\s*\|\s*`([^`]+)`\s*\|\s*$", re.M)
 
@@ -144,7 +163,7 @@ def scattered(files, homes):
     problems = []
     for slug, home in homes:
         subjects = [rel for rel in files
-                    if not rel.startswith(NOT_A_HOME) and slug in rel]
+                    if not rel.startswith(NOT_A_HOME) and rel not in DOC_MENTIONS and slug in rel]
         # Non-empty subject: a home whose slug matches nothing is a stale declaration,
         # and "no file violates it" would be true for the wrong reason.
         if not subjects:
@@ -292,7 +311,7 @@ def guide_reference_form(files, read=None, concepts=(), runs=None):
 # method it carries has to be self-contained rather than a stub deferring to history.
 RUNTIME_AUTHORITY = (
     "claude/", "codex/", "ko/", "compose/", "launch/", "learn/", "wrappers/",
-    "gates/", "ontology/", "install.sh", "AGENTS.md", "CLAUDE.md", "README.md",
+    "gates/", "ontology/", "docs/", "install.sh", "AGENTS.md", "CLAUDE.md", "README.md", "CONTRIBUTING.md",
 )
 
 # The two files that OPERATE this rule must name the path to enforce and author it, exactly as
@@ -428,6 +447,22 @@ def self_test():
         if not scattered([f"{home}{slug}.py"], [("no-such-slug-xyz", home)]):
             failures.append("concept-home check accepted a slug matching nothing (vacuous)")
 
+    # Closed, independent fixtures: document exceptions cannot excuse machinery
+    # or count as the implementation that a concept home must actually contain.
+    if scattered(["compose/corpus.py", "docs/corpus.md", "docs/assets/corpus-studio.svg"], [("corpus", "compose/")]):
+        failures.append("concept-home check rejected the declared documentation mentions")
+    if not scattered(["compose/corpus.py", "docs/corpus.py"], [("corpus", "compose/")]):
+        failures.append("concept-home check exempted machinery placed under docs/")
+    if not scattered(["docs/corpus.md"], [("corpus", "compose/")]):
+        failures.append("a documentation mention incorrectly satisfied an implementation home")
+    if documentation_mention_errors({"docs/example.md": "prose"}, ["docs/example.md"]):
+        failures.append("documentation mention positive control failed")
+    for entries, files in (({"docs/example.md": "prose"}, []),
+                           ({"docs/example.md": ""}, ["docs/example.md"]),
+                           ({"docs/corpus.py": "claimed documentation"}, ["docs/corpus.py"])):
+        if not documentation_mention_errors(entries, files):
+            failures.append("documentation mention accepted a stale, unexplained, or machinery exemption")
+
     # Archive-reference controls. `read` is injected, so none of these touch the working tree.
     cited = {"install.sh": f"see {ARCHIVE_DIR}round-2026-07.md",
              "design/notes.md": f"see {ARCHIVE_DIR}round-2026-07.md",
@@ -449,6 +484,9 @@ def self_test():
         failures.append("archive-reference check flags its own operator, which must name the path")
     if not archive_referenced_by_runtime([], look):
         failures.append("archive-reference check passed over an empty subject (vacuous)")
+    for doc in ("docs/recovery.md", "docs/assets/corpus-studio.svg", "CONTRIBUTING.md"):
+        if not archive_referenced_by_runtime([doc], lambda _: f"see {ARCHIVE_DIR}past.md"):
+            failures.append(f"active documentation escaped archive-reference checking: {doc}")
     if ARCHIVE_DIR not in ARCHIVE:
         failures.append(f"{ARCHIVE_DIR} is not archive-exempt — recording a rename would fail the gate")
 

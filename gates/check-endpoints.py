@@ -88,6 +88,8 @@ EGRESS_PATTERNS = tuple(re.compile(p) for p in (
 # Canonical entries only — the projected trees (codex/, ko/claude/, ko/codex/)
 # are expanded from any claude/ entry by mirrored_exemptions().
 URL_EXEMPT_STATIC = (
+    ("docs/assets/corpus-studio.svg", 'xmlns="http://www.w3.org/2000/svg"',
+     frozenset({"www.w3.org"}), 1, "the SVG XML namespace is a format identifier, not a network endpoint"),
     ("learn/learning.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
      "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
     ("claude/guides/cli-multi-model-workflow.md", "Official basis",

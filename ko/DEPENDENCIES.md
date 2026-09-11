@@ -13,7 +13,7 @@ agent-bios의 스크립트·규칙이 의존하는 것을 요구 capability와 �
 | `python3` | `session-cost.py`, `launch/agent-launch.py` | 모든 direct / 비-TTY / numbered 경로는 표준 라이브러리만; Python 3.11+ (`tomllib`). 인터랙티브 preflight는 추가로 `textual`(아래 행) 필요 | 3.14.5 · 2026-07-13 |
 | `textual` (managed venv) | `launch/agent-launch.py` 인터랙티브 preflight; `launch/provision-venv.sh`가 프로비저닝 | `~/.local/share/agent-launch/venv`(재정의: `AGENT_LAUNCH_VENV`)의 Textual TUI framework. launcher가 인터랙티브 TTY 경로에서만 이 venv로 re-exec한다. venv 부재/손상, 비-TTY, `TERM` `dumb`/미설정이면 numbered prompt로 fallback하며 절대 막지 않는다 | 8.2.8 · py 3.14.5 · 2026-07-13 |
 | `jsonschema` (system python) | `learn/check-learning.py` (learning record 게이트; `gates/check-parity.sh`에서 체인 실행) | `learn/learning.schema.json`을 SSOT 그대로 실행하는 JSON Schema Draft 2020-12 validator | 4.26.0 · 2026-07-20 |
-| `zsh` | `launch/agent-launch.zsh` | function, TTY 검사, 인자 보존 dispatch | 5.9 · 2026-07-13 |
+| `zsh` | `launch/agent-launch.zsh`, `launch/shell_integration.py` | 선택적 private 셸 연결과 legacy 호환 경로: function, TTY 검사, 인자 보존 dispatch. 기본 private 설치는 셸 연결을 켜지 않는다 | 5.9 · 2026-07-13 |
 | `git` | scripts·workflow (`origin/<base>..HEAD`, worktree) | 최근 git; worktree 지원 | 2.50.1 · 2026-07 |
 | coreutils (`mktemp`, `cp`) | `codex-run.sh` hermetic home; `codex-helm.sh` managed home | BSD 또는 GNU | 2026-07 |
 

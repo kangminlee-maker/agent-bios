@@ -149,7 +149,7 @@ code-level circuit breaker|claude/CLAUDE.md|claude/guides/cli-multi-model-workfl
 current-state dashboard|claude/CLAUDE.md|claude/guides/implementation-map.md
 Verification Menus|claude/CLAUDE.md|claude/guides/verification-discipline.md
 real Microsoft Excel engine|claude/CLAUDE.md|claude/guides/verification-discipline.md
-severity contract|README.md|claude/guides/coding-staged-workflow.md
+severity contract|docs/corpus.md|claude/guides/coding-staged-workflow.md
 Ambient state|claude/CLAUDE.md|claude/guides/tooling-gotchas.md
 the full lifecycle of what you create|claude/CLAUDE.md|claude/guides/tooling-gotchas.md
 dual-provider frontier design drafts|claude/CLAUDE.md|claude/guides/cli-multi-model-workflow.md

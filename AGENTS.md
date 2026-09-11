@@ -200,6 +200,11 @@ concept's slug must live under that concept's declared home. The trees named in
 are exempt — a slug there is a mention, not a home. A home matching no file fails
 as a stale declaration.
 
+Named user prose and UI-image exceptions live in `check-lexicon.py`'s
+`DOC_MENTIONS`, each with its own reason. They do not exempt the `docs/` tree's
+machinery, satisfy an otherwise empty implementation home, or bypass terminology
+and archive-reference checks.
+
 Adding a concept: find the nearest existing term in LEXICON.md first, then
 reuse / extend / rename / split explicitly, in the same change — in the graph.
 
@@ -256,9 +261,9 @@ generations — so they list concrete ids in `targets:` frontmatter.
 `launch/agent-launch.toml` binds a model no prompting guide covers, which is
 exactly when the guidance needs re-deriving.
 
-`README.md` (Principles, first bullet) declares only tool-surface sections and `DEPENDENCIES.md`
-capability names as exceptions; the prompting-guide exception is real, gated, and
-missing from that list. Trust the gate.
+`CONTRIBUTING.md` (Instruction design) names the tool-surface, dependency-capability,
+and model-version-bound prompting-guide exceptions. The prompting-target gate
+enforces the configured-model coverage requirement.
 
 **But the gate checks NAMING, not re-derivation.** `check-prompting-targets.sh` computes
 `configured - declared`: it fails when the launch config binds a model no guide lists, and
@@ -566,9 +571,11 @@ while `ontology/` covers seven of its nine rows.
 | Cost accounting | `session-cost.py` |
 | External tools and versions | `DEPENDENCIES.md` |
 
-`README.md` is gate-bound: the anchor-phrase list in `gates/check-parity.sh`
-pins shared phrases across files, and one pair names `README.md`, so rewording
-there can fail parity.
+The README entrypoints are gate-bound to their detailed documentation links.
+`gates/check_parity.py` checks layout coverage in `CONTRIBUTING.md` and its Korean
+reference, plus the launch contracts in `docs/advanced-launch.md` and its Korean
+reference. `gates/check-parity.sh` anchors the guide inventory in `docs/corpus.md`
+to the staged-workflow guide, so relocating a contract includes its check.
 
 `IMPLEMENTATION_MAP.html` is a current-state dashboard. Treat its claims as
 dated and re-derive from code before relying on them.

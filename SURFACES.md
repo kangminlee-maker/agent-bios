@@ -84,7 +84,7 @@ installs global instructions nor enables native corpus hooks or agents.
 - **Refuses** — anything with frequent exceptions (make it a flag), anything needing
   judgment (guide).
 - **Fails as** — a default that is wrong often enough teaches users to route around
-  the wrapper, and then it controls nothing. `README.md` deliberately refuses to call
+  the wrapper, and then it controls nothing. `docs/advanced-launch.md` deliberately refuses to call
   `codex-run` a policy boundary for exactly this reason.
 - **Authority** — the private default dispatcher in `install.sh`, installation and
   ownership checks in `compose/corpus_install.py`, session projection in
