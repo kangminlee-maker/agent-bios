@@ -64,7 +64,7 @@ supplied renderer's mechanical checks apply only to its static HTML/PDF path.
 | `research/` | corpus research (the 12,749-file AGENTS.md/CLAUDE.md classification): reports, scripts, labeling record; bulk data stays local by `.gitignore` rule |
 | `DEPENDENCIES.md` | external tools / host CLIs / model providers + verified versions |
 
-`config.toml` and `settings.json` are machine-specific (trust lists, hook paths, secrets) and intentionally untracked.
+`config.toml`, `settings.json`, and `hooks.json` are machine-specific (trust lists, hook paths, secrets) and intentionally untracked.
 
 ## Guides
 
@@ -303,15 +303,27 @@ an interrupted reset, or review and accept a fresh revision to replace a stale
 reset intent. Later user changes and replacement credentials are not overwritten
 by the old intent. Nonsecret settings are archived; token bytes never are.
 
-Native corpus consumption is default-off. `agent-bios corpus snapshot --host claude
---native --json` composes a preview; `agent-launch --corpus-native` opts one configured
-Claude session into selected corpus hook and agent plugins. The compiler emits one
-namespaced plugin root per stable CorpusRef and passes each root by `--plugin-dir` only
-for that session. A native hook or agent must retain an installed Claude carrier and a
-typed hook `event`/`matcher` binding; changing arbitrary prose into an `event` or
-`delegated` surface cannot create executable behavior. Corpus agents retain their
-authored frontmatter verbatim and are qualified by plugin namespace, distinct from the
-launcher's bare tier agents.
+Native corpus consumption is default-off. `agent-bios corpus snapshot --host codex
+--native --json` (or `--host claude`) composes a preview; `agent-launch --corpus-native`
+opts one configured session into selected corpus hooks. Both hosts use the same
+installed Python carrier and typed `event`/`matcher` binding. Authoring accepts the
+combined event vocabulary; compilation reports an event unsupported by the selected
+host without changing its name or executing it through another event.
+
+Claude receives a namespaced plugin per CorpusRef through `--plugin-dir`. Codex
+receives inline `hooks.<Event>` config through per-session `-c` arguments. Existing
+user, project and session hooks remain present, and resume retains the pin's exact
+registrations. Neither adapter installs global hooks. Codex hook enablement and native
+trust still apply: new or changed definitions need review in `/hooks`. Discovery is
+checked before launch, but discovery alone does not establish execution. Hooks use the
+host's command permissions; opting in permits the selected carrier to run. Editing an
+event binding does not rewrite the Python carrier's input/output contract.
+
+Native corpus agents currently use Claude plugins and retain authored frontmatter and
+plugin-qualified names, distinct from launcher's bare tier agents. A Codex agent
+projection still needs to translate agent-specific model and tool restrictions; this
+does not limit shared hook delivery. Arbitrary prose promoted to `event` or `delegated`
+cannot become executable, and hidden discovery/config members are refused.
 
 Tier defaults come from the launch profile and the guides' Environment Binding
 tables. Claude Haiku 4.5 has no effort parameter: its tier entry, native agent
@@ -457,12 +469,14 @@ config-home variable into an explicit default. Post-fix authenticated resume rem
 unverified. Snapshot pin integrity alone does
 not establish that a resumed model request succeeded.
 
-The native Claude plugin bootstrap has advertised four selected plugin roots and three
-qualified corpus agents. An edited corpus `SessionStart` hook ran once automatically
-through its generated plugin, without a manual `--settings` file. Authenticated resume
-and native corpus-agent execution remain to be verified. This remains separate
-from the earlier launcher-tier child evidence. Native skill-menu registration remains
-unverified.
+The native Claude plugin bootstrap has advertised selected plugin roots and
+qualified corpus agents. An edited corpus `SessionStart` hook ran automatically
+through its generated plugin. Codex 0.153.4 discovery retains user, project and session
+hooks alongside the selected corpus. A real-host test with a local transport verifies
+that a generated `SessionStart` hook runs and injects context after its exact definition
+is trusted; the untrusted control does neither. This test uses no external model.
+Authenticated corpus-agent execution and native skill-menu registration remain
+unverified; they are separate from hook delivery and launcher-tier child evidence.
 
 Pins preserve environment provenance rather than reconstructing it: the host's
 config-home variable, and `HOME` when needed for default lookup, retain their

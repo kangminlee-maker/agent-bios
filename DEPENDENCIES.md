@@ -48,7 +48,8 @@ Concrete role-slot→model bindings live only in each guide's `Environment Bindi
 
 ## Private corpus assets
 
-- **Claude native corpus plugins** — default-off per-session `--corpus-native` builds one namespaced plugin root per installed hook/agent CorpusRef, validates it with `claude plugin validate`, and passes roots by `--plugin-dir`. Agent frontmatter stays authored; corpus-agent names are plugin-qualified rather than launcher tier names. Arbitrary prose cannot become executable because carrier provenance and hook `event`/`matcher` are structural requirements.
+- **Native corpus hooks** — `--corpus-native` uses one shared installed Python carrier and typed event/matcher on both hosts. Claude Code 2.1.268 validates per-item plugins and receives them by `--plugin-dir`; Codex CLI 0.153.4 receives inline session hook config and exposes it through `hooks/list`. Existing native hooks remain, global config is unchanged, and Codex's native enablement/trust review still applies. The installed Codex runtime has a local-transport positive/negative test for execution and context injection; discovery alone is not execution.
+- **Claude native corpus agents** — selected agent carriers use the same per-item plugin packaging and retain their authored frontmatter, including tool restrictions. Routes are plugin-qualified rather than launcher tier names. A Codex agent projection is separate work on agent semantics, not a hook restriction.
 - **Codex custom agents** (`codex/agents/*.toml`) — role-template sources stored in the immutable private release. The default installer does not register templates in the native host home.
 - **Corpus management bootstrap** (`compose/bootstrap/SKILL.md`) — copied into every activated immutable snapshot and named by exact private path in startup text. This is private procedure access, not a claim of native skill registration.
 
@@ -64,7 +65,7 @@ Concrete role-slot→model bindings live only in each guide's `Environment Bindi
 
 ## Untracked — dependencies, but excluded by design
 
-Host `config.toml` and `settings.json` — machine-specific trust lists, hook paths, and MCP secrets. The tracked `launch/agent-launch.toml` contains launch bindings but no secrets. See README Scope.
+Host `config.toml`, `settings.json`, and `hooks.json` — machine-specific trust lists, hook paths, and MCP secrets. The tracked `launch/agent-launch.toml` contains launch bindings but no secrets. See README Scope.
 
 ## Re-verify
 

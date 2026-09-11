@@ -361,11 +361,7 @@ chk "S14 deselecting through a nested symlink is refused before removing owned s
 # the manual-inspection path rather than treat manifest membership as deletion authority.
 # The fixture is a private package copy: changing its B source cannot touch this checkout.
 T15="$T/withdrawn-member"; P15="$T15/package"; mkdir -p "$T15"
-python3 - "$PWD" "$P15" <<'PY'
-import pathlib, shutil, sys
-source, dest = map(pathlib.Path, sys.argv[1:])
-shutil.copytree(source, dest, ignore=shutil.ignore_patterns(".git", "__pycache__"))
-PY
+python3 gates/fixture_support.py "$PWD" "$P15" || exit 1
 fixture_asm(){ python3 "$P15/compose/assemble.py" --claude-dir "$2" --codex-dir "$3" --state-dir "$4" --domains "$1" ${5:+--prior-manifest "$5"} >"$T/out" 2>&1; echo $? > "$T/rc"; }
 fixture_asm "$ALLD" "$T15/claude" "$T15/codex" "$T15/state"
 printf 'user sibling\n' > "$T15/claude/central/guides/slide-writing/scripts/user-note.txt"
@@ -423,11 +419,7 @@ chk "S15 legacy uninstall preserves the inherited parent venv" \
 # no current scripts/ member, so this proves candidates are not preflighted as write/delete
 # targets; the external sentinel remains untouched.
 T16="$T/withdrawn-member-symlink"; P16="$T16/package"; mkdir -p "$T16"
-python3 - "$PWD" "$P16" <<'PY'
-import pathlib, shutil, sys
-source, dest = map(pathlib.Path, sys.argv[1:])
-shutil.copytree(source, dest, ignore=shutil.ignore_patterns(".git", "__pycache__"))
-PY
+python3 gates/fixture_support.py "$PWD" "$P16" || exit 1
 fixture_asm16(){ python3 "$P16/compose/assemble.py" --claude-dir "$2" --codex-dir "$3" --state-dir "$4" --domains "$1" ${5:+--prior-manifest "$5"} >"$T/out" 2>&1; echo $? > "$T/rc"; }
 fixture_asm16 "$ALLD" "$T16/claude" "$T16/codex" "$T16/state"
 mv "$P16/claude/guides/slide-writing/scripts" "$T16/release-a-claude-scripts"

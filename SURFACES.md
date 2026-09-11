@@ -53,7 +53,7 @@ Ordered by when the cost is paid, because that is the axis that decides placemen
 | Agent description | only when a verified session adapter registers or compiles it | the dispatcher | the selected session | behavior (routing) |
 | Launch contract | one configured session | that session | that session | behavior |
 | MCP tool surface | one session, selection-dependent | every turn of it | that session | knowledge, behavior, control |
-| Hook injection | one `--corpus-native` Claude session when an installed event carrier is selected | that matching call | generated per-item plugin only | knowledge |
+| Hook injection | one `--corpus-native` Claude or Codex session when a supported event carrier is selected | that matching call | Claude per-item plugin or Codex session config, subject to host enablement/trust | knowledge |
 | Guides | when an activated session follows its private router/path | only the reader | the selected session | knowledge, behavior |
 | Agent body | one `--corpus-native` Claude session when an installed delegated carrier is selected | that native child | generated namespaced plugin agent | knowledge, behavior |
 | Requested procedure | compact entry in selected startup text; body when its private path is read | the activated session, then the caller | the selected session | knowledge, behavior |
@@ -225,20 +225,24 @@ installs global instructions nor enables native corpus hooks or agents.
 ### Hook injection
 
 - **Admits** — a **machine-detectable trigger** (tool name plus command pattern) with
-  one to three lines useful at exactly that moment. Default-off Claude native consumption
-  requires `--corpus-native`, an installed hook carrier, and typed `event`/`matcher`
-  binding; the generated plugin root is supplied only to that session.
-- **Refuses** — anything whose trigger needs judgment (guide), arbitrary prose promoted
-  into code by a surface edit, and extra plugin auto-discovery members. Anything both
-  decidable and forbidden should be a *denial*, not a reminder.
-- **Fails as** — a broad trigger fires on every call; a copied carrier lacks its typed
-  binding; or the authenticated host state needed to observe later hook/agent behavior is
-  unavailable. One generated `SessionStart` plugin hook ran automatically without manual
-  settings; that does not prove authenticated corpus-agent execution.
-- **Authority** — hook source in `claude/hooks/tooling-gotchas-hook.py`, exact binding
-  extraction from `claude/settings.template.json`, carrier/plugin compilation in
-  `compose/corpus_catalog.py`, and per-session `--plugin-dir` validation in
-  `compose/corpus_session.py`. The legacy settings merge remains separate.
+  one to three lines useful at exactly that moment. Both native adapters default off
+  and require `--corpus-native`, an installed canonical hook carrier, and a typed
+  `event`/`matcher` supported by the selected host. The command body and binding are
+  shared; Claude plugin roots and Codex inline config are session-scoped carriers.
+- **Refuses** — triggers that need judgment (guide), arbitrary prose promoted into
+  code by a surface edit, unsupported events and extra discovery/config members.
+  Event names do not imply identical decision or blocking semantics. The shipped
+  tooling reminder is advisory; it neither blocks nor rewrites a call.
+- **Fails as** — a broad trigger fires on every call; a carrier lacks its binding;
+  the selected host does not discover it; or native enablement/trust suppresses it.
+  Both guide trees remain fallbacks, including tools outside a host's hook coverage.
+  Codex discovery and exact-trust context injection have a real-host local-transport
+  positive/negative control. Neither discovery nor a dry preview proves execution.
+- **Authority** — `claude/hooks/tooling-gotchas-hook.py`, binding extraction from
+  `claude/settings.template.json`, shared validation/compilation in
+  `compose/corpus_catalog.py`, immutable assets in `compose/corpus_store.py`, and
+  Claude plugin/Codex session-config delivery in `compose/corpus_session.py`.
+  Legacy settings merge/removal remains compatibility-only.
 
 ### Guides
 

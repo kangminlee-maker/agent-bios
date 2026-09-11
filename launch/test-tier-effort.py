@@ -25,7 +25,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 CONFIG = ROOT / "launch" / "agent-launch.toml"
 MODULE = ROOT / "launch" / "agent-launch.py"
 sys.path.insert(0, str(ROOT / "gates"))
-from launcher_fixture_env import launcher_environment
+from fixture_support import legacy_host_environment
 
 
 def load_launcher():
@@ -37,7 +37,7 @@ def load_launcher():
     return module
 
 
-launch = load_launcher()
+launch = None
 
 
 def expect_error(call, fragment: str) -> None:
@@ -98,7 +98,9 @@ def sweep_review_preset(source: dict, host: str) -> str:
     return name
 
 
-def check_tier_effort() -> int:
+def run_checks() -> int:
+    global launch
+    launch = load_launcher()
     config = launch.load_config(CONFIG)
     for separator in ("/", " / ", " · "):
         assert launch.format_model_effort("model", "xhigh", separator) == f"model{separator}xhigh"
@@ -442,9 +444,8 @@ def check_tier_effort() -> int:
 
 
 def main() -> int:
-    with tempfile.TemporaryDirectory(prefix="tier-effort-native-inputs-") as directory:
-        with launcher_environment(pathlib.Path(directory), ROOT):
-            return check_tier_effort()
+    with legacy_host_environment(ROOT):
+        return run_checks()
 
 
 if __name__ == "__main__":

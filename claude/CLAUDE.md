@@ -10,7 +10,7 @@
 - First identify the goal, scope, ambiguities, and likely completion condition.
 - Resolve ambiguity from context when safe; ask only when ambiguity blocks progress or creates risky outcomes.
 - For simple requests, choose the most direct low-risk method and proceed.
-- For non-trivial requests, compare 2-4 methods by goal fit, time, cost, risk, benefit, and "done when", and portability — take a host-, model-, or tool-specific mechanism (hook, skill, host-owned directory) only after a portable route is shown absent and its per-host cost is judged worth it.
+- For non-trivial requests, compare 2-4 methods by goal fit, time, cost, risk, benefit, and "done when", and portability — take a host-, model-, or tool-specific mechanism only after a portable route is shown absent and its per-host cost is judged worth it.
 - Mark one default method. If the user is silent and the default is safe, proceed with it.
 - Execute the chosen method accurately and stay within scope.
 - Return to understanding if a discovery breaks the user's premise.

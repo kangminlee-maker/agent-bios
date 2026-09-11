@@ -79,14 +79,18 @@ stable on retry; create payloads do not supply `item_id` or `ref`.
 Do not turn a prose edit into an executable asset, hook,
 permission, tool, or capability change. `always`, `relevant`, and `requested`
 mean always in an activated selection, trigger-routed, and explicitly requested.
-For existing Claude hook items, `hook: {"event":"PreToolUse","matcher":"Bash"}`
+For existing hook items, `hook: {"event":"PreToolUse","matcher":"Bash"}`
 edits the binding through the same plan/apply path. Preserve the installed source
 carrier and native agent frontmatter, including tool restrictions. Changing an
 ordinary prose item's kind/surface does not turn it into executable hook code.
 
 Native hook execution and corpus-agent registration are off by default. The user
 opts in per launch with `agent-launch --corpus-native`; `snapshot --host claude
---native --json` previews/composes that selection without activating a host.
+--native --json` or `snapshot --host codex --native --json` previews/composes that
+selection without activating a host. Hook bodies and typed bindings are shared;
+compilation reports events the selected host does not support. Codex uses session
+config flags and its native `/hooks` review; Claude uses per-item plugins. Native
+corpus-agent registration currently projects Claude agent frontmatter only.
 The snapshot supplies session-only local plugins; it does not install them into
 global discovery. Check `unavailable` for unsupported carriers or hosts. Native
 corpus agent names are qualified by their item plugin, distinct from the launcher's

@@ -158,6 +158,11 @@ ANCHORS
 # Domain-manifest gate: bullet<->anchor bijection, file coverage, router
 # co-packaging (compose/domains.json vs the monolith); its --self-test proves
 # every negative control still fails, so a green gate is falsifiable.
+if [ -f gates/fixture_support.py ]; then
+  python3 gates/fixture_support.py --self-test >/dev/null \
+    || { echo "FAIL: author fixture isolation (gates/fixture_support.py --self-test)"; fail=1; }
+fi
+
 if [ -f compose/domains.json ]; then
   python3 compose/check-domains.py >/dev/null \
     || { echo "FAIL: domains manifest gate (run compose/check-domains.py)"; fail=1; }
@@ -402,7 +407,7 @@ fi
 # crashed on every invocation passed every gate in this repo, and its own docstring claimed a
 # verification that did not exist. Its self-test runs the real entry point over real stdin, and
 # checks each rule's declared anchor against the guide AND the codex mirror, which is the only
-# thing keeping a Claude-only surface from giving the two hosts different guidance.
+# thing keeping shared hook reminders aligned with both guide fallbacks.
 # Every shipped hook, not a named one: the list is the directory, so a hook added later is
 # covered by existing, and a hook that ships without a --self-test fails here rather than
 # riding along untested. The count is asserted because an empty glob satisfies a loop.

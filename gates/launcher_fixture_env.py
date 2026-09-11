@@ -10,7 +10,7 @@ import shutil
 
 
 @contextlib.contextmanager
-def launcher_environment(root, repo, *, backends=("claude", "codex")):
+def launcher_environment(root, repo, *, backends=("claude", "codex"), isolate_home=True):
     """Supply offline availability; callers may omit or override backend fixtures."""
     root, repo = Path(root), Path(repo)
     home, codex, claude = root / "home", root / "codex", root / "claude"
@@ -34,6 +34,8 @@ def launcher_environment(root, repo, *, backends=("claude", "codex")):
               "AGENT_BIOS_PRIVATE_CORPUS": "0", "AGENT_BIOS_STATE_DIR": str(root / "state"),
               "XDG_CACHE_HOME": str(root / "cache"),
               "PATH": os.pathsep.join(filter(None, (str(binaries), os.environ.get("PATH", os.defpath))))}
+    if not isolate_home:
+        values.pop("HOME")
     previous = {key: os.environ.get(key) for key in values}
     os.environ.update(values)
     try:

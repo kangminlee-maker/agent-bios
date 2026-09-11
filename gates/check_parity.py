@@ -15190,6 +15190,12 @@ def shell_wrapper(fx):
 
 
 def main(argv):
+    from fixture_support import legacy_host_environment
+    with legacy_host_environment(pathlib.Path(__file__).resolve().parents[1]):
+        return run_checks(argv)
+
+
+def run_checks(argv):
     ap = argparse.ArgumentParser(description="Runtime-projection parity checks.")
     ap.add_argument("--only", action="append", metavar="NAME",
                     help="run only these checks (repeatable); a subset is a debugging aid, not a gate")

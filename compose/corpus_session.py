@@ -216,10 +216,20 @@ class CodexServer:
 
 
 def config_flags(argv, exclude_developer=False):
+    argv = argv[:argv.index('--')] if '--' in argv else argv
     result = []
     index = 0
     while index < len(argv):
         token = argv[index]
+        if token in ('--enable', '--disable'):
+            if index + 1 >= len(argv):
+                raise SessionError(f"missing value for {token}")
+            result += ['-c', f"features.{argv[index + 1]}={'true' if token == '--enable' else 'false'}"]
+            index += 2
+            continue
+        if token.startswith(('--enable=', '--disable=')):
+            name, feature = token.split('=', 1)
+            result += ['-c', f"features.{feature}={'true' if name == '--enable' else 'false'}"]
         if token in ('-c', '--config'):
             if index + 1 >= len(argv):
                 raise SessionError(f"missing value for {token}")
@@ -274,6 +284,8 @@ def named_profile(argv):
 
 
 def replace_developer(argv, text):
+    boundary = argv.index('--') if '--' in argv else len(argv)
+    argv, tail = argv[:boundary], argv[boundary:]
     result, index = [], 0
     while index < len(argv):
         token = argv[index]
@@ -286,7 +298,7 @@ def replace_developer(argv, text):
             continue
         result.append(token)
         index += 1
-    return [*result, '-c', 'developer_instructions=' + json.dumps(text)]
+    return [*result, '-c', 'developer_instructions=' + json.dumps(text), *tail]
 
 
 def instruction_value(argv, host):
@@ -300,10 +312,15 @@ def instruction_value(argv, host):
     return ''
 
 
-def _claude_plugin_paths(snapshot):
+def _native_assets(snapshot):
     assets = snapshot.get('assets') or {}
-    if not isinstance(assets, dict) or set(assets) - {'claude_plugins'}:
+    if not isinstance(assets, dict) or set(assets) - {'claude_plugins', 'codex_hooks'}:
         raise SessionError('invalid native snapshot assets')
+    return assets
+
+
+def _claude_plugin_paths(snapshot):
+    assets = _native_assets(snapshot)
     values = assets.get('claude_plugins', [])
     if not isinstance(values, list) or not all(isinstance(value, str) for value in values):
         raise SessionError('invalid native plugin paths')
@@ -322,6 +339,82 @@ def _claude_plugin_paths(snapshot):
     if len(result) != len(set(result)):
         raise SessionError('duplicate native plugin')
     return result
+
+
+def _codex_hook_config(snapshot):
+    from corpus_catalog import CatalogError, validate_native_hook_config
+    hooks = _native_assets(snapshot).get('codex_hooks', {})
+    try:
+        validate_native_hook_config(hooks, 'codex')
+    except CatalogError as exc:
+        raise SessionError(f'invalid native snapshot hooks: {exc}') from exc
+    return hooks
+
+
+def _toml_value(value):
+    """Serialize the JSON values used by hook config as TOML inline values."""
+    if isinstance(value, str):
+        return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, bool):
+        return str(value).lower()
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, list):
+        return '[' + ', '.join(_toml_value(item) for item in value) + ']'
+    if isinstance(value, dict):
+        return '{' + ', '.join(_toml_value(key) + ' = ' + _toml_value(item)
+                               for key, item in value.items()) + '}'
+    raise SessionError('hook config contains a value that TOML cannot represent')
+
+
+def _with_codex_hooks(argv, hooks, config):
+    if not hooks:
+        return argv
+    # Codex loads every config layer's hooks independently. Copy only existing
+    # session-flag groups; copying effective user/project groups would run them twice.
+    layers = config.get('layers')
+    if not isinstance(layers, list):
+        raise SessionError('Codex native hooks require config/read layer provenance')
+    session_layers = [layer for layer in layers if layer.get('name', {}).get('type') == 'sessionFlags']
+    if len(session_layers) > 1:
+        raise SessionError('Codex reported ambiguous session hook configuration')
+    existing = session_layers[0].get('config', {}).get('hooks', {}) if session_layers else {}
+    if not isinstance(existing, dict):
+        raise SessionError('Codex session hooks are not an event mapping')
+    flags = []
+    for event, groups in sorted(hooks.items()):
+        prior = existing.get(event, [])
+        if not isinstance(prior, list):
+            raise SessionError(f'Codex session hooks.{event} is not a matcher list')
+        flags += ['-c', f'hooks.{event}={_toml_value(prior + groups)}']
+    boundary = argv.index('--') if '--' in argv else len(argv)
+    return [*argv[:boundary], *flags, *argv[boundary:]]
+
+
+def validate_codex_hooks(command, snapshot, argv, cwd, env):
+    """Prove discovery on this runtime; preserve native enablement and trust."""
+    hooks = _codex_hook_config(snapshot)
+    if not hooks:
+        return
+    expected = {(event[0].lower() + event[1:], group['matcher'], handler['command'])
+                for event, groups in hooks.items() for group in groups for handler in group['hooks']}
+    with CodexServer(command, config_flags(argv), cwd, env) as server:
+        result = server.call('hooks/list', {'cwds': [str(cwd)]})
+        config = server.call('config/read', {'cwd': str(cwd), 'includeLayers': False})
+    rows = result.get('data')
+    if not isinstance(rows, list) or len(rows) != 1 or rows[0].get('errors'):
+        raise SessionError('Codex could not discover the selected session hooks')
+    found = {(row.get('eventName'), row.get('matcher'), row.get('command')): row
+             for row in rows[0].get('hooks', []) if row.get('source') == 'sessionFlags'}
+    if not expected.issubset(found):
+        raise SessionError('Codex did not discover every selected session hook; check host hook policy and runtime support')
+    if config.get('config', {}).get('features', {}).get('hooks') is False:
+        print('agent-bios: selected Codex hooks are disabled by the effective native hooks feature setting.', file=sys.stderr)
+    pending = sum(not found[key].get('enabled') or found[key].get('trustStatus') != 'trusted'
+                  for key in expected)
+    if pending:
+        print(f'agent-bios: {pending} selected Codex hook(s) need native review or enablement; '
+              'open /hooks in this session. Registration does not establish execution.', file=sys.stderr)
 
 
 def validate_claude_plugins(command, snapshot, cwd, env):
@@ -386,12 +479,14 @@ def compose_argv(command, argv, host, snapshot, cwd=None, env=None, include_glob
                 'effective developer instructions cannot be read without rebuilding native '
                 'profile semantics'
             )
+        hooks = _codex_hook_config(snapshot)
         with CodexServer(command, config_flags(argv, exclude_developer=True), cwd, env) as server:
-            config = server.call('config/read', {'cwd': str(cwd or pathlib.Path.cwd()), 'includeLayers': False})
+            config = server.call('config/read', {'cwd': str(cwd or pathlib.Path.cwd()), 'includeLayers': bool(hooks)})
         native = config.get('config', {}).get('developer_instructions') or ''
         if not isinstance(native, str):
             raise SessionError('effective developer_instructions is not text')
-        return replace_developer(argv, '\n\n'.join(x for x in (native, content, contract) if x))
+        result = replace_developer(argv, '\n\n'.join(x for x in (native, content, contract) if x))
+        return _with_codex_hooks(result, hooks, config)
     boundary = argv.index('--') if '--' in argv else len(argv)
     options, tail = argv[:boundary], argv[boundary:]
     result, index = [], 0
@@ -682,14 +777,18 @@ def launch(command, argv, state_root, host, snapshot, cwd=None, env=None, resume
         env = restore_environment(record, env)
         if not _record_instruction_choice(record, env):
             _claude_exclusion_version(command, record['cwd'], env)
+        pinned = _verified_launch_snapshot(state_root, {'path': record['snapshot_path'], 'content_ref': record['content_ref']})
         if host == 'claude':
-            pinned = _verified_launch_snapshot(state_root, {'path': record['snapshot_path'], 'content_ref': record['content_ref']})
             validate_claude_plugins(command, pinned, record['cwd'], env)
+        else:
+            validate_codex_hooks(command, pinned, record['argv'], record['cwd'], env)
         argv = record['argv']
         native = ['resume', resume_id, *argv] if host == 'codex' else ['--resume', resume_id, *argv]
         return subprocess.call([command, *native], cwd=record['cwd'], env=env)
     snapshot = _verified_launch_snapshot(state_root, snapshot)
     argv = compose_argv(command, argv, host, snapshot, cwd, env, include_global_instructions)
+    if host == 'codex':
+        validate_codex_hooks(command, snapshot, argv, cwd, env)
     if host == 'claude':
         validate_claude_plugins(command, snapshot, cwd, env)
     record = prepare(state_root, host, snapshot, argv, cwd, env, include_global_instructions)

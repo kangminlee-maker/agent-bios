@@ -10689,7 +10689,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--corpus", action="store_true", help="open private Corpus Studio")
     parser.add_argument("--understand", metavar="BUNDLE", help="start an interactive learning session for a corpus bundle; list with agent-bios understand list")
     parser.add_argument("--corpus-domains", help="domain selection for this activated session only")
-    parser.add_argument("--corpus-native", action="store_true", help="opt into selected Claude corpus hook execution and native agents for this session only")
+    parser.add_argument("--corpus-native", action="store_true", help="opt into selected corpus hooks on either host and Claude native agents for this session only")
     parser.add_argument(
         "--exclude-global-instructions",
         action="store_true",
@@ -11237,7 +11237,12 @@ def main(argv: list[str]) -> int:
         print(f"  Corpus snapshot {snapshot['content_ref']} · private · next session only", file=summary_stream)
         if args.corpus_native:
             plugins = snapshot.get("assets", {}).get("claude_plugins", [])
-            print(f"  Native corpus opt-in: {len(plugins)} session-only plugin(s); selected hook code can execute.", file=summary_stream)
+            hooks = snapshot.get("assets", {}).get("codex_hooks", {})
+            if args.host == "codex":
+                count = sum(len(group["hooks"]) for groups in hooks.values() for group in groups)
+                print(f"  Native corpus opt-in: {count} session-only hook(s); Codex enablement and /hooks trust review apply.", file=summary_stream)
+            else:
+                print(f"  Native corpus opt-in: {len(plugins)} session-only plugin(s); selected hook code can execute.", file=summary_stream)
         for unavailable in snapshot.get("unavailable", []):
             print(f"  Corpus unavailable: {unavailable}", file=summary_stream)
     if learning is not None:

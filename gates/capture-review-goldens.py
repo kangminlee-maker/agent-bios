@@ -908,6 +908,12 @@ def composable_controls(cells: dict) -> list[str]:
 # ── driver ──────────────────────────────────────────────────────────────────
 
 def capture(*, only: set[str] | None = None) -> dict:
+    from fixture_support import legacy_host_environment
+    with legacy_host_environment(REPO):
+        return _capture(only=only)
+
+
+def _capture(*, only: set[str] | None = None) -> dict:
     spec = importlib.util.spec_from_file_location("agent_launch_goldens", LAUNCHER)
     launcher = importlib.util.module_from_spec(spec)
     # Required: without it @dataclass raises AttributeError on None.__dict__.

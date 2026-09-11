@@ -19,7 +19,7 @@ core_rules:
 
 # Tooling Gotchas
 
-Concrete, tool-level traps behind the global principles. Claude-side hook
+Concrete, tool-level traps behind the global principles. Shared Claude/Codex hook
 injections derive their text from this file — edit here, never in the hook
 data (single source of truth).
 

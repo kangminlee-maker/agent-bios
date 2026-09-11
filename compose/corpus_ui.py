@@ -9,6 +9,7 @@ from __future__ import annotations
 import difflib
 import json
 import re
+from pathlib import PurePosixPath
 from typing import Any
 from urllib.parse import unquote
 
@@ -31,13 +32,25 @@ from textual.widgets import (
 )
 
 try:
-    from corpus_catalog import CLAUDE_HOOK_EVENTS
+    from corpus_catalog import HOOK_EVENTS
 except ImportError:  # pragma: no cover - package import from repository root
-    from .corpus_catalog import CLAUDE_HOOK_EVENTS
+    from .corpus_catalog import HOOK_EVENTS
 
 
 SURFACES = ("always", "relevant", "requested", "event", "delegated")
 VIEWS = ("effective", "installed", "change", "diff", "history")
+
+
+def render_member_body(body: str, member: str | None, kind: str | None = None) -> str:
+    """Render prose as Markdown and preserve source files as literal code."""
+    suffix = PurePosixPath(member).suffix.lower() if member else ""
+    if suffix in {".md", ".markdown"} or (not member and kind != "hook"):
+        return body
+    language = {".py": "python", ".json": "json", ".toml": "toml",
+                ".sh": "bash", ".zsh": "bash", ".yaml": "yaml", ".yml": "yaml",
+                ".js": "javascript", ".ts": "typescript"}.get(suffix, "")
+    fence = "`" * max(3, 1 + max((len(run) for run in re.findall(r"`+", body)), default=0))
+    return f"{fence}{language}\n{body}\n{fence}"
 
 
 class Confirmation(ModalScreen[bool]):
@@ -181,8 +194,8 @@ class CorpusStudio(App[None]):
                                      id="editor-primary-member")
                     with Horizontal(id="hook-binding-row"):
                         yield Select(
-                            [(event, event) for event in sorted(CLAUDE_HOOK_EVENTS)],
-                            value=sorted(CLAUDE_HOOK_EVENTS)[0], allow_blank=False, id="editor-hook-event",
+                            [(event, event) for event in sorted(HOOK_EVENTS)],
+                            value=sorted(HOOK_EVENTS)[0], allow_blank=False, id="editor-hook-event",
                         )
                         yield Input(placeholder="Hook matcher", id="editor-hook-matcher")
                     yield TextArea(language="markdown", id="editor-body")
@@ -330,11 +343,12 @@ class CorpusStudio(App[None]):
                     "Edit the body to the intended member text, or choose a primary member through the API."
                     + (f" Available members: {members}." if members else "") + "\n"
                 )
+            body = render_member_body(item.get("body", ""), item.get("primary_member"), item.get("kind"))
             return (
                 f"# {item.get('title', item.get('ref'))}\n\n"
                 f"`{item.get('ref')}` · **{row.get('state', 'active')}** · "
                 f"{item.get('surface')} · {item.get('kind')}\n\n"
-                f"{reconciliation}\n{item.get('body', '')}\n\n## Dependencies\n\n{links}\n"
+                f"{reconciliation}\n{body}\n\n## Dependencies\n\n{links}\n"
                 + ("\n## Native consumption\n\nRequires explicit `agent-launch --corpus-native`.\n"
                    if item.get("kind") == "hook" else "")
             )
@@ -373,11 +387,8 @@ class CorpusStudio(App[None]):
                 body = item["members"][event.value]
                 if event.value == primary:
                     markdown = self._render_item(self._row() or item, {"item": item}, "effective")
-                elif event.value.endswith(".md"):
-                    markdown = f"# {event.value}\n\n{body}"
                 else:
-                    fence = "`" * (max(2, max((len(run) for run in re.findall(r'`+', body)), default=0)) + 1)
-                    markdown = f"# {event.value}\n\n{fence}\n{body}\n{fence}\n"
+                    markdown = f"# {event.value}\n\n{render_member_body(body, event.value)}\n"
                 await self.query_one("#wiki", CorpusMarkdownViewer).document.update(markdown)
 
     def editor_dirty(self) -> bool:
@@ -420,7 +431,7 @@ class CorpusStudio(App[None]):
         self.query_one("#editor-surface", Select).value = surface
         self.query_one("#hook-binding-row").styles.display = "block" if is_hook else "none"
         if is_hook:
-            event = hook.get("event") if isinstance(hook, dict) else sorted(CLAUDE_HOOK_EVENTS)[0]
+            event = hook.get("event") if isinstance(hook, dict) else sorted(HOOK_EVENTS)[0]
             matcher = hook.get("matcher") if isinstance(hook, dict) else ""
             self.query_one("#editor-hook-event", Select).value = event
             self.query_one("#editor-hook-matcher", Input).value = matcher
@@ -555,8 +566,8 @@ class CorpusStudio(App[None]):
         if self.editor_item.get("kind") == "hook":
             event = self.query_one("#editor-hook-event", Select).value
             matcher = self.query_one("#editor-hook-matcher", Input).value
-            if not isinstance(event, str) or event not in CLAUDE_HOOK_EVENTS:
-                raise ValueError("Choose a supported Claude hook event.")
+            if not isinstance(event, str) or event not in HOOK_EVENTS:
+                raise ValueError("Choose a supported hook event.")
             if not matcher or "\n" in matcher or "\r" in matcher:
                 raise ValueError("Hook matcher must be one non-empty line.")
             patch["hook"] = {"event": event, "matcher": matcher}

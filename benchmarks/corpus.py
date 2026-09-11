@@ -48,11 +48,15 @@ import hashlib
 import json
 import os
 import pathlib
+import re
 import secrets
+import shlex
 import shutil
 import subprocess
+import tomllib
 
 ROOT = pathlib.Path(__file__).resolve().parent
+OWNED_HOOK_NAMES = tuple(json.loads((ROOT.parent / 'compose/domains.json').read_text())['hooks'])
 
 # Per host: the deployed home, the corpus paths inside it (a set, not one file —
 # the Claude entry file is a shim whose rules live in an imported bundle), the
@@ -62,11 +66,11 @@ HOST_HOMES = {
     "codex": {
         "env": "CODEX_HOME",
         "home": pathlib.Path.home() / ".codex",
-        "corpus_paths": ("AGENTS.md", "guides", "agents"),
+        "corpus_paths": ("AGENTS.md", "guides", "agents") + tuple(f"hooks/{name}" for name in OWNED_HOOK_NAMES),
         "entry": "AGENTS.md",
         "guides_dir": "guides",
         "hooks_dir": "hooks",
-        "settings": None,
+        "settings": "hooks.json",
         "router_prefix": "${CODEX_HOME:-$HOME/.codex}",
         "auth": ("auth.json", "config.toml"),
     },
@@ -341,15 +345,15 @@ def corpus_hook_entries(host: str, src: pathlib.Path, dest: pathlib.Path) -> dic
     ablated arm would keep receiving the very text it is supposed to be missing —
     and unlike a guide, nothing in the response names the file it came from."""
     spec = HOST_HOMES[host]
-    if not spec.get("settings"):
-        return {}
     settings = src / spec["settings"]
-    if not settings.exists():
-        return {}
     marker = f"/{spec['hooks_dir']}/"
     try:
-        registered = json.loads(settings.read_text(encoding="utf-8")).get("hooks", {})
-    except (json.JSONDecodeError, OSError) as exc:
+        sources = [json.loads(settings.read_text(encoding="utf-8")).get("hooks", {})] if settings.exists() else []
+        if host == "codex" and (src / 'config.toml').exists():
+            inline = tomllib.loads((src / 'config.toml').read_text()).get('hooks', {})
+            sources.append({event: groups for event, groups in inline.items()
+                            if event not in {'state', 'managed_dir', 'windows_managed_dir'}})
+    except (ValueError, OSError, AttributeError) as exc:
         # An unreadable settings file is not evidence that the corpus registers no
         # hooks. Returning {} here is the same value a legitimately hookless corpus
         # returns, so the variant would drop the whole hook delivery surface and every
@@ -357,10 +361,33 @@ def corpus_hook_entries(host: str, src: pathlib.Path, dest: pathlib.Path) -> dic
         raise CorpusError(f"{settings}: hook registrations unreadable ({exc}) — this is "
                           f"not the same answer as a corpus with no hooks") from exc
     kept = {}
+    registered = {}
+    for source in sources:
+        if not isinstance(source, dict):
+            raise CorpusError(f'{settings}: hook registrations unreadable (expected event mapping)')
+        for event, groups in source.items():
+            if not isinstance(groups, list):
+                raise CorpusError(f'{settings}: hook registrations unreadable ({event} must be a list)')
+            registered.setdefault(event, []).extend(groups)
+    def owned(handler):
+        command = str(handler.get('command', ''))
+        if marker not in command:
+            return False
+        if host == 'claude':
+            return True  # central/hooks is the legacy corpus-owned tree.
+        # Codex hooks/ is shared with other tools; its directory alone grants no ownership.
+        try:
+            return any(token.endswith('/hooks/' + name) for token in shlex.split(command)
+                       for name in OWNED_HOOK_NAMES)
+        except ValueError as exc:
+            raise CorpusError(f'{settings}: hook command cannot be parsed') from exc
     for event, entries in registered.items():
         for entry in entries:
+            if (not isinstance(entry, dict) or not isinstance(entry.get('hooks'), list)
+                    or not all(isinstance(handler, dict) for handler in entry['hooks'])):
+                raise CorpusError(f'{settings}: hook registrations unreadable ({event} has malformed handlers)')
             mine = [h for h in entry.get("hooks", [])
-                    if marker in str(h.get("command", ""))]
+                    if owned(h)]
             if not mine:
                 continue
             kept.setdefault(event, []).append({
@@ -369,6 +396,35 @@ def corpus_hook_entries(host: str, src: pathlib.Path, dest: pathlib.Path) -> dic
                     str(h["command"]), spec, src, dest, marker)} for h in mine],
             })
     return kept
+
+
+def _codex_config_without_hooks(text: str) -> str:
+    """Keep auth/runtime config, excluding ambient inline hooks and trust state.
+
+    The semantic comparison makes unusual TOML fail explicitly instead of
+    silently carrying an uninstrumented hook into the benchmark.
+    """
+    original = tomllib.loads(text)
+    expected = {key: value for key, value in original.items() if key != 'hooks'}
+    kept, skip = [], False
+    for line in text.splitlines(keepends=True):
+        if re.match(r'^\s*\[', line):
+            try:
+                table = tomllib.loads(line + '\n__benchmark_probe__ = true\n')
+            except ValueError:
+                pass  # A line in a multiline value; the comparison below is authoritative.
+            else:
+                skip = 'hooks' in table
+        if not skip:
+            kept.append(line)
+    result = ''.join(kept)
+    try:
+        valid = tomllib.loads(result) == expected
+    except ValueError:
+        valid = False
+    if not valid:
+        raise CorpusError('Codex inline hook config cannot be isolated without changing unrelated settings; use [hooks] tables')
+    return result
 
 
 def build_variant(host: str, dest: pathlib.Path, token: str, edits=(),
@@ -405,7 +461,10 @@ def build_variant(host: str, dest: pathlib.Path, token: str, edits=(),
             shutil.copytree(s, dest / rel)
     for name in spec["auth"]:
         if (src / name).exists():
-            shutil.copy2(src / name, dest / name)
+            if host == 'codex' and name == 'config.toml':
+                (dest / name).write_text(_codex_config_without_hooks((src / name).read_text()))
+            else:
+                shutil.copy2(src / name, dest / name)
             (dest / name).chmod(0o600)
 
     pre_edit_hash = corpus_hash(dest, host)

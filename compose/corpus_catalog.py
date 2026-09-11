@@ -40,21 +40,57 @@ CLAUDE_HOOK_EVENTS = frozenset((
     "UserPromptSubmit", "SessionStart", "SessionEnd", "Stop", "SubagentStart",
     "SubagentStop", "PreCompact", "PermissionRequest", "TeammateIdle",
     "TaskCompleted", "ConfigChange", "WorktreeCreate", "WorktreeRemove",
+    "Setup", "InstructionsLoaded", "UserPromptExpansion", "MessageDisplay",
+    "PermissionDenied", "PostToolBatch", "TaskCreated", "StopFailure",
+    "CwdChanged", "DirectoryAdded", "FileChanged", "PostCompact",
+    "PreModelSwitch", "PostModelSwitch", "Elicitation", "ElicitationResult",
 ))
+# Command-event vocabulary from the two hosts' hook references (2026-09-11).
+# Authoring accepts the union; compilation checks the selected host. A host-only
+# event stays authored and becomes unavailable on the other host, never renamed.
+CODEX_HOOK_EVENTS = frozenset((
+    "PreToolUse", "PermissionRequest", "PostToolUse", "PreCompact", "PostCompact",
+    "SessionStart", "SessionEnd", "UserPromptSubmit", "SubagentStart",
+    "SubagentStop", "Stop", "Interrupt",
+))
+HOOK_EVENTS_BY_HOST = {"claude": CLAUDE_HOOK_EVENTS, "codex": CODEX_HOOK_EVENTS}
+HOOK_EVENTS = CLAUDE_HOOK_EVENTS | CODEX_HOOK_EVENTS
 
 
 class CatalogError(ValueError):
     """A catalog cannot be compiled safely."""
 
 
-def validate_hook_binding(hook: Any) -> None:
+def validate_hook_binding(hook: Any, host: str | None = None) -> None:
     if not isinstance(hook, dict) or set(hook) != {"event", "matcher"}:
         raise CatalogError("hook binding must contain only event and matcher")
     event, matcher = hook.get("event"), hook.get("matcher")
-    if not isinstance(event, str) or event not in CLAUDE_HOOK_EVENTS:
-        raise CatalogError(f"unsupported Claude hook event {event!r}")
+    events = HOOK_EVENTS if host is None else HOOK_EVENTS_BY_HOST[host]
+    if not isinstance(event, str) or event not in events:
+        raise CatalogError(f"unsupported {host + ' ' if host else ''}hook event {event!r}")
     if not isinstance(matcher, str) or not matcher or any(char in matcher for char in "\n\r\x00"):
         raise CatalogError("hook matcher must be one non-empty line")
+
+
+def validate_native_hook_config(value: Any, host: str) -> None:
+    """Validate compiler-owned command registrations, not arbitrary host config."""
+    if not isinstance(value, dict):
+        raise CatalogError("native hooks must be an event mapping")
+    for event, groups in value.items():
+        if not isinstance(groups, list) or not groups:
+            raise CatalogError("native hook event must contain matcher groups")
+        for group in groups:
+            if not isinstance(group, dict) or set(group) != {"matcher", "hooks"}:
+                raise CatalogError("invalid native hook matcher group")
+            validate_hook_binding({"event": event, "matcher": group["matcher"]}, host)
+            handlers = group["hooks"]
+            if not isinstance(handlers, list) or not handlers:
+                raise CatalogError("native hook group must contain commands")
+            for handler in handlers:
+                if (not isinstance(handler, dict) or set(handler) != {"type", "command"}
+                        or handler["type"] != "command" or not isinstance(handler["command"], str)
+                        or not handler["command"] or "\x00" in handler["command"]):
+                    raise CatalogError("invalid native hook command")
 
 
 def _read_utf8(path: pathlib.Path) -> str:
@@ -667,10 +703,10 @@ def _plugin_namespace(ref: str) -> str:
 def _native_hook_carrier(item: dict[str, Any]) -> tuple[str, dict[str, str]]:
     source = item.get("origin", {}).get("source_path")
     if item.get("kind") != "hook" or not isinstance(source, str):
-        raise CatalogError("event item has no installed Claude hook carrier provenance")
+        raise CatalogError("event item has no installed hook carrier provenance")
     matched = re.fullmatch(r"claude/hooks/([A-Za-z0-9][A-Za-z0-9._-]*\.py)", source)
     if not matched:
-        raise CatalogError("event item origin is not an installed Claude hooks/*.py carrier")
+        raise CatalogError("event item origin is not an installed canonical hooks/*.py carrier")
     member = f"hooks/{matched.group(1)}"
     if member not in item["members"]:
         raise CatalogError("event item no longer retains its installed hook entrypoint")
@@ -680,7 +716,7 @@ def _native_hook_carrier(item: dict[str, Any]) -> tuple[str, dict[str, str]]:
         raise CatalogError(f"native hook entrypoint is not valid Python: {exc.msg}") from exc
     binding = item.get("hook")
     if not isinstance(binding, dict):
-        raise CatalogError("event item has no registered Claude hook binding")
+        raise CatalogError("event item has no registered hook binding")
     return member, binding
 
 
@@ -716,9 +752,9 @@ def _assert_native_member_safety(item: dict[str, Any], carrier: str, surface: st
         raise CatalogError("delegated item must retain exactly its one agents/*.md carrier")
     for member in item["members"]:
         first = pathlib.PurePosixPath(member).parts[0]
-        if first in {"skills", "commands", ".claude-plugin"}:
+        if first in {"skills", "commands", ".claude-plugin", ".codex-plugin", ".mcp.json"}:
             raise CatalogError(f"native plugin member would auto-discover {member!r}")
-        if member == "hooks/hooks.json" or member == "settings.json":
+        if member in {"hooks/hooks.json", "hooks.json", "settings.json", "config.toml"}:
             raise CatalogError(f"native plugin member would override generated registration {member!r}")
         if first == "agents" and member != carrier:
             raise CatalogError(f"native plugin member adds an unselected agent carrier {member!r}")
@@ -736,15 +772,19 @@ def _write_plugin_manifest(root: pathlib.Path, namespace: str, item: dict[str, A
     return relative.as_posix()
 
 
-def _emit_native_claude_item(
+def _emit_native_item(
     item: dict[str, Any], destination: pathlib.Path, namespace: str, base_instruction_text: str,
+    host: str, reference_root: pathlib.Path,
 ) -> tuple[list[str], dict[str, Any] | None]:
     root = destination / "items" / _safe_ref_path(item["ref"])
     if item["surface"] == "event":
         member, binding = _native_hook_carrier(item)
+        validate_hook_binding(binding, host)
         _assert_native_member_safety(item, member, "event")
-        emitted = [_write_plugin_manifest(root, namespace, item)]
-        command = f'{shlex.quote(sys.executable)} "${{CLAUDE_PLUGIN_ROOT}}/{member}"'
+        emitted = [_write_plugin_manifest(root, namespace, item)] if host == "claude" else []
+        reference = reference_root / "items" / _safe_ref_path(item["ref"]) / member
+        target = f'"${{CLAUDE_PLUGIN_ROOT}}/{member}"' if host == "claude" else shlex.quote(str(reference))
+        command = f'{shlex.quote(sys.executable)} {target}'
         hooks = {"hooks": {binding["event"]: [{
             "matcher": binding["matcher"],
             "hooks": [{"type": "command", "command": command}],
@@ -752,8 +792,11 @@ def _emit_native_claude_item(
         relative = pathlib.PurePosixPath("hooks") / "hooks.json"
         _write_private(root / relative, json.dumps(hooks, ensure_ascii=False, separators=(",", ":")) + "\n")
         emitted.append(relative.as_posix())
-        return emitted, {"ref": item["ref"], "plugin": namespace, "hook": binding, "entrypoint": member}
+        return emitted, {"ref": item["ref"], "plugin": namespace, "hook": binding,
+                         "entrypoint": member, "hooks": hooks["hooks"]}
     if item["surface"] == "delegated":
+        if host != "claude":
+            raise CatalogError("native delegated adapter is unsupported for codex: authored Claude agent frontmatter requires a Codex agent projection")
         member, name = _native_agent_carrier(item)
         _assert_native_member_safety(item, member, "delegated")
         # Carrier validation happens before any plugin write. The child receives
@@ -764,11 +807,11 @@ def _emit_native_claude_item(
         emitted = [_write_plugin_manifest(root, namespace, item)]
         return emitted, {"ref": item["ref"], "plugin": namespace, "agent_name": name,
                          "route": f"{namespace}:{name}"}
-    raise CatalogError(f"unsupported native Claude surface {item['surface']!r}")
+    raise CatalogError(f"unsupported native surface {item['surface']!r}")
 
 
 def compile_items(items: list[dict[str, Any]], destination: pathlib.Path, host: str,
-                  native: bool = False) -> dict[str, Any]:
+                  native: bool = False, reference_root: pathlib.Path | None = None) -> dict[str, Any]:
     """Emit selected items into one private destination.
 
     ``host`` is currently a validation seam for adapters.  Claude and Codex use
@@ -782,6 +825,9 @@ def compile_items(items: list[dict[str, Any]], destination: pathlib.Path, host: 
     if not isinstance(items, list):
         raise CatalogError("compiler requires an item list")
     destination = pathlib.Path(destination)
+    # Emit bytes into staging while quoting paths for their final location. A
+    # string replacement after shell/Python quoting cannot relocate all paths.
+    reference_root = pathlib.Path(reference_root) if reference_root is not None else destination
     if destination.exists() and destination.is_symlink():
         raise CatalogError(f"compiler destination must not be a symlink: {destination}")
     destination.mkdir(parents=True, exist_ok=True)
@@ -790,7 +836,7 @@ def compile_items(items: list[dict[str, Any]], destination: pathlib.Path, host: 
     unresolved = [item["ref"] for item in normalized if item.get("content_conflict")]
     if unresolved:
         raise CatalogError(f"content_conflict: selected item needs reconciliation: {', '.join(unresolved)}")
-    rewrites = _resource_rewrites(normalized, destination)
+    rewrites = _resource_rewrites(normalized, reference_root)
     files: list[str] = []
     for item in normalized:
         emitted: dict[str, str] = {}
@@ -799,10 +845,10 @@ def compile_items(items: list[dict[str, Any]], destination: pathlib.Path, host: 
             relative = pathlib.PurePosixPath("items") / _safe_ref_path(item["ref"]) / member
             target = _destination_path(destination, relative.as_posix())
             rewritten = _rewrite_resources(content, rewrites)
-            if native and host == "claude" and item["surface"] == "event":
+            if native and item["surface"] == "event":
                 rewritten = _rewrite_native_hook_guide(item, rewritten, rewrites)
             _write_private(target, rewritten)
-            emitted[member] = str(target)
+            emitted[member] = str(reference_root / relative)
             files.append(relative.as_posix())
         item["_emitted_members"] = emitted
 
@@ -822,7 +868,7 @@ def compile_items(items: list[dict[str, Any]], destination: pathlib.Path, host: 
         instruction_parts.extend(_rewrite_resources(item["body"], rewrites).rstrip("\n") for item in always)
         instruction_parts.append("")
     if router_path is not None:
-        instruction_parts.append(f"Relevant procedures: {router_path}")
+        instruction_parts.append(f"Relevant procedures: {reference_root / 'router/relevant.md'}")
     if requested:
         instruction_parts.append("Requested procedures:")
         for item in requested:
@@ -834,6 +880,7 @@ def compile_items(items: list[dict[str, Any]], destination: pathlib.Path, host: 
     assets: dict[str, Any] = {}
     plugin_names: dict[str, str] = {}
     plugin_roots: list[str] = []
+    hook_config: dict[str, list[dict[str, Any]]] = {}
     agent_routes: list[dict[str, str]] = []
     for item in normalized:
         if item["surface"] not in {"event", "delegated"}:
@@ -842,27 +889,29 @@ def compile_items(items: list[dict[str, Any]], destination: pathlib.Path, host: 
             unavailable.append({"ref": item["ref"], "surface": item["surface"],
                                 "reason": f"native {item['surface']} consumption is disabled; opt in with --corpus-native"})
             continue
-        if host != "claude":
-            unavailable.append({"ref": item["ref"], "surface": item["surface"],
-                                "reason": f"native {item['surface']} adapter is unsupported for {host}"})
-            continue
         namespace = _plugin_namespace(item["ref"])
         prior = plugin_names.get(namespace)
         if prior is not None and prior != item["ref"]:
-            raise CatalogError(f"Claude plugin namespace collision: {prior} and {item['ref']}")
+            raise CatalogError(f"native namespace collision: {prior} and {item['ref']}")
         plugin_names[namespace] = item["ref"]
         try:
-            emitted, route = _emit_native_claude_item(item, destination, namespace, base_instruction_text)
+            emitted, route = _emit_native_item(item, destination, namespace, base_instruction_text, host, reference_root)
         except CatalogError as exc:
             unavailable.append({"ref": item["ref"], "surface": item["surface"], "reason": str(exc)})
             continue
         root_relative = (pathlib.PurePosixPath("items") / _safe_ref_path(item["ref"])).as_posix()
-        plugin_roots.append(root_relative)
+        if host == "claude":
+            plugin_roots.append(root_relative)
+        else:
+            for event, groups in route["hooks"].items():
+                hook_config.setdefault(event, []).extend(groups)
         files.extend((pathlib.PurePosixPath(root_relative) / path).as_posix() for path in emitted)
         if route and item["surface"] == "delegated":
             agent_routes.append(route)
     if native and host == "claude":
         assets["claude_plugins"] = sorted(plugin_roots)
+    if native and host == "codex":
+        assets["codex_hooks"] = hook_config
     instruction_text = base_instruction_text
     if agent_routes:
         instruction_text += "\nNative delegated agents:\n"

@@ -256,3 +256,10 @@ in both runs, `sec-pwlen`/`sec-lockout` hold, and the key over-trigger check
 `sec-control-strengthen` (*raising* a protective value) is applied without the
 confirmation dance — so the stronger wording does not penalize legitimate
 hardening. Re-run and update this table when a tier model changes.
+
+Codex hook-bearing legacy inputs use `hooks.json` and inline `[hooks]` tables.
+The shared rebinder carries only manifest-owned files from Codex's shared `hooks/`
+directory, combines owned registrations, and removes ambient inline hooks and trust
+state from the copied runtime config. Unreadable or non-isolatable settings fail
+explicitly. Codex enablement and hook trust still apply; a registered hook without
+its canary is a failed receipt, not evidence that the host has no hook support.

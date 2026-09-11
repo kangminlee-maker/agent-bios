@@ -125,6 +125,49 @@ class CorpusStoreCase(CorpusFixture, unittest.TestCase):
 
 @unittest.skipUnless(importlib.util.find_spec("textual"), "Textual is required")
 class CorpusBundleUiTests(CorpusFixture, unittest.TestCase):
+    def test_primary_hook_renders_as_code_instead_of_comment_headings(self) -> None:
+        from corpus_ui import CorpusStudio
+
+        hook = next(row for row in self.store.list_items() if row["kind"] == "hook")
+        original = self.store.show(hook["ref"])["item"]["body"]
+
+        async def exercise() -> None:
+            app = CorpusStudio(self.store)
+            async with app.run_test(size=(100, 30)) as pilot:
+                await app.select_ref(hook["ref"])
+                await pilot.pause()
+                document = app.query_one("#wiki").document
+                self.assertEqual(1, len(document.query("MarkdownH1")))
+                self.assertEqual(1, len(document.query("MarkdownFence")))
+                self.assertIn(original, document.source)
+                self.assertIn("```python\n#!/usr/bin/env python3\n", document.source)
+                self.assertEqual(original, self.store.show(hook["ref"])["item"]["body"])
+
+        asyncio.run(exercise())
+
+    def test_code_fences_cannot_be_closed_by_source_and_markdown_stays_prose(self) -> None:
+        from corpus_ui import CorpusStudio, render_member_body
+        body = '# comment\ntext = """\n```\n# not a heading\n````\n"""\n'
+        self.assertEqual(body, render_member_body(body, "guide.MD"))
+        for member in ("hook.py", "config.toml", "data.json", "notes.txt"):
+            rendered = render_member_body(body, member)
+            self.assertTrue(rendered.startswith("`````"))
+            self.assertTrue(rendered.endswith("`````"))
+            self.assertIn(body, rendered)
+
+        async def exercise() -> None:
+            app = CorpusStudio(self.store)
+            async with app.run_test(size=(100, 30)) as pilot:
+                item = {"title": "source.py", "ref": "@local/personal:source", "kind": "hook",
+                        "surface": "event", "primary_member": "source.py", "body": body}
+                document = app.query_one("#wiki").document
+                await document.update(app._render_item(item, {"item": item}, "effective"))
+                await pilot.pause()
+                self.assertEqual(1, len(document.query("MarkdownH1")))
+                self.assertEqual(1, len(document.query("MarkdownFence")))
+
+        asyncio.run(exercise())
+
     def test_read_navigation_cannot_retarget_an_open_companion_draft(self) -> None:
         from corpus_ui import CorpusStudio
         from textual.widgets import Select, TextArea
@@ -501,7 +544,7 @@ class CorpusTextualCase(CorpusFixture, unittest.TestCase):
         asyncio.run(exercise())
 
     def test_narrow_hook_binding_edit_preview_apply_and_restore(self) -> None:
-        from corpus_catalog import CLAUDE_HOOK_EVENTS
+        from corpus_catalog import HOOK_EVENTS
         from corpus_ui import Confirmation, CorpusStudio
         from textual.widgets import Input, Select
 
@@ -509,8 +552,8 @@ class CorpusTextualCase(CorpusFixture, unittest.TestCase):
         original = self.store.show(hook["ref"])["item"]
         original_body = original["body"]
         original_binding = dict(original["hook"])
-        replacement_event = next(event for event in sorted(CLAUDE_HOOK_EVENTS)
-                                 if event != original_binding["event"])
+        replacement_event = "Interrupt"  # Codex-only events must survive the common editor.
+        self.assertIn(replacement_event, HOOK_EVENTS)
 
         async def exercise() -> None:
             app = CorpusStudio(self.store)

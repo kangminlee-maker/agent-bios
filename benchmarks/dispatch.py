@@ -226,8 +226,8 @@ def canary_verdicts(text: str, variant: dict) -> dict:
         # nobody: a receipt was valid with no evidence that the corpus's own hook
         # delivery surface ran at all — the same shape as the guide canary defect this
         # instrument already fixed once. `expected` is None on an arm that registers no
-        # hooks (the codex spec declares no settings file, so nothing is registered there
-        # — Codex's own hook surface is simply not wired), and then there is nothing to prove.
+        # hooks on either host, and then there is nothing to prove. Registered
+        # hooks still require a canary; native trust/enablement is not assumed.
         "hook_expected": variant.get("hook_canary"),
         "hook_seen": CANARY_HOOK_RE.findall(text),
         "hook": (variant.get("hook_canary") in CANARY_HOOK_RE.findall(text)

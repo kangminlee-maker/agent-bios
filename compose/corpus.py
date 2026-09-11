@@ -85,7 +85,7 @@ def build_parser() -> argparse.ArgumentParser:
     snapshot_view = snapshot.add_mutually_exclusive_group(required=True)
     snapshot_view.add_argument("--host", choices=("claude", "codex"))
     snapshot_view.add_argument("--content-ref", help="read this stored snapshot without resolving current authoring")
-    snapshot.add_argument("--native", action="store_true", help="opt into selected Claude native hooks and agents for this snapshot")
+    snapshot.add_argument("--native", action="store_true", help="opt into selected native hooks on either host and Claude agents for this snapshot")
 
     install = sub.add_parser("install", help="record the current package as a private baseline")
     install.add_argument("--domains", help="comma-separated qualified selection values")
@@ -282,16 +282,16 @@ def run_numbered(store: CorpusStore) -> int:
                 patch = {"body": body, "surface": surface}
                 if row.get("kind") == "hook":
                     try:
-                        from corpus_catalog import CLAUDE_HOOK_EVENTS
+                        from corpus_catalog import HOOK_EVENTS
                     except ImportError:  # package-style import from repository root
-                        from .corpus_catalog import CLAUDE_HOOK_EVENTS
+                        from .corpus_catalog import HOOK_EVENTS
                     binding = row.get("hook") if isinstance(row.get("hook"), dict) else {}
-                    default_event = str(binding.get("event", sorted(CLAUDE_HOOK_EVENTS)[0]))
+                    default_event = str(binding.get("event", sorted(HOOK_EVENTS)[0]))
                     while True:
                         event = input(f"Hook event [{default_event}]: ").strip() or default_event
-                        if event in CLAUDE_HOOK_EVENTS:
+                        if event in HOOK_EVENTS:
                             break
-                        print("Unsupported Claude hook event.", file=sys.stderr)
+                        print("Unsupported hook event.", file=sys.stderr)
                     default_matcher = str(binding.get("matcher", ""))
                     matcher = input(f"Hook matcher [{default_matcher}]: ")
                     matcher = matcher if matcher else default_matcher

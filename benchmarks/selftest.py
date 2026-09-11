@@ -166,8 +166,17 @@ def hook_controls(work: pathlib.Path) -> None:
             and str(src) not in kept["PreToolUse"][0]["hooks"][0]["command"])
     control("hook", "the matcher is preserved",
             kept["PreToolUse"][0].get("matcher") == "Bash")
-    control("hook", "a host whose spec declares no settings file carries no hooks",
-            corpus.corpus_hook_entries("codex", src, dest) == {})
+    csrc, cdest = work / 'codex-hook-src', work / 'codex-hook-dest'
+    for folder in (csrc, cdest):
+        (folder / 'hooks').mkdir(parents=True)
+        (folder / 'hooks/tooling-gotchas-hook.py').write_text('# fixture\n')
+    (csrc / 'hooks.json').write_text(_json.dumps({'hooks': {'PreToolUse': [{'matcher': 'Bash', 'hooks': [
+        {'type': 'command', 'command': f'python3 {csrc}/hooks/tooling-gotchas-hook.py'},
+        {'type': 'command', 'command': f'python3 {csrc}/hooks/foreign.py'}]}]}}))
+    ckept = corpus.corpus_hook_entries('codex', csrc, cdest)
+    control('hook', 'Codex registrations travel through the shared hook rebinder',
+            len(ckept['PreToolUse'][0]['hooks']) == 1
+            and str(cdest) in ckept['PreToolUse'][0]['hooks'][0]['command'])
     control("hook", "a home with no settings file carries no hooks",
             corpus.corpus_hook_entries("claude", work / "nothing", dest) == {})
 

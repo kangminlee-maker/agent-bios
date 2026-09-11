@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
-"""Register the manifest's hooks in a deployed settings.json (full-install path).
+"""Legacy utility: merge canonical hook registrations into Claude settings.
 
-The packaged path gets this for free: assemble.py composes the corpus and calls
-merge_settings on the way out. A full install never runs the assembler, so the
-hook files were deployed and nothing ever registered them — they sat on disk and
-never fired. This runs the assembler's own merge so both paths register
-identically, under the same name-based ownership rule.
+The private installer registers no global host hooks. Explicit native session
+activation is shared by Claude and Codex through corpus_catalog/corpus_session.
+This compatibility utility retains the legacy Claude settings.json ownership
+and merge behavior by calling the assembler's merge_settings implementation.
 
 Usage: register-hooks.py <repo> <claude-dir>
-Exit 0 on success; non-zero (with a message) if the merge could not run, which
-the installer reports as a note rather than failing the whole install.
+Exit 0 on success; non-zero with a message if the legacy merge cannot run.
 """
 import importlib.util
 import json

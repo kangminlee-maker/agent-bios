@@ -366,7 +366,7 @@ class CorpusCatalogTests(unittest.TestCase):
             native = compile_items([invalid], root, "claude", native=True)
             self.assertFalse(any((root / path).exists() for path in native["files"] if ".claude-plugin" in path))
         self.assertEqual([], native["assets"]["claude_plugins"])
-        self.assertIn("installed Claude hook carrier", native["unavailable"][0]["reason"])
+        self.assertIn("installed hook carrier", native["unavailable"][0]["reason"])
         hook_with_wrong_origin = copy.deepcopy(next(item for item in self.catalog["items"] if item["kind"] == "hook"))
         hook_with_wrong_origin["origin"]["source_path"] = "claude/hooks/not-a-python-carrier.txt"
         with tempfile.TemporaryDirectory() as temp:
@@ -386,14 +386,14 @@ class CorpusCatalogTests(unittest.TestCase):
         hook = copy.deepcopy(next(item for item in self.catalog["items"] if item["kind"] == "hook"))
         with tempfile.TemporaryDirectory() as temp:
             other = compile_items([hook], pathlib.Path(temp), "codex", native=True)
-        self.assertEqual({}, other["assets"])
-        self.assertIn("unsupported for codex", other["unavailable"][0]["reason"])
+        self.assertTrue(other["assets"]["codex_hooks"]["PreToolUse"])
+        self.assertEqual([], other["unavailable"])
 
     def test_native_rejects_invalid_typed_hook_binding(self) -> None:
         hook = copy.deepcopy(next(item for item in self.catalog["items"] if item["kind"] == "hook"))
         hook["hook"] = {"event": "NotAClaudeEvent", "matcher": "Bash"}
         with tempfile.TemporaryDirectory() as temp:
-            with self.assertRaisesRegex(CatalogError, "unsupported Claude hook event"):
+            with self.assertRaisesRegex(CatalogError, "unsupported hook event"):
                 compile_items([hook], pathlib.Path(temp), "claude", native=True)
 
     def test_native_hook_rewrites_relative_guide_only_when_selected(self) -> None:
@@ -411,6 +411,72 @@ class CorpusCatalogTests(unittest.TestCase):
         self.assertIn("GUIDE = ", source)
         self.assertNotIn('GUIDE = "guides/tooling-gotchas.md"', source)
         self.assertIn(str(root / "items"), source)
+
+    def test_hook_events_are_shared_with_explicit_host_differences(self) -> None:
+        from corpus_catalog import HOOK_EVENTS_BY_HOST, validate_hook_binding
+        hook = copy.deepcopy(next(item for item in self.catalog["items"] if item["kind"] == "hook"))
+        for event, supported in (("PreToolUse", {"claude", "codex"}),
+                                 ("PostCompact", {"claude", "codex"}),
+                                 ("Interrupt", {"codex"}), ("PostToolUseFailure", {"claude"})):
+            hook["hook"] = {"event": event, "matcher": "*"}
+            validate_hook_binding(hook["hook"])
+            for host in HOOK_EVENTS_BY_HOST:
+                with self.subTest(host=host, event=event), tempfile.TemporaryDirectory() as temp:
+                    output = compile_items([hook], pathlib.Path(temp), host, native=True)
+                    self.assertEqual(bool(output["unavailable"]), host not in supported)
+                    if host not in supported:
+                        self.assertIn(f"unsupported {host} hook event", output["unavailable"][0]["reason"])
+                        self.assertFalse(any(path.endswith('hooks/hooks.json') for path in output["files"]))
+
+    def test_both_hook_adapters_execute_the_same_carrier_and_refuse_prose(self) -> None:
+        import shlex
+        hook = copy.deepcopy(next(item for item in self.catalog["items"] if item["item_id"] == "hook-tooling-gotchas-hook"))
+        guide = copy.deepcopy(next(item for item in self.catalog["items"]
+                                  if item["origin"].get("source_path") == "claude/guides/tooling-gotchas.md"))
+        for host in ("claude", "codex"):
+            with self.subTest(host=host), tempfile.TemporaryDirectory(prefix="hook path's ") as temp:
+                root = pathlib.Path(temp)
+                output = compile_items([hook, guide], root, host, native=True)
+                config_file = next(root.glob('items/*/hooks/hooks.json'))
+                config = json.loads(config_file.read_text())["hooks"]
+                if host == "codex":
+                    self.assertEqual(config, output["assets"]["codex_hooks"])
+                command = config["PreToolUse"][0]["hooks"][0]["command"]
+                carrier = shlex.split(command.replace('${CLAUDE_PLUGIN_ROOT}', str(config_file.parent.parent)))
+                # The host expands the quoted plugin variable without re-parsing its value.
+                if host == 'claude':
+                    carrier = [sys.executable, str(config_file.parent / 'tooling-gotchas-hook.py')]
+                for text, expected in (("git diff main..HEAD", "additionalContext"), ("echo hello", "")):
+                    payload = {"session_id": "fixture", "hook_event_name": "PreToolUse",
+                               "tool_name": "Bash", "tool_input": {"command": text}}
+                    ran = subprocess.run(carrier, input=json.dumps(payload), text=True, capture_output=True)
+                    self.assertEqual(0, ran.returncode, ran.stderr)
+                    if expected:
+                        self.assertIn(expected, ran.stdout)
+                        self.assertIn(str(root), ran.stdout)
+                    else:
+                        self.assertEqual('', ran.stdout)
+            prose = copy.deepcopy(guide)
+            prose["surface"] = "event"
+            with tempfile.TemporaryDirectory() as temp:
+                output = compile_items([prose], pathlib.Path(temp), host, native=True)
+                self.assertIn("installed hook carrier", output["unavailable"][0]["reason"])
+
+    def test_native_hooks_refuse_discovery_payloads_on_both_hosts(self) -> None:
+        source = next(item for item in self.catalog["items"] if item["kind"] == "hook")
+        for host in ("claude", "codex"):
+            for extra in (".codex-plugin/plugin.json", ".claude-plugin/plugin.json",
+                          ".mcp.json", "config.toml", "hooks.json", "agents/extra.md"):
+                with self.subTest(host=host, extra=extra), tempfile.TemporaryDirectory() as temp:
+                    hook = copy.deepcopy(source)
+                    hook["members"][extra] = '{}'
+                    if extra.startswith('.'):
+                        with self.assertRaisesRegex(CatalogError, 'unsafe member path'):
+                            compile_items([hook], pathlib.Path(temp), host, native=True)
+                        continue
+                    output = compile_items([hook], pathlib.Path(temp), host, native=True)
+                    self.assertTrue(output["unavailable"])
+                    self.assertFalse(any(output["assets"].values()))
 
 
 if __name__ == "__main__":

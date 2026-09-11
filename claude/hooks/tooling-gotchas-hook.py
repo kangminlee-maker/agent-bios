@@ -14,12 +14,10 @@ GUIDE = "guides/tooling-gotchas.md"
 
 # (name, compiled trigger, one-line reminder, guide anchor). Priority order; max 2 injected.
 #
-# The anchor is the heading in tooling-gotchas.md this rule compresses. It exists because
-# agent-bios registers this hook on Claude only — Codex has hooks of its own, they are simply
-# not wired here — so the guide is what a Codex reader gets instead: a rule admitted here
-# with no counterpart there would silently give the two hosts different guidance. The mapping
-# is declared rather than matched, because a rule name and a guide heading do not share a
-# string. --self-test checks every anchor against the guide AND its codex mirror.
+# Each anchor names the canonical guide section compressed by this shared hook.
+# Both hosts receive the same command payload and additionalContext response.
+# The guide remains available when native hooks are disabled, untrusted, or do
+# not cover a tool path. --self-test checks every anchor against both guide trees.
 RULES = [
     ("reserved-shell-names",
      re.compile(r"\b(UID|EUID|GID|PPID)="),
@@ -205,7 +203,8 @@ def main() -> int:
     # the charter says it never does, and it would do it before EVERY Bash call in every
     # deployed session, on a payload shape decided by a host this repo does not own.
     # Advisory means silent on anything it cannot read, so each check returns 0.
-    if not isinstance(payload, dict) or payload.get("tool_name") != "Bash":
+    if (not isinstance(payload, dict) or payload.get("tool_name") != "Bash"
+            or payload.get("hook_event_name", "PreToolUse") != "PreToolUse"):
         return 0
     tool_input = payload.get("tool_input")
     command = tool_input.get("command") if isinstance(tool_input, dict) else None
@@ -225,13 +224,7 @@ def main() -> int:
 
 
 def self_test() -> int:
-    """Two halves, because this hook reaches the two hosts differently.
-
-    Claude gets the injection, so the first half runs the real entry point over real stdin and
-    requires the message out. Nothing registers this hook on Codex, so its equivalent is the
-    guide — and the second half is the only thing that keeps the two hosts saying the same
-    thing. Codex does have hooks; wiring them is open work, not a host limitation.
-    """
+    """Check shared stdin/output behavior and the guide fallback on both hosts."""
     import pathlib, subprocess
 
     here = pathlib.Path(__file__).resolve()
@@ -272,6 +265,7 @@ def self_test() -> int:
         ("command as a list", '{"tool_name": "Bash", "tool_input": {"command": ["git", "pull"]}}'),
         ("command absent", '{"tool_name": "Bash", "tool_input": {}}'),
         ("empty stdin", ""),
+        ("wrong event", '{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"git pull"}}'),
     ):
         r3 = subprocess.run([sys.executable, str(here)], input=raw, capture_output=True, text=True)
         if r3.returncode != 0:
@@ -455,8 +449,7 @@ def self_test() -> int:
         if name not in [hit for hit, _ in matches(cmd, limit=None)]:
             problems.append(f"{name}: its own fixture {cmd!r} does not reach it — the rule is inert")
 
-    # -- half 2: the Codex fallback. SURFACES.md admits a hook rule only with a guide
-    # counterpart, because the guide is what the other host receives.
+    # -- half 2: both hosts retain a guide fallback when native hooks do not run.
     for tree in ("claude", "codex"):
         g = repo / tree / "guides" / "tooling-gotchas.md"
         if not g.is_file():

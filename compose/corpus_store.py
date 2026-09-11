@@ -174,8 +174,17 @@ def _snapshot_file_digests(root: Path, files: list[str]) -> dict[str, str]:
 
 
 def _snapshot_assets(value: Any, files: list[str]) -> dict[str, Any]:
-    if not isinstance(value, dict) or set(value) - {"claude_plugins"}:
+    if not isinstance(value, dict) or set(value) - {"claude_plugins", "codex_hooks"}:
         raise ValidationError("invalid snapshot native assets")
+    if "codex_hooks" in value:
+        try:
+            from corpus_catalog import CatalogError, validate_native_hook_config
+        except ImportError:
+            from .corpus_catalog import CatalogError, validate_native_hook_config
+        try:
+            validate_native_hook_config(value["codex_hooks"], "codex")
+        except CatalogError as exc:
+            raise ValidationError(f"invalid snapshot native hooks: {exc}") from exc
     plugins = value.get("claude_plugins", [])
     if not isinstance(plugins, list) or not all(isinstance(path, str) for path in plugins):
         raise ValidationError("snapshot plugins must be relative paths")
@@ -1304,7 +1313,7 @@ class CorpusStore:
                     staging = root.with_name(f".{root.name}.staging-{uuid.uuid4().hex}")
                     staging.mkdir(parents=True, exist_ok=False)
                 try:
-                    compiled = catalog.compile_items(_copy_json(selected), staging, host, native=True) if native else catalog.compile_items(_copy_json(selected), staging, host)
+                    compiled = catalog.compile_items(_copy_json(selected), staging, host, native=True, reference_root=root) if native else catalog.compile_items(_copy_json(selected), staging, host)
                     if not isinstance(compiled, dict) or not isinstance(compiled.get("instruction_text"), str):
                         raise CorpusStoreError("catalog compiler returned invalid output")
                     files = _snapshot_relative_paths(compiled.get("files"))

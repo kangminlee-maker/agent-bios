@@ -75,7 +75,7 @@ version과 함께 고정한다. Job은 불변 corpus snapshot 밖에 둔다. 준
 | `research/` | corpus 연구(12,749개 AGENTS.md/CLAUDE.md 분류): 보고서·스크립트·라벨링 기록; 벌크 데이터는 `.gitignore` 규칙으로 로컬에 남는다 |
 | `DEPENDENCIES.md` | 외부 도구·host CLI·모델 provider + 검증 버전 |
 
-`config.toml`, `settings.json`은 머신 종속(신뢰 목록, 훅 경로, 시크릿)이라 의도적으로 추적하지 않는다.
+`config.toml`, `settings.json`, `hooks.json`은 머신 종속(신뢰 목록, 훅 경로, 시크릿)이라 의도적으로 추적하지 않는다.
 
 ## Guides
 
@@ -175,3 +175,18 @@ Shell wrapper 경계에서는 인자가 있는 모든 명령(`codex exec ...`, `
 ## Scope
 
 안정된 설정, 설정으로 관리하는 자격증명, 전역 에이전트 지침만. 런타임 상태·로그·세션·캐시·생성 아티팩트·임시 경로는 넣지 않는다.
+
+## 세션별 공통 hook
+
+`agent-launch --corpus-native`는 선택한 corpus hook을 해당 Claude 또는 Codex
+세션에만 전달한다. 기본값은 꺼짐이다. 두 호스트가 같은 Python 본문과
+`event`/`matcher`를 사용하며, 대상 호스트가 지원하지 않는 이벤트는 실행 불가로
+표시한다. Claude는 항목별 plugin, Codex는 세션별 `-c hooks.<Event>=...` 설정을
+사용한다. 기존 사용자·프로젝트 hook은 유지하고 전역 hook 설정은 추가하지 않는다.
+Codex의 활성화 설정과 신뢰 검토는 그대로 적용된다. 새 정의나 바뀐 정의는 해당
+세션의 `/hooks`에서 검토해야 한다. 설정 발견과 실제 실행은 별도로 검증한다.
+
+`agent-bios corpus snapshot --host codex --native --json` 또는 `--host claude`로
+미리 볼 수 있다. 기존 세션 재개는 그 세션에 고정된 hook을 유지한다. Corpus agent의
+Claude frontmatter를 Codex agent 설정으로 옮기는 작업은 별도이며, 이 차이가 공통
+hook 실행을 막지는 않는다.

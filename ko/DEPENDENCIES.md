@@ -46,7 +46,7 @@ agent-bios의 스크립트·규칙이 의존하는 것을 요구 capability와 �
 
 ## Untracked — 의존성이지만 설계상 제외
 
-Host `config.toml`, `settings.json` — 머신 종속 신뢰 목록, 훅 경로, MCP 시크릿. 추적되는 `launch/agent-launch.toml`에는 launch binding만 두고 secret은 두지 않는다. README Scope 참조.
+Host `config.toml`, `settings.json`, `hooks.json` — 머신 종속 신뢰 목록, 훅 경로, MCP 시크릿. 추적되는 `launch/agent-launch.toml`에는 launch binding만 두고 secret은 두지 않는다. README Scope 참조.
 
 ## Re-verify
 
@@ -88,3 +88,12 @@ wrappers/codex-helm.sh --dry-run --mode review "probe"
 | 이 문서 (`DEPENDENCIES.md`) | 스크립트 런타임 도구 + 요구 capability; 의존성 인벤토리 |
 | 각 가이드 `Environment Binding` | role-slot→model 바인딩, host-CLI 검증 버전 |
 | 각 가이드 `Evidence Base` | 숫자 기본값·실측 |
+
+## 세션별 corpus hook
+
+`--corpus-native`는 두 호스트에서 같은 Python hook과 이벤트 바인딩을 사용한다.
+확인한 실행 환경은 Claude Code 2.1.268과 Codex CLI 0.153.4다. Claude는 항목별
+plugin과 `--plugin-dir`, Codex는 세션별 inline hook 설정과 `hooks/list`를 사용한다.
+Codex의 신뢰·활성화 상태를 임의로 바꾸지 않는다. 실제 Codex runtime과 로컬 테스트
+서버로 신뢰 전후의 hook 실행과 컨텍스트 주입을 검증한다. Corpus agent의 모델·도구
+제약 변환은 hook 지원과 별개의 adapter 작업이다.

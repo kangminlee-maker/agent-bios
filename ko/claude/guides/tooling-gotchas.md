@@ -19,7 +19,7 @@ core_rules:
 
 # Tooling Gotchas
 
-전역 원칙 뒤에 있는 구체적인 tool 수준 함정들이다. Claude-side hook injection은
+전역 원칙 뒤에 있는 구체적인 tool 수준 함정들이다. Claude·Codex 공통 hook injection은
 이 파일에서 텍스트를 derive한다 — 편집은 여기서만 하고, hook data에서는 절대
 하지 않는다(single source of truth).
 
