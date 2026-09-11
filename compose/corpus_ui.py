@@ -11,7 +11,9 @@ import json
 import re
 from pathlib import PurePosixPath
 from typing import Any
-from urllib.parse import unquote
+from urllib.parse import quote, unquote
+
+from rich.text import Text
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -39,6 +41,34 @@ except ImportError:  # pragma: no cover - package import from repository root
 
 SURFACES = ("always", "relevant", "requested", "event", "delegated")
 VIEWS = ("effective", "installed", "change", "diff", "history")
+
+
+def guide_pointers(item: dict[str, Any], inventory: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Display literal guide references, not inferred dependencies or new routing."""
+    if item.get("kind") != "rule":
+        return []
+    paths = dict.fromkeys(re.findall(r"\bguides/[A-Za-z0-9][A-Za-z0-9_./-]*\.md\b", item.get("body", "")))
+    result = []
+    for path in paths:
+        if ".." in PurePosixPath(path).parts:
+            continue
+        matches = [candidate for candidate in inventory
+                   if candidate.get("package_id") == item.get("package_id")
+                   and candidate.get("kind") == "guide" and path in candidate.get("members", {})]
+        result.append({"path": path, "target": matches[0] if len(matches) == 1 else None,
+                       "problem": "Ambiguous guide reference" if matches else "Not found in this package"})
+    return result
+
+
+def library_label(item: dict[str, Any], inventory: list[dict[str, Any]]) -> Text:
+    pointers = guide_pointers(item, inventory)
+    label = Text()
+    if pointers:
+        label.append("→ GUIDE ", style="bold cyan")
+        label.append(", ".join(PurePosixPath(pointer["path"]).stem for pointer in pointers))
+        label.append(" · ")
+    label.append(f"{item.get('title', item.get('ref'))} · {item.get('surface', '?')}")
+    return label
 
 
 def render_member_body(body: str, member: str | None, kind: str | None = None) -> str:
@@ -83,6 +113,9 @@ class CorpusMarkdownViewer(MarkdownViewer):
     """Keep all links inside Studio; never hand a URL to the operating system."""
 
     async def _on_markdown_link_clicked(self, message: Markdown.LinkClicked) -> None:
+        # stop() prevents bubbling, not the inherited MarkdownViewer handler.
+        # Its default go() would try to load corpus:// as a filesystem path.
+        message.prevent_default()
         message.stop()
         if message.href.startswith("corpus://"):
             ref = unquote(message.href.removeprefix("corpus://"))
@@ -252,7 +285,7 @@ class CorpusStudio(App[None]):
                 groups[key] = state_nodes[state].add(package)
                 groups[key].expand()
             groups[key].add_leaf(
-                f"{item.get('title', item.get('ref'))} · {item.get('surface', '?')}",
+                library_label(item, self.items),
                 data=item.get("ref"),
             )
         tree.root.expand()
@@ -327,8 +360,7 @@ class CorpusStudio(App[None]):
             members[self.current_member] = self.query_one("#editor-body", TextArea).text
         return members
 
-    @staticmethod
-    def _render_item(row: dict[str, Any], result: dict[str, Any], view: str) -> str:
+    def _render_item(self, row: dict[str, Any], result: dict[str, Any], view: str) -> str:
         if view == "effective" and isinstance(result.get("item"), dict):
             item = result["item"]
             links = "\n".join(
@@ -344,11 +376,28 @@ class CorpusStudio(App[None]):
                     + (f" Available members: {members}." if members else "") + "\n"
                 )
             body = render_member_body(item.get("body", ""), item.get("primary_member"), item.get("kind"))
+            pointers = guide_pointers(item, self.items)
+            guide_links = ""
+            if pointers:
+                lines = []
+                for pointer in pointers:
+                    target = pointer["target"]
+                    if target is None:
+                        lines.append(f"- `{pointer['path']}` — {pointer['problem']}")
+                    else:
+                        destination = quote(target["ref"], safe="@/:")
+                        lines.append(f"- [{pointer['path']}](corpus://{destination}) — "
+                                     f"**{target['surface']}** · {target.get('state', 'active')}")
+                guide_links = (
+                    "## Guide pointer\n\nThis rule explicitly references the following guide(s). "
+                    "The rule keeps its own consumption surface; these links do not change "
+                    "delivery or prove that a guide was loaded.\n\n" + "\n".join(lines) + "\n\n## Rule\n\n"
+                )
             return (
                 f"# {item.get('title', item.get('ref'))}\n\n"
                 f"`{item.get('ref')}` · **{row.get('state', 'active')}** · "
                 f"{item.get('surface')} · {item.get('kind')}\n\n"
-                f"{reconciliation}\n{body}\n\n## Dependencies\n\n{links}\n"
+                f"{guide_links}{reconciliation}\n{body}\n\n## Dependencies\n\n{links}\n"
                 + ("\n## Native consumption\n\nRequires explicit `agent-launch --corpus-native`.\n"
                    if item.get("kind") == "hook" else "")
             )

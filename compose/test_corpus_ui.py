@@ -125,6 +125,111 @@ class CorpusStoreCase(CorpusFixture, unittest.TestCase):
 
 @unittest.skipUnless(importlib.util.find_spec("textual"), "Textual is required")
 class CorpusBundleUiTests(CorpusFixture, unittest.TestCase):
+    def test_guide_pointers_use_literal_same_package_members_without_guessing(self) -> None:
+        from corpus_ui import CorpusStudio, guide_pointers, library_label
+
+        rule = {"kind": "rule", "package_id": "@test/one", "title": "[literal] rule",
+                "surface": "always", "body": "Read `guides/a.md` and `guides/b.md`; guides/a.md."}
+        guide = {"kind": "guide", "package_id": "@test/one", "ref": "@test/one:a",
+                 "members": {"guides/a.md": "body"}, "surface": "relevant", "state": "removed"}
+        other = dict(guide, package_id="@test/two", ref="@test/two:a")
+        rows = [guide, other]
+        before = json.dumps(rows, sort_keys=True)
+        pointers = guide_pointers(rule, rows)
+        self.assertEqual([p["path"] for p in pointers], ["guides/a.md", "guides/b.md"])
+        self.assertEqual(pointers[0]["target"]["ref"], guide["ref"])
+        self.assertEqual(pointers[0]["target"]["state"], "removed")
+        self.assertIsNone(pointers[1]["target"])
+        self.assertIsNone(guide_pointers(rule, [other])[0]["target"])
+        duplicate = dict(guide, ref="@test/one:duplicate")
+        ambiguous = guide_pointers(rule, [guide, duplicate])[0]
+        self.assertIsNone(ambiguous["target"])
+        self.assertIn("Ambiguous", ambiguous["problem"])
+        self.assertEqual([], guide_pointers(dict(rule, body="Think about concept economy."), rows))
+        self.assertEqual([], guide_pointers(dict(rule, body="guides/../a.md"), rows))
+        self.assertEqual([], guide_pointers(dict(rule, kind="guide"), rows))
+        label = library_label(rule, rows)
+        self.assertTrue(label.plain.startswith("→ GUIDE a, b"))
+        self.assertIn("[literal] rule", label.plain)
+        self.assertEqual(before, json.dumps(rows, sort_keys=True))
+        app = CorpusStudio(self.store)
+        app.items = [other]
+        rendered = app._render_item(rule, {"item": rule}, "effective")
+        self.assertIn("Not found in this package", rendered)
+        self.assertNotIn("corpus://", rendered)
+        app.items = [guide, duplicate]
+        rendered = app._render_item(rule, {"item": rule}, "effective")
+        self.assertIn("Ambiguous guide reference", rendered)
+        self.assertNotIn("corpus://", rendered)
+
+    def test_guide_pointer_navigation_preserves_authoring_and_host_snapshots(self) -> None:
+        from corpus_ui import CorpusStudio
+        from textual.widgets import Markdown, Tree
+
+        rows = self.store.list_items()
+        rule = next(row for row in rows if row["item_id"] == "rule-039")
+        guide = next(row for row in rows if row["item_id"] == "guide-concept-economy")
+        before = {host: self.store.snapshot(host) for host in ("claude", "codex")}
+        revision = self.store.status()["revision"]
+
+        async def exercise() -> None:
+            app = CorpusStudio(self.store)
+            async with app.run_test(size=(120, 42)) as pilot:
+                await app.select_ref(rule["ref"])
+                await pilot.pause()
+                tree = app.query_one("#library", Tree)
+                leaves = [leaf for state in tree.root.children for package in state.children
+                          for leaf in package.children]
+                label = next(leaf.label.plain for leaf in leaves if leaf.data == rule["ref"])
+                self.assertTrue(label.startswith("→ GUIDE concept-economy"))
+                document = app.query_one("#wiki").document
+                self.assertIn("## Guide pointer", document.source)
+                self.assertIn("## Rule\n\n", document.source)
+                self.assertIn(f"[guides/concept-economy.md](corpus://{guide['ref']})", document.source)
+                self.assertIn("**relevant** · active", document.source)
+                self.assertIn("always · rule", document.source)
+                self.assertIn(rule["body"], document.source)
+                document.post_message(Markdown.LinkClicked(document, f"corpus://{guide['ref']}"))
+                await pilot.pause()
+                self.assertEqual(guide["ref"], app.current_ref)
+                self.assertIn(guide["body"], document.source)
+                # Normal rules remain normal, with no inferred guide classification.
+                ordinary = next(row for row in rows if row["item_id"] == "rule-040")
+                await app.select_ref(ordinary["ref"])
+                self.assertNotIn("## Guide pointer", document.source)
+
+        asyncio.run(exercise())
+        self.assertEqual(rows, self.store.list_items())
+        self.assertEqual(revision, self.store.status()["revision"])
+        for host, snapshot in before.items():
+            self.assertEqual(snapshot, self.store.snapshot(host))
+
+    def test_guide_pointer_display_tracks_edits_removals_and_surface_changes(self) -> None:
+        from corpus_ui import CorpusStudio, guide_pointers
+        rows = self.store.list_items()
+        rule = next(row for row in rows if row["item_id"] == "rule-039")
+        guide = next(row for row in rows if row["item_id"] == "guide-concept-economy")
+        app = CorpusStudio(self.store)
+        for operation in (
+            {"operation": "update", "ref": guide["ref"], "patch": {"surface": "requested"}},
+            {"operation": "remove", "ref": guide["ref"]},
+            {"operation": "update", "ref": rule["ref"], "patch": {"body": "A plain rule."}},
+        ):
+            current = next(row for row in self.store.list_items() if row["ref"] == operation["ref"])
+            plan = self.store.plan(dict(operation, item_digest=current["digest"]))
+            self.store.apply(plan["plan_id"], plan["expected_revision"])
+            app.items = self.store.list_items()
+            result = self.store.show(rule["ref"])
+            rendered = app._render_item(rule, result, "effective")
+            if operation["ref"] == rule["ref"]:
+                self.assertNotIn("## Guide pointer", rendered)
+                self.assertEqual([], guide_pointers(result["item"], app.items))
+            elif operation["operation"] == "remove":
+                self.assertIn("removed", rendered)
+            else:
+                self.assertIn("**requested** · active", rendered)
+                self.assertNotIn("**relevant**", rendered)
+
     def test_primary_hook_renders_as_code_instead_of_comment_headings(self) -> None:
         from corpus_ui import CorpusStudio
 

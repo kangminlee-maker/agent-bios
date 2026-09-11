@@ -283,6 +283,14 @@ arbitrary package authoring/import, automatic semantic conflict resolution, or v
 native skill-menu registration; those design stages must not be inferred from the
 library UI.
 
+Studio marks rules containing explicit `guides/*.md` references with **→ GUIDE**
+and the guide names in the library. Their **Guide pointer** section links to exact
+guide members in the same package and shows each target's current consumption surface
+and state. Missing or ambiguous targets are disclosed rather than guessed. These
+are display-only references, not new dependencies or proof of loading: rule bodies,
+IDs, ordering, selection, and delivery remain unchanged. Personal body edits are
+reflected when the library refreshes; ordinary rules are not classified by meaning.
+
 New personal identities are allocated once in the creation plan and remain stable
 on retry; reset and history rollback do not make retired identities reusable.
 Member files are the content authority: `primary_member` identifies the main file,
