@@ -115,6 +115,121 @@ class CorpusStoreTest(unittest.TestCase):
         plan = self.store.plan(payload)
         return self.store.apply(plan["plan_id"], plan["expected_revision"])
 
+    def _snapshot_refs(self, host: str, **kwargs) -> list[str]:
+        snapshot = self.store.snapshot(host, **kwargs)
+        return [item["ref"] for item in self.store.snapshot_inventory(snapshot["content_ref"])["items"]]
+
+    def test_enablement_is_not_deletion_and_preserves_edits_pins_and_updates(self) -> None:
+        self.store.install()
+        ref = "@core/base:hello"
+        self._apply({"operation": "update", "ref": ref, "item_digest": self.store.show(ref)["digest"],
+                     "patch": {"body": "my edited instruction"}})
+        original = self.store.show(ref)["item"]
+        pins = {host: self.store.snapshot(host) for host in ("claude", "codex")}
+        inventories = {host: self.store.snapshot_inventory(pin["content_ref"]) for host, pin in pins.items()}
+        self._apply({"operation": "enable", "items": {ref: False}})
+        self.assertFalse(self.store.show(ref)["enabled"])
+        self.assertEqual("active", self.store.show(ref)["state"])
+        self.assertEqual(original, self.store.show(ref)["item"])
+        self.assertEqual(0, self.store.status()["tombstones"])
+        for host in pins:
+            off = self.store.snapshot(host, selection=["all"])
+            self.assertNotIn(ref, [item["ref"] for item in self.store.snapshot_inventory(off["content_ref"])["items"]])
+            self.assertNotIn("my edited instruction", off["instruction_text"])
+            self.assertEqual(off["content_ref"], self.store.snapshot(host, selection=["all"], dry_run=True)["content_ref"])
+            self.assertEqual(inventories[host], self.store.snapshot_inventory(pins[host]["content_ref"]))
+        self.store.install()
+        self.assertFalse(self.store.show(ref)["enabled"])
+        self.assertEqual(original, self.store.show(ref)["item"])
+        self._apply({"operation": "enable", "items": {ref: True}})
+        self.assertEqual(original, self.store.show(ref)["item"])
+        self.assertIn(ref, self._snapshot_refs("codex"))
+        self._apply({"operation": "enable", "items": {ref: False}})
+        self._apply({"operation": "restore", "ref": ref})
+        self.assertFalse(self.store.show(ref)["enabled"])
+        self._apply({"operation": "reset"})
+        self.assertTrue(self.store.show(ref)["enabled"])
+        self.assertEqual({}, self.store.status()["enabled_overrides"])
+
+    def test_enablement_overrides_default_selection_and_null_returns_to_defaults(self) -> None:
+        self.store._catalog_module = lambda: _DomainTargetCatalog
+        self.store.install()
+        self._apply({"operation": "select", "selection": []})
+        core, domain = "@core/base:hello", "@core/base:domain-target"
+        before = {row["ref"]: row for row in self.store.list_items()}
+        self.assertTrue(before[core]["enabled"])
+        self.assertFalse(before[domain]["enabled"])
+        result = self._apply({"operation": "enable", "items": {core: False, domain: True}})
+        for host in ("claude", "codex"):
+            self.assertEqual([domain], self._snapshot_refs(host, selection=[]))
+            self.assertEqual([domain], self._snapshot_refs(host, selection=["all"]))
+        self.assertTrue(self.store.history(core))
+        self._apply({"operation": "rollback", "history_id": result["history_id"]})
+        self.assertEqual({}, self.store.status()["enabled_overrides"])
+        self._apply({"operation": "enable", "items": {core: False, domain: True}})
+        self._apply({"operation": "enable", "items": {core: None, domain: None}})
+        self.assertEqual([core], self._snapshot_refs("claude"))
+        self.assertNotIn("enabled_overrides", json.loads(self.store._user_state_path.read_text()))
+
+    def test_enablement_personal_removal_recovery_and_learning(self) -> None:
+        self.store.install()
+        ref = self._apply({"operation": "create", "item": {"title": "personal", "body": "personal body"}})["details"]["ref"]
+        self._apply({"operation": "enable", "items": {ref: False}})
+        self._apply({"operation": "update", "ref": ref, "item_digest": self.store.show(ref)["digest"],
+                     "patch": {"body": "edited while off"}})
+        self._apply({"operation": "remove", "ref": ref})
+        with self.assertRaises(ValidationError):
+            self.store.plan({"operation": "enable", "items": {ref: True}})
+        self._apply({"operation": "recover", "ref": ref})
+        self.assertFalse(self.store.show(ref)["enabled"])
+        self.assertEqual("edited while off", self.store.show(ref)["item"]["body"])
+        self._apply({"operation": "enable", "items": {ref: True}})
+        self.assertIn(ref, self._snapshot_refs("codex"))
+        learned = self.store.capture_learning("codex", self._learning("a kept lesson", 1))
+        learned_ref = f"@local/learnings-codex:{learned['learning_id']}"
+        self._apply({"operation": "enable", "items": {learned_ref: False}})
+        self.assertFalse(self.store.show(learned_ref)["enabled"])
+        self.assertNotIn(learned_ref, self._snapshot_refs("codex"))
+        self.assertEqual(1, len(self.store._learning_events("codex")))
+        self._apply({"operation": "enable", "items": {learned_ref: True}})
+        self.assertIn(learned_ref, self._snapshot_refs("codex"))
+
+    def test_enablement_batch_is_atomic_stale_checked_and_backward_compatible(self) -> None:
+        self.store.install()
+        ref = "@core/base:hello"
+        before = self.store._user_state_path.read_bytes()
+        self.assertNotIn("enabled_overrides", json.loads(before))
+        rows = self.store.list_items()
+        self.assertEqual(before, self.store._user_state_path.read_bytes())
+        revision = self.store.status()["revision"]
+        self.assertEqual(revision, rows[0]["revision"])
+        for items in ({}, [], {ref: 0}, {ref: "false"}, {ref: False, "@core/base:missing": True}):
+            with self.subTest(items=items), self.assertRaises(ValidationError):
+                self.store.plan({"operation": "enable", "items": items})
+            self.assertEqual(before, self.store._user_state_path.read_bytes())
+        preview = self.store.plan({"operation": "enable", "items": {ref: False}, "expected_revision": revision})
+        self._apply({"operation": "update", "ref": ref, "item_digest": self.store.show(ref)["digest"],
+                     "patch": {"title": "Changed elsewhere"}})
+        with self.assertRaises(StaleRevision):
+            self.store.apply(preview["plan_id"], preview["expected_revision"])
+        with self.assertRaises(StaleRevision):
+            self.store.plan({"operation": "enable", "items": {ref: False}, "expected_revision": revision})
+        self.assertTrue(self.store.show(ref)["enabled"])
+
+    def test_enablement_prepared_transaction_recovers_from_legacy_state(self) -> None:
+        self.store.install()
+        ref = "@core/base:hello"
+        preview = self.store.plan({"operation": "enable", "items": {ref: False}})
+        journal = self.store.runtime / "transactions" / preview["plan_id"] / "journal.json"
+        record = json.loads(journal.read_text())
+        self.assertNotIn("enabled_overrides", record["plan"]["before"]["user"])
+        record["state"] = "PREPARED"
+        journal.write_text(json.dumps(record))
+        self.assertEqual(preview["result_revision"], self.store.status()["revision"])
+        self.assertFalse(self.store.show(ref)["enabled"])
+        self.assertTrue(self.store.history(ref))
+        self.assertNotIn(ref, self._snapshot_refs("codex"))
+
     @staticmethod
     def _learning(lesson: str, _number: int) -> dict:
         return _COLLECT.build_record({"lesson": lesson, "domain": "core", "supporting_sessions": ["codex:abcd"]})

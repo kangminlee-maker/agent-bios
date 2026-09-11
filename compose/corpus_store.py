@@ -37,6 +37,7 @@ ITEM_FIELDS = {
 RUNTIME_FIELDS = {
     "digest", "revision", "content_ref", "path", "state", "created_at",
     "updated_at", "baseline_ref", "plan_id", "history_id",
+    "enabled", "enabled_override",
 }
 LEARNING_FIELDS = {"schema_version", "learning_id", "lesson", "domain", "created", "supporting_sessions",
                    "criteria", "classification", "proposed_domain", "context"}
@@ -307,7 +308,19 @@ class CorpusStore:
         for field, typ in (("items", dict), ("overrides", dict), ("tombstones", dict), ("learning_suppressions", dict)):
             if not isinstance(state.get(field), typ):
                 raise CorpusStoreError(f"personal state has invalid {field}")
+        # Optional, so reading an older state does not change its revision or the
+        # exact before/after documents used by prepared-transaction recovery.
+        self._enabled_overrides(state)
         return state
+
+    @staticmethod
+    def _enabled_overrides(user: dict[str, Any]) -> dict[str, bool]:
+        values = user.get("enabled_overrides", {})
+        if (not isinstance(values, dict) or any(
+                not isinstance(ref, str) or ":" not in ref or not isinstance(value, bool)
+                for ref, value in values.items())):
+            raise CorpusStoreError("personal state has invalid enabled_overrides")
+        return values
 
     def _write_transaction(self, tx_id: str, record: dict[str, Any]) -> None:
         _atomic_write(self.runtime / "transactions" / tx_id / "journal.json", record)
@@ -351,7 +364,7 @@ class CorpusStore:
                 journal["history_id"] = history_id
                 _atomic_write(journal_path, journal)
             history = {"runtime": prior["runtime"], "user": prior["user"],
-                       "revision": plan.get("expected_revision")}
+                       "revision": plan.get("expected_revision"), "details": plan.get("details", {})}
             history_path = self.user_root / "history" / history_id / "state.json"
             if not history_path.exists():
                 _atomic_write(history_path, history)
@@ -701,7 +714,7 @@ class CorpusStore:
                     active = [item for item in items if item.get("active", True) is not False]
                     selection = self._effective_selection(user, defaults, None)
                     self._validate_snapshot_selection(selection, _inventory, active)
-                    selected = self._selected_items(active, selection)
+                    selected = self._selected_items(active, selection, self._enabled_overrides(user))
                     self._require_resolved(selected)
                     catalog.compile_items(_copy_json(selected), Path(temp) / host, host)
         except Exception as exc:
@@ -896,18 +909,24 @@ class CorpusStore:
                 "revision": revision, "baseline_count": len(refs),
                 "personal_items": len(user["items"]), "overrides": len(user["overrides"]),
                 "tombstones": len(user["tombstones"]), "selection": self._effective_selection(user, defaults, None),
+                "enabled_overrides": _copy_json(self._enabled_overrides(user)),
             }
 
     def list_items(self, include_removed: bool = True) -> list[dict[str, Any]]:
         with self._lock():
             self._recover_locked()
             runtime, user = self._runtime_state(), self._user_state()
-            selected_ref, inventory, _defaults = self._selected_baseline(runtime)
+            selected_ref, inventory, defaults = self._selected_baseline(runtime)
             all_items, _, _, _ = self._effective_items(runtime, user)
             effective = {item["ref"]: item for item in all_items}
             for host in ("claude", "codex"):
                 effective.update({item["ref"]: item for item in self._effective_items(runtime, user, host=host, include_suppressed=True)[0]})
             source = {item["ref"]: self._validate_item(item, allow_origin=True) for item in inventory["items"]}
+            overrides = self._enabled_overrides(user)
+            selection = self._effective_selection(user, defaults, None)
+            enabled = {item["ref"] for item in self._selected_items(
+                [item for item in effective.values() if item.get("active", True) is not False], selection, overrides)}
+            revision = self._authoring_revision(runtime, user)
             rows: list[dict[str, Any]] = []
             for ref in sorted(set(source) | set(user["items"]) | set(effective)):
                 base = source.get(ref)
@@ -919,6 +938,9 @@ class CorpusStore:
                 row["state"] = "removed" if removed else ("conflict" if item and (item.get("conflict") or item.get("content_conflict")) else "active")
                 row["digest"] = _digest(item or base or user["items"][ref])
                 row["baseline_ref"] = selected_ref if base else None
+                row["enabled"] = not removed and ref in enabled
+                row["enabled_override"] = overrides.get(ref)
+                row["revision"] = revision
                 rows.append(row)
             return rows
 
@@ -944,7 +966,11 @@ class CorpusStore:
                 return {"ref": ref, "history": self.history(ref)}
             removed = ref in user["tombstones"] or (effective is not None and effective.get("active", True) is False)
             state = "removed" if removed else ("conflict" if effective and (effective.get("conflict") or effective.get("content_conflict")) else "active")
-            return {"ref": ref, "item": effective, "digest": _digest(effective) if effective else None, "state": state}
+            overrides = self._enabled_overrides(user)
+            enabled = bool(effective and not removed and self._selected_items(
+                [effective], self._effective_selection(user, _defaults, None), overrides))
+            return {"ref": ref, "item": effective, "digest": _digest(effective) if effective else None, "state": state,
+                    "enabled": enabled, "enabled_override": overrides.get(ref)}
 
     # ---- plans --------------------------------------------------------------
 
@@ -971,7 +997,7 @@ class CorpusStore:
         if not isinstance(payload, dict):
             raise ValidationError("plan payload must be an object")
         op = payload.get("operation", payload.get("op"))
-        if op not in {"create", "update", "remove", "restore", "recover", "reset", "rollback", "select"}:
+        if op not in {"create", "update", "remove", "restore", "recover", "reset", "rollback", "select", "enable"}:
             raise ValidationError("unknown corpus operation")
         allowed = {
             "create": {"operation", "op", "item", "package_id", "expected_revision"},
@@ -982,6 +1008,7 @@ class CorpusStore:
             "reset": {"operation", "op", "expected_revision"},
             "rollback": {"operation", "op", "baseline_ref", "history_id", "expected_revision"},
             "select": {"operation", "op", "selection", "expected_revision"},
+            "enable": {"operation", "op", "items", "expected_revision"},
         }[op]
         unknown = set(payload) - allowed
         if unknown:
@@ -1114,6 +1141,31 @@ class CorpusStore:
             else:
                 next_user["items"][ref].pop("active", None)
             details["ref"] = ref
+        elif op == "enable":
+            choices = payload.get("items")
+            if not isinstance(choices, dict) or not choices:
+                raise ValidationError("enable needs a non-empty mapping of refs to booleans or null")
+            available = dict(effective)
+            for host in ("claude", "codex"):
+                available.update({item["ref"]: item for item in self._effective_items(runtime, user, host=host)[0]})
+            overrides = dict(self._enabled_overrides(user))
+            known = set(available) | set(overrides) | set(user["items"]) | {item["ref"] for item in inventory["items"]}
+            for ref, value in choices.items():
+                if not isinstance(ref, str) or ref not in known:
+                    raise ValidationError(f"unknown corpus enablement ref: {ref}")
+                if value is None:
+                    overrides.pop(ref, None)
+                elif not isinstance(value, bool):
+                    raise ValidationError("enable values must be booleans or null")
+                elif ref not in available or available[ref].get("active", True) is False:
+                    raise ValidationError("recover or restore a removed item before enabling it")
+                else:
+                    overrides[ref] = value
+            if overrides:
+                next_user["enabled_overrides"] = overrides
+            else:
+                next_user.pop("enabled_overrides", None)
+            details["items"] = _copy_json(choices)
         elif op == "select":
             selection = self._validate_selection(payload.get("selection"), inventory)
             next_user["selection"] = selection
@@ -1208,7 +1260,8 @@ class CorpusStore:
             history_id = f"{prepared['prepared_at'].replace(':', '').replace('+00:00', 'Z')}-{plan_id[:12]}"
             prepared["history_id"] = history_id
             self._write_transaction(plan_id, prepared)
-            _atomic_write(self.user_root / "history" / history_id / "state.json", {"runtime": runtime, "user": user, "revision": current})
+            _atomic_write(self.user_root / "history" / history_id / "state.json",
+                          {"runtime": runtime, "user": user, "revision": current, "details": details})
             if details.get("operation") == "reset":
                 _atomic_write(self.user_root / "trash" / history_id / "state.json", {"runtime": runtime, "user": user, "revision": current})
             _atomic_write(self._user_state_path, next_user)
@@ -1225,11 +1278,18 @@ class CorpusStore:
 
     # ---- immutable snapshots and history -----------------------------------
 
-    def _selected_items(self, items: list[dict[str, Any]], selection: list[str] | None) -> list[dict[str, Any]]:
-        if selection and "all" in selection:
-            return items
+    def _selected_items(self, items: list[dict[str, Any]], selection: list[str] | None,
+                        overrides: dict[str, bool] | None = None) -> list[dict[str, Any]]:
+        overrides = overrides or {}
         selected: list[dict[str, Any]] = []
         for item in items:
+            if item["ref"] in overrides:
+                if overrides[item["ref"]]:
+                    selected.append(item)
+                continue
+            if selection and "all" in selection:
+                selected.append(item)
+                continue
             if item.get("tier") in {"core", "infra"}:
                 selected.append(item)
                 continue
@@ -1268,7 +1328,7 @@ class CorpusStore:
             active = [item for item in items if item.get("active", True) is not False]
             effective_selection = self._effective_selection(user, defaults, selection)
             self._validate_snapshot_selection(effective_selection, inventory, active)
-            selected = self._selected_items(active, effective_selection)
+            selected = self._selected_items(active, effective_selection, self._enabled_overrides(user))
             self._require_resolved(selected)
             selected, promotion_warnings = self._resolve_promotions(selected, user, host, baseline_ref)
             bootstrap_path = self.repo / "compose" / "bootstrap" / "SKILL.md"
@@ -1372,7 +1432,11 @@ class CorpusStore:
                 continue
             if ref is not None:
                 user = record.get("user", {})
-                if ref not in user.get("items", {}) and ref not in user.get("overrides", {}) and ref not in user.get("tombstones", {}):
+                details = record.get("details", {})
+                changed = details.get("items", {}) if details.get("operation") == "enable" else {}
+                if (ref not in user.get("items", {}) and ref not in user.get("overrides", {})
+                        and ref not in user.get("tombstones", {}) and ref not in user.get("enabled_overrides", {})
+                        and ref not in changed):
                     continue
             rows.append({"history_id": path.parent.name, "revision": record.get("revision"), "path": str(path.parent)})
         return rows

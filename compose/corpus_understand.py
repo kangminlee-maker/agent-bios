@@ -144,7 +144,12 @@ class CorpusUnderstand:
         return value
 
     def _bundles(self) -> list[dict]:
-        rows = [x for x in self.store.list_items(include_removed=False) if x.get("state") == "active"]
+        # Projection preferences and the inventory read revision are not learning
+        # content. Disabled items remain readable and learnable without repinning
+        # every bundle when an unrelated activation preference changes.
+        rows = [{key: value for key, value in x.items()
+                 if key not in {"enabled", "enabled_override", "revision"}}
+                for x in self.store.list_items(include_removed=False) if x.get("state") == "active"]
         bundles, assigned = [], set()
         for ident, title, purpose, numbers in CORE_BUNDLES:
             wanted = {f"rule-{n:03}" for n in numbers}

@@ -1,6 +1,6 @@
 ---
 name: corpus
-description: Inspect or change the private agent-bios corpus used by activated sessions, including item creation, edits, consumption placement, removal, restore, recovery, selection, reset, rollback, history, and current-vs-pinned explanation. Use for requests about the user's agent-bios instructions or personal learnings; it does not alter the running session or native global files.
+description: Inspect or change the private agent-bios corpus used by activated sessions, including item creation, edits, consumption placement, enablement, removal, restore, recovery, selection, reset, rollback, history, and current-vs-pinned explanation. Use for requests about the user's agent-bios instructions or personal learnings; it does not alter the running session or native global files.
 ---
 
 # Corpus management
@@ -64,10 +64,20 @@ Supported payloads:
 {"operation":"restore","ref":"@scope/name:item-id"}
 {"operation":"recover","ref":"@local/personal:item-id"}
 {"operation":"select","selection":["@scope/name/domain"]}
+{"operation":"enable","items":{"@scope/name:item-id":false},"expected_revision":"<revision from list>"}
 {"operation":"reset"}
 {"operation":"rollback","baseline_ref":"<baseline_ref>"}
 {"operation":"rollback","history_id":"<history_id>"}
 ```
+
+For turning items on or off without losing edits, use `enable`, not remove/restore.
+Its `items` mapping supports batches: `true` forces inclusion, `false` excludes,
+and `null` returns to normal selection. Read `enabled`, `enabled_override`, and
+`revision` from `list`; the captured revision binds the whole batch. Overrides
+take precedence over domain/core/infra and per-launch selections, survive updates
+and content restoration, and clear on full reset. They do not bypass native
+opt-in, trust, host support, or promotion rules, or prevent independent file reads.
+Removed items require Restore/Recover first. Existing session pins remain unchanged.
 
 For a body edit, submit `body`; the manager updates the item's `primary_member`
 and derives every content view from that file. For a multi-file edit, submit

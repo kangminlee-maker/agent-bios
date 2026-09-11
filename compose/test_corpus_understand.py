@@ -59,6 +59,16 @@ class UnderstandTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
+    def test_enablement_does_not_remove_or_repin_learning_bundles(self):
+        before = self.manager.list_bundles()
+        self.assertGreater(len(before), 0)
+        ref = "@agent-bios/core:rule-003"
+        plan = self.store.plan({"operation": "enable", "items": {ref: False}})
+        self.store.apply(plan["plan_id"], plan["expected_revision"])
+        self.assertFalse(self.store.show(ref)["enabled"])
+        self.assertEqual(before, self.manager.list_bundles())
+        self.assertTrue(any(ref == item["ref"] for bundle in self.manager._bundles() for item in bundle["items"]))
+
     def _append(self, value, path=None):
         with (path or self.transcript).open("a", encoding="utf-8") as stream:
             stream.write(json.dumps(value) + "\n")

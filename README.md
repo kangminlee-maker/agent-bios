@@ -291,6 +291,44 @@ are display-only references, not new dependencies or proof of loading: rule bodi
 IDs, ordering, selection, and delivery remain unchanged. Personal body edits are
 reflected when the library refreshes; ordinary rules are not classified by meaning.
 
+Moving the library cursor to an item immediately displays its document; Enter is
+not required. Group rows show group guidance and disable item-specific actions.
+Cursor events cannot retarget an open editor or a prepared change preview.
+
+Arrow keys also navigate the reading controls: **Search ↓ buttons ↓ library →
+document**, with **←/→** between neighboring buttons and **↑** back toward search.
+At the end of search text, **→** focuses the view selector; within text, the caret
+moves normally. **←** from a closed view selector returns to search. Open menus
+keep their native arrow selection. The library keeps normal **↑/↓** item movement;
+at its top, **↑** returns to controls. In the document, arrows scroll until an
+edge: **←** returns to the library, **↑** reaches the controls/member selector,
+and **↓** at the bottom reaches pending on/off buttons when present. Disabled or
+hidden buttons are skipped. TextArea editing, modal boundaries, and Tab remain intact.
+
+In the library, **Space** toggles an item's use in future activated sessions:
+`[x]` is on, `[ ]` is off, `[-]` is removed, and `*` marks an unapplied change.
+The Available group means retained authoring items, not that every item is on.
+Stage several choices, then use **Preview on/off → Apply**, or **Discard on/off**.
+Text inputs keep normal spaces; Space on a group still expands or collapses it.
+Unapplied choices require discard confirmation on exit and cannot be mixed with
+content edits. A stale authoring revision refuses the preview or apply.
+
+Per-item choices override domain and explicit launch selections, including core
+and infrastructure defaults. Turning an item off does not delete its body, edits,
+or identity, and old snapshots and session pins remain intact. Choices survive
+updates and content restoration; full reset returns to installed defaults.
+Enabling a removed item requires Restore/Recover first. A guide switched off is
+marked in its referring rule, without automatically changing that rule. Native
+hook/agent opt-in, trust, host support, and promotion rules still apply: a checked
+item is a projection choice, not proof of execution. This does not block host
+global/project instructions or a tool from opening a file independently.
+
+The same revision-checked manager accepts `{"operation":"enable","items":{"@agent-bios/core:rule-003":false}}`
+through `corpus plan`; `true` forces inclusion, `false` excludes, and `null`
+removes that override so the normal selection applies. `list` reports `enabled`,
+`enabled_override`, and the captured authoring `revision`; pass that revision as
+`expected_revision` when planning a batch from the displayed inventory.
+
 New personal identities are allocated once in the creation plan and remain stable
 on retry; reset and history rollback do not make retired identities reusable.
 Member files are the content authority: `primary_member` identifies the main file,

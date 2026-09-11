@@ -18,6 +18,7 @@ from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
+from textual.events import Key
 from textual.screen import ModalScreen
 from textual.widgets import (
     Button,
@@ -43,6 +44,10 @@ SURFACES = ("always", "relevant", "requested", "event", "delegated")
 VIEWS = ("effective", "installed", "change", "diff", "history")
 
 
+def availability_label(state: str) -> str:
+    return "available" if state == "active" else state
+
+
 def guide_pointers(item: dict[str, Any], inventory: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Display literal guide references, not inferred dependencies or new routing."""
     if item.get("kind") != "rule":
@@ -63,6 +68,8 @@ def guide_pointers(item: dict[str, Any], inventory: list[dict[str, Any]]) -> lis
 def library_label(item: dict[str, Any], inventory: list[dict[str, Any]]) -> Text:
     pointers = guide_pointers(item, inventory)
     label = Text()
+    mark = "-" if item.get("state") == "removed" else "x" if item.get("enabled", True) else " "
+    label.append(f"[{mark}]" + ("* " if item.get("enabled_pending") else " "))
     if pointers:
         label.append("→ GUIDE ", style="bold cyan")
         label.append(", ".join(PurePosixPath(pointer["path"]).stem for pointer in pointers))
@@ -112,6 +119,31 @@ class Confirmation(ModalScreen[bool]):
 class CorpusMarkdownViewer(MarkdownViewer):
     """Keep all links inside Studio; never hand a URL to the operating system."""
 
+    BINDINGS = [
+        Binding("left", "left_or_library", "Library", show=False),
+        Binding("up", "up_or_controls", "Controls", show=False),
+        Binding("down", "down_or_pending", "Pending choices", show=False),
+    ]
+
+    def action_left_or_library(self) -> None:
+        if self.scroll_x <= 0:
+            self.app.action_focus_library()
+        else:
+            self.action_scroll_left()
+
+    def action_up_or_controls(self) -> None:
+        if self.scroll_y <= 0:
+            if not self.app._focus_id("member-select"):
+                self.app._focus_controls()
+        else:
+            self.action_scroll_up()
+
+    def action_down_or_pending(self) -> None:
+        if self.scroll_y >= self.max_scroll_y:
+            self.app._focus_id("enablement-preview")
+        else:
+            self.action_scroll_down()
+
     async def _on_markdown_link_clicked(self, message: Markdown.LinkClicked) -> None:
         # stop() prevents bubbling, not the inherited MarkdownViewer handler.
         # Its default go() would try to load corpus:// as a filesystem path.
@@ -122,6 +154,57 @@ class CorpusMarkdownViewer(MarkdownViewer):
             await self.app.select_ref(ref)  # type: ignore[attr-defined]
         else:
             self.app.notify("External links are disabled in Corpus Studio.", severity="warning")
+
+
+class CorpusSearch(Input):
+    """Leave search with arrows without taking editing keys away from text."""
+
+    BINDINGS = [
+        Binding("down", "focus_controls", "Controls", show=False),
+        Binding("right", "right_or_view", "View", show=False),
+    ]
+
+    def action_focus_controls(self) -> None:
+        self.app._focus_controls()
+
+    def action_right_or_view(self) -> None:
+        if self.selection.start == self.selection.end == len(self.value):
+            self.app._focus_id("view-select")
+        else:
+            self.action_cursor_right()
+
+
+class CorpusTree(Tree):
+    """Space is local to the library, never intercepted in text inputs."""
+
+    BINDINGS = [
+        Binding("space", "toggle_item", "On/off"),
+        Binding("up", "up_or_controls", "Controls", show=False),
+        Binding("down", "down_or_pending", "Pending choices", show=False),
+        Binding("right", "focus_document", "Document", show=False),
+    ]
+
+    def action_up_or_controls(self) -> None:
+        if self.cursor_line <= 0:
+            self.app._focus_controls()
+        else:
+            self.action_cursor_up()
+
+    def action_down_or_pending(self) -> None:
+        before = self.cursor_node
+        self.action_cursor_down()
+        if self.cursor_node is before:
+            self.app._focus_id("enablement-preview")
+
+    def action_focus_document(self) -> None:
+        self.app._focus_document()
+
+    async def action_toggle_item(self) -> None:
+        node = self.cursor_node
+        if node is not None and isinstance(node.data, str):
+            await self.app.toggle_enabled(node.data)
+        else:
+            self.action_toggle_node()
 
 
 class CorpusStudio(App[None]):
@@ -169,6 +252,9 @@ class CorpusStudio(App[None]):
     .actions { height: 3; align-horizontal: right; }
     .actions Button { margin-left: 1; }
     #status-line { height: 1; padding: 0 1; color: $text-muted; }
+    #enablement-bar { height: 3; display: none; }
+    #enablement-summary { width: 1fr; padding: 1; }
+    #enablement-bar Button { margin-right: 1; }
     """
 
     def __init__(self, store: Any) -> None:
@@ -183,13 +269,16 @@ class CorpusStudio(App[None]):
         self.view_item: dict[str, Any] | None = None
         self.member_drafts: dict[str, str] = {}
         self.pending_plan: dict[str, Any] | None = None
+        self.toggle_drafts: dict[str, bool] = {}
+        self.toggle_original: dict[str, bool] = {}
+        self.toggle_revision: str | None = None
         self.mode = "view"
 
     def compose(self) -> ComposeResult:
         yield Header()
         with Vertical(id="toolbar"):
             with Horizontal(id="search-row"):
-                yield Input(placeholder="Search title, content, ref, package, domain, or state", id="search")
+                yield CorpusSearch(placeholder="Search title, content, ref, package, domain, or state (↓ controls)", id="search")
                 yield Select([(view.title(), view) for view in VIEWS], value="effective",
                              allow_blank=False, id="view-select")
             with Horizontal(id="action-row"):
@@ -200,7 +289,7 @@ class CorpusStudio(App[None]):
                 yield Button("Recover", id="recover", compact=True)
                 yield Button("Reset", id="reset", variant="error", compact=True)
         with Horizontal(id="workspace"):
-            yield Tree("Corpus", id="library")
+            yield CorpusTree("Corpus", id="library")
             with Vertical(id="detail"):
                 yield Select([], prompt="Bundle document", allow_blank=True, id="member-select")
                 yield CorpusMarkdownViewer(
@@ -240,12 +329,73 @@ class CorpusStudio(App[None]):
                     with Horizontal(classes="actions"):
                         yield Button("Cancel plan", id="plan-cancel")
                         yield Button("Apply", id="apply", variant="success")
+        with Horizontal(id="enablement-bar"):
+            yield Static("", id="enablement-summary", markup=False)
+            yield Button("Preview on/off", id="enablement-preview", variant="primary")
+            yield Button("Discard on/off", id="enablement-discard")
         yield Static("Stored privately; no host session is activated by this screen.", id="status-line")
         yield Footer()
 
     async def on_mount(self) -> None:
         await self.refresh_library()
         self.query_one("#search", Input).focus()
+
+    @staticmethod
+    def _focusable(widget: Any) -> bool:
+        return widget.focusable and all(getattr(node, "display", True) for node in [widget, *widget.ancestors])
+
+    def _focus_id(self, *ids: str) -> bool:
+        # Query the current screen only: arrows must never escape a modal.
+        for ident in ids:
+            for widget in self.screen.query(f"#{ident}"):
+                if self._focusable(widget):
+                    widget.focus()
+                    return True
+        return False
+
+    def _focus_controls(self) -> None:
+        for button in self.screen.query("#action-row Button"):
+            if self._focusable(button):
+                button.focus()
+                return
+        self._focus_id("library" if getattr(self.focused, "id", None) == "search" else "search")
+
+    def _focus_document(self) -> None:
+        if self.mode != "view" or self._focus_id("member-select"):
+            return
+        for viewer in self.screen.query("#wiki"):
+            if self._focusable(viewer.document):
+                viewer.document.focus()
+
+    def on_key(self, event: Key) -> None:
+        focused = self.focused
+        moved = False
+        if isinstance(focused, Button) and focused.parent is not None:
+            siblings = [button for button in focused.parent.query(Button)
+                        if button.parent is focused.parent and self._focusable(button)]
+            if event.key in {"left", "right"} and focused in siblings:
+                index = siblings.index(focused) + (-1 if event.key == "left" else 1)
+                if 0 <= index < len(siblings):
+                    siblings[index].focus()
+                    moved = True
+            elif event.key in {"up", "down"} and len(self.screen_stack) == 1:
+                if focused.parent.id == "action-row":
+                    moved = self._focus_id("search" if event.key == "up" else "library")
+                elif focused.parent.id == "enablement-bar":
+                    moved = self._focus_id("library")
+                elif self.mode == "editor" and event.key == "up":
+                    moved = self._focus_id("editor-body")
+        elif isinstance(focused, Select) and not focused.expanded and self.mode == "view":
+            if event.key == "left" and focused.id in {"view-select", "member-select"}:
+                moved = self._focus_id("search" if focused.id == "view-select" else "library")
+            elif event.key == "right" and focused.id == "member-select":
+                for viewer in self.screen.query("#wiki"):
+                    if self._focusable(viewer.document):
+                        viewer.document.focus()
+                        moved = True
+        if moved:
+            event.prevent_default()
+            event.stop()
 
     def _set_mode(self, mode: str) -> None:
         self.mode = mode
@@ -257,6 +407,83 @@ class CorpusStudio(App[None]):
         self.query_one("#wiki").display = mode == "view"
         self.query_one("#editor-panel").display = mode == "editor"
         self.query_one("#preview-panel").display = mode == "preview"
+        self._toggle_controls()
+        # Hiding a panel does not reliably release its focused child. Choose a
+        # visible, non-destructive entry point for the next screen state.
+        if mode == "preview":
+            self._focus_id("plan-cancel")
+        elif mode == "view":
+            self._focus_id("enablement-preview", "library")
+
+    def _display_items(self) -> list[dict[str, Any]]:
+        return [dict(row, enabled=self.toggle_drafts[row["ref"]], enabled_pending=True)
+                if row.get("ref") in self.toggle_drafts else row for row in self.items]
+
+    def _toggle_controls(self) -> None:
+        pending = bool(self.toggle_drafts)
+        self.query_one("#enablement-bar").display = pending and self.mode == "view"
+        self.query_one("#enablement-summary", Static).update(
+            f"{len(self.toggle_drafts)} unapplied on/off change(s) · * = pending")
+        if self.mode == "view":
+            for selector in ("#create", "#reset"):
+                self.query_one(selector).disabled = pending
+            if pending:
+                for selector in ("#edit", "#remove", "#restore", "#recover"):
+                    self.query_one(selector).disabled = True
+
+    async def _repaint_enablement(self) -> None:
+        displayed = self._display_items()
+        by_ref = {row["ref"]: row for row in displayed}
+        nodes = [self.query_one("#library", Tree).root]
+        while nodes:
+            node = nodes.pop()
+            if isinstance(node.data, str) and node.data in by_ref:
+                node.set_label(library_label(by_ref[node.data], displayed))
+            nodes.extend(node.children)
+        self._toggle_controls()
+        if self.current_ref:
+            await self.select_ref(self.current_ref)
+
+    async def toggle_enabled(self, ref: str) -> None:
+        if self.mode != "view":
+            return
+        row = self._row(ref)
+        if row is None or row.get("state") == "removed":
+            self.notify("Recover or restore this item before changing its use.", severity="warning")
+            return
+        if not self.toggle_drafts:
+            self.toggle_revision = row["revision"]
+        original = self.toggle_original.setdefault(ref, row["enabled"])
+        value = not self.toggle_drafts.get(ref, row["enabled"])
+        if value == original:
+            self.toggle_drafts.pop(ref, None)
+            self.toggle_original.pop(ref, None)
+        else:
+            self.toggle_drafts[ref] = value
+        if not self.toggle_drafts:
+            self.toggle_revision = None
+        await self._repaint_enablement()
+
+    def _clear_toggle_drafts(self) -> None:
+        self.toggle_drafts.clear()
+        self.toggle_original.clear()
+        self.toggle_revision = None
+
+    async def _discard_toggles(self) -> None:
+        self._clear_toggle_drafts()
+        self._toggle_controls()
+        await self.refresh_library(self.query_one("#search", Input).value)
+        if self.current_ref:
+            await self.select_ref(self.current_ref)
+        self._focus_id("library")
+
+    def _preview_toggles(self) -> None:
+        if not self.toggle_drafts or self.mode != "view":
+            return
+        summary = "Use in future sessions (no content is deleted):\n" + "\n".join(
+            f"{'ON' if enabled else 'OFF'}  {ref}" for ref, enabled in self.toggle_drafts.items())
+        self._stage_plan({"operation": "enable", "items": dict(self.toggle_drafts),
+                          "expected_revision": self.toggle_revision}, summary)
 
     async def refresh_library(self, query: str = "") -> None:
         if self.mode != "view":
@@ -272,20 +499,22 @@ class CorpusStudio(App[None]):
             self.query_one("#status-line", Static).update(str(exc))
             return
         visible = [item for item in self.items if self._matches(item, query)]
+        displayed = self._display_items()
+        display_by_ref = {item["ref"]: item for item in displayed}
         groups: dict[tuple[str, str], Any] = {}
         state_nodes: dict[str, Any] = {}
         for item in visible:
             state = str(item.get("state", "active"))
             package = str(item.get("package_id", "unknown"))
             if state not in state_nodes:
-                state_nodes[state] = tree.root.add(state.title())
+                state_nodes[state] = tree.root.add(availability_label(state).title())
                 state_nodes[state].expand()
             key = (state, package)
             if key not in groups:
                 groups[key] = state_nodes[state].add(package)
                 groups[key].expand()
             groups[key].add_leaf(
-                library_label(item, self.items),
+                library_label(display_by_ref[item["ref"]], displayed),
                 data=item.get("ref"),
             )
         tree.root.expand()
@@ -296,6 +525,7 @@ class CorpusStudio(App[None]):
         )
         if visible and (self.current_ref is None or not any(i.get("ref") == self.current_ref for i in visible)):
             await self.select_ref(str(visible[0]["ref"]))
+        self._toggle_controls()
 
     @staticmethod
     def _matches(item: dict[str, Any], query: str) -> bool:
@@ -342,6 +572,7 @@ class CorpusStudio(App[None]):
         self.query_one("#remove", Button).disabled = row.get("state") == "removed"
         self.query_one("#restore", Button).disabled = not bool(row.get("baseline_ref"))
         self.query_one("#recover", Button).disabled = not self._recoverable(row)
+        self._toggle_controls()
 
     def _select_members(self, item: dict[str, Any] | None, preferred: str | None = None) -> None:
         selector = self.query_one("#member-select", Select)
@@ -376,7 +607,9 @@ class CorpusStudio(App[None]):
                     + (f" Available members: {members}." if members else "") + "\n"
                 )
             body = render_member_body(item.get("body", ""), item.get("primary_member"), item.get("kind"))
-            pointers = guide_pointers(item, self.items)
+            displayed = self._display_items()
+            display_row = next((entry for entry in displayed if entry.get("ref") == item.get("ref")), row)
+            pointers = guide_pointers(item, displayed)
             guide_links = ""
             if pointers:
                 lines = []
@@ -386,8 +619,9 @@ class CorpusStudio(App[None]):
                         lines.append(f"- `{pointer['path']}` — {pointer['problem']}")
                     else:
                         destination = quote(target["ref"], safe="@/:")
+                        use = "ON" if target.get("enabled", True) else "OFF — linked guide disabled"
                         lines.append(f"- [{pointer['path']}](corpus://{destination}) — "
-                                     f"**{target['surface']}** · {target.get('state', 'active')}")
+                                     f"**{target['surface']}** · {availability_label(target.get('state', 'active'))} · {use}")
                 guide_links = (
                     "## Guide pointer\n\nThis rule explicitly references the following guide(s). "
                     "The rule keeps its own consumption surface; these links do not change "
@@ -395,8 +629,11 @@ class CorpusStudio(App[None]):
                 )
             return (
                 f"# {item.get('title', item.get('ref'))}\n\n"
-                f"`{item.get('ref')}` · **{row.get('state', 'active')}** · "
+                f"`{item.get('ref')}` · **{availability_label(row.get('state', 'active'))}** · "
                 f"{item.get('surface')} · {item.get('kind')}\n\n"
+                f"Use in future sessions: **{'ON' if display_row.get('enabled', True) else 'OFF'}**"
+                + (" (pending; not applied)" if display_row.get("enabled_pending") else " (saved selection)")
+                + ". Inclusion is not proof of loading or permission to execute.\n\n"
                 f"{guide_links}{reconciliation}\n{body}\n\n## Dependencies\n\n{links}\n"
                 + ("\n## Native consumption\n\nRequires explicit `agent-launch --corpus-native`.\n"
                    if item.get("kind") == "hook" else "")
@@ -407,6 +644,26 @@ class CorpusStudio(App[None]):
     async def on_tree_node_selected(self, event: Tree.NodeSelected) -> None:
         if isinstance(event.node.data, str):
             await self.select_ref(event.node.data)
+
+    async def on_tree_node_highlighted(self, event: Tree.NodeHighlighted) -> None:
+        tree = self.query_one("#library", Tree)
+        # Ignore queued highlights superseded by another cursor move or tree rebuild.
+        if self.mode != "view" or event.node is not tree.cursor_node:
+            return
+        if isinstance(event.node.data, str):
+            await self.select_ref(event.node.data)
+            return
+        # A group is not the previously displayed item: never leave its edit/delete
+        # actions live while the cursor points at a different kind of node.
+        self.current_ref = None
+        self.view_item = None
+        self._select_members(None)
+        for selector in ("#edit", "#remove", "#restore", "#recover"):
+            self.query_one(selector, Button).disabled = True
+        label = str(event.node.label.plain)
+        await self.query_one("#wiki", CorpusMarkdownViewer).document.update(
+            f"# Corpus group\n\n{label}\n\nMove the cursor to a corpus item to read it."
+        )
 
     async def on_markdown_link_clicked(self, message: Markdown.LinkClicked) -> None:
         # CorpusMarkdownViewer normally handles this before it bubbles.  Keeping
@@ -458,6 +715,9 @@ class CorpusStudio(App[None]):
 
     def _open_editor(self, item: dict[str, Any] | None) -> None:
         if self.mode != "view":
+            return
+        if self.toggle_drafts:
+            self.notify("Apply or discard on/off changes first.", severity="warning")
             return
         preferred = self.current_member if item and item.get("ref") == self.current_ref else None
         self.editor_item = item
@@ -577,6 +837,8 @@ class CorpusStudio(App[None]):
     async def action_request_quit(self) -> None:
         if self.editor_dirty():
             self.push_screen(Confirmation("Discard the unsaved draft and exit Studio?"), self._discard_and_exit)
+        elif self.toggle_drafts:
+            self.push_screen(Confirmation("Discard unapplied on/off changes and exit Studio?"), self._discard_and_exit)
         else:
             self.exit()
 
@@ -637,6 +899,9 @@ class CorpusStudio(App[None]):
         }, diff + hook_summary
 
     def _stage_plan(self, payload: dict[str, Any], summary: str) -> None:
+        if self.toggle_drafts and payload.get("operation") != "enable":
+            self.notify("Apply or discard on/off changes first.", severity="warning")
+            return
         try:
             plan = self.store.plan(payload)
         except Exception as exc:
@@ -665,6 +930,8 @@ class CorpusStudio(App[None]):
             self.notify(str(exc), severity="error")
             return
         ref = result.get("details", {}).get("ref")
+        if result.get("details", {}).get("operation") == "enable":
+            self._clear_toggle_drafts()
         self.pending_plan = None
         self._set_mode("view")
         await self.refresh_library(self.query_one("#search", Input).value)
@@ -674,7 +941,11 @@ class CorpusStudio(App[None]):
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
         button = event.button.id
-        if button == "create":
+        if button == "enablement-preview":
+            self._preview_toggles()
+        elif button == "enablement-discard":
+            await self._discard_toggles()
+        elif button == "create":
             self.action_create()
         elif button == "edit":
             self.action_edit()
