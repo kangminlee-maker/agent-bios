@@ -1,15 +1,7 @@
 #!/usr/bin/env bash
-# Install scenarios against a throwaway HOME. Exit 0 iff all pass.
-#
-# gates/test-assemble.sh covers the ASSEMBLER in isolation; this file runs the
-# real installer end to end, which is the only way the withholding rule is
-# exercised on the path a user actually takes. There is ONE install shape: full
-# mode is "every domain selected", so the default `agent-bios install` — the
-# command package.json advertises — and a --domains run both go through
-# assemble_corpus. What still differs between them is the SWEEP: assemble.py
-# prunes the destinations it writes ($CLAUDE_DIR/central/guides, $CODEX_DIR/guides)
-# while install.sh sweeps the pre-unification $CLAUDE_DIR/guides that the
-# assembler never touches, so each is asserted through its own message below.
+# Explicit compatibility-install scenarios against a throwaway HOME.
+# Native deployment, withholding, cleanup and canary assertions use the legacy
+# installer route; private CLI installation is tested by test_corpus_end_to_end.py.
 #
 # I1 author-only guide withheld in full mode; I2 a copy an earlier install left
 # behind is removed; I3 verify accepts the absence rather than demanding presence;
@@ -17,6 +9,7 @@
 set -u
 cd "$(dirname "$0")/.."
 REPO="$PWD"
+export AGENT_BIOS_LEGACY_INSTALL=1
 # `|| exit 1`, because set -u does not catch this: a failed mktemp still ASSIGNS,
 # to the empty string, and every path below would then be rooted at / — this file
 # runs a real installer, so that is an install into /home and /.claude.
@@ -549,7 +542,7 @@ write_npm_stub() {   # $1: what `npm view <name> version` prints; empty = fail
 
 run_update_check() {  # $1: extra env assignments
   rm -f "$UPD"
-  env $(sandbox_env) PATH="$STUB:$PATH" ${1:-} bash "$REPO/install.sh" update --check >"$T/log" 2>&1
+  env $(sandbox_env) PATH="$STUB:$PATH" AGENT_BIOS_UPDATE_CHECK=1 ${1:-} bash "$REPO/install.sh" update --check >"$T/log" 2>&1
   echo $? > "$T/rc"
 }
 

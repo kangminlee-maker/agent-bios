@@ -21,14 +21,14 @@
     "learning_id": {
       "type": "string",
       "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-      "description": "Client-generated UUID for this learning, lowercase canonical form (tooling must lowercase, e.g. macOS uuidgen emits uppercase). Owned by learn/collect-learning.py, never hand-authored. Idempotency key for the pending-learnings.jsonl bounded retry in Phase 2. Distinct from the ledger's `id` (a curator-assigned short id like 'S3-07'); this is the light-flow record's own key.",
+      "description": "Client-generated UUID for this learning, lowercase canonical form (tooling must lowercase, e.g. macOS uuidgen emits uppercase). Owned by learn/collect-learning.py, never hand-authored. Idempotency key for the bounded upload retry over the host-qualified events.jsonl. Distinct from the ledger's `id` (a curator-assigned short id like 'S3-07'); this is the light-flow record's own key.",
       "$comment": "Ledger entries use `id`; the light-flow record's own key is `learning_id` (the artifact is a learning — LEXICON.md — so it is not `distill_id`, which would collide with the heavy session-distill pipeline)."
     },
     "lesson": {
       "type": "string",
       "minLength": 8,
       "maxLength": 2000,
-      "description": "The learning as prose — the same text that landed in the user's ~/.claude/personal/learnings.md. Ledger-compatible with entries[].lesson."
+      "description": "The captured lesson prose stored in the private corpus's host-qualified events.jsonl and supplied to future selected, activated-session snapshots. Ledger-compatible with entries[].lesson."
     },
     "domain": {
       "type": "string",

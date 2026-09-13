@@ -60,9 +60,9 @@
 
   <section class="status" aria-label="Current status">
     <div><b>Judgment question</b><span>Change one concept — how far do the obligations reach, and which of them is anything actually holding?</span></div>
-    <div><b>Coverage</b><span>38 entities across 5 families; 49 obligation edges over 9 kinds; 12 golden relationships</span></div>
+    <div><b>Coverage</b><span>38 entities across 5 families; 55 obligation edges over 9 kinds; 12 golden relationships</span></div>
     <div><b>Held against code</b><span class="ok"><code>gates/check-ontology.py</code> — anchors, derived counts, edge integrity, graph health, projection freshness; 7 negative controls</span></div>
-    <div><b>Derived from source</b><span>10 deploy targets · 19 guides · 8 tier bindings · 14 subcommands · 50 payload paths</span></div>
+    <div><b>Derived from source</b><span>10 legacy deploy targets · 19 guides · 8 tier bindings · 17 subcommands · 61 payload paths</span></div>
     <div><b>Main risk</b><span class="risk">11 of 38 entities carry no P6 assertion at all; 4 of 12 golden relationships are unguarded and GR-4 is violated</span></div>
   </section>
 
@@ -104,9 +104,9 @@
       <rect class="node" x="322"  y="146" width="252" height="96" rx="5" fill="#dcfce7" stroke="#18794e"/>
       <text class="s" x="340" y="174"><tspan font-weight="700">P2 derived</tspan><tspan x="340" dy="22">emitted by a named producer</tspan><tspan class="m" x="340" dy="21">codex/, ko/codex/, promotions</tspan></text>
       <rect class="node" x="608"  y="146" width="252" height="96" rx="5" fill="#e7eaee" stroke="#667085"/>
-      <text class="s" x="626" y="174"><tspan font-weight="700">P3 packaged</tspan><tspan x="626" dy="22">in the shipped payload</tspan><tspan class="m" x="626" dy="21">50 files[] paths</tspan></text>
+      <text class="s" x="626" y="174"><tspan font-weight="700">P3 packaged</tspan><tspan x="626" dy="22">in the shipped payload</tspan><tspan class="m" x="626" dy="21">61 files[] paths</tspan></text>
       <rect class="node" x="894"  y="146" width="252" height="96" rx="5" fill="#e7eaee" stroke="#667085"/>
-      <text class="s" x="912" y="174"><tspan font-weight="700">P4 deployed</tspan><tspan x="912" dy="22">written onto a machine</tspan><tspan class="m" x="912" dy="21">10 deploy targets</tspan></text>
+      <text class="s" x="912" y="174"><tspan font-weight="700">P4 deployed</tspan><tspan x="912" dy="22">written onto a machine</tspan><tspan class="m" x="912" dy="21">10 legacy targets</tspan></text>
       <rect class="node" x="1180" y="146" width="284" height="96" rx="5" fill="#f3e8ff" stroke="#7c3aed"/>
       <text class="s" x="1198" y="174"><tspan font-weight="700">P5 consumed</tspan><tspan x="1198" dy="22">a branch that reads it and acts</tspan><tspan class="m" x="1198" dy="21">absent ⇒ inert (GR-6)</tspan></text>
       <path class="authority" d="M288 194 H316"/>
@@ -175,8 +175,8 @@ const E = [
    "P6"
   ],
   "guard": "gated",
-  "anchor": "claude/CLAUDE.md",
-  "note": "An always-on instruction bullet in the global file, identified by its anchor substring"
+  "anchor": "claude/CLAUDE.md, compose/corpus_catalog.py",
+  "note": "An instruction bullet identified by its source anchor; selected always-surface rules enter explicitly activated private sessions"
  },
  {
   "name": "Guide",
@@ -191,7 +191,7 @@ const E = [
   ],
   "guard": "gated",
   "anchor": "claude/guides/*.md guide_id frontmatter",
-  "note": "A scoped instruction document loaded when a corpus rule's pointer fires"
+  "note": "A scoped instruction document exposed by the selected session router and loaded when relevant"
  },
  {
   "name": "AgentTemplate",
@@ -218,8 +218,8 @@ const E = [
    "P6"
   ],
   "guard": "partial",
-  "anchor": "claude/hooks/*.py",
-  "note": "Executable instruction that fires on a tool event, owned by manifest name not path marker"
+  "anchor": "claude/hooks/*.py, compose/corpus_catalog.py, compose/corpus_session.py",
+  "note": "An event instruction with a canonical carrier and manifest binding, compiled into host-specific session hooks when native consumption is selected"
  },
  {
   "name": "LearningRecord",
@@ -231,8 +231,8 @@ const E = [
    "P6"
   ],
   "guard": "gated",
-  "anchor": "learn/learning.schema.json",
-  "note": "The captured per-session artifact, minted by the collector"
+  "anchor": "learn/learning.schema.json, learn/collect-learning.py, learn/check-learning.py, learn/redact.py, compose/corpus_store.py",
+  "note": "An immutable session learning event validated and scrubbed by the collector, stored privately and projected into later selected snapshots"
  },
  {
   "name": "SessionDistillPipeline",
@@ -268,7 +268,7 @@ const E = [
   ],
   "guard": "gated",
   "anchor": "compose/domains.json domains",
-  "note": "An opt-in bundle of instruction content; five exist today"
+  "note": "An opt-in bundle of instruction content declared in the domain manifest"
  },
  {
   "name": "PackageIdentity",
@@ -279,8 +279,8 @@ const E = [
    "P6"
   ],
   "guard": "gated",
-  "anchor": "compose/domains.json package_id (@agent-bios/core)",
-  "note": "Unversioned by design; the pair (package_id, domain) is the real key"
+  "anchor": "compose/domains.json package_id, compose/pkgid.py",
+  "note": "An unversioned package identity; the pair (package_id, domain) is the qualified domain key"
  },
  {
   "name": "Selection",
@@ -290,8 +290,8 @@ const E = [
    "P5"
   ],
   "guard": "unguarded",
-  "anchor": "compose/corpus_store.py, launch/agent-launch.py",
-  "note": "Qualified package/domain choices seed private snapshots; a one-off launch can choose without rewriting the saved selection"
+  "anchor": "compose/corpus_store.py, compose/corpus.py, compose/corpus_ui.py, launch/agent-launch.py, compose/corpus_setup.py, compose/corpus_app.py, compose/corpus_setup_ui.py",
+  "note": "Saved or invocation-local none/default/selected policies and qualified targets, reviewed through SetupController and its UI; imported host/project scope constrains delivery"
  },
  {
   "name": "PresetMode",
@@ -303,7 +303,7 @@ const E = [
    "P6"
   ],
   "guard": "gated",
-  "anchor": "launch/agent-launch.py:60 PRESET_MODES",
+  "anchor": "launch/agent-launch.py PRESET_MODES",
   "note": "software-engineer, builder or distill, plus the user-owned presets.local.toml"
  },
  {
@@ -343,7 +343,7 @@ const E = [
   ],
   "guard": "partial",
   "anchor": "launch/agent-launch.toml [hosts.*.tiers.*]",
-  "note": "(host, tier) to (model, effort); the parity gate hardcodes the very names it aligns"
+  "note": "(host, tier) to (model, effort), with display names derived from the launch profile model_display map"
  },
  {
   "name": "Capability",
@@ -382,7 +382,7 @@ const E = [
   ],
   "guard": "unguarded",
   "anchor": "wrappers/codex-*.sh",
-  "note": "Internal dispatch script; codex-run is deployed and never byte-compared by verify"
+  "note": "An internal dispatch script loaded from the selected package; explicit legacy installation also deploys wrapper copies"
  },
  {
   "name": "ManagedRuntime",
@@ -395,8 +395,8 @@ const E = [
    "P6"
   ],
   "guard": "partial",
-  "anchor": "launch/provision-venv.sh",
-  "note": "An interpreter environment this repo provisions, carrying a declared numbered-prompt fallback"
+  "anchor": "launch/provision-venv.sh, compose/corpus_setup.py, compose/corpus_ui_runtime.py, compose/ui_runtime/manifest.json, compose/ui_runtime/*.whl",
+  "note": "A supplied Python dependency environment: verified shipped UI wheels loaded into a process-owned temporary directory on package CLI paths, with separately retained managed/numbered compatibility clients"
  },
  {
   "name": "CliSubcommand",
@@ -408,8 +408,8 @@ const E = [
    "P5"
   ],
   "guard": "unguarded",
-  "anchor": "install.sh:838 / :859 / :799",
-  "note": "A user-invocable entry with three dispatch and advertisement sites, not one"
+  "anchor": "install.sh, compose/corpus.py, compose/corpus_install.py, compose/corpus_understand.py, compose/corpus_import.py, compose/corpus_app.py, compose/corpus_setup.py, compose/app_bridge/scripts/bridge.py, compose/corpus_setup_ui.py, compose/corpus_setup_i18n.py, compose/corpus_setup_cli.py, compose/setup/START.md, INSTALL.md, docs/setup.md",
+  "note": "A user-invocable operation with a named command owner; install/onboard default to terminal setup while JSON setup serves reviewed conversation installation through the same controller, reached from a public repository-link request or an installed skill"
  },
  {
   "name": "DeployTarget",
@@ -420,8 +420,8 @@ const E = [
    "P6"
   ],
   "guard": "partial",
-  "anchor": "deploy_file install.sh:82",
-  "note": "A (source, destination, mode) triple; removal is derived, verification is hand-authored"
+  "anchor": "install.sh deploy_file, compose/corpus_install.py CorpusInstaller.install, compose/corpus_app.py, compose/app_bridge/agents/openai.yaml",
+  "note": "A bounded owned write: private releases and launcher projections, an explicitly registered app discovery link, or native corpus destinations on the compatibility route"
  },
  {
   "name": "PayloadEntry",
@@ -433,7 +433,7 @@ const E = [
   ],
   "guard": "derived",
   "anchor": "package.json files[]",
-  "note": "A shipped path; breakage is visible only on npm installs, which no checkout test sees"
+  "note": "A shipped path declared by package.json files[] and checked against real runtime references"
  },
  {
   "name": "DeploymentManifest",
@@ -443,8 +443,8 @@ const E = [
    "P5"
   ],
   "guard": "unguarded",
-  "anchor": "install.sh:82 deploy_file MANIFEST append",
-  "note": "The record of what this install wrote, and the sole authority for uninstall"
+  "anchor": "install.sh deploy_file, compose/corpus_install.py PRIVATE_RECORD, launch/shell_integration.py, compose/corpus_app.py",
+  "note": "Ownership records for removal: private installation metadata, shell receipts and exact app bridge generations; legacy deployment uses manifest.txt"
  },
  {
   "name": "StateArtifact",
@@ -455,8 +455,8 @@ const E = [
    "P6"
   ],
   "guard": "partial",
-  "anchor": "compose/corpus-state.py, install.sh:152 migrate_state",
-  "note": "Persisted deployment state; each has a writer, readers and a migration"
+  "anchor": "compose/corpus_store.py, compose/corpus_session.py, compose/corpus_transaction.py, compose/corpus_understand.py, compose/corpus-state.py, compose/prune-backups.py, compose/write-update-cache.py, compose/corpus_install.py, compose/corpus_import.py, compose/corpus_app.py, compose/corpus_setup_cli.py",
+  "note": "Persisted private sources, import evidence and receipts, baselines, immutable snapshots, native pins, app context receipts, setup review/outcome receipts and transaction journals; each has owning writers and readers"
  },
  {
   "name": "Migration",
@@ -466,8 +466,8 @@ const E = [
    "P5"
   ],
   "guard": "unguarded",
-  "anchor": "install.sh:152 / :386 / :453",
-  "note": "A one-way transform of previously deployed state; order-bearing"
+  "anchor": "compose/corpus_install.py CorpusInstaller.migrate, compose/corpus_transaction.py, install.sh migrate_state, learn/migrate-learnings.py",
+  "note": "An explicit transform of owned legacy state into private state, with pinned release authority and replayable cleanup; compatibility installer migrations remain on their selected route"
  },
  {
   "name": "SchemaVersion",
@@ -477,7 +477,7 @@ const E = [
    "P5"
   ],
   "guard": "unguarded",
-  "anchor": "launch/agent-launch.toml schema_version, compose/domains.json version",
+  "anchor": "compose/corpus_install.py SCHEMA_VERSION, compose/corpus_store.py, compose/corpus_session.py, launch/agent-launch.toml schema_version, compose/domains.json version, compose/corpus_setup_cli.py",
   "note": "The declared format contract of a persisted artifact, and migration's trigger"
  },
  {
@@ -490,8 +490,8 @@ const E = [
    "P6"
   ],
   "guard": "partial",
-  "anchor": "codex/config-additions.toml",
-  "note": "A marked span written into a file this repo does not own, never manifested"
+  "anchor": "launch/shell_integration.py, compose/corpus_install.py, compose/assemble.py, codex/config-additions.toml, compose/corpus_app.py, compose/app_bridge/agents/openai.yaml",
+  "note": "A bounded managed span or discovery entry in user-owned native state: optional shell wiring and explicit app bridge registration; globals remain preserved outside explicit legacy cleanup"
  },
  {
   "name": "ShellInterception",
@@ -503,8 +503,8 @@ const E = [
    "P6"
   ],
   "guard": "partial",
-  "anchor": "launch/agent-launch.zsh with install.sh:140 HOOK_MARK",
-  "note": "The zero-argument launcher entry; an opt-in private shell connection owned by launch/shell_integration.py and a legacy compatibility adapter share launch/agent-launch.zsh"
+  "anchor": "launch/agent-launch.zsh, launch/shell_integration.py",
+  "note": "An optional zero-argument launcher entry, with receipt-backed shell restore/remove and a shared zsh adapter"
  },
  {
   "name": "EnvironmentVariable",
@@ -513,8 +513,8 @@ const E = [
    "P5"
   ],
   "guard": "unguarded",
-  "anchor": "install.sh:55 ZDOTDIR, compose/corpus-state.py",
-  "note": "A runtime override that moves where this repo reads or writes"
+  "anchor": "compose/corpus_store.py, compose/corpus_install.py, compose/corpus_session.py, launch/shell_integration.py, install.sh ZDOTDIR",
+  "note": "An explicit runtime override for private state, personal corpus, native identity or shell startup location; each owner interprets its own roots"
  },
  {
   "name": "CorpusAssembler",
@@ -526,8 +526,8 @@ const E = [
    "P6"
   ],
   "guard": "gated",
-  "anchor": "compose/corpus_catalog.py, compose/corpus_store.py, compose/assemble.py",
-  "note": "Compiles catalog items into private immutable snapshots; the legacy assembler is retained for explicit migration regression checks"
+  "anchor": "compose/corpus_catalog.py, compose/corpus_store.py, compose/corpus_session.py, compose/assemble.py, compose/corpus_app.py, compose/corpus_import.py",
+  "note": "Compiles selected items into immutable snapshots for native session adapters or explicit app context; reviewed imports publish private personal items through the same store"
  },
  {
   "name": "Gate",
@@ -538,7 +538,7 @@ const E = [
    "P6"
   ],
   "guard": "gated",
-  "anchor": "gates/check-parity.sh driver",
+  "anchor": "gates/check-parity.sh driver, compose/check-domains.py, gates/build-ui-runtime.py",
   "note": "An executable check owning an invariant, a subject set and an enforcement claim"
  },
  {
@@ -575,7 +575,7 @@ const E = [
   ],
   "guard": "gated",
   "anchor": "gates/check-parity.sh --self-test invocations",
-  "note": "Seven entry points, each run by check-parity.sh"
+  "note": "An executable negative-control entrypoint reached from the parity driver"
  },
  {
   "name": "ActivationCanary",
@@ -607,8 +607,8 @@ const E = [
    "P5"
   ],
   "guard": "unguarded",
-  "anchor": "install.sh:67 check_prereqs",
-  "note": "A host tool the install requires rather than degrades without; git and python3>=3.11 abort, zsh/codex/claude only warn"
+  "anchor": "install.sh check_prereqs, compose/corpus_install.py, compose/corpus_setup.py",
+  "note": "Locally probed host tools and interpreters; explicit setup offers available fixed installation commands, while manual account/configuration steps remain separate"
  },
  {
   "name": "TerminologyAuthority",
@@ -721,33 +721,33 @@ show(null); render();
       <tr><td>GR-1 canonical uniqueness</td><td>P1</td><td>per entity, |P1| == 1</td><td class="warn">unguarded</td></tr>
       <tr><td>GR-2 derived closure</td><td>P1→P2</td><td>emit-mirrors.py --check, build-promotions.py --check</td><td class="ok">derived</td></tr>
       <tr><td>GR-3 payload completeness</td><td>P4/P5→P3</td><td>gates/check-package.sh greps live $REPO references</td><td class="ok">derived</td></tr>
-      <tr><td>GR-4 deploy / verify coverage</td><td>P4→P6</td><td>deploy set minus verify set — computed by ontology/extract.py. The three uncovered targets are exempt by decision D-1: a wrapper and the agents directory are re-deployed whole on every install, so drift is self-healing</td><td class="info">partial</td></tr>
-      <tr><td>GR-5 deploy / removal coverage</td><td>P4</td><td>deploy set subset of manifest union region-remove</td><td class="warn">unguarded</td></tr>
+      <tr><td>GR-4 deploy / verify coverage</td><td>P4→P6</td><td>ontology/extract.py compares explicit legacy deploy and verify sites. Private install verification and corpus tests separately check pinned releases and owned projections</td><td class="info">partial</td></tr>
+      <tr><td>GR-5 deploy / removal coverage</td><td>P4</td><td>Private ownership records and shell receipts determine bounded removal; explicit legacy deployment uses its manifest and region removers</td><td class="warn">unguarded</td></tr>
       <tr><td>GR-6 non-inertness</td><td>P5</td><td>each declared value has a reader on the live path</td><td class="warn">unguarded</td></tr>
-      <tr><td>GR-7 lockstep agreement</td><td>P1↔P1'</td><td>compare all bindings of one value; check_parity.py:318-346 compares to its own constants</td><td class="info">partial</td></tr>
+      <tr><td>GR-7 lockstep agreement</td><td>P1↔P1'</td><td>Compare declared binding sites; gates/check_parity.py checks runtime projections and ontology/check-ontology.py compares launch/template site sets</td><td class="info">partial</td></tr>
       <tr><td>GR-8 schema version ↔ migration</td><td>P1↔P5</td><td>each version has a migration accepting the prior</td><td class="warn">unguarded</td></tr>
-      <tr><td>GR-9 advertisement is derived</td><td>P1→P1'</td><td>install.sh:598 for --with; nothing for the subcommand list</td><td class="info">partial</td></tr>
-      <tr><td>GR-10 gate subjects non-empty</td><td>P6</td><td>check-parity.sh:18-22 guards its own inputs</td><td class="info">partial</td></tr>
+      <tr><td>GR-9 advertisement is derived</td><td>P1→P1'</td><td>ontology/check-ontology.py compares install.sh command dispatch with usage(); launch capability help is generated from the capability inventory</td><td class="info">partial</td></tr>
+      <tr><td>GR-10 gate subjects non-empty</td><td>P6</td><td>gates/check-parity.sh guards its own inputs; individual gates define and validate their subject sets</td><td class="info">partial</td></tr>
       <tr><td>GR-11 concept homes</td><td>P1</td><td>gates/check-lexicon.py</td><td class="risk">gated</td></tr>
       <tr><td>GR-12 ownership exclusivity</td><td>P4</td><td>deploy-target set intersect user-owned-region set is empty</td><td class="info">partial</td></tr>
     </tbody>
   </table>
 
   <h2>GR-4, computed</h2>
-  <p class="lede">Not restated — <code>ontology/extract.py</code> reads the real <code>deploy_file</code>/<code>deploy_glob</code> and <code>verify_match</code>/<code>verify_present</code> call sites at generation time. 10 deploy writes, 3 with no assertion.</p>
+  <p class="lede"><code>ontology/extract.py</code> reads the explicit legacy installer's <code>deploy_file</code>/<code>deploy_glob</code> and <code>verify_match</code>/<code>verify_present</code> call sites at generation time. 10 legacy deploy writes, 3 without complete verification. Private installation uses its own release and ownership verification in <code>compose/corpus_install.py</code>.</p>
   <table>
     <thead><tr><th>P4 write</th><th>P6 assertion</th><th>Strength</th></tr></thead>
     <tbody>
-      <tr><td><code>$CODEX_DIR/bin/codex-run</code> :829</td><td>—</td><td class="risk">none</td></tr>
-      <tr><td><code>$CODEX_DIR/bin/codex-helm</code> :830</td><td>—</td><td class="risk">none</td></tr>
-      <tr><td><code>$CLAUDE_DIR/bin/claude-run</code> :834</td><td><code>verify_present</code> :1125</td><td class="">existence</td></tr>
-      <tr><td><code>$LAUNCH_DIR/profiles.toml</code> :836</td><td><code>verify_match</code> :1068</td><td class="ok">byte-identity</td></tr>
-      <tr><td><code>$LAUNCH_DIR/shell.zsh</code> :837</td><td><code>verify_match</code> :1069</td><td class="ok">byte-identity</td></tr>
-      <tr><td><code>$BIN_DIR/agent-launch</code> :872</td><td><code>verify_match</code> :1067</td><td class="ok">byte-identity</td></tr>
-      <tr><td><code>$LAUNCH_DIR/i18n/$lang.toml</code> :875</td><td><code>verify_match</code> :1083</td><td class="ok">byte-identity</td></tr>
-      <tr><td><code>$CODEX_DIR/agents</code> :817</td><td>—</td><td class="risk">none</td></tr>
-      <tr><td><code>$CLAUDE_DIR/skills/$skill</code> :825</td><td><code>verify_match</code> :1105</td><td class="ok">byte-identity</td></tr>
-      <tr><td><code>$CODEX_DIR/skills/$skill</code> :826</td><td><code>verify_match</code> :1106</td><td class="ok">byte-identity</td></tr>
+      <tr><td><code>$CODEX_DIR/bin/codex-run</code> :816</td><td>—</td><td class="risk">none</td></tr>
+      <tr><td><code>$CODEX_DIR/bin/codex-helm</code> :817</td><td>—</td><td class="risk">none</td></tr>
+      <tr><td><code>$CLAUDE_DIR/bin/claude-run</code> :821</td><td><code>verify_present</code> :1112</td><td class="">existence</td></tr>
+      <tr><td><code>$LAUNCH_DIR/profiles.toml</code> :823</td><td><code>verify_match</code> :1055</td><td class="ok">byte-identity</td></tr>
+      <tr><td><code>$LAUNCH_DIR/shell.zsh</code> :824</td><td><code>verify_match</code> :1056</td><td class="ok">byte-identity</td></tr>
+      <tr><td><code>$BIN_DIR/agent-launch</code> :859</td><td><code>verify_match</code> :1054</td><td class="ok">byte-identity</td></tr>
+      <tr><td><code>$LAUNCH_DIR/i18n/$lang.toml</code> :862</td><td><code>verify_match</code> :1070</td><td class="ok">byte-identity</td></tr>
+      <tr><td><code>$CODEX_DIR/agents</code> :804</td><td>—</td><td class="risk">none</td></tr>
+      <tr><td><code>$CLAUDE_DIR/skills/$skill</code> :812</td><td><code>verify_match</code> :1092</td><td class="ok">byte-identity</td></tr>
+      <tr><td><code>$CODEX_DIR/skills/$skill</code> :813</td><td><code>verify_match</code> :1093</td><td class="ok">byte-identity</td></tr>
     </tbody>
   </table>
 

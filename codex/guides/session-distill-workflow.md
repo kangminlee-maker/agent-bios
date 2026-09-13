@@ -13,7 +13,7 @@ core_rules:
   - the ledger is the SSOT for state; read it before touching the pipeline
   - placement follows PLACEMENT-FRAMEWORK.md, never ad-hoc judgment
   - every promotion passes an explicit user-approval gate
-  - global growth per round is hard-capped (~500 tokens) by a measured gate
+  - the canonical always surface is frozen to reductions; route additions to guides, skills, or session-level injection
   - close the window by updating mirrors, parity, deployment, and the nudge baseline
 ---
 
@@ -85,10 +85,13 @@ Everything durable lives in the agent-bios repo.
    promoted, and what is still incubating are all queries against this file.
    Read state here and nowhere else: a count or a status written into prose is
    correct on the day it is written and silently wrong afterwards.
-2. `design/session-distill/versions.json` — which closed mining window maps to
-   which commit, and therefore what a rollback restores.
-3. `design/session-distill/PLACEMENT-FRAMEWORK.md` — the placement authority
-   (typology A–G, layers, admission bars, lifecycle).
+2. `design/session-distill/versions.json` — authoring provenance mapping each
+   closed mining window to its commit. Private rollback selects an installed
+   `baseline_ref` through the corpus plan; this registry is not that authority.
+3. `design/session-distill/PLACEMENT-FRAMEWORK.md` — the placement framework
+   (typology A–G, layers, admission bars, lifecycle). Apply the current
+   `AGENTS.md` reductions-only rule and `SURFACES.md` delivery contract when
+   choosing a destination; the framework does not authorize global growth.
 
 ## Stage 1 — Mine (pipeline in `session-distill/`)
 
@@ -140,15 +143,18 @@ Run in order; each stage reads the previous stage's `out/`:
   consumer check (hermetic dispatch and scripts read no prose) → admission
   bar → token estimate. Ambiguity stays PROPOSED for the user.
 - Apply canonical-first, on a branch, stepwise commits: canonical guide text
-  → global edits under the measured budget gate (net growth ≤ ~500 tokens/
-  round; overflow re-routes to guides, not silent deferral) → other guides →
+  → reductions to the canonical always surface (delete, merge, or move rules
+  out; additions belong in guides, skills, or session-level injection) → other guides →
   hooks (derive injected text from the canonical guide; read-only, never
   blocking) → enforcement in owned wrappers (loud failures; keep
   stdout/stderr channel contracts) → codex/ + ko/ mirrors.
 - Verify per layer, not just by diff: enforcement/gate fixture tests
   (non-vacuous — known-bad must fire), hook trigger positive/negative sets,
   `gates/check-parity.sh` exit 0 unpiped, prompting-target gate, then
-  `agent-bios install` to activate and re-verify.
+  `bash install.sh install` from this checkout to store the changed private
+  release and `bash install.sh verify` to verify it. Activate a new configured
+  session through `agent-launch` and check its delivery evidence separately;
+  installation does not activate content or change an existing session pin.
 
 ## Stage 4 — G-pass (principles, not directives)
 
@@ -165,10 +171,14 @@ Run in order; each stage reads the previous stage's `out/`:
 
 1. Ledger: statuses to placed (with implementation paths) / incubating;
    dated corrections for anything refuted.
-2. HANDOFF: completion record, incidental finds as next-window candidates.
+2. Write a new timestamped completion record under `design/session-distill/`
+   following `AGENTS.md`; incidental finds become next-window candidates.
 3. Register the corpus version: append {version = window end, commit = the
-   corpus-close commit} to `design/session-distill/versions.json` — this is
-   what the launcher's Versions & rollback screen offers — then run
+   corpus-close commit} to `design/session-distill/versions.json` for authoring provenance. Private rollback selects an installed `baseline_ref`
+   through `agent-bios corpus plan`; the window registry does not authorize a
+   global-file rollback. Then run
    `python3 session-distill/update-state.py --window-end <date>`
    (nudge baseline) and `corpus-state.py project` (launcher status panel).
-4. Merge the branch, push, and confirm deployed state (`agent-bios verify`).
+4. Merge the branch, push, and confirm the private release from this checkout
+   (`bash install.sh verify`); report stored-state and session-delivery evidence
+   separately.

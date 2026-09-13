@@ -1,23 +1,18 @@
 #!/usr/bin/env bash
 # claude-run.sh — thin, controllable raw adapter around `claude -p`.
 #
-# The claude-side twin of codex-run. Both exist for the same reason: a review
-# dispatch has to name the seat it actually ran on, and a raw CLI call does not.
-# Until this file existed the asymmetry was silent — the codex host dispatched
-# reviews through our adapter while the claude host dispatched the bare binary,
-# so half of every cross-family review had no place to report from.
+# Records the selected review seat and observed dispatch result when both seat
+# pins and receipt configuration are present.
 #
 # It is an adapter, not a policy boundary. Callers passing expert overrides after
 # `--` are making expert decisions, exactly as with codex-run.
 #
-#   (1) seat            --model + --effort, both REQUIRED (see below)
+#   (1) seat            --model + --effort, both needed for a receipt
 #   (2) mutation reach  --permission-mode, defaulting to a no-edit posture
 #   (3) prompt          read from stdin; the final message goes to stdout
 #
-# --model and --effort are required rather than optional, which is the one place
-# this diverges from codex-run. codex-run tolerates an unpinned dispatch and warns,
-# and that warning goes to a channel nobody reads; an unpinned review is the exact
-# failure the receipt contract exists to catch, so here it is refused up front.
+# If either pin is missing, warn on stderr and dispatch without a receipt.
+# An unpinned invocation cannot provide a named-seat review claim.
 #
 # NOT A SANDBOX. codex-run's `--sandbox read-only` is enforced by the OS; Claude Code
 # has no equivalent, so the default here denies the mutating TOOLS and nothing more.
@@ -34,14 +29,16 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Usage: claude-run.sh --model M --effort E [--permission-mode MODE] [--cd DIR]
+Usage: claude-run.sh [--model M --effort E] [--permission-mode MODE] [--cd DIR]
                      [-- ARG ...]  < packet
-  --model M    model to pin (required)
-  --effort E   reasoning effort to pin (required)
+  --model M    model to pin (required for a receipt)
+  --effort E   reasoning effort to pin (required for a receipt)
   --permission-mode MODE
                claude permission mode (default: the no-edit posture below)
   --cd DIR     working root
   --           everything after is passed to claude verbatim (expert override)
+
+If either seat pin is missing, dispatch continues with a warning and no receipt.
 
 Environment (the adapter calling convention; all optional):
   REVIEW_RECEIPT_DIR   directory to write one ReviewReceipt/v1 into

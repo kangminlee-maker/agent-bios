@@ -1,8 +1,10 @@
 # Installation, migration, and recovery
 
-[← Overview](../README.md) · [Corpus](corpus.md) · [Sessions](session-model.md) · [Recovery](recovery.md) · [Launch](advanced-launch.md) · [Understand!](understand.md)
+[← Overview](../README.md) · [Setup](setup.md) · [Corpus](corpus.md) · [Sessions](session-model.md) · [Recovery](recovery.md) · [Launch](advanced-launch.md) · [Understand!](understand.md)
 
-Start with `agent-bios status`. Commands below are **operation references, not a sequence to paste and run**. Preview the specific action you need; do not delete an ownership conflict just to make installation succeed.
+Start with `agent-bios status`. This reference describes the current source; from its
+retained checkout use `bash install.sh <command>`. For first installation and app
+setup recovery, see [Setup](setup.md). Commands below are **operation references, not a sequence to paste and run**. Preview the specific action you need; do not delete an ownership conflict just to make installation succeed.
 
 ## Command reference
 
@@ -10,14 +12,16 @@ The npm package and command are both named `agent-bios`. Installation is always
 explicit—never a package-manager postinstall side effect—and the default path stores
 an immutable release and baseline under agent-bios-owned state. It installs the
 `agent-launch` entrypoint and its own profile/catalog files, but does not change native
-Claude/Codex globals, discovery directories, settings, hooks, or shell command
-resolution unless the user explicitly restores the optional shell connection.
+Claude/Codex globals, settings or hooks. Optional app registration adds only its
+owned discovery link, and optional shell connection changes only its owned startup
+wiring. Neither activates corpus in a task.
 
 | Command | Purpose |
 | --- | --- |
-| `npm install -g agent-bios@0.18.0` | Install the published CLI package |
-| `agent-bios install` | store an immutable private release and baseline |
-| `agent-bios onboard --domains builder-base,multi-agent-orchestration` | Install with the named domain selection |
+| `agent-bios install` | open the guided installation UI |
+| `agent-bios install --non-interactive --corpus none` | store runtime with no active corpus |
+| `agent-bios onboard --non-interactive --domains builder-base,multi-agent-orchestration` | store the named domains with compatibility core/infra selection |
+| `agent-bios setup status --review-id ID` / `resume --review-id ID` | inspect the setup receipt / prepare a safe continuation without executing it |
 | `agent-bios verify` | verify stored bytes/catalog/baseline; not host activation |
 | `agent-bios status` | show the private release, baseline, conflicts, and evidence state |
 | `agent-bios corpus` | rich Corpus Studio in a TTY; list in a non-TTY |
@@ -30,6 +34,9 @@ resolution unless the user explicitly restores the optional shell connection.
 | `agent-bios migrate` | preview legacy global cleanup; --apply --yes performs it |
 | `agent-bios update` | git pull + reinstall (clone), or print the npm update line |
 | `agent-bios uninstall` | remove owned runtime entries; retain user corpus and pinned sessions |
+
+The published npm package `agent-bios@0.18.0` has its own included command reference;
+it does not provide the current source conversation setup or bundled UI.
 
 `agent-launch` examples assume `~/.local/bin` is on `PATH`; otherwise use `"$HOME/.local/bin/agent-launch"`. From a checkout, deploy with `bash install.sh install` at its root, not the globally installed CLI. A blocked npm postinstall message does not deploy the corpus; the explicit `install` command remains necessary.
 

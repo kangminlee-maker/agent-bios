@@ -3,8 +3,9 @@
 **This repo's product is agent instructions. Do not confuse the product with your
 instructions.** `claude/CLAUDE.md`, `codex/AGENTS.md`, `claude/guides/`,
 `codex/guides/`, and all of `ko/` are **payload** — content deployed to other
-machines (`install.sh` `assemble_corpus`, `deploy_glob`, `deploy_tree`; the set is
-`package.json` `files[]`). Editing them changes what ships, not how you work here.
+machines (private release inventory in `compose/corpus_catalog.py` and
+`compose/corpus_install.py`; the shipped set is `package.json` `files[]`).
+Editing them changes what ships, not how you work here.
 How you work here is this file.
 
 English, matching `README.md` and `LEXICON.md`. Every rule names the code that
@@ -29,7 +30,7 @@ treating it as authority.
 | Work in flight — a design that must stay current until it lands | **`design/<initiative>/`** (isolated) |
 | Regenerable pipeline snapshots | **`session-distill/out/`** |
 | Deployed instruction text | **`claude/`**, **`codex/`**, **`ko/`** — payload, not docs; `claude/skills/` is one tree for both hosts, not mirrored |
-| Shipped machinery outside the corpus | **`learn/`** (capture flow, five files ship), **`wrappers/`**, **`compose/`** (four scripts ship), **`launch/`**, `session-cost.py` |
+| Shipped machinery outside the corpus | **`learn/`**, **`wrappers/`**, **`compose/`**, **`launch/`**, `session-cost.py` — exact members in `package.json` `files[]` |
 | Author-side only, never shipped | **`gates/`**, **`ontology/`**, **`decisions/`**, **`design/`**, **`research/`**, **`benchmarks/`**, **`packages/`**, **`session-distill/`** — `gates/check-package.sh` holds the boundary |
 
 ## 1. Active files describe the present — CONVENTION, partly enforced
@@ -106,9 +107,8 @@ skip; the payload and prompting-target gates keep running there because at 0.16s
 they buy back nothing and their running is what proves verify still wires its gates up.
 Re-measure before quoting either number — this one has been wrong by 4× before.
 
-The scenarios themselves are a deliberate trade: they are the only check that
-exercises the branch a default `agent-bios install` actually takes, and the defect
-they now guard was invisible to every other gate in this repo. The hook lives in
+`gates/test-install-guides.sh` exercises compatibility installation; the corpus
+test suite exercises private installation and session delivery. The hook lives in
 the repo rather than
 `.git/hooks` so the rule travels with the code instead of with one laptop — the
 `git config` line above is the only part each clone must do by hand, and until it
@@ -162,8 +162,11 @@ omitted deliberately: they were wrong within a day of being written.
 Blocking is for deterministically decidable violations only. Gate a judgment
 call and people learn to route around the gate.
 
-After deploying, `./install.sh verify` re-runs `check-package.sh`,
-`check-parity.sh`, and `check-prompting-targets.sh` (`install.sh` `cmd_verify`).
+`bash install.sh verify` checks the private release, baseline, catalog, and owned
+launcher paths through `compose/corpus_install.py`; it reports activation as
+unverified. Run the author-side package and parity gates explicitly from the
+checkout. The compatibility `cmd_verify` in `install.sh` runs those gates only
+when its required author-side paths are present.
 Publishing is gated separately: `npm prepack` runs `gates/check-publish.sh --stamp`
 and `prepublishOnly` runs `--guard` (`package.json` `scripts`), refusing a dirty or
 unreachable HEAD and stamping `provenance.json` with the commit the tarball carries.
@@ -173,7 +176,7 @@ unreachable HEAD and stamping `provenance.json` with the commit the tarball carr
 They are generated projections of `claude/` and `ko/claude/`
 (`gates/emit-mirrors.py` `TREES`), differing only in config-home variable and title,
 plus one pinned Codex-only authorization bullet. `claude/skills/` is not projected —
-one tree serves both hosts (`install.sh` `deploy_tree`). Edit order:
+one tree serves both hosts through `compose/corpus_catalog.py`. Edit order:
 
 1. Edit `claude/` — and `ko/claude/` when the change is user-facing.
 2. `python3 gates/emit-mirrors.py`
@@ -249,6 +252,14 @@ fatal on npm — every check you run from the clone passes.
 tree and requires the gate to fail **by name** on it, positive control first so a
 failure is attributable to the mutation. It runs in the parity umbrella.
 
+The shipped UI wheels and `compose/ui_runtime/manifest.json` are generated runtime
+content. `launch/provision-venv.sh` owns `TEXTUAL_PIN`; regenerate the bundle with the
+author-side `gates/build-ui-runtime.py --build`, which can access the network. Its
+`--check` and `--self-test` run offline in the umbrella and validate the exact wheel
+inventory, metadata, hashes, licenses and isolated loading. Do not hand-edit wheels or
+their manifest. `compose/corpus_ui_runtime.py` owns temporary extraction and release;
+the actual CLI entrypoints activate it before Rich/Textual imports.
+
 ## 7. Rule bodies use role slots and tiers, not model names — CONVENTION, with a gated exception
 
 Concrete bindings live in each guide's `Environment Binding`. A new model updates
@@ -283,12 +294,11 @@ URL lives author-side on purpose — `gates/check-endpoints.py` forbids a shippe
 carrying an endpoint URL, and buying an exemption for documentation metadata would weaken a
 real product property for nothing.
 
-**A pin is a baseline, not provenance.** When `pinned_at` is later than `derived_at`, the
-guide predates its own pin and has never been checked against it; the tool says so on every
-run. Both guides are in that state as of 2026-09-01 — `gpt-prompting.md` has not been
-re-derived since the commit that created it (`dd12494`, 2026-07-16), and `claude-prompting.md`
-not since `d30d41a` (2026-07-25). Recording today's hash as the derivation would have
-manufactured provenance nobody could later tell from the real thing.
+**A pin is a baseline, not provenance.** Read the current `derived_at` and
+`source_pins` from each guide. When `pinned_at` is later than `derived_at`, the guide
+has not been re-derived against that pin; the check discloses it. Recording a hash
+does not establish a derivation. Re-read the source and revise the guidance before
+updating its derivation date.
 
 The two halves have different exit codes on purpose. **Structure blocks**: every pin must
 name a document `prompting-sources.json` maps, every mapped document must be pinned by some
@@ -296,35 +306,30 @@ guide, and a run judging zero pins fails — all offline, all decidable, so it s
 umbrella like any other gate. **Drift only discloses, and only under `--online`**, because
 fetching in the umbrella would fail in a tunnel and teach people to route around the suite.
 
-That split was not the first design. The first put the whole tool outside the umbrella, and
-`check-parity.sh`'s own reachability leg refused the commit — *"check(s) never reached from
-the pre-commit hook, so they gate nothing at commit time"*. It was right: a check in
-`gates/` that gates nothing is the thing this repo does not keep. Run `--online` when a
-model binding changes and before trusting either guide.
+Run `--online` when a model binding changes and before trusting either guide.
 
-## 8. The deployed global is a per-session token budget — CONVENTION
+## 8. The canonical always surface is a per-activated-session token budget — CONVENTION
 
-`claude/CLAUDE.md` is re-sent every session and to every subagent, so each added
-bullet dilutes every other rule. A new global bullet must name the bullet it
-displaces, or why none does. Procedures, tables, numbers, and worked examples
-belong in a guide.
+Selected rules from `claude/CLAUDE.md` reach explicitly activated sessions through
+`compose/corpus_catalog.py`, `compose/corpus_store.py`, and
+`compose/corpus_session.py`. Child reach requires its own projection evidence.
+The source file is not the user's global instruction file; private installation
+preserves native `AGENTS.md` and `CLAUDE.md`. Procedures, tables, numbers, and
+worked examples belong in a guide.
 
-A rule earns global placement only if it must work **even when the agent fails to
-recognize the situation**. A rule whose failure mode is recognition failure
-belongs behind a pointer.
+A recognition trigger belongs on the selected always surface when the agent needs
+it before recognizing the situation. The procedure it routes to belongs behind a
+guide pointer; moving the procedure must preserve that reachable trigger.
 
 Numbers live in the owning guide's `Evidence Base`; measure with
 `session-cost.py`. Do not scatter measured values into rule bodies.
 
-**The global is frozen to reductions (2026-09-03).** Edits that delete, merge, or move a
+**The canonical always surface is frozen to reductions.** Edits that delete, merge, or move a
 rule out are open; additions are not. A rule that would have been added goes to a guide, a
 skill, or session-level injection instead, and if none of those can hold it, that is the
 case to bring — not a bullet.
 
-The freeze is not a conclusion about where the corpus should live. It stops the one thing
-that is irreversible in practice — growth — while that question gets a proper design pass.
-The evidence behind it, and the delivery surfaces available on each host, are in the
-2026-09-03 records under `design/session-distill/`.
+`SURFACES.md` owns the current delivery choices and their admission bars.
 
 ## 9. Deploying the working tree is not `agent-bios install`
 
@@ -333,16 +338,21 @@ so the globally installed `agent-bios install` deploys **the published npm
 package**, not this tree. To deploy what you are editing:
 
 ```bash
-bash install.sh install     # from the clone
+bash install.sh install --non-interactive
 ```
+
+`install` and `onboard` otherwise open the interactive UI, including when selection
+flags are present. Non-TTY callers must opt out explicitly; `--corpus`/`--select`
+initialize UI choices, while private `--domains` calls require `--non-interactive`.
+The bundled UI requires Python 3.11+, not a preinstalled Textual environment.
 
 Three more, each of which cost a real failed attempt:
 
 - `npm i -g agent-bios@latest` right after publish installs the **previous** version (stale
   packument, exit 0). Pin exact — `npm i -g agent-bios@X.Y.Z` — then verify the *deployed*
   `version.json`, never the registry.
-- `install.sh` runs `exec </dev/null` at the top, so a stdin-payload subcommand needs the
-  caller's fd parked on 3.
+- `install.sh` parks caller input on fd 3 and restores it for interactive installation
+  and payload-bearing commands; machine installation must use `--non-interactive`.
 - Never publish a corpus that calls a new CLI subcommand before the CLI carrying it ships.
 
 ## 10. Record a decision when it closes an alternative — CONVENTION
@@ -506,10 +516,10 @@ A green gate means "it ran", not "it checked your change".
   set satisfies everything. The gates model this themselves — `check-parity.sh`
   guards required dirs and files up front, and `check-lexicon.py`
   fails a concept home that matches no file.
-- **Know which legs silently skip.** `install.sh` `cmd_verify` runs the parity gate only
-  under `[ -d "$REPO/ko" ]`, and `ko/` is excluded from the npm package, so
-  `agent-bios verify` from an npm install never checks mirrors. Only a clone
-  does.
+- **Know which legs run.** Default private `verify` checks stored runtime state,
+  not author-side mirrors. Compatibility `cmd_verify` runs the parity gate only
+  when `ko/` exists; npm excludes it. Run the author-side umbrella directly from
+  the checkout for mirror and corpus checks.
 - **A gate you have not seen fail is not a gate.** Most gates here ship a
   `--self-test`; `check-parity.sh`'s own runtime-projection module
   (`gates/check_parity.py`) and `launch/check-prompting-targets.sh` do not, so do
@@ -555,15 +565,15 @@ different altitude — and then it is anchored and the reason is declared. A gat
 copy of the value is a third restatement, not a guard. The rules above are this one's cases;
 where a case still gates a restatement that could be generated, that is a debt, not a design.
 
-Re-derived from code. Prefer these over any summary — and this table is itself one, held by hand
-while `ontology/` covers seven of its nine rows.
+Re-derive these relationships from their owners; use `ontology/impact.py` for the
+obligations currently represented in the graph.
 
 | Concept | Authority |
 | --- | --- |
-| Deployed instruction text | `claude/CLAUDE.md` — Codex is projected from it |
+| Canonical instruction text | `claude/CLAUDE.md` — Codex is projected from it; the private catalog and store select session content |
 | Codex + ko/codex trees | `gates/emit-mirrors.py` — owns the projection rule |
 | Terminology and concept homes | `ontology/instances/graph.json` §lexicon → `LEXICON.md` (generated), operated by `gates/check-lexicon.py` |
-| Delivery surfaces and their admission bars | `SURFACES.md`, held against `install.sh` by `gates/check-surfaces.py` |
+| Delivery surfaces and their admission bars | `SURFACES.md`, held against the installer, compiler, and session adapters by `gates/check-surfaces.py` |
 | npm payload boundary | `package.json` `files[]`, enforced both ways by `gates/check-package.sh` |
 | Corpus classification | `compose/domains.json`, gated by `compose/check-domains.py` |
 | Launch bindings and projection | `launch/agent-launch.toml`, `launch/agent-launch.py` |
@@ -577,15 +587,16 @@ reference, plus the launch contracts in `docs/advanced-launch.md` and its Korean
 reference. `gates/check-parity.sh` anchors the guide inventory in `docs/corpus.md`
 to the staged-workflow guide, so relocating a contract includes its check.
 
-`IMPLEMENTATION_MAP.html` is a current-state dashboard. Treat its claims as
-dated and re-derive from code before relying on them.
+`IMPLEMENTATION_MAP.html` describes current structure and names the commands
+that derive live state. Keep dated measurements and completion records outside it.
 
 ## What this file deliberately leaves out
 
 General engineering discipline — tool traps, verification menus, spawn policy,
-review contracts — is not repeated here. It is already loaded from the deployed
-global corpus in every session, and this repo's own rule is that restating a rule
-dilutes it. Only what is specific to developing *this* repo belongs in this file.
+review contracts — is not repeated here. It is available through the corpus
+selected for an activated session; plain CLI and Vanilla do not receive it
+automatically. Corpus payload files are not instructions for developing this
+repo. Only repo-specific working rules belong in this file.
 
 ## Traps that cost a real attempt here
 

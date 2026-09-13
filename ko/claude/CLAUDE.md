@@ -113,4 +113,4 @@
 
 ## Session Learning
 
-- `learn!` — session learning: 사용자가 어떤 세션에서든 `learn!`을 입력하면, 이 세션에서 얻은 지속적 교훈을 사용자의 다음 세션과 조직을 위해 포착한다. `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/guides/learning-flow.md`를 읽고 그 흐름(admission bar → type A–G → intended consumption layer → 사용자의 명시적 승인)을 실행하며, 승인된 learning은 오직 `agent-bios learn`으로만 제출한다 — 이 스크립트가 id/타임스탬프를 소유하고 prose와 JSON record를 모두 기록한다. Session distill preset 실행(trigger `distill!`)이 활성일 때는 그 mission이 포착을 담당하므로 이 흐름을 함께 실행하지 않는다; 그리고 Type-G principle은 user-side에서 제조하지 않는다(curator 전용).
+- `learn!` — session learning: 사용자의 `learn!` 입력에 따라 이 세션의 지속적 교훈을 이후 선택된 세션과 설정된 조직 curation을 위해 포착한다. `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/guides/learning-flow.md`의 admission bar → type A–G → intended layer → 사용자 명시적 승인 → 패키지 경로에 연결된 제출 흐름을 따른다. 도구가 id/타임스탬프와 개인 기록을 담당하고 전역 지침은 보존한다. Session distill preset(`distill!`)은 자체 포착을 담당하므로 두 흐름을 함께 실행하지 않는다. Type-G principle은 user-side에서 제조하지 않는다(curator 전용).

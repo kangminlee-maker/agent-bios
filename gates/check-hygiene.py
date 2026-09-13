@@ -9,7 +9,7 @@ for the already-public scope (package + corpus are one distribution,
 D-20260818-71be4e) and the seed of the admission bar for the future public-repo
 tree (the org→public boundary the 2026-08-19 roadmap names).
 
-Two escapes, deliberately different in power:
+Declared exceptions have different scopes:
 
   - the private-binding marker ``(private)`` on a line declares an author or
     environment binding an adopter swaps (README's Adopting checklist is the
@@ -21,12 +21,17 @@ Two escapes, deliberately different in power:
     describes, never the file and never a longer line that smuggles a second
     token past the declared shape (hygiene rounds 1 #4, 2 #2). A pair whose
     file is gone or whose shape no longer matches anything fails as stale.
+  - PUBLIC_INSTALL_REQUESTS admits only each named README's exact one-line
+    installation request in a text code block, using repository.url as identity.
+    It excuses the repository's author identifier, never additional bindings.
 
 Fail-closed rules a clean summary depends on (rounds 1-2): a files[] entry that
 exists as neither tracked file nor directory must be a DECLARED pack-time
 artifact or the derivation fails; a tracked subject missing from the worktree is
-a named failure, not a silent shrink; a subject that cannot be read as UTF-8
-text fails, never skips. The npm force-include set below was probed against the
+a named failure, not a silent shrink; an authored subject that cannot be read
+as UTF-8 text fails. Only the exact upstream wheel set admitted by the offline
+UI bundle validator is binary content rather than authored prose. The npm
+force-include set below was probed against the
 installed npm (12.0.2 — 2026-08-19: README/LICENSE/LICENCE/COPYING + the bin and
 main targets, CHANGELOG and NOTICE NOT force-included; 2026-08-20: the bin ARRAY
 form packs every entry, and a `browser` target is force-included like `main`) —
@@ -49,6 +54,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import types
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 
@@ -91,6 +97,43 @@ EXEMPT = {
     ),
 }
 
+# Each localized copy request is a complete line, never a host or file allowance.
+PUBLIC_INSTALL_REQUESTS = {
+    "README.md": ("Install ", "", "the public installation request names the package's declared source"),
+    "ko/README.md": ("", " 설치해줘", "the Korean installation request names the same declared source"),
+}
+
+
+def public_install_request_lines(root: pathlib.Path, subjects: list) -> tuple:
+    """Return exact admitted (path, line) pairs and named contract failures."""
+    declared = {name: row for name, row in PUBLIC_INSTALL_REQUESTS.items() if name in subjects}
+    if not declared:
+        return set(), []
+    try:
+        raw = json.loads((root / "package.json").read_text(encoding="utf-8"))["repository"]["url"]
+        uri = raw.removeprefix("git+").removesuffix(".git")
+        if not re.fullmatch(r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", uri):
+            raise ValueError("repository.url must identify one HTTPS repository")
+    except (AttributeError, KeyError, OSError, TypeError, ValueError) as exc:
+        return set(), [("package.json", f"public install request identity cannot be derived: {exc}")]
+    admitted, problems = set(), []
+    for name, (prefix, suffix, _reason) in declared.items():
+        try:
+            lines = (root / name).read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeError) as exc:
+            problems.append((name, f"public install request cannot be read: {exc}"))
+            continue
+        expected = prefix + uri + suffix
+        matches = [index + 1 for index, line in enumerate(lines)
+                   if line == expected and index > 0 and index + 1 < len(lines)
+                   and lines[index - 1] == "```text" and lines[index + 1] == "```"]
+        if len(matches) != 1:
+            problems.append((name, "public install request must appear exactly once as the metadata-derived "
+                             "single line in a text code block"))
+        else:
+            admitted.add((name, matches[0]))
+    return admitted, problems
+
 # files[] entries that legitimately do not exist in the tree because packing
 # creates them. Each carries its reason; anything else missing fails.
 GENERATED = {
@@ -101,6 +144,12 @@ GENERATED = {
 
 # Probed, not quoted from docs — see the module docstring before editing.
 ALWAYS_INCLUDED = re.compile(r"^(README|LICENSE|LICENCE|COPYING)(\.|$)", re.I)
+
+UI_BINARY_SCOPE = (
+    "compose/ui_runtime/",
+    "upstream UI distribution archives are binary dependencies, not authored prose; "
+    "the shipped validator must verify their exact manifest, hashes, purity, and licenses",
+)
 
 
 def fail(message: str) -> "NoReturn":
@@ -194,13 +243,50 @@ def subject_paths(root: pathlib.Path) -> list:
     return subjects
 
 
+def validated_binary_subjects(root: pathlib.Path, subjects: list) -> tuple:
+    """Admit only the verified, fully represented upstream UI wheel inventory."""
+    prefix, _reason = UI_BINARY_SCOPE
+    scoped = {name for name in subjects if name.startswith(prefix)}
+    if not scoped:
+        return set(), []
+    manifest_path = prefix + "manifest.json"
+    loader = root / "compose/corpus_ui_runtime.py"
+    try:
+        if loader.is_symlink() or not loader.is_file():
+            raise ValueError("the shipped UI bundle validator is missing or unsafe")
+        module = types.ModuleType("hygiene_ui_bundle_validator")
+        module.__file__ = str(loader)
+        # Read the judged source bytes directly: module/bytecode caches must not
+        # retain a different validator across scratch mutations or snapshots.
+        exec(compile(loader.read_bytes(), str(loader), "exec"), module.__dict__)
+        inventory = module.runtime_inventory(root)
+        if not isinstance(inventory, dict) or inventory.get("status") != "available":
+            detail = inventory.get("issues", []) if isinstance(inventory, dict) else inventory
+            raise ValueError(f"UI bundle validation failed: {detail}")
+        packages = inventory.get("packages")
+        if not isinstance(packages, list) or not packages:
+            raise ValueError("the UI validator admitted no wheel inventory")
+        archives = {prefix + row["filename"] for row in packages}
+        if len(archives) != len(packages) or any(not name.endswith(".whl") for name in archives):
+            raise ValueError("the UI validator did not admit a unique wheel inventory")
+        if scoped != archives | {manifest_path}:
+            raise ValueError("the binary subject set differs from the validated UI manifest")
+        return archives, []
+    except (AttributeError, ImportError, KeyError, OSError, RuntimeError, SyntaxError, TypeError, ValueError) as exc:
+        return set(), [("invalid binary bundle", manifest_path, 0, str(exc))]
+
+
 def scan(root: pathlib.Path, subjects: list) -> tuple:
     """(findings, exercised): (kind, file, line number, line) per undeclared hit."""
     if not subjects:
         fail("scan called over no subjects; an empty set satisfies everything")
-    findings = []
+    binary_subjects, findings = validated_binary_subjects(root, subjects)
+    public_lines, public_problems = public_install_request_lines(root, subjects)
+    findings.extend(("public install request", name, 0, message) for name, message in public_problems)
     exercised = set()
     for name in subjects:
+        if name in binary_subjects:
+            continue
         try:
             text = (root / name).read_text(encoding="utf-8")
         except (UnicodeDecodeError, OSError) as exc:
@@ -211,9 +297,13 @@ def scan(root: pathlib.Path, subjects: list) -> tuple:
             ))
             continue
         for number, line in enumerate(text.splitlines(), 1):
+            if (name, number) in public_lines:
+                exercised.add((name, "public install request"))
             for pattern_name, pattern, marker_escapes, scrub in PATTERNS:
                 probe_line = scrub.sub("", line) if scrub is not None else line
                 if not pattern.search(probe_line):
+                    continue
+                if pattern_name == "author identifier" and (name, number) in public_lines:
                     continue
                 exempt = EXEMPT.get((name, pattern_name))
                 if exempt is not None and exempt[0].search(line):
@@ -250,9 +340,10 @@ def run_scan() -> int:
               f"{len(subjects)} shipped files")
         return 1
     summary = ", ".join(f"{k} 0" for k, _, _, _ in PATTERNS)
+    binary_count = sum(name.startswith(UI_BINARY_SCOPE[0]) and name.endswith(".whl") for name in subjects)
     print(f"check-hygiene: OK — {len(subjects)} shipped files, {summary}, "
-          f"{len(exercised)}/{len(EXEMPT)} exemption(s) exercised on their "
-          f"declared line shapes")
+          f"{len(exercised)}/{len(EXEMPT) + sum(name in subjects for name in PUBLIC_INSTALL_REQUESTS)} exemption(s) exercised on their "
+          f"declared line shapes; {binary_count} validated upstream wheel archives")
     return 0
 
 
@@ -268,8 +359,8 @@ def self_test() -> int:
         def findings_now(subject_list=None):
             return scan(scratch, subject_list or subjects)[0]
 
-        def expect(label, wanted_kind, wanted_file, needle=None):
-            hits = [f for f in findings_now()
+        def expect(label, wanted_kind, wanted_file, needle=None, subject_list=None):
+            hits = [f for f in findings_now(subject_list)
                     if f[0] == wanted_kind and f[1] == wanted_file
                     and (needle is None or needle in f[3])]
             if not hits:
@@ -290,6 +381,37 @@ def self_test() -> int:
 
         # Positive control FIRST: the copy of the real tree must be clean.
         expect_clean("the unmodified copy of the shipped set")
+        repository = json.loads((scratch / "package.json").read_text(encoding="utf-8"))["repository"]["url"]
+        uri = repository.removeprefix("git+").removesuffix(".git")
+        base, owner, repo_name = uri.rsplit("/", 2)
+        for name, prefix, suffix in (("README.md", "Install ", ""), ("ko/README.md", "", " 설치해줘")):
+            if name not in subjects:
+                fail(f"self-test: public install request subject {name} is absent")
+            content = (scratch / name).read_text(encoding="utf-8")
+            request = prefix + uri + suffix
+            for label, changed in (
+                ("owner", prefix + f"{base}/{owner}-other/{repo_name}" + suffix),
+                ("repository", prefix + f"{base}/{owner}/{repo_name}-other" + suffix),
+                ("suffix", prefix + uri + "/tree/main" + suffix),
+                ("extra URL", request + " https://github.com/other/repo"),
+                ("fixture URL", request + " https://extra.test"),
+                ("personal binding", request + " kangmin-private"),
+                ("marked personal binding", request + " kangmin-private (private)"),
+            ):
+                (scratch / name).write_text(content.replace(request, changed, 1), encoding="utf-8")
+                expect(f"{name} public install request {label}", "public install request", name)
+            (scratch / name).write_text(content.replace("```text\n" + request + "\n```", request, 1), encoding="utf-8")
+            expect(f"{name} request outside its code block", "public install request", name)
+            (scratch / name).write_text(content + "\n```text\n" + request + "\n```\n", encoding="utf-8")
+            expect(f"{name} duplicate public request", "public install request", name)
+            (scratch / name).write_text(content, encoding="utf-8")
+        package_content = (scratch / "package.json").read_text(encoding="utf-8")
+        changed_package = json.loads(package_content)
+        changed_package["repository"]["url"] = f"git+{base}/{owner}/{repo_name}-other.git"
+        (scratch / "package.json").write_text(json.dumps(changed_package), encoding="utf-8")
+        expect("public request drift from repository metadata", "public install request", "README.md")
+        (scratch / "package.json").write_text(package_content, encoding="utf-8")
+        expect_clean("the restored public installation requests")
         # Each org branch proven by a plant EXCLUSIVE to it (round 2, #4), plus
         # the subsumed forms as input coverage.
         for token, needle in (
@@ -355,6 +477,42 @@ def self_test() -> int:
         expect("an unreadable subject", "unreadable subject", guide)
         (scratch / guide).write_text(original, encoding="utf-8")
         expect_clean("the restored tree")
+        # A .whl suffix grants no scope outside the exact validated bundle.
+        binary_subjects, binary_problems = validated_binary_subjects(scratch, subjects)
+        if binary_problems or not binary_subjects:
+            fail("self-test: the shipped UI wheel control set is empty or invalid")
+        wheel = sorted(binary_subjects)[0]
+        original_wheel = (scratch / wheel).read_bytes()
+        outside = "claude/guides/unverified-dependency.whl"
+        (scratch / outside).write_bytes(original_wheel)
+        expect("a wheel outside the declared bundle", "unreadable subject", outside,
+               subject_list=[*subjects, outside])
+        (scratch / outside).unlink()
+        # Changing either the wheel bytes or manifest revokes binary admission.
+        corrupted = bytearray(original_wheel)
+        corrupted[len(corrupted) // 2] ^= 1
+        (scratch / wheel).write_bytes(corrupted)
+        manifest = UI_BINARY_SCOPE[0] + "manifest.json"
+        expect("a corrupted admitted wheel", "invalid binary bundle", manifest, "SHA256")
+        (scratch / wheel).write_bytes(original_wheel)
+        manifest_bytes = (scratch / manifest).read_bytes()
+        changed_manifest = json.loads(manifest_bytes)
+        changed_manifest["root_requirement"] = "textual==0.0.0"
+        (scratch / manifest).write_text(json.dumps(changed_manifest), encoding="utf-8")
+        expect("a changed binary manifest", "invalid binary bundle", manifest, "fingerprint")
+        (scratch / manifest).write_bytes(manifest_bytes)
+        rogue = UI_BINARY_SCOPE[0] + "unlisted-py3-none-any.whl"
+        (scratch / rogue).write_bytes(original_wheel)
+        expect("an unlisted wheel inside the bundle", "invalid binary bundle", manifest,
+               "exact wheel inventory", subject_list=[*subjects, rogue])
+        (scratch / rogue).unlink()
+        validator = scratch / "compose/corpus_ui_runtime.py"
+        validator_bytes = validator.read_bytes()
+        validator.write_text("def runtime_inventory(repo):\n    return {'status': 'unavailable', 'issues': ['validation disabled']}\n",
+                             encoding="utf-8")
+        expect("disabled shipped bundle validation", "invalid binary bundle", manifest, "validation disabled")
+        validator.write_bytes(validator_bytes)
+        expect_clean("the restored binary bundle and validator")
         # Derivation holes fail rather than shrinking the denominator.
         package = json.loads((REPO / "package.json").read_text(encoding="utf-8"))
         tracked = [s for s in subjects if s != "provenance.json"]

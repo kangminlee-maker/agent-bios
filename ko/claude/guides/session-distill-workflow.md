@@ -13,7 +13,7 @@ core_rules:
   - ledger가 상태의 SSOT다; pipeline을 건드리기 전에 먼저 읽는다
   - placement는 PLACEMENT-FRAMEWORK.md를 따른다, ad-hoc 판단은 쓰지 않는다
   - 모든 promotion은 명시적 사용자 승인 gate를 통과한다
-  - round당 global growth는 측정된 gate로 hard-cap된다(~500 token)
+  - canonical always surface는 축소만 허용한다; 추가 내용은 guide, skill 또는 세션 주입에 둔다
   - window를 닫을 때 mirror, parity, 배포, nudge baseline을 갱신한다
 ---
 
@@ -77,8 +77,8 @@ session-distill 실행을 위한 runbook: 최근 main-context 세션을 mining�
 ## 다음으로 읽기 (SSOT)
 
 1. `design/session-distill/ledger.json` — initiative의 상태. 모든 item이 status(placed / incubating / incubating-G / absorbed / adopted-no-text)와 strength, provenance를 들고 있으므로 무엇이 열려 있고 무엇이 promote됐고 무엇이 아직 incubating인지는 전부 이 파일에 대한 query다. 상태는 여기서만 읽는다: 산문에 적힌 수치나 상태는 적은 날에만 맞고 그 뒤로는 조용히 틀린다.
-2. `design/session-distill/versions.json` — 닫힌 mining window가 어느 commit에 대응하는지, 따라서 rollback이 무엇을 되돌리는지.
-3. `design/session-distill/PLACEMENT-FRAMEWORK.md` — placement authority(typology A–G, layer, admission bar, lifecycle).
+2. `design/session-distill/versions.json` — 닫힌 mining window와 해당 commit을 연결하는 저작 provenance. Private rollback은 corpus plan에서 설치된 `baseline_ref`를 선택하며, 이 registry가 그 선택의 기준은 아니다.
+3. `design/session-distill/PLACEMENT-FRAMEWORK.md` — placement framework(typology A–G, layer, admission bar, lifecycle). 위치를 고를 때는 현재 `AGENTS.md`의 축소 전용 규칙과 `SURFACES.md`의 전달 계약을 적용한다. 이 framework가 global 증가를 허용하지는 않는다.
 
 ## Stage 1 — Mine (pipeline in `session-distill/`)
 
@@ -100,8 +100,8 @@ session-distill 실행을 위한 runbook: 최근 main-context 세션을 mining�
 ## Stage 3 — Classify and apply (§P8)
 
 - 승인된 각 item을 framework pipeline으로 진행시킨다: type(A–G) → leftward reformulation(fact→principle, knowledge→structure) → layer → consumer check(hermetic dispatch와 script는 prose를 읽지 않는다) → admission bar → token 추정. 모호함은 사용자를 위해 PROPOSED로 남긴다.
-- canonical-first로, branch에서, 단계별 commit으로 적용한다: canonical guide text → 측정된 budget gate 아래의 global 편집(net growth ≤ round당 ~500 token; overflow는 조용히 미루지 않고 guide로 재라우팅한다) → 다른 guide → hook(주입된 text는 canonical guide에서 도출한다; read-only, 절대 blocking하지 않는다) → owned wrapper의 enforcement(loud failure; stdout/stderr channel contract를 유지한다) → codex/ + ko/ mirror.
-- diff만이 아니라 layer별로 검증한다: enforcement/gate fixture test(non-vacuous — known-bad는 반드시 fire해야 한다), hook trigger positive/negative set, `gates/check-parity.sh` unpiped exit 0, prompting-target gate, 그다음 `agent-bios install`로 활성화하고 재검증한다.
+- canonical-first로, branch에서, 단계별 commit으로 적용한다: canonical guide text → canonical always surface 축소(규칙 삭제·병합·이동만 허용하며 추가 내용은 guide, skill 또는 세션 주입에 둔다) → 다른 guide → hook(주입된 text는 canonical guide에서 도출한다; read-only, 절대 blocking하지 않는다) → owned wrapper의 enforcement(loud failure; stdout/stderr channel contract를 유지한다) → codex/ + ko/ mirror.
+- diff만이 아니라 layer별로 검증한다: enforcement/gate fixture test(non-vacuous — known-bad는 반드시 fire해야 한다), hook trigger positive/negative set, `gates/check-parity.sh` unpiped exit 0, prompting-target gate, 그다음 이 checkout에서 `bash install.sh install`로 변경된 private release를 저장하고 `bash install.sh verify`로 확인한다. `agent-launch`에서 새 configured session을 활성화하고 전달 근거를 따로 확인한다. 설치는 content를 활성화하거나 기존 세션의 pin을 바꾸지 않는다.
 
 ## Stage 4 — G-pass (principles, not directives)
 
@@ -111,6 +111,6 @@ session-distill 실행을 위한 runbook: 최근 main-context 세션을 mining�
 ## Stage 5 — Close the window
 
 1. Ledger: 상태를 placed(구현 경로 포함) / incubating으로 바꾼다; 반박된 것에는 날짜를 붙인 정정을 남긴다.
-2. HANDOFF: 완료 기록, 우발적 발견은 next-window candidate로 남긴다.
-3. corpus version을 등록한다: {version = window 종료일, commit = corpus 마감 commit}을 `design/session-distill/versions.json`에 append한다 — launcher의 Versions & rollback 화면이 제공하는 목록이 바로 이것이다 — 그 다음 `python3 session-distill/update-state.py --window-end <date>`(nudge baseline)와 `corpus-state.py project`(launcher 상태 패널)를 실행한다.
-4. branch를 merge하고, push하고, 배포된 상태를 확인한다(`agent-bios verify`).
+2. `AGENTS.md` 형식에 따라 `design/session-distill/`에 timestamp가 있는 새 완료 기록을 쓴다. 우발적 발견은 next-window candidate로 남긴다.
+3. corpus version을 등록한다: {version = window 종료일, commit = corpus 마감 commit}을 `design/session-distill/versions.json`에 append하여 저작 provenance를 남긴다. Private rollback은 `agent-bios corpus plan`에서 설치된 `baseline_ref`를 선택하며 이 window registry가 전역 파일 rollback을 허용하지는 않는다. 그 다음 `python3 session-distill/update-state.py --window-end <date>`(nudge baseline)와 `corpus-state.py project`(launcher 상태 패널)를 실행한다.
+4. branch를 merge하고, push하고, 이 checkout의 private release를 확인한다(`bash install.sh verify`). 저장 상태와 세션 전달의 근거는 따로 보고한다.

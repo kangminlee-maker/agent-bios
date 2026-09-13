@@ -86,6 +86,9 @@ def build_parser() -> argparse.ArgumentParser:
     snapshot_view.add_argument("--host", choices=("claude", "codex"))
     snapshot_view.add_argument("--content-ref", help="read this stored snapshot without resolving current authoring")
     snapshot.add_argument("--native", action="store_true", help="opt into selected native hooks on either host and Claude agents for this snapshot")
+    snapshot.add_argument("--selection-mode", choices=("default", "selected", "none"))
+    snapshot.add_argument("--select", action="append", help="one-session package/domain/item selection")
+    snapshot.add_argument("--cwd", type=Path, help="project scope for this snapshot")
 
     install = sub.add_parser("install", help="record the current package as a private baseline")
     install.add_argument("--domains", help="comma-separated qualified selection values")
@@ -177,10 +180,12 @@ def run_command(args: argparse.Namespace, store: CorpusStore) -> Any:
         return store.status()
     if command == "snapshot":
         if args.content_ref:
-            if args.native:
-                raise CorpusStoreError("a stored snapshot is immutable; --native requires --host")
+            if args.native or args.selection_mode or args.select or args.cwd:
+                raise CorpusStoreError("a stored snapshot is immutable; selection and scope options require --host")
             return store.snapshot_inventory(args.content_ref)
-        return store.snapshot(args.host, native=args.native)
+        return store.snapshot(args.host, selection=args.select, native=args.native,
+                              selection_mode=args.selection_mode or ("selected" if args.select is not None else None),
+                              cwd=args.cwd)
     if command == "install":
         domains = None
         if args.domains is not None:
@@ -328,14 +333,16 @@ def _run_tui_or_fallback(args: argparse.Namespace, store: CorpusStore) -> int:
     module_name = f"{__package__}.corpus_ui" if __package__ else "corpus_ui"
     try:
         module = importlib.import_module(module_name)
-    except ModuleNotFoundError as exc:
-        if exc.name not in {"textual", "corpus_ui", module_name}:
+    except ImportError as exc:
+        missing_ui_dependency = any(exc.name == name or (exc.name or "").startswith(name + ".")
+                                    for name in ("textual", "rich"))
+        if not missing_ui_dependency and exc.name not in {"corpus_ui", module_name}:
             raise
         interpreter = venv_python()
         if (
-            exc.name == "textual"
+            missing_ui_dependency
             and interpreter is not None
-            and Path(sys.executable).resolve() != interpreter.resolve()
+            and Path(sys.executable).absolute() != interpreter.absolute()
             and os.environ.get("AGENT_BIOS_CORPUS_TUI_REEXEC") != "1"
         ):
             env = os.environ.copy()
@@ -358,7 +365,20 @@ def _run_tui_or_fallback(args: argparse.Namespace, store: CorpusStore) -> int:
     return 0
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def _run_bundled_tui(store: CorpusStore) -> int:
+    try:
+        from corpus_ui_runtime import activate_ui_runtime
+        activate_ui_runtime(Path(__file__).resolve().parents[1])
+        module_name = f"{__package__}.corpus_ui" if __package__ else "corpus_ui"
+        module = importlib.import_module(module_name)
+    except (ImportError, OSError, RuntimeError) as exc:
+        raise CorpusStoreError(f"bundled terminal UI could not start: {exc}") from exc
+    app = module.CorpusStudio(store)
+    app.run()
+    return 0
+
+
+def main(argv: Sequence[str] | None = None, *, bundled_ui: bool = False) -> int:
     parser = build_parser()
     raw = list(sys.argv[1:] if argv is None else argv)
     # Machine callers naturally put --json after the verb.  argparse only accepts
@@ -372,6 +392,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         if args.command is None:
             if sys.stdin.isatty() and sys.stdout.isatty():
+                if bundled_ui:
+                    return _run_bundled_tui(store)
                 return _run_tui_or_fallback(args, store)
             args.command = "list"
             args.active_only = False
@@ -384,4 +406,4 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(bundled_ui=True))

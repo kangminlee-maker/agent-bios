@@ -311,6 +311,7 @@ class CorpusStore:
         # Optional, so reading an older state does not change its revision or the
         # exact before/after documents used by prepared-transaction recovery.
         self._enabled_overrides(state)
+        self._selection_mode(state, {})
         return state
 
     @staticmethod
@@ -321,6 +322,13 @@ class CorpusStore:
                 for ref, value in values.items())):
             raise CorpusStoreError("personal state has invalid enabled_overrides")
         return values
+
+    @staticmethod
+    def _selection_mode(user: dict[str, Any], defaults: dict[str, Any], requested: str | None = None) -> str:
+        value = requested if requested is not None else user.get("selection_mode", defaults.get("selection_mode", "default"))
+        if not isinstance(value, str) or value not in {"default", "selected", "none"}:
+            raise ValidationError("selection_mode must be default, selected, or none")
+        return value
 
     def _write_transaction(self, tx_id: str, record: dict[str, Any]) -> None:
         _atomic_write(self.runtime / "transactions" / tx_id / "journal.json", record)
@@ -645,7 +653,7 @@ class CorpusStore:
             raise ValidationError("selection must be a list of qualified refs/domains")
         packages = {p.get("package_id") for p in inventory.get("packages", []) if isinstance(p, dict)}
         for value in selection:
-            if value == "all":
+            if value == "all" or value in packages:
                 continue
             if ":" in value:
                 continue
@@ -704,6 +712,18 @@ class CorpusStore:
             if package not in packages or domain not in packages[package]:
                 raise ValidationError(f"unknown corpus selection domain: {value}")
 
+    def _selection_subjects(self, runtime: dict[str, Any], user: dict[str, Any],
+                            items: list[dict[str, Any]], selection: list[str] | None) -> list[dict[str, Any]]:
+        """Validate stored host-qualified selections without delivering another host's items."""
+        subjects = list(items)
+        refs = {item["ref"] for item in subjects}
+        for host in ("claude", "codex"):
+            prefix = f"@local/learnings-{host}:"
+            if any(value.startswith(prefix) and value not in refs for value in selection or []):
+                subjects.extend(item for item in self._effective_items(runtime, user, host=host)[0]
+                                if item.get("active", True))
+        return subjects
+
     def _validate_candidate_projection(self, runtime: dict[str, Any], user: dict[str, Any]) -> None:
         """Use the real compiler as a plan validator without publishing output."""
         catalog = self._catalog_module()
@@ -713,8 +733,10 @@ class CorpusStore:
                     items, _inventory, defaults, _baseline = self._effective_items(runtime, user, host=host)
                     active = [item for item in items if item.get("active", True) is not False]
                     selection = self._effective_selection(user, defaults, None)
-                    self._validate_snapshot_selection(selection, _inventory, active)
-                    selected = self._selected_items(active, selection, self._enabled_overrides(user))
+                    self._validate_snapshot_selection(selection, _inventory,
+                                                      self._selection_subjects(runtime, user, active, selection))
+                    selected = self._selected_items(active, selection, self._enabled_overrides(user),
+                                                    mode=self._selection_mode(user, defaults), host=host)
                     self._require_resolved(selected)
                     catalog.compile_items(_copy_json(selected), Path(temp) / host, host)
         except Exception as exc:
@@ -802,12 +824,15 @@ class CorpusStore:
 
     # ---- public read API ----------------------------------------------------
 
-    def install(self, domains: list[str] | None = None) -> dict[str, Any]:
+    def install(self, domains: list[str] | None = None, *, selection_mode: str | None = None,
+                replace_selection: bool = False) -> dict[str, Any]:
         """Install one immutable validated baseline tuple without touching user data."""
         with self._lock():
-            return self.commit_install(self.prepare_install(domains))
+            return self.commit_install(self.prepare_install(domains, selection_mode=selection_mode,
+                                                           replace_selection=replace_selection))
 
-    def prepare_install(self, domains: list[str] | None = None) -> dict[str, Any]:
+    def prepare_install(self, domains: list[str] | None = None, *, selection_mode: str | None = None,
+                        replace_selection: bool = False) -> dict[str, Any]:
         """Stage a validated baseline and source plan without advancing any pointer."""
         with self._lock():
             self._recover_locked()
@@ -820,9 +845,15 @@ class CorpusStore:
             items = [self._validate_item(item, allow_origin=True) for item in raw_items]
             if len({item["ref"] for item in items}) != len(items):
                 raise ValidationError("catalog has duplicate corpus refs")
-            defaults = {"schema_version": SCHEMA_VERSION,
-                        "selection": self._normalized_install_selection(domains, catalog) +
-                                     [LOCAL_PACKAGE, "@local/learnings-claude", "@local/learnings-codex"]}
+            mode = self._selection_mode({}, {}, selection_mode)
+            selected = self._normalized_install_selection(domains, catalog)
+            if mode == "none" and selected:
+                raise ValidationError("no-corpus installation cannot include selection targets")
+            defaults = {"schema_version": SCHEMA_VERSION, "selection": selected}
+            if mode == "default":
+                defaults["selection"] += [LOCAL_PACKAGE, "@local/learnings-claude", "@local/learnings-codex"]
+            if selection_mode is not None:
+                defaults["selection_mode"] = mode
             promotion_path = self.repo / "learn" / "promotions.json"
             promotions = _json_read(promotion_path, {"version": 0, "promotions": []})
             if not isinstance(promotions, dict) or not isinstance(promotions.get("promotions"), list):
@@ -849,6 +880,11 @@ class CorpusStore:
                 # successful-install record changes.
                 next_user = self._rebase_overlays(old_inventory, catalog, user)
             before = {"runtime": _copy_json(runtime), "user": _copy_json(user)}
+            if replace_selection:
+                next_user = _copy_json(next_user)
+                next_user["selection"] = _copy_json(defaults["selection"])
+                next_user["selection_mode"] = mode
+                next_user.pop("enabled_overrides", None)
             _atomic_write(root / "inventory.json", catalog)
             _atomic_write(root / "defaults.json", defaults)
             _atomic_write(root / "promotions.json", promotions)
@@ -909,6 +945,7 @@ class CorpusStore:
                 "revision": revision, "baseline_count": len(refs),
                 "personal_items": len(user["items"]), "overrides": len(user["overrides"]),
                 "tombstones": len(user["tombstones"]), "selection": self._effective_selection(user, defaults, None),
+                "selection_mode": self._selection_mode(user, defaults),
                 "enabled_overrides": _copy_json(self._enabled_overrides(user)),
             }
 
@@ -925,7 +962,8 @@ class CorpusStore:
             overrides = self._enabled_overrides(user)
             selection = self._effective_selection(user, defaults, None)
             enabled = {item["ref"] for item in self._selected_items(
-                [item for item in effective.values() if item.get("active", True) is not False], selection, overrides)}
+                [item for item in effective.values() if item.get("active", True) is not False], selection, overrides,
+                mode=self._selection_mode(user, defaults))}
             revision = self._authoring_revision(runtime, user)
             rows: list[dict[str, Any]] = []
             for ref in sorted(set(source) | set(user["items"]) | set(effective)):
@@ -993,11 +1031,12 @@ class CorpusStore:
         raise CorpusStoreError("could not allocate an unused personal identity")
 
     def _prepare_operation(self, payload: dict[str, Any], runtime: dict[str, Any], user: dict[str, Any],
-                           *, allocated_item_id: str | None = None) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+                           *, allocated_item_id: str | None = None,
+                           allocated_item_ids: list[str] | None = None) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
         if not isinstance(payload, dict):
             raise ValidationError("plan payload must be an object")
         op = payload.get("operation", payload.get("op"))
-        if op not in {"create", "update", "remove", "restore", "recover", "reset", "rollback", "select", "enable"}:
+        if not isinstance(op, str) or op not in {"create", "update", "remove", "restore", "recover", "reset", "rollback", "select", "enable", "import"}:
             raise ValidationError("unknown corpus operation")
         allowed = {
             "create": {"operation", "op", "item", "package_id", "expected_revision"},
@@ -1007,8 +1046,9 @@ class CorpusStore:
             "recover": {"operation", "op", "ref", "expected_revision"},
             "reset": {"operation", "op", "expected_revision"},
             "rollback": {"operation", "op", "baseline_ref", "history_id", "expected_revision"},
-            "select": {"operation", "op", "selection", "expected_revision"},
+            "select": {"operation", "op", "selection", "selection_mode", "expected_revision"},
             "enable": {"operation", "op", "items", "expected_revision"},
+            "import": {"operation", "op", "capture_id", "candidates", "excluded", "expected_revision"},
         }[op]
         unknown = set(payload) - allowed
         if unknown:
@@ -1021,7 +1061,31 @@ class CorpusStore:
         items, inventory, defaults, _baseline_ref = self._effective_items(runtime, user)
         effective = {item["ref"]: item for item in items}
         details: dict[str, Any] = {"operation": op}
-        if op == "create":
+        if op == "import":
+            import importlib
+            name = "compose.corpus_import" if __package__ else "corpus_import"
+            prepared_import = importlib.import_module(name).prepare_items(self, payload, user)
+            refs = prepared_import["existing_refs"]
+            receipt = prepared_import["receipt"]
+            rows = prepared_import["items"]
+            if rows:
+                if allocated_item_ids is None or len(allocated_item_ids) != len(rows):
+                    raise ValidationError("import needs recorded runtime-owned identities")
+                refs = []
+                for raw, item_id in zip(rows, allocated_item_ids):
+                    _safe_part(item_id, "personal item id")
+                    raw = _copy_json(raw)
+                    raw.update(package_id=LOCAL_PACKAGE, item_id=item_id, ref=f"{LOCAL_PACKAGE}:{item_id}")
+                    item = self._validate_item(self._normalize_content(raw), allow_origin=True)
+                    if item["ref"] in effective or item["ref"] in next_user["items"]:
+                        raise ValidationError("import identity is already in use")
+                    next_user["items"][item["ref"]] = item
+                    refs.append(item["ref"])
+                receipt["refs"] = refs
+                receipt["item_digests"] = {ref: _digest(next_user["items"][ref]) for ref in refs}
+                next_user.setdefault("imports", {})[receipt["request_digest"]] = receipt
+            details.update(refs=refs, import_receipt=receipt, already_imported=not bool(rows))
+        elif op == "create":
             raw = _copy_json(payload.get("item"))
             if not isinstance(raw, dict):
                 raise ValidationError("create needs item")
@@ -1168,6 +1232,14 @@ class CorpusStore:
             details["items"] = _copy_json(choices)
         elif op == "select":
             selection = self._validate_selection(payload.get("selection"), inventory)
+            if "selection_mode" in payload:
+                if payload["selection_mode"] is None:
+                    raise ValidationError("selection_mode cannot be null")
+                mode = self._selection_mode({}, {}, payload["selection_mode"])
+                if mode == "none" and selection:
+                    raise ValidationError("no-corpus selection cannot include targets")
+                next_user["selection_mode"] = mode
+                details["selection_mode"] = mode
             next_user["selection"] = selection
             details["selection"] = selection
         elif op == "reset":
@@ -1181,6 +1253,8 @@ class CorpusStore:
             next_runtime["selected_baseline_ref"] = latest
             _inv, latest_defaults = self._read_baseline(latest)
             next_user["selection"] = latest_defaults.get("selection")
+            if "selection_mode" in latest_defaults:
+                next_user["selection_mode"] = latest_defaults["selection_mode"]
             details["baseline_ref"] = latest
         elif op == "rollback":
             history_id = payload.get("history_id")
@@ -1209,8 +1283,22 @@ class CorpusStore:
             self._recover_locked()
             runtime, user = self._runtime_state(), self._user_state()
             before = self._authoring_revision(runtime, user)
-            allocated = self._next_personal_id(user) if isinstance(payload, dict) and payload.get("operation", payload.get("op")) == "create" else None
-            next_runtime, next_user, details = self._prepare_operation(payload, runtime, user, allocated_item_id=allocated)
+            op = payload.get("operation", payload.get("op")) if isinstance(payload, dict) else None
+            allocated = self._next_personal_id(user) if op == "create" else None
+            allocated_many = None
+            if op == "import":
+                import importlib
+                name = "compose.corpus_import" if __package__ else "corpus_import"
+                importer = importlib.import_module(name)
+                payload = importer.sanitize_import_payload(payload)
+                prepared_import = importer.prepare_items(self, payload, user)
+                allocated_many, reserved = [], _copy_json(user)
+                for _item in prepared_import["items"]:
+                    item_id = self._next_personal_id(reserved)
+                    allocated_many.append(item_id)
+                    reserved["items"][f"{LOCAL_PACKAGE}:{item_id}"] = {}
+            next_runtime, next_user, details = self._prepare_operation(payload, runtime, user, allocated_item_id=allocated,
+                                                                      allocated_item_ids=allocated_many)
             self._validate_candidate_projection(next_runtime, next_user)
             after = self._authoring_revision(next_runtime, next_user)
             plan_id = uuid.uuid4().hex
@@ -1222,6 +1310,8 @@ class CorpusStore:
             }
             if allocated is not None:
                 plan["allocated_item_id"] = allocated
+            if allocated_many is not None:
+                plan["allocated_item_ids"] = allocated_many
             self._write_transaction(plan_id, {"state": "PLANNED", "plan": plan})
             return {key: plan[key] for key in ("schema_version", "plan_id", "expected_revision", "result_revision", "details")}
 
@@ -1251,11 +1341,16 @@ class CorpusStore:
                 # Persisted pre-allocation plans already resolved their identity in after-state.
                 ref = plan.get("details", {}).get("ref")
                 allocated = ref.split(":", 1)[1] if isinstance(ref, str) and ref.startswith(LOCAL_PACKAGE + ":") else None
-            next_runtime, next_user, details = self._prepare_operation(plan["payload"], runtime, user, allocated_item_id=allocated)
+            next_runtime, next_user, details = self._prepare_operation(plan["payload"], runtime, user, allocated_item_id=allocated,
+                                                                      allocated_item_ids=plan.get("allocated_item_ids"))
             self._validate_candidate_projection(next_runtime, next_user)
             result = self._authoring_revision(next_runtime, next_user)
             if result != plan.get("result_revision"):
                 raise CorpusStoreError("plan result changed during apply")
+            if details.get("operation") == "import":
+                import importlib
+                name = "compose.corpus_import" if __package__ else "corpus_import"
+                importlib.import_module(name).verify_import_sources(self, details)
             prepared = {"state": "PREPARED", "plan": plan, "prior_revision": current, "prepared_at": _utcnow()}
             history_id = f"{prepared['prepared_at'].replace(':', '').replace('+00:00', 'Z')}-{plan_id[:12]}"
             prepared["history_id"] = history_id
@@ -1279,18 +1374,42 @@ class CorpusStore:
     # ---- immutable snapshots and history -----------------------------------
 
     def _selected_items(self, items: list[dict[str, Any]], selection: list[str] | None,
-                        overrides: dict[str, bool] | None = None) -> list[dict[str, Any]]:
+                        overrides: dict[str, bool] | None = None, *, mode: str = "default",
+                        host: str | None = None, cwd: str | Path | None = None) -> list[dict[str, Any]]:
+        self._selection_mode({}, {}, mode)
+        if mode == "none":
+            return []
         overrides = overrides or {}
+        working = Path(cwd or Path.cwd()).resolve()
         selected: list[dict[str, Any]] = []
         for item in items:
-            if item["ref"] in overrides:
+            origin = item.get("origin", {})
+            if origin.get("type") == "instruction_import":
+                scope = origin.get("scope", {})
+                if not isinstance(scope, dict) or scope.get("kind") not in {"global", "project"}:
+                    raise ValidationError("imported item has invalid source scope")
+                hosts = origin.get("hosts", ["claude", "codex"])
+                if not isinstance(hosts, list) or not hosts or any(value not in {"claude", "codex"} for value in hosts):
+                    raise ValidationError("imported item has invalid host scope")
+                if host is not None and host not in hosts:
+                    continue
+                if scope["kind"] == "project":
+                    root = scope.get("root")
+                    if not isinstance(root, str) or not Path(root).is_absolute():
+                        raise ValidationError("imported project root must be absolute")
+                    project_root = Path(root)
+                    if project_root.resolve() != project_root:
+                        raise ValidationError("imported project root is no longer canonical; review its scope")
+                    if not working.is_relative_to(project_root):
+                        continue
+            if item["ref"] in overrides and (mode == "default" or overrides[item["ref"]] is False):
                 if overrides[item["ref"]]:
                     selected.append(item)
                 continue
             if selection and "all" in selection:
                 selected.append(item)
                 continue
-            if item.get("tier") in {"core", "infra"}:
+            if mode == "default" and item.get("tier") in {"core", "infra"}:
                 selected.append(item)
                 continue
             if not selection:
@@ -1303,7 +1422,8 @@ class CorpusStore:
         return selected
 
     def snapshot(self, host: str, selection: list[str] | None = None, dry_run: bool = False,
-                 native: bool = False) -> dict[str, Any]:
+                 native: bool = False, *, selection_mode: str | None = None,
+                 cwd: str | Path | None = None) -> dict[str, Any]:
         """Compose an immutable activated-session snapshot.
 
         A dry run has no durable write path: it compiles in an OS temporary
@@ -1327,8 +1447,16 @@ class CorpusStore:
             items, inventory, defaults, baseline_ref = self._effective_items(runtime, user, host=host)
             active = [item for item in items if item.get("active", True) is not False]
             effective_selection = self._effective_selection(user, defaults, selection)
-            self._validate_snapshot_selection(effective_selection, inventory, active)
-            selected = self._selected_items(active, effective_selection, self._enabled_overrides(user))
+            mode = self._selection_mode(user, defaults, selection_mode)
+            if selection is not None and selection_mode is None and mode == "none":
+                mode = "default"
+            if mode == "none":
+                effective_selection = []
+            working = Path(cwd or Path.cwd()).resolve()
+            self._validate_snapshot_selection(effective_selection, inventory,
+                                              self._selection_subjects(runtime, user, active, effective_selection))
+            selected = self._selected_items(active, effective_selection, self._enabled_overrides(user),
+                                            mode=mode, host=host, cwd=working)
             self._require_resolved(selected)
             selected, promotion_warnings = self._resolve_promotions(selected, user, host, baseline_ref)
             bootstrap_path = self.repo / "compose" / "bootstrap" / "SKILL.md"
@@ -1338,6 +1466,7 @@ class CorpusStore:
             inputs = {
                 "schema_version": SCHEMA_VERSION, "host": host, "baseline_ref": baseline_ref,
                 "selection": effective_selection,
+                "selection_mode": mode, "cwd": str(working),
                 "selection_digest": _digest(effective_selection),
                 "authoring_revision": self._authoring_revision(runtime, user),
                 "item_digests": {item["ref"]: _digest(item) for item in sorted(selected, key=lambda x: x["ref"])},
@@ -1379,14 +1508,21 @@ class CorpusStore:
                     files = _snapshot_relative_paths(compiled.get("files"))
                     output = {
                         "instruction_text": compiled.get("instruction_text", ""),
-                        "files": sorted(set(files) | {"bootstrap/SKILL.md"}), "item_refs": compiled.get("item_refs", []),
+                        "files": sorted(set(files) | ({"bootstrap/SKILL.md"} if mode != "none" else set())), "item_refs": compiled.get("item_refs", []),
                         "unavailable": compiled.get("unavailable", []) + promotion_warnings,
                     }
                     assets = _snapshot_assets(compiled.get("assets", {}), files)
                     if assets:
                         output["assets"] = assets
-                    invocation = f"Corpus management: invoke $corpus using {root / 'bootstrap' / 'SKILL.md'}."
-                    output["instruction_text"] = output["instruction_text"].rstrip() + "\n\n" + invocation + "\n"
+                    invocation = (f"Corpus management: invoke $agent-bios using {root / 'bootstrap' / 'SKILL.md'}."
+                                  if mode != "none" else "")
+                    if mode == "none":
+                        output["instruction_text"] = ""
+                        for relative in files:
+                            if relative == "launch-content/instructions.md":
+                                (staging / relative).write_text("", encoding="utf-8")
+                    else:
+                        output["instruction_text"] = output["instruction_text"].rstrip() + "\n\n" + invocation + "\n"
                     for plugin in assets.get("claude_plugins", []):
                         for agent_path in (staging / plugin / "agents").glob("*.md"):
                             with agent_path.open("a", encoding="utf-8") as agent_file:
@@ -1394,9 +1530,10 @@ class CorpusStore:
                     if dry_run:
                         output["instruction_text"] = output["instruction_text"].replace(str(staging), str(root))
                     else:
-                        bootstrap_target = staging / "bootstrap" / "SKILL.md"
-                        bootstrap_target.parent.mkdir(parents=True, exist_ok=True)
-                        bootstrap_target.write_bytes(bootstrap_path.read_bytes())
+                        if mode != "none":
+                            bootstrap_target = staging / "bootstrap" / "SKILL.md"
+                            bootstrap_target.parent.mkdir(parents=True, exist_ok=True)
+                            bootstrap_target.write_bytes(bootstrap_path.read_bytes())
                         _rewrite_staged_paths(staging, root)
                         output["instruction_text"] = output["instruction_text"].replace(str(staging), str(root))
                         _atomic_write(staging / "inventory.json", {"inputs": inputs, "items": selected})
@@ -1419,6 +1556,7 @@ class CorpusStore:
                         shutil.rmtree(staging)
             return {"content_ref": content_ref, "path": str(root), "instruction_text": output["instruction_text"],
                     "revision": inputs["authoring_revision"], "unavailable": output.get("unavailable", []),
+                    "item_refs": output.get("item_refs", []), "selection_mode": mode,
                     "assets": output.get("assets", {})}
 
     def history(self, ref: str | None = None) -> list[dict[str, Any]]:

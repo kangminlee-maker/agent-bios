@@ -26,6 +26,9 @@ import tomllib
 import uuid
 from typing import Any
 
+if __name__ == "__main__":
+    sys.dont_write_bytecode = True
+
 from corpus_transaction import (
     _valid_release,
     TransactionError,
@@ -345,7 +348,8 @@ class CorpusInstaller:
         # CorpusStore delegates compile/load to a module name for normal package
         # execution. Bind this instance to the release's exact catalog so a
         # long-lived manager cannot retain an older release through sys.modules.
-        store._catalog_module = lambda: self._private_module(package_root, "corpus_catalog")
+        catalog = self._private_module(package_root, "corpus_catalog")
+        store._catalog_module = lambda: catalog
         return store
 
     def _catalog(self, package_root: Path) -> dict[str, Any]:
@@ -374,7 +378,9 @@ class CorpusInstaller:
         """Keep the legacy launcher panel readable without claiming activation."""
         manifest = _read_json(package_root / "compose" / "domains.json")
         available = sorted((manifest.get("domains") or {}).keys())
-        applied = available if selection == ["all"] else sorted(value.rsplit("/", 1)[-1] for value in selection)
+        package_id = manifest.get("package_id", "@agent-bios/core")
+        applied = available if "all" in selection or package_id in selection else [
+            name for name in available if f"{package_id}/{name}" in selection]
         _atomic_json(self.state_root / "corpus-status.json", {
             "repo": str(package_root), "current_version": None, "latest_version": None,
             "rolled_back_to": None, "versions": None, "summary": None,
@@ -387,7 +393,9 @@ class CorpusInstaller:
         """The status projection is part of the same publication as its record."""
         manifest = _read_json(package_root / "compose" / "domains.json")
         available = sorted((manifest.get("domains") or {}).keys())
-        applied = available if selection == ["all"] else sorted(value.rsplit("/", 1)[-1] for value in selection)
+        package_id = manifest.get("package_id", "@agent-bios/core")
+        applied = available if "all" in selection or package_id in selection else [
+            name for name in available if f"{package_id}/{name}" in selection]
         return _canonical({
             "repo": str(package_root), "current_version": None, "latest_version": None,
             "rolled_back_to": None, "versions": None, "summary": None,
@@ -544,6 +552,85 @@ class CorpusInstaller:
         spec.loader.exec_module(module)
         return module.ShellIntegration(self.env, self.repo)
 
+    def setup_catalog(self) -> dict[str, Any]:
+        catalog = self._catalog(self.repo)
+        catalog = json.loads(json.dumps(catalog))
+        present = {package["package_id"] for package in catalog["packages"]}
+        for package_id, label in (("@local/personal", "Personal corpus"),
+                                  ("@local/learnings-claude", "Claude learning records"),
+                                  ("@local/learnings-codex", "Codex learning records")):
+            if package_id not in present:
+                catalog["packages"].append({"package_id": package_id, "domains": {"personal": label}})
+        return catalog
+
+    def setup_discover(self, project_roots=None) -> dict[str, Any]:
+        try:
+            from .corpus_import import discover
+        except ImportError:
+            from corpus_import import discover
+        return discover(environ=self.env, project_roots=project_roots)
+
+    def setup_revision(self) -> str:
+        """Bind an installation review to the current private selection and authoring."""
+        paths = (self.record_path, self.runtime / "state.json", self.user_root / "state.json")
+        return hashlib.sha256(_canonical({str(path): self._file_version(path) for path in paths})).hexdigest()
+
+    def _app_manager(self):
+        try:
+            from .corpus_app import AppBridge
+        except ImportError:
+            from corpus_app import AppBridge
+        return AppBridge(self.repo, self.env)
+
+    def _app_lifecycle(self, action: str, dry_run: bool = False) -> dict[str, Any]:
+        try:
+            manager = self._app_manager()
+            if action == "remove":
+                return (manager.unregister(dry_run) if manager.has_owned_registration()
+                        else manager.managed_status())
+            return manager.refresh_registration()
+        except (OSError, RuntimeError) as exc:
+            return {"changed": False, "needs_action": [str(exc)]}
+
+    def setup_extras(self, plan: dict[str, Any], dry_run: bool = False) -> dict[str, Any]:
+        try:
+            from .corpus_import import capture
+        except ImportError:
+            from corpus_import import capture
+        result: dict[str, Any] = {}
+        if plan.get("app_bridge"):
+            bridge = self._app_manager()
+            status = bridge.status()
+            if status.get("needs_action"):
+                raise InstallError("; ".join(status["needs_action"]))
+            result["app_bridge"] = ({"requested": True, "dry_run": True} if dry_run
+                                    else bridge.register())
+        paths = plan.get("import_paths") or []
+        if paths:
+            discovered = self.setup_discover(plan.get("project_roots"))
+            allowed = {row["path"] for row in discovered["sources"]}
+            if not set(paths) <= allowed:
+                raise InstallError("instruction import selection is not in the reviewed discovery set")
+            if dry_run:
+                result["import"] = {"paths": paths, "classification": "requires model review", "dry_run": True}
+            else:
+                record = self._old_record()
+                if record is None:
+                    raise InstallError("install the private runtime before capturing instructions")
+                try:
+                    captured = capture(self._store(Path(record["package_root"])), paths,
+                                       environ=self.env, project_roots=plan.get("project_roots"),
+                                       expected_source_digests=plan.get("_expected_source_digests"))
+                except (OSError, RuntimeError, ValueError) as exc:
+                    failure = InstallError(str(exc))
+                    failure.completed_extras = result
+                    raise failure from exc
+                result["import"] = {"capture_id": captured["capture_id"], "source_count": len(captured["sources"]),
+                                    "classification": "requires model review",
+                                    "next_command": "agent-bios import prompt " + captured["capture_id"],
+                                    "app_request": "Use $agent-bios to import capture " + captured["capture_id"]}
+        return result
+
     def _shell_paths(self, action: str) -> list[dict[str, Any]]:
         try:
             manager = self._shell_manager()
@@ -561,14 +648,45 @@ class CorpusInstaller:
                 for row in changes]
 
     @_serialized
-    def install(self, domains: str | None = None, dry_run: bool = False) -> dict[str, Any]:
+    def install(self, domains: str | None = None, dry_run: bool = False, *,
+                selection_mode: str | None = None, targets: list[str] | None = None) -> dict[str, Any]:
         files = self._package_files()
-        requested = self._normalized_domains(domains)
+        explicit_selection = domains is not None or selection_mode is not None or targets is not None
+        if domains is not None and selection_mode is None:
+            selection_mode = "default"
+        if selection_mode not in {None, "default", "selected", "none"}:
+            raise InstallError("selection_mode must be default, selected, or none")
+        if targets is not None and (not isinstance(targets, list) or not all(isinstance(x, str) for x in targets)):
+            raise InstallError("corpus targets must be a list of qualified names")
+        if domains is not None and targets is not None:
+            raise InstallError("use domain flags or corpus targets, not both")
+        if domains is not None and selection_mode == "none":
+            raise InstallError("no-corpus installation cannot include domain flags")
+        requested = list(targets) if targets is not None else ([] if selection_mode == "none" else self._normalized_domains(domains))
+        if selection_mode == "none" and requested:
+            raise InstallError("no-corpus installation cannot include targets")
+        if selection_mode == "selected" and not requested:
+            raise InstallError("selected corpus installation needs at least one target")
         prior = self._old_record()
         # An update without an explicit selection must not broaden a saved
         # core-only or domain-limited environment back to every domain.
-        if domains is None and isinstance((prior or {}).get("selection"), list):
+        if domains is None and not explicit_selection and isinstance((prior or {}).get("selection"), list):
             requested = prior["selection"]
+            selection_mode = prior.get("selection_mode")
+        if selection_mode is not None:
+            preview_store = self._store(self.repo)
+            catalog = self.setup_catalog()
+            try:
+                available = list(catalog["items"])
+                runtime = preview_store._runtime_state()
+                if runtime.get("selected_baseline_ref"):
+                    user = preview_store._user_state()
+                    for host in ("claude", "codex"):
+                        available.extend(item for item in preview_store._effective_items(runtime, user, host=host)[0]
+                                         if item["package_id"].startswith("@local/") and item.get("active", True))
+                preview_store._validate_snapshot_selection(requested, catalog, available)
+            except (ValueError, RuntimeError) as exc:
+                raise InstallError(str(exc)) from exc
         # A preview is strictly read-only.  A real install first refuses an
         # unrelated reset, then finishes only its own pending install before
         # creating an immutable release directory.
@@ -581,7 +699,8 @@ class CorpusInstaller:
         release, entries, digest = self._copy_release(files, dry_run)
         if dry_run:
             return {"dry_run": True, "release": str(release), "release_digest": digest,
-                    "files": len(entries), "selection": requested}
+                    "files": len(entries), "selection": requested, "selection_mode": selection_mode or "default",
+                    "corpus_storage": "packaged library retained privately; selection controls delivery"}
         shell_paths = self._shell_paths("restore")
         # Stage the immutable baseline before publishing either source pointers
         # or launcher projections.  Store owns those source pointers; this
@@ -590,7 +709,8 @@ class CorpusInstaller:
         prepare = getattr(store, "prepare_install", None)
         if not callable(prepare):
             raise InstallError("private corpus store does not support staged install recovery")
-        candidate = prepare(requested)
+        candidate = (prepare(requested, selection_mode=selection_mode, replace_selection=explicit_selection)
+                     if selection_mode is not None else prepare(requested))
         if not isinstance(candidate, dict) or not isinstance(candidate.get("details"), dict):
             raise InstallError("private corpus store returned an invalid install candidate")
         details = candidate["details"]
@@ -621,6 +741,8 @@ class CorpusInstaller:
             "launcher": launcher, "config_files": config, "created_at": int(time.time()),
             "mode": "private-session-scoped", "needs_action": [],
         }
+        if selection_mode is not None:
+            record["selection_mode"] = selection_mode
         paths = [{"path": str(path), "before": self._file_version(path),
                   "after": self._planned_version(content), "mode": mode}
                  for path, content, mode in owned]
@@ -649,7 +771,8 @@ class CorpusInstaller:
         try:
             with operation_scope(self.state_root):
                 self._finish_install_transaction(journal, journal_data, store, candidate)
-            return {"dry_run": False, "stored": True, "activation": "unverified", "record": record}
+            return {"dry_run": False, "stored": True, "activation": "unverified", "record": record,
+                    "app_bridge": self._app_lifecycle("refresh")}
         except BaseException as exc:
             journal_data["state"] = "NEEDS_RECOVERY"
             journal_data["error"] = type(exc).__name__
@@ -813,7 +936,8 @@ class CorpusInstaller:
         except (OSError, RuntimeError) as exc:
             raise InstallError(str(exc)) from exc
         if record is None:
-            return {"removed": shell_removed, "preserved": ["no private install record"]}
+            app = self._app_lifecycle("remove", dry_run)
+            return {"removed": shell_removed, "preserved": ["no private install record"], "app_bridge": app}
         removed: list[str] = list(shell_removed)
         preserved: list[str] = []
         for entry in [record.get("launcher"), *(record.get("config_files") or [])]:
@@ -840,7 +964,8 @@ class CorpusInstaller:
             self.record_path.unlink(missing_ok=True)
         # User package/overlays/learnings and session snapshots/pins are purposely
         # not enumerated or deleted here.  No whole state-root removal occurs.
-        return {"removed": removed, "preserved": preserved,
+        app = self._app_lifecycle("remove", dry_run)
+        return {"removed": removed, "preserved": preserved, "app_bridge": app,
                 "retained": [str(self.user_root), str(self.state_root / "sessions")]}
 
     def _reset_layout(self, record: dict[str, Any], release: Path) -> tuple[list[Path], Path, Path, list[tuple[Path, bytes, int]]]:
@@ -1617,7 +1742,7 @@ class CorpusInstaller:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="agent-bios corpus")
+    parser = argparse.ArgumentParser(prog="agent-bios")
     parser.add_argument("--repo", help=argparse.SUPPRESS)
     subparsers = parser.add_subparsers(dest="command", required=True)
     install = subparsers.add_parser("install")
@@ -1628,6 +1753,14 @@ def main(argv: list[str] | None = None) -> int:
     onboard.add_argument("--domains")
     onboard.add_argument("--dry-run", action="store_true")
     onboard.add_argument("--with", dest="with_capabilities")
+    for command in (install, onboard):
+        interaction = command.add_mutually_exclusive_group()
+        interaction.add_argument("--interactive", action="store_true", help="open the Textual installation wizard (default)")
+        interaction.add_argument("--non-interactive", action="store_true", help="run without the wizard and return JSON")
+        command.add_argument("--corpus", choices=("all", "none", "selected"),
+                             help="active corpus policy; none retains library assets privately but delivers no corpus")
+        command.add_argument("--select", action="append", default=[], metavar="TARGET",
+                             help="package/domain/item target; repeat for multiple targets")
     subparsers.add_parser("verify")
     subparsers.add_parser("status")
     uninstall = subparsers.add_parser("uninstall")
@@ -1643,11 +1776,41 @@ def main(argv: list[str] | None = None) -> int:
     reset.add_argument("--expected-revision", help="reset preview generation to accept")
     args = parser.parse_args(argv)
     installer = CorpusInstaller(Path(args.repo) if args.repo else Path(__file__).resolve().parent.parent)
+    interactive = False
     try:
         if args.command in {"install", "onboard"}:
             if args.with_capabilities:
-                raise InstallError("optional --with dependencies are not installed by private corpus mode")
-            result = installer.install(args.domains, args.dry_run)
+                raise InstallError("use --interactive to select dependency installation; --with is legacy-only")
+            interactive = not args.non_interactive
+            if args.select and args.corpus != "selected":
+                raise InstallError("--select requires --corpus selected")
+            if interactive and args.domains is not None:
+                raise InstallError("--domains is a compatibility selection flag; use --non-interactive or choose corpus in the wizard")
+            if interactive:
+                if not sys.stdin.isatty() or not sys.stdout.isatty():
+                    raise InstallError("interactive installation needs an input/output terminal; use --non-interactive for automation or app tool calls")
+                if os.environ.get("TERM") == "dumb":
+                    raise InstallError("this terminal cannot display the Textual wizard; use a capable terminal or --non-interactive")
+                try:
+                    from .corpus_ui_runtime import activate_ui_runtime
+                except ImportError:
+                    from corpus_ui_runtime import activate_ui_runtime
+                activate_ui_runtime(installer.repo)
+                try:
+                    from .corpus_setup_ui import run_setup_ui
+                except ImportError:
+                    from corpus_setup_ui import run_setup_ui
+                initial = None
+                if args.corpus is not None:
+                    mode = "none" if args.corpus == "none" else "selected"
+                    targets = ["all"] if args.corpus == "all" else list(args.select) if args.corpus == "selected" else []
+                    initial = {"selection_mode": mode, "targets": targets, "dependencies": [],
+                               "app_bridge": False, "import_paths": [], "project_roots": []}
+                result = run_setup_ui(installer, dry_run=args.dry_run, initial_plan=initial)
+            else:
+                mode = "none" if args.corpus == "none" else "selected" if args.corpus else None
+                targets = ["all"] if args.corpus == "all" else args.select if args.corpus == "selected" else None
+                result = installer.install(args.domains, args.dry_run, selection_mode=mode, targets=targets)
         elif args.command == "verify":
             result = installer.verify()
         elif args.command == "status":
@@ -1659,10 +1822,25 @@ def main(argv: list[str] | None = None) -> int:
                                      expected_revision=args.expected_revision)
         else:
             result = installer.migrate(apply=args.apply and not args.dry_run, yes=args.yes)
-        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
-        return 0
-    except InstallError as exc:
-        print(f"corpus-install: {exc}", file=sys.stderr)
+        if interactive:
+            try:
+                from .corpus_setup import format_setup_result
+            except ImportError:
+                from corpus_setup import format_setup_result
+            print(format_setup_result(result, language=result.get("ui_language", "en")))
+        else:
+            print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+        return 1 if result.get("dependency_failed") or result.get("extras_error") or result.get("installation_error") or result.get("error") else 0
+    except (InstallError, RuntimeError, ValueError, OSError) as exc:
+        message = str(exc)
+        language = getattr(exc, "ui_language", "en")
+        if interactive and language != "en":
+            try:
+                from .corpus_setup_i18n import translate
+            except ImportError:
+                from corpus_setup_i18n import translate
+            message = translate(language, "Setup could not finish. Details: {detail}", detail=message)
+        print(f"corpus-install: {message}", file=sys.stderr)
         return 1
 
 

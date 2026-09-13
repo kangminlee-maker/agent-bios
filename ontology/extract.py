@@ -17,6 +17,7 @@ Usage: extract.py [--json OUT] [--quiet]
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import pathlib
 import re
@@ -78,7 +79,9 @@ def subcommands(source: str | None = None) -> dict:
     # not the installer's. Only the catch-all is not a subcommand.
     dispatched = {t for part in dispatched for t in part.split("|")} - {"*", "-h", "--help"}
     early = set(re.findall(r'\[\s*"\$CMD"\s*=\s*"([a-z-]+)"\s*\]', text))
-    advertised = set(re.findall(r"^\s+agent-bios\s+([a-z-]+)\s{2,}", text, re.M))
+    usage = re.search(r"^usage\(\)\s*\{(.*?)^\}", text, re.M | re.S)
+    advertised = set(re.findall(r"^[ \t]+agent-bios[ \t]+([a-z-]+)(?=[ \t]|$)",
+                                usage.group(1) if usage else "", re.M))
     implemented = dispatched | early
     return {
         "dispatched_in_case": sorted(dispatched),
@@ -94,21 +97,75 @@ def payload_files() -> list[str]:
     return json.loads(read(REPO / "package.json"))["files"]
 
 
+def runtime_authorities(repo: pathlib.Path | None = None) -> dict:
+    """Statically named lifecycle entrypoints and their repository-local Python imports.
+
+    The installer supplies compose/launch/learn script roots. The launcher is also a root
+    because its session adapter is reached through the installed launcher entrypoint.
+    Literal import_module alternatives are followed through assignments. Arbitrary
+    computed module names and dynamic file loaders are outside this scan.
+    """
+    repo = REPO if repo is None else repo
+    install = read(repo / "install.sh")
+    roots = set(re.findall(r'\$REPO/((?:compose|launch|learn)/[\w-]+\.py)', install))
+    roots.add("launch/agent-launch.py")
+    visited, imports = set(), set()
+    pending = sorted(roots)
+    while pending:
+        source = pending.pop()
+        if source in visited:
+            continue
+        visited.add(source)
+        tree = ast.parse(read(repo / source), filename=source)
+        assignments = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name):
+                        assignments.setdefault(target.id, []).append(node.value)
+
+        def module_literals(node, seen=frozenset()):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                return [node.value]
+            if isinstance(node, ast.IfExp):
+                return module_literals(node.body, seen) + module_literals(node.orelse, seen)
+            if isinstance(node, ast.Name) and node.id not in seen:
+                return [name for value in assignments.get(node.id, [])
+                        for name in module_literals(value, seen | {node.id})]
+            return []
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                names = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                names = [node.module]
+            elif (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                  and node.func.attr == "import_module" and node.args):
+                names = module_literals(node.args[0])
+            else:
+                continue
+            for name in names:
+                for directory in (pathlib.Path(source).parent, pathlib.Path("compose"),
+                                  pathlib.Path("launch"), pathlib.Path("learn")):
+                    target = str(directory / (name.replace(".", "/") + ".py"))
+                    if (repo / target).is_file():
+                        imports.add((source, target))
+                        pending.append(target)
+                        break
+    return {"entrypoints": sorted(roots), "modules": sorted(visited),
+            "local_imports": [{"source": source, "target": target}
+                              for source, target in sorted(imports)]}
+
+
 def user_owned_regions() -> list[dict]:
-    """Every span this repo writes into a file it does not own, and which lifecycle ops it has.
+    """Managed user-file spans on the legacy install and explicit shell-connection routes.
 
-    Site-set shaped, and the reason is paid for: this extractor used to read `install.sh` alone,
-    so it saw the zsh hook and the Codex config block and missed the two spans `assemble.py`
-    writes — the settings hook registrations and the AGENTS.md central region. Those two are
-    exactly the ones with a merge path and no removal, so the ontology could not see the defect
-    that broke a promoted purpose clause. An extractor that reads one author reports that
-    author's world as the world.
-
-    `ops` is per span, not per repo: the question is never "does this repo remove things" but
-    "does THIS span have a remover". A span whose ops are merge-only is the finding.
+    Ops describe each span's own install/remove route. Explicit private migration
+    cleanup is owned separately by CorpusInstaller and its pinned cleanup plan.
     """
     install = read(INSTALL)
     assemble = read(REPO / "compose" / "assemble.py")
+    shell = read(REPO / "launch" / "shell_integration.py")
     def body_of(fn):
         # No permissive fallback: if the function cannot be located the answer is unknown, and
         # silently substituting the whole file would turn every op into "present" — a gate-shaped
@@ -149,6 +206,16 @@ def user_owned_regions() -> list[dict]:
                         remove="MARK_START" in uninstall_body
                                or "agent-bios:central" in uninstall_body)},
     ]
+    for region in regions:
+        region["scope"] = "legacy installation"
+    regions.append({
+        "span": "optional shell connection block", "target": "$ZDOTDIR/.zshrc",
+        "authored_in": "launch/shell_integration.py", "marker": "START/END",
+        "kind": "marker pair", "scope": "explicit shell restore/remove",
+        "ops": ops_for(merge='action == "restore"' in shell and "def apply(" in shell,
+                       check="def plan(" in shell and "def _strip(" in shell,
+                       remove='action == "remove"' in shell and "def apply(" in shell),
+    })
     return [{
         "regions": regions,
         "authoring_sites": sorted({r["authored_in"] for r in regions}),
@@ -306,11 +373,10 @@ def tier_binding_sites() -> dict:
 
     return {
         "sites": {"launch_profile": from_profile, "codex_agent_template": from_templates},
-        "uncomparable_sites": [
+        "delegated_comparisons": [
             {"site": "claude/guides/cli-multi-model-workflow.md",
-             "why": "restates the binding in display names; no declared id-to-display map"},
-            {"site": "gates/check_parity.py",
-             "why": "holds its own copy of the expected values as literals"},
+             "owner": "gates/check_parity.py environment_bindings",
+             "why": "compares rendered bindings using the launch profile model_display map"},
         ],
         "disagreements": disagreements,
         "undeclared_on_one_side": undeclared,
@@ -378,11 +444,9 @@ HUMAN_FACING = {
                                        "WHICH site disagreed; the disagreement itself is gated",
     "user_owned_regions.codex_ops": "descriptive — which lifecycle verbs the Codex helper "
                                     "defines; the per-span ops are what a check reads",
-    "user_owned_regions.merge_without_remove": "deliberate disclosure. The two spans it names "
-                                               "are a product defect under decision "
-                                               "(FINDINGS.md F-2); failing here would block the "
-                                               "ontology work that found them",
-    "user_owned_regions.merge_without_check": "same disclosure as merge_without_remove",
+    "user_owned_regions.merge_without_remove": "scoped lifecycle inventory for review; private "
+                                               "migration cleanup is a separate authority",
+    "user_owned_regions.merge_without_check": "scoped verification inventory for review",
     "guides.guide_id": "corpus inventory for a reader of extract.py --json",
     "guides.has_use_when": "corpus inventory; frontmatter completeness is check-parity's job",
     "guides.has_core_rules": "corpus inventory; frontmatter completeness is check-parity's job",
@@ -395,8 +459,8 @@ HUMAN_FACING = {
     "domain_manifest.claimed_but_missing": "check-domains.py owns this enforcement",
     "domain_manifest.on_disk_but_unclaimed": "check-domains.py owns this enforcement",
     "launch_profile.scalars": "inventory of the profile's top-level scalars for a reader",
-    "tier_binding_sites.uncomparable_sites": "a note to a person naming the sites this extractor "
-                                             "cannot compare and why; the fix is PV-1",
+    "tier_binding_sites.delegated_comparisons": "names the comparison owner outside this extractor; "
+                                               "the parity driver runs that owner's checks",
     "tier_binding_sites.undeclared_on_one_side": "absence is not disagreement — reported so a "
                                                  "person classifies it, never failed on",
     "tier_binding_sites.declared_template_map": "which tiers the launch profile says have a "
@@ -420,6 +484,7 @@ EXTRACTORS = {
     "verify_subjects": verify_subjects,
     "subcommands": subcommands,
     "payload_files": payload_files,
+    "runtime_authorities": runtime_authorities,
     "user_owned_regions": user_owned_regions,
     "guides": guides,
     "domain_manifest": domain_manifest,
@@ -455,7 +520,7 @@ def main() -> None:
     sc = evidence["subcommands"]
     lp = evidence["launch_profile"]
     dm = evidence["domain_manifest"]
-    print(f"deploy targets          {g['deploy_count']}")
+    print(f"legacy deploy targets   {g['deploy_count']}")
     print(f"  uncovered by verify   {len(g['uncovered'])}  {g['uncovered']}")
     print(f"  existence-only        {sum(1 for r in g['rows'] if r['strength'] == 'existence')}")
     print(f"subcommands             implemented={sc['implemented']}")
@@ -467,6 +532,7 @@ def main() -> None:
     print(f"launch profile          tables={lp['top_level_tables']}")
     print(f"  tier bindings         {len(lp['tier_bindings'])} over models {lp['models_declared']}")
     print(f"payload files[]         {len(evidence['payload_files'])}")
+    print(f"runtime authorities     {len(evidence['runtime_authorities']['modules'])} statically reached modules")
     print(f"gates / self-tests      {len(evidence['gates'])}")
 
 

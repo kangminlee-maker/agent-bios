@@ -60,7 +60,7 @@ P1/P4/P5/P6) — anchored at `launch/agent-launch.toml [hosts.*.tiers.*]`.
 
 | Counterpart | Kind / direction | Enforcement | Why |
 | --- | --- | --- | --- |
-| Host | lockstep_with ← | partial | Four surfaces restate the binding and the gate hardcodes the names it checks |
+| Host | lockstep_with ← | partial | Launch profile bindings and agent templates are compared as site sets; the parity gate derives displayed binding rows from the profile model_display map |
 | Guide | lockstep_with → | partial | The prompting guide's targets: is gated; its Environment Binding table is not |
 | PresetMode | requires ← | gated | a preset carries host-scoped tier overrides, so it resolves against the binding |
 
@@ -78,17 +78,17 @@ P1/P4/P5/P6) — anchored at `launch/agent-launch.toml [hosts.*.tiers.*]`.
 **Situation.** install.sh gains a new deploy_file/deploy_glob call.
 
 **Entity.** `DeployTarget` (F4, guard partial, reaches
-P1/P4/P6) — anchored at `deploy_file install.sh:82`.
+P1/P4/P6) — anchored at `install.sh deploy_file, compose/corpus_install.py CorpusInstaller.install, compose/corpus_app.py, compose/app_bridge/agents/openai.yaml`.
 
 ### Impact — computed from the obligation graph
 
 | Counterpart | Kind / direction | Enforcement | Why |
 | --- | --- | --- | --- |
-| DeploymentManifest | owes_removal → | **unguarded** | The manifest is what uninstall replays, so removal is derived and safe |
-| Gate | asserts ← | **unguarded** | VIOLATED: 3 of 12 deploy writes have no, partial, or vacuous assertion |
+| DeploymentManifest | owes_removal → | **unguarded** | Each writer preserves verifiable ownership for removal: private install metadata, shell receipt, app bridge generation or compatibility manifest |
+| Gate | asserts ← | **unguarded** | Runtime private verification and corpus tests check private writes; ontology/extract.py separately discloses legacy deploy targets without complete verify assertions |
 | PayloadEntry | owes_entry → | derived | check-package.sh greps real $REPO references rather than holding a list |
-| StateArtifact | projects_to → | partial | install writes the version marker and appends it to the manifest |
-| ShellInterception | lockstep_with ← | partial | the deployed shell.zsh half is an ordinary deploy target; the .zshrc line is not |
+| StateArtifact | projects_to → | partial | Private installation writes its ownership record, baseline reference and status; compatibility install writes its version marker |
+| ShellInterception | lockstep_with ← | partial | Optional shell restore owns the shell.zsh script and receipt; its bounded .zshrc block remains a user-owned region |
 
 ### Verification checklist
 
@@ -106,16 +106,16 @@ P1/P4/P6) — anchored at `deploy_file install.sh:82`.
 **Situation.** A new agent-bios subcommand is introduced.
 
 **Entity.** `CliSubcommand` (F4, guard unguarded, reaches
-P1/P3/P4/P5) — anchored at `install.sh:838 / :859 / :799`.
+P1/P3/P4/P5) — anchored at `install.sh, compose/corpus.py, compose/corpus_install.py, compose/corpus_understand.py, compose/corpus_import.py, compose/corpus_app.py, compose/corpus_setup.py, compose/app_bridge/scripts/bridge.py, compose/corpus_setup_ui.py, compose/corpus_setup_i18n.py, compose/corpus_setup_cli.py, compose/setup/START.md, INSTALL.md, docs/setup.md`.
 
 ### Impact — computed from the obligation graph
 
 | Counterpart | Kind / direction | Enforcement | Why |
 | --- | --- | --- | --- |
-| DeployTarget | controls → | partial | The retained legacy install route realises deploy targets; private corpus installation stores its baseline without writing host deploy targets |
-| CliSubcommand | precedes → | **unguarded** | usage() is a hand copy of a dispatch set that lives at two other sites |
-| Migration | precedes → | **unguarded** | The retained legacy install route runs migrations before its deploy writes; private migration is explicit and does not make global deployment the default |
-| ManagedRuntime | controls → | partial | The retained legacy launcher install provisions its venv best-effort; private corpus installation does not provision a launcher runtime |
+| DeployTarget | controls → | partial | Private install stores a pinned release and owns launcher projections; the explicit legacy install route writes native corpus destinations |
+| CliSubcommand | precedes → | **unguarded** | usage() advertises the operations dispatched by case blocks and early command branches |
+| Migration | precedes → | **unguarded** | Explicit migrate coordinates legacy cleanup and private installation; compatibility install runs its own migrations before deploy writes |
+| ManagedRuntime | controls → | partial | Interactive package CLI entrypoints activate the verified UI bundle without persistent installation; explicit optional recipes separately provision the learning validator or compatibility environment |
 | LearningRecord | controls → | **unguarded** | the learn branch execs the collector with the caller's stdin on fd 3; it is the only PATH-reachable route to capture |
 
 ### Verification checklist
@@ -134,13 +134,13 @@ P1/P3/P4/P5) — anchored at `install.sh:838 / :859 / :799`.
 **Situation.** A persisted artifact's shape changes and its schema version is bumped.
 
 **Entity.** `SchemaVersion` (F4, guard unguarded, reaches
-P1/P5) — anchored at `launch/agent-launch.toml schema_version, compose/domains.json version`.
+P1/P5) — anchored at `compose/corpus_install.py SCHEMA_VERSION, compose/corpus_store.py, compose/corpus_session.py, launch/agent-launch.toml schema_version, compose/domains.json version, compose/corpus_setup_cli.py`.
 
 ### Impact — computed from the obligation graph
 
 | Counterpart | Kind / direction | Enforcement | Why |
 | --- | --- | --- | --- |
-| Migration | migrates → | **unguarded** | Neither half is valid alone; a bump with no migration misreads deployed state |
+| Migration | migrates → | **unguarded** | A persisted-format change must preserve supported readers or provide the corresponding explicit migration |
 
 ### Verification checklist
 
@@ -154,13 +154,13 @@ P1/P5) — anchored at `launch/agent-launch.toml schema_version, compose/domains
 **Situation.** The installer starts writing a marked region into another file it does not own.
 
 **Entity.** `UserOwnedFileRegion` (F4, guard partial, reaches
-P1/P4/P5/P6) — anchored at `codex/config-additions.toml`.
+P1/P4/P5/P6) — anchored at `launch/shell_integration.py, compose/corpus_install.py, compose/assemble.py, codex/config-additions.toml, compose/corpus_app.py, compose/app_bridge/agents/openai.yaml`.
 
 ### Impact — computed from the obligation graph
 
 | Counterpart | Kind / direction | Enforcement | Why |
 | --- | --- | --- | --- |
-| DeploymentManifest | owes_removal → | partial | Not manifested, so uninstall must remove them surgically by marker |
+| DeploymentManifest | owes_removal → | partial | User-owned files require bounded span cleanup; the private shell receipt and explicit legacy migration preserve surrounding bytes |
 
 ### Verification checklist
 

@@ -1,6 +1,5 @@
 ---
 version: 1
-last_updated: "2026-07-29"
 source: manual
 status: draft
 ---
@@ -44,9 +43,9 @@ Two consequences follow, and both are load-bearing:
    payload. An ontology that claims to *derive* them is not reproducing the
    service, it is inventing one.
 2. **Anchors are verified, never assumed.** A concept's manifestation set is
-   asserted against real code by a gate. Discovered while seeding this file:
+   asserted against real code by a gate. For example,
    `agent-bios learn` is dispatched at install.sh's early `learn` branch, an early branch *before*
-   the `case "$CMD"` block at `:859`, because it must bypass the flag parser to
+   the compatibility `case "$CMD"` block, because it must bypass the flag parser to
    forward stdin. An extractor keyed on the case block alone would have recorded
    that the subcommand does not exist — confidently, and wrongly. A wrong
    ontology is worse than none, because it is consulted with confidence.
@@ -61,13 +60,13 @@ Entities are **concepts**, not files. Files are where concepts show up.
   derivation chain*: canonical → derived → packaged → deployed → consumed →
   asserted.
 
-The split is the point. One guide is seven manifestations of one concept:
+One guide has several manifestations of one concept:
 `claude/guides/<id>.md` (canonical), `codex/guides/<id>.md` + `ko/` ×2
 (derived), its `compose/domains.json` `guides{}` entry (classified),
-`~/.claude/guides/<id>.md` (deployed), the corpus rule whose pointer fires it
+its selected immutable private snapshot path (deployed), the corpus rule whose pointer fires it
 (consumed), and the parity check that binds them (asserted). A tier binding is
 one concept across `launch/agent-launch.toml`, the prompting guide's `targets:`
-frontmatter, the launcher's constants, and a captured golden.
+frontmatter, the guide display map, session projection, and a captured golden.
 
 Nobody forgets the concept. People forget manifestations three through five.
 Holding the manifestation set complete is what converts an omission from

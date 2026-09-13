@@ -1,6 +1,6 @@
 # Launch configuration
 
-[← Overview](../README.md) · [Corpus](corpus.md) · [Sessions](session-model.md) · [Recovery](recovery.md) · [Launch](advanced-launch.md) · [Understand!](understand.md)
+[← Overview](../README.md) · [Setup](setup.md) · [Corpus](corpus.md) · [Sessions](session-model.md) · [Recovery](recovery.md) · [Launch](advanced-launch.md) · [Understand!](understand.md)
 
 Inspect settings before launching. Some Builder and internal-wrapper defaults use permission bypass. A configured review or registered hook is not evidence that it ran.
 
@@ -10,17 +10,18 @@ The preflight keeps the current setup above each choice, supports the configured
 catalog and **Other**, and offers Builder presets, Software Engineer / Vanilla,
 Session distill, Custom, Language, and **Corpus Studio**. Studio is the same backend as
 `agent-bios corpus`: it searches and renders the library, edits Markdown and
-consumption surface, and requires Preview then revision-bound Apply. In environments
-without Textual, the corpus client and launcher retain numbered fallbacks; the corpus
-editor uses `$VISUAL`/`$EDITOR` when available. Interface catalogs change only human
-UI text; model-consumed corpus remains English.
+consumption surface, and requires Preview then revision-bound Apply. Current source
+entrypoints validate and temporarily extract their included UI bundle before loading
+Rich/Textual. A missing or corrupt bundle fails explicitly; no preinstalled Textual
+environment is required. Interface catalogs change only human UI text;
+model-consumed corpus remains English.
 
 Every arrow-key TUI selection screen keeps the complete current setup in a fixed top
 panel, followed by the highlighted option's description and the option list. Custom
 opens a persistent settings hub for the main tier, review setup, host policy, global instruction files, and tier
 bindings. Every edit returns to that hub; **Start with these settings** is the final
-launch confirmation, while **Exit without launching** cancels it. In the numbered
-launcher fallback, `b` is the back command. These controls configure an explicit
+launch confirmation, while **Exit without launching** cancels it. When the numbered
+launcher flow is selected with `--no-tui`, `b` is the back command. These controls configure an explicit
 agent-bios launch; they do not restore global instruction installation. Optional
 shell wiring is controlled separately from the root **Shell connection** menu.
 

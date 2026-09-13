@@ -1,9 +1,20 @@
 ---
-name: corpus
+name: agent-bios
 description: Inspect or change the private agent-bios corpus used by activated sessions, including item creation, edits, consumption placement, enablement, removal, restore, recovery, selection, reset, rollback, history, and current-vs-pinned explanation. Use for requests about the user's agent-bios instructions or personal learnings; it does not alter the running session or native global files.
 ---
 
 # Corpus management
+
+For installation, dependency choices or setup reconfiguration, read
+`compose/setup/START.md` from the confirmed `AGENT_BIOS_PACKAGE_ROOT` and use
+`bash "$AGENT_BIOS_PACKAGE_ROOT/install.sh" setup ...`. In an app task, the
+registered helper's `setup start` returns the guide path and its `setup ...`
+operations supply the confirmed runtime and saved roots on every tool call.
+A completed setup can return that helper path before native discovery refreshes;
+use the returned path directly.
+Do not copy this private bootstrap into host discovery or register a second
+personal skill named `agent-bios`. Setup does not activate corpus in the current
+task; use the app bridge's explicit session-use procedure when requested.
 
 For a guided conversation about why a corpus bundle exists and how its rules work,
 use the `understand!` / `$understand` skill. `agent-bios understand list` lists

@@ -24,15 +24,16 @@ decision, not this file.
 | `ingest-session` | **not in the extracted contract** — vocabulary reserved, home undecided | dashboard-owned collectors, entirely outside this repo |
 
 `check-version` reads a public version number and sends the package name — nothing
-derived from this machine — so it sits with `provision-venv.sh`'s PyPI fetch and the
-`onboard` model probe under the scoped claim below, not against it. Three properties
+derived from this machine. Selected dependency installation in `compose/corpus_setup.py`
+and `launch/provision-venv.sh` likewise uses the user's package-manager configuration;
+neither configures corpus ingestion. Three properties
 make that true rather than merely intended, and each is worth stating because losing
 any one of them turns it into a different operation:
 
 - **It names no registry.** The lookup delegates to `npm view`, so it resolves through
   whatever registry, proxy, and credentials the user already configured — a private
-  registry keeps working, and no shipped file carries a URL, which
-  `gates/check-endpoints.py` forbids outright.
+  registry keeps working. `gates/check-endpoints.py` rejects shipped URLs outside
+  its declared namespace, documentation and source-repository exceptions.
 - **The launcher never performs it.** The TUI reads a local cache
   (`~/.local/share/agent-bios/update-check.json`) and at most spawns the installer
   detached to refresh it, at most once every 24h. A launch is never blocked on the
@@ -96,10 +97,15 @@ that the name is taken.
    slot is claimed and must be complete, non-empty, and a usable http(s)
    endpoint — a half-configured, empty, unreadable, or unparseable slot fails
    loud with the file named, and never falls through. The slot is rooted at
-   `$HOME`, deliberately host-independent, so redirecting a host config home
-   (`--config-dir`, `$CLAUDE_CONFIG_DIR`) moves the local writes but NOT the
-   transport: isolate a run with `--no-upload`/`--dry-run`, or by redirecting
-   `$HOME`.
+   `$HOME`, deliberately host-independent. Private learning records and upload
+   state live under `$AGENT_BIOS_CORPUS_DIR`, defaulting to
+   `~/.config/agent-bios/corpus`, with a separate `learnings/<host>/` directory
+   for each host. Changing that private root does not move the transport slot.
+   `--config-dir` is accepted only with `AGENT_BIOS_LEGACY_INSTALL=1`, where
+   it overrides the native host home; `$CLAUDE_CONFIG_DIR` / `$CODEX_HOME` do
+   not relocate private records. Use `--no-upload` for local-only capture or
+   `--dry-run` for validation without writes or uploads. An isolated test home
+   must also isolate any explicitly configured private roots.
 2. **Nothing else.** There is no second source and no fallback: an unset slot
    means upload is skipped with a notice, which is the default install.
 
@@ -124,13 +130,12 @@ remains a gate failure until it is classified with the same scope.
 
 ## Zero egress by default
 
-A default install configures no endpoint and registers no collection hook, so no
-code path transmits locally derived data anywhere. The scope of this claim is
-**data egress**: dependency provisioning (`launch/provision-venv.sh` fetching
-its pinned package from PyPI at install), the model-probe canary run by
-`onboard`, and the user's own host CLIs launched by `wrappers/` are network
-activity, but none of them carries locally derived data to an agent-bios
-endpoint. `gates/check-endpoints.py` enforces the claim: a default home resolves
+A default install configures no ingestion endpoint and registers no collection hook.
+The scope of this claim is **agent-bios collection egress**. Explicitly selected
+dependency installation can fetch packages through Homebrew, npm or pip; host CLI
+execution and app model requests use the user's host/provider configuration. These
+are distinct from sending captured data to an agent-bios ingestion endpoint.
+`gates/check-endpoints.py` checks the ingestion default: a default home resolves
 no transport — and still none with a dashboard-shaped hook directory planted in
 the host home, since no such provider exists in the core (the probe proven
 against a planted slot before its answer counts) —
@@ -143,16 +148,83 @@ of no-egress is review of those shipped files. The ingest-learning wire
 contract itself is exercised live against a loopback server (path, method,
 token header, content type, settle statuses, client budget defaults), so a
 dead-code evasion of the static anchors still fails on the wire. The
-installed-artifact half — the transport slot directory absent and no transport
-resolving on the homes a real default install produced, and the installed hook
-registration structurally equal to the template — is asserted by
-`gates/test-install-guides.sh` after its scenario install.
+compatibility installed-artifact half — the transport slot directory absent and no
+transport resolving on scenario homes, with the installed hook registration equal to
+the template — is asserted by `gates/test-install-guides.sh` on its explicit legacy
+installation route.
+
+## Local setup, instruction import, and app context
+
+The repository-link request in `README.md` and `ko/README.md` names the public
+source declared by `package.json` repository metadata. `INSTALL.md` guides the
+host agent through an explicit source download when needed, pinned to one commit
+in a caller-owned directory. This acquisition precedes the local setup plan and
+uses host tools; it is not an automatic installer request or a corpus transport.
+The URL exception is limited to each exact request line and its declared repository.
+
+`compose/corpus_setup.py` probes local commands and previews fixed dependency
+installation argv. Only selected dependency actions run after Apply; no package
+manager is a source for an ingest URL or token. `--corpus none`, selected packages,
+app registration, and instruction capture are separate setup choices.
+
+`agent-bios setup start|inspect|discover|plan|apply|status|resume` exposes the same
+controller through local JSON commands in `compose/corpus_setup_cli.py`. It requires
+no TTY, Textual, MCP/HTTP server or model SDK. `start` returns the local
+`compose/setup/START.md` guide path and language choices before dependency probes.
+The conversation uses normal host file/command tools and receives review data through
+their output. This is part of the user's ordinary model context, not an ingest upload.
+Only explicit Apply runs selected dependency recipes and installation actions; package
+acquisition and package-manager downloads retain their separate scopes.
+
+The complete review envelope binds its source, current private state, execution
+context and dependency recipes. Durable local receipts distinguish outcomes and
+prevent a completed review from repeating effects. Status and resume do not execute
+remaining installation work; a fresh review is required for safely resumable actions.
+Status describes the recorded attempt; handoff separately reports current package,
+runtime and helper verification. If safe local synchronization is unavailable, status
+still returns recorded progress and handoff defers checks with null readiness fields.
+These checks stay local. Resume follows recorded continuations and returns a
+nested review when the remaining work can be reviewed safely.
+Neither the protocol nor the app helper's `setup` forwarding fills a transport slot,
+enables hooks, registers a server or activates corpus context.
+
+`install` and `onboard` use interactive setup unless `--non-interactive` is explicit;
+non-TTY callers without it fail before writes. The package UI's Textual wheels are
+shipped in `compose/ui_runtime/`. Installation, package/current-checkout Corpus Studio,
+and private/current-checkout launcher rich entrypoints use that bundle.
+`compose/corpus_ui_runtime.py` verifies their
+manifest, hashes and metadata and extracts them into a process-owned temporary
+directory. The UI makes no runtime download or pip installation and requires no
+preinstalled system/managed Textual. Normal process exit cleans the extraction; the
+launcher also releases it before backend `execve`. It is not a persistent package
+installation. A damaged bundle produces repair guidance, not a network fallback.
+`gates/build-ui-runtime.py --check` and `--self-test` run offline; only its explicit
+author-side `--build` fetches packages, deriving the root version from the provisioner's
+`TEXTUAL_PIN`. Optional dependency actions such as learning-validator
+installation remain separately selected and may use the configured package index.
+
+`compose/corpus_import.py` reads only selected discovered instruction paths and
+stores redacted evidence in the private user root. It neither uploads those sources
+nor follows references in their text. Supplying that evidence to a host agent for
+semantic classification makes it part of the user's normal model context; it is
+not an `ingest-learning` or `ingest-session` operation. The import transaction
+preserves original files and records provenance for the new private items.
+
+`compose/corpus_app.py` registers no network service. Optional app registration
+creates a local discovery link with implicit invocation disabled. Explicit per-task
+use returns selected corpus text through the app's tool/context path, governed by
+the host's normal data handling. Its local receipt states `returned-as-context`,
+not native startup activation or proof of model reading. Off and unregister do not
+retract context already returned. The app helper's explicit `learn` command uses
+the same collector and transport slot defined above; app registration and use do
+not fill that slot or enable collection hooks.
 
 ## publish-corpus / fetch-corpus — defined, not implemented
 
 The subject is the **corpus**: the assembler input set — the `claude/` tree plus
 a `compose/domains.json` manifest under a `@scope/name` package identity
-(`compose/pkgid.py`) — not a serialized artifact, which does not exist today.
+(`compose/pkgid.py`). Private baselines and snapshots are local artifacts; these
+operation names do not define a network distribution protocol for them.
 `publish-corpus` is whatever moves that set to a distribution point;
 `fetch-corpus` is whatever brings it to a machine `install.sh` can assemble
 from. Today both are realized by the npm package (and, in a clone, `git pull`)

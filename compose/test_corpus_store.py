@@ -527,7 +527,7 @@ class CorpusStoreTest(unittest.TestCase):
             empty = store.snapshot("codex")
             empty_inventory = store.snapshot_inventory(empty["content_ref"])
             self.assertEqual([], empty_inventory["item_refs"])
-            self.assertIn("Corpus management: invoke $corpus", empty["instruction_text"])
+            self.assertIn("Corpus management: invoke $agent-bios", empty["instruction_text"])
             self.assertTrue((Path(empty["path"]) / "bootstrap" / "SKILL.md").is_file())
             self.assertGreaterEqual(len(empty_inventory["files"]), 2)
             restored = next(row["ref"] for row in original_rows if row["tier"] in {"core", "infra"})

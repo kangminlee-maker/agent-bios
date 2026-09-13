@@ -5,11 +5,14 @@ from __future__ import annotations
 import asyncio
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
+import venv
 
 
 REPO = Path(__file__).resolve().parents[1]
@@ -1151,6 +1154,119 @@ class CorpusTextualCase(CorpusFixture, unittest.TestCase):
                 self.assertEqual(original_binding, restored["hook"])
 
         asyncio.run(exercise())
+
+
+class CleanRuntimeFallbackTests(unittest.TestCase):
+    def test_no_site_packages_runs_numbered_interface(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            env = dict(os.environ, HOME=str(root), AGENT_LAUNCH_VENV=str(root / "missing-runtime"))
+            for key in ("PYTHONPATH", "PYTHONHOME", "AGENT_BIOS_CORPUS_TUI_REEXEC"):
+                env.pop(key, None)
+            script = f"""import sys
+sys.path.insert(0, {str(COMPOSE)!r})
+import corpus
+from pathlib import Path
+store = corpus.CorpusStore(Path({str(REPO)!r}), Path({str(root / 'state')!r}), Path({str(root / 'user')!r}))
+store.install()
+raise SystemExit(corpus._run_tui_or_fallback(None, store))
+"""
+            result = subprocess.run([sys.executable, "-S", "-c", script], input="q\n", text=True,
+                                    capture_output=True, env=env, timeout=20)
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertIn("Corpus Studio (numbered fallback)", result.stdout)
+
+    def test_system_textual_missing_required_widget_uses_numbered_fallback(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            sdk = root / "incomplete-sdk"
+            sources = {"rich/__init__.py": "", "rich/text.py": "Text = object\n",
+                       "textual/__init__.py": "__version__ = '0.1.0'\n",
+                       "textual/app.py": "App = object\nComposeResult = list\n",
+                       "textual/binding.py": "Binding = object\n",
+                       "textual/containers.py": "Horizontal = Vertical = object\n",
+                       "textual/events.py": "Key = object\n",
+                       "textual/screen.py": "ModalScreen = object\n",
+                       "textual/widgets.py": "Button = Footer = Header = Input = Label = Markdown = Select = Static = TextArea = Tree = object\n"}
+            for relative, body in sources.items():
+                path = sdk / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(body, encoding="utf-8")
+            env = dict(os.environ, HOME=str(root), AGENT_LAUNCH_VENV=str(root / "missing-runtime"))
+            for key in ("PYTHONPATH", "PYTHONHOME", "AGENT_BIOS_CORPUS_TUI_REEXEC"):
+                env.pop(key, None)
+            script = f"""import sys
+sys.path[:0] = [{str(COMPOSE)!r}, {str(sdk)!r}]
+import corpus
+from pathlib import Path
+store = corpus.CorpusStore(Path({str(REPO)!r}), Path({str(root / 'state')!r}), Path({str(root / 'user')!r}))
+store.install()
+raise SystemExit(corpus._run_tui_or_fallback(None, store))
+"""
+            result = subprocess.run([sys.executable, "-S", "-c", script], input="q\n", text=True,
+                                    capture_output=True, env=env, timeout=20)
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertIn("Corpus Studio (numbered fallback)", result.stdout)
+
+    def test_symlinked_managed_interpreter_is_a_distinct_environment(self):
+        import corpus
+        with tempfile.TemporaryDirectory() as temporary:
+            managed = Path(temporary) / "managed"
+            venv.EnvBuilder(with_pip=False, symlinks=True).create(managed)
+            interpreter = managed / "bin/python"
+            system_python = str(getattr(sys, "_base_executable", sys.executable))
+            self.assertEqual(Path(system_python).resolve(), interpreter.resolve())
+            missing = ModuleNotFoundError("No module named 'rich'", name="rich")
+            with patch.object(corpus.importlib, "import_module", side_effect=missing), \
+                    patch.object(corpus, "venv_python", return_value=interpreter), \
+                    patch.object(corpus.sys, "executable", system_python), \
+                    patch.object(corpus.os, "execve", side_effect=RuntimeError("entered managed runtime")) as execute, \
+                    patch.object(corpus, "run_numbered", side_effect=AssertionError("managed runtime was skipped")), \
+                    patch.dict(os.environ):
+                os.environ.pop("AGENT_BIOS_CORPUS_TUI_REEXEC", None)
+                with self.assertRaisesRegex(RuntimeError, "entered managed runtime"):
+                    corpus._run_tui_or_fallback(None, None)
+                self.assertEqual(str(interpreter), execute.call_args.args[0])
+                self.assertEqual("1", execute.call_args.args[2]["AGENT_BIOS_CORPUS_TUI_REEXEC"])
+
+    def test_unrelated_import_failure_does_not_become_optional_ui_absence(self):
+        import corpus
+        missing = ModuleNotFoundError("No module named 'unrelated_runtime'", name="unrelated_runtime")
+        with patch.object(corpus.importlib, "import_module", side_effect=missing), \
+                patch.object(corpus, "run_numbered") as numbered:
+            with self.assertRaises(ModuleNotFoundError):
+                corpus._run_tui_or_fallback(None, None)
+            numbered.assert_not_called()
+
+    def test_missing_system_widget_attempts_managed_environment(self):
+        import corpus
+        missing = ImportError("cannot import name 'MarkdownViewer'", name="textual.widgets")
+        with tempfile.TemporaryDirectory() as temporary:
+            interpreter = Path(temporary) / "bin/python"
+            with patch.object(corpus.importlib, "import_module", side_effect=missing), \
+                    patch.object(corpus, "venv_python", return_value=interpreter), \
+                    patch.object(corpus.os, "execve", side_effect=RuntimeError("entered managed runtime")) as execute, \
+                    patch.dict(os.environ):
+                os.environ.pop("AGENT_BIOS_CORPUS_TUI_REEXEC", None)
+                with self.assertRaisesRegex(RuntimeError, "entered managed runtime"):
+                    corpus._run_tui_or_fallback(None, None)
+                self.assertEqual(str(interpreter), execute.call_args.args[0])
+
+    def test_supported_system_ui_runs_without_managed_reexec(self):
+        import corpus
+        class SupportedStudio:
+            def __init__(self, store):
+                self.store = store
+            def run(self):
+                pass
+        class SupportedModule:
+            CorpusStudio = SupportedStudio
+        with patch.object(corpus.importlib, "import_module", return_value=SupportedModule), \
+                patch.object(corpus, "venv_python") as managed, \
+                patch.object(corpus.os, "execve") as execute:
+            self.assertEqual(0, corpus._run_tui_or_fallback(None, None))
+            managed.assert_not_called()
+            execute.assert_not_called()
 
 
 if __name__ == "__main__":

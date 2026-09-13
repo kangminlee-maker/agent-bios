@@ -14,6 +14,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import stat
 import sys
 import threading
 from typing import Any, Iterator
@@ -63,34 +64,66 @@ def _depths(name: str) -> dict[str, int]:
 
 
 @contextlib.contextmanager
-def transaction_lock(state_root: Path) -> Iterator[None]:
-    """The single re-entrant cross-process lock for store and installer work."""
+def _transaction_lock(state_root: Path, *, readonly: bool) -> Iterator[bool]:
     root = Path(state_root).expanduser()
     if root.is_symlink():
         raise TransactionError(f"unsafe corpus state root: {root}")
+    if readonly:
+        reject_symlink_ancestors(root)
     key = _key(root)
     depths = _depths("lock_depths")
     if depths.get(key, 0):
         depths[key] += 1
         try:
-            yield
+            yield True
         finally:
             depths[key] -= 1
         return
-    root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if not readonly:
+        root.mkdir(parents=True, exist_ok=True, mode=0o700)
     lock = root / ".corpus-store.lock"
     if lock.is_symlink():
         raise TransactionError(f"unsafe corpus transaction lock: {lock}")
-    flags = os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
-    descriptor = os.open(lock, flags, 0o600)
-    with os.fdopen(descriptor, "a+", encoding="utf-8") as handle:
-        fcntl.flock(handle, fcntl.LOCK_EX)
+    flags = (os.O_RDONLY | os.O_NONBLOCK if readonly else os.O_CREAT | os.O_RDWR) | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(lock, flags, 0o600)
+    except FileNotFoundError:
+        if not readonly:
+            raise
+        yield False
+        return
+    try:
+        if readonly and not stat.S_ISREG(os.fstat(descriptor).st_mode):
+            raise TransactionError(f"unsafe corpus transaction lock: {lock}")
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | (fcntl.LOCK_NB if readonly else 0))
+        except BlockingIOError:
+            if not readonly:
+                raise
+            yield False
+            return
         depths[key] = 1
         try:
-            yield
+            yield True
         finally:
             depths.pop(key, None)
-            fcntl.flock(handle, fcntl.LOCK_UN)
+            fcntl.flock(descriptor, fcntl.LOCK_UN)
+    finally:
+        os.close(descriptor)
+
+
+@contextlib.contextmanager
+def transaction_lock(state_root: Path) -> Iterator[None]:
+    """The single re-entrant cross-process lock for store and installer work."""
+    with _transaction_lock(state_root, readonly=False):
+        yield
+
+
+@contextlib.contextmanager
+def try_transaction_lock(state_root: Path) -> Iterator[bool]:
+    """Observe under the existing lock, or defer without blocking or creating state."""
+    with _transaction_lock(state_root, readonly=True) as acquired:
+        yield acquired
 
 
 @contextlib.contextmanager

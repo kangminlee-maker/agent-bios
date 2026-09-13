@@ -167,7 +167,7 @@ def build(graph: dict, ev: dict) -> str:
     <div><b>Judgment question</b><span>Change one concept — how far do the obligations reach, and which of them is anything actually holding?</span></div>
     <div><b>Coverage</b><span>{len(ents)} entities across {len(fams)} families; {len(rels)} obligation edges over {len(set(r["kind"] for r in rels))} kinds; {len(grs)} golden relationships</span></div>
     <div><b>Held against code</b><span class="ok"><code>gates/check-ontology.py</code> — anchors, derived counts, edge integrity, graph health, projection freshness; 7 negative controls</span></div>
-    <div><b>Derived from source</b><span>{d["deploy_targets"]} deploy targets · {d["guides"]} guides · {d["tier_bindings"]} tier bindings · {d["subcommands"]} subcommands · {d["payload_files"]} payload paths</span></div>
+    <div><b>Derived from source</b><span>{d["deploy_targets"]} legacy deploy targets · {d["guides"]} guides · {d["tier_bindings"]} tier bindings · {d["subcommands"]} subcommands · {d["payload_files"]} payload paths</span></div>
     <div><b>Main risk</b><span class="risk">{unguarded} of {len(ents)} entities carry no P6 assertion at all; {gr_status["unguarded"]} of {len(grs)} golden relationships are unguarded and GR-4 is violated</span></div>
   </section>
 
@@ -211,7 +211,7 @@ def build(graph: dict, ev: dict) -> str:
       <rect class="node" x="608"  y="146" width="252" height="96" rx="5" fill="#e7eaee" stroke="#667085"/>
       <text class="s" x="626" y="174"><tspan font-weight="700">P3 packaged</tspan><tspan x="626" dy="22">in the shipped payload</tspan><tspan class="m" x="626" dy="21">{d["payload_files"]} files[] paths</tspan></text>
       <rect class="node" x="894"  y="146" width="252" height="96" rx="5" fill="#e7eaee" stroke="#667085"/>
-      <text class="s" x="912" y="174"><tspan font-weight="700">P4 deployed</tspan><tspan x="912" dy="22">written onto a machine</tspan><tspan class="m" x="912" dy="21">{d["deploy_targets"]} deploy targets</tspan></text>
+      <text class="s" x="912" y="174"><tspan font-weight="700">P4 deployed</tspan><tspan x="912" dy="22">written onto a machine</tspan><tspan class="m" x="912" dy="21">{d["deploy_targets"]} legacy targets</tspan></text>
       <rect class="node" x="1180" y="146" width="284" height="96" rx="5" fill="#f3e8ff" stroke="#7c3aed"/>
       <text class="s" x="1198" y="174"><tspan font-weight="700">P5 consumed</tspan><tspan x="1198" dy="22">a branch that reads it and acts</tspan><tspan class="m" x="1198" dy="21">absent ⇒ inert (GR-6)</tspan></text>
       <path class="authority" d="M288 194 H316"/>
@@ -335,7 +335,7 @@ show(null); render();
   </table>
 
   <h2>GR-4, computed</h2>
-  <p class="lede">Not restated — <code>ontology/extract.py</code> reads the real <code>deploy_file</code>/<code>deploy_glob</code> and <code>verify_match</code>/<code>verify_present</code> call sites at generation time. {gr4["deploy_count"]} deploy writes, {len(gr4["uncovered"])} with no assertion.</p>
+  <p class="lede"><code>ontology/extract.py</code> reads the explicit legacy installer's <code>deploy_file</code>/<code>deploy_glob</code> and <code>verify_match</code>/<code>verify_present</code> call sites at generation time. {gr4["deploy_count"]} legacy deploy writes, {len(gr4["uncovered"])} without complete verification. Private installation uses its own release and ownership verification in <code>compose/corpus_install.py</code>.</p>
   <table>
     <thead><tr><th>P4 write</th><th>P6 assertion</th><th>Strength</th></tr></thead>
     <tbody>

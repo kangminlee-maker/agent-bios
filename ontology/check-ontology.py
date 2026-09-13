@@ -27,6 +27,7 @@ Deliberately narrow — this is the seed's happy path, not full coverage:
  17. no restated counts   authored prose points at derived artifacts, never copies them
  18. no line anchors     prose names symbols, not line numbers, which decay silently
  19. projection freshness every projection regenerates to the same bytes
+ 20. runtime authorities  statically reached lifecycle modules resolve to impact obligations
 
 `--self-test` runs negative controls: each check is fed a broken graph and must fail.
 A gate nobody has watched fail is unproven, not merely untested.
@@ -52,6 +53,7 @@ import pathlib
 import re
 import subprocess
 import sys
+import tempfile
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 
@@ -107,7 +109,7 @@ def load_extractors():
 # would be a false failure. The shell-variable prefix is what tells the two apart, and
 # group 1 capturing it is why this regex does not simply match any path-looking token.
 ANCHOR_TOKEN = re.compile(
-    r"(\$\{?\w+\}?/)?((?:[\w.-]+/)*[\w.-]+\.(?:py|sh|md|json|toml|zsh|html))(?::(\d+))?"
+    r"(\$\{?\w+\}?/)?((?:[\w.-]+/)*[\w.-]+\.(?:py|sh|md|json|toml|zsh|html|yaml|yml))(?::(\d+))?"
 )
 
 
@@ -154,6 +156,31 @@ def check_anchor_liveness(graph: dict) -> list[str]:
                          f"{[str(f.relative_to(REPO)) for f in files]} — the anchor has drifted")
     if not checked:
         fails.append("no entity anchor was verifiable — the check ran over an empty subject")
+    return fails
+
+
+def check_runtime_authorities(graph: dict, ev: dict, repo: pathlib.Path | None = None) -> list[str]:
+    """Every statically reached lifecycle module has an actionable impact mapping."""
+    spec = importlib.util.spec_from_file_location("onto_impact", ONTO / "impact.py")
+    impact = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(impact)
+    authorities = ev["runtime_authorities"]
+    modules = set(authorities["modules"])
+    entrypoints = set(authorities["entrypoints"])
+    imports = authorities["local_imports"]
+    fails = []
+    if not modules or not entrypoints or not imports:
+        fails.append("runtime authority extraction has an empty module, entrypoint, or local-import subject")
+    if not entrypoints <= modules or any(
+            row["source"] not in modules or row["target"] not in modules for row in imports):
+        fails.append("runtime authority extraction omits an entrypoint or imported module")
+    files = impact.entity_files(graph, REPO if repo is None else repo)
+    for path in sorted(modules):
+        entities = [eid for eid, paths in files.items() if path in paths]
+        if not entities:
+            fails.append(f"runtime authority {path}: no entity anchor resolves this module for impact analysis")
+        elif not any(ob["other"] != eid for eid in entities for ob in impact.obligations_of(graph, eid)):
+            fails.append(f"runtime authority {path}: its entities have no impact obligation to another entity")
     return fails
 
 
@@ -362,16 +389,16 @@ def check_site_agreement(ev: dict) -> list[str]:
     if not tb["sites"]["launch_profile"]:
         fails.append("no tier binding was read — the check ran over an empty subject")
 
-    # The user-owned-region extractor is the one that regressed before: reading install.sh alone,
-    # it reported two spans and missed the two assemble.py writes — which are the two with no
-    # remover. So what fails here is the extractor going single-author again, or a span whose
-    # lifecycle could not be read at all. The missing removers themselves are a product defect
-    # under decision (FINDINGS.md F-2); failing on them would only block the ontology work.
+    # The declared span authors cover legacy installation and explicit shell connection.
+    # Each row carries its route so compatibility behavior cannot read as the private default.
     uor = ev["user_owned_regions"][0]
-    if len(uor["authoring_sites"]) < 2:
-        fails.append(f"user-owned regions were read from {uor['authoring_sites']} only — the "
-                     f"extractor has folded back to one author and will miss the other's spans")
+    required_authors = {"install.sh", "compose/assemble.py", "launch/shell_integration.py"}
+    missing_authors = required_authors - set(uor["authoring_sites"])
+    if missing_authors:
+        fails.append(f"user-owned regions omit declared authors: {sorted(missing_authors)}")
     for r in uor["regions"]:
+        if not r.get("scope"):
+            fails.append(f"span `{r['span']}` has no lifecycle scope")
         if not r["ops"]:
             fails.append(f"span `{r['span']}` has no lifecycle op at all — it is written by "
                          f"nothing this extractor can see, so the reading is wrong")
@@ -906,6 +933,95 @@ def self_test(graph: dict, ev: dict, human_facing: dict, sources: dict) -> int:
         print("FAIL: subcommand extractor accepted a removed private dispatch", file=sys.stderr)
         return 1
 
+    usage_fixture = ('usage() {\n  cat <<\'EOF\'\n'
+                     '  agent-bios setup start   inspect the setup entrypoint\n'
+                     '  agent-bios install  install the package\n'
+                     '  agent-bios help\nEOF\n}\n'
+                     '  agent-bios outside  is not a usage advertisement\n'
+                     'if [ "$CMD" = "setup" ]; then\n  exec setup\nfi\n'
+                     'case "$CMD" in\n  install|help) exec manager ;;\nesac\n')
+    advertised = extractor.subcommands(usage_fixture)
+    if set(advertised["advertised_in_usage"]) != {"setup", "install", "help"} or advertised["implemented_but_unadvertised"]:
+        print("FAIL: subcommand extractor missed nested/bare help or counted text outside usage()", file=sys.stderr)
+        return 1
+    removed_usage = copy.deepcopy(ev)
+    removed_usage["subcommands"] = extractor.subcommands(usage_fixture.replace(
+        '  agent-bios setup start   inspect the setup entrypoint\n', ''))
+    controls.append(("site agreement catches removal of nested setup advertisement",
+                     lambda: check_site_agreement(removed_usage)))
+
+    def runtime_fixture(mutation=None):
+        with tempfile.TemporaryDirectory(prefix="ontology-authorities-") as raw:
+            root = pathlib.Path(raw)
+            (root / "compose").mkdir()
+            (root / "launch").mkdir()
+            (root / "learn").mkdir()
+            (root / "install.sh").write_text(
+                'exec python3 "$REPO/compose/manager.py"\n'
+                'exec python3 "$REPO/launch/shell.py"\n'
+                'collector="$REPO/learn/capture.py"\n', encoding="utf-8")
+            sources = {
+                "compose/manager.py": "from store import Store\n",
+                "compose/store.py": "class Store: pass\n",
+                "compose/session.py": 'import importlib\nmodule = "store" if True else "unavailable"\nimportlib.import_module(module)\n',
+                "launch/agent-launch.py": "import session\n",
+                "launch/shell.py": "from store import Store\n",
+                "learn/capture.py": "from store import Store\n",
+            }
+            for name, body in sources.items():
+                (root / name).write_text(body, encoding="utf-8")
+            observed = extractor.runtime_authorities(root)
+            if set(observed["modules"]) != set(sources):
+                raise AssertionError(f"runtime authority extractor disagrees with fixture modules: {observed}")
+            expected_imports = {
+                ("compose/manager.py", "compose/store.py"),
+                ("compose/session.py", "compose/store.py"),
+                ("launch/agent-launch.py", "compose/session.py"),
+                ("launch/shell.py", "compose/store.py"),
+                ("learn/capture.py", "compose/store.py"),
+            }
+            if {(row["source"], row["target"]) for row in observed["local_imports"]} != expected_imports:
+                raise AssertionError(f"runtime authority extractor disagrees with fixture imports: {observed}")
+            fixture = {"entities": [{"id": name, "anchor": name} for name in sources],
+                       "relationships": [
+                           {"from": name, "to": "compose/store.py", "kind": "controls",
+                            "name": "uses", "guard": "gated", "desc": "fixture dependency"}
+                           for name in sources if name != "compose/store.py"
+                       ] + [{"from": "compose/store.py", "to": "compose/session.py", "kind": "controls",
+                             "name": "feeds", "guard": "gated", "desc": "fixture dependency"}]}
+            if mutation is None:
+                if check_runtime_authorities(fixture, {"runtime_authorities": observed}, root):
+                    raise AssertionError("runtime authority coverage rejects its complete positive fixture")
+                (root / "compose/manager.py").write_text("pass\n", encoding="utf-8")
+                removed = extractor.runtime_authorities(root)
+                if {"source": "compose/manager.py", "target": "compose/store.py"} in removed["local_imports"]:
+                    raise AssertionError("runtime authority extractor retained a removed import")
+                return []
+            mutation(fixture, observed)
+            return check_runtime_authorities(fixture, {"runtime_authorities": observed}, root)
+
+    runtime_fixture()
+    for missing in ("compose/manager.py", "compose/session.py", "launch/shell.py", "learn/capture.py"):
+        def drop_anchor(fixture, observed, missing=missing):
+            fixture["entities"] = [row for row in fixture["entities"] if row["id"] != missing]
+        controls.append((f"runtime coverage catches omitted authority {missing}",
+                         lambda mutate=drop_anchor: runtime_fixture(mutate)))
+    controls.append(("runtime coverage refuses an empty extractor subject", lambda: runtime_fixture(
+        lambda fixture, observed: observed.update(modules=[], entrypoints=[], local_imports=[]))))
+    controls.append(("runtime coverage catches an imported module missing from its subject", lambda: runtime_fixture(
+        lambda fixture, observed: observed["modules"].remove("compose/store.py"))))
+    controls.append(("runtime coverage refuses anchors without impact obligations", lambda: runtime_fixture(
+        lambda fixture, observed: fixture.update(relationships=[]))))
+
+    missing_shell = copy.deepcopy(ev)
+    missing_shell["user_owned_regions"][0]["authoring_sites"] = ["install.sh", "compose/assemble.py"]
+    controls.append(("site agreement catches an omitted private shell author",
+                     lambda: check_site_agreement(missing_shell)))
+    unscoped = copy.deepcopy(ev)
+    unscoped["user_owned_regions"][0]["regions"] = [{"span": "fixture", "ops": ["merge"]}]
+    controls.append(("site agreement refuses an unscoped user-file writer",
+                     lambda: check_site_agreement(unscoped)))
+
     g = copy.deepcopy(graph)
     g["entities"][0]["anchor"] = "compose/nope-does-not-exist.py"
     controls.append(("anchor liveness catches a dead path", lambda: check_anchor_liveness(g)))
@@ -1249,6 +1365,7 @@ def main() -> None:
 
     results = [
         ("anchor liveness", check_anchor_liveness(graph)),
+        ("runtime authorities", check_runtime_authorities(graph, ev)),
         ("derived agreement", check_derived_agreement(graph, ev)),
         ("edge integrity", check_edge_integrity(graph)),
         ("prose counts", check_prose_counts(graph)),

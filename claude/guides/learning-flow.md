@@ -9,14 +9,15 @@ use_when:
 core_rules:
   - three gates BEFORE asking the user — admission bar, type, consumption layer
   - the user approves every recorded learning; nothing is written without it
-  - submit ONLY through `agent-bios learn`; never hand-write the record
+  - submit ONLY through the package-bound learn command below; never hand-write the record
 ---
 
 # Session learning flow (`learn!`)
 
 The **light**, per-user, single-session capture flow: turn a lesson from the
 current session into a **learning** (prose + a JSON record) that (a) applies to
-the user's own next session and (b) reaches the org for curation. This is the
+the user's future selected, activated sessions and (b) reaches the org for curation
+when transport is configured. This is the
 counterpart of the **heavy** session-distill pipeline (`distill!`), which mines
 many sessions and is curator/power-user only. Terminology and the full routing
 framework are maintained in the agent-bios repo; the criteria this flow applies
@@ -75,6 +76,14 @@ Surface each surviving candidate compactly — lesson, type, intended layer,
 admission-bar verdict, domain (+ proposed_domain) — and record ONLY what the
 user explicitly approves.
 
+In a Codex app task using the explicit corpus bridge, use the `learn` command
+and environment returned in its `runtime` metadata, or its registered helper.
+Shell exports from an earlier app tool call do not persist into later calls.
+
+In a launcher-activated session, invoke `learn` through the supplied
+`AGENT_BIOS_PACKAGE_ROOT` as shown below. Outside an activated session, resolve
+the installed `agent-bios` executable and use its `learn` subcommand.
+
 Submit each approved learning through the deterministic submit tool. Pass your
 session's `--host` and pipe the **semantic payload only** as one JSON object on
 stdin (set the `supporting_sessions` tool prefix — `claude:` or `codex:` — to
@@ -83,16 +92,18 @@ match your host):
     echo '{"lesson":"…","domain":"builder-base","supporting_sessions":["<tool>:<session-short-id>"],
            "criteria":["recurrent_error"],
            "classification":{"type":"B","layer":"hook","meets_bar":true}}' \
-      | agent-bios learn --host <claude|codex>
+      | bash "$AGENT_BIOS_PACKAGE_ROOT/install.sh" learn --host <claude|codex>
 
-The script (capability boundary) owns `learning_id` / `created` / `schema_version`,
-validates against `learn/learning.schema.json`, logs the JSON record, and writes
-the lesson prose where THIS host loads it next session:
-- **Claude**: appended to the automation-owned personal learnings file, pulled in
-  by the entry file's `@personal/learnings.md` import.
-- **Codex**: appended into a managed `agent-bios:personal-learnings` region of
-  `AGENTS.md` (Codex has no import; AGENTS.md is always loaded), kept outside the
-  central markers so re-assembly preserves it.
+The script (capability boundary) owns `learning_id` / `created` / `schema_version`
+and validates against `learn/learning.schema.json`. It appends the record to the
+private corpus's `learnings/<host>/events.jsonl`, keeping Claude and Codex captures
+separate. Selected learnings enter future activated-session snapshots through the
+private corpus. Capture preserves the user's global instruction files and the
+running session's snapshot. Upload runs after local storage when transport is configured.
+The private root is `$AGENT_BIOS_CORPUS_DIR`, defaulting to
+`~/.config/agent-bios/corpus`; native host-home settings do not relocate it.
+`--config-dir` is restricted to explicit legacy mode. Use `--no-upload` for
+local-only capture or `--dry-run` to validate without writes or uploads.
 
 **Never** hand-author `learning_id` / `created` / `schema_version`, and never
 write those files directly. If the script REJECTS a record, fix the semantic

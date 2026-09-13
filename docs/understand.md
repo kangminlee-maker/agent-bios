@@ -1,6 +1,6 @@
 # Understand why the corpus works this way
 
-[← Overview](../README.md) · [Corpus](corpus.md) · [Sessions](session-model.md) · [Recovery](recovery.md) · [Launch](advanced-launch.md) · [Understand!](understand.md)
+[← Overview](../README.md) · [Setup](setup.md) · [Corpus](corpus.md) · [Sessions](session-model.md) · [Recovery](recovery.md) · [Launch](advanced-launch.md) · [Understand!](understand.md)
 
 Understand! is learning for the person using the corpus, not model training. It explores reasons and limits through a conversation rather than asking you to memorize files.
 

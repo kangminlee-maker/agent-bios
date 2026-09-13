@@ -2,15 +2,15 @@
 
 **Claude Code와 Codex에서 사용할 개인 지침 라이브러리와 실행 도구입니다.**
 
-지침을 직접 읽고 고치며, 세션마다 무엇을 사용할지 선택합니다.
-기존 전역 지침 파일은 기본적으로 덮어쓰지 않습니다.
+지침을 직접 읽고 고치며, CLI 세션과 Codex 앱 작업마다 무엇을 사용할지 선택합니다.
+기존 전역 지침 파일은 보존합니다.
 
 [빠른 시작](#빠른-시작) · [Corpus Studio](#내-지침-라이브러리) · [작동 방식](#세션은-어떻게-작동하나) · [Understand!](#규칙의-이유-이해하기) · [문서](#문서) · [English](../README.md)
 
 ![가이드 연결과 미적용 켜기·끄기 선택을 보여주는 Corpus Studio](../docs/assets/corpus-studio.svg)
 
-*0.18.0의 실제 Studio 화면을 기본 corpus만 사용한 격리된 테스트 환경에서 캡처했습니다.
-이 화면에는 선택 사항인 Textual 런타임이 필요합니다.*
+*0.18.0의 실제 Studio 화면입니다. Textual을 켜고 기본 corpus만 사용한
+격리된 테스트 환경에서 캡처했습니다.*
 
 영문이 배포 정본이며, 이 한글 문서는 참고용입니다. 설치되거나 모델에게 로드되지 않습니다.
 
@@ -31,73 +31,68 @@ agent-bios는 규칙·가이드·절차로 이루어진 기본 라이브러리, 
 
 ## 빠른 시작
 
-**macOS 또는 Linux**, **Python 3.11 이상**, **Node.js 18 이상**과
-설치·인증을 마친 Claude Code 또는 Codex CLI가 필요합니다.
-검증 버전과 선택 도구는 [의존성 문서](../DEPENDENCIES.md)를 참고하세요.
+아래 설치 흐름은 **이 저장소의 소스**를 사용합니다. 공개된 npm 패키지
+`agent-bios@0.18.0`에는 여기서 설명하는 대화형 설치와 내장 터미널 UI가 없습니다.
+[설정과 준비 사항](../docs/setup.md)을 참고하세요.
 
-기존 전역 주입 방식으로 설치했다면
-[마이그레이션 안내](../docs/recovery.md#ownership-and-legacy-migration)를 먼저 확인하세요.
+### Codex 앱에서
 
-```bash
-npm install -g agent-bios@0.18.0
-agent-bios install
+설치할 컴퓨터의 로컬 작업을 열고 다음 한 줄을 보내세요.
+
+```text
+https://github.com/kangminlee-maker/agent-bios 설치해줘
 ```
 
-작업할 프로젝트 디렉터리에서 실행합니다.
+에이전트가 [INSTALL.md](../INSTALL.md)에 따라 소스의 특정 리비전을 준비하고,
+English·한국어·日本語 중 사용할 언어를 묻습니다. 설치할 의존성, corpus 사용 안 함
+또는 특정 corpus, 앱 연결, 기존 지침 파일 캡처를 선택하고 적용할 내용을 확인합니다.
+로컬 경로를 직접 적거나 Codex CLI를 따로 설치할 필요는 없습니다.
+
+등록한 명령이 앱에 나타나면 `$agent-bios`로 설정과 라이브러리를 관리할 수 있습니다.
+현재 작업에 corpus를 넣으려면 사용할 corpus를 명시해서 요청하세요.
+설치하거나 Studio를 여는 것만으로는 작업에 지침이 추가되지 않습니다.
+[앱에서 사용·끄기·개인 지침 가져오기 →](../docs/setup.md#use-corpus-in-a-codex-app-task)
+
+### 터미널에서
+
+**macOS 또는 Linux**, **Bash**, **Python 3.11 이상**이 필요합니다.
+이 저장소의 **Code** 메뉴에서 복제 명령을 복사하거나 소스를 내려받으세요.
+받은 저장소 폴더에서 터미널을 열고 실행합니다.
+
+```bash
+bash install.sh install
+```
+
+English·한국어·日本語를 지원하는 설치 화면이 열립니다. 검증된 Textual 런타임이
+내장되어 있어 UI를 따로 설치할 필요가 없습니다. 사용할 의존성과 corpus를 고르세요.
+[전체 설정 안내 →](../docs/setup.md)
+
+CLI 세션을 실행하려면 해당 호스트 CLI를 설치·인증한 뒤, 작업할 프로젝트에서 실행합니다.
 
 ```bash
 "$HOME/.local/bin/agent-launch" claude
 ```
 
-Codex 세션은 마지막 인자를 `codex`로 바꾸면 됩니다.
-전체 경로를 사용하므로 `~/.local/bin`이 `PATH`에 없어도 실행할 수 있습니다.
+Codex CLI 세션은 마지막 인자를 `codex`로 바꾸면 됩니다.
 
 1. Builder 프리셋이나 **Custom**을 선택합니다.
 2. 모델·리뷰·권한을 확인합니다. **일부 프리셋은 권한 우회를 요청**하므로 프로젝트에 맞게 선택하세요.
-3. 세션을 시작합니다. agent-bios 지침 없이 호스트 기본 설정을 쓰려면 **Software Engineer / Vanilla**를 선택합니다.
+3. 세션을 시작합니다. 호스트 기본 설정으로 시작하려면 **Software Engineer / Vanilla**를 선택합니다.
 
-먼저 **Corpus Studio**에서 내용을 살펴본 뒤 실행 메뉴로 돌아와도 됩니다.
+런처의 **Corpus Studio**에서 라이브러리를 살펴볼 수 있습니다. 소스 설치는
+`agent-launch`를 준비하며, 관리 명령은 보관한 소스 폴더에서
+`bash install.sh <command>`로 실행합니다. 전역 `agent-bios`는 다른 npm 버전일 수 있습니다.
+상세 문서의 `agent-bios`는 선택한 소스의 CLI를 가리키는 짧은 표기입니다.
 
-**설치와 활성화는 다릅니다.** 일반 `claude`·`codex` 명령에 corpus가 자동으로
-추가되지는 않습니다. 선택적인 [zsh 셸 연결](../docs/advanced-launch.md#optional-shell-connection)을
-켜면 인자 없는 대화형 명령을 런처로 연결할 수 있습니다.
-
-<details>
-<summary>화살표 키를 사용하는 rich TUI 켜기</summary>
-
-Textual 런타임이 없으면 번호를 입력하는 터미널 메뉴를 사용합니다.
-기본 private 설치가 Textual을 자동 설치하지는 않습니다.
-
-npm 설치 후 다음 명령으로 별도 관리 가상환경을 준비할 수 있습니다.
-
-```bash
-bash "$(npm root -g)/agent-bios/launch/provision-venv.sh"
-```
-
-호스트 CLI의 설정을 바꾸는 명령은 아닙니다.
-[의존성 문서](../DEPENDENCIES.md)에 경로와 검증 버전이 있습니다.
-
-</details>
-
-<details>
-<summary>소스 checkout에서 설치하기</summary>
-
-저장소 루트에서 실행합니다.
-
-```bash
-bash install.sh install
-# 선택 사항: rich TUI
-bash launch/provision-venv.sh
-```
-
-그다음 작업 프로젝트에서 런처를 실행합니다. 소스 기준 관리 명령은 저장소 루트의
-`bash install.sh <command>`를 사용하세요. 전역 `agent-bios`는 이전 npm 버전일 수 있습니다.
-
-</details>
+일반 `claude`·`codex` 명령에는 corpus가 자동 추가되지 않습니다.
+선택적인 [zsh 셸 연결](../docs/advanced-launch.md#optional-shell-connection)을 켜면
+인자 없는 대화형 명령을 런처로 연결할 수 있습니다. 기존 전역 설치가 있다면
+[마이그레이션 안내](../docs/recovery.md#ownership-and-legacy-migration)를 먼저 확인하세요.
 
 ## 내 지침 라이브러리
 
-런처의 **Corpus Studio**를 선택하거나 `agent-bios corpus`를 실행합니다.
+런처의 **Corpus Studio**를 선택하거나 소스 폴더에서 `bash install.sh corpus`를 실행합니다.
+앱의 `$agent-bios`도 대화로 같은 라이브러리를 관리합니다.
 
 - **커서 이동 즉시 읽기:** 목록에서 항목을 옮기면 Enter 없이 오른쪽 문서가 바뀝니다.
   방향키로 검색창·버튼·목록·문서 사이도 이동할 수 있습니다.
@@ -124,7 +119,9 @@ bash launch/provision-venv.sh
 
 설치는 agent-bios 소유 경로에 릴리즈와 기준 상태를 보관합니다.
 설정된 런처가 선택한 내용을 호스트에 맞게 구성합니다.
-나중에 수정한 내용은 이후 고정본에 반영되고, 관리되는 세션 재개는 기록된 고정본을 찾습니다.
+나중에 수정한 내용은 이후 고정본에 반영되고, 관리되는 CLI 세션 재개는 기록된 고정본을 찾습니다.
+앱 작업은 별도로 선택한 고정본을 도구의 응답으로 받습니다. 앱에서 사용을 꺼도
+이미 대화에 들어간 내용이 지워지지는 않습니다.
 
 활성 세션에서도 **사용자의 기존 전역 지침은 기본적으로 함께 로드**됩니다.
 전역 파일을 덮어쓰지 않는 것과 로드하지 않는 것은 다릅니다.
@@ -165,6 +162,7 @@ bash launch/provision-venv.sh
 
 | 필요한 내용 | 문서 |
 | --- | --- |
+| 설치·앱 연결·기존 지침 가져오기 | [설정](../docs/setup.md) |
 | corpus 편집·선택·복원 | [Corpus](../docs/corpus.md) |
 | 고정본·저장·검증 범위 | [세션 모델](../docs/session-model.md) |
 | 설치 충돌·마이그레이션·초기화 | [복구](../docs/recovery.md) |

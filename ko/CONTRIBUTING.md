@@ -9,7 +9,7 @@ agent-bios checkout이 필요하다. 작업 규칙의 기준은 [AGENTS.md](../A
 1. `claude/`의 영어 정본과 필요한 `ko/claude/` 한글 정본을 수정한다.
 2. `python3 gates/emit-mirrors.py`로 Codex 투영을 생성한다. 생성된 트리는 손으로 수정하지 않는다.
 3. 클론마다 `git config core.hooksPath .githooks`를 설정한다. 패키지·파리티 게이트를 통과시킨 뒤 커밋한다.
-4. 작업 중인 checkout을 로컬에 배포하려면 루트에서 `bash install.sh install`을 사용한다. 전역 CLI는 설치된 npm 패키지를 배포한다.
+4. 작업 중인 checkout을 로컬에 배포하려면 루트에서 `bash install.sh install --non-interactive`를 사용한다. 전역 CLI는 설치된 npm 패키지를 배포한다.
 
 게이트는 인덱스 스냅샷을 검사하며 검증 중 인덱스가 바뀌면 커밋을 거부한다. CI는 없으므로 실제 검사 결과를 확인한다. 게시에는 별도의 출처·깨끗한 커밋·원격 도달성 검사가 적용된다.
 
@@ -17,15 +17,15 @@ agent-bios checkout이 필요하다. 작업 규칙의 기준은 [AGENTS.md](../A
 
 | 경로 | 역할 |
 | --- | --- |
-| `claude/CLAUDE.md`, `codex/AGENTS.md` | 전역 지침 (en) — 설치·로드 |
-| `claude/guides/*.md`, `codex/guides/*.md` | scoped guides (en) — 설치 |
-| `codex/agents/*.toml` | Codex custom subagent role 템플릿 — 설치 |
+| `claude/CLAUDE.md`, `codex/AGENTS.md` | 선택된 활성 세션에 전달하는 영어 정본·생성 투영. 사용자 전역 파일에 설치하지 않음 |
+| `claude/guides/*.md`, `codex/guides/*.md` | 선택된 불변 고정본에 복사하는 영어 가이드 |
+| `codex/agents/*.toml` | private 릴리즈에 보관하는 Codex 역할 템플릿. native 활성화는 별도 |
 | `ko/**` | 한글 corpus 투영과 사용자·개발자 참고 문서. 설치·모델 로드 대상이 아님 |
-| `launch/` | launch profile, preflight TUI, 선택적 private 셸 연결과 legacy 호환 경로, managed Textual venv, prompting-target 검사 |
-| `compose/` | corpus 분류와 선택별 조립 — domain manifest와 그 게이트, assembler, package identity, hook 등록, activation canary, 배포된 corpus 상태 |
+| `launch/` | launch profile, preflight TUI, 선택적 private 셸 연결과 legacy 호환 경로, 내장 UI 런타임, prompting-target 검사 |
+| `compose/` | private corpus·고정본·관리 UI, 터미널/대화 공통 설치 엔진, 원본 보존 가져오기, 명시적 앱 연결, 호스트 전달과 세션 고정 |
 | `learn/` | collection loop — capture, record schema와 validator, curation intake, promotion manifest, 재배포, secret-redaction floor |
 | `session-distill/` | 여러 세션을 corpus 등급 항목으로 정제하는 heavy curator 파이프라인 |
-| `wrappers/` | `$CODEX_HOME/bin/`에 배포하는 내부 Codex wrapper |
+| `wrappers/` | private 릴리즈의 내부 실행·리뷰 어댑터. 기본 설치는 호스트 bin에 배치하지 않음 |
 | `gates/` | author-side 검증 (미러 생성, parity, lexicon, payload, assembler 시나리오) — repo 체크아웃에서만 닿을 수 있고, npm payload에 들어가면 `check-package.sh`가 실패시킨다 |
 | `ontology/` | 어떤 변경이 다른 무엇을 의무로 만드는지 — 엔티티, 의무 엣지, 서비스 라우트를 `check-ontology.py`가 실제 소스에 대조해 지킨다. `instances/graph.json`이 정본이고 `LEXICON.md`·RDF 뷰·HTML 맵·competency/extension 문서가 거기서 생성된다 |
 | `install.sh`, `session-cost.py` | CLI와 비용 측정기 — 직접 실행하는 두 가지(설치 후에는 `agent-bios`와 `agent-bios cost`) |

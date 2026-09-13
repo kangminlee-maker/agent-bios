@@ -211,7 +211,7 @@ Narrative가 아니라 다음 agent와 re-verification을 위해 쓴다. 필수 
 
 ## Environment Binding (환경마다 이 섹션만 수정)
 
-Concrete model/tool의 human-readable projection은 이 표가, machine launch authority는 `launch/agent-launch.toml`이 소유하며 parity check가 둘을 정렬한다. Binding이 약 8주보다 오래됐거나 observable model/tool surface가 바뀌면 재확인한다. `agent-bios install`이 deployed binding을 덮으므로 repo copy를 수정한다.
+Concrete model/tool의 human-readable projection은 이 표가, machine launch authority는 `launch/agent-launch.toml`이 소유하며 parity check가 둘을 정렬한다. Binding이 약 8주보다 오래됐거나 observable model/tool surface가 바뀌면 재확인한다. 배포 기본값은 원본 repo에서 편집하고, 개인 launch binding은 사용자 소유 launcher 설정에 둔다. Private 설치는 immutable release를 저장하고 개인 상태를 보존한다. 새 configured session에서 binding을 선택하며 기존 session pin은 유지한다.
 
 Binding (2026-09-08):
 

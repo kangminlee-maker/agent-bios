@@ -1,32 +1,19 @@
 #!/usr/bin/env bash
 # agent-bios installer.
 #
-# Deploys the single-source-of-truth (globals, scoped guides, Codex agent
-# templates, Codex wrappers, the launch profile/shell/bin, a managed Textual
-# venv, and the zsh hook) into $HOME by COPY — idempotent, backed up before
-# overwrite, and reversible. Distributed as an npm bin; the actual $HOME
-# deployment is this explicit command (never a postinstall side effect).
+# Stores the corpus and runtime privately for explicitly activated sessions.
+# Native global instructions and host discovery paths remain user-owned.
+# AGENT_BIOS_LEGACY_INSTALL=1 selects the compatibility deployer.
 #
-# Usage:
-#   agent-bios install     deploy into this environment (backs up + verifies)
-#   agent-bios verify      check the deployed state matches the source
-#   agent-bios status      show what is installed and where
-#   agent-bios cost        the session cost / context meter, from any directory
-#   agent-bios update      git pull + reinstall (clone), or print the npm update line
-#   agent-bios update --check   cache the registry's latest version for the TUI badge
-#   agent-bios uninstall   remove deployed files and the zsh hook
-#   agent-bios help
-#
-# Flags: --dry-run (print actions, change nothing).
-# Env overrides: CLAUDE_CONFIG_DIR, CODEX_HOME, AGENT_LAUNCH_VENV, ZDOTDIR.
+# Usage: agent-bios help
+# Private roots: AGENT_BIOS_STATE_DIR, AGENT_BIOS_CORPUS_DIR.
+# Host/runtime overrides: CLAUDE_CONFIG_DIR, CODEX_HOME, AGENT_LAUNCH_VENV, ZDOTDIR.
 set -euo pipefail
 
-# This installer is non-interactive: every input arrives as a subcommand, flag,
-# or env var. Detach stdin so no child (the codex-helm dry-run, pip, git) can
-# block forever on an inherited idle stdin — that is what hangs an install under
-# CI, pipes, and background runs, where stdin stays open but never delivers.
-# `learn` is the one subcommand whose payload IS stdin, so keep the caller's on
-# fd 3 first and hand it back only there; every other path still sees /dev/null.
+# Preserve caller input for explicit interactive setup and payload commands;
+# dependency and compatibility child processes receive /dev/null by default.
+# Preserve caller input on fd 3 for payload-bearing subcommands (learn, corpus,
+# understand, and cost); other child processes see /dev/null.
 # The braces matter. `exec` with redirections and no command applies them to the
 # SHELL, permanently — so the bare `exec 3<&0 2>/dev/null` this used to be sent
 # every later error message on this script's stderr to /dev/null: bash's own
@@ -1745,7 +1732,7 @@ cmd_update() {
     if [ "${AGENT_BIOS_LEGACY_INSTALL:-0}" = 1 ]; then
       cmd_install
     else
-      python3 "$REPO/compose/corpus_install.py" --repo "$REPO" install
+      python3 "$REPO/compose/corpus_install.py" --repo "$REPO" install --non-interactive
     fi
   else
     log "Installed as an npm package. Update with:"
@@ -1760,9 +1747,22 @@ usage() {
   cat <<'EOF'
 agent-bios — manage private corpus content for explicitly activated sessions.
 
-  agent-bios install     store a private runtime and corpus baseline
+  agent-bios install                 open the Textual installation wizard
+  agent-bios install --non-interactive --corpus none   store runtime with no active corpus
+  agent-bios install --corpus selected --select @scope/package   select only that corpus
   agent-bios onboard     select domains for future activated sessions
+  agent-bios setup start             report setup languages, execution target, and conversation guide
+  agent-bios setup inspect --language ko   inspect dependencies and corpus choices as JSON
+  agent-bios setup discover --project-root /path/to/project   list eligible instruction sources
+  agent-bios setup plan --language ko --input request.json    preview selected setup effects as JSON
+  agent-bios setup apply --input review.json --review-id ID --yes   apply the accepted review
+  agent-bios setup status --review-id ID    inspect a recorded setup outcome
+  agent-bios setup resume --review-id ID    re-probe and prepare a fresh review without applying
   agent-bios corpus      open Corpus Studio; list/show/plan/apply also work non-TTY
+  agent-bios import      discover/capture/review local instructions; --help lists source-preserving steps
+  agent-bios app         register an explicit Codex app bridge or manage per-task corpus input
+  agent-bios app session use   return selected corpus as context for this Codex app task
+  agent-bios app session off   stop future delivery; earlier context requires a new task to exclude
   agent-bios understand  list corpus learning bundles; --help shows session/discovery commands
   agent-bios shell       show the optional zsh connection status
   agent-bios shell restore   make bare claude/codex open the launcher TUI
@@ -1795,18 +1795,21 @@ AGENTS.md/CLAUDE.md. Restore/remove it from the TUI's Shell connection menu or
 the commands above. After restoring, open a new terminal or reload .zshrc.
 
 Flags: --dry-run       print actions without changing anything
-       --domains a,b  assemble ONLY the named domain packages (plus core+infra);
-                      with onboard, 'none' means core+infra only. The selection
-                      persists in the state dir and later installs/updates reuse
-                      it. Default (no flag, no saved selection) selects every
-                      domain — one install shape, "full" is just everything
-                      selected.
-       --with a,b     also install the named optional dependencies (install only).
-                      Without it, install offers each missing one when the terminal
-                      is interactive, and otherwise just prints its install line.
-                      Missing ones are not fatal — they only degrade the review
-                      routes that need them.
-Env:   CLAUDE_CONFIG_DIR, CODEX_HOME, AGENT_LAUNCH_VENV, ZDOTDIR
+       --interactive open the Textual installation wizard (default)
+       --non-interactive opt out of the wizard and return JSON; required without a terminal
+       --corpus / --select seed wizard choices; --dry-run previews without Apply
+       --corpus none  deliver no corpus, including core and management bootstrap
+       --corpus all   select all corpus; --corpus selected uses repeated --select targets
+                      Library assets remain in the private runtime; these choices govern delivery.
+       --domains a,b  select named domains for future activated snapshots, plus
+                      implicit core+infra; '--domains none' keeps that core-only meaning. Saved selections
+                      survive installs/updates. Without a saved selection or flag,
+                      installation selects every domain.
+       --with a,b     optional dependency installation in explicit legacy mode only;
+                      private installation rejects this option.
+Env:   AGENT_BIOS_STATE_DIR, AGENT_BIOS_CORPUS_DIR (private runtime and user roots)
+       CLAUDE_CONFIG_DIR, CODEX_HOME (native host configuration)
+       AGENT_LAUNCH_VENV, ZDOTDIR
 EOF
   # DERIVED, not typed: the hardcoded pair went stale the moment a capability was renamed,
   # and the name it still advertised selected a different capability than the one that
@@ -1814,11 +1817,10 @@ EOF
   local known; known=$(capability_table 2>/dev/null | cut -f1 | tr '\n' ' ')
   [ -n "$known" ] && printf '       --with names: %s\n' "${known% }"
 
-  # Recovery exists in both modes at different granularity, and naming the wrong one is worse
-  # than naming none: a clone can roll the corpus back to a registered mining window, while an
-  # npm install has no git history to read and rolls the whole package back by version instead.
-  # Derived from which install this is, for the same reason --with names is.
-  if [ -e "$REPO/.git" ]; then
+  if [ "${AGENT_BIOS_LEGACY_INSTALL:-0}" != 1 ]; then
+    printf '\nRecover: agent-bios corpus history --json; submit an operation=rollback request\n'
+    printf '         through agent-bios corpus plan/apply for a baseline_ref or history_id.\n'
+  elif [ -e "$REPO/.git" ]; then
     printf '\nRecover: python3 %s/compose/corpus-state.py list, then rollback --version V\n' "$REPO"
   else
     printf '\nRecover: npm install -g agent-bios@<older-version> && agent-bios install\n'
@@ -1829,9 +1831,9 @@ EOF
 CMD="${1:-help}"
 if [ $# -gt 0 ]; then shift; fi
 
-# Private installation is the new user path. The explicit legacy flag exists only
-# while maintained install fixtures and pre-migration environments exercise the old
-# writer. No private operation falls through to a global writer.
+# Private installation is the default path. The explicit legacy flag selects
+# compatibility installation and its regression fixtures. No private operation
+# falls through to a global writer.
 if [ "$CMD" = "corpus" ]; then
   exec python3 "$REPO/compose/corpus.py" --repo "$REPO" "$@" <&3
 fi
@@ -1841,9 +1843,28 @@ fi
 if [ "$CMD" = "understand" ]; then
   exec python3 "$REPO/compose/corpus_understand.py" --repo "$REPO" "$@" <&3
 fi
+if [ "$CMD" = "app" ]; then
+  exec python3 "$REPO/compose/corpus_app.py" --repo "$REPO" "$@" <&3
+fi
+if [ "$CMD" = "import" ]; then
+  exec python3 "$REPO/compose/corpus_import.py" --repo "$REPO" "$@" <&3
+fi
+if [ "$CMD" = "setup" ]; then
+  if ! command -v python3 >/dev/null 2>&1 || ! python3 -c 'import sys; sys.exit(sys.version_info < (3, 11))' </dev/null; then
+    log "Python 3.11 or newer is required for conversation setup."
+    log "Install Python with your operating system package manager, then rerun this command."
+    exit 1
+  fi
+  exec python3 "$REPO/compose/corpus_setup_cli.py" --repo "$REPO" "$@" <&3
+fi
 if [ "${AGENT_BIOS_LEGACY_INSTALL:-0}" != 1 ]; then
   case "$CMD" in
     install|onboard|verify|status|uninstall|migrate|reset)
+      if ! command -v python3 >/dev/null 2>&1 || ! python3 -c 'import sys; sys.exit(sys.version_info < (3, 11))' </dev/null; then
+        log "Python 3.11 or newer is required for the installer and dependency chooser."
+        log "Install Python with your operating system package manager, then rerun this command."
+        exit 1
+      fi
       exec python3 "$REPO/compose/corpus_install.py" --repo "$REPO" "$CMD" "$@" <&3
       ;;
   esac
@@ -1857,7 +1878,15 @@ fi
 if [ "$CMD" = "learn" ]; then
   collector="$REPO/learn/collect-learning.py"
   [ -f "$collector" ] || { log "learn: collector missing at $collector"; exit 1; }
-  exec python3 "$collector" "$@" <&3
+  learning_python="python3"
+  if ! python3 -c 'from jsonschema import Draft202012Validator' </dev/null >/dev/null 2>&1; then
+    learning_python="${AGENT_LAUNCH_VENV:-$HOME/.local/share/agent-launch/venv}/bin/python"
+    if [ ! -x "$learning_python" ] || ! "$learning_python" -c 'from jsonschema import Draft202012Validator' </dev/null >/dev/null 2>&1; then
+      log "learn: JSON Schema support is missing; select jsonschema in agent-bios install --interactive."
+      exit 1
+    fi
+  fi
+  exec "$learning_python" "$collector" "$@" <&3
 fi
 # `cost` is the same shape for the same reason: the guides tell an installed user to
 # measure with session-cost.py, and on a packaged install that file lives inside the

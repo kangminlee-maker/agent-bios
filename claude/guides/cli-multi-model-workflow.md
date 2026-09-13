@@ -233,7 +233,7 @@ Write for the next agent and re-verification, not narrative. Required content:
 
 ## Environment Binding (edit per environment)
 
-This is the human-readable projection of concrete models/tools; `launch/agent-launch.toml` is the machine launch authority and parity checks keep them aligned. Re-probe when the binding is older than ~8 weeks or a newer observable model/tool changes the surface. `agent-bios install` overwrites deployed bindings, so edit the repo copy.
+This is the human-readable projection of concrete models/tools; `launch/agent-launch.toml` is the machine launch authority and parity checks keep them aligned. Re-probe when the binding is older than ~8 weeks or a newer observable model/tool changes the surface. Edit shipped defaults in the source repository; keep personal launch bindings in user-owned launcher configuration. Private installation stores an immutable release and preserves personal state. A new configured session resolves its bindings; existing session pins retain theirs.
 
 Binding (2026-09-08):
 

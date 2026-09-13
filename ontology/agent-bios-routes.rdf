@@ -16,14 +16,14 @@
 
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/CorpusRule">
         <rdfs:label>CorpusRule</rdfs:label>
-        <rdfs:comment>An always-on instruction bullet in the global file, identified by its anchor substring. On 3 route(s): author-to-deployed, install, learn-loop; guard gated</rdfs:comment>
+        <rdfs:comment>An instruction bullet identified by its source anchor; selected always-surface rules enter explicitly activated private sessions. On 4 route(s): author-to-deployed, learn-loop, legacy-install, instruction-import; guard gated</rdfs:comment>
         <ont:icon>🔀</ont:icon>
         <ont:color>#E3008C</ont:color>
     </owl:Class>
 
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/Guide">
         <rdfs:label>Guide</rdfs:label>
-        <rdfs:comment>A scoped instruction document loaded when a corpus rule's pointer fires. On 1 route(s): author-to-deployed; guard gated</rdfs:comment>
+        <rdfs:comment>A scoped instruction document exposed by the selected session router and loaded when relevant. On 1 route(s): author-to-deployed; guard gated</rdfs:comment>
         <ont:icon>▸</ont:icon>
         <ont:color>#A8B4C0</ont:color>
     </owl:Class>
@@ -37,135 +37,79 @@
 
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/Domain">
         <rdfs:label>Domain</rdfs:label>
-        <rdfs:comment>An opt-in bundle of instruction content; five exist today. On 1 route(s): author-to-deployed; guard gated</rdfs:comment>
+        <rdfs:comment>An opt-in bundle of instruction content declared in the domain manifest. On 1 route(s): author-to-deployed; guard gated</rdfs:comment>
         <ont:icon>▸</ont:icon>
         <ont:color>#A8B4C0</ont:color>
     </owl:Class>
 
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/PayloadEntry">
         <rdfs:label>PayloadEntry</rdfs:label>
-        <rdfs:comment>A shipped path; breakage is visible only on npm installs, which no checkout test sees. On 1 route(s): author-to-deployed; guard derived</rdfs:comment>
-        <ont:icon>▸</ont:icon>
-        <ont:color>#A8B4C0</ont:color>
-    </owl:Class>
-
-    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/HostPrerequisite">
-        <rdfs:label>HostPrerequisite</rdfs:label>
-        <rdfs:comment>A host tool the install requires rather than degrades without; git and python3&gt;=3.11 abort, zsh/codex/claude only warn. On 1 route(s): install; guard unguarded</rdfs:comment>
-        <ont:icon>▸</ont:icon>
-        <ont:color>#A8B4C0</ont:color>
-    </owl:Class>
-
-    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/Migration">
-        <rdfs:label>Migration</rdfs:label>
-        <rdfs:comment>A one-way transform of previously deployed state; order-bearing. On 2 route(s): install, uninstall; guard unguarded</rdfs:comment>
-        <ont:icon>🔀</ont:icon>
-        <ont:color>#7719AA</ont:color>
-    </owl:Class>
-
-    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/CorpusAssembler">
-        <rdfs:label>CorpusAssembler</rdfs:label>
-        <rdfs:comment>Compiles catalog items into private immutable snapshots; the legacy assembler is retained for explicit migration regression checks. On 1 route(s): install; guard gated</rdfs:comment>
-        <ont:icon>▸</ont:icon>
-        <ont:color>#A8B4C0</ont:color>
-    </owl:Class>
-
-    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/DeployTarget">
-        <rdfs:label>DeployTarget</rdfs:label>
-        <rdfs:comment>A (source, destination, mode) triple; removal is derived, verification is hand-authored. On 1 route(s): install; guard partial</rdfs:comment>
-        <ont:icon>▸</ont:icon>
-        <ont:color>#A8B4C0</ont:color>
-    </owl:Class>
-
-    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/Hook">
-        <rdfs:label>Hook</rdfs:label>
-        <rdfs:comment>Executable instruction that fires on a tool event, owned by manifest name not path marker. On 1 route(s): install; guard partial</rdfs:comment>
-        <ont:icon>▸</ont:icon>
-        <ont:color>#A8B4C0</ont:color>
-    </owl:Class>
-
-    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/LearningRecord">
-        <rdfs:label>LearningRecord</rdfs:label>
-        <rdfs:comment>The captured per-session artifact, minted by the collector. On 2 route(s): install, learn-loop; guard gated</rdfs:comment>
-        <ont:icon>🔀</ont:icon>
-        <ont:color>#7719AA</ont:color>
-    </owl:Class>
-
-    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/UserOwnedFileRegion">
-        <rdfs:label>UserOwnedFileRegion</rdfs:label>
-        <rdfs:comment>A marked span written into a file this repo does not own, never manifested. On 2 route(s): install, uninstall; guard partial</rdfs:comment>
-        <ont:icon>🔀</ont:icon>
-        <ont:color>#7719AA</ont:color>
-    </owl:Class>
-
-    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/Wrapper">
-        <rdfs:label>Wrapper</rdfs:label>
-        <rdfs:comment>Internal dispatch script; codex-run is deployed and never byte-compared by verify. On 2 route(s): install, review-dispatch; guard unguarded</rdfs:comment>
-        <ont:icon>🔀</ont:icon>
-        <ont:color>#7719AA</ont:color>
-    </owl:Class>
-
-    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/PresetMode">
-        <rdfs:label>PresetMode</rdfs:label>
-        <rdfs:comment>software-engineer, builder or distill, plus the user-owned presets.local.toml. On 2 route(s): install, launch; guard gated</rdfs:comment>
-        <ont:icon>🔀</ont:icon>
-        <ont:color>#7719AA</ont:color>
-    </owl:Class>
-
-    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/TierBinding">
-        <rdfs:label>TierBinding</rdfs:label>
-        <rdfs:comment>(host, tier) to (model, effort); the parity gate hardcodes the very names it aligns. On 2 route(s): install, launch; guard partial</rdfs:comment>
-        <ont:icon>🔀</ont:icon>
-        <ont:color>#7719AA</ont:color>
-    </owl:Class>
-
-    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/ShellInterception">
-        <rdfs:label>ShellInterception</rdfs:label>
-        <rdfs:comment>The zero-argument launcher entry; an opt-in private shell connection owned by launch/shell_integration.py and a legacy compatibility adapter share launch/agent-launch.zsh. On 3 route(s): install, uninstall, launch; guard partial</rdfs:comment>
-        <ont:icon>🔀</ont:icon>
-        <ont:color>#E3008C</ont:color>
-    </owl:Class>
-
-    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/Capability">
-        <rdfs:label>Capability</rdfs:label>
-        <rdfs:comment>An optional external tool; data-only, so no resolver branch reads its identity. On 2 route(s): install, review-dispatch; guard gated</rdfs:comment>
-        <ont:icon>🔀</ont:icon>
-        <ont:color>#7719AA</ont:color>
-    </owl:Class>
-
-    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/ManagedRuntime">
-        <rdfs:label>ManagedRuntime</rdfs:label>
-        <rdfs:comment>An interpreter environment this repo provisions, carrying a declared numbered-prompt fallback. On 1 route(s): install; guard partial</rdfs:comment>
-        <ont:icon>▸</ont:icon>
-        <ont:color>#A8B4C0</ont:color>
-    </owl:Class>
-
-    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/StateArtifact">
-        <rdfs:label>StateArtifact</rdfs:label>
-        <rdfs:comment>Persisted deployment state; each has a writer, readers and a migration. On 1 route(s): install; guard partial</rdfs:comment>
-        <ont:icon>▸</ont:icon>
-        <ont:color>#A8B4C0</ont:color>
-    </owl:Class>
-
-    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/DeploymentManifest">
-        <rdfs:label>DeploymentManifest</rdfs:label>
-        <rdfs:comment>The record of what this install wrote, and the sole authority for uninstall. On 2 route(s): install, uninstall; guard unguarded</rdfs:comment>
-        <ont:icon>🔀</ont:icon>
-        <ont:color>#7719AA</ont:color>
-    </owl:Class>
-
-    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/Gate">
-        <rdfs:label>Gate</rdfs:label>
-        <rdfs:comment>An executable check owning an invariant, a subject set and an enforcement claim. On 1 route(s): install; guard gated</rdfs:comment>
+        <rdfs:comment>A shipped path declared by package.json files[] and checked against real runtime references. On 1 route(s): author-to-deployed; guard derived</rdfs:comment>
         <ont:icon>▸</ont:icon>
         <ont:color>#A8B4C0</ont:color>
     </owl:Class>
 
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/CliSubcommand">
         <rdfs:label>CliSubcommand</rdfs:label>
-        <rdfs:comment>A user-invocable entry with three dispatch and advertisement sites, not one. On 1 route(s): learn-loop; guard unguarded</rdfs:comment>
-        <ont:icon>▸</ont:icon>
-        <ont:color>#A8B4C0</ont:color>
+        <rdfs:comment>A user-invocable operation with a named command owner; install/onboard default to terminal setup while JSON setup serves reviewed conversation installation through the same controller, reached from a public repository-link request or an installed skill. On 10 route(s): install, uninstall, learn-loop, migrate, reset, shell-connection, setup, instruction-import, app-context, conversation_setup; guard unguarded</rdfs:comment>
+        <ont:icon>🔀</ont:icon>
+        <ont:color>#E3008C</ont:color>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/DeployTarget">
+        <rdfs:label>DeployTarget</rdfs:label>
+        <rdfs:comment>A bounded owned write: private releases and launcher projections, an explicitly registered app discovery link, or native corpus destinations on the compatibility route. On 5 route(s): install, legacy-install, migrate, reset, app-context; guard partial</rdfs:comment>
+        <ont:icon>🔀</ont:icon>
+        <ont:color>#E3008C</ont:color>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/Selection">
+        <rdfs:label>Selection</rdfs:label>
+        <rdfs:comment>Saved or invocation-local none/default/selected policies and qualified targets, reviewed through SetupController and its UI; imported host/project scope constrains delivery. On 5 route(s): install, session-activation, setup, app-context, conversation_setup; guard unguarded</rdfs:comment>
+        <ont:icon>🔀</ont:icon>
+        <ont:color>#E3008C</ont:color>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/CorpusAssembler">
+        <rdfs:label>CorpusAssembler</rdfs:label>
+        <rdfs:comment>Compiles selected items into immutable snapshots for native session adapters or explicit app context; reviewed imports publish private personal items through the same store. On 5 route(s): install, legacy-install, session-activation, instruction-import, app-context; guard gated</rdfs:comment>
+        <ont:icon>🔀</ont:icon>
+        <ont:color>#E3008C</ont:color>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/StateArtifact">
+        <rdfs:label>StateArtifact</rdfs:label>
+        <rdfs:comment>Persisted private sources, import evidence and receipts, baselines, immutable snapshots, native pins, app context receipts, setup review/outcome receipts and transaction journals; each has owning writers and readers. On 9 route(s): install, uninstall, legacy-install, session-activation, reset, setup, instruction-import, app-context, conversation_setup; guard partial</rdfs:comment>
+        <ont:icon>🔀</ont:icon>
+        <ont:color>#E3008C</ont:color>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/DeploymentManifest">
+        <rdfs:label>DeploymentManifest</rdfs:label>
+        <rdfs:comment>Ownership records for removal: private installation metadata, shell receipts and exact app bridge generations; legacy deployment uses manifest.txt. On 6 route(s): install, uninstall, legacy-install, legacy-uninstall, shell-connection, app-context; guard unguarded</rdfs:comment>
+        <ont:icon>🔀</ont:icon>
+        <ont:color>#E3008C</ont:color>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/Gate">
+        <rdfs:label>Gate</rdfs:label>
+        <rdfs:comment>An executable check owning an invariant, a subject set and an enforcement claim. On 3 route(s): install, legacy-install, instruction-import; guard gated</rdfs:comment>
+        <ont:icon>🔀</ont:icon>
+        <ont:color>#E3008C</ont:color>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/ShellInterception">
+        <rdfs:label>ShellInterception</rdfs:label>
+        <rdfs:comment>An optional zero-argument launcher entry, with receipt-backed shell restore/remove and a shared zsh adapter. On 6 route(s): uninstall, launch, legacy-install, legacy-uninstall, reset, shell-connection; guard partial</rdfs:comment>
+        <ont:icon>🔀</ont:icon>
+        <ont:color>#E3008C</ont:color>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/LearningRecord">
+        <rdfs:label>LearningRecord</rdfs:label>
+        <rdfs:comment>An immutable session learning event validated and scrubbed by the collector, stored privately and projected into later selected snapshots. On 3 route(s): learn-loop, legacy-install, migrate; guard gated</rdfs:comment>
+        <ont:icon>🔀</ont:icon>
+        <ont:color>#E3008C</ont:color>
     </owl:Class>
 
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/SessionDistillPipeline">
@@ -175,18 +119,32 @@
         <ont:color>#A8B4C0</ont:color>
     </owl:Class>
 
-    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/Host">
-        <rdfs:label>Host</rdfs:label>
-        <rdfs:comment>A model family seat; the provider reverse map must be unique to resolve one validatable seat. On 2 route(s): launch, review-dispatch; guard gated</rdfs:comment>
+    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/PresetMode">
+        <rdfs:label>PresetMode</rdfs:label>
+        <rdfs:comment>software-engineer, builder or distill, plus the user-owned presets.local.toml. On 2 route(s): launch, legacy-install; guard gated</rdfs:comment>
         <ont:icon>🔀</ont:icon>
         <ont:color>#7719AA</ont:color>
     </owl:Class>
 
+    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/TierBinding">
+        <rdfs:label>TierBinding</rdfs:label>
+        <rdfs:comment>(host, tier) to (model, effort), with display names derived from the launch profile model_display map. On 2 route(s): launch, legacy-install; guard partial</rdfs:comment>
+        <ont:icon>🔀</ont:icon>
+        <ont:color>#7719AA</ont:color>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/Host">
+        <rdfs:label>Host</rdfs:label>
+        <rdfs:comment>A model family seat; the provider reverse map must be unique to resolve one validatable seat. On 3 route(s): launch, review-dispatch, session-activation; guard gated</rdfs:comment>
+        <ont:icon>🔀</ont:icon>
+        <ont:color>#E3008C</ont:color>
+    </owl:Class>
+
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/Backend">
         <rdfs:label>Backend</rdfs:label>
-        <rdfs:comment>The CLI actually executed, with its passthrough arguments. On 1 route(s): launch; guard gated</rdfs:comment>
-        <ont:icon>▸</ont:icon>
-        <ont:color>#A8B4C0</ont:color>
+        <rdfs:comment>The CLI actually executed, with its passthrough arguments. On 2 route(s): launch, session-activation; guard gated</rdfs:comment>
+        <ont:icon>🔀</ont:icon>
+        <ont:color>#7719AA</ont:color>
     </owl:Class>
 
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/ReviewMethod">
@@ -194,6 +152,55 @@
         <rdfs:comment>A named way to obtain a review, with perspectives, trials and a severity map. On 1 route(s): review-dispatch; guard gated</rdfs:comment>
         <ont:icon>▸</ont:icon>
         <ont:color>#A8B4C0</ont:color>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/Capability">
+        <rdfs:label>Capability</rdfs:label>
+        <rdfs:comment>An optional external tool; data-only, so no resolver branch reads its identity. On 2 route(s): review-dispatch, legacy-install; guard gated</rdfs:comment>
+        <ont:icon>🔀</ont:icon>
+        <ont:color>#7719AA</ont:color>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/Wrapper">
+        <rdfs:label>Wrapper</rdfs:label>
+        <rdfs:comment>An internal dispatch script loaded from the selected package; explicit legacy installation also deploys wrapper copies. On 2 route(s): review-dispatch, legacy-install; guard unguarded</rdfs:comment>
+        <ont:icon>🔀</ont:icon>
+        <ont:color>#7719AA</ont:color>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/HostPrerequisite">
+        <rdfs:label>HostPrerequisite</rdfs:label>
+        <rdfs:comment>Locally probed host tools and interpreters; explicit setup offers available fixed installation commands, while manual account/configuration steps remain separate. On 3 route(s): legacy-install, setup, conversation_setup; guard unguarded</rdfs:comment>
+        <ont:icon>🔀</ont:icon>
+        <ont:color>#E3008C</ont:color>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/Migration">
+        <rdfs:label>Migration</rdfs:label>
+        <rdfs:comment>An explicit transform of owned legacy state into private state, with pinned release authority and replayable cleanup; compatibility installer migrations remain on their selected route. On 3 route(s): legacy-install, legacy-uninstall, migrate; guard unguarded</rdfs:comment>
+        <ont:icon>🔀</ont:icon>
+        <ont:color>#E3008C</ont:color>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/Hook">
+        <rdfs:label>Hook</rdfs:label>
+        <rdfs:comment>An event instruction with a canonical carrier and manifest binding, compiled into host-specific session hooks when native consumption is selected. On 1 route(s): legacy-install; guard partial</rdfs:comment>
+        <ont:icon>▸</ont:icon>
+        <ont:color>#A8B4C0</ont:color>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/UserOwnedFileRegion">
+        <rdfs:label>UserOwnedFileRegion</rdfs:label>
+        <rdfs:comment>A bounded managed span or discovery entry in user-owned native state: optional shell wiring and explicit app bridge registration; globals remain preserved outside explicit legacy cleanup. On 4 route(s): legacy-install, legacy-uninstall, migrate, shell-connection; guard partial</rdfs:comment>
+        <ont:icon>🔀</ont:icon>
+        <ont:color>#E3008C</ont:color>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/ManagedRuntime">
+        <rdfs:label>ManagedRuntime</rdfs:label>
+        <rdfs:comment>A supplied Python dependency environment: verified shipped UI wheels loaded into a process-owned temporary directory on package CLI paths, with separately retained managed/numbered compatibility clients. On 2 route(s): legacy-install, setup; guard partial</rdfs:comment>
+        <ont:icon>🔀</ont:icon>
+        <ont:color>#7719AA</ont:color>
     </owl:Class>
 
     <!-- Route sequences -->
@@ -211,7 +218,7 @@
         <rdfs:label>routes</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusRule"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>author-to-deployed, install, learn-loop</rdfs:comment>
+        <rdfs:comment>author-to-deployed, learn-loop, legacy-install, instruction-import</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -227,7 +234,7 @@
         <rdfs:label>anchor</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusRule"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>claude/CLAUDE.md</rdfs:comment>
+        <rdfs:comment>claude/CLAUDE.md, compose/corpus_catalog.py</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -363,102 +370,36 @@
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/host-prerequisite_entityId">
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/cli-subcommand_entityId">
         <rdfs:label>entityId</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/HostPrerequisite"/>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>host-prerequisite</rdfs:comment>
+        <rdfs:comment>cli-subcommand</rdfs:comment>
         <ont:isIdentifier rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ont:isIdentifier>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/host-prerequisite_routes">
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/cli-subcommand_routes">
         <rdfs:label>routes</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/HostPrerequisite"/>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>install</rdfs:comment>
+        <rdfs:comment>install, uninstall, learn-loop, migrate, reset, shell-connection, setup, instruction-import, app-context, conversation_setup</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/host-prerequisite_guard">
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/cli-subcommand_guard">
         <rdfs:label>guard</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/HostPrerequisite"/>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
         <rdfs:comment>unguarded</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/host-prerequisite_anchor">
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/cli-subcommand_anchor">
         <rdfs:label>anchor</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/HostPrerequisite"/>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>install.sh:67 check_prereqs</rdfs:comment>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/migration_entityId">
-        <rdfs:label>entityId</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Migration"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>migration</rdfs:comment>
-        <ont:isIdentifier rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ont:isIdentifier>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/migration_routes">
-        <rdfs:label>routes</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Migration"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>install, uninstall</rdfs:comment>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/migration_guard">
-        <rdfs:label>guard</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Migration"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>unguarded</rdfs:comment>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/migration_anchor">
-        <rdfs:label>anchor</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Migration"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>install.sh:152 / :386 / :453</rdfs:comment>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/corpus-assembler_entityId">
-        <rdfs:label>entityId</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusAssembler"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>corpus-assembler</rdfs:comment>
-        <ont:isIdentifier rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ont:isIdentifier>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/corpus-assembler_routes">
-        <rdfs:label>routes</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusAssembler"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>install</rdfs:comment>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/corpus-assembler_guard">
-        <rdfs:label>guard</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusAssembler"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>gated</rdfs:comment>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/corpus-assembler_anchor">
-        <rdfs:label>anchor</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusAssembler"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>compose/corpus_catalog.py, compose/corpus_store.py, compose/assemble.py</rdfs:comment>
+        <rdfs:comment>install.sh, compose/corpus.py, compose/corpus_install.py, compose/corpus_understand.py, compose/corpus_import.py, compose/corpus_app.py, compose/corpus_setup.py, compose/app_bridge/scripts/bridge.py, compose/corpus_setup_ui.py, compose/corpus_setup_i18n.py, compose/corpus_setup_cli.py, compose/setup/START.md, INSTALL.md, docs/setup.md</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -475,7 +416,7 @@
         <rdfs:label>routes</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/DeployTarget"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>install</rdfs:comment>
+        <rdfs:comment>install, legacy-install, migrate, reset, app-context</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -491,304 +432,73 @@
         <rdfs:label>anchor</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/DeployTarget"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>deploy_file install.sh:82</rdfs:comment>
+        <rdfs:comment>install.sh deploy_file, compose/corpus_install.py CorpusInstaller.install, compose/corpus_app.py, compose/app_bridge/agents/openai.yaml</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/hook_entityId">
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/selection_entityId">
         <rdfs:label>entityId</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Hook"/>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Selection"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>hook</rdfs:comment>
+        <rdfs:comment>selection</rdfs:comment>
         <ont:isIdentifier rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ont:isIdentifier>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/hook_routes">
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/selection_routes">
         <rdfs:label>routes</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Hook"/>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Selection"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>install</rdfs:comment>
+        <rdfs:comment>install, session-activation, setup, app-context, conversation_setup</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/hook_guard">
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/selection_guard">
         <rdfs:label>guard</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Hook"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>partial</rdfs:comment>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/hook_anchor">
-        <rdfs:label>anchor</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Hook"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>claude/hooks/*.py</rdfs:comment>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/learning-record_entityId">
-        <rdfs:label>entityId</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/LearningRecord"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>learning-record</rdfs:comment>
-        <ont:isIdentifier rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ont:isIdentifier>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/learning-record_routes">
-        <rdfs:label>routes</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/LearningRecord"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>install, learn-loop</rdfs:comment>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/learning-record_guard">
-        <rdfs:label>guard</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/LearningRecord"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>gated</rdfs:comment>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/learning-record_anchor">
-        <rdfs:label>anchor</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/LearningRecord"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>learn/learning.schema.json</rdfs:comment>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/user-owned-region_entityId">
-        <rdfs:label>entityId</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/UserOwnedFileRegion"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>user-owned-region</rdfs:comment>
-        <ont:isIdentifier rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ont:isIdentifier>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/user-owned-region_routes">
-        <rdfs:label>routes</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/UserOwnedFileRegion"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>install, uninstall</rdfs:comment>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/user-owned-region_guard">
-        <rdfs:label>guard</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/UserOwnedFileRegion"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>partial</rdfs:comment>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/user-owned-region_anchor">
-        <rdfs:label>anchor</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/UserOwnedFileRegion"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>codex/config-additions.toml</rdfs:comment>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/wrapper_entityId">
-        <rdfs:label>entityId</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Wrapper"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>wrapper</rdfs:comment>
-        <ont:isIdentifier rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ont:isIdentifier>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/wrapper_routes">
-        <rdfs:label>routes</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Wrapper"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>install, review-dispatch</rdfs:comment>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/wrapper_guard">
-        <rdfs:label>guard</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Wrapper"/>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Selection"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
         <rdfs:comment>unguarded</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/wrapper_anchor">
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/selection_anchor">
         <rdfs:label>anchor</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Wrapper"/>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Selection"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>wrappers/codex-*.sh</rdfs:comment>
+        <rdfs:comment>compose/corpus_store.py, compose/corpus.py, compose/corpus_ui.py, launch/agent-launch.py, compose/corpus_setup.py, compose/corpus_app.py, compose/corpus_setup_ui.py</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/preset-mode_entityId">
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/corpus-assembler_entityId">
         <rdfs:label>entityId</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/PresetMode"/>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusAssembler"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>preset-mode</rdfs:comment>
+        <rdfs:comment>corpus-assembler</rdfs:comment>
         <ont:isIdentifier rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ont:isIdentifier>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/preset-mode_routes">
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/corpus-assembler_routes">
         <rdfs:label>routes</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/PresetMode"/>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusAssembler"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>install, launch</rdfs:comment>
+        <rdfs:comment>install, legacy-install, session-activation, instruction-import, app-context</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/preset-mode_guard">
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/corpus-assembler_guard">
         <rdfs:label>guard</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/PresetMode"/>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusAssembler"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
         <rdfs:comment>gated</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/preset-mode_anchor">
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/corpus-assembler_anchor">
         <rdfs:label>anchor</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/PresetMode"/>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusAssembler"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>launch/agent-launch.py:60 PRESET_MODES</rdfs:comment>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/tier-binding_entityId">
-        <rdfs:label>entityId</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/TierBinding"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>tier-binding</rdfs:comment>
-        <ont:isIdentifier rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ont:isIdentifier>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/tier-binding_routes">
-        <rdfs:label>routes</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/TierBinding"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>install, launch</rdfs:comment>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/tier-binding_guard">
-        <rdfs:label>guard</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/TierBinding"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>partial</rdfs:comment>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/tier-binding_anchor">
-        <rdfs:label>anchor</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/TierBinding"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>launch/agent-launch.toml [hosts.*.tiers.*]</rdfs:comment>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/shell-interception_entityId">
-        <rdfs:label>entityId</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ShellInterception"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>shell-interception</rdfs:comment>
-        <ont:isIdentifier rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ont:isIdentifier>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/shell-interception_routes">
-        <rdfs:label>routes</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ShellInterception"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>install, uninstall, launch</rdfs:comment>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/shell-interception_guard">
-        <rdfs:label>guard</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ShellInterception"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>partial</rdfs:comment>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/shell-interception_anchor">
-        <rdfs:label>anchor</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ShellInterception"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>launch/agent-launch.zsh with install.sh:140 HOOK_MARK</rdfs:comment>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/capability_entityId">
-        <rdfs:label>entityId</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Capability"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>capability</rdfs:comment>
-        <ont:isIdentifier rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ont:isIdentifier>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/capability_routes">
-        <rdfs:label>routes</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Capability"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>install, review-dispatch</rdfs:comment>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/capability_guard">
-        <rdfs:label>guard</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Capability"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>gated</rdfs:comment>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/capability_anchor">
-        <rdfs:label>anchor</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Capability"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>launch/agent-launch.toml [capabilities.*]</rdfs:comment>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/managed-runtime_entityId">
-        <rdfs:label>entityId</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ManagedRuntime"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>managed-runtime</rdfs:comment>
-        <ont:isIdentifier rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ont:isIdentifier>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/managed-runtime_routes">
-        <rdfs:label>routes</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ManagedRuntime"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>install</rdfs:comment>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/managed-runtime_guard">
-        <rdfs:label>guard</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ManagedRuntime"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>partial</rdfs:comment>
-        <ont:propertyType>string</ont:propertyType>
-    </owl:DatatypeProperty>
-
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/managed-runtime_anchor">
-        <rdfs:label>anchor</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ManagedRuntime"/>
-        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>launch/provision-venv.sh</rdfs:comment>
+        <rdfs:comment>compose/corpus_catalog.py, compose/corpus_store.py, compose/corpus_session.py, compose/assemble.py, compose/corpus_app.py, compose/corpus_import.py</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -805,7 +515,7 @@
         <rdfs:label>routes</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>install</rdfs:comment>
+        <rdfs:comment>install, uninstall, legacy-install, session-activation, reset, setup, instruction-import, app-context, conversation_setup</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -821,7 +531,7 @@
         <rdfs:label>anchor</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>compose/corpus-state.py, install.sh:152 migrate_state</rdfs:comment>
+        <rdfs:comment>compose/corpus_store.py, compose/corpus_session.py, compose/corpus_transaction.py, compose/corpus_understand.py, compose/corpus-state.py, compose/prune-backups.py, compose/write-update-cache.py, compose/corpus_install.py, compose/corpus_import.py, compose/corpus_app.py, compose/corpus_setup_cli.py</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -838,7 +548,7 @@
         <rdfs:label>routes</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/DeploymentManifest"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>install, uninstall</rdfs:comment>
+        <rdfs:comment>install, uninstall, legacy-install, legacy-uninstall, shell-connection, app-context</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -854,7 +564,7 @@
         <rdfs:label>anchor</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/DeploymentManifest"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>install.sh:82 deploy_file MANIFEST append</rdfs:comment>
+        <rdfs:comment>install.sh deploy_file, compose/corpus_install.py PRIVATE_RECORD, launch/shell_integration.py, compose/corpus_app.py</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -871,7 +581,7 @@
         <rdfs:label>routes</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Gate"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>install</rdfs:comment>
+        <rdfs:comment>install, legacy-install, instruction-import</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -887,40 +597,73 @@
         <rdfs:label>anchor</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Gate"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>gates/check-parity.sh driver</rdfs:comment>
+        <rdfs:comment>gates/check-parity.sh driver, compose/check-domains.py, gates/build-ui-runtime.py</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/cli-subcommand_entityId">
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/shell-interception_entityId">
         <rdfs:label>entityId</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ShellInterception"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>cli-subcommand</rdfs:comment>
+        <rdfs:comment>shell-interception</rdfs:comment>
         <ont:isIdentifier rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ont:isIdentifier>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/cli-subcommand_routes">
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/shell-interception_routes">
         <rdfs:label>routes</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ShellInterception"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>learn-loop</rdfs:comment>
+        <rdfs:comment>uninstall, launch, legacy-install, legacy-uninstall, reset, shell-connection</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/cli-subcommand_guard">
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/shell-interception_guard">
         <rdfs:label>guard</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ShellInterception"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>unguarded</rdfs:comment>
+        <rdfs:comment>partial</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
-    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/cli-subcommand_anchor">
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/shell-interception_anchor">
         <rdfs:label>anchor</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ShellInterception"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>install.sh:838 / :859 / :799</rdfs:comment>
+        <rdfs:comment>launch/agent-launch.zsh, launch/shell_integration.py</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/learning-record_entityId">
+        <rdfs:label>entityId</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/LearningRecord"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>learning-record</rdfs:comment>
+        <ont:isIdentifier rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ont:isIdentifier>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/learning-record_routes">
+        <rdfs:label>routes</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/LearningRecord"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>learn-loop, legacy-install, migrate</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/learning-record_guard">
+        <rdfs:label>guard</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/LearningRecord"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>gated</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/learning-record_anchor">
+        <rdfs:label>anchor</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/LearningRecord"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>learn/learning.schema.json, learn/collect-learning.py, learn/check-learning.py, learn/redact.py, compose/corpus_store.py</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -957,6 +700,72 @@
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/preset-mode_entityId">
+        <rdfs:label>entityId</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/PresetMode"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>preset-mode</rdfs:comment>
+        <ont:isIdentifier rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ont:isIdentifier>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/preset-mode_routes">
+        <rdfs:label>routes</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/PresetMode"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>launch, legacy-install</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/preset-mode_guard">
+        <rdfs:label>guard</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/PresetMode"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>gated</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/preset-mode_anchor">
+        <rdfs:label>anchor</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/PresetMode"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>launch/agent-launch.py PRESET_MODES</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/tier-binding_entityId">
+        <rdfs:label>entityId</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/TierBinding"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>tier-binding</rdfs:comment>
+        <ont:isIdentifier rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ont:isIdentifier>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/tier-binding_routes">
+        <rdfs:label>routes</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/TierBinding"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>launch, legacy-install</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/tier-binding_guard">
+        <rdfs:label>guard</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/TierBinding"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>partial</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/tier-binding_anchor">
+        <rdfs:label>anchor</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/TierBinding"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>launch/agent-launch.toml [hosts.*.tiers.*]</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
     <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/host_entityId">
         <rdfs:label>entityId</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Host"/>
@@ -970,7 +779,7 @@
         <rdfs:label>routes</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Host"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>launch, review-dispatch</rdfs:comment>
+        <rdfs:comment>launch, review-dispatch, session-activation</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -1003,7 +812,7 @@
         <rdfs:label>routes</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Backend"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>launch</rdfs:comment>
+        <rdfs:comment>launch, session-activation</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -1056,6 +865,237 @@
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/capability_entityId">
+        <rdfs:label>entityId</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Capability"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>capability</rdfs:comment>
+        <ont:isIdentifier rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ont:isIdentifier>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/capability_routes">
+        <rdfs:label>routes</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Capability"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>review-dispatch, legacy-install</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/capability_guard">
+        <rdfs:label>guard</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Capability"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>gated</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/capability_anchor">
+        <rdfs:label>anchor</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Capability"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>launch/agent-launch.toml [capabilities.*]</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/wrapper_entityId">
+        <rdfs:label>entityId</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Wrapper"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>wrapper</rdfs:comment>
+        <ont:isIdentifier rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ont:isIdentifier>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/wrapper_routes">
+        <rdfs:label>routes</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Wrapper"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>review-dispatch, legacy-install</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/wrapper_guard">
+        <rdfs:label>guard</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Wrapper"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>unguarded</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/wrapper_anchor">
+        <rdfs:label>anchor</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Wrapper"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>wrappers/codex-*.sh</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/host-prerequisite_entityId">
+        <rdfs:label>entityId</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/HostPrerequisite"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>host-prerequisite</rdfs:comment>
+        <ont:isIdentifier rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ont:isIdentifier>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/host-prerequisite_routes">
+        <rdfs:label>routes</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/HostPrerequisite"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>legacy-install, setup, conversation_setup</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/host-prerequisite_guard">
+        <rdfs:label>guard</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/HostPrerequisite"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>unguarded</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/host-prerequisite_anchor">
+        <rdfs:label>anchor</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/HostPrerequisite"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>install.sh check_prereqs, compose/corpus_install.py, compose/corpus_setup.py</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/migration_entityId">
+        <rdfs:label>entityId</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Migration"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>migration</rdfs:comment>
+        <ont:isIdentifier rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ont:isIdentifier>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/migration_routes">
+        <rdfs:label>routes</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Migration"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>legacy-install, legacy-uninstall, migrate</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/migration_guard">
+        <rdfs:label>guard</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Migration"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>unguarded</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/migration_anchor">
+        <rdfs:label>anchor</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Migration"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>compose/corpus_install.py CorpusInstaller.migrate, compose/corpus_transaction.py, install.sh migrate_state, learn/migrate-learnings.py</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/hook_entityId">
+        <rdfs:label>entityId</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Hook"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>hook</rdfs:comment>
+        <ont:isIdentifier rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ont:isIdentifier>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/hook_routes">
+        <rdfs:label>routes</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Hook"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>legacy-install</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/hook_guard">
+        <rdfs:label>guard</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Hook"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>partial</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/hook_anchor">
+        <rdfs:label>anchor</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Hook"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>claude/hooks/*.py, compose/corpus_catalog.py, compose/corpus_session.py</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/user-owned-region_entityId">
+        <rdfs:label>entityId</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/UserOwnedFileRegion"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>user-owned-region</rdfs:comment>
+        <ont:isIdentifier rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ont:isIdentifier>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/user-owned-region_routes">
+        <rdfs:label>routes</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/UserOwnedFileRegion"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>legacy-install, legacy-uninstall, migrate, shell-connection</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/user-owned-region_guard">
+        <rdfs:label>guard</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/UserOwnedFileRegion"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>partial</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/user-owned-region_anchor">
+        <rdfs:label>anchor</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/UserOwnedFileRegion"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>launch/shell_integration.py, compose/corpus_install.py, compose/assemble.py, codex/config-additions.toml, compose/corpus_app.py, compose/app_bridge/agents/openai.yaml</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/managed-runtime_entityId">
+        <rdfs:label>entityId</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ManagedRuntime"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>managed-runtime</rdfs:comment>
+        <ont:isIdentifier rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ont:isIdentifier>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/managed-runtime_routes">
+        <rdfs:label>routes</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ManagedRuntime"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>legacy-install, setup</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/managed-runtime_guard">
+        <rdfs:label>guard</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ManagedRuntime"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>partial</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://agent-bios.local/ontology/agent-bios/managed-runtime_anchor">
+        <rdfs:label>anchor</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ManagedRuntime"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>launch/provision-venv.sh, compose/corpus_setup.py, compose/corpus_ui_runtime.py, compose/ui_runtime/manifest.json, compose/ui_runtime/*.whl</rdfs:comment>
+        <ont:propertyType>string</ont:propertyType>
+    </owl:DatatypeProperty>
+
     <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/author_to_deployed_1">
         <rdfs:label>author-to-deployed.1</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusRule"/>
@@ -1098,209 +1138,109 @@
 
     <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/install_1">
         <rdfs:label>install.1</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/HostPrerequisite"/>
-        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/Migration"/>
-        <rdfs:comment>step 1 of install: check_prereqs (git/python3&gt;=3.11/zsh/codex/claude) then migrate_state</rdfs:comment>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/DeployTarget"/>
+        <rdfs:comment>step 1 of install: dispatch to the private installer then copy the package into an immutable release</rdfs:comment>
         <ont:cardinality>one-to-one</ont:cardinality>
-        <ont:fromEntityId>HostPrerequisite</ont:fromEntityId>
-        <ont:toEntityId>Migration</ont:toEntityId>
+        <ont:fromEntityId>CliSubcommand</ont:fromEntityId>
+        <ont:toEntityId>DeployTarget</ont:toEntityId>
     </owl:ObjectProperty>
 
     <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/install_2">
         <rdfs:label>install.2</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Migration"/>
-        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusAssembler"/>
-        <rdfs:comment>step 2 of install: migrate_state then assemble_packaged or deploy the corpus</rdfs:comment>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/DeployTarget"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/Selection"/>
+        <rdfs:comment>step 2 of install: copy the package into an immutable release then retain or select qualified domains</rdfs:comment>
         <ont:cardinality>one-to-one</ont:cardinality>
-        <ont:fromEntityId>Migration</ont:fromEntityId>
-        <ont:toEntityId>CorpusAssembler</ont:toEntityId>
+        <ont:fromEntityId>DeployTarget</ont:fromEntityId>
+        <ont:toEntityId>Selection</ont:toEntityId>
     </owl:ObjectProperty>
 
     <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/install_3">
         <rdfs:label>install.3</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusAssembler"/>
-        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/DeployTarget"/>
-        <rdfs:comment>step 3 of install: assemble_packaged or deploy the corpus then deploy_file / deploy_glob</rdfs:comment>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Selection"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusAssembler"/>
+        <rdfs:comment>step 3 of install: retain or select qualified domains then prepare the installed baseline candidate</rdfs:comment>
         <ont:cardinality>one-to-one</ont:cardinality>
-        <ont:fromEntityId>CorpusAssembler</ont:fromEntityId>
-        <ont:toEntityId>DeployTarget</ont:toEntityId>
+        <ont:fromEntityId>Selection</ont:fromEntityId>
+        <ont:toEntityId>CorpusAssembler</ont:toEntityId>
     </owl:ObjectProperty>
 
     <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/install_4">
         <rdfs:label>install.4</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/DeployTarget"/>
-        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/Hook"/>
-        <rdfs:comment>step 4 of install: deploy_file / deploy_glob then register_hooks_full</rdfs:comment>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusAssembler"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
+        <rdfs:comment>step 4 of install: prepare the installed baseline candidate then journal planned projections and source publication</rdfs:comment>
         <ont:cardinality>one-to-one</ont:cardinality>
-        <ont:fromEntityId>DeployTarget</ont:fromEntityId>
-        <ont:toEntityId>Hook</ont:toEntityId>
+        <ont:fromEntityId>CorpusAssembler</ont:fromEntityId>
+        <ont:toEntityId>StateArtifact</ont:toEntityId>
     </owl:ObjectProperty>
 
     <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/install_5">
         <rdfs:label>install.5</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Hook"/>
-        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/LearningRecord"/>
-        <rdfs:comment>step 5 of install: register_hooks_full then migrate_learnings</rdfs:comment>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/DeployTarget"/>
+        <rdfs:comment>step 5 of install: journal planned projections and source publication then write owned launcher and profile projections</rdfs:comment>
         <ont:cardinality>one-to-one</ont:cardinality>
-        <ont:fromEntityId>Hook</ont:fromEntityId>
-        <ont:toEntityId>LearningRecord</ont:toEntityId>
+        <ont:fromEntityId>StateArtifact</ont:fromEntityId>
+        <ont:toEntityId>DeployTarget</ont:toEntityId>
     </owl:ObjectProperty>
 
     <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/install_6">
         <rdfs:label>install.6</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/LearningRecord"/>
-        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/UserOwnedFileRegion"/>
-        <rdfs:comment>step 6 of install: migrate_learnings then codex_config_additions merge</rdfs:comment>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/DeployTarget"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/DeploymentManifest"/>
+        <rdfs:comment>step 6 of install: write owned launcher and profile projections then publish the baseline and installation ownership record</rdfs:comment>
         <ont:cardinality>one-to-one</ont:cardinality>
-        <ont:fromEntityId>LearningRecord</ont:fromEntityId>
-        <ont:toEntityId>UserOwnedFileRegion</ont:toEntityId>
+        <ont:fromEntityId>DeployTarget</ont:fromEntityId>
+        <ont:toEntityId>DeploymentManifest</ont:toEntityId>
     </owl:ObjectProperty>
 
     <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/install_7">
         <rdfs:label>install.7</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/UserOwnedFileRegion"/>
-        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/Wrapper"/>
-        <rdfs:comment>step 7 of install: codex_config_additions merge then deploy the wrappers</rdfs:comment>
-        <ont:cardinality>one-to-one</ont:cardinality>
-        <ont:fromEntityId>UserOwnedFileRegion</ont:fromEntityId>
-        <ont:toEntityId>Wrapper</ont:toEntityId>
-    </owl:ObjectProperty>
-
-    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/install_8">
-        <rdfs:label>install.8</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Wrapper"/>
-        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/PresetMode"/>
-        <rdfs:comment>step 8 of install: deploy the wrappers then migrate_user_presets</rdfs:comment>
-        <ont:cardinality>one-to-one</ont:cardinality>
-        <ont:fromEntityId>Wrapper</ont:fromEntityId>
-        <ont:toEntityId>PresetMode</ont:toEntityId>
-    </owl:ObjectProperty>
-
-    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/install_9">
-        <rdfs:label>install.9</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/PresetMode"/>
-        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/TierBinding"/>
-        <rdfs:comment>step 9 of install: migrate_user_presets then deploy profiles.toml</rdfs:comment>
-        <ont:cardinality>one-to-one</ont:cardinality>
-        <ont:fromEntityId>PresetMode</ont:fromEntityId>
-        <ont:toEntityId>TierBinding</ont:toEntityId>
-    </owl:ObjectProperty>
-
-    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/install_10">
-        <rdfs:label>install.10</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/TierBinding"/>
-        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/ShellInterception"/>
-        <rdfs:comment>step 10 of install: deploy profiles.toml then deploy shell.zsh</rdfs:comment>
-        <ont:cardinality>one-to-one</ont:cardinality>
-        <ont:fromEntityId>TierBinding</ont:fromEntityId>
-        <ont:toEntityId>ShellInterception</ont:toEntityId>
-    </owl:ObjectProperty>
-
-    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/install_11">
-        <rdfs:label>install.11</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ShellInterception"/>
-        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/Capability"/>
-        <rdfs:comment>step 11 of install: deploy shell.zsh then handle_capabilities</rdfs:comment>
-        <ont:cardinality>one-to-one</ont:cardinality>
-        <ont:fromEntityId>ShellInterception</ont:fromEntityId>
-        <ont:toEntityId>Capability</ont:toEntityId>
-    </owl:ObjectProperty>
-
-    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/install_12">
-        <rdfs:label>install.12</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Capability"/>
-        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/ManagedRuntime"/>
-        <rdfs:comment>step 12 of install: handle_capabilities then provision-venv.sh</rdfs:comment>
-        <ont:cardinality>one-to-one</ont:cardinality>
-        <ont:fromEntityId>Capability</ont:fromEntityId>
-        <ont:toEntityId>ManagedRuntime</ont:toEntityId>
-    </owl:ObjectProperty>
-
-    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/install_13">
-        <rdfs:label>install.13</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ManagedRuntime"/>
-        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/ShellInterception"/>
-        <rdfs:comment>step 13 of install: provision-venv.sh then add_zsh_hook</rdfs:comment>
-        <ont:cardinality>one-to-one</ont:cardinality>
-        <ont:fromEntityId>ManagedRuntime</ont:fromEntityId>
-        <ont:toEntityId>ShellInterception</ont:toEntityId>
-    </owl:ObjectProperty>
-
-    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/install_14">
-        <rdfs:label>install.14</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ShellInterception"/>
-        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
-        <rdfs:comment>step 14 of install: add_zsh_hook then write the version marker</rdfs:comment>
-        <ont:cardinality>one-to-one</ont:cardinality>
-        <ont:fromEntityId>ShellInterception</ont:fromEntityId>
-        <ont:toEntityId>StateArtifact</ont:toEntityId>
-    </owl:ObjectProperty>
-
-    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/install_15">
-        <rdfs:label>install.15</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
-        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/DeploymentManifest"/>
-        <rdfs:comment>step 15 of install: write the version marker then append to the manifest</rdfs:comment>
-        <ont:cardinality>one-to-one</ont:cardinality>
-        <ont:fromEntityId>StateArtifact</ont:fromEntityId>
-        <ont:toEntityId>DeploymentManifest</ont:toEntityId>
-    </owl:ObjectProperty>
-
-    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/install_16">
-        <rdfs:label>install.16</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/DeploymentManifest"/>
         <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/Gate"/>
-        <rdfs:comment>step 16 of install: append to the manifest then cmd_verify</rdfs:comment>
+        <rdfs:comment>step 7 of install: publish the baseline and installation ownership record then verify source and owned projections before completion</rdfs:comment>
         <ont:cardinality>one-to-one</ont:cardinality>
         <ont:fromEntityId>DeploymentManifest</ont:fromEntityId>
         <ont:toEntityId>Gate</ont:toEntityId>
     </owl:ObjectProperty>
 
-    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/install_17">
-        <rdfs:label>install.17</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Gate"/>
-        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusRule"/>
-        <rdfs:comment>step 17 of install: cmd_verify then the agent session loads it</rdfs:comment>
-        <ont:cardinality>one-to-one</ont:cardinality>
-        <ont:fromEntityId>Gate</ont:fromEntityId>
-        <ont:toEntityId>CorpusRule</ont:toEntityId>
-    </owl:ObjectProperty>
-
     <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/uninstall_1">
         <rdfs:label>uninstall.1</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Migration"/>
-        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/UserOwnedFileRegion"/>
-        <rdfs:comment>step 1 of uninstall: migrate_state then codex_config_additions remove</rdfs:comment>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/DeploymentManifest"/>
+        <rdfs:comment>step 1 of uninstall: dispatch private uninstall then read and validate private ownership records</rdfs:comment>
         <ont:cardinality>one-to-one</ont:cardinality>
-        <ont:fromEntityId>Migration</ont:fromEntityId>
-        <ont:toEntityId>UserOwnedFileRegion</ont:toEntityId>
+        <ont:fromEntityId>CliSubcommand</ont:fromEntityId>
+        <ont:toEntityId>DeploymentManifest</ont:toEntityId>
     </owl:ObjectProperty>
 
     <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/uninstall_2">
         <rdfs:label>uninstall.2</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/UserOwnedFileRegion"/>
-        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/DeploymentManifest"/>
-        <rdfs:comment>step 2 of uninstall: codex_config_additions remove then replay the manifest</rdfs:comment>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/DeploymentManifest"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/ShellInterception"/>
+        <rdfs:comment>step 2 of uninstall: read and validate private ownership records then plan removal of an existing optional shell connection</rdfs:comment>
         <ont:cardinality>one-to-one</ont:cardinality>
-        <ont:fromEntityId>UserOwnedFileRegion</ont:fromEntityId>
-        <ont:toEntityId>DeploymentManifest</ont:toEntityId>
+        <ont:fromEntityId>DeploymentManifest</ont:fromEntityId>
+        <ont:toEntityId>ShellInterception</ont:toEntityId>
     </owl:ObjectProperty>
 
     <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/uninstall_3">
         <rdfs:label>uninstall.3</rdfs:label>
-        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/DeploymentManifest"/>
-        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/ShellInterception"/>
-        <rdfs:comment>step 3 of uninstall: replay the manifest then remove_zsh_hook</rdfs:comment>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ShellInterception"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
+        <rdfs:comment>step 3 of uninstall: plan removal of an existing optional shell connection then remove only verified owned projections and releasable runtime state</rdfs:comment>
         <ont:cardinality>one-to-one</ont:cardinality>
-        <ont:fromEntityId>DeploymentManifest</ont:fromEntityId>
-        <ont:toEntityId>ShellInterception</ont:toEntityId>
+        <ont:fromEntityId>ShellInterception</ont:fromEntityId>
+        <ont:toEntityId>StateArtifact</ont:toEntityId>
     </owl:ObjectProperty>
 
     <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/learn_loop_1">
         <rdfs:label>learn-loop.1</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
         <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/LearningRecord"/>
-        <rdfs:comment>step 1 of learn-loop: agent-bios learn then capture the record</rdfs:comment>
+        <rdfs:comment>step 1 of learn-loop: dispatch learn through the active package entrypoint then capture the record</rdfs:comment>
         <ont:cardinality>one-to-one</ont:cardinality>
         <ont:fromEntityId>CliSubcommand</ont:fromEntityId>
         <ont:toEntityId>LearningRecord</ont:toEntityId>
@@ -1404,6 +1344,586 @@
         <ont:cardinality>one-to-one</ont:cardinality>
         <ont:fromEntityId>Host</ont:fromEntityId>
         <ont:toEntityId>Wrapper</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/legacy_install_1">
+        <rdfs:label>legacy-install.1</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/HostPrerequisite"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/Migration"/>
+        <rdfs:comment>step 1 of legacy-install: check_prereqs (git/python3&gt;=3.11/zsh/codex/claude) then migrate_state</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>HostPrerequisite</ont:fromEntityId>
+        <ont:toEntityId>Migration</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/legacy_install_2">
+        <rdfs:label>legacy-install.2</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Migration"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusAssembler"/>
+        <rdfs:comment>step 2 of legacy-install: migrate_state then assemble_packaged or deploy the corpus</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>Migration</ont:fromEntityId>
+        <ont:toEntityId>CorpusAssembler</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/legacy_install_3">
+        <rdfs:label>legacy-install.3</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusAssembler"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/DeployTarget"/>
+        <rdfs:comment>step 3 of legacy-install: assemble_packaged or deploy the corpus then deploy_file / deploy_glob</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>CorpusAssembler</ont:fromEntityId>
+        <ont:toEntityId>DeployTarget</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/legacy_install_4">
+        <rdfs:label>legacy-install.4</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/DeployTarget"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/Hook"/>
+        <rdfs:comment>step 4 of legacy-install: deploy_file / deploy_glob then register_hooks_full</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>DeployTarget</ont:fromEntityId>
+        <ont:toEntityId>Hook</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/legacy_install_5">
+        <rdfs:label>legacy-install.5</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Hook"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/LearningRecord"/>
+        <rdfs:comment>step 5 of legacy-install: register_hooks_full then migrate_learnings</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>Hook</ont:fromEntityId>
+        <ont:toEntityId>LearningRecord</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/legacy_install_6">
+        <rdfs:label>legacy-install.6</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/LearningRecord"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/UserOwnedFileRegion"/>
+        <rdfs:comment>step 6 of legacy-install: migrate_learnings then codex_config_additions merge</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>LearningRecord</ont:fromEntityId>
+        <ont:toEntityId>UserOwnedFileRegion</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/legacy_install_7">
+        <rdfs:label>legacy-install.7</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/UserOwnedFileRegion"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/Wrapper"/>
+        <rdfs:comment>step 7 of legacy-install: codex_config_additions merge then deploy the wrappers</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>UserOwnedFileRegion</ont:fromEntityId>
+        <ont:toEntityId>Wrapper</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/legacy_install_8">
+        <rdfs:label>legacy-install.8</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Wrapper"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/PresetMode"/>
+        <rdfs:comment>step 8 of legacy-install: deploy the wrappers then migrate_user_presets</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>Wrapper</ont:fromEntityId>
+        <ont:toEntityId>PresetMode</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/legacy_install_9">
+        <rdfs:label>legacy-install.9</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/PresetMode"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/TierBinding"/>
+        <rdfs:comment>step 9 of legacy-install: migrate_user_presets then deploy profiles.toml</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>PresetMode</ont:fromEntityId>
+        <ont:toEntityId>TierBinding</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/legacy_install_10">
+        <rdfs:label>legacy-install.10</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/TierBinding"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/ShellInterception"/>
+        <rdfs:comment>step 10 of legacy-install: deploy profiles.toml then deploy shell.zsh</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>TierBinding</ont:fromEntityId>
+        <ont:toEntityId>ShellInterception</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/legacy_install_11">
+        <rdfs:label>legacy-install.11</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ShellInterception"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/Capability"/>
+        <rdfs:comment>step 11 of legacy-install: deploy shell.zsh then handle_capabilities</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>ShellInterception</ont:fromEntityId>
+        <ont:toEntityId>Capability</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/legacy_install_12">
+        <rdfs:label>legacy-install.12</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Capability"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/ManagedRuntime"/>
+        <rdfs:comment>step 12 of legacy-install: handle_capabilities then provision-venv.sh</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>Capability</ont:fromEntityId>
+        <ont:toEntityId>ManagedRuntime</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/legacy_install_13">
+        <rdfs:label>legacy-install.13</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ManagedRuntime"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/ShellInterception"/>
+        <rdfs:comment>step 13 of legacy-install: provision-venv.sh then add_zsh_hook</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>ManagedRuntime</ont:fromEntityId>
+        <ont:toEntityId>ShellInterception</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/legacy_install_14">
+        <rdfs:label>legacy-install.14</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ShellInterception"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
+        <rdfs:comment>step 14 of legacy-install: add_zsh_hook then write the version marker</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>ShellInterception</ont:fromEntityId>
+        <ont:toEntityId>StateArtifact</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/legacy_install_15">
+        <rdfs:label>legacy-install.15</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/DeploymentManifest"/>
+        <rdfs:comment>step 15 of legacy-install: write the version marker then append to the manifest</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>StateArtifact</ont:fromEntityId>
+        <ont:toEntityId>DeploymentManifest</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/legacy_install_16">
+        <rdfs:label>legacy-install.16</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/DeploymentManifest"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/Gate"/>
+        <rdfs:comment>step 16 of legacy-install: append to the manifest then cmd_verify</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>DeploymentManifest</ont:fromEntityId>
+        <ont:toEntityId>Gate</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/legacy_install_17">
+        <rdfs:label>legacy-install.17</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Gate"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusRule"/>
+        <rdfs:comment>step 17 of legacy-install: cmd_verify then native host discovers the installed instruction entry</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>Gate</ont:fromEntityId>
+        <ont:toEntityId>CorpusRule</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/legacy_uninstall_1">
+        <rdfs:label>legacy-uninstall.1</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Migration"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/UserOwnedFileRegion"/>
+        <rdfs:comment>step 1 of legacy-uninstall: migrate_state then codex_config_additions remove</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>Migration</ont:fromEntityId>
+        <ont:toEntityId>UserOwnedFileRegion</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/legacy_uninstall_2">
+        <rdfs:label>legacy-uninstall.2</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/UserOwnedFileRegion"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/DeploymentManifest"/>
+        <rdfs:comment>step 2 of legacy-uninstall: codex_config_additions remove then replay the manifest</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>UserOwnedFileRegion</ont:fromEntityId>
+        <ont:toEntityId>DeploymentManifest</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/legacy_uninstall_3">
+        <rdfs:label>legacy-uninstall.3</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/DeploymentManifest"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/ShellInterception"/>
+        <rdfs:comment>step 3 of legacy-uninstall: replay the manifest then remove_zsh_hook</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>DeploymentManifest</ont:fromEntityId>
+        <ont:toEntityId>ShellInterception</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/session_activation_1">
+        <rdfs:label>session-activation.1</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Selection"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusAssembler"/>
+        <rdfs:comment>step 1 of session-activation: select corpus mode, targets and native/global-instruction options then compile and verify the immutable session snapshot</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>Selection</ont:fromEntityId>
+        <ont:toEntityId>CorpusAssembler</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/session_activation_2">
+        <rdfs:label>session-activation.2</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusAssembler"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/Host"/>
+        <rdfs:comment>step 2 of session-activation: compile and verify the immutable session snapshot then compose host-specific arguments from the verified snapshot</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>CorpusAssembler</ont:fromEntityId>
+        <ont:toEntityId>Host</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/session_activation_3">
+        <rdfs:label>session-activation.3</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Host"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
+        <rdfs:comment>step 3 of session-activation: compose host-specific arguments from the verified snapshot then record activation intent and native source identity</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>Host</ont:fromEntityId>
+        <ont:toEntityId>StateArtifact</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/session_activation_4">
+        <rdfs:label>session-activation.4</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/Backend"/>
+        <rdfs:comment>step 4 of session-activation: record activation intent and native source identity then invoke the native host and bind its observed session identifier</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>StateArtifact</ont:fromEntityId>
+        <ont:toEntityId>Backend</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/session_activation_5">
+        <rdfs:label>session-activation.5</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Backend"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
+        <rdfs:comment>step 5 of session-activation: invoke the native host and bind its observed session identifier then resume with the recorded snapshot, arguments and native identity</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>Backend</ont:fromEntityId>
+        <ont:toEntityId>StateArtifact</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/migrate_1">
+        <rdfs:label>migrate.1</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/Migration"/>
+        <rdfs:comment>step 1 of migrate: preview or explicitly apply migration then pin the release and capture bounded legacy inputs</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>CliSubcommand</ont:fromEntityId>
+        <ont:toEntityId>Migration</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/migrate_2">
+        <rdfs:label>migrate.2</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Migration"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/UserOwnedFileRegion"/>
+        <rdfs:comment>step 2 of migrate: pin the release and capture bounded legacy inputs then remove only recognized owned native spans and files</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>Migration</ont:fromEntityId>
+        <ont:toEntityId>UserOwnedFileRegion</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/migrate_3">
+        <rdfs:label>migrate.3</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/UserOwnedFileRegion"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/LearningRecord"/>
+        <rdfs:comment>step 3 of migrate: remove only recognized owned native spans and files then import immutable learning events into private storage</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>UserOwnedFileRegion</ont:fromEntityId>
+        <ont:toEntityId>LearningRecord</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/migrate_4">
+        <rdfs:label>migrate.4</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/LearningRecord"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/DeployTarget"/>
+        <rdfs:comment>step 4 of migrate: import immutable learning events into private storage then install the pinned private release and verify completion</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>LearningRecord</ont:fromEntityId>
+        <ont:toEntityId>DeployTarget</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/reset_1">
+        <rdfs:label>reset.1</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
+        <rdfs:comment>step 1 of reset: preview or confirm the current reset revision then journal the complete reset plan</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>CliSubcommand</ont:fromEntityId>
+        <ont:toEntityId>StateArtifact</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/reset_2">
+        <rdfs:label>reset.2</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/ShellInterception"/>
+        <rdfs:comment>step 2 of reset: journal the complete reset plan then remove only an existing owned shell connection</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>StateArtifact</ont:fromEntityId>
+        <ont:toEntityId>ShellInterception</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/reset_3">
+        <rdfs:label>reset.3</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ShellInterception"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
+        <rdfs:comment>step 3 of reset: remove only an existing owned shell connection then reset private sources and generated understanding state</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>ShellInterception</ont:fromEntityId>
+        <ont:toEntityId>StateArtifact</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/reset_4">
+        <rdfs:label>reset.4</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/DeployTarget"/>
+        <rdfs:comment>step 4 of reset: reset private sources and generated understanding state then rebuild owned private installation projections</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>StateArtifact</ont:fromEntityId>
+        <ont:toEntityId>DeployTarget</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/shell_connection_1">
+        <rdfs:label>shell-connection.1</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/ShellInterception"/>
+        <rdfs:comment>step 1 of shell-connection: request status, restore or remove then derive a bounded shell plan from exact owned bytes</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>CliSubcommand</ont:fromEntityId>
+        <ont:toEntityId>ShellInterception</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/shell_connection_2">
+        <rdfs:label>shell-connection.2</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ShellInterception"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/UserOwnedFileRegion"/>
+        <rdfs:comment>step 2 of shell-connection: derive a bounded shell plan from exact owned bytes then preserve surrounding startup-file content</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>ShellInterception</ont:fromEntityId>
+        <ont:toEntityId>UserOwnedFileRegion</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/shell_connection_3">
+        <rdfs:label>shell-connection.3</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/UserOwnedFileRegion"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/DeploymentManifest"/>
+        <rdfs:comment>step 3 of shell-connection: preserve surrounding startup-file content then record script ownership and apply the planned writes</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>UserOwnedFileRegion</ont:fromEntityId>
+        <ont:toEntityId>DeploymentManifest</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/setup_1">
+        <rdfs:label>setup.1</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/ManagedRuntime"/>
+        <rdfs:comment>step 1 of setup: select interactive install/onboard or explicit --non-interactive; reject a missing terminal before writes then verify and activate the shipped offline UI dependency bundle for interactive setup</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>CliSubcommand</ont:fromEntityId>
+        <ont:toEntityId>ManagedRuntime</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/setup_2">
+        <rdfs:label>setup.2</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ManagedRuntime"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
+        <rdfs:comment>step 2 of setup: verify and activate the shipped offline UI dependency bundle for interactive setup then choose this run's installer UI language before dependency probes; revisiting preserves the plan</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>ManagedRuntime</ont:fromEntityId>
+        <ont:toEntityId>CliSubcommand</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/setup_3">
+        <rdfs:label>setup.3</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/Selection"/>
+        <rdfs:comment>step 3 of setup: choose this run's installer UI language before dependency probes; revisiting preserves the plan then review none, all or selected corpus targets in the shared setup plan</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>CliSubcommand</ont:fromEntityId>
+        <ont:toEntityId>Selection</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/setup_4">
+        <rdfs:label>setup.4</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Selection"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
+        <rdfs:comment>step 4 of setup: review none, all or selected corpus targets in the shared setup plan then optionally select existing instruction sources without activating their contents</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>Selection</ont:fromEntityId>
+        <ont:toEntityId>StateArtifact</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/setup_5">
+        <rdfs:label>setup.5</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/HostPrerequisite"/>
+        <rdfs:comment>step 5 of setup: optionally select existing instruction sources without activating their contents then inspect and select only required optional dependency actions</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>StateArtifact</ont:fromEntityId>
+        <ont:toEntityId>HostPrerequisite</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/setup_6">
+        <rdfs:label>setup.6</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/HostPrerequisite"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
+        <rdfs:comment>step 6 of setup: inspect and select only required optional dependency actions then preview and apply the accepted setup through its controller</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>HostPrerequisite</ont:fromEntityId>
+        <ont:toEntityId>CliSubcommand</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/setup_7">
+        <rdfs:label>setup.7</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
+        <rdfs:comment>step 7 of setup: preview and apply the accepted setup through its controller then record the resulting private installation and separately requested extras</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>CliSubcommand</ont:fromEntityId>
+        <ont:toEntityId>StateArtifact</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/instruction_import_1">
+        <rdfs:label>instruction-import.1</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
+        <rdfs:comment>step 1 of instruction-import: discover fixed instruction filenames within selected roots then capture redacted text, original digest and scope without source writes</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>CliSubcommand</ont:fromEntityId>
+        <ont:toEntityId>StateArtifact</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/instruction_import_2">
+        <rdfs:label>instruction-import.2</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusRule"/>
+        <rdfs:comment>step 2 of instruction-import: capture redacted text, original digest and scope without source writes then review model-authored content and consumption placement</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>StateArtifact</ont:fromEntityId>
+        <ont:toEntityId>CorpusRule</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/instruction_import_3">
+        <rdfs:label>instruction-import.3</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusRule"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/Gate"/>
+        <rdfs:comment>step 3 of instruction-import: review model-authored content and consumption placement then validate evidence coverage and unchanged source versions</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>CorpusRule</ont:fromEntityId>
+        <ont:toEntityId>Gate</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/instruction_import_4">
+        <rdfs:label>instruction-import.4</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Gate"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
+        <rdfs:comment>step 4 of instruction-import: validate evidence coverage and unchanged source versions then publish personal items and import receipt as one transaction</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>Gate</ont:fromEntityId>
+        <ont:toEntityId>StateArtifact</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/instruction_import_5">
+        <rdfs:label>instruction-import.5</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusAssembler"/>
+        <rdfs:comment>step 5 of instruction-import: publish personal items and import receipt as one transaction then compile only items matching selected host/project scope</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>StateArtifact</ont:fromEntityId>
+        <ont:toEntityId>CorpusAssembler</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/app_context_1">
+        <rdfs:label>app-context.1</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/DeployTarget"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/DeploymentManifest"/>
+        <rdfs:comment>step 1 of app-context: optionally register the explicit-use bridge discovery entry then keep the registration verifiable and removable by ownership</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>DeployTarget</ont:fromEntityId>
+        <ont:toEntityId>DeploymentManifest</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/app_context_2">
+        <rdfs:label>app-context.2</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/DeploymentManifest"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/Selection"/>
+        <rdfs:comment>step 2 of app-context: keep the registration verifiable and removable by ownership then preview the requested task selection and ContentRef</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>DeploymentManifest</ont:fromEntityId>
+        <ont:toEntityId>Selection</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/app_context_3">
+        <rdfs:label>app-context.3</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Selection"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusAssembler"/>
+        <rdfs:comment>step 3 of app-context: preview the requested task selection and ContentRef then return the selected immutable snapshot as task context</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>Selection</ont:fromEntityId>
+        <ont:toEntityId>CorpusAssembler</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/app_context_4">
+        <rdfs:label>app-context.4</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusAssembler"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
+        <rdfs:comment>step 4 of app-context: return the selected immutable snapshot as task context then record returned-as-context separately from native pins</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>CorpusAssembler</ont:fromEntityId>
+        <ont:toEntityId>StateArtifact</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/app_context_5">
+        <rdfs:label>app-context.5</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
+        <rdfs:comment>step 5 of app-context: record returned-as-context separately from native pins then turn future use off without retracting delivered text</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>StateArtifact</ont:fromEntityId>
+        <ont:toEntityId>CliSubcommand</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/conversation_setup_1">
+        <rdfs:label>conversation_setup.1</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/HostPrerequisite"/>
+        <rdfs:comment>step 1 of conversation_setup: read the exact package setup guide and choose a presentation language before dependency inspection then inspect local dependency readiness and available fixed installation recipes</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>CliSubcommand</ont:fromEntityId>
+        <ont:toEntityId>HostPrerequisite</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/conversation_setup_2">
+        <rdfs:label>conversation_setup.2</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/HostPrerequisite"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/Selection"/>
+        <rdfs:comment>step 2 of conversation_setup: inspect local dependency readiness and available fixed installation recipes then collect none, all or exact corpus choices without activating task context</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>HostPrerequisite</ont:fromEntityId>
+        <ont:toEntityId>Selection</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/conversation_setup_3">
+        <rdfs:label>conversation_setup.3</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Selection"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
+        <rdfs:comment>step 3 of conversation_setup: collect none, all or exact corpus choices without activating task context then optionally discover explicitly scoped instruction sources for independent capture</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>Selection</ont:fromEntityId>
+        <ont:toEntityId>StateArtifact</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/conversation_setup_5">
+        <rdfs:label>conversation_setup.5</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
+        <rdfs:comment>step 5 of conversation_setup: issue a complete review bound to source, state, machine, roots, cwd and dependency executable identities then validate the exact review and explicit acknowledgment before applying selected effects</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>StateArtifact</ont:fromEntityId>
+        <ont:toEntityId>CliSubcommand</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/conversation_setup_6">
+        <rdfs:label>conversation_setup.6</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
+        <rdfs:comment>step 6 of conversation_setup: validate the exact review and explicit acknowledgment before applying selected effects then persist operation outcomes so another call does not replay an existing attempt</rdfs:comment>
+        <ont:cardinality>one-to-one</ont:cardinality>
+        <ont:fromEntityId>CliSubcommand</ont:fromEntityId>
+        <ont:toEntityId>StateArtifact</ont:toEntityId>
     </owl:ObjectProperty>
 
 </rdf:RDF>

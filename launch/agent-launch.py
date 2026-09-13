@@ -1421,6 +1421,18 @@ def parse_capability_offers(name: str, raw: Any) -> tuple:
     return tuple(parsed)
 
 
+def review_wrapper_command(host: str, name: str) -> str | None:
+    """Resolve a review adapter from the active private package or native installation."""
+    if private_corpus_enabled():
+        path = corpus_package_root() / "wrappers" / f"{name}.sh"
+    elif host == "codex":
+        path = expand_config_path(f"${{CODEX_HOME}}/bin/{name}")
+    else:
+        home = os.environ.get("CLAUDE_CONFIG_DIR") or str(pathlib.Path.home() / ".claude")
+        path = pathlib.Path(home) / "bin" / name
+    return str(path.absolute()) if path.is_file() and os.access(path, os.X_OK) else None
+
+
 def host_dispatch_command(host: str, config: dict[str, Any]) -> str | None:
     """The absolute command that spawns a fresh, exactly-pinned, read-only session on
     `host`, or None when this machine cannot.
@@ -1430,23 +1442,12 @@ def host_dispatch_command(host: str, config: dict[str, Any]) -> str | None:
     named the reviewer's seat but never said how to reach it — the launched agent was
     told to run isolated passes on a model with no way to spawn them."""
     if host == "codex":
-        path = expand_config_path("${CODEX_HOME}/bin/codex-run")
-        return str(path.absolute()) if path.is_file() and os.access(path, os.X_OK) else None
+        return review_wrapper_command("codex", "codex-run")
     if host == "claude":
-        # The twin of the branch above, and the asymmetry it removes was silent: the
-        # codex host dispatched through our adapter while the claude host dispatched the
-        # bare binary, so half of every cross-family review had nowhere to report from.
-        #
-        # Falls THROUGH rather than returning None when the adapter is absent, which is
-        # the difference from codex: there, codex-run is the only route that can pin a
-        # seat, so its absence really is no route. Here the bare binary is a working
-        # dispatch that simply cannot produce a receipt, and taking the panel away from
-        # a machine that has not deployed the adapter yet would be a worse trade than
-        # the missing evidence. An un-updated install keeps exactly today's behaviour.
-        home = os.environ.get("CLAUDE_CONFIG_DIR") or str(pathlib.Path.home() / ".claude")
-        adapter = pathlib.Path(home) / "bin" / "claude-run"
-        if adapter.is_file() and os.access(adapter, os.X_OK):
-            return str(adapter.absolute())
+        # The bare Claude backend remains a usable fallback without adapter receipts.
+        adapter = review_wrapper_command("claude", "claude-run")
+        if adapter is not None:
+            return adapter
     backend = config.get("backends", {}).get(host, {})
     try:
         return resolve_command(backend.get("command", ""))
@@ -4116,7 +4117,12 @@ def expand_config_path(value: str) -> pathlib.Path:
     return pathlib.Path(os.path.expandvars(os.path.expanduser(expanded)))
 
 
+_UI_RUNTIME_RELEASE: Callable[[], None] | None = None
+
+
 def exec_backend(command: str, args: list[str], env: dict[str, str] | None = None) -> NoReturn:
+    if _UI_RUNTIME_RELEASE is not None:
+        _UI_RUNTIME_RELEASE()
     os.execve(command, [command, *args], os.environ.copy() if env is None else env)
 
 
@@ -4564,11 +4570,9 @@ def _resolves(value: str) -> bool:
 
 def cross_native_command(plan: dict[str, Any]) -> str | None:
     """Absolute command a cross-family main dispatches to for native review, or
-    None if unresolvable. The codex reviewer wrapper lives off PATH under
-    CODEX_HOME/bin; the claude reviewer is the claude backend on PATH."""
+    None if unresolvable. Codex uses the active review adapter; Claude uses its backend."""
     if plan["review_host"] == "codex":
-        path = expand_config_path("${CODEX_HOME}/bin/codex-run")
-        return str(path.absolute()) if path.is_file() and os.access(path, os.X_OK) else None
+        return review_wrapper_command("codex", "codex-run")
     try:
         return resolve_command(plan["review_backend"])
     except LaunchError:
@@ -4576,11 +4580,10 @@ def cross_native_command(plan: dict[str, Any]) -> str | None:
 
 
 def cross_helm_command(plan: dict[str, Any]) -> str | None:
-    """The codex fan-out reviewer wrapper (hybrid), off PATH under CODEX_HOME/bin."""
+    """The Codex fan-out reviewer adapter from the active installation."""
     if plan["review_host"] != "codex":
         return None
-    path = expand_config_path("${CODEX_HOME}/bin/codex-helm")
-    return str(path) if path.is_file() and os.access(path, os.X_OK) else None
+    return review_wrapper_command("codex", "codex-helm")
 
 
 def cross_ultracode_command(plan: dict[str, Any]) -> str | None:
@@ -4857,11 +4860,54 @@ def setup_summary_lines(plan: dict[str, Any] | None) -> list[str]:
     return lines
 
 
+def _activate_cli_ui_runtime() -> bool:
+    """Use the package's offline UI bundle; standalone compatibility copies keep their runtime."""
+    global _UI_RUNTIME_RELEASE
+    source = pathlib.Path(__file__).resolve().parents[1]
+    if os.environ.get("AGENT_BIOS_PACKAGE_ROOT") or private_corpus_enabled():
+        root = corpus_package_root()
+    elif (source / "compose/corpus_store.py").is_file():
+        root = source
+    else:
+        return False
+    loader = root / "compose/corpus_ui_runtime.py"
+    if loader.is_symlink() or not loader.is_file():
+        raise LaunchError("bundled UI runtime loader is missing or unsafe; reinstall the agent-bios package")
+    module_root = str(root / "compose")
+    if module_root not in sys.path:
+        sys.path.insert(0, module_root)
+    try:
+        from corpus_ui_runtime import activate_ui_runtime, release_ui_runtime
+        activate_ui_runtime(root)
+    except (ImportError, OSError, RuntimeError) as exc:
+        raise LaunchError(f"bundled terminal UI could not start: {exc}") from exc
+    _UI_RUNTIME_RELEASE = release_ui_runtime
+    return True
+
+
+def _textual_api() -> tuple[Any, ...]:
+    """Import the public UI APIs used by this launcher without starting an app."""
+    from textual import work
+    from textual.app import App
+    from textual.binding import Binding
+    from textual.containers import Horizontal, Vertical, VerticalScroll
+    from textual.screen import ModalScreen
+    from textual.widgets import Input, OptionList, Static
+    from textual.widgets.option_list import Option
+    from rich.text import Text
+    from textual.theme import Theme
+    return (work, App, Binding, Horizontal, Vertical, VerticalScroll, ModalScreen,
+            Input, OptionList, Static, Option, Text, Theme)
+
+
 def textual_importable() -> bool:
     try:
-        import textual  # noqa: F401
-    except Exception:
-        return False
+        _textual_api()
+    except ImportError as exc:
+        if any(exc.name == name or (exc.name or "").startswith(name + ".")
+               for name in ("textual", "rich")):
+            return False
+        raise
     return True
 
 
@@ -4926,15 +4972,8 @@ _UI_CANCEL = "\x00cancel"
 def _build_app_class():
     """Import textual lazily and build the App/Screen classes, so importing this
     module and every non-interactive path stays free of the textual dependency."""
-    from textual import work
-    from textual.app import App
-    from textual.binding import Binding
-    from textual.containers import Horizontal, Vertical, VerticalScroll
-    from textual.screen import ModalScreen
-    from textual.widgets import Input, OptionList, Static
-    from textual.widgets.option_list import Option
-    from rich.text import Text
-    from textual.theme import Theme
+    (work, App, Binding, Horizontal, Vertical, VerticalScroll, ModalScreen,
+     Input, OptionList, Static, Option, Text, Theme) = _textual_api()
 
     # Host-matched palettes so the preflight reads as the CLI it launches.
     # Both are taken from the host's own artifact: Codex from its ~/.codex dark
@@ -8913,9 +8952,10 @@ def run_corpus_apply(selection: list[str]) -> None:
     this function only streams it and reports the exit."""
     status = load_corpus_status() or {}
     domains = ",".join(selection) if selection else "none"
+    interaction = [] if os.environ.get("AGENT_BIOS_LEGACY_INSTALL") == "1" else ["--non-interactive"]
     front = shutil.which("agent-bios")
     if front:
-        argv = [front, "onboard", "--domains", domains]
+        argv = [front, "onboard", *interaction, "--domains", domains]
     else:
         # isinstance, not truthiness: `repo` is whatever the JSON holds, and a non-string
         # truthy value reached pathlib.Path() and raised TypeError out of the apply path.
@@ -8928,11 +8968,11 @@ def run_corpus_apply(selection: list[str]) -> None:
         if installer is None or not installer.is_file():
             print(
                 "agent-launch: no agent-bios on PATH and no usable repo in "
-                f"corpus-status.json; run manually: agent-bios onboard --domains {domains}",
+                f"corpus-status.json; run manually: agent-bios onboard {' '.join(interaction)} --domains {domains}",
                 file=sys.stderr,
             )
             return
-        argv = ["bash", str(installer), "onboard", "--domains", domains]
+        argv = ["bash", str(installer), "onboard", *interaction, "--domains", domains]
     print(f"\nagent-launch: applying corpus selection: {' '.join(argv)}\n", flush=True)
     proc = subprocess.run(argv)
     if proc.returncode != 0:
@@ -11008,7 +11048,7 @@ def _tolerate_narrow_stdout() -> None:
             pass
 
 
-def main(argv: list[str]) -> int:
+def main(argv: list[str], *, bundled_ui: bool = False) -> int:
     _tolerate_narrow_stdout()
     args = parse_args(drop_check_adapter_separator(argv))
     if args.corpus:
@@ -11142,14 +11182,18 @@ def main(argv: list[str]) -> int:
         and not rich_ui_declined
         and os.environ.get("TERM", "") not in {"", "dumb"}
     )
-    if use_textual and not textual_importable():
-        maybe_reexec_into_venv()
+    if use_textual:
+        bundled = bundled_ui and _activate_cli_ui_runtime()
         if not textual_importable():
-            use_textual = False
-            print(
-                "agent-launch: rich terminal UI unavailable; using numbered prompts.",
-                file=sys.stderr,
-            )
+            if bundled:
+                raise LaunchError("bundled UI APIs are unavailable; reinstall the agent-bios package")
+            maybe_reexec_into_venv()
+            if not textual_importable():
+                use_textual = False
+                print(
+                    "agent-launch: rich terminal UI unavailable; using numbered prompts.",
+                    file=sys.stderr,
+                )
     while True:
         try:
             if args.understand:
@@ -11289,7 +11333,7 @@ def main(argv: list[str]) -> int:
 
 if __name__ == "__main__":
     try:
-        raise SystemExit(main(sys.argv[1:]))
+        raise SystemExit(main(sys.argv[1:], bundled_ui=True))
     except LaunchError as exc:
         print(f"agent-launch: {exc}", file=sys.stderr)
         raise SystemExit(2)

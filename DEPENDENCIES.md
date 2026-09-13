@@ -1,115 +1,271 @@
 # Dependencies
 
-What agent-bios' scripts and rules depend on, with required capabilities and verified versions. Role-slot→model bindings are owned by each guide's `Environment Binding`; numeric defaults by each guide's `Evidence Base`. This file does not restate them — it inventories dependency *kinds* and points to their owners, so a version lives in exactly one place.
+This file owns the dependency inventory, required capabilities, and the observed local
+versions below. Required minimums come from the code that enforces them. The Textual
+root pin and optional learning-validator pin belong to `launch/provision-venv.sh`.
+`gates/build-ui-runtime.py` derives the exact shipped wheel inventory in
+`compose/ui_runtime/manifest.json` from `TEXTUAL_PIN`; setup reads that inventory and
+the optional validator pin. Guide `Environment Binding` sections own
+role-slot/model choices and feature-specific host observations; `Evidence Base`
+sections own measured behavior and numeric defaults.
 
-Korean: [`ko/DEPENDENCIES.md`](ko/DEPENDENCIES.md). Dates = verification time; update a date when the version is re-checked.
+Korean: [`ko/DEPENDENCIES.md`](ko/DEPENDENCIES.md). A version report or successful
+package installation does not renew a native protocol, model-turn, or UI observation.
+The verification column states the scope of each check.
 
-## Runtime tools (scripts) — owned here
+## Runtime tools
+
+The supported operating systems are macOS and Linux (`package.json` `os`). Private
+transactions, instruction capture and app registration use POSIX file locks, file
+descriptors and symlinks. The JSON setup protocol, machine-mode corpus operations,
+import and app context use Python standard libraries. Interactive installation,
+package/current-checkout Corpus Studio and the private/current-checkout launcher's
+rich entrypoint load the shipped
+offline UI dependencies. Optional learning validation and retained compatibility clients
+have separate runtime requirements below.
 
 | Tool | Required by | Required capability | Verified |
 | --- | --- | --- | --- |
-| `codex` (codex-cli) | `compose/corpus_session.py`, `launch/agent-launch.py`, `wrappers/codex-run.sh`, `wrappers/codex-helm.sh`; guide "Codex direct-drive" + "Session relocation" bindings | per-call `-c`; cwd-aware `app-server --stdio` `config/read`; durable `thread/start`, `thread/inject_items`, and `thread/read`; `codex resume`; existing `codex exec` and agent-config projection. The corpus session tests exercise config preservation and durable thread identity without a model turn | 0.153.4 · 2026-09-07 |
-| `bash` | `install.sh`, `*/*.sh` | POSIX + arrays; runs on macOS system bash | 3.2.57 · 2026-07 |
-| `python3` | `compose/corpus.py`, `compose/corpus_install.py`, `compose/corpus_session.py`, `compose/corpus_store.py`, `session-cost.py`, `launch/agent-launch.py` | Python 3.11+ stdlib (`tomllib`) owns every machine/non-TTY path, private file transaction, catalog/store operation, session journal, and numbered fallback. Textual is imported only for the interactive clients | 3.14.5 · 2026-09-07 |
-| `textual` (managed venv) | `launch/agent-launch.py` preflight and `compose/corpus_ui.py` Corpus Studio; provisioner is `launch/provision-venv.sh` | Textual runtime in `~/.local/share/agent-launch/venv` (override `AGENT_LAUNCH_VENV`); each interactive client re-execs into it only on its TTY path. The private installer does not currently run the provisioner, so a fresh machine without that runtime uses numbered UI. Corpus Studio uses `Tree`, `MarkdownViewer(open_links=False)`, `TextArea(language="markdown")`, and `Select`; its numbered editor uses `$VISUAL`/`$EDITOR` when set | 8.2.8 · py 3.14.5 · 2026-09-07 |
-| `jsonschema` (system python) | `learn/check-learning.py` (learning record gate; chained from `gates/check-parity.sh`) | JSON Schema Draft 2020-12 validator executing `learn/learning.schema.json` as the SSOT | 4.26.0 · 2026-07-20 |
-| `zsh` | `launch/agent-launch.zsh`, `launch/shell_integration.py` | optional private shell connection and retained legacy compatibility: shell functions, TTY tests, argument-preserving dispatch. The private default does not install shell interception | 5.9 · 2026-07-13 |
-| `git` | scripts, workflow (`origin/<base>..HEAD`, worktrees) | modern git; worktree support | 2.50.1 · 2026-07 |
-| coreutils (`mktemp`, `cp`) | `codex-run.sh` hermetic home; `codex-helm.sh` managed home | BSD or GNU | 2026-07 |
+| `python3` | `compose/corpus*.py`, app bridge helper, `session-cost.py`, `launch/agent-launch.py` | Python 3.11+ (`tomllib`) for the private store, offline installer UI loader, import evidence, app receipts and native session adapter | 3.14.5 · version report · 2026-09-12 |
+| `bash` | `install.sh`, shell adapters, provisioner and app helper command dispatch | Bash arrays and argument-preserving execution; macOS system Bash is supported | 3.2.57 · version report · 2026-09-12 |
+| `git` | conversation source acquisition, clone updates and version-control workflows | clone and detached checkout for a fixed source commit; worktrees and modern revision operations for development. No Git checkout is required to use an installed npm package | 2.50.1 · version report · 2026-09-12 |
+| `zsh` | `launch/agent-launch.zsh`, optional `launch/shell_integration.py` connection | shell functions, TTY checks and argument-preserving dispatch. Used by the explicit private shell connection as well as compatibility installation; it is not required for ordinary private storage or app context use | 5.9 · version report · 2026-09-12 |
+| `mktemp`, `cp` | wrapper temporary homes and shell utilities | BSD or GNU command interfaces | local inventory checks command availability; no package-version claim |
+| `ioreg`, `ps` | conversation setup machine/process identity on macOS | local OS identity probes. Linux uses machine-id and `/proc`; machine identity has a host/filesystem fallback, while missing process evidence leaves a running attempt unconfirmed | source-defined probes; no separate tool version pin |
+| Node.js | npm delivery, optional npm host installation and selected slide jobs | `package.json` requires Node >=18 for npm package delivery. The optional Claude npm recipe requires Node >=22; Codex npm installation and slide runtimes retain their own requirements. The Python corpus runtime does not require Node | 26.0.0 · version report · 2026-09-12 |
+| `npm` | package delivery and optional host installation recipes | normal global package installation using the user's configured prefix/registry | 12.0.2 · version report · 2026-09-12 |
+| Homebrew (`brew`) | optional setup installation recipes | available formula/cask installation commands selected in the reviewed setup plan; setup does not install Homebrew itself | local `--version` probe; no installation version pin |
+| Python `venv`, `ensurepip` and pip | explicitly selected managed-environment installation | create an isolated environment using `AGENT_LAUNCH_PYTHON` (default `python3`); not prerequisites for loading the bundled installation UI. Some Linux Python distributions provide these components separately | clean venv creation and `pip check` · Python 3.14.5 · 2026-09-12 |
+| Bundled Textual UI runtime | interactive `install`/`onboard`, package/current-checkout Corpus Studio TTY entrypoint, private/current-checkout launcher rich entrypoint | pure-Python wheels shipped under `compose/ui_runtime/`; the loader verifies and extracts them temporarily before UI imports. No system/managed Textual, pip installation or runtime network access is needed | manifest versions/hashes/licenses; offline clean-interpreter, TTY and backend-handoff checks · 2026-09-12 |
+| Managed `textual` | standalone compatibility launcher copies, retained in-process APIs and author tests | optional environment at `${AGENT_LAUNCH_VENV:-$HOME/.local/share/agent-launch/venv}`. Its installation target is `TEXTUAL_PIN`; current package CLI UI paths use the shipped bundle | 8.2.8 · clean-venv installation/import, `pip check` and UI tests · 2026-09-12 |
+| `rich` | Textual clients | included with the installer UI bundle and otherwise provided transitively by Textual; not a separate setup choice. Plain editing needs no optional syntax-highlighting packages | managed Textual environment and UI tests · 2026-09-12; bundled version belongs to the manifest |
+| `jsonschema` | `learn/collect-learning.py`, `learn/check-learning.py` | Draft 2020-12 validation for user learning capture and author verification. `learn` uses a usable system validator, otherwise the configured managed interpreter. Installation target is `JSONSCHEMA_PIN` in the provisioner; `--learning-only` installs it without adding Textual | 4.26.0 · clean-venv installation/import and `pip check` · 2026-09-12 |
+
+`agent-bios install` and `onboard` are interactive unless `--non-interactive` is explicit.
+Selection flags seed the UI, and a non-TTY default call fails before writes. Python
+3.11+ is still required. `compose/corpus_ui_runtime.py` validates the shipped bundle
+before UI imports and uses one process-owned temporary extraction, cleaned on normal
+exit and released by the launcher before backend `execve`. It creates no persistent UI
+package installation. Missing, damaged or conflicting bundle state produces repair
+guidance on the package UI entrypoints; the installer does not fall back to numbered UI.
+Standalone compatibility launcher copies retain managed/numbered behavior. Imported
+in-process APIs retain their existing dependency contract; CLI bundle activation is
+explicit at the real entrypoints.
+
+The terminal installer language chooser and its English/Korean/Japanese messages are
+owned by `compose/corpus_setup_i18n.py`. This is a per-run UI choice before dependency
+probes, not another corpus language or persisted host setting. Locale variables suggest
+a starting choice; the user still sees the chooser. The JSON setup protocol accepts an
+explicit review language while retaining its stable field names and exact values.
+
+`agent-bios setup` needs Python 3.11+ and Bash, with no TTY, Textual, model SDK or new
+server. It reuses `SetupController` for inspection, reviewed plans and fixed dependency
+actions. Only explicit Apply runs selected actions; its durable receipts use private
+state. `status` and `resume` inspect or prepare further review without executing
+installation actions. The conversation client needs the host's normal local file and
+command tools. `INSTALL.md` resolves the repository-link request to an explicitly
+selected local source or one downloaded commit before reading `compose/setup/START.md`.
+Source acquisition uses the host's download or Git tools and creates caller-owned
+files before the installation plan; it is separate from setup Apply. No preinstalled
+bridge, Codex CLI, Node.js or npm is required for this source-based conversation route.
+
+Setup probes installed commands without installing or signing in. Available dependency
+actions have fixed argv and run only after explicit selection and Apply. The app bridge
+retains the configured managed-environment path for later learning calls. Host sign-in,
+user MCP credentials, browser/job bindings and personal skills remain separate setup
+steps; absence of an optional route does not make the local corpus store unavailable.
+Manager recipes are offered only after their version probe succeeds. Creating a new
+managed environment requires the selected Python venv/ensurepip bootstrap; an existing
+managed interpreter does not need to bootstrap again. The provisioner checks Python
+3.11+ before modifying the environment.
 
 ## Host agent CLIs
 
-| CLI | Role | Required capability | Version owner |
+| CLI | Required by | Required capability | Verification |
 | --- | --- | --- | --- |
-| Claude Code | primary host and `agent-launch` backend; native global/project loading remains native | `--model`; effort `low/medium/high/xhigh/max`; `--agents`; per-call `--append-system-prompt`; `--session-id` and `--resume`; `--mcp-config`; `--plugin-dir`; permission modes `acceptEdits/auto/bypassPermissions/manual/dontAsk/plan`. Default-off `--corpus-native` validates and supplies per-item plugin roots for installed corpus carriers; automatic SessionStart execution is observed. Authenticated corpus-agent execution and post-fix authenticated resume remain unverified | Environment Binding; installed CLI 2.1.263 checked 2026-09-08 |
-| Codex CLI | mirror host and worker/reviewer runtime; native global/project loading remains native | private corpus composition preserves cwd-aware effective developer instructions, injects the selected snapshot per call, and pins the host id after `thread/start` + `thread/inject_items` + `thread/read`; see codex row above | Environment Binding + this file |
+| Claude Code | native Claude sessions and Claude worker/review routes | `--model`, `--effort`, `--agents`, per-call `--append-system-prompt`, `--session-id`, `--resume`, `--mcp-config`, `--plugin-dir`, and the selected permission mode; native global/project loading remains native | 2.1.268 · 2026-09-12 |
+| Codex CLI | `compose/corpus_session.py`, launcher and Codex worker/review adapters | per-call `-c`; cwd-aware `app-server --stdio` `config/read`; durable `thread/start`, `thread/inject_items`, `thread/read`; `codex resume`; `codex exec` and agent-config projection | local 0.153.4; isolated compatibility 0.154.0 · 2026-09-12 |
 
-Optional user-global instruction exclusion in `compose/corpus_session.py` requires
-Claude Code 2.1.263 or newer. Its native `claudeMdExcludes` setting is supplied once
-through `--settings`; native configuration arrays union/deduplicate, but repeated
-CLI `--settings` options replace one another, so the adapter refuses that collision.
-Actual include/exclude/resume startup preserved project instruction sources and
-omitted the global root/imports/user rules on 2026-09-08. Codex 0.153.4 has no
-equivalent supported native control; exclusion is refused without changing its
-execution sandbox or configuration home.
+The Claude row reports the installed command version. The Codex row distinguishes the
+installed runtime from the newer isolated compatibility check. Native protocol and
+execution evidence have narrower scope:
 
-Claude Haiku 4.5 calls omit `--effort` and the native agent `effort` field.
-The SWEEP-main route requires `--restricted`, `--tools`, `--strict-mcp-config`
-and `--mcp-config`; installed Claude Code 2.1.263 accepts these parser options.
-Its projection uses Read/Glob/Grep and an empty MCP configuration, with no child
-delegation. This is a parser/projection check, not a new model-generation receipt.
+- Optional global-instruction exclusion requires Claude Code **2.1.263+**, enforced by
+  `compose/corpus_session.py`. The adapter supplies `claudeMdExcludes` through one
+  `--settings` argument and refuses a conflicting existing argument. Include/exclude/
+  resume startup preserving project sources was observed on 2026-09-08. The current
+  Codex adapter has no supported global-only exclusion in the verified 0.154.0 protocol;
+  it refuses that choice instead of changing its sandbox or config home.
+- The isolated Codex compatibility check covers cwd-aware configuration and prompt
+  preservation, durable thread creation/injection/read and pin recovery, bridge skill
+  discovery/removal, and user/project/session hook discovery. It does not claim hook
+  execution or a model turn on that runtime.
+- The Claude SWEEP projection requires `--restricted`, `--tools`, `--strict-mcp-config`
+  and `--mcp-config`; parser/projection verification used 2.1.263. Its allowed tools and
+  effort choices come from the launch bindings. A parser check is not a model-generation
+  receipt.
+- Native corpus hooks use the common installed Python carrier and typed event/matcher.
+  Claude plugin delivery was exercised with 2.1.268; Codex inline hook discovery and
+  local-transport execution controls used 0.153.4. Existing host hooks, enablement and
+  native trust remain in force. Discovery alone does not prove execution.
+- Codex deep-review flag checks used 0.146.0. The Claude `ultracode` keyword trigger was
+  read from the 2.1.220 installed bundle. These feature observations are not refreshed
+  by the current `--version` reports. Authenticated corpus-agent execution and post-fix
+  authenticated resume remain unverified.
 
-## LLM models & providers — owned by `Environment Binding`
+## Codex app and instruction import
 
-Concrete role-slot→model bindings live only in each guide's `Environment Binding`, dated, expiring ~8 weeks or on a newer model. Not restated here.
+The Codex desktop app is a separate host from the Codex CLI. Its optional bridge needs
+native skill discovery for `~/.agents/skills/agent-bios`, the explicit-invocation policy in
+`compose/app_bridge/agents/openai.yaml`, and Python plus `/bin/bash` for its helper.
+`CODEX_THREAD_ID` supplies the current task identity; an explicit real `--session` id
+can substitute when absent. The bridge resolves the confirmed private installation
+and saved roots on each call. Local app registration and receipt tests do not establish
+a minimum desktop-app version or prove native discovery/model reading.
 
-- Providers: **Anthropic** (Claude — Fable/Opus/Sonnet/Haiku), **OpenAI** (GPT / Codex).
-- Auth: Anthropic via Claude Code login; OpenAI via ChatGPT subscription or API key (`$CODEX_HOME/auth.json`).
+An explicit installation request can use the bridge's `setup` forwarding, including
+`setup start` to locate the installation guide. This route does not need a task identity
+or run `session use`; native task identity is required for task-context receipts only.
+Review/apply context instead binds the machine, user, paths, package, working directory
+and effect-relevant environment. Status receipts describe recorded attempts; `handoff`
+separates package/runtime verification from helper registration, integrity and usability.
+Read-only `try_transaction_lock` in `compose/corpus_transaction.py` permits current
+checks without waiting for another writer or creating synchronization state. If it
+cannot acquire safe synchronization, handoff reports `verification: "deferred"` and
+unobserved readiness fields as `null`, while status still returns recorded progress.
+`verification: "checked"` reports that the checks ran; their individual results remain
+separate.
+A caller uses `helper_argv` only with `helper_usable`, or `setup_argv` with
+`package_verified`, and supplies the returned environment. Neither flag proves native
+skill discovery. The engine does not install or configure the host's file/command tools.
+
+`app session preview/use/off/status` manages **returned task context**, not a new Codex
+CLI session. This route uses no separate Codex CLI subprocess, no Textual runtime and
+no direct model SDK. Corpus Studio needs a terminal; rich UI remains optional. App use
+requires explicit selection, enables no native hooks or agents, and Off cannot retract
+previously returned text. Registration is off by default and owns only its discovery
+link, preserving global instruction files and foreign entries.
+
+Local instruction import also needs no model SDK or parser framework. Standard-library
+code discovers fixed instruction filenames at known global and explicit project roots,
+captures redacted evidence through `learn/redact.py`, and validates source digests,
+coverage, project/host scope and the store transaction. The host agent authors content,
+consumption placement and trigger descriptions; it is not a deterministic classifier.
+Planning/applying requires an installed baseline. Original native files remain intact
+and may still be loaded independently by the host.
 
 ## Private corpus assets
 
-- **Native corpus hooks** — `--corpus-native` uses one shared installed Python carrier and typed event/matcher on both hosts. Claude Code 2.1.268 validates per-item plugins and receives them by `--plugin-dir`; Codex CLI 0.153.4 receives inline session hook config and exposes it through `hooks/list`. Existing native hooks remain, global config is unchanged, and Codex's native enablement/trust review still applies. The installed Codex runtime has a local-transport positive/negative test for execution and context injection; discovery alone is not execution.
-- **Claude native corpus agents** — selected agent carriers use the same per-item plugin packaging and retain their authored frontmatter, including tool restrictions. Routes are plugin-qualified rather than launcher tier names. A Codex agent projection is separate work on agent semantics, not a hook restriction.
-- **Codex custom agents** (`codex/agents/*.toml`) — role-template sources stored in the immutable private release. The default installer does not register templates in the native host home.
-- **Corpus management bootstrap** (`compose/bootstrap/SKILL.md`) — copied into every activated immutable snapshot and named by exact private path in startup text. This is private procedure access, not a claim of native skill registration.
+- **Native corpus hooks and agents** require explicit `--corpus-native` and a supported
+  installed carrier. Claude agents retain their authored frontmatter in per-item
+  plugins; names are plugin-qualified. Codex agent-semantic translation remains separate
+  work. Neither route registers global hooks by default.
+- **Codex role templates** (`codex/agents/*.toml`) are carried in the immutable private
+  release. Private installation does not require copies under the native host home.
+- **Management bootstrap** (`compose/bootstrap/SKILL.md`) and selected requested
+  procedures are private snapshot resources. **No-corpus mode omits the bootstrap and
+  corpus instruction text.** The optional app discovery bridge is a separate entry;
+  registration alone does not select task context.
 
-## Referenced / optional — not required by the core repo
+## Models and optional integrations
 
-- **Slide-writing static HTML/PDF companion** — the primary slide-writing guide needs no renderer. Its explicit static HTML/PDF job path uses Python 3.11+ standard libraries for preparation, binding checks, and result acceptance. Rendering additionally requires an explicit Node executable, Playwright module file, `pdf-lib` resolvable beside that module, and a Chromium-family browser executable. These are job-side dependencies, not installed by corpus delivery. Verified on 2026-09-09: Node 24.19.0, Playwright 1.62.1, pdf-lib 1.17.1, Chromium-family browser 152.0.7977.83. The companion runbook owns invocation and supported-format limits.
+Concrete role-slot/model bindings belong to each guide's `Environment Binding` and the
+launch profile. Providers are Anthropic and OpenAI; host login supplies authentication.
+Agent-bios does not install credentials or infer a model account from dependency probes.
 
-- **Deep review** — no separate tool on either side. The Codex-seat deep reviewer (`codex-exec`) is the `codex` CLI's own non-interactive exec mode: `codex exec -s read-only -m gpt-5.6-sol -c model_reasoning_effort="ultra"`, self-contained packet on stdin (`-s read-only`, `-c model_reasoning_effort` and `-c service_tier` verified against installed codex-cli 0.146.0; `-c service_tier="fast"` is the explicit faster, shallower opt-in; `-s read-only` enforces the promised sandbox — ambient `~/.codex` config stays inherited, so the route is read-only but not hermetic). The Claude-seat deep reviewer (**ultracode**) is the `claude` backend itself run headless with the keyword `ultracode` in the prompt — that keyword is what opens the Workflow tool for the turn (`workflowKeywordTriggerEnabled`, default true, read in the installed 2.1.220 bundle). Personal or third-party reviewers register in the user-owned `review-methods.local.toml`, never in the shipped config.
-- **Cross-family review reviewers** — with `review_family=cross` (default), each main routes review to the opposite family. A Claude main dispatches gpt review via `$CODEX_HOME/bin/codex-run --profile hermetic` (and `codex-helm --mode review` for review fan-out) plus the deep `codex exec` pass above; a Codex main dispatches Claude review via the `claude` CLI (`claude -p --permission-mode plan` for native, and, for the workflow-orchestration route, the same `claude` CLI headless with the keyword `ultracode` in the prompt — the keyword trigger is what the injected contract names, so this is the mechanism to follow). The reviewer command, resolved path, and opposite-family tier bindings are named in the launch contract; an absent or unauthenticated route degrades to same-family native (PROPOSED). `review_family=same` restores same-family review.
-- **codex-plugin-cc** (1.0.6; re-evaluated 2026-07-16) — spawns `codex app-server` with inherited env and no `--ignore-user-config`/`--profile`, so every run reads the real `~/.codex` (config.toml, auth, its MCP servers); it has no per-invocation hermetic reach, which is what makes it unfit as a **review** route: the reviewer would inherit the same config and AGENTS.md as the main, undercutting the independent lens `review_family=cross` exists to provide. The model *is* selectable (`--model`/`--effort`); what is dated is the bundled `gpt-5-4-prompting` skill, so passing a current model does not resolve it. **Not adopted**; `wrappers/codex-run.sh` is preferred for controlled reach. It does not touch Claude Code's `/code-review` (no `code-review.md`; it adds namespaced `/codex:*`), so it never made that route cross-family. Capability we lack and may still want independently: its opt-in `Stop` hook review gate.
-- **MCP servers** (clickhouse, node_repl, …) — environment-specific; referenced by Environment Binding, not a core dependency. The launcher registers a stdio MCP server only for a user-registered capability whose offer declares the `mcp-stdio-v1` adapter; no shipped review method is MCP-backed.
-- **spreadsheet-processing** (skill) — referenced by the always-surface spreadsheet rule in an activated selection; present in the author's Claude Code and Codex environments. If absent, the rule's inline fallback (plain tools/code + real Excel-engine validation) applies.
+- **Slide-writing static HTML/PDF companion** — its primary guide requires no renderer.
+  The selected static path needs Python standard libraries for preparation and acceptance;
+  rendering additionally needs a job-bound Node executable, Playwright module, `pdf-lib`
+  beside that module, and a Chromium-family browser executable. These are not installed
+  by corpus delivery. The 2026-09-09 job verification used Node 24.19.0, Playwright 1.62.1,
+  pdf-lib 1.17.1 and browser 152.0.7977.83; it is separate from the current host Node report.
+- **Deep review** — uses the configured host CLI rather than another core tool. Codex
+  runs its own read-only exec route with a self-contained packet; the frontier model
+  and effort come from the launch binding. Claude runs headless with the
+  keyword `ultracode` in the prompt to activate its workflow. Native configuration
+  remains inherited unless a hermetic adapter is selected. Personal reviewers register
+  in `review-methods.local.toml`.
+- **Cross-family review adapters** — private routes resolve `wrappers/codex-run.sh`,
+  `codex-helm.sh` and `claude-run.sh` from the selected package. Their command paths,
+  binding, reach and fallback are declared in the launch contract. An unavailable or
+  unauthenticated opposite-family route is reported, not credited as a completed review.
+- **MCP servers** — user-specific; only a selected capability declaring `mcp-stdio-v1`
+  is registered by the launcher. No shipped review method requires MCP. App corpus
+  context delivery does not add an MCP server.
+- **spreadsheet-processing** — an optional skill referenced by the spreadsheet rule
+  when that corpus is selected. If unavailable, its inline plain-tools/code and real
+  spreadsheet-engine validation fallback applies.
 
-## Untracked — dependencies, but excluded by design
-
-Host `config.toml`, `settings.json`, and `hooks.json` — machine-specific trust lists, hook paths, and MCP secrets. The tracked `launch/agent-launch.toml` contains launch bindings but no secrets. See README Scope.
+Host `config.toml`, `settings.json`, `hooks.json` and credentials are untracked,
+user-owned state. `launch/agent-launch.toml` carries launch bindings without secrets.
 
 ## Re-verify
 
+Read the current local inventory without installing packages or starting model turns:
+
 ```bash
-codex --version
-codex_help="$(codex exec --help)"
-for flag in --output-schema --ignore-user-config --ephemeral --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox --cd --sandbox --model --profile; do
-  printf '%s\n' "$codex_help" | grep -q -- "$flag" || { echo "missing codex flag: $flag"; exit 1; }
-done
-printf '%s\n' "$codex_help" | grep -Eq '(^|[[:space:]])-c([,[:space:]]|$)' || { echo "missing codex flag: -c"; exit 1; }
-printf '%s\n' "$codex_help" | grep -Eq '(^|[[:space:]])-C([,[:space:]]|$)' || { echo "missing codex flag: -C"; exit 1; }
-printf '%s\n' "$codex_help" | grep -Eq '(^|[[:space:]])-p([,[:space:]]|$)' || { echo "missing codex flag: -p"; exit 1; }
-printf '%s\n' "$codex_help" | grep -Eq '(^|[[:space:]])-s([,[:space:]]|$)' || { echo "missing codex flag: -s"; exit 1; }
-claude --version; claude --help | grep -E -- '--model|--effort|--agents|--append-system-prompt|--session-id|--resume|--mcp-config'
-bash --version | head -1; zsh --version; python3 --version; git --version
-AGENT_LAUNCH_VENV="${AGENT_LAUNCH_VENV:-$HOME/.local/share/agent-launch/venv}" bash launch/provision-venv.sh
-"${AGENT_LAUNCH_VENV:-$HOME/.local/share/agent-launch/venv}/bin/python" -c 'import textual, sys; print("textual", textual.__version__, "py", sys.version.split()[0])'
-python3 -m py_compile compose/corpus.py compose/corpus_catalog.py compose/corpus_install.py compose/corpus_session.py compose/corpus_store.py
-"${AGENT_LAUNCH_VENV:-$HOME/.local/share/agent-launch/venv}/bin/python" -m unittest discover -s compose -p 'test_corpus*.py'
-bash -n wrappers/codex-run.sh wrappers/codex-helm.sh gates/check-parity.sh launch/check-prompting-targets.sh launch/provision-venv.sh install.sh
-zsh -n launch/agent-launch.zsh
-python3 -c 'compile(open("launch/agent-launch.py").read(), "launch/agent-launch.py", "exec")'
-./gates/check-parity.sh
-./launch/check-prompting-targets.sh
-python3 - <<'PY'
-import pathlib, tomllib
-roots = [pathlib.Path("codex/agents")]
-required = {"frontier.toml", "workhorse.toml", "sweep.toml", "reviewer.toml"}
-for root in roots:
-    missing = required - {path.name for path in root.glob("*.toml")}
-    assert not missing, f"missing required agent TOML files in {root}: {sorted(missing)}"
-    for path in sorted(root.glob("*.toml")):
-        tomllib.loads(path.read_text())
-    print(f"agent TOML ok: {root}")
+python3 -B - <<'PY'
+import json, os, pathlib, sys
+repo = pathlib.Path.cwd()
+sys.path.insert(0, str(repo / 'compose'))
+from corpus_setup import dependency_inventory
+for row in dependency_inventory(repo, {**os.environ, 'PYTHONDONTWRITEBYTECODE': '1'}):
+    print(json.dumps({key: row[key] for key in ('id', 'status', 'version', 'path', 'manual_reason')}, ensure_ascii=False))
 PY
-wrappers/codex-helm.sh --dry-run --mode review "probe"
-agent-bios verify
-agent-bios corpus status --json
+```
+
+Inspect the installed private state using this checkout's runtime:
+
+```bash
+bash install.sh verify
+bash install.sh corpus status --json
+bash install.sh app status --json
+```
+
+Provision packages only when explicitly requested for learning validation, compatibility
+clients or author tests. These commands are not needed by the package CLI UI; they may access
+the configured package index and modify the managed environment:
+
+```bash
+bash launch/provision-venv.sh
+bash launch/provision-venv.sh --learning-only
+```
+
+The author-side bundle checks are offline. They verify the root pin, exact wheel
+metadata and licenses, isolated imports/rendering, cleanup and negative controls:
+
+```bash
+python3 gates/build-ui-runtime.py --check
+python3 gates/build-ui-runtime.py --self-test
+```
+
+Only the builder's explicit `--build` path fetches packages; do not hand-edit wheel
+archives or their manifest. The full author umbrella also exercises compatibility
+clients and can provision its managed test environment, so it is not a read-only
+machine inventory:
+
+```bash
+python3 -B - <<'PY'
+import pathlib
+paths = list(pathlib.Path('compose').glob('corpus*.py')) + [pathlib.Path('launch/agent-launch.py')]
+for path in paths:
+    compile(path.read_text(), str(path), 'exec')
+PY
+bash -n install.sh launch/provision-venv.sh wrappers/codex-run.sh wrappers/codex-helm.sh wrappers/claude-run.sh
+zsh -n launch/agent-launch.zsh
+./gates/check-parity.sh
 ```
 
 ## Ownership
 
 | Owner | Owns |
 | --- | --- |
-| this file (`DEPENDENCIES.md`) | script runtime tools + required capabilities; the dependency inventory |
-| each guide `Environment Binding` | role-slot→model bindings, host-CLI verified versions |
-| each guide `Evidence Base` | numeric defaults / measurements |
+| `DEPENDENCIES.md` | required capability inventory and scoped local version observations |
+| `launch/provision-venv.sh` | Textual root pin, `JSONSCHEMA_PIN` and explicit managed package installation |
+| `gates/build-ui-runtime.py` | author-side bundle generation and offline check/self-test |
+| `compose/ui_runtime/manifest.json` | generated exact UI wheel inventory, versions, hashes and licenses |
+| `compose/corpus_ui_runtime.py` | offline verification, process-lifetime extraction and release |
+| `compose/corpus_setup.py` | shared SetupController, local inventory and reviewed dependency recipes |
+| `package.json` and runtime validators | supported platforms and required runtime minimums |
+| guide `Environment Binding` and launch profile | role/model bindings and feature-specific host evidence |
+| guide `Evidence Base` | measured behavior and numeric defaults |

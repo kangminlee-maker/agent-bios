@@ -3085,6 +3085,7 @@ def launcher_corpus_checklist(fx):
     real_run, real_which = subprocess.run, shutil.which
     real_status_path = launcher_module.CORPUS_STATUS_PATH
     real_input = launcher_module.read_input
+    real_legacy = os.environ.pop("AGENT_BIOS_LEGACY_INSTALL", None)
 
     def scripted(script):
         fed = list(script)
@@ -3111,10 +3112,10 @@ def launcher_corpus_checklist(fx):
             launcher_module.corpus_checklist(None)
         if fed:
             mark_fail(f"corpus checklist left {len(fed)} scripted input(s) unused")
-        if recorded != [["/gate/agent-bios", "onboard", "--domains", "alpha,beta"]]:
+        if recorded != [["/gate/agent-bios", "onboard", "--non-interactive", "--domains", "alpha,beta"]]:
             mark_fail(
                 f"corpus checklist dispatched {recorded!r}; want exactly "
-                "[['/gate/agent-bios', 'onboard', '--domains', 'alpha,beta']]"
+                "[['/gate/agent-bios', 'onboard', '--non-interactive', '--domains', 'alpha,beta']]"
             )
         # Negative control: toggling back to the applied set leaves Apply disabled
         # and dispatches nothing — the prompt loops, so back out instead.
@@ -3129,7 +3130,7 @@ def launcher_corpus_checklist(fx):
         fed, launcher_module.read_input = scripted(["1", "4"])
         with contextlib.redirect_stdout(io.StringIO()):
             launcher_module.corpus_checklist(None)
-        if recorded != [["/gate/agent-bios", "onboard", "--domains", "none"]]:
+        if recorded != [["/gate/agent-bios", "onboard", "--non-interactive", "--domains", "none"]]:
             mark_fail(
                 f"emptying the selection dispatched {recorded!r}; want --domains none"
             )
@@ -3144,15 +3145,33 @@ def launcher_corpus_checklist(fx):
         fed, launcher_module.read_input = scripted([""])
         with contextlib.redirect_stdout(io.StringIO()):
             launcher_module.corpus_checklist(None)
-        if recorded != [["/gate/agent-bios", "onboard", "--domains", "none"]]:
+        if recorded != [["/gate/agent-bios", "onboard", "--non-interactive", "--domains", "none"]]:
             mark_fail(
                 f"a never-applied projection dispatched {recorded!r}; the first "
                 "apply must be offered and say --domains none"
             )
+        recorded.clear()
+        (tmp / "install.sh").write_text("#!/bin/sh\n")
+        shutil.which = lambda name: None if name == "agent-bios" else real_which(name)
+        with contextlib.redirect_stdout(io.StringIO()):
+            launcher_module.run_corpus_apply(["beta"])
+        if recorded != [["bash", str(tmp / "install.sh"), "onboard", "--non-interactive", "--domains", "beta"]]:
+            mark_fail(f"checkout corpus apply omitted explicit machine mode: {recorded!r}")
+        recorded.clear()
+        shutil.which = lambda name: "/gate/agent-bios" if name == "agent-bios" else real_which(name)
+        os.environ["AGENT_BIOS_LEGACY_INSTALL"] = "1"
+        with contextlib.redirect_stdout(io.StringIO()):
+            launcher_module.run_corpus_apply(["alpha"])
+        if recorded != [["/gate/agent-bios", "onboard", "--domains", "alpha"]]:
+            mark_fail(f"compatibility corpus apply received private interaction flags: {recorded!r}")
     finally:
         subprocess.run, shutil.which = real_run, real_which
         launcher_module.read_input = real_input
         launcher_module.CORPUS_STATUS_PATH = real_status_path
+        if real_legacy is None:
+            os.environ.pop("AGENT_BIOS_LEGACY_INSTALL", None)
+        else:
+            os.environ["AGENT_BIOS_LEGACY_INSTALL"] = real_legacy
 
     # The panel: a failed apply is loud, a clean one is silent — asserted on the
     # rendered lines, not on the JSON.

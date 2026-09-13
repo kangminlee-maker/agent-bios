@@ -9,11 +9,8 @@ same sentence is cheap in one place and ruinous in another.
 This file is the catalog of those places. For each: what it admits, what it refuses,
 how it fails when misused, and the code that realizes it.
 
-**This is not a routing history.** `design/session-distill/PLACEMENT-FRAMEWORK.md`
-is a dated record of the 2026-07-18 layer ordering; it ranks placement by cheapness
-and covers the layers session-distill items are routed into. This file is the
-current *full* set of delivery surfaces, including several that record does not name.
-Re-derive both from the authorities below before trusting either.
+Every entry describes the current delivery route. Re-derive its scope and evidence
+from the named authority before treating a stored artifact as consumed context.
 
 ## The one boundary
 
@@ -48,6 +45,9 @@ Ordered by when the cost is paid, because that is the axis that decides placemen
 | Receipt adjudication | never | nobody | whoever audits the claim | control |
 | Capability withholding | never | nobody | the dispatched process | control |
 | Activated startup corpus | one explicitly activated session, selection-dependent | that session | its main context; children only through a verified projection | behavior, some knowledge |
+| App discovery metadata | when the host discovers an explicitly registered bridge | tasks in that discovery scope | the host's skill selector | routing only |
+| App task context | after explicit use in one task | that task | its returned tool/context stream | knowledge, behavior |
+| Instruction import evidence | when explicitly supplied for import review | the reviewing task | the reviewing model as source data | knowledge |
 | Legacy global projection | every native session until explicitly migrated; compatibility only | every session on that old installation | both hosts | behavior, some knowledge |
 | Personal learnings | one host's selected activated snapshot | that session | that user and host | knowledge |
 | Agent description | only when a verified session adapter registers or compiles it | the dispatcher | the selected session | behavior (routing) |
@@ -56,15 +56,14 @@ Ordered by when the cost is paid, because that is the axis that decides placemen
 | Hook injection | one `--corpus-native` Claude or Codex session when a supported event carrier is selected | that matching call | Claude per-item plugin or Codex session config, subject to host enablement/trust | knowledge |
 | Guides | when an activated session follows its private router/path | only the reader | the selected session | knowledge, behavior |
 | Agent body | one `--corpus-native` Claude session when an installed delegated carrier is selected | that native child | generated namespaced plugin agent | knowledge, behavior |
-| Requested procedure | compact entry in selected startup text; body when its private path is read | the activated session, then the caller | the selected session | knowledge, behavior |
-| Private management bootstrap | compact entry in every activated snapshot; body on `$corpus` | every activated session, then the caller | the selected session | knowledge, behavior |
+| Requested procedure | selected startup entry or explicit installation request; body when its exact path is read | the reader | the requesting task | knowledge, behavior |
+| Private management bootstrap | compact entry in a snapshot unless no-corpus mode is selected; body on `$agent-bios` | the selected session, then the caller | the selected session | knowledge, behavior |
 | Incubator ledger | never | nobody | whoever searches it | none until promoted |
 
-The immutable release, baseline tuples, personal source tree, Corpus Studio, and
-transaction journals are authorities or human-facing clients, not model-consumption
-surfaces. Storing or rendering an item there does not activate it. A snapshot is likewise
-only composed state until a host adapter supplies it and records the evidence level it
-actually observed.
+The immutable release, baseline tuples, personal source tree, setup clients, Corpus
+Studio, and transaction journals are authorities or clients. Storing or
+rendering an item there does not activate it. Native adapters and the explicit app
+context route supply snapshots and report their distinct delivery evidence.
 
 `understand!` uses a selected corpus bundle as learning data, not as a new instruction
 or capability surface. `compose/corpus_understand.py` pins the effective source bytes;
@@ -89,7 +88,7 @@ installs global instructions nor enables native corpus hooks or agents.
 - **Authority** — the private default dispatcher in `install.sh`, installation and
   ownership checks in `compose/corpus_install.py`, session projection in
   `compose/corpus_session.py`, and launch-plan projection in
-  `launch/agent-launch.py`. The default install writes its own `agent-launch`
+  `launch/agent-launch.py`. The accepted install plan writes its own `agent-launch`
   entrypoint but does not replace `codex` or `claude` by default. The optional
   `launch/shell_integration.py` owner restores/removes the shell connection from
   the CLI and root TUI, reusing `launch/agent-launch.zsh` with native argument
@@ -97,6 +96,38 @@ installs global instructions nor enables native corpus hooks or agents.
   managed script; global instruction files are outside its write set. Host-home
   corpus deploy calls in `install.sh` remain reachable only when
   `AGENT_BIOS_LEGACY_INSTALL=1` selects compatibility/regression behavior.
+  `SetupController` in `compose/corpus_setup.py` owns the reviewed setup plan and
+  `compose/corpus_setup_ui.py` renders it; neither classifies imported content or
+  activates a model session.
+  `compose/corpus_setup_i18n.py` supplies English/Korean/Japanese presentation.
+  The terminal UI's explicit language chooser precedes dependency probes; locale
+  variables suggest its initial value without selecting it. Returning to that chooser
+  preserves the setup plan. The UI choice is not persisted. The JSON setup protocol
+  records a review language while preserving field names, paths, identifiers and vendor
+  diagnostics. Neither route translates corpus bodies or changes host settings.
+  `compose/corpus_setup_cli.py` exposes local JSON start, inspect, discover, plan,
+  apply, status and resume operations over the same controller without requiring a
+  terminal or UI runtime. Its complete review envelope binds context, source bytes,
+  state and recipes before Apply. Durable receipts separate completed and uncertain
+  effects; status reports the recorded attempt while handoff reports current package,
+  runtime and helper evidence separately. `try_transaction_lock` in
+  `compose/corpus_transaction.py` checks the existing lock without blocking or creating
+  state. If synchronization is unavailable, status returns recorded progress and
+  `handoff.verification` is `deferred`, with readiness fields `null` rather than false.
+  `checked` means the checks ran, not that all passed. Resume follows recorded
+  continuations or issues a nested review for safe remaining work. Neither status nor resume performs
+  remaining installation actions. Review identity proves consistency, not user consent.
+  `install` and `onboard` open interactive setup unless `--non-interactive` is explicit;
+  selection flags seed that UI. A non-TTY default call refuses before writes.
+  `compose/corpus_ui_runtime.py` verifies the shipped `compose/ui_runtime/` wheels and
+  extracts them temporarily for the process. Installation, package/current-checkout
+  Corpus Studio, and private/current-checkout launcher rich CLI paths activate that
+  runtime before UI imports. Python 3.11+ is required; preinstalled Textual, pip and
+  runtime downloads are not. A broken bundle requires repair rather than silent fallback.
+  Standalone compatibility copies and in-process APIs retain their named managed paths.
+  Normal exit cleans the runtime; `launch/agent-launch.py` also releases it before
+  backend `execve`. UI libraries and their widgets are human-facing clients, not new
+  model-consumption surfaces.
 
 ### Verification gates
 
@@ -151,6 +182,58 @@ installs global instructions nor enables native corpus hooks or agents.
   and compilation in `compose/corpus_catalog.py`, selection/snapshot ownership in
   `compose/corpus_store.py`, and per-call delivery/pinning in
   `compose/corpus_session.py` as invoked by `launch/agent-launch.py`.
+
+### App discovery metadata
+
+- **Admits** — a compact explicit-use bridge description, helper path and invocation
+  policy after the user selects app registration. The bridge itself contains no corpus
+  body and does not select a task's corpus.
+- **Refuses** — implicit corpus activation, native global instruction edits, replacement
+  of foreign discovery entries, and a claim that an on-disk registration was discovered
+  or loaded by the app.
+- **Fails as** — treating installation or `$agent-bios` discovery as consent to inject all
+  stored instructions. Even metadata has a discovery-scope context cost.
+- **Authority** — `compose/corpus_app.py` `AppBridge`, `compose/app_bridge/SKILL.md`,
+  `compose/app_bridge/agents/openai.yaml`, and `compose/app_bridge/scripts/bridge.py`.
+  Explicit register/unregister owns only the `~/.agents/skills/agent-bios` symlink to a
+  verified immutable private generation; implicit invocation is disabled. This is the
+  named exception to default native discovery preservation. Global `AGENTS.md` and
+  `CLAUDE.md` remain outside the write set.
+
+### App task context
+
+- **Admits** — the selected immutable snapshot text returned after explicit use in the
+  current app task. Preview names the expected ContentRef; management and status return
+  no corpus body. Each task starts with delivery off.
+- **Refuses** — native developer-role injection claims, native session pin claims,
+  automatic native hook/agent activation, permission changes, and erasure claims after
+  text has reached conversation context.
+- **Fails as** — interpreting `returned-as-context` as proof of model reading, or saying
+  Off removed earlier instructions. Clean exclusion after delivery requires a new task.
+- **Authority** — `compose/corpus_app.py` `AppSessions`, snapshot selection in
+  `compose/corpus_store.py`, and the explicit procedure/helper in `compose/app_bridge/`.
+  App receipts live separately from native CLI pins. The helper resolves the confirmed
+  private package and saved roots for each call instead of inheriting prior shell exports.
+  Its separate `setup` forwarding uses the same confirmed package and roots but never
+  calls session use. Setup requires execution context, not a native task receipt.
+
+### Instruction import evidence
+
+- **Admits** — redacted snapshots of explicitly selected local instruction files,
+  original-source digests, recorded scope, and line evidence for model-authored import
+  candidates. The model chooses wording and always/relevant/requested placement with
+  rationale; relevant/requested bodies carry an authored description for their router
+  trigger. Code checks identities, coverage and revision preconditions.
+- **Refuses** — executing source instructions during discovery, following arbitrary file
+  references, heuristic semantic classification, forged provenance, or converting prose
+  into hooks, permissions, agents or executable assets.
+- **Fails as** — copying project rules into every task, silently replacing personal edits,
+  or assuming preserved native originals stopped loading after import.
+- **Authority** — `compose/corpus_import.py`, `learn/redact.py`, and the import plan/apply
+  operation in `compose/corpus_store.py`. Discovery is bounded to known global files and
+  fixed filenames at explicitly selected project roots. Runtime-owned project/host scope
+  is checked before selection and enablement; original files and native settings remain
+  unchanged. Imported items become instructions only through a later selected snapshot.
 
 ### Legacy global projection
 
@@ -284,11 +367,14 @@ installs global instructions nor enables native corpus hooks or agents.
 - **Admits** — a selected procedure whose compact authored description tells an
   activated session when to read its exact private snapshot path. Skills use this
   surface by default; a guide can use it through an explicit consumption override.
+  An explicit repository-link installation request reads `INSTALL.md` for source
+  acquisition, then the package's setup guide through the exact path returned by
+  `setup start`, before any private installation exists.
   Native skill-menu
   discovery is optional evidence, not part of the baseline claim.
 - **Refuses** — session-wide settings, permissions, implicit execution of companion
-  scripts, or a claim that a copied directory is registered. A selection that does not cover a procedure
-  receives neither its compact entry nor its body path.
+  scripts, or a claim that a copied directory is registered. A selection that does not
+  cover a corpus procedure receives neither its compact entry nor its body path.
 - **Fails as** — a missing resource rewrite leaves the procedure pointing back to a
   mutable/native host home; calling private path access a native skill overstates what
   the host consumed.
@@ -297,20 +383,25 @@ installs global instructions nor enables native corpus hooks or agents.
   tree/path compilation in `compose/corpus_catalog.py`,
   and snapshot retention in `compose/corpus_store.py`. The default installer does not
   copy them into native global discovery paths; `deploy_tree` in `install.sh` remains a
-  legacy compatibility writer.
+  legacy compatibility writer. `INSTALL.md` owns the public installation entry and
+  source-acquisition procedure. `compose/setup/START.md` is a separate installation
+  procedure resolved by `compose/corpus_setup_cli.py`; it is not a discovered skill or
+  selected corpus body. The conversation collects choices and displays the reviewed
+  effects; the shared setup engine owns validation and execution.
 
 ### Private management bootstrap
 
 - **Admits** — the one lifecycle-wide procedure for inspecting current authoring and
-  creating a revision-checked plan through `agent-bios corpus`; every activated
-  snapshot carries it regardless of optional selection.
+  creating a revision-checked plan through `agent-bios corpus`; snapshots carry it
+  unless no-corpus mode is selected. The app bridge retrieves it on an explicit
+  management request.
 - **Refuses** — corpus CRUD over itself, free-form ids/paths, direct canonical writes,
   or the claim that its mutation changed the running session. Apply changes future
   activated snapshots only.
 - **Fails as** — retaining the file without naming its exact path makes it unreachable;
-  registering it globally would violate Vanilla. The snapshot therefore injects a
-  compact `$corpus` invocation and calls the result private procedure access, not native
-  skill registration.
+  putting its body into global instruction files would impose it on unselected sessions.
+  The snapshot supplies its private path. The separate app discovery entry carries only
+  its explicit-use bridge procedure.
 - **Authority** — procedure contract in `compose/bootstrap/SKILL.md`, machine and rich
   clients in `compose/corpus.py` and `compose/corpus_ui.py`, plan/apply authority in
   `compose/corpus_store.py`, and selected-session injection in
@@ -324,9 +415,8 @@ installs global instructions nor enables native corpus hooks or agents.
 - **Fails as** — it never ships. A rule parked here reaches nobody, and parking reads
   like placement in a status report.
 - **Authority** — `design/session-distill/ledger.json`. It is *absent* from
-  `package.json` `files[]`, not held out by a gate: adding it there passes
-  `gates/check-package.sh`, whose reverse direction covers only `gates/`. Measured, not
-  assumed.
+  `package.json` `files[]`; the author-side distribution boundary is enforced by
+  `gates/check-package.sh`.
 
 ## Tools are a second axis
 
@@ -379,8 +469,9 @@ Two rules complete it:
 
 ## Posture: authority at the root, restriction at the leaves
 
-An agent-bios main session is deliberately opened through explicit `agent-launch`
-activation; plain CLI and Vanilla receive no agent-bios projection. Presets may select a
+Native agent-bios startup delivery requires explicit `agent-launch` activation;
+app task delivery requires explicit use. Plain CLI and Vanilla receive no agent-bios
+startup projection. Presets may select a
 permission-bypass execution policy independently of corpus activation. Dispatched
 reviewers remain deliberately closed — read-only sandboxes, denied mutation tools, and
 hermetic profiles.
@@ -403,6 +494,13 @@ Checked by repository gates or deterministic runtime validators:
   behavior through the real-store `compose/test_corpus*.py` suite reached from
   `gates/check-parity.sh`; `compose/corpus_install.py:verify` re-reads stored release and
   baseline state
+- import evidence integrity, source-change refusal, project/host scope, setup preview
+  boundaries, and explicit app registration/context receipts through
+  `compose/test_corpus_import.py`, `compose/test_corpus_setup.py`, and
+  `compose/test_corpus_app.py`; a returned-context receipt does not prove model reading
+- UI bundle root-pin agreement, wheel metadata/hashes/licenses, offline isolated
+  imports/rendering and cleanup through `gates/build-ui-runtime.py` `--check` and
+  `--self-test`; the root pin is `TEXTUAL_PIN` in `launch/provision-venv.sh`
 - the receipt chain end to end for every preset and host the config declares, on the
   seat each plan projects (`gates/check-receipt-chain.py`) — and it reports, every run,
   which hosts' panel dispatch is not yet adapter-backed

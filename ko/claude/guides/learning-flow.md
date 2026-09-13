@@ -9,14 +9,14 @@ use_when:
 core_rules:
   - 사용자에게 묻기 전 세 개의 gate — admission bar, type, consumption layer
   - 모든 기록된 learning은 사용자가 승인한다; 승인 없이는 아무것도 쓰지 않는다
-  - 제출은 오직 `agent-bios learn`으로만; record를 직접 손으로 쓰지 않는다
+  - 제출은 아래의 패키지 경로에 연결된 learn 명령으로만; record를 직접 손으로 쓰지 않는다
 ---
 
 # Session learning 흐름 (`learn!`)
 
 **Light**, per-user, single-session 포착 흐름: 현재 세션의 교훈을 **learning**
-(prose + JSON record)으로 바꿔 (a) 사용자의 다음 세션에 적용되고 (b) 조직의
-curation에 도달하게 한다. 이는 여러 세션을 mining하는 **heavy** session-distill
+(prose + JSON record)으로 바꿔 (a) 이후 agent-bios를 활성화한 세션에서 선택에 따라
+적용하고 (b) 전송이 설정되어 있으면 조직의 curation에 전달한다. 이는 여러 세션을 mining하는 **heavy** session-distill
 pipeline(`distill!`, curator/power-user 전용)의 대응물이다. 용어와 전체 routing
 framework는 agent-bios repo에서 관리하며, 이 flow가 적용하는 기준은 아래에 적는다.
 
@@ -73,6 +73,14 @@ curator가 나중에 배정). 맞는 등록 domain이 없으면 `domain: "unclas
 admission-bar 판정, domain(+ proposed_domain) — 그리고 사용자가 명시적으로
 승인한 것만 기록한다.
 
+명시적 corpus bridge를 사용하는 Codex 앱 작업에서는 응답의 `runtime`에 있는
+`learn` 명령·환경 또는 등록된 helper를 사용한다. 이전 앱 도구 호출의 shell export는
+다음 호출에 유지되지 않는다.
+
+런처에서 활성화한 세션에서는 아래처럼 전달받은 `AGENT_BIOS_PACKAGE_ROOT`의 `learn`을
+실행한다. 활성화된 세션 밖에서는 설치된 `agent-bios` 실행 파일의 경로를 확인하고
+그 실행 파일의 `learn` 하위 명령을 사용한다.
+
 승인된 각 learning을 deterministic submit tool로 제출한다. 세션의 `--host`를
 넘기고 **semantic payload만** 하나의 JSON 객체로 stdin에 넘긴다
 (`supporting_sessions`의 tool prefix — `claude:` 또는 `codex:` — 를 host에 맞춘다):
@@ -80,16 +88,18 @@ admission-bar 판정, domain(+ proposed_domain) — 그리고 사용자가 명�
     echo '{"lesson":"…","domain":"builder-base","supporting_sessions":["<tool>:<session-short-id>"],
            "criteria":["recurrent_error"],
            "classification":{"type":"B","layer":"hook","meets_bar":true}}' \
-      | agent-bios learn --host <claude|codex>
+      | bash "$AGENT_BIOS_PACKAGE_ROOT/install.sh" learn --host <claude|codex>
 
 스크립트(capability boundary)가 `learning_id` / `created` / `schema_version`를
-소유하고, `learn/learning.schema.json`에 대해 validate하고, JSON record를
-기록하며, lesson prose를 이 host가 다음 세션에 로드하는 위치에 쓴다:
-- **Claude**: automation-owned personal learnings 파일에 append하고, entry 파일의
-  `@personal/learnings.md` import로 로드된다.
-- **Codex**: `AGENTS.md`의 관리되는 `agent-bios:personal-learnings` 영역에
-  append한다(Codex는 import가 없고 AGENTS.md가 항상 로드됨). central 마커 바깥에
-  두어 재조립에도 보존된다.
+생성하고 `learn/learning.schema.json`에 따라 검증한다. 기록은 개인 corpus의
+`learnings/<host>/events.jsonl`에 추가하며 Claude와 Codex의 기록을 구분한다.
+선택한 교훈은 개인 corpus를 통해 이후 활성화되는 세션의 스냅샷에 포함된다.
+기록 시 사용자의 전역 지침 파일과 실행 중인 세션의 스냅샷은 보존한다.
+전송이 설정되어 있으면 로컬 저장을 마친 뒤 업로드한다.
+개인 저장 루트는 `$AGENT_BIOS_CORPUS_DIR`이며 기본값은
+`~/.config/agent-bios/corpus`이다. 호스트의 설정 홈을 바꿔도 이 위치는 바뀌지 않는다.
+`--config-dir`는 명시적인 레거시 모드에서만 허용된다. 로컬에만 기록하려면
+`--no-upload`를, 쓰기와 업로드 없이 검증하려면 `--dry-run`을 사용한다.
 
 `learning_id` / `created` / `schema_version`를 **절대** 손으로 쓰지 말고, 그
 파일들을 직접 쓰지 말라. 스크립트가 record를 REJECT하면 semantic payload를 고쳐라

@@ -1161,6 +1161,13 @@ for text, want, why in probes:
 
 REACH
 
+if [ -f compose/ui_runtime/manifest.json ]; then
+  python3 gates/build-ui-runtime.py --check >/dev/null \
+    || { echo "FAIL: bundled Textual runtime is incomplete or incompatible"; fail=1; }
+  python3 gates/build-ui-runtime.py --self-test >/dev/null \
+    || { echo "FAIL: UI runtime bundle gate missed a negative control"; fail=1; }
+fi
+
 # The launcher's Textual preflight UI tests need the managed venv (textual).
 # Provision it if missing; every non-UI check above runs under system python.
 VENV="${AGENT_LAUNCH_VENV:-$HOME/.local/share/agent-launch/venv}"

@@ -535,6 +535,8 @@ def leg_urls(root):
     if not subjects:
         return problems + ["urls: no shipped subjects derived — "
                            "an empty set satisfies everything"], 0, 0
+    public_lines, public_problems = _load_hygiene().public_install_request_lines(root, subjects)
+    problems.extend(f"urls: {name}: {message}" for name, message in public_problems)
     try:
         repo_url = json.loads((root / "package.json").read_text(
             encoding="utf-8"))["repository"]["url"]
@@ -552,6 +554,8 @@ def leg_urls(root):
         text = (root / rel).read_text(encoding="utf-8", errors="replace")
         for ln, line in enumerate(text.splitlines(), 1):
             if not ANY_URL.search(line):
+                continue
+            if (rel, ln) in public_lines:
                 continue
             stripped = FIXTURE_URL.sub("", line)
             if FIXTURE_URL.search(line):
@@ -578,7 +582,7 @@ def leg_urls(root):
     if fixture_hits == 0:
         problems.append("urls: the .test fixture allowance matched nothing — "
                         "remove it or restore the fixture it excused")
-    return problems, len(subjects), len(exempt)
+    return problems, len(subjects), len(exempt) + len(public_lines)
 
 
 def leg_wire(root):
@@ -1173,6 +1177,43 @@ def _self_test_body(base):
     ok = True
     cl = "learn/collect-learning.py"
 
+    request_root = _copy_tree(base / "public-request")
+    package_content = (request_root / "package.json").read_text(encoding="utf-8")
+    repository = json.loads(package_content)["repository"]["url"]
+    uri = repository.removeprefix("git+").removesuffix(".git")
+    origin, owner, repo_name = uri.rsplit("/", 2)
+    for name, prefix, suffix in (("README.md", "Install ", ""), ("ko/README.md", "", " 설치해줘")):
+        content = (request_root / name).read_text(encoding="utf-8")
+        request = prefix + uri + suffix
+        for label, changed in (
+            ("owner", prefix + f"{origin}/{owner}-other/{repo_name}" + suffix),
+            ("repository", prefix + f"{origin}/{owner}/{repo_name}-other" + suffix),
+            ("suffix", prefix + uri + "/tree/main" + suffix),
+            ("extra URL", request + " https://github.com/other/repo"),
+            ("fixture URL", request + " https://extra.test"),
+            ("personal binding", request + " kangmin-private"),
+            ("marked personal binding", request + " kangmin-private (private)"),
+        ):
+            (request_root / name).write_text(content.replace(request, changed, 1), encoding="utf-8")
+            ok &= _expect(f"{name} public request {label}", request_root,
+                          "public install request must appear exactly once", legs=("urls",))
+        (request_root / name).write_text(content.replace("```text\n" + request + "\n```", request, 1), encoding="utf-8")
+        ok &= _expect(f"{name} request outside its code block", request_root,
+                      "public install request must appear exactly once", legs=("urls",))
+        (request_root / name).write_text(content + "\n```text\n" + request + "\n```\n", encoding="utf-8")
+        ok &= _expect(f"{name} duplicate public request", request_root,
+                      "public install request must appear exactly once", legs=("urls",))
+        (request_root / name).write_text(content + "\nSee https://docs.example.org/install\n", encoding="utf-8")
+        ok &= _expect(f"{name} unrelated documentation URL", request_root,
+                      "carries a URL outside the anchored exemptions", legs=("urls",))
+        (request_root / name).write_text(content, encoding="utf-8")
+    changed_package = json.loads(package_content)
+    changed_package["repository"]["url"] = f"git+{origin}/{owner}/{repo_name}-other.git"
+    (request_root / "package.json").write_text(json.dumps(changed_package), encoding="utf-8")
+    ok &= _expect("public request drifts from repository metadata", request_root,
+                  "public install request must appear exactly once", legs=("urls",))
+    (request_root / "package.json").write_text(package_content, encoding="utf-8")
+
     root = _copy_tree(base / "m1")
     _mutate(root / cl, 'INGEST_PATH = "/api/ingest/learnings"',
             'INGEST_PATH = "/api/ingest/other"')
@@ -1548,8 +1589,8 @@ def _self_test_body(base):
     ok &= _expect("URL in an array-form bin entry", root, "binprobe2.js:")
 
     root = _copy_tree(base / "m59")
-    _mutate(root / "install.sh", 'exec python3 "$collector" "$@" <&3',
-            'exec python3 "$collector" "$@" <&0')
+    _mutate(root / "install.sh", 'exec "$learning_python" "$collector" "$@" <&3',
+            'exec "$learning_python" "$collector" "$@" <&0')
     ok &= _expect("learn's fd-3 plumbing regressed", root, "CLI dispatch exited", legs=("wire",))
 
     root = _copy_tree(base / "m64")
@@ -1786,7 +1827,7 @@ def _self_test_body(base):
 
     if not ok:
         return 1
-    print("check-endpoints --self-test: OK (positive control + 75 planted "
+    print("check-endpoints --self-test: OK (positive control + declared planted "
           "violations failed by name, and the declaration rule refuses a "
           "mis-declared control)")
     return 0

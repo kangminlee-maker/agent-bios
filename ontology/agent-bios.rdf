@@ -16,14 +16,14 @@
 
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/CorpusRule">
         <rdfs:label>CorpusRule</rdfs:label>
-        <rdfs:comment>An always-on instruction bullet in the global file, identified by its anchor substring. Family F1 Instruction content; reaches P1/P2/P3/P4/P5/P6; guard gated</rdfs:comment>
+        <rdfs:comment>An instruction bullet identified by its source anchor; selected always-surface rules enter explicitly activated private sessions. Family F1 Instruction content; reaches P1/P2/P3/P4/P5/P6; guard gated</rdfs:comment>
         <ont:icon>📘</ont:icon>
         <ont:color>#0078D4</ont:color>
     </owl:Class>
 
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/Guide">
         <rdfs:label>Guide</rdfs:label>
-        <rdfs:comment>A scoped instruction document loaded when a corpus rule's pointer fires. Family F1 Instruction content; reaches P1/P2/P3/P4/P5/P6; guard gated</rdfs:comment>
+        <rdfs:comment>A scoped instruction document exposed by the selected session router and loaded when relevant. Family F1 Instruction content; reaches P1/P2/P3/P4/P5/P6; guard gated</rdfs:comment>
         <ont:icon>📘</ont:icon>
         <ont:color>#0078D4</ont:color>
     </owl:Class>
@@ -37,14 +37,14 @@
 
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/Hook">
         <rdfs:label>Hook</rdfs:label>
-        <rdfs:comment>Executable instruction that fires on a tool event, owned by manifest name not path marker. Family F1 Instruction content; reaches P1/P3/P4/P5/P6; guard partial</rdfs:comment>
+        <rdfs:comment>An event instruction with a canonical carrier and manifest binding, compiled into host-specific session hooks when native consumption is selected. Family F1 Instruction content; reaches P1/P3/P4/P5/P6; guard partial</rdfs:comment>
         <ont:icon>📘</ont:icon>
         <ont:color>#FFB900</ont:color>
     </owl:Class>
 
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/LearningRecord">
         <rdfs:label>LearningRecord</rdfs:label>
-        <rdfs:comment>The captured per-session artifact, minted by the collector. Family F1 Instruction content; reaches P1/P4/P5/P6; guard gated</rdfs:comment>
+        <rdfs:comment>An immutable session learning event validated and scrubbed by the collector, stored privately and projected into later selected snapshots. Family F1 Instruction content; reaches P1/P4/P5/P6; guard gated</rdfs:comment>
         <ont:icon>📘</ont:icon>
         <ont:color>#0078D4</ont:color>
     </owl:Class>
@@ -65,21 +65,21 @@
 
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/Domain">
         <rdfs:label>Domain</rdfs:label>
-        <rdfs:comment>An opt-in bundle of instruction content; five exist today. Family F2 Classification &amp; packaging; reaches P1/P5/P6; guard gated</rdfs:comment>
+        <rdfs:comment>An opt-in bundle of instruction content declared in the domain manifest. Family F2 Classification &amp; packaging; reaches P1/P5/P6; guard gated</rdfs:comment>
         <ont:icon>📦</ont:icon>
         <ont:color>#0078D4</ont:color>
     </owl:Class>
 
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/PackageIdentity">
         <rdfs:label>PackageIdentity</rdfs:label>
-        <rdfs:comment>Unversioned by design; the pair (package_id, domain) is the real key. Family F2 Classification &amp; packaging; reaches P1/P5/P6; guard gated</rdfs:comment>
+        <rdfs:comment>An unversioned package identity; the pair (package_id, domain) is the qualified domain key. Family F2 Classification &amp; packaging; reaches P1/P5/P6; guard gated</rdfs:comment>
         <ont:icon>📦</ont:icon>
         <ont:color>#0078D4</ont:color>
     </owl:Class>
 
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/Selection">
         <rdfs:label>Selection</rdfs:label>
-        <rdfs:comment>Qualified package/domain choices seed private snapshots; a one-off launch can choose without rewriting the saved selection. Family F2 Classification &amp; packaging; reaches P4/P5; guard unguarded</rdfs:comment>
+        <rdfs:comment>Saved or invocation-local none/default/selected policies and qualified targets, reviewed through SetupController and its UI; imported host/project scope constrains delivery. Family F2 Classification &amp; packaging; reaches P4/P5; guard unguarded</rdfs:comment>
         <ont:icon>📦</ont:icon>
         <ont:color>#D13438</ont:color>
     </owl:Class>
@@ -107,7 +107,7 @@
 
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/TierBinding">
         <rdfs:label>TierBinding</rdfs:label>
-        <rdfs:comment>(host, tier) to (model, effort); the parity gate hardcodes the very names it aligns. Family F3 Capability binding; reaches P1/P4/P5/P6; guard partial</rdfs:comment>
+        <rdfs:comment>(host, tier) to (model, effort), with display names derived from the launch profile model_display map. Family F3 Capability binding; reaches P1/P4/P5/P6; guard partial</rdfs:comment>
         <ont:icon>🔌</ont:icon>
         <ont:color>#FFB900</ont:color>
     </owl:Class>
@@ -128,56 +128,56 @@
 
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/Wrapper">
         <rdfs:label>Wrapper</rdfs:label>
-        <rdfs:comment>Internal dispatch script; codex-run is deployed and never byte-compared by verify. Family F3 Capability binding; reaches P1/P3/P4/P5; guard unguarded</rdfs:comment>
+        <rdfs:comment>An internal dispatch script loaded from the selected package; explicit legacy installation also deploys wrapper copies. Family F3 Capability binding; reaches P1/P3/P4/P5; guard unguarded</rdfs:comment>
         <ont:icon>🔌</ont:icon>
         <ont:color>#D13438</ont:color>
     </owl:Class>
 
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/ManagedRuntime">
         <rdfs:label>ManagedRuntime</rdfs:label>
-        <rdfs:comment>An interpreter environment this repo provisions, carrying a declared numbered-prompt fallback. Family F3 Capability binding; reaches P1/P3/P4/P5/P6; guard partial</rdfs:comment>
+        <rdfs:comment>A supplied Python dependency environment: verified shipped UI wheels loaded into a process-owned temporary directory on package CLI paths, with separately retained managed/numbered compatibility clients. Family F3 Capability binding; reaches P1/P3/P4/P5/P6; guard partial</rdfs:comment>
         <ont:icon>🔌</ont:icon>
         <ont:color>#FFB900</ont:color>
     </owl:Class>
 
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/CliSubcommand">
         <rdfs:label>CliSubcommand</rdfs:label>
-        <rdfs:comment>A user-invocable entry with three dispatch and advertisement sites, not one. Family F4 Distribution mechanism; reaches P1/P3/P4/P5; guard unguarded</rdfs:comment>
+        <rdfs:comment>A user-invocable operation with a named command owner; install/onboard default to terminal setup while JSON setup serves reviewed conversation installation through the same controller, reached from a public repository-link request or an installed skill. Family F4 Distribution mechanism; reaches P1/P3/P4/P5; guard unguarded</rdfs:comment>
         <ont:icon>🚚</ont:icon>
         <ont:color>#D13438</ont:color>
     </owl:Class>
 
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/DeployTarget">
         <rdfs:label>DeployTarget</rdfs:label>
-        <rdfs:comment>A (source, destination, mode) triple; removal is derived, verification is hand-authored. Family F4 Distribution mechanism; reaches P1/P4/P6; guard partial</rdfs:comment>
+        <rdfs:comment>A bounded owned write: private releases and launcher projections, an explicitly registered app discovery link, or native corpus destinations on the compatibility route. Family F4 Distribution mechanism; reaches P1/P4/P6; guard partial</rdfs:comment>
         <ont:icon>🚚</ont:icon>
         <ont:color>#FFB900</ont:color>
     </owl:Class>
 
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/PayloadEntry">
         <rdfs:label>PayloadEntry</rdfs:label>
-        <rdfs:comment>A shipped path; breakage is visible only on npm installs, which no checkout test sees. Family F4 Distribution mechanism; reaches P1/P3/P6; guard derived</rdfs:comment>
+        <rdfs:comment>A shipped path declared by package.json files[] and checked against real runtime references. Family F4 Distribution mechanism; reaches P1/P3/P6; guard derived</rdfs:comment>
         <ont:icon>🚚</ont:icon>
         <ont:color>#107C10</ont:color>
     </owl:Class>
 
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/DeploymentManifest">
         <rdfs:label>DeploymentManifest</rdfs:label>
-        <rdfs:comment>The record of what this install wrote, and the sole authority for uninstall. Family F4 Distribution mechanism; reaches P4/P5; guard unguarded</rdfs:comment>
+        <rdfs:comment>Ownership records for removal: private installation metadata, shell receipts and exact app bridge generations; legacy deployment uses manifest.txt. Family F4 Distribution mechanism; reaches P4/P5; guard unguarded</rdfs:comment>
         <ont:icon>🚚</ont:icon>
         <ont:color>#D13438</ont:color>
     </owl:Class>
 
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/StateArtifact">
         <rdfs:label>StateArtifact</rdfs:label>
-        <rdfs:comment>Persisted deployment state; each has a writer, readers and a migration. Family F4 Distribution mechanism; reaches P4/P5/P6; guard partial</rdfs:comment>
+        <rdfs:comment>Persisted private sources, import evidence and receipts, baselines, immutable snapshots, native pins, app context receipts, setup review/outcome receipts and transaction journals; each has owning writers and readers. Family F4 Distribution mechanism; reaches P4/P5/P6; guard partial</rdfs:comment>
         <ont:icon>🚚</ont:icon>
         <ont:color>#FFB900</ont:color>
     </owl:Class>
 
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/Migration">
         <rdfs:label>Migration</rdfs:label>
-        <rdfs:comment>A one-way transform of previously deployed state; order-bearing. Family F4 Distribution mechanism; reaches P1/P5; guard unguarded</rdfs:comment>
+        <rdfs:comment>An explicit transform of owned legacy state into private state, with pinned release authority and replayable cleanup; compatibility installer migrations remain on their selected route. Family F4 Distribution mechanism; reaches P1/P5; guard unguarded</rdfs:comment>
         <ont:icon>🚚</ont:icon>
         <ont:color>#D13438</ont:color>
     </owl:Class>
@@ -191,28 +191,28 @@
 
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/UserOwnedFileRegion">
         <rdfs:label>UserOwnedFileRegion</rdfs:label>
-        <rdfs:comment>A marked span written into a file this repo does not own, never manifested. Family F4 Distribution mechanism; reaches P1/P4/P5/P6; guard partial</rdfs:comment>
+        <rdfs:comment>A bounded managed span or discovery entry in user-owned native state: optional shell wiring and explicit app bridge registration; globals remain preserved outside explicit legacy cleanup. Family F4 Distribution mechanism; reaches P1/P4/P5/P6; guard partial</rdfs:comment>
         <ont:icon>🚚</ont:icon>
         <ont:color>#FFB900</ont:color>
     </owl:Class>
 
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/ShellInterception">
         <rdfs:label>ShellInterception</rdfs:label>
-        <rdfs:comment>The zero-argument launcher entry; an opt-in private shell connection owned by launch/shell_integration.py and a legacy compatibility adapter share launch/agent-launch.zsh. Family F4 Distribution mechanism; reaches P1/P4/P5/P6; guard partial</rdfs:comment>
+        <rdfs:comment>An optional zero-argument launcher entry, with receipt-backed shell restore/remove and a shared zsh adapter. Family F4 Distribution mechanism; reaches P1/P4/P5/P6; guard partial</rdfs:comment>
         <ont:icon>🚚</ont:icon>
         <ont:color>#FFB900</ont:color>
     </owl:Class>
 
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/EnvironmentVariable">
         <rdfs:label>EnvironmentVariable</rdfs:label>
-        <rdfs:comment>A runtime override that moves where this repo reads or writes. Family F4 Distribution mechanism; reaches P5; guard unguarded</rdfs:comment>
+        <rdfs:comment>An explicit runtime override for private state, personal corpus, native identity or shell startup location; each owner interprets its own roots. Family F4 Distribution mechanism; reaches P5; guard unguarded</rdfs:comment>
         <ont:icon>🚚</ont:icon>
         <ont:color>#D13438</ont:color>
     </owl:Class>
 
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/CorpusAssembler">
         <rdfs:label>CorpusAssembler</rdfs:label>
-        <rdfs:comment>Compiles catalog items into private immutable snapshots; the legacy assembler is retained for explicit migration regression checks. Family F4 Distribution mechanism; reaches P1/P3/P5/P6; guard gated</rdfs:comment>
+        <rdfs:comment>Compiles selected items into immutable snapshots for native session adapters or explicit app context; reviewed imports publish private personal items through the same store. Family F4 Distribution mechanism; reaches P1/P3/P5/P6; guard gated</rdfs:comment>
         <ont:icon>🚚</ont:icon>
         <ont:color>#0078D4</ont:color>
     </owl:Class>
@@ -240,7 +240,7 @@
 
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/SelfTest">
         <rdfs:label>SelfTest</rdfs:label>
-        <rdfs:comment>Seven entry points, each run by check-parity.sh. Family F5 Assurance; reaches P1/P5/P6; guard gated</rdfs:comment>
+        <rdfs:comment>An executable negative-control entrypoint reached from the parity driver. Family F5 Assurance; reaches P1/P5/P6; guard gated</rdfs:comment>
         <ont:icon>🛡️</ont:icon>
         <ont:color>#0078D4</ont:color>
     </owl:Class>
@@ -261,7 +261,7 @@
 
     <owl:Class rdf:about="http://agent-bios.local/ontology/agent-bios/HostPrerequisite">
         <rdfs:label>HostPrerequisite</rdfs:label>
-        <rdfs:comment>A host tool the install requires rather than degrades without; git and python3&gt;=3.11 abort, zsh/codex/claude only warn. Family F3 Capability binding; reaches P1/P5; guard unguarded</rdfs:comment>
+        <rdfs:comment>Locally probed host tools and interpreters; explicit setup offers available fixed installation commands, while manual account/configuration steps remain separate. Family F3 Capability binding; reaches P1/P5; guard unguarded</rdfs:comment>
         <ont:icon>🔌</ont:icon>
         <ont:color>#D13438</ont:color>
     </owl:Class>
@@ -319,7 +319,7 @@
         <rdfs:label>anchor</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusRule"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>claude/CLAUDE.md</rdfs:comment>
+        <rdfs:comment>claude/CLAUDE.md, compose/corpus_catalog.py</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -442,7 +442,7 @@
         <rdfs:label>anchor</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Hook"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>claude/hooks/*.py</rdfs:comment>
+        <rdfs:comment>claude/hooks/*.py, compose/corpus_catalog.py, compose/corpus_session.py</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -483,7 +483,7 @@
         <rdfs:label>anchor</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/LearningRecord"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>learn/learning.schema.json</rdfs:comment>
+        <rdfs:comment>learn/learning.schema.json, learn/collect-learning.py, learn/check-learning.py, learn/redact.py, compose/corpus_store.py</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -647,7 +647,7 @@
         <rdfs:label>anchor</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/PackageIdentity"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>compose/domains.json package_id (@agent-bios/core)</rdfs:comment>
+        <rdfs:comment>compose/domains.json package_id, compose/pkgid.py</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -688,7 +688,7 @@
         <rdfs:label>anchor</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Selection"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>compose/corpus_store.py, launch/agent-launch.py</rdfs:comment>
+        <rdfs:comment>compose/corpus_store.py, compose/corpus.py, compose/corpus_ui.py, launch/agent-launch.py, compose/corpus_setup.py, compose/corpus_app.py, compose/corpus_setup_ui.py</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -729,7 +729,7 @@
         <rdfs:label>anchor</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/PresetMode"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>launch/agent-launch.py:60 PRESET_MODES</rdfs:comment>
+        <rdfs:comment>launch/agent-launch.py PRESET_MODES</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -1016,7 +1016,7 @@
         <rdfs:label>anchor</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ManagedRuntime"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>launch/provision-venv.sh</rdfs:comment>
+        <rdfs:comment>launch/provision-venv.sh, compose/corpus_setup.py, compose/corpus_ui_runtime.py, compose/ui_runtime/manifest.json, compose/ui_runtime/*.whl</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -1057,7 +1057,7 @@
         <rdfs:label>anchor</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>install.sh:838 / :859 / :799</rdfs:comment>
+        <rdfs:comment>install.sh, compose/corpus.py, compose/corpus_install.py, compose/corpus_understand.py, compose/corpus_import.py, compose/corpus_app.py, compose/corpus_setup.py, compose/app_bridge/scripts/bridge.py, compose/corpus_setup_ui.py, compose/corpus_setup_i18n.py, compose/corpus_setup_cli.py, compose/setup/START.md, INSTALL.md, docs/setup.md</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -1098,7 +1098,7 @@
         <rdfs:label>anchor</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/DeployTarget"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>deploy_file install.sh:82</rdfs:comment>
+        <rdfs:comment>install.sh deploy_file, compose/corpus_install.py CorpusInstaller.install, compose/corpus_app.py, compose/app_bridge/agents/openai.yaml</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -1180,7 +1180,7 @@
         <rdfs:label>anchor</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/DeploymentManifest"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>install.sh:82 deploy_file MANIFEST append</rdfs:comment>
+        <rdfs:comment>install.sh deploy_file, compose/corpus_install.py PRIVATE_RECORD, launch/shell_integration.py, compose/corpus_app.py</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -1221,7 +1221,7 @@
         <rdfs:label>anchor</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>compose/corpus-state.py, install.sh:152 migrate_state</rdfs:comment>
+        <rdfs:comment>compose/corpus_store.py, compose/corpus_session.py, compose/corpus_transaction.py, compose/corpus_understand.py, compose/corpus-state.py, compose/prune-backups.py, compose/write-update-cache.py, compose/corpus_install.py, compose/corpus_import.py, compose/corpus_app.py, compose/corpus_setup_cli.py</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -1262,7 +1262,7 @@
         <rdfs:label>anchor</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Migration"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>install.sh:152 / :386 / :453</rdfs:comment>
+        <rdfs:comment>compose/corpus_install.py CorpusInstaller.migrate, compose/corpus_transaction.py, install.sh migrate_state, learn/migrate-learnings.py</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -1303,7 +1303,7 @@
         <rdfs:label>anchor</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/SchemaVersion"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>launch/agent-launch.toml schema_version, compose/domains.json version</rdfs:comment>
+        <rdfs:comment>compose/corpus_install.py SCHEMA_VERSION, compose/corpus_store.py, compose/corpus_session.py, launch/agent-launch.toml schema_version, compose/domains.json version, compose/corpus_setup_cli.py</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -1344,7 +1344,7 @@
         <rdfs:label>anchor</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/UserOwnedFileRegion"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>codex/config-additions.toml</rdfs:comment>
+        <rdfs:comment>launch/shell_integration.py, compose/corpus_install.py, compose/assemble.py, codex/config-additions.toml, compose/corpus_app.py, compose/app_bridge/agents/openai.yaml</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -1385,7 +1385,7 @@
         <rdfs:label>anchor</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ShellInterception"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>launch/agent-launch.zsh with install.sh:140 HOOK_MARK</rdfs:comment>
+        <rdfs:comment>launch/agent-launch.zsh, launch/shell_integration.py</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -1426,7 +1426,7 @@
         <rdfs:label>anchor</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/EnvironmentVariable"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>install.sh:55 ZDOTDIR, compose/corpus-state.py</rdfs:comment>
+        <rdfs:comment>compose/corpus_store.py, compose/corpus_install.py, compose/corpus_session.py, launch/shell_integration.py, install.sh ZDOTDIR</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -1467,7 +1467,7 @@
         <rdfs:label>anchor</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusAssembler"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>compose/corpus_catalog.py, compose/corpus_store.py, compose/assemble.py</rdfs:comment>
+        <rdfs:comment>compose/corpus_catalog.py, compose/corpus_store.py, compose/corpus_session.py, compose/assemble.py, compose/corpus_app.py, compose/corpus_import.py</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -1508,7 +1508,7 @@
         <rdfs:label>anchor</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Gate"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>gates/check-parity.sh driver</rdfs:comment>
+        <rdfs:comment>gates/check-parity.sh driver, compose/check-domains.py, gates/build-ui-runtime.py</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -1754,7 +1754,7 @@
         <rdfs:label>anchor</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/HostPrerequisite"/>
         <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-        <rdfs:comment>install.sh:67 check_prereqs</rdfs:comment>
+        <rdfs:comment>install.sh check_prereqs, compose/corpus_install.py, compose/corpus_setup.py</rdfs:comment>
         <ont:propertyType>string</ont:propertyType>
     </owl:DatatypeProperty>
 
@@ -1896,7 +1896,7 @@
         <rdfs:label>routes</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Selection"/>
         <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusAssembler"/>
-        <rdfs:comment>The legacy assembler consumes a saved domain selection; private installation stores selection for future activated snapshots. Edge kind controls; enforcement unguarded</rdfs:comment>
+        <rdfs:comment>Selection mode and qualified targets determine snapshot items; none produces no corpus or bootstrap, and imported host/project scope constrains every selection. Edge kind controls; enforcement unguarded</rdfs:comment>
         <ont:cardinality>one-to-one</ont:cardinality>
         <ont:fromEntityId>Selection</ont:fromEntityId>
         <ont:toEntityId>CorpusAssembler</ont:toEntityId>
@@ -1916,7 +1916,7 @@
         <rdfs:label>registers</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusAssembler"/>
         <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/Hook"/>
-        <rdfs:comment>The retained legacy assembler merges its owned hook registrations; private default installation registers no host hook. Edge kind controls; enforcement gated</rdfs:comment>
+        <rdfs:comment>The private compiler emits selected native event carriers for per-session host delivery; the explicit legacy assembler merges its owned settings registrations. Edge kind controls; enforcement gated</rdfs:comment>
         <ont:cardinality>one-to-many</ont:cardinality>
         <ont:fromEntityId>CorpusAssembler</ont:fromEntityId>
         <ont:toEntityId>Hook</ont:toEntityId>
@@ -1946,7 +1946,7 @@
         <rdfs:label>binds</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Host"/>
         <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/TierBinding"/>
-        <rdfs:comment>Four surfaces restate the binding and the gate hardcodes the names it checks. Edge kind lockstep_with; enforcement partial</rdfs:comment>
+        <rdfs:comment>Launch profile bindings and agent templates are compared as site sets; the parity gate derives displayed binding rows from the profile model_display map. Edge kind lockstep_with; enforcement partial</rdfs:comment>
         <ont:cardinality>one-to-many</ont:cardinality>
         <ont:fromEntityId>Host</ont:fromEntityId>
         <ont:toEntityId>TierBinding</ont:toEntityId>
@@ -1966,7 +1966,7 @@
         <rdfs:label>uses</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Host"/>
         <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/AgentTemplate"/>
-        <rdfs:comment>hosts.agent_templates points at deployed TOML role definitions. Edge kind requires; enforcement partial</rdfs:comment>
+        <rdfs:comment>hosts.agent_templates points at role definitions in the selected private package; the compatibility route uses deployed template paths. Edge kind requires; enforcement partial</rdfs:comment>
         <ont:cardinality>one-to-many</ont:cardinality>
         <ont:fromEntityId>Host</ont:fromEntityId>
         <ont:toEntityId>AgentTemplate</ont:toEntityId>
@@ -2016,7 +2016,7 @@
         <rdfs:label>enables</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ManagedRuntime"/>
         <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/PresetMode"/>
-        <rdfs:comment>Without the venv the launcher degrades to numbered prompts. Edge kind controls; enforcement partial</rdfs:comment>
+        <rdfs:comment>Package rich interfaces use the verified offline UI runtime and fail on corrupt bundles; standalone compatibility launcher copies may use their managed environment or numbered route. Edge kind controls; enforcement partial</rdfs:comment>
         <ont:cardinality>one-to-many</ont:cardinality>
         <ont:fromEntityId>ManagedRuntime</ont:fromEntityId>
         <ont:toEntityId>PresetMode</ont:toEntityId>
@@ -2036,7 +2036,7 @@
         <rdfs:label>performs</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
         <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/DeployTarget"/>
-        <rdfs:comment>The retained legacy install route realises deploy targets; private corpus installation stores its baseline without writing host deploy targets. Edge kind controls; enforcement partial</rdfs:comment>
+        <rdfs:comment>Private install stores a pinned release and owns launcher projections; the explicit legacy install route writes native corpus destinations. Edge kind controls; enforcement partial</rdfs:comment>
         <ont:cardinality>one-to-many</ont:cardinality>
         <ont:fromEntityId>CliSubcommand</ont:fromEntityId>
         <ont:toEntityId>DeployTarget</ont:toEntityId>
@@ -2046,7 +2046,7 @@
         <rdfs:label>records_in</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/DeployTarget"/>
         <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/DeploymentManifest"/>
-        <rdfs:comment>The manifest is what uninstall replays, so removal is derived and safe. Edge kind owes_removal; enforcement unguarded</rdfs:comment>
+        <rdfs:comment>Each writer preserves verifiable ownership for removal: private install metadata, shell receipt, app bridge generation or compatibility manifest. Edge kind owes_removal; enforcement unguarded</rdfs:comment>
         <ont:cardinality>many-to-one</ont:cardinality>
         <ont:fromEntityId>DeployTarget</ont:fromEntityId>
         <ont:toEntityId>DeploymentManifest</ont:toEntityId>
@@ -2056,7 +2056,7 @@
         <rdfs:label>asserts</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Gate"/>
         <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/DeployTarget"/>
-        <rdfs:comment>VIOLATED: 3 of 12 deploy writes have no, partial, or vacuous assertion. Edge kind asserts; enforcement unguarded</rdfs:comment>
+        <rdfs:comment>Runtime private verification and corpus tests check private writes; ontology/extract.py separately discloses legacy deploy targets without complete verify assertions. Edge kind asserts; enforcement unguarded</rdfs:comment>
         <ont:cardinality>many-to-many</ont:cardinality>
         <ont:fromEntityId>Gate</ont:fromEntityId>
         <ont:toEntityId>DeployTarget</ont:toEntityId>
@@ -2086,7 +2086,7 @@
         <rdfs:label>triggers</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/SchemaVersion"/>
         <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/Migration"/>
-        <rdfs:comment>Neither half is valid alone; a bump with no migration misreads deployed state. Edge kind migrates; enforcement unguarded</rdfs:comment>
+        <rdfs:comment>A persisted-format change must preserve supported readers or provide the corresponding explicit migration. Edge kind migrates; enforcement unguarded</rdfs:comment>
         <ont:cardinality>one-to-many</ont:cardinality>
         <ont:fromEntityId>SchemaVersion</ont:fromEntityId>
         <ont:toEntityId>Migration</ont:toEntityId>
@@ -2096,7 +2096,7 @@
         <rdfs:label>transforms</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Migration"/>
         <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
-        <rdfs:comment>Order-bearing: preset migration must precede the deploy that overwrites it. Edge kind migrates; enforcement unguarded</rdfs:comment>
+        <rdfs:comment>Explicit migration changes only bounded owned state using its pinned source release and journaled plan. Edge kind migrates; enforcement unguarded</rdfs:comment>
         <ont:cardinality>one-to-many</ont:cardinality>
         <ont:fromEntityId>Migration</ont:fromEntityId>
         <ont:toEntityId>StateArtifact</ont:toEntityId>
@@ -2116,7 +2116,7 @@
         <rdfs:label>excluded_from</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/UserOwnedFileRegion"/>
         <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/DeploymentManifest"/>
-        <rdfs:comment>Not manifested, so uninstall must remove them surgically by marker. Edge kind owes_removal; enforcement partial</rdfs:comment>
+        <rdfs:comment>User-owned files require bounded span cleanup; the private shell receipt and explicit legacy migration preserve surrounding bytes. Edge kind owes_removal; enforcement partial</rdfs:comment>
         <ont:cardinality>many-to-one</ont:cardinality>
         <ont:fromEntityId>UserOwnedFileRegion</ont:fromEntityId>
         <ont:toEntityId>DeploymentManifest</ont:toEntityId>
@@ -2126,7 +2126,7 @@
         <rdfs:label>advertised_by</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
         <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
-        <rdfs:comment>usage() is a hand copy of a dispatch set that lives at two other sites. Edge kind precedes; enforcement unguarded</rdfs:comment>
+        <rdfs:comment>usage() advertises the operations dispatched by case blocks and early command branches. Edge kind precedes; enforcement unguarded</rdfs:comment>
         <ont:cardinality>one-to-many</ont:cardinality>
         <ont:fromEntityId>CliSubcommand</ont:fromEntityId>
         <ont:toEntityId>CliSubcommand</ont:toEntityId>
@@ -2156,7 +2156,7 @@
         <rdfs:label>self_proves</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/SelfTest"/>
         <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/Gate"/>
-        <rdfs:comment>Seven entry points, each run by the parity driver. Edge kind asserts; enforcement gated</rdfs:comment>
+        <rdfs:comment>The parity driver invokes the declared negative-control entrypoints. Edge kind asserts; enforcement gated</rdfs:comment>
         <ont:cardinality>many-to-one</ont:cardinality>
         <ont:fromEntityId>SelfTest</ont:fromEntityId>
         <ont:toEntityId>Gate</ont:toEntityId>
@@ -2196,7 +2196,7 @@
         <rdfs:label>runs</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
         <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/Migration"/>
-        <rdfs:comment>The retained legacy install route runs migrations before its deploy writes; private migration is explicit and does not make global deployment the default. Edge kind precedes; enforcement unguarded</rdfs:comment>
+        <rdfs:comment>Explicit migrate coordinates legacy cleanup and private installation; compatibility install runs its own migrations before deploy writes. Edge kind precedes; enforcement unguarded</rdfs:comment>
         <ont:cardinality>one-to-many</ont:cardinality>
         <ont:fromEntityId>CliSubcommand</ont:fromEntityId>
         <ont:toEntityId>Migration</ont:toEntityId>
@@ -2206,7 +2206,7 @@
         <rdfs:label>provisions</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
         <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/ManagedRuntime"/>
-        <rdfs:comment>The retained legacy launcher install provisions its venv best-effort; private corpus installation does not provision a launcher runtime. Edge kind controls; enforcement partial</rdfs:comment>
+        <rdfs:comment>Interactive package CLI entrypoints activate the verified UI bundle without persistent installation; explicit optional recipes separately provision the learning validator or compatibility environment. Edge kind controls; enforcement partial</rdfs:comment>
         <ont:cardinality>one-to-one</ont:cardinality>
         <ont:fromEntityId>CliSubcommand</ont:fromEntityId>
         <ont:toEntityId>ManagedRuntime</ont:toEntityId>
@@ -2216,7 +2216,7 @@
         <rdfs:label>writes</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/DeployTarget"/>
         <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
-        <rdfs:comment>install writes the version marker and appends it to the manifest. Edge kind projects_to; enforcement partial</rdfs:comment>
+        <rdfs:comment>Private installation writes its ownership record, baseline reference and status; compatibility install writes its version marker. Edge kind projects_to; enforcement partial</rdfs:comment>
         <ont:cardinality>one-to-many</ont:cardinality>
         <ont:fromEntityId>DeployTarget</ont:fromEntityId>
         <ont:toEntityId>StateArtifact</ont:toEntityId>
@@ -2236,7 +2236,7 @@
         <rdfs:label>realised_by</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/ShellInterception"/>
         <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/DeployTarget"/>
-        <rdfs:comment>the deployed shell.zsh half is an ordinary deploy target; the .zshrc line is not. Edge kind lockstep_with; enforcement partial</rdfs:comment>
+        <rdfs:comment>Optional shell restore owns the shell.zsh script and receipt; its bounded .zshrc block remains a user-owned region. Edge kind lockstep_with; enforcement partial</rdfs:comment>
         <ont:cardinality>one-to-one</ont:cardinality>
         <ont:fromEntityId>ShellInterception</ont:fromEntityId>
         <ont:toEntityId>DeployTarget</ont:toEntityId>
@@ -2256,7 +2256,7 @@
         <rdfs:label>determines_removal</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/DeploymentManifest"/>
         <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
-        <rdfs:comment>uninstall replays the manifest line by line, so what install records decides what removal can undo. Edge kind controls; enforcement unguarded</rdfs:comment>
+        <rdfs:comment>Private install records, shell receipts and verified app bridge generations determine bounded removal; compatibility uninstall replays manifest.txt. Edge kind controls; enforcement unguarded</rdfs:comment>
         <ont:cardinality>one-to-one</ont:cardinality>
         <ont:fromEntityId>DeploymentManifest</ont:fromEntityId>
         <ont:toEntityId>CliSubcommand</ont:toEntityId>
@@ -2266,7 +2266,7 @@
         <rdfs:label>gates_entry</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/HostPrerequisite"/>
         <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
-        <rdfs:comment>check_prereqs returns nonzero and install exits before touching anything, so the prerequisite set decides whether any path runs at all. Edge kind controls; enforcement unguarded</rdfs:comment>
+        <rdfs:comment>The selected entrypoint checks its runtime requirements before performing installation writes. Edge kind controls; enforcement unguarded</rdfs:comment>
         <ont:cardinality>one-to-many</ont:cardinality>
         <ont:fromEntityId>HostPrerequisite</ont:fromEntityId>
         <ont:toEntityId>CliSubcommand</ont:toEntityId>
@@ -2286,7 +2286,7 @@
         <rdfs:label>must_precede</rdfs:label>
         <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Migration"/>
         <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/DeployTarget"/>
-        <rdfs:comment>migrate_user_presets must run before the deploy that overwrites profiles.toml (install.sh:496 says so in the source). Edge kind precedes; enforcement unguarded</rdfs:comment>
+        <rdfs:comment>The explicit legacy install route runs migrate_user_presets before overwriting profiles.toml. Edge kind precedes; enforcement unguarded</rdfs:comment>
         <ont:cardinality>one-to-many</ont:cardinality>
         <ont:fromEntityId>Migration</ont:fromEntityId>
         <ont:toEntityId>DeployTarget</ont:toEntityId>
@@ -2330,6 +2330,66 @@
         <ont:cardinality>one-to-many</ont:cardinality>
         <ont:fromEntityId>DependencyMap</ont:fromEntityId>
         <ont:toEntityId>TerminologyAuthority</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/assembler-writes-snapshot">
+        <rdfs:label>materializes</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusAssembler"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
+        <rdfs:comment>CorpusStore.snapshot compiles and verifies immutable snapshot bytes and their content references; corpus session and integrity tests check the projection. Edge kind projects_to; enforcement gated</rdfs:comment>
+        <ont:cardinality>one-to-many</ont:cardinality>
+        <ont:fromEntityId>CorpusAssembler</ont:fromEntityId>
+        <ont:toEntityId>StateArtifact</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/state-routes-host">
+        <rdfs:label>pins</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/Host"/>
+        <rdfs:comment>Native launch/resume reads pinned snapshots and native identity; explicit app use returns a selected snapshot and records context delivery separately from native pins. Edge kind controls; enforcement partial</rdfs:comment>
+        <ont:cardinality>one-to-many</ont:cardinality>
+        <ont:fromEntityId>StateArtifact</ont:fromEntityId>
+        <ont:toEntityId>Host</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/identity-controls-domain">
+        <rdfs:label>qualifies</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/PackageIdentity"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/Domain"/>
+        <rdfs:comment>compose/pkgid.py defines package identity validation and the core fallback; changing those rules changes the qualified domain keys accepted by domain consumers. Edge kind controls; enforcement partial</rdfs:comment>
+        <ont:cardinality>one-to-many</ont:cardinality>
+        <ont:fromEntityId>PackageIdentity</ont:fromEntityId>
+        <ont:toEntityId>Domain</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/imported-rule-requires-source">
+        <rdfs:label>traces_to</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/CorpusRule"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
+        <rdfs:comment>Imported personal rules reference immutable captured evidence; import planning and apply validate source digests, line coverage and recorded host/project scope. Semantic correspondence remains a model/user review. Edge kind requires; enforcement gated</rdfs:comment>
+        <ont:cardinality>many-to-many</ont:cardinality>
+        <ont:fromEntityId>CorpusRule</ont:fromEntityId>
+        <ont:toEntityId>StateArtifact</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/gate-asserts-ui-runtime">
+        <rdfs:label>asserts</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/Gate"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/ManagedRuntime"/>
+        <rdfs:comment>gates/build-ui-runtime.py check/self-test compares the bundle against TEXTUAL_PIN, exact wheel metadata/hashes/licenses, and isolated offline import/render/cleanup controls. Edge kind asserts; enforcement gated</rdfs:comment>
+        <ont:cardinality>many-to-many</ont:cardinality>
+        <ont:fromEntityId>Gate</ont:fromEntityId>
+        <ont:toEntityId>ManagedRuntime</ont:toEntityId>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://agent-bios.local/ontology/agent-bios/setup-review-controls-apply">
+        <rdfs:label>constrains_apply</rdfs:label>
+        <rdfs:domain rdf:resource="http://agent-bios.local/ontology/agent-bios/StateArtifact"/>
+        <rdfs:range rdf:resource="http://agent-bios.local/ontology/agent-bios/CliSubcommand"/>
+        <rdfs:comment>SetupService.apply re-derives the exact reviewed context, source/state and dependency executable identities before effects; test_corpus_setup_cli checks mismatch refusal and receipt-based non-replay. Review identifiers establish consistency, not human consent. Edge kind controls; enforcement gated</rdfs:comment>
+        <ont:cardinality>one-to-many</ont:cardinality>
+        <ont:fromEntityId>StateArtifact</ont:fromEntityId>
+        <ont:toEntityId>CliSubcommand</ont:toEntityId>
     </owl:ObjectProperty>
 
 </rdf:RDF>

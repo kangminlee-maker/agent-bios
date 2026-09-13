@@ -23,7 +23,9 @@ never patches the payload to make it pass (runtime enforces, does not reason).
 
 Input:  the semantic payload as one JSON object on stdin.
 Host:   --host claude|codex (default: the tool prefix of supporting_sessions[0]).
-Home:   --config-dir, else $CLAUDE_CONFIG_DIR / $CODEX_HOME by host, else ~/.claude / ~/.codex.
+Private storage: $AGENT_BIOS_CORPUS_DIR, else ~/.config/agent-bios/corpus.
+Legacy storage: --config-dir, else $CLAUDE_CONFIG_DIR / $CODEX_HOME by host.
+--config-dir requires AGENT_BIOS_LEGACY_INSTALL=1; it cannot relocate private capture.
 After the local writes it best-effort uploads not-yet-delivered records to
 {base}/api/ingest/learnings via a host-private watermark over events.jsonl. The base and
 token resolve from the agent-bios-owned slot ~/.config/agent-bios/{ingest-url,
@@ -298,12 +300,12 @@ def apply_codex(home, bullet, dry):
 APPLY = {"claude": apply_claude, "codex": apply_codex}
 
 
-# ── Phase 2 transport: watermark upload over the durable learnings.jsonl ───────
+# ── Phase 2 transport: watermark upload over durable learning records ───────
 #
 # collect-learning runs on-demand (per `learn!`), so the upload piggybacks here:
 # after the local writes, best-effort POST any not-yet-settled records to
 # {ingest-url}/api/ingest/learnings and record which learning_ids are settled in
-# a small state file (the watermark). The durable learnings.jsonl is the single
+# a small state file (the watermark). The durable event log is the single
 # source and is never capped, so nothing is lost across a multi-day server outage
 # — unsettled records simply retry on the next `learn!`. A 2xx (incl. a duplicate
 # re-send, which the server dedups by learning_id) settles a record; 400/413
@@ -1143,11 +1145,13 @@ def _self_test():
 
 
 def main():
+    sys.dont_write_bytecode = True
     ap = argparse.ArgumentParser(description="Submit a session learning (learn!).")
     ap.add_argument("--host", choices=sorted(HOSTS),
                     help="session host (default: tool prefix of supporting_sessions[0])")
     ap.add_argument("--config-dir", default=None,
-                    help="config home (default: $CLAUDE_CONFIG_DIR / $CODEX_HOME by host)")
+                    help="legacy host home only (requires AGENT_BIOS_LEGACY_INSTALL=1); "
+                         "private capture uses AGENT_BIOS_CORPUS_DIR")
     ap.add_argument("--dry-run", action="store_true",
                     help="validate and print actions; write nothing")
     ap.add_argument("--no-upload", action="store_true",
@@ -1159,6 +1163,11 @@ def main():
     if args.self_test:
         _self_test()
         return
+
+    legacy = os.environ.get("AGENT_BIOS_LEGACY_INSTALL") == "1"
+    if args.config_dir is not None and not legacy:
+        ap.error("--config-dir applies only to AGENT_BIOS_LEGACY_INSTALL=1; "
+                 "set AGENT_BIOS_CORPUS_DIR to relocate private learning storage")
 
     payload = read_payload()
     host = resolve_host(args.host, payload)
@@ -1173,7 +1182,7 @@ def main():
         sys.exit(1)
 
     dry = args.dry_run
-    if os.environ.get("AGENT_BIOS_LEGACY_INSTALL") != "1":
+    if not legacy:
         # Capture is an immutable private source. Model-visible projections are
         # composed when an activated session is started, never written globally.
         sys.path.insert(0, str(REPO / "compose"))

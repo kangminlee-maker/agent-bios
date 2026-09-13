@@ -23,6 +23,23 @@ class SessionError(RuntimeError):
     pass
 
 
+def validate_working_directory_argv(host, argv):
+    """Keep a private Codex snapshot and its native session in the same directory."""
+    if host != 'codex':
+        return
+    if not isinstance(argv, (list, tuple)) or not all(isinstance(token, str) for token in argv):
+        raise SessionError('private Codex activation requires a valid argument list')
+    for token in argv:
+        if token == '--':
+            break
+        if token == '--cd' or token.startswith('--cd=') or token.startswith('-C'):
+            raise SessionError(
+                'private Codex corpus activation cannot include --cd/-C: the selected corpus and '
+                'session pin use the launch working directory. cd into the target directory first, '
+                'then start a new activated session without a working-directory override'
+            )
+
+
 def _global_instruction_choice(host, include_global_instructions):
     if type(include_global_instructions) is not bool:
         raise SessionError('include_global_instructions must be a boolean')
@@ -104,6 +121,7 @@ def _settings_values(argv):
 
 
 def _record_instruction_choice(record, env, check_paths=True):
+    validate_working_directory_argv(record['host'], record.get('argv'))
     include = _global_instruction_choice(record['host'], record.get('include_global_instructions', True))
     if not include:
         values = _settings_values(record['argv'])
@@ -455,6 +473,7 @@ def _verified_launch_snapshot(state_root, snapshot):
 
 def compose_argv(command, argv, host, snapshot, cwd=None, env=None, include_global_instructions=True):
     """Preserve native instructions before the selected corpus and launch contract."""
+    validate_working_directory_argv(host, argv)
     _global_instruction_choice(host, include_global_instructions)
     native_env = dict(os.environ if env is None else env)
     native_cwd = pathlib.Path(cwd or pathlib.Path.cwd()).resolve()
@@ -733,6 +752,7 @@ def recover_activations(state_root, command=None, host=None, env=None):
 
 
 def create_codex_session(command, argv, state_root, record, cwd, env):
+    validate_working_directory_argv('codex', argv)
     with CodexServer(command, config_flags(argv), cwd, env) as server:
         params = {'cwd': str(cwd), 'developerInstructions': instruction_value(argv, 'codex'),
                   'ephemeral': False, 'experimentalRawEvents': False}
@@ -763,12 +783,19 @@ def create_codex_session(command, argv, state_root, record, cwd, env):
 def launch(command, argv, state_root, host, snapshot, cwd=None, env=None, resume_id=None,
            include_global_instructions=True):
     """Start a pinned native session, returning its exit status."""
+    validate_working_directory_argv(host, argv)
     cwd = pathlib.Path(cwd or pathlib.Path.cwd()).resolve()
     env = dict(os.environ if env is None else env)
     if resume_id and include_global_instructions is not True:
         raise SessionError('resume uses its recorded global instruction choice; omit the override or start a new session')
     if not resume_id:
         _global_instruction_choice(host, include_global_instructions)
+    elif host == 'codex':
+        _, pins = session_paths(state_root)
+        session_id = validate_session_id(resume_id)
+        pin_path = pins / host / f'{session_id}.json'
+        if pin_path.exists() or pin_path.is_symlink():
+            read_pin(state_root, host, session_id)
     recovered = recover_activations(state_root, command, host, env)
     if recovered['pending']:
         print(f"agent-bios: {len(recovered['pending'])} activation(s) lack host evidence; their snapshots remain retained.", file=sys.stderr)

@@ -45,7 +45,7 @@ OBLIGATION = {
 
 # Same rule as the gate: a $VAR-prefixed path is a runtime destination, not a repo file.
 ANCHOR_PATH = re.compile(
-    r"(\$\{?\w+\}?/)?((?:[\w.-]+/)*[\w.-]+\.(?:py|sh|md|json|toml|zsh|html))"
+    r"(\$\{?\w+\}?/)?((?:[\w.-]+/)*[\w.-]+\.(?:py|sh|md|json|toml|zsh|html|yaml|yml))"
 )
 
 
@@ -53,18 +53,19 @@ def load() -> dict:
     return json.loads(GRAPH.read_text(encoding="utf-8"))
 
 
-def entity_files(graph: dict) -> dict[str, set[str]]:
+def entity_files(graph: dict, repo: pathlib.Path | None = None) -> dict[str, set[str]]:
     """Repo paths each entity is anchored to. Globs in anchors are expanded."""
+    repo = REPO if repo is None else repo
     out: dict[str, set[str]] = {}
     for ent in graph["entities"]:
         paths: set[str] = set()
         for runtime, path in ANCHOR_PATH.findall(ent["anchor"]):
             if runtime:
                 continue
-            if (REPO / path).is_file():
+            if (repo / path).is_file():
                 paths.add(path)
         for glob in re.findall(r"((?:[\w.-]+/)+[\w.*-]*\*[\w.*-]*)", ent["anchor"]):
-            paths |= {str(p.relative_to(REPO)) for p in REPO.glob(glob) if p.is_file()}
+            paths |= {str(p.relative_to(repo)) for p in repo.glob(glob) if p.is_file()}
         out[ent["id"]] = paths
     return out
 

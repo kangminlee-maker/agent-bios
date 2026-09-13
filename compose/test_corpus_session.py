@@ -1,5 +1,7 @@
 """Pin transitions and real installed Codex loader checks; no model turns."""
 import json
+import contextlib
+import io
 import os
 from pathlib import Path
 import shutil
@@ -62,6 +64,83 @@ class PinTests(unittest.TestCase):
         self.assertIn('features.multi_agent=true', result)
         self.assertEqual(result.count('developer_instructions="new"'), 1)
         self.assertNotIn('--config=developer_instructions="old"', result)
+
+    def test_private_codex_cwd_overrides_fail_before_projection_or_native_access(self):
+        forms = (["--cd", "/other-project"], ["--cd=/other-project"], ["-C", "/other-project"],
+                 ["-C/other-project"], ["-C=/other-project"], ["--cd"], ["-C"])
+        for argv in forms:
+            with self.subTest(argv=argv), mock.patch.object(session, 'CodexServer') as server, \
+                    mock.patch.object(session, 'recover_activations') as recovery, \
+                    mock.patch.object(session.subprocess, 'call') as native, \
+                    mock.patch.object(session.subprocess, 'run') as run:
+                with self.assertRaisesRegex(session.SessionError, 'cd into the target directory first'):
+                    session.compose_argv('not-invoked', argv, 'codex', self.snapshot, self.root, {})
+                with self.assertRaisesRegex(session.SessionError, '--cd/-C'):
+                    session.launch('not-invoked', argv, self.root, 'codex', self.snapshot, self.root, {})
+                with self.assertRaisesRegex(session.SessionError, '--cd/-C'):
+                    session.prepare(self.root, 'codex', self.snapshot, argv, self.root, {})
+                with self.assertRaisesRegex(session.SessionError, '--cd/-C'):
+                    session.create_codex_session('not-invoked', argv, self.root, {}, self.root, {})
+                server.assert_not_called()
+                recovery.assert_not_called()
+                native.assert_not_called()
+                run.assert_not_called()
+        self.assertFalse((self.root / 'runtime/activations').exists())
+
+    def test_directory_validation_preserves_ordinary_args_and_prompt_delimiter(self):
+        for argv in (["--model", "test", "--add-dir", "/other-project", "--no-alt-screen"],
+                     ["-c", 'developer_instructions="Discuss --cd and -C"'],
+                     ["--", "--cd", "/other-project", "-Cattached"],
+                     ["Explain the --cd option"]):
+            before = list(argv)
+            session.validate_working_directory_argv('codex', argv)
+            self.assertEqual(before, argv)
+        session.validate_working_directory_argv('claude', ["--cd", "/other-project"])
+
+    def test_older_codex_cwd_override_pin_is_refused_before_recovery_or_native_calls(self):
+        record = session.prepare(self.root, 'codex', self.snapshot, [], self.root, {})
+        session.observe_and_pin(self.root, record, 'old-cwd-session', {'method': 'test-control'})
+        path = self.root / 'sessions/pins/codex/old-cwd-session.json'
+        stored = json.loads(path.read_text())
+        for argv in (["--cd", "/other-project"], ["--cd=/other-project"], ["-Cother-project"]):
+            session.atomic_json(path, {**stored, 'argv': argv})
+            with self.subTest(argv=argv), mock.patch.object(session, 'CodexServer') as server, \
+                    mock.patch.object(session, 'recover_activations') as recovery, \
+                    mock.patch.object(session.subprocess, 'call') as native:
+                with self.assertRaisesRegex(session.SessionError, '--cd/-C'):
+                    session.read_pin(self.root, 'codex', 'old-cwd-session')
+                with self.assertRaisesRegex(session.SessionError, '--cd/-C'):
+                    session.launch('not-invoked', [], self.root, 'codex', self.snapshot,
+                                   self.root, {}, resume_id='old-cwd-session')
+                server.assert_not_called()
+                recovery.assert_not_called()
+                native.assert_not_called()
+
+    def test_older_cwd_override_intents_remain_pending_without_native_recovery(self):
+        ids = []
+        for state in ('PREPARED', 'HOST_OBSERVED'):
+            record = session.prepare(self.root, 'codex', self.snapshot, [], self.root, {})
+            record.update(state=state, argv=['-C/other-project'], requested_session_id='old-cwd-session',
+                          session_id='old-cwd-session', evidence={'method': 'test-control'})
+            ids.append(record['intent_id'])
+            session.atomic_json(self.root / 'runtime/activations' / record['intent_id'] / 'journal.json', record)
+        with mock.patch.object(session, 'CodexServer') as server, contextlib.redirect_stderr(io.StringIO()):
+            result = session.recover_activations(self.root, command='not-invoked', host='codex', env={})
+        server.assert_not_called()
+        self.assertEqual(set(ids), set(result['pending']))
+        self.assertEqual([], result['pinned'])
+        self.assertFalse((self.root / 'sessions/pins').exists())
+
+    def test_allowed_codex_resume_preserves_recorded_args_and_working_directory(self):
+        argv = ['--model', 'test', '--add-dir', '/other-project', '--', '--cd', 'prompt-text']
+        record = session.prepare(self.root, 'codex', self.snapshot, argv, self.root, {})
+        session.observe_and_pin(self.root, record, 'allowed-cwd-session', {'method': 'test-control'})
+        with mock.patch.object(session, 'validate_codex_hooks'), \
+                mock.patch.object(session.subprocess, 'call', return_value=0) as native:
+            self.assertEqual(0, session.launch('codex', [], self.root, 'codex', self.snapshot,
+                                               self.root, {}, resume_id='allowed-cwd-session'))
+        self.assertEqual(['codex', 'resume', 'allowed-cwd-session', *argv], native.call_args.args[0])
+        self.assertEqual(str(self.root.resolve()), native.call_args.kwargs['cwd'])
 
     def test_relative_launch_cwd_is_pinned_before_caller_moves(self):
         first, second = self.root / 'first', self.root / 'second'

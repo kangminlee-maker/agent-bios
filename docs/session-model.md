@@ -1,14 +1,14 @@
 # Sessions, storage, and verification
 
-[← Overview](../README.md) · [Corpus](corpus.md) · [Sessions](session-model.md) · [Recovery](recovery.md) · [Launch](advanced-launch.md) · [Understand!](understand.md)
+[← Overview](../README.md) · [Setup](setup.md) · [Corpus](corpus.md) · [Sessions](session-model.md) · [Recovery](recovery.md) · [Launch](advanced-launch.md) · [Understand!](understand.md)
 
 **Library → selection and edits → immutable snapshot → configured session**
 
 ## Corpus ownership
 
-Single source of truth for the instructions and scoped guides that an explicit
-agent-bios launch supplies to Claude Code or Codex. Edit once; the private corpus
-compiler projects the selected content for each activated session.
+Single source of truth for the instructions and scoped guides supplied to activated
+Claude Code or Codex CLI sessions, or explicitly chosen Codex app tasks. Edit once;
+the private corpus compiler projects the selected content through the chosen delivery route.
 
 A deployable instruction corpus for coding agents, plus the CLI that
 installs, verifies, and evolves it. The npm package ships the corpus; `install.sh` is both the
@@ -32,7 +32,19 @@ receives no automatic agent-bios content; the user's own native global and proje
 instructions still follow the host's normal loading rules. `--resume-session ID`
 loads the recorded host/session pin rather than resolving current defaults.
 
-Per-item on/off overrides take precedence over launch-domain selection. See [corpus selection](corpus.md#manage-the-library). Existing host globals are loaded by default; [selective exclusion](advanced-launch.md#global-instruction-files) is a separate host-specific option.
+Per-item on/off overrides take precedence over default-mode launch-domain selection.
+No-corpus mode emits no corpus. Explicit selected mode keeps inclusion within its
+targets; disabled items stay excluded and unrelated enabled overrides do not leak in.
+Imported items also respect their host/project scope. See [corpus selection](corpus.md#manage-the-library). Existing host globals are loaded by default; [selective exclusion](advanced-launch.md#global-instruction-files) is a separate host-specific option.
+
+## Codex app tasks
+
+App tasks have an explicit [use/off workflow](setup.md#use-corpus-in-a-codex-app-task).
+Use returns a selected snapshot through the tool/context path and records a
+`returned-as-context` receipt separately from native CLI pins. Stored registration
+and returned text do not prove native app discovery or model reading. Off stops
+further managed use, but cannot retract earlier context; a new task is needed for
+clean exclusion. Management and instruction capture do not activate task context.
 
 ## Storage layout
 
@@ -42,7 +54,9 @@ journals live under that runtime root, immutable snapshots and pins under
 `~/.local/share/agent-bios/sessions/`, and user packages, overlays, tombstones,
 learnings, history, and trash under `~/.config/agent-bios/corpus/`. The corresponding
 `AGENT_BIOS_STATE_DIR` and `AGENT_BIOS_CORPUS_DIR` environment variables relocate
-those private roots; `AGENT_LAUNCH_VENV` relocates the optional Textual runtime.
+those private roots; `AGENT_LAUNCH_VENV` relocates the managed dependency environment.
+Current source UI entrypoints use their verified process-temporary bundle without
+requiring a preinstalled Textual runtime.
 The owned `agent-launch` entrypoint exports `AGENT_BIOS_PRIVATE_CORPUS=1` and the
 immutable `AGENT_BIOS_PACKAGE_ROOT`; the launcher also recognizes the private install
 record when the explicit marker is absent. These select the private runtime and do not
@@ -88,11 +102,14 @@ Named native Codex profiles (`--profile` / `-p`) are not supported for private
 activation by the verified 0.153.4 adapter: that host exposes profiles on runtime
 commands but not its effective-config app-server surface. The launcher refuses
 this combination before creating a session rather than substituting base settings.
-Plain CLI/Vanilla profile use is unchanged.
+Plain CLI/Vanilla profile use is unchanged. Activated private Codex sessions also
+refuse native `--cd`/`-C` cwd overrides before delivery; change to the target project
+first so snapshot scope and native execution agree. Ordinary CLI/Vanilla forwarding
+keeps its native behavior.
 
-Every activated snapshot retains the immutable private management bootstrap and puts
-its exact path in the injected startup text, so `$corpus` has private procedure access
-even without native skill discovery. Selected requested procedures are exposed the same
+Snapshots outside no-corpus mode retain the immutable private management bootstrap
+and put its exact path in the injected startup text, so `$agent-bios` has private
+procedure access even without native skill discovery. Selected requested procedures are exposed the same
 way. This is not a claim that either host registered them in its native skill menu;
 native skill registration remains unverified.
 

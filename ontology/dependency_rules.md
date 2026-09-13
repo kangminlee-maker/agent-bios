@@ -1,6 +1,5 @@
 ---
 version: 1
-last_updated: "2026-07-30"
 source: manual
 status: draft
 ---
@@ -13,13 +12,7 @@ one obliges, and in which direction.
 
 ## The direction problem, and the rule that settles it
 
-An edge reads naturally in one direction and obliges in the other, and conflating
-those two produced a real defect in this ontology's own first draft: the kinds were
-named in the passive voice (`consumed_by`, `verified_by`, `classified_by`) while the
-`from → to` pairs were authored so the *verb* read naturally
-(`reviewMethod --requires--> capability`). Both conventions are defensible; holding
-both at once means the graph cannot be traversed for impact, because "which end
-moves when the other changes" is undefined.
+The readable direction of an edge and its change-obligation direction are separate.
 
 **The rule.** An edge is written so its `name` reads as an English sentence from
 `from` to `to`. Obligation is a property of the **kind**, declared once:
@@ -38,10 +31,10 @@ answered all of it.
 ## Edge kinds
 
 KIND_COUNT: 9. Every kind is in use; no kind is declared and unused, and no
-edge carries a kind not declared here — `gates/check-ontology.py` enforces both
+edge carries a kind not declared here — `ontology/check-ontology.py` enforces both
 directions of that so the vocabulary cannot rot in either, and it also holds the
 counts on this page against `instances/graph.json` so the prose cannot drift from the
-data the way it did once already.
+data.
 
 ---
 
@@ -53,10 +46,7 @@ bundle, goldens captured by their capture script, the distill pipeline producing
 learning records, install writing the version marker.
 
 **`owes_entry`** — `from` is an item; `to` is a registry that must carry a row for
-it. **Merged from two kinds that were the same concept**: a corpus unit needing a
-classification row and a runtime path needing a `package.json` `files[]` row are one
-failure — *added here, unregistered there*. Keeping them apart bought two names for
-one rule.
+it. Corpus classification and runtime payload membership both use this relation.
 *Obligation:* **forward**. Add the item, add the row.
 *Enforcement available:* `derived` when the registry is checked against the real
 item set (`gates/check-package.sh` greps live `$REPO/` references); otherwise
@@ -66,18 +56,13 @@ deploy target → payload entry, wrapper → payload entry.
 
 **`controls`** — `from` determines how `to` behaves.
 *Obligation:* **forward**. Change the controller, the controlled surface changes with it.
-*Split out of `requires` after the impact query proved they are different couplings:*
-`DeploymentManifest` and `EnvironmentVariable` reported *zero* obligations, which is
-absurd — changing `CLAUDE_CONFIG_DIR` handling moves every destination the installer
-writes to, and changing what the manifest records changes what `uninstall` can undo.
-One kind was carrying "A names B" and "A governs B", whose obligations point in
-**opposite** directions, so the traversal silently answered nothing for the entities
-where the second meaning applied. This is a justified split (different obligation
-direction = different runtime consequence), not the vocabulary creeping back up after
-the `owes_entry` merge.
-*Instances:* 11 — the installer performing deploys and provisioning the runtime, the
-selection routing the assembler, env vars redirecting destinations, the assembler
-registering hooks, the manifest determining what removal removes.
+The controller's scope is explicit: `AGENT_BIOS_CORPUS_DIR` relocates personal
+sources; host-home variables locate native host state. Ownership records govern
+what removal may touch. A controller change obliges those consumers even if its
+identity stays the same.
+*Instances:* 14 — private lifecycle and session projection, selection routing,
+package identity rules, scoped environment roots, ownership-based removal, and
+reviewed setup state constraining Apply.
 
 **`requires`** — `from` names or reads `to`, and depends on its identity.
 *Obligation:* **backward**. The dependent breaks when the dependency is renamed,
@@ -93,15 +78,15 @@ mechanism.
 *Obligation:* **both**.
 *Enforcement available:* `gated` only when a check compares the ends *to each
 other*. A check that compares one end to a constant **inside the check** is not
-enforcement of this kind — it makes the gate a third restatement, which is what
-the Environment Binding row assertions in `gates/check_parity.py` currently does for the tier binding.
+enforcement of this kind — it makes the gate a third restatement. The current
+Environment Binding checks derive model display names from the launch profile.
 *Instances:* host → tier binding, tier binding → guide, shell interception →
 deploy target (the deployed file and the `.zshrc` line that sources it).
 
 **`asserts`** — `from` is a check; `to` is its subject.
 *Obligation:* **backward**. Adding or changing a subject obliges the check, which
-is exactly the miss GR-4 records: three deploy writes with no, partial, or vacuous
-assertion.
+requires the new subject to enter the real assertion set; a check that never
+scans it proves nothing about it.
 *Enforcement available:* the check's own subject set must be **derived** from the
 subject population, never hand-listed; a hand-listed subject set silently excludes
 whatever is added later.
@@ -139,39 +124,32 @@ manifestations).
 
 A kind states what enforcement is *available*; each edge instance records what it
 actually *has*: `derived`, `gated`, `partial`, or `unguarded`. Current distribution
-over EDGE_COUNT: 49 edges:
+over EDGE_COUNT: 55 edges:
 
 | Status | Edges | Reading |
 | --- | --- | --- |
-| `gated` | 16 | a named check compares the ends |
+| `gated` | 20 | a named check compares the ends |
 | `unguarded` | 17 | the obligation is known and nothing enforces it |
-| `partial` | 11 | some ends compared, some not |
+| `partial` | 13 | some ends compared, some not |
 | `derived` | 5 | drift structurally impossible |
 
-UNGUARDED_EDGES: 17 is the number to drive down, and the order to drive it in
-is not "hardest first" but **widest blast radius per unit of work**: an `owes_entry`
+UNGUARDED_EDGES: 17 is a disclosed work set, not a mandatory zero target. Decide
+which obligations merit enforcement and which should be accepted with reasons.
+Prioritize **widest blast radius per unit of work**: an `owes_entry`
 or `asserts` edge can usually be closed by deriving a subject set that is currently
 hand-listed, which is cheap and closes a whole class. `precedes` and `migrates` are
 expensive and rare; they can wait behind a recorded obligation.
 
-## Known defect in this ontology's own edge layer
+## Projection ownership
 
-`ONTOLOGY_MAP.html` carries its own inline copy of the entity/position data that
-`instances/graph.json` now owns. That is a **GR-1 violation** — two canonical sites
-for one value — committed by this ontology against its own rule, and recorded here
-rather than quietly fixed so the correction is auditable. The fix is to generate
-the page from `graph.json` the way `emit-rdf.py` generates the RDF projection; until
-then the page can disagree with the graph and nothing detects it.
+`instances/graph.json` owns entity and relationship data. `emit-map.py`,
+`emit-rdf.py`, and the other emitters produce its views; `check-ontology.py`
+checks their freshness. Edit the graph and regenerate rather than changing a view.
 
-한국어 요약: `structure_spec.md`가 위치 수준에서 말한 것을 여기서는 **엔티티 쌍
-수준**으로 내린다. 핵심은 방향 규칙이다 — 엣지는 동사가 자연스럽게 읽히는 방향으로
-쓰고, **의무 방향은 kind가 한 번 선언한다**(`forward`/`backward`/`both`). 이 선언이
-없으면 "무엇이 바뀌면 무엇이 따라야 하는가"가 정의되지 않아 영향 질의가 절반만
-답하고도 다 답한 것처럼 보인다. 초안이 정확히 그 상태였다. kind는 8종이고,
-`classified_by`와 `must_ship_with`는 같은 실패("여기 추가했는데 저기 레지스트리에
-행이 없다")여서 `owes_entry`로 합쳤다. 41개 엣지 중 **13개가 unguarded**이며, 닫는
-순서는 어려운 것 순이 아니라 **작업 대비 파급 범위가 넓은 순** — 손으로 나열된
-검사 대상 집합을 파생으로 바꾸는 것이 한 클래스를 통째로 닫는다.
+한국어 요약: 엣지는 읽히는 방향과 변경 의무 방향을 따로 가진다.
+`forward`·`backward`·`both`를 따라 영향을 계산하고, 실제 강제 상태는 각 엣지에
+기록한다. 현재 수치는 그래프와 생성된 결과에서 읽는다. 미강제 항목은 비용과
+위험을 비교해 검사하거나 근거를 남기고 수용한다.
 
 ## Related documents
 

@@ -1,6 +1,6 @@
 # Your corpus
 
-[← Overview](../README.md) · [Corpus](corpus.md) · [Sessions](session-model.md) · [Recovery](recovery.md) · [Launch](advanced-launch.md) · [Understand!](understand.md)
+[← Overview](../README.md) · [Setup](setup.md) · [Corpus](corpus.md) · [Sessions](session-model.md) · [Recovery](recovery.md) · [Launch](advanced-launch.md) · [Understand!](understand.md)
 
 Inspect, edit, and select the instruction library without rewriting native global instructions. Commands use the installed CLI; from a checkout, use `bash install.sh <command>` at the repository root.
 
@@ -24,9 +24,10 @@ installed-item restore, personal-item recover, selection, reset, and rollback. S
 `CorpusRef` identities survive those changes. The current `ContentRef` hashes the
 baseline, resolved selection, authoring/item/learning/promotion digests, catalog and
 store implementation digests, and management bootstrap. There is not yet a standalone undo command,
-arbitrary package authoring/import, automatic semantic conflict resolution, or verified
-native skill-menu registration; those design stages must not be inferred from the
-library UI.
+arbitrary package authoring/import or automatic semantic conflict resolution.
+[Native instruction import](setup.md#import-existing-instructions) and an explicit
+Codex app bridge are separate supported workflows; the library UI does not imply
+that selected procedures registered in native skill menus.
 
 Studio marks rules containing explicit `guides/*.md` references with **→ GUIDE**
 and the guide names in the library. Their **Guide pointer** section links to exact
@@ -58,8 +59,10 @@ Text inputs keep normal spaces; Space on a group still expands or collapses it.
 Unapplied choices require discard confirmation on exit and cannot be mixed with
 content edits. A stale authoring revision refuses the preview or apply.
 
-Per-item choices override domain and explicit launch selections, including core
-and infrastructure defaults. Turning an item off does not delete its body, edits,
+Per-item choices override domain selection in default mode, including core and
+infrastructure defaults. Explicit selected mode includes only its chosen targets;
+an enable override cannot pull in unrelated items. No-corpus mode emits no corpus,
+and imported items retain their applicable host/project scope. Turning an item off does not delete its body, edits,
 or identity, and old snapshots and session pins remain intact. Choices survive
 updates and content restoration; full reset returns to installed defaults.
 Enabling a removed item requires Restore/Recover first. A guide switched off is
@@ -69,8 +72,8 @@ item is a projection choice, not proof of execution. This does not block host
 global/project instructions or a tool from opening a file independently.
 
 The same revision-checked manager accepts `{"operation":"enable","items":{"@agent-bios/core:rule-003":false}}`
-through `corpus plan`; `true` forces inclusion, `false` excludes, and `null`
-removes that override so the normal selection applies. `list` reports `enabled`,
+through `corpus plan`; `true` enables within the active selection policy, `false`
+excludes, and `null` removes that override so normal selection applies. `list` reports `enabled`,
 `enabled_override`, and the captured authoring `revision`; pass that revision as
 `expected_revision` when planning a batch from the displayed inventory.
 

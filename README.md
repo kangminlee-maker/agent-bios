@@ -3,14 +3,14 @@
 **A personal instruction layer for Claude Code and Codex.**
 
 Build an instruction library you can inspect, edit, and reuse. Choose what each
-session uses, without replacing your existing global instruction files by default.
+CLI session or Codex app task uses, while preserving your existing global instruction files.
 
 [Quick start](#quick-start) · [Corpus Studio](#your-instruction-library) · [How it works](#how-sessions-work) · [Understand!](#understand-the-reasoning) · [Documentation](#documentation) · [한국어](ko/README.md)
 
 ![Corpus Studio showing a guide-linked rule and an unapplied on/off choice](docs/assets/corpus-studio.svg)
 
-*Actual 0.18.0 Studio UI, captured with the bundled corpus in an isolated test
-environment. The rich interface needs the optional Textual runtime.*
+*Actual 0.18.0 Studio UI, captured with Textual enabled and the bundled corpus
+in an isolated test environment.*
 
 ## Make your instructions your own
 
@@ -29,78 +29,73 @@ It does not train the model or guarantee that the model follows every instructio
 
 ## Quick start
 
-You need **macOS or Linux**, **Python 3.11+**, **Node.js 18+**, and an installed,
-authenticated Claude Code or Codex CLI. See [dependencies](DEPENDENCIES.md) for
-verified versions and optional tools.
+The installation flows below use **this repository's source**. The published npm
+package `agent-bios@0.18.0` does not contain this conversational installer or the
+bundled terminal UI. See [setup and prerequisites](docs/setup.md).
 
-Using an older global agent-bios installation? Read the
-[migration instructions](docs/recovery.md#ownership-and-legacy-migration) first.
+### In the Codex app
 
-```bash
-npm install -g agent-bios@0.18.0
-agent-bios install
+Open a local task on the machine you want to configure and send:
+
+```text
+Install https://github.com/kangminlee-maker/agent-bios
 ```
 
-Then, from the project you want to work in:
+The agent follows [INSTALL.md](INSTALL.md), obtains a fixed source revision, and
+asks for English, 한국어 or 日本語. Choose dependencies, no active corpus or specific
+corpus, and optional app connection or instruction-file capture. Review the effects
+before Apply. You do not need to supply a local path or install Codex CLI.
+
+Once the registered command appears in the app, use `$agent-bios` for setup or management.
+To add corpus to a task, explicitly ask it to use your chosen corpus there.
+Installation and opening Corpus Studio do not activate task context.
+[App use, off, and personal instruction import →](docs/setup.md#use-corpus-in-a-codex-app-task)
+
+### In a terminal
+
+You need **macOS or Linux**, **Bash**, and **Python 3.11+**. Use this repository's
+**Code** menu to copy its clone command or download its source. Open a terminal in
+the obtained repository folder and run:
+
+```bash
+bash install.sh install
+```
+
+The installer opens a guided terminal UI with English, Korean and Japanese. Its
+verified Textual bundle is included; a separate UI installation is unnecessary.
+Choose only the dependencies and corpus you want. [Full setup options →](docs/setup.md)
+
+To launch a CLI session, install and authenticate that host CLI, then run this from
+your project:
 
 ```bash
 "$HOME/.local/bin/agent-launch" claude
 ```
 
-Use `codex` instead of `claude` for a Codex session. The full path works even when
-`~/.local/bin` is not on your `PATH`.
+Use `codex` instead of `claude` for a Codex CLI session.
 
 1. Choose a Builder preset or **Custom**.
 2. Review the model, review setup, and permissions. **Some presets request
    permission bypass**; select settings appropriate for your project.
-3. Start the session. Choose **Software Engineer / Vanilla** instead to use the
-   host's native setup without an agent-bios corpus snapshot.
+3. Start the session. Choose **Software Engineer / Vanilla** to use the host's
+   native setup without an agent-bios corpus snapshot.
 
-You can open **Corpus Studio** first, inspect the library, then return to the
-launch menu.
+Open **Corpus Studio** from the launcher to inspect the library. Source installation
+provides `agent-launch`; for management commands use `bash install.sh <command>`
+from the retained source folder. An existing global `agent-bios` command may be a
+different npm version. Examples in the linked documents use `agent-bios` as shorthand
+for the CLI from your chosen source.
 
-**Installing is not activating.** Ordinary `claude` and `codex` commands do not
-automatically receive agent-bios content. An optional zsh
-[shell connection](docs/advanced-launch.md#optional-shell-connection) can route
-bare interactive commands through the launcher.
-
-<details>
-<summary>Enable the rich terminal interface</summary>
-
-Without Textual, the launcher and corpus manager use numbered terminal menus.
-Fresh private installation does not provision Textual automatically.
-
-After npm installation, provision the managed runtime with:
-
-```bash
-bash "$(npm root -g)/agent-bios/launch/provision-venv.sh"
-```
-
-It installs the optional UI dependency into its managed virtual environment,
-not your host CLI's configuration. See [DEPENDENCIES.md](DEPENDENCIES.md).
-
-</details>
-
-<details>
-<summary>Install from a source checkout</summary>
-
-From the repository root:
-
-```bash
-bash install.sh install
-# Optional rich terminal interface:
-bash launch/provision-venv.sh
-```
-
-Then run the installed launcher from your project as above. For management
-commands against this checkout, use `bash install.sh <command>` at its root:
-the global `agent-bios` command may still belong to an older npm package.
-
-</details>
+Ordinary `claude` and `codex` commands do not automatically receive agent-bios
+content. An optional zsh [shell connection](docs/advanced-launch.md#optional-shell-connection)
+can route bare interactive commands through the launcher. If you have an older
+global installation, read [migration](docs/recovery.md#ownership-and-legacy-migration)
+before changing it.
 
 ## Your instruction library
 
-Open **Corpus Studio** in the launcher, or run `agent-bios corpus`.
+Open **Corpus Studio** in the launcher, or run `bash install.sh corpus` from the
+source folder. In the app, `$agent-bios` can manage the same library through conversation.
 
 - **Read as you navigate.** Arrow keys move between reading controls and update
   the document as the library cursor moves; Enter is not required to read an item.
@@ -128,7 +123,9 @@ Updates retain those choices; a full reset returns to installed defaults.
 
 Installation stores a release and its baseline in agent-bios-owned locations.
 A configured launch compiles the selected content for its host. Later edits
-affect future snapshots; managed resume resolves the session's recorded snapshot.
+affect future snapshots; managed CLI resume resolves the session's recorded snapshot.
+App tasks use a separately selected snapshot returned through their tool/context path.
+Turning app delivery off cannot erase text already present in the conversation.
 
 Your own global instructions are **also loaded by default** in activated
 sessions. Not overwriting them is different from excluding them. Supported Claude
@@ -173,6 +170,7 @@ requires your confirmation.
 
 | When you need more detail | Read |
 | --- | --- |
+| Install, connect the app, or import existing instructions | [Setup](docs/setup.md) |
 | Author, enable, restore, or inspect corpus items | [Corpus](docs/corpus.md) |
 | Understand snapshots, storage, and session evidence | [Session model](docs/session-model.md) |
 | Migrate, reset, or resolve installation conflicts | [Recovery](docs/recovery.md) |

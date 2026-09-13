@@ -44,7 +44,7 @@ P2 or P3, and every one sits on the dynamic or external axis.
 | CQ-P-02 | Which values are restated in more than one place and must agree? | static / principle | `relationships[].kind == 'lockstep_with'` |
 | CQ-P-03 | What is the difference between a missing prerequisite and a missing capability? | dynamic / context | `host-prerequisite vs capability entity descriptions` |
 | CQ-D-01 | Under which condition does install take a different path, and what changes about what verify may assert? | dynamic / context | **nothing answers this yet** |
-| CQ-D-02 | What happens when a step degrades instead of failing — venv provisioning, absent codex/claude CLI? | dynamic / context | **nothing answers this yet** |
+| CQ-D-02 | Which UI/runtime failures block the selected route, and which retained compatibility paths may degrade? | dynamic / context | **nothing answers this yet** |
 | CQ-E-01 | Which external systems does the service depend on, and at which boundary does its authority stop? | dynamic / external | **nothing answers this yet** |
 
 ## P3 — refinement
@@ -59,9 +59,9 @@ These are the seed's real boundary, named rather than left absent. Each is a que
 the ontology *should* answer and currently cannot.
 
 - **CQ-D-01** (dynamic / context) — Under which condition does install take a different path, and what changes about what verify may assert?
-  *Gap:* the packaged/full branch is collapsed into one step of the install path; Selection is the branch condition and appears on no route
-- **CQ-D-02** (dynamic / context) — What happens when a step degrades instead of failing — venv provisioning, absent codex/claude CLI?
-  *Gap:* degradation paths are described in entity prose but declared as no route, so nothing can traverse them
+  *Gap:* Private setup, machine install and explicit legacy routes are named, but their input-mode preconditions and verification outcomes are not represented as traversable branch predicates
+- **CQ-D-02** (dynamic / context) — Which UI/runtime failures block the selected route, and which retained compatibility paths may degrade?
+  *Gap:* Code and tests anchor the bundled and compatibility outcomes; the graph does not enumerate their failure/recovery transitions
 - **CQ-E-01** (dynamic / external) — Which external systems does the service depend on, and at which boundary does its authority stop?
   *Gap:* no external boundary is modelled; npm, the Claude Code and Codex CLIs, and the review providers appear only inside entity descriptions
 
