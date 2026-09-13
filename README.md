@@ -29,36 +29,18 @@ It does not train the model or guarantee that the model follows every instructio
 
 ## Quick start
 
-The installation flows below use **this repository's source**. The published npm
-package `agent-bios@0.18.0` does not contain this conversational installer or the
-bundled terminal UI. See [setup and prerequisites](docs/setup.md).
-
-### In the Codex app
-
-Open a local task on the machine you want to configure and send:
-
-```text
-Install https://github.com/kangminlee-maker/agent-bios
-```
-
-The agent follows [INSTALL.md](INSTALL.md), obtains a fixed source revision, and
-asks for English, 한국어 or 日本語. Choose dependencies, no active corpus or specific
-corpus, and optional app connection or instruction-file capture. Review the effects
-before Apply. You do not need to supply a local path or install Codex CLI.
-
-Once the registered command appears in the app, use `$agent-bios` for setup or management.
-To add corpus to a task, explicitly ask it to use your chosen corpus there.
-Installation and opening Corpus Studio do not activate task context.
-[App use, off, and personal instruction import →](docs/setup.md#use-corpus-in-a-codex-app-task)
+Use the terminal installer or set up through a Codex app conversation. Both offer
+language, dependency, corpus and optional app/import choices.
+See [setup and prerequisites](docs/setup.md).
 
 ### In a terminal
 
-You need **macOS or Linux**, **Bash**, and **Python 3.11+**. Use this repository's
-**Code** menu to copy its clone command or download its source. Open a terminal in
-the obtained repository folder and run:
+You need **macOS or Linux**, **Bash**, **Python 3.11+**, and **Node.js 18+ with npm**
+for package installation. Run:
 
 ```bash
-bash install.sh install
+npm install -g agent-bios@0.19.0
+agent-bios install
 ```
 
 The installer opens a guided terminal UI with English, Korean and Japanese. Its
@@ -80,11 +62,24 @@ Use `codex` instead of `claude` for a Codex CLI session.
 3. Start the session. Choose **Software Engineer / Vanilla** to use the host's
    native setup without an agent-bios corpus snapshot.
 
-Open **Corpus Studio** from the launcher to inspect the library. Source installation
-provides `agent-launch`; for management commands use `bash install.sh <command>`
-from the retained source folder. An existing global `agent-bios` command may be a
-different npm version. Examples in the linked documents use `agent-bios` as shorthand
-for the CLI from your chosen source.
+Open **Corpus Studio** from the launcher or run `agent-bios corpus` to inspect the
+library. `agent-bios status` shows the installed private release and its location.
+
+<details>
+<summary>Install from source instead</summary>
+
+Use this repository's **Code** menu to copy its clone command or download its
+source. From the obtained repository folder, run:
+
+```bash
+bash install.sh install
+```
+
+This route needs Bash and Python 3.11+; Node/npm are not acquisition prerequisites.
+Keep using `bash install.sh <command>` from that source for management. A global
+`agent-bios` command can belong to a different npm version.
+
+</details>
 
 Ordinary `claude` and `codex` commands do not automatically receive agent-bios
 content. An optional zsh [shell connection](docs/advanced-launch.md#optional-shell-connection)
@@ -92,10 +87,28 @@ can route bare interactive commands through the launcher. If you have an older
 global installation, read [migration](docs/recovery.md#ownership-and-legacy-migration)
 before changing it.
 
+### In the Codex app
+
+Open a local task on the machine you want to configure and send:
+
+```text
+Install https://github.com/kangminlee-maker/agent-bios
+```
+
+The agent follows [INSTALL.md](INSTALL.md), obtains a fixed source revision, and
+asks for English, 한국어 or 日本語. Choose dependencies, no active corpus or specific
+corpus, and optional app connection or instruction-file capture. Review the effects
+before Apply. You do not need to supply a local path or install Codex CLI.
+
+Once the registered command appears in the app, use `$agent-bios` for setup or management.
+To add corpus to a task, explicitly ask it to use your chosen corpus there.
+Installation and opening Corpus Studio do not activate task context.
+[App use, off, and personal instruction import →](docs/setup.md#use-corpus-in-a-codex-app-task)
+
 ## Your instruction library
 
-Open **Corpus Studio** in the launcher, or run `bash install.sh corpus` from the
-source folder. In the app, `$agent-bios` can manage the same library through conversation.
+Open **Corpus Studio** in the launcher, or run `agent-bios corpus`.
+In the app, `$agent-bios` can manage the same library through conversation.
 
 - **Read as you navigate.** Arrow keys move between reading controls and update
   the document as the library cursor moves; Enter is not required to read an item.

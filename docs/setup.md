@@ -2,23 +2,23 @@
 
 [← Overview](../README.md) · [Corpus](corpus.md) · [Sessions](session-model.md) · [Recovery](recovery.md)
 
-This page describes the current repository source. The published npm package
-`agent-bios@0.18.0` does not include these installation screens, conversation setup,
-app bridge or instruction-import commands. Obtain this source through the
-[README quick start](../README.md#quick-start). Commands below use `agent-bios` as
-shorthand: from a source checkout, run `bash install.sh <command>` at its root.
+Install `agent-bios@0.19.0` through the [README quick start](../README.md#quick-start)
+to use the guided installer, conversation setup, app bridge and instruction import.
+Commands below use the installed `agent-bios` CLI. From a source checkout, run
+`bash install.sh <command>` at its root instead.
 
 ## Choose where to start
 
 | Route | Requirements | Interface |
 | --- | --- | --- |
 | Codex app | A local task with command/file access on the intended machine, Bash, Python 3.11+ | Questions and effect review in the conversation; no extra Codex CLI or model login |
-| Terminal | macOS or Linux, Bash, Python 3.11+, an input/output terminal | Included Textual wizard |
+| Terminal | macOS or Linux, Bash, Python 3.11+, an input/output terminal; Node.js 18+/npm for package installation | Included Textual wizard |
 | Automation | Bash, Python 3.11+, explicit machine commands | JSON inspection, review and results |
 
 Host CLIs and their authentication are needed when you choose to launch them.
-Node/npm are needed only for capabilities whose chosen installation route requires
-them. The app and storage routes do not require every host CLI. Full versions,
+Node/npm are needed to obtain the npm package and for any selected capability that
+uses them. Source acquisition through the app does not require npm. The app and
+storage routes do not require every host CLI. Full versions,
 purposes and provisioning boundaries are in [Dependencies](../DEPENDENCIES.md).
 
 For first installation in the app, use the one-line request in the README. The
@@ -30,11 +30,15 @@ older installation mode.
 
 ## Guided terminal installation
 
-From the obtained repository folder:
+Install the exact package version, then start setup:
 
 ```bash
-bash install.sh install
+npm install -g agent-bios@0.19.0
+agent-bios install
 ```
+
+For the source alternative, obtain the repository through its Code menu and run
+`bash install.sh install` at its root.
 
 `install` and `onboard` open the wizard by default. After the language choice,
 four stages collect the choices:
@@ -54,7 +58,7 @@ no corpus instruction text or management bootstrap. Explicit selected mode inclu
 only its targets within applicable host/project scope; it does not add unrelated
 enabled items or implicit core content.
 
-Source entrypoints use a verified UI bundle without downloading or installing
+The installer, launcher and Corpus Studio use a verified UI bundle without downloading or installing
 Textual. Its extraction is temporary and removed on exit. Missing or damaged
 bundled UI fails explicitly. Language changes presentation, not corpus text,
 identifiers or host settings.

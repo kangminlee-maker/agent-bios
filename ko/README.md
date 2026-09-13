@@ -31,9 +31,59 @@ agent-bios는 규칙·가이드·절차로 이루어진 기본 라이브러리, 
 
 ## 빠른 시작
 
-아래 설치 흐름은 **이 저장소의 소스**를 사용합니다. 공개된 npm 패키지
-`agent-bios@0.18.0`에는 여기서 설명하는 대화형 설치와 내장 터미널 UI가 없습니다.
+터미널 설치 화면이나 Codex 앱 대화로 설정할 수 있습니다. 두 경로 모두 언어,
+의존성, corpus, 선택적인 앱 연결과 지침 가져오기를 지원합니다.
 [설정과 준비 사항](../docs/setup.md)을 참고하세요.
+
+### 터미널에서
+
+**macOS 또는 Linux**, **Bash**, **Python 3.11 이상**과 패키지 설치를 위한
+**Node.js 18 이상·npm**이 필요합니다. 다음 명령을 실행하세요.
+
+```bash
+npm install -g agent-bios@0.19.0
+agent-bios install
+```
+
+English·한국어·日本語를 지원하는 설치 화면이 열립니다. 검증된 Textual 런타임이
+내장되어 있어 UI를 따로 설치할 필요가 없습니다. 사용할 의존성과 corpus를 고르세요.
+[전체 설정 안내 →](../docs/setup.md)
+
+CLI 세션을 실행하려면 해당 호스트 CLI를 설치·인증한 뒤, 작업할 프로젝트에서 실행합니다.
+
+```bash
+"$HOME/.local/bin/agent-launch" claude
+```
+
+Codex CLI 세션은 마지막 인자를 `codex`로 바꾸면 됩니다.
+
+1. Builder 프리셋이나 **Custom**을 선택합니다.
+2. 모델·리뷰·권한을 확인합니다. **일부 프리셋은 권한 우회를 요청**하므로 프로젝트에 맞게 선택하세요.
+3. 세션을 시작합니다. 호스트 기본 설정으로 시작하려면 **Software Engineer / Vanilla**를 선택합니다.
+
+런처의 **Corpus Studio**나 `agent-bios corpus`로 라이브러리를 살펴볼 수 있습니다.
+`agent-bios status`는 설치된 private 릴리즈와 위치를 보여줍니다.
+
+<details>
+<summary>소스에서 설치하기</summary>
+
+이 저장소의 **Code** 메뉴에서 복제 명령을 복사하거나 소스를 내려받으세요.
+받은 저장소 폴더에서 실행합니다.
+
+```bash
+bash install.sh install
+```
+
+Bash와 Python 3.11 이상이 필요하며, 소스를 받는 데 Node/npm은 필요하지 않습니다.
+관리 명령도 해당 소스 폴더에서 `bash install.sh <command>`로 실행하세요.
+전역 `agent-bios`는 다른 npm 버전일 수 있습니다.
+
+</details>
+
+일반 `claude`·`codex` 명령에는 corpus가 자동 추가되지 않습니다.
+선택적인 [zsh 셸 연결](../docs/advanced-launch.md#optional-shell-connection)을 켜면
+인자 없는 대화형 명령을 런처로 연결할 수 있습니다. 기존 전역 설치가 있다면
+[마이그레이션 안내](../docs/recovery.md#ownership-and-legacy-migration)를 먼저 확인하세요.
 
 ### Codex 앱에서
 
@@ -53,45 +103,9 @@ English·한국어·日本語 중 사용할 언어를 묻습니다. 설치할 �
 설치하거나 Studio를 여는 것만으로는 작업에 지침이 추가되지 않습니다.
 [앱에서 사용·끄기·개인 지침 가져오기 →](../docs/setup.md#use-corpus-in-a-codex-app-task)
 
-### 터미널에서
-
-**macOS 또는 Linux**, **Bash**, **Python 3.11 이상**이 필요합니다.
-이 저장소의 **Code** 메뉴에서 복제 명령을 복사하거나 소스를 내려받으세요.
-받은 저장소 폴더에서 터미널을 열고 실행합니다.
-
-```bash
-bash install.sh install
-```
-
-English·한국어·日本語를 지원하는 설치 화면이 열립니다. 검증된 Textual 런타임이
-내장되어 있어 UI를 따로 설치할 필요가 없습니다. 사용할 의존성과 corpus를 고르세요.
-[전체 설정 안내 →](../docs/setup.md)
-
-CLI 세션을 실행하려면 해당 호스트 CLI를 설치·인증한 뒤, 작업할 프로젝트에서 실행합니다.
-
-```bash
-"$HOME/.local/bin/agent-launch" claude
-```
-
-Codex CLI 세션은 마지막 인자를 `codex`로 바꾸면 됩니다.
-
-1. Builder 프리셋이나 **Custom**을 선택합니다.
-2. 모델·리뷰·권한을 확인합니다. **일부 프리셋은 권한 우회를 요청**하므로 프로젝트에 맞게 선택하세요.
-3. 세션을 시작합니다. 호스트 기본 설정으로 시작하려면 **Software Engineer / Vanilla**를 선택합니다.
-
-런처의 **Corpus Studio**에서 라이브러리를 살펴볼 수 있습니다. 소스 설치는
-`agent-launch`를 준비하며, 관리 명령은 보관한 소스 폴더에서
-`bash install.sh <command>`로 실행합니다. 전역 `agent-bios`는 다른 npm 버전일 수 있습니다.
-상세 문서의 `agent-bios`는 선택한 소스의 CLI를 가리키는 짧은 표기입니다.
-
-일반 `claude`·`codex` 명령에는 corpus가 자동 추가되지 않습니다.
-선택적인 [zsh 셸 연결](../docs/advanced-launch.md#optional-shell-connection)을 켜면
-인자 없는 대화형 명령을 런처로 연결할 수 있습니다. 기존 전역 설치가 있다면
-[마이그레이션 안내](../docs/recovery.md#ownership-and-legacy-migration)를 먼저 확인하세요.
-
 ## 내 지침 라이브러리
 
-런처의 **Corpus Studio**를 선택하거나 소스 폴더에서 `bash install.sh corpus`를 실행합니다.
+런처의 **Corpus Studio**를 선택하거나 `agent-bios corpus`를 실행합니다.
 앱의 `$agent-bios`도 대화로 같은 라이브러리를 관리합니다.
 
 - **커서 이동 즉시 읽기:** 목록에서 항목을 옮기면 Enter 없이 오른쪽 문서가 바뀝니다.

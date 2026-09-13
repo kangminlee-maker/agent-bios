@@ -55,7 +55,7 @@ journals live under that runtime root, immutable snapshots and pins under
 learnings, history, and trash under `~/.config/agent-bios/corpus/`. The corresponding
 `AGENT_BIOS_STATE_DIR` and `AGENT_BIOS_CORPUS_DIR` environment variables relocate
 those private roots; `AGENT_LAUNCH_VENV` relocates the managed dependency environment.
-Current source UI entrypoints use their verified process-temporary bundle without
+The UI entrypoints use their verified process-temporary bundle without
 requiring a preinstalled Textual runtime.
 The owned `agent-launch` entrypoint exports `AGENT_BIOS_PRIVATE_CORPUS=1` and the
 immutable `AGENT_BIOS_PACKAGE_ROOT`; the launcher also recognizes the private install

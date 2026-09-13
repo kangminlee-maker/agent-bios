@@ -10,7 +10,7 @@ The preflight keeps the current setup above each choice, supports the configured
 catalog and **Other**, and offers Builder presets, Software Engineer / Vanilla,
 Session distill, Custom, Language, and **Corpus Studio**. Studio is the same backend as
 `agent-bios corpus`: it searches and renders the library, edits Markdown and
-consumption surface, and requires Preview then revision-bound Apply. Current source
+consumption surface, and requires Preview then revision-bound Apply. Packaged
 entrypoints validate and temporarily extract their included UI bundle before loading
 Rich/Textual. A missing or corrupt bundle fails explicitly; no preinstalled Textual
 environment is required. Interface catalogs change only human UI text;

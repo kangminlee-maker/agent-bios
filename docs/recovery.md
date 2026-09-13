@@ -2,8 +2,8 @@
 
 [← Overview](../README.md) · [Setup](setup.md) · [Corpus](corpus.md) · [Sessions](session-model.md) · [Recovery](recovery.md) · [Launch](advanced-launch.md) · [Understand!](understand.md)
 
-Start with `agent-bios status`. This reference describes the current source; from its
-retained checkout use `bash install.sh <command>`. For first installation and app
+Start with `agent-bios status`. Commands use the installed `agent-bios@0.19.0` CLI;
+from a source checkout use `bash install.sh <command>`. For first installation and app
 setup recovery, see [Setup](setup.md). Commands below are **operation references, not a sequence to paste and run**. Preview the specific action you need; do not delete an ownership conflict just to make installation succeed.
 
 ## Command reference
@@ -18,6 +18,7 @@ wiring. Neither activates corpus in a task.
 
 | Command | Purpose |
 | --- | --- |
+| `npm install -g agent-bios@0.19.0` | install the CLI package; private setup is a separate explicit command |
 | `agent-bios install` | open the guided installation UI |
 | `agent-bios install --non-interactive --corpus none` | store runtime with no active corpus |
 | `agent-bios onboard --non-interactive --domains builder-base,multi-agent-orchestration` | store the named domains with compatibility core/infra selection |
@@ -34,9 +35,6 @@ wiring. Neither activates corpus in a task.
 | `agent-bios migrate` | preview legacy global cleanup; --apply --yes performs it |
 | `agent-bios update` | git pull + reinstall (clone), or print the npm update line |
 | `agent-bios uninstall` | remove owned runtime entries; retain user corpus and pinned sessions |
-
-The published npm package `agent-bios@0.18.0` has its own included command reference;
-it does not provide the current source conversation setup or bundled UI.
 
 `agent-launch` examples assume `~/.local/bin` is on `PATH`; otherwise use `"$HOME/.local/bin/agent-launch"`. From a checkout, deploy with `bash install.sh install` at its root, not the globally installed CLI. A blocked npm postinstall message does not deploy the corpus; the explicit `install` command remains necessary.
 
