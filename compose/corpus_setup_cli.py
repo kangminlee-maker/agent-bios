@@ -201,10 +201,13 @@ class SetupService:
     def inspect(self, language: str | None = None) -> dict[str, Any]:
         language = self._language(language)
         controller = self.controller_factory()
+        retained = getattr(controller, "retained_corpus", [])
         return {"schema_version": SCHEMA_VERSION, "kind": "agent-bios-setup-inspection", "context": self.context(),
                 "language": language, "dependencies": controller.dependencies, "choices": controller.choices,
+                "retained_corpus": retained,
                 "default_plan": controller.default_plan(),
                 "display": {"dependencies": [dependency_display(language, row) for row in controller.dependencies],
+                            "retained_corpus": [{**row, "label": translate(language, row["label"])} for row in retained],
                             "choices": [{**row, "label": choice_label(language, row)} for row in controller.choices]}}
 
     def discover(self, roots: list[str]) -> dict[str, Any]:

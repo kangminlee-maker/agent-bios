@@ -2,7 +2,7 @@
 
 [← Overview](../README.md) · [Corpus](corpus.md) · [Sessions](session-model.md) · [Recovery](recovery.md)
 
-Install `agent-bios@0.19.0` through the [README quick start](../README.md#quick-start)
+Install `agent-bios@0.19.1` through the [README quick start](../README.md#quick-start)
 to use the guided installer, conversation setup, app bridge and instruction import.
 Commands below use the installed `agent-bios` CLI. From a source checkout, run
 `bash install.sh <command>` at its root instead.
@@ -33,7 +33,7 @@ older installation mode.
 Install the exact package version, then start setup:
 
 ```bash
-npm install -g agent-bios@0.19.0
+npm install -g agent-bios@0.19.1
 agent-bios install
 ```
 
@@ -44,11 +44,13 @@ For the source alternative, obtain the repository through its Code menu and run
 four stages collect the choices:
 
 1. **Corpus:** no active corpus, all available corpus, selected packages/domains,
-   or saved policy on an existing installation. App registration is optional.
+   or saved policy on an existing installation. **Connect to the Codex app** is
+   an independent option for adding `$agent-bios` to app conversations.
 2. **Personal instructions:** optionally add project folders and select detected
    global/project instruction files for capture. This is independent of corpus use.
-3. **Dependencies:** inspect the full inventory and select supported installation
-   recipes. Leaving them unselected installs none.
+3. **Dependencies:** inspect the full inventory. Ready dependencies are checked
+   and cannot be toggled; only missing dependencies with a supported recipe can
+   be selected for installation. Leaving those unselected installs none.
 4. **Review:** inspect the effects and, when useful, expand exact commands and
    paths before Apply.
 
@@ -57,6 +59,13 @@ unless you change them. No active corpus retains the library privately but deliv
 no corpus instruction text or management bootstrap. Explicit selected mode includes
 only its targets within applicable host/project scope; it does not add unrelated
 enabled items or implicit core content.
+
+Personal instructions and host learning records already on this device appear in
+a separate checked, read-only list with stored item counts. These entries describe
+retained content across project scopes, not the active corpus policy or new installation
+choices. No active corpus preserves them. Use Corpus Studio for personal content and
+selection changes; merely displaying stored content does not activate it. The list
+can also show retained content after private runtime removal.
 
 The installer, launcher and Corpus Studio use a verified UI bundle without downloading or installing
 Textual. Its extraction is temporary and removed on exit. Missing or damaged
@@ -115,6 +124,13 @@ app change and capture sources before applying authorized effects. The engine
 rejects a changed source, environment, plan or state; `--yes` alone is not evidence
 that the effects were reviewed.
 
+Dependency readiness and installation intent are separate: an already available
+dependency never belongs in the requested `dependencies` list or new install actions.
+The separate `retained_corpus` inventory contains `{target, label, item_count}` rows,
+with localized labels in `display.retained_corpus`, and no instruction bodies. Source
+package choices and the selected activation policy remain independent of that storage
+view; retained entries are not added to `targets` by being displayed.
+
 Status and resume are read-only. An old completed receipt describes that attempt;
 current runtime/helper readiness is reported separately. A running operation can
 defer readiness checks and return null fields while still showing recorded progress.
@@ -125,7 +141,7 @@ entrypoint handoff. Source and reviewed artifacts remain available for recovery.
 
 ## Use corpus in a Codex app task
 
-Choose app registration during setup, or explicitly run:
+Choose **Connect to the Codex app** during setup, or explicitly run:
 
 ```bash
 agent-bios app register --dry-run

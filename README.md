@@ -39,7 +39,7 @@ You need **macOS or Linux**, **Bash**, **Python 3.11+**, and **Node.js 18+ with 
 for package installation. Run:
 
 ```bash
-npm install -g agent-bios@0.19.0
+npm install -g agent-bios@0.19.1
 agent-bios install
 ```
 
@@ -152,9 +152,12 @@ does not. Project instructions and prior conversation content are separate.
 Choose **Understand!** in the launcher to explore why the corpus is written the
 way it is. Select a coherent learning bundle rather than memorizing separate files.
 
-The tutor explains purposes, background, tradeoffs, and limits. Each active
-learning turn ends with a relevant question, then waits for your answer. It
-distinguishes documented reasons from inference and respects pause or stop requests.
+The tutor chooses a small set of core learning points and tracks questions by their
+source bullet. No bullet receives more than ten questions, including follow-ups.
+It explains purposes, background, tradeoffs and limits, then summarizes and finishes
+when the core points are covered. An explanation or closing summary needs no further
+question. The tutor distinguishes documented reasons from inference and respects
+pause or stop requests.
 
 For example, a discussion of clarification might ask:
 *“What would change in your next action if this ambiguity were resolved?”*

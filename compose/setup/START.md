@@ -44,9 +44,18 @@ agent-bios setup discover --project-root /absolute/project
 ## Collect and review the choices
 
 Use `inspect`'s `default_plan`, inventory and choices. Present all dependency
-capabilities with readiness, purpose and installation destination. Only returned
-installation recipes are selectable; do not create shell recipes from model
+capabilities with readiness, purpose and installation destination. Ready dependencies
+are observations, not requested actions: include only chosen missing dependencies
+with returned recipes in `dependencies`. Do not create shell recipes from model
 memory. A dependency's presence does not authorize installing another one.
+
+`retained_corpus` reports local personal instructions and host learning records
+already stored on this device as `{target, label, item_count}`; localized labels are
+in `display.retained_corpus`. Present this separately as a read-only storage view,
+not as extra installation choices or evidence of active use. Counts cover stored,
+nonremoved items regardless of enable overrides or current host/project eligibility,
+and reveal no bodies. Do not copy these rows into `targets`; use the source `choices`
+and the user's activation-policy decision.
 
 Collect the six plan fields without asking the user to author JSON:
 
@@ -54,7 +63,9 @@ Collect the six plan fields without asking the user to author JSON:
   corpus, or specific returned package/domain/item targets. Start from the returned
   default. No active corpus retains private library assets but delivers no corpus.
 - `dependencies`: chosen installable inventory IDs; an empty list installs none.
-- `app_bridge`: explicit registration choice; registration enables discovery only.
+- `app_bridge`: the explicit **Connect to the Codex app** choice, adding `$agent-bios`
+  for setup and personal instruction management. Registration enables discovery only;
+  each task still requires its own explicit corpus use.
 - `project_roots` and `import_paths`: absolute project folders and explicitly
   selected files from discovery. Capture is independent of corpus selection.
 

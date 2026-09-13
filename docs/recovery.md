@@ -2,7 +2,7 @@
 
 [← Overview](../README.md) · [Setup](setup.md) · [Corpus](corpus.md) · [Sessions](session-model.md) · [Recovery](recovery.md) · [Launch](advanced-launch.md) · [Understand!](understand.md)
 
-Start with `agent-bios status`. Commands use the installed `agent-bios@0.19.0` CLI;
+Start with `agent-bios status`. Commands use the installed `agent-bios@0.19.1` CLI;
 from a source checkout use `bash install.sh <command>`. For first installation and app
 setup recovery, see [Setup](setup.md). Commands below are **operation references, not a sequence to paste and run**. Preview the specific action you need; do not delete an ownership conflict just to make installation succeed.
 
@@ -18,7 +18,7 @@ wiring. Neither activates corpus in a task.
 
 | Command | Purpose |
 | --- | --- |
-| `npm install -g agent-bios@0.19.0` | install the CLI package; private setup is a separate explicit command |
+| `npm install -g agent-bios@0.19.1` | install the CLI package; private setup is a separate explicit command |
 | `agent-bios install` | open the guided installation UI |
 | `agent-bios install --non-interactive --corpus none` | store runtime with no active corpus |
 | `agent-bios onboard --non-interactive --domains builder-base,multi-agent-orchestration` | store the named domains with compatibility core/infra selection |

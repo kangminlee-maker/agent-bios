@@ -162,6 +162,7 @@ class SetupUiTests(unittest.IsolatedAsyncioTestCase):
             dependencies = app.query_one("#dependency-choices", SelectionList)
             self.assertTrue(dependencies.get_option_at_index(0).disabled)
             self.assertTrue(dependencies.get_option_at_index(2).disabled)
+            self.assertEqual(["python"], dependencies.selected)
             dependencies.highlighted = 1
             dependencies.focus()
             await pilot.press("space")
@@ -226,6 +227,56 @@ class SetupUiTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual([str(self.project)], controller.discoveries[-1])
             await pilot.press("ctrl+c")
         self.assertEqual([], controller.effects)
+
+    async def test_retained_local_data_is_readonly_and_not_an_activation_choice(self):
+        controller = Controller(self.root)
+        controller.retained_corpus = [{"target": "@local/personal", "label": "Personal corpus", "item_count": 2}]
+        app = SetupApp(self.installer, controller=controller)
+        async with app.run_test(size=(100, 36)) as pilot:
+            await self.ready(app, pilot)
+            local = app.query_one("#retained-corpus-choices", SelectionList)
+            self.assertTrue(app.query_one("#retained-corpus-panel").display)
+            self.assertEqual(["@local/personal"], local.selected)
+            self.assertTrue(local.disabled)
+            self.assertTrue(local.get_option_at_index(0).disabled)
+            self.assertEqual([], app.query_one("#corpus-choices", SelectionList).selected)
+            self.assertEqual(0, len(app.query("#corpus-selection")))
+            self.assertEqual("Connect to the Codex app", str(app.query_one("#app-bridge", Checkbox).label))
+            self.assertIn("$agent-bios", str(app.query_one("#app-bridge-help", Static).render()))
+            for step in (1, 2, 3):
+                await self.next(app, pilot, step)
+            self.assertEqual("none", controller.previews[-1]["selection_mode"])
+            self.assertEqual([], controller.previews[-1]["targets"])
+            self.assertEqual([], controller.previews[-1]["dependencies"])
+            await pilot.press("ctrl+c")
+        self.assertEqual([], controller.effects)
+
+    async def test_available_dependencies_are_checked_in_each_language_but_never_scheduled(self):
+        for language in ("en", "ko", "ja"):
+            with self.subTest(language=language):
+                controller = Controller(self.root)
+                app = SetupApp(SimpleNamespace(repo=self.root, env={"LANG": language}), controller=controller)
+                async with app.run_test(size=(100, 36)) as pilot:
+                    await self.ready(app, pilot)
+                    self.assertFalse(app.query_one("#retained-corpus-panel").display)
+                    await self.next(app, pilot, 1)
+                    await self.next(app, pilot, 2)
+                    choices = app.query_one("#dependency-choices", SelectionList)
+                    self.assertEqual(["python"], choices.selected)
+                    self.assertTrue(choices.get_option_at_index(0).disabled)
+                    self.assertFalse(choices.get_option_at_index(1).disabled)
+                    self.assertTrue(choices.get_option_at_index(2).disabled)
+                    self.assertEqual([], app._requested_dependencies())
+                    choices.select("schema")
+                    await pilot.pause()
+                    self.assertEqual(["schema"], app._requested_dependencies())
+                    await self.next(app, pilot, 3)
+                    self.assertEqual(["schema"], controller.previews[-1]["dependencies"])
+                    await self.click_ready(app, pilot, "#apply")
+                    await self.wait_for(app, pilot, lambda: app.result is not None)
+                    self.assertEqual(["schema"], controller.apply_calls[-1][0]["dependencies"])
+                    await self.click_ready(app, pilot, "#done")
+                self.assert_originals()
 
     async def test_saved_default_and_explicit_seed_are_distinct(self):
         for seed, expected in ((None, "keep"), ({"selection_mode": "selected", "targets": ["@fixture/core/office"]}, "selected")):

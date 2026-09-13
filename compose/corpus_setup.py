@@ -353,6 +353,8 @@ class SetupController:
         self.runner = runner
         self.dependencies = inventory if inventory is not None else dependency_inventory(installer.repo, installer.env, runner=runner)
         self.choices = catalog_choices(installer)
+        retained = getattr(installer, "setup_local_corpus", None)
+        self.retained_corpus = retained() if callable(retained) else []
         self.handler = extras_handler or getattr(installer, "setup_extras", None)
         identifiers = [row["id"] for row in self.dependencies]
         if len(identifiers) != len(set(identifiers)):

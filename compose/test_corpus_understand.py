@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import copy
+import contextlib
+import io
 import json
 import os
 from pathlib import Path
@@ -13,7 +15,9 @@ import unittest
 from unittest import mock
 
 from compose.corpus_store import CorpusStore
-from compose.corpus_understand import CorpusUnderstand, UnderstandError, ProvenancePending
+from compose.corpus_understand import (CorpusUnderstand, UnderstandError, ProvenancePending,
+                                      LEARNING_POLICY, MAX_OUTPUT_BYTES, MAX_PROMPT_BYTES,
+                                      MAX_PAGE_BYTES, _json_text, _page)
 from compose.test_corpus_store import _Catalog
 
 
@@ -80,6 +84,15 @@ class UnderstandTests(unittest.TestCase):
         self._append({"type": "response_item", "payload": {"type": "message", "role": "assistant",
                      "content": [{"type": "output_text", "text": text}]}})
 
+    def _cli(self, *args):
+        from compose import corpus_understand
+        output, errors = io.StringIO(), io.StringIO()
+        with mock.patch.object(corpus_understand, "CorpusUnderstand", return_value=self.manager), \
+                contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
+            code = corpus_understand.main(list(args))
+        self.assertLessEqual(len(output.getvalue().encode("utf-8")), MAX_OUTPUT_BYTES)
+        return code, output.getvalue(), errors.getvalue()
+
     def _start(self):
         session = self.manager.start("core-purpose", "codex")
         self.manager.bind(session["session_id"], "codex")
@@ -135,8 +148,248 @@ class UnderstandTests(unittest.TestCase):
         self.assertNotEqual(frozen["bundle"]["source_ref"], self.manager.show("core-purpose")["source_ref"])
         prompt = Path(session["prompt_path"])
         self.assertEqual(0o600, prompt.stat().st_mode & 0o777)
-        for text in ("learning DATA", "ONE goal-relevant question", "Respect requests to pause", "Do not ask about every ambiguity"):
+        for text in ("learning DATA", "10 questions per source bullet INCLUDING all followups",
+                     "Respect requests to pause", "Do not ask about every ambiguity"):
             self.assertIn(text, prompt.read_text())
+
+    def _read_all(self, session, *, ref=None, member=None, limit=1024):
+        pages, offset, digest = [], 0, None
+        while True:
+            page = self.manager.read(session, ref, member, offset=offset, limit_bytes=limit,
+                                     expected_sha256=digest)
+            self.assertLessEqual(len(_json_text(page).encode("utf-8")), MAX_OUTPUT_BYTES)
+            self.assertEqual(offset, page["offset"])
+            self.assertEqual(len(page["text"].encode("utf-8")), page["end_offset"] - offset)
+            pages.append(page["text"])
+            if page["eof"]:
+                self.assertIsNone(page["next_offset"])
+                self.assertEqual(page["total_bytes"], page["end_offset"])
+                return "".join(pages)
+            self.assertGreater(page["next_offset"], offset)
+            offset, digest = page["next_offset"], page["resource_sha256"]
+
+    def test_large_single_line_unicode_members_are_exact_pinned_pages(self):
+        ref = "@agent-bios/core:rule-004"
+        text = "한글😀\"\\" * 40000 + "PINNED-END"
+        self.assertGreater(len(text.encode("utf-8")), 353 * 1024)
+        self.assertNotIn("\n", text)
+        self._edit(ref, {"body": text})
+        session = self.manager.start("core-purpose")
+        before = self.manager._path("sessions", session["session_id"]).read_bytes()
+        self.assertLessEqual(len(session["prompt"].encode("utf-8")), MAX_PROMPT_BYTES)
+        self.assertNotIn("PINNED-END", session["prompt"])
+        manifest = json.loads(self._read_all(session["session_id"], limit=256))
+        self.assertNotIn("PINNED-END", json.dumps(manifest))
+        self.assertEqual(session["bundle"]["source_ref"], manifest["bundle"]["source_ref"])
+        row = next(x for x in manifest["items"] if x["ref"] == ref)
+        self.assertTrue(row["members"])
+        self._edit(ref, {"body": "NEW-AUTHORING"})
+        item = next(x for x in session["bundle"]["items"] if x["ref"] == ref)
+        self.assertEqual(item["body"], self._read_all(session["session_id"], ref=ref, limit=MAX_PAGE_BYTES))
+        for member in row["members"]:
+            self.assertEqual(item["members"][member["name"]],
+                             self._read_all(session["session_id"], ref=ref, member=member["name"], limit=MAX_PAGE_BYTES))
+        self.assertEqual(before, self.manager._path("sessions", session["session_id"]).read_bytes())
+
+    def test_json_overhead_and_utf8_cursors_are_bounded_without_data_loss(self):
+        text = ("\0\t\n\"\\😀한글" * 5000) + "END"
+        offset, chunks, digest = 0, [], None
+        while True:
+            page = _page(text, {"format": "text"}, offset=offset, limit_bytes=MAX_PAGE_BYTES,
+                         expected_sha256=digest)
+            serialized = _json_text(page).encode("utf-8")
+            self.assertLessEqual(len(serialized), MAX_OUTPUT_BYTES)
+            self.assertTrue(all(len(line) <= MAX_OUTPUT_BYTES for line in serialized.splitlines()))
+            chunks.append(page["text"])
+            if page["eof"]:
+                break
+            self.assertGreater(page["next_offset"], offset)
+            offset, digest = page["next_offset"], page["resource_sha256"]
+        self.assertEqual(text, "".join(chunks))
+        with self.assertRaisesRegex(UnderstandError, "UTF-8 boundary"):
+            _page("😀body", {}, offset=1)
+        with self.assertRaisesRegex(UnderstandError, "resource changed"):
+            _page(text, {}, expected_sha256="wrong")
+        for limit in (0, 255, MAX_PAGE_BYTES + 1):
+            with self.assertRaises(UnderstandError):
+                _page(text, {}, limit_bytes=limit)
+        with self.assertRaisesRegex(UnderstandError, "metadata"):
+            _page("x", {"title": "q" * MAX_OUTPUT_BYTES})
+
+    def test_old_full_prompt_sessions_get_compact_entry_without_rewrite(self):
+        session = self.manager.start("core-purpose")
+        record_path = self.manager._path("sessions", session["session_id"])
+        old = json.loads(record_path.read_text())
+        old.pop("learning_policy")
+        old["prompt"] = "OLD FULL PROMPT " + "x" * (353 * 1024)
+        Path(old["prompt_path"]).write_text(old["prompt"])
+        record_path.write_text(json.dumps(old, ensure_ascii=False))
+        retained = {path: path.read_bytes() for path in (record_path, Path(old["prompt_path"]))}
+        view = self.manager.session_view(self.manager.session(session["session_id"]))
+        self.assertTrue(view["legacy_prompt"])
+        self.assertNotIn("items", view["bundle"])
+        self.assertLess(len(_json_text(view).encode("utf-8")), MAX_OUTPUT_BYTES)
+        self.assertNotIn("OLD FULL PROMPT", view["entry_prompt"])
+        self.assertEqual(old["bundle"]["source_ref"], view["bundle"]["source_ref"])
+        self.assertTrue(json.loads(self._read_all(session["session_id"]))["items"])
+        self.assertEqual(retained, {path: path.read_bytes() for path in retained})
+
+    def test_finite_contract_has_a_ceiling_and_a_natural_end_in_all_tutor_entries(self):
+        session = self.manager.start("core-purpose")
+        self.assertEqual(10, session["learning_policy"]["max_questions_per_bullet"])
+        self.assertTrue(LEARNING_POLICY["followups_count_toward_limit"])
+        self.assertFalse(LEARNING_POLICY["question_after_every_reply"])
+        source = Path(__file__).resolve().parents[1]
+        texts = [session["prompt"], (source / "claude/skills/understand/SKILL.md").read_text(),
+                 (source / "docs/understand.md").read_text()]
+        for text in texts:
+            flat = " ".join(text.split()).lower()
+            self.assertIn("10", flat)
+            self.assertIn("followup", flat)
+            self.assertIn("clarification", flat)
+            self.assertIn("ceiling, not a target", flat)
+            self.assertIn("without a compulsory followup", flat)
+            self.assertNotIn("end every active learning turn", flat)
+            self.assertNotIn("after every learning reply", flat)
+
+    def test_cli_transcript_pages_require_one_snapshot_and_preserve_every_turn(self):
+        from compose import corpus_understand
+        session = self._start()
+        self._assistant("Earlier explanation " + "한😀\"" * 12000)
+        self._user("My independent observation " + "x" * 40000)
+        expected = self.manager.turns(session)
+        offset, digest, chunks = 0, None, []
+
+        def invoke(*args):
+            output, errors = io.StringIO(), io.StringIO()
+            with mock.patch.object(corpus_understand, "CorpusUnderstand", return_value=self.manager), \
+                    contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
+                result = corpus_understand.main([*args])
+            self.assertLessEqual(len(output.getvalue().encode("utf-8")), MAX_OUTPUT_BYTES)
+            return result, output.getvalue(), errors.getvalue()
+
+        while True:
+            args = ["turns", session, "--offset", str(offset)]
+            if digest:
+                args += ["--expected-sha256", digest]
+            result, output, errors = invoke(*args)
+            self.assertEqual(0, result, errors)
+            page = json.loads(output)
+            chunks.append(page["text"])
+            if page["eof"]:
+                break
+            offset, digest = page["next_offset"], page["resource_sha256"]
+        self.assertEqual(expected, json.loads("".join(chunks)))
+        result, output, errors = invoke("turns", session, "--offset", "256")
+        self.assertEqual(1, result)
+        self.assertEqual("", output)
+        self.assertIn("require --expected-sha256", errors)
+        self._assistant("A later turn changes the transcript snapshot.")
+        result, output, errors = invoke("turns", session, "--offset", str(offset), "--expected-sha256", digest)
+        self.assertEqual(1, result)
+        self.assertEqual("", output)
+        self.assertIn("resource changed", errors)
+
+    def test_cli_refuses_oversized_metadata_without_partial_json(self):
+        from compose import corpus_understand
+        output, errors = io.StringIO(), io.StringIO()
+        with mock.patch.object(corpus_understand, "CorpusUnderstand", return_value=self.manager), \
+                mock.patch.object(self.manager, "list_bundles", return_value=[{"title": "😀" * MAX_OUTPUT_BYTES}]), \
+                contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
+            code = corpus_understand.main(["list"])
+        self.assertEqual(1, code)
+        self.assertEqual("", output.getvalue())
+        self.assertIn("bounded output limit", errors.getvalue())
+
+    def test_oversized_proposal_is_refused_before_persistence_and_can_be_shortened(self):
+        session = self._start()
+        self._assistant("This bundle connects clarification to the user's goal.")
+        self._user("Questions that cannot change an important decision only add distraction.")
+        proposal = self._proposal(session)
+        proposal["impact"] = "한글 impact " * 6000
+        path = self.root / "proposal.json"
+        path.write_text(json.dumps(proposal))
+        before = {p: p.read_bytes() for p in self.manager.root.rglob("*") if p.is_file()}
+        for _ in range(2):
+            code, output, errors = self._cli("propose", session, "--file", str(path))
+            self.assertEqual(1, code)
+            self.assertEqual("", output)
+            self.assertIn("bounded review limit", errors)
+            self.assertFalse((self.manager.root / "discoveries").exists())
+            self.assertEqual(before, {p: p.read_bytes() for p in self.manager.root.rglob("*") if p.is_file()})
+        proposal["impact"] = "Unnecessary questions consume attention."
+        path.write_text(json.dumps(proposal))
+        code, output, errors = self._cli("propose", session, "--file", str(path))
+        self.assertEqual(0, code, errors)
+        result = json.loads(output)
+        self.assertTrue(self.manager._path("discoveries", result["candidate_id"]).is_file())
+        self.assertEqual("save understand " + result["candidate_id"], result["confirmation"])
+
+    def test_legacy_oversized_proposal_review_is_read_only_and_award_returns_compact_success(self):
+        session = self._start()
+        candidate = self._candidate(session)
+        record_path = self.manager._path("discoveries", candidate["candidate_id"])
+        legacy = json.loads(record_path.read_text())
+        legacy["proposal"]["impact"] = "legacy impact " * 5000 + "LEGACY-NOTE-END"
+        record_path.write_text(json.dumps(legacy))
+        before = record_path.read_bytes()
+        proposal_path = self.root / "legacy-proposal.json"
+        proposal_path.write_text(json.dumps(legacy["proposal"]))
+        code, output, errors = self._cli("propose", session, "--file", str(proposal_path))
+        self.assertEqual(1, code)
+        self.assertEqual("", output)
+        self.assertIn("bounded output limit", errors)
+        self.assertEqual(before, record_path.read_bytes())
+        self.assertEqual(0, self.store.status()["personal_items"])
+        self._user(legacy["confirmation"])
+        code, output, errors = self._cli("award", session, candidate["candidate_id"])
+        self.assertEqual(0, code, errors)
+        result = json.loads(output)
+        self.assertTrue(result["unlocked"])
+        self.assertNotIn("LEGACY-NOTE-END", output)
+        self.assertIn("LEGACY-NOTE-END", self.store.show(result["note_ref"])["item"]["body"])
+        code, output, errors = self._cli("award", session, candidate["candidate_id"])
+        self.assertEqual(0, code, errors)
+        self.assertTrue(json.loads(output)["duplicate"])
+        self.assertEqual(1, self.store.status()["personal_items"])
+
+    def test_oversized_start_and_bind_metadata_refuse_before_state_changes(self):
+        bundle = self.manager.show("core-purpose")
+        bundle["title"] = "😀" * MAX_OUTPUT_BYTES
+        with mock.patch.object(self.manager, "show", return_value=bundle):
+            code, output, errors = self._cli("start", "core-purpose")
+        self.assertEqual(1, code)
+        self.assertEqual("", output)
+        self.assertIn("no session was created", errors)
+        self.assertFalse(self.manager.root.exists())
+        session = self.manager.start("core-purpose", "codex")
+        record_path = self.manager._path("sessions", session["session_id"])
+        before = record_path.read_bytes()
+        cursor, turns = self.manager._transcript("codex")
+        cursor["extra_metadata"] = "x" * MAX_OUTPUT_BYTES
+        with mock.patch.object(self.manager, "_transcript", return_value=(cursor, turns)):
+            code, output, errors = self._cli("bind", session["session_id"], "--host", "codex")
+        self.assertEqual(1, code)
+        self.assertEqual("", output)
+        self.assertIn("binding was not saved", errors)
+        self.assertEqual(before, record_path.read_bytes())
+
+    def test_invalid_legacy_award_source_metadata_fails_before_note_or_award(self):
+        session = self._start()
+        candidate = self._candidate(session)
+        record_path = self.manager._path("discoveries", candidate["candidate_id"])
+        record = json.loads(record_path.read_text())
+        record["source_ref"] = "bad-source" * 6000
+        record_path.write_text(json.dumps(record))
+        self._user(record["confirmation"])
+        before = record_path.read_bytes()
+        code, output, errors = self._cli("award", session, candidate["candidate_id"])
+        self.assertEqual(1, code)
+        self.assertEqual("", output)
+        self.assertIn("does not match the pinned", errors)
+        self.assertEqual(before, record_path.read_bytes())
+        self.assertEqual(0, self.store.status()["personal_items"])
+        self.assertFalse(self.manager.status()["unlocked"])
 
     def test_stale_start_ref_refuses_before_generation_write(self):
         ref = self.manager.show("core-purpose")["source_ref"]
@@ -331,13 +584,29 @@ class UnderstandTests(unittest.TestCase):
         def run(*args):
             result = subprocess.run([*command, *args], env=env, text=True, capture_output=True)
             self.assertEqual(0, result.returncode, result.stderr)
+            self.assertLessEqual(len(result.stdout.encode("utf-8")), MAX_OUTPUT_BYTES)
             return json.loads(result.stdout)
         self.assertGreater(len(run("list")), 4)
         bundle = run("show", "core-purpose")
         self.assertEqual(6, bundle["item_count"])
         session = run("start", "core-purpose", "--expected-source-ref", bundle["source_ref"])
+        self.assertNotIn("items", session["bundle"])
         self.assertEqual(bundle, run("session", session["session_id"])["bundle"])
         self.assertFalse(run("status")["unlocked"])
+        huge = "한글😀single-line" * 25000
+        plan = store.plan({"operation": "create", "item": {"title": "Large learning guide", "body": huge,
+                           "kind": "guide", "surface": "requested", "domains": ["large-learning"]}})
+        created = store.apply(plan["plan_id"], plan["expected_revision"])
+        pinned = run("start", "@local/personal/large-learning", "--host", "claude")
+        self.assertGreater(len(huge.encode("utf-8")), 353 * 1024)
+        self.assertNotIn(huge[:100], pinned["entry_prompt"])
+        page = run("read", pinned["session_id"], "--ref", created["details"]["ref"], "--limit-bytes", "1024")
+        self.assertFalse(page["eof"])
+        self.assertGreater(page["next_offset"], 0)
+        self.assertEqual(huge.encode("utf-8")[:page["end_offset"]].decode("utf-8"), page["text"])
+        second = run("read", pinned["session_id"], "--ref", created["details"]["ref"],
+                     "--offset", str(page["next_offset"]), "--expected-sha256", page["resource_sha256"])
+        self.assertEqual(page["end_offset"], second["offset"])
         self.assertFalse((self.root / "isolated-home").exists())
 
     def test_symlinked_state_is_refused(self):

@@ -59,7 +59,9 @@ class SetupApp(App[dict[str, Any]]):
     Label { width: 100%; height: auto; margin-bottom: 1; }
     #corpus-mode { margin-bottom: 1; }
     #corpus-choices { height: 9; margin-bottom: 1; }
-    #corpus-help, #source-help, #dependency-help { color: $text-muted; }
+    #corpus-help, #source-help, #dependency-help, #retained-corpus-help, #app-bridge-help { color: $text-muted; }
+    #retained-corpus-choices { height: auto; max-height: 6; margin-bottom: 1; }
+    #app-bridge-help { height: auto; margin: 1 0; }
     #project-actions { height: 3; }
     #project-path { width: 1fr; }
     #add-project, #clear-projects { min-width: 12; width: auto; }
@@ -67,7 +69,7 @@ class SetupApp(App[dict[str, Any]]):
     #source-choices { height: 10; }
     #dependency-choices { height: 12; }
     #dependency-detail { height: auto; margin-top: 1; }
-    #corpus-selection, #source-selection, #dependency-selection, #source-detail, #inventory-reference { width: 100%; height: auto; }
+    #source-selection, #dependency-selection, #source-detail, #inventory-reference { width: 100%; height: auto; }
     #summary { height: auto; padding: 0 1; }
     #exact-json, #operation-log { height: 12; }
     Collapsible { height: auto; margin-top: 1; }
@@ -125,8 +127,11 @@ class SetupApp(App[dict[str, Any]]):
                         (self._t("Keep saved/default selection"), "keep"),
                     ], value="none", allow_blank=False, id="corpus-mode")
                     yield SelectionList(id="corpus-choices")
-                    yield Static(self._t("No specific corpus entries selected"), id="corpus-selection")
-                    yield Checkbox(self._t("Register $agent-bios in app: not selected"), id="app-bridge")
+                    with Vertical(id="retained-corpus-panel"):
+                        yield Label(self._t("Already on this device — kept unchanged. This does not turn on corpus use."), id="retained-corpus-help")
+                        yield SelectionList(id="retained-corpus-choices", disabled=True)
+                    yield Checkbox(self._t("Connect to the Codex app"), id="app-bridge")
+                    yield Static(self._t("Adds the $agent-bios command to Codex app conversations for setup and personal instruction management. Choose separately which tasks use the instructions."), id="app-bridge-help")
                 with Vertical(id="sources-panel", classes="stage"):
                     yield Label(self._t("Optional: capture existing instructions for later model review. Space toggles a source; originals stay unchanged."), id="source-help")
                     with Horizontal(id="project-actions"):
@@ -139,7 +144,7 @@ class SetupApp(App[dict[str, Any]]):
                     yield Static("", id="source-detail")
                     yield Static("", id="source-notes")
                 with Vertical(id="dependencies-panel", classes="stage"):
-                    yield Label(self._t("All dependencies are shown. Only missing capabilities with an installation recipe can be selected. Space toggles installation."), id="dependency-help")
+                    yield Label(self._t("Available dependencies are checked and locked. Choose only additional installations; missing items without an installer stay unchecked."), id="dependency-help")
                     yield SelectionList(id="dependency-choices")
                     yield Static(self._t("No dependency installation selected"), id="dependency-selection")
                     yield Static("", id="dependency-detail")
@@ -215,14 +220,24 @@ class SetupApp(App[dict[str, Any]]):
         mode_value = "keep" if mode is None else "all" if selected == ["all"] else "selected" if mode == "selected" else "none"
         self.query_one("#corpus-mode", Select).value = mode_value
         self.query_one("#app-bridge", Checkbox).value = bool(self.plan.get("app_bridge"))
+        retained = getattr(self.controller, "retained_corpus", [])
+        local = self.query_one("#retained-corpus-choices", SelectionList)
+        local.clear_options()
+        local.add_options([
+            Selection(Text(visible(self._t("{name} — {count} items retained", name=self._t(row["label"]), count=row["item_count"]))),
+                      row["target"], True, disabled=True)
+            for row in retained
+        ])
+        self.query_one("#retained-corpus-panel").display = bool(retained)
         dependencies = self.query_one("#dependency-choices", SelectionList)
         requested = set(self.plan.get("dependencies") or [])
         display = [i18n.dependency_display(self.language, row) for row in self.controller.dependencies]
         dependencies.clear_options()
         dependencies.add_options([
             Selection(Text(visible(f"{row['title']} — {row['status']} {row.get('version', '')}")), row["id"],
-                      row["id"] in requested and bool(row.get("install_argv")), disabled=not bool(row.get("install_argv")))
-            for row in display
+                      raw.get("status") == "available" or (row["id"] in requested and bool(row.get("install_argv"))),
+                      disabled=raw.get("status") == "available" or not bool(row.get("install_argv")))
+            for raw, row in zip(self.controller.dependencies, display)
         ])
         self.query_one("#inventory-reference", Static).update(Text(visible("\n\n".join(
             f"{row['title']} — {row['status']} {row.get('version', '')}\n{row['purpose']}"
@@ -237,8 +252,10 @@ class SetupApp(App[dict[str, Any]]):
         messages = {
             "language-help": "Choose your language to continue.",
             "corpus-help": "Choose what future activated launches may use. App tasks require their own explicit use.",
+            "retained-corpus-help": "Already on this device — kept unchanged. This does not turn on corpus use.",
+            "app-bridge-help": "Adds the $agent-bios command to Codex app conversations for setup and personal instruction management. Choose separately which tasks use the instructions.",
             "source-help": "Optional: capture existing instructions for later model review. Space toggles a source; originals stay unchanged.",
-            "dependency-help": "All dependencies are shown. Only missing capabilities with an installation recipe can be selected. Space toggles installation.",
+            "dependency-help": "Available dependencies are checked and locked. Choose only additional installations; missing items without an installer stay unchecked.",
             "key-help": "Esc / Ctrl+C: Cancel   Tab: Move   Space: Toggle",
         }
         for identifier, message in messages.items():
@@ -256,9 +273,8 @@ class SetupApp(App[dict[str, Any]]):
         for identifier, message in (("details", "Exact commands, paths and plan"), ("logs", "Operation output"),
                                     ("inventory-details", "Every dependency: purpose and location")):
             self.query_one("#" + identifier, Collapsible).title = self._t(message)
-        self.query_one("#app-bridge", Checkbox).label = self._t("Register $agent-bios in app: selected" if self.query_one("#app-bridge", Checkbox).value else "Register $agent-bios in app: not selected")
-        for identifier, message in (("corpus-selection", "No specific corpus entries selected"),
-                                    ("source-selection", "No sources selected"),
+        self.query_one("#app-bridge", Checkbox).label = self._t("Connect to the Codex app")
+        for identifier, message in (("source-selection", "No sources selected"),
                                     ("dependency-selection", "No dependency installation selected"),
                                     ("project-list", "Global instruction files only")):
             self.query_one("#" + identifier, Static).update(Text(self._t(message)))
@@ -311,7 +327,6 @@ class SetupApp(App[dict[str, Any]]):
         self.query_one("#cancel", Button).display = self.result is None
         self.query_one("#cancel", Button).label = self._t(LANGUAGE_CANCEL) if language_stage else self._t("Stop request") if self.applying else self._t("Cancel")
         self.query_one("#corpus-choices").display = self.query_one("#corpus-mode", Select).value == "selected"
-        self.query_one("#corpus-selection").display = self.query_one("#corpus-mode", Select).value == "selected"
         self.query_one("#logs").display = bool(self.operation_output) or self.applying
         self.query_one("#body", VerticalScroll).scroll_home(animate=False)
         if focus and not self.busy:
@@ -326,27 +341,26 @@ class SetupApp(App[dict[str, Any]]):
             self._show_step(focus=False)
         elif event.select.id == "corpus-mode":
             self.query_one("#corpus-choices").display = event.value == "selected"
-            self.query_one("#corpus-selection").display = event.value == "selected"
 
-    def on_checkbox_changed(self, event: Checkbox.Changed) -> None:
-        if event.checkbox.id == "app-bridge":
-            event.checkbox.label = self._t("Register $agent-bios in app: selected" if event.value else "Register $agent-bios in app: not selected")
+    def _requested_dependencies(self) -> list[str]:
+        selectable = {row["id"] for row in self.controller.dependencies
+                      if row.get("install_argv") and row.get("status") != "available"}
+        return [value for value in self.query_one("#dependency-choices", SelectionList).selected
+                if value in selectable]
 
     def on_selection_list_selected_changed(self, event: SelectionList.SelectedChanged) -> None:
         if self.controller is None:
             return
         widget = event.selection_list
         if widget.id == "corpus-choices":
-            labels = {row["target"]: i18n.choice_label(self.language, row) for row in self.controller.choices}
-            labels["all"] = self._t("All available corpus")
-            message = self._t("Selected corpus: {selection}", selection=", ".join(labels.get(value, value) for value in widget.selected)) if widget.selected else self._t("No specific corpus entries selected")
-            identifier = "#corpus-selection"
+            return
         elif widget.id == "source-choices":
             message = self._t("Selected files:\n{paths}", paths="\n".join(widget.selected)) if widget.selected else self._t("No sources selected")
             identifier = "#source-selection"
         elif widget.id == "dependency-choices":
             labels = {row["id"]: i18n.dependency_display(self.language, row)["title"] for row in self.controller.dependencies}
-            message = self._t("Install: {dependencies}", dependencies=", ".join(labels.get(value, value) for value in widget.selected)) if widget.selected else self._t("No dependency installation selected")
+            requested = self._requested_dependencies()
+            message = self._t("Install: {dependencies}", dependencies=", ".join(labels.get(value, value) for value in requested)) if requested else self._t("No dependency installation selected")
             identifier = "#dependency-selection"
         else:
             return
@@ -380,7 +394,7 @@ class SetupApp(App[dict[str, Any]]):
         elif self.step == 1:
             self.plan["import_paths"] = list(self.query_one("#source-choices", SelectionList).selected)
         elif self.step == 2:
-            self.plan["dependencies"] = list(self.query_one("#dependency-choices", SelectionList).selected)
+            self.plan["dependencies"] = self._requested_dependencies()
 
     def _discover(self) -> None:
         self.discovery_serial += 1

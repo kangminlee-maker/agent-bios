@@ -194,7 +194,7 @@ class DisplayOwnershipTests(unittest.TestCase):
             rows = catalog_choices(CorpusInstaller(ROOT, {"HOME": home}))
             self.assertGreater(len(rows), 1)
             before = copy.deepcopy(rows)
-            self.assertTrue(any(row["target"] == "@local/personal/personal" for row in rows))
+            self.assertFalse(any(row["target"].startswith("@local/") for row in rows))
             for row in rows:
                 for language in ("ko", "ja"):
                     with self.subTest(target=row["target"], language=language):

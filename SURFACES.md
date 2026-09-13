@@ -67,8 +67,15 @@ context route supply snapshots and report their distinct delivery evidence.
 
 `understand!` uses a selected corpus bundle as learning data, not as a new instruction
 or capability surface. `compose/corpus_understand.py` pins the effective source bytes;
-the launcher passes its learning prompt into an ordinary scoped interactive session.
-The requested `understand` skill owns tutoring and semantic discovery review. Native
+the launcher passes a compact learning prompt into an ordinary scoped interactive
+session. CLI show, start and session responses expose metadata and compact entry
+guidance. `understand read` pages a manifest or one requested pinned body/member;
+native turns use the same bounded-output paging contract. Byte offsets, resource
+digests and an explicit end marker distinguish partial reads from completed reads.
+The requested `understand` skill plans finite core coverage, uses supporting guides
+as references, and can explain or summarize without another question. It owns tutoring
+and semantic discovery review; its question budget is a tutoring instruction, not a
+runtime claim that the model complied. Native
 transcript evidence, user confirmation, and a successful personal-note save precede
 the persistent trophy; the trophy is UI state, never model authority. Learning neither
 installs global instructions nor enables native corpus hooks or agents.
@@ -99,6 +106,15 @@ installs global instructions nor enables native corpus hooks or agents.
   `SetupController` in `compose/corpus_setup.py` owns the reviewed setup plan and
   `compose/corpus_setup_ui.py` renders it; neither classifies imported content or
   activates a model session.
+  `compose/corpus_install.py` `setup_local_corpus` reports stored, nonremoved personal
+  and host-learning item counts separately from source-catalog choices. Setup inspect
+  exposes these as `retained_corpus` and localized display rows; the UI shows a checked,
+  read-only list rather than adding targets or activating content. The read refuses
+  malformed, symlinked or pending private state without recovery writes. Available
+  dependencies are likewise checked readiness observations; only selected missing
+  dependencies with current recipes enter requested install actions. The independent
+  **Connect to the Codex app** choice registers the explicit management entrypoint,
+  while task corpus use requires a separate request.
   `compose/corpus_setup_i18n.py` supplies English/Korean/Japanese presentation.
   The terminal UI's explicit language chooser precedes dependency probes; locale
   variables suggest its initial value without selecting it. Returning to that chooser

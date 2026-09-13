@@ -553,15 +553,21 @@ class CorpusInstaller:
         return module.ShellIntegration(self.env, self.repo)
 
     def setup_catalog(self) -> dict[str, Any]:
-        catalog = self._catalog(self.repo)
-        catalog = json.loads(json.dumps(catalog))
-        present = {package["package_id"] for package in catalog["packages"]}
+        return self._catalog(self.repo)
+
+    def setup_local_corpus(self) -> list[dict[str, Any]]:
+        """Describe existing private content independently of installation choices."""
+        try:
+            counts = self._store(self.repo).local_item_counts()
+        except (OSError, RuntimeError, ValueError) as exc:
+            raise InstallError(str(exc)) from exc
+        rows = []
         for package_id, label in (("@local/personal", "Personal corpus"),
                                   ("@local/learnings-claude", "Claude learning records"),
                                   ("@local/learnings-codex", "Codex learning records")):
-            if package_id not in present:
-                catalog["packages"].append({"package_id": package_id, "domains": {"personal": label}})
-        return catalog
+            if counts.get(package_id):
+                rows.append({"target": package_id, "label": label, "item_count": counts[package_id]})
+        return rows
 
     def setup_discover(self, project_roots=None) -> dict[str, Any]:
         try:

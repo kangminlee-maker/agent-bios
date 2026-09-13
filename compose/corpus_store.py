@@ -21,9 +21,9 @@ import uuid
 from typing import Any, Iterator
 
 try:
-    from corpus_transaction import transaction_lock, guard_pending, pending_operations, operation_scope_active
+    from corpus_transaction import transaction_lock, guard_pending, pending_operations, operation_scope_active, reject_symlink_ancestors
 except ImportError:
-    from .corpus_transaction import transaction_lock, guard_pending, pending_operations, operation_scope_active
+    from .corpus_transaction import transaction_lock, guard_pending, pending_operations, operation_scope_active, reject_symlink_ancestors
 
 SCHEMA_VERSION = 1
 LOCAL_PACKAGE = "@local/personal"
@@ -482,6 +482,11 @@ class CorpusStore:
         for raw in source:
             item = self._validate_item(raw, allow_origin=True)
             items[item["ref"]] = item
+        items = self._overlay_user_items(items, user, host, include_suppressed)
+        return [self._normalize_content(item, allow_legacy=True) for item in items.values()], inventory, defaults, baseline_ref
+
+    def _overlay_user_items(self, items: dict[str, dict[str, Any]], user: dict[str, Any],
+                            host: str | None = None, include_suppressed: bool = False) -> dict[str, dict[str, Any]]:
         for ref, raw in user["items"].items():
             item = self._validate_item(raw, allow_origin=True)
             if item["ref"] != ref or item["package_id"] != LOCAL_PACKAGE:
@@ -516,7 +521,7 @@ class CorpusStore:
                 items[ref]["active"] = False
             else:
                 items.pop(ref, None)
-        return [self._normalize_content(item, allow_legacy=True) for item in items.values()], inventory, defaults, baseline_ref
+        return items
 
     def _resolve_promotions(
         self, selected: list[dict[str, Any]], user: dict[str, Any], host: str, baseline_ref: str
@@ -823,6 +828,44 @@ class CorpusStore:
         return result
 
     # ---- public read API ----------------------------------------------------
+
+    def local_item_counts(self) -> dict[str, int]:
+        """Count retained local content without changing state or session selection."""
+        reject_symlink_ancestors(self.state_root)
+        reject_symlink_ancestors(self.user_root)
+        for directory in (self.state_root, self.runtime, self.user_root):
+            if directory.exists() and not directory.is_dir():
+                raise CorpusStoreError(f"retained local corpus root is not a directory: {directory}")
+        sources = [self._user_state_path, *(self.user_root / "learnings" / host / "events.jsonl"
+                                           for host in ("claude", "codex"))]
+        for path in sources:
+            reject_symlink_ancestors(path)
+            for parent in path.parents:
+                if parent == self.user_root.parent:
+                    break
+                if parent.exists() and not parent.is_dir():
+                    raise CorpusStoreError(f"retained local corpus directory is not a directory: {parent}")
+            if path.exists() and not path.is_file():
+                raise CorpusStoreError(f"retained local corpus source is not a file: {path}")
+        if pending_operations(self.state_root):
+            raise CorpusStoreError("retained local corpus has a pending transaction; finish recovery before inspection")
+        try:
+            user = self._user_state()
+            for host in ("claude", "codex"):
+                suppressed = user["learning_suppressions"].get(host, [])
+                if not isinstance(suppressed, list) or not all(isinstance(value, str) for value in suppressed):
+                    raise CorpusStoreError(f"personal state has invalid learning suppressions for {host}")
+            items: dict[str, dict[str, Any]] = {}
+            for host in ("claude", "codex"):
+                items.update(self._overlay_user_items({}, user, host))
+            counts: dict[str, int] = {}
+            for item in items.values():
+                if item.get("active", True) is not False:
+                    package = item["package_id"]
+                    counts[package] = counts.get(package, 0) + 1
+            return counts
+        except (AttributeError, KeyError, TypeError, ValueError) as exc:
+            raise CorpusStoreError("invalid retained local corpus state") from exc
 
     def install(self, domains: list[str] | None = None, *, selection_mode: str | None = None,
                 replace_selection: bool = False) -> dict[str, Any]:

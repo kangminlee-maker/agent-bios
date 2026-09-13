@@ -8,6 +8,7 @@ from pathlib import Path
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 
 import corpus_catalog
 from corpus_install import CorpusInstaller, InstallError
@@ -287,13 +288,133 @@ class InstallerChoiceTests(unittest.TestCase):
         self.installer.install()
         self.assertEqual([ref], self.store().snapshot("codex")["item_refs"])
 
-    def test_wizard_catalog_can_select_personal_corpus_before_first_import(self):
+    def test_empty_local_namespaces_are_hidden_but_explicit_selection_remains_supported(self):
         from corpus_setup import catalog_choices
         choices = catalog_choices(self.installer)
-        self.assertIn("@local/personal", [choice["target"] for choice in choices])
+        self.assertFalse(any(choice["target"].startswith("@local/") for choice in choices))
+        self.assertEqual([], self.installer.setup_local_corpus())
+        self.assertFalse(self.state.exists())
+        self.assertFalse(self.user.exists())
+        self.assertFalse(self.home.exists())
         self.installer.install(selection_mode="selected", targets=["@local/personal"])
         ref = self.apply({"operation": "create", "item": {"title": "Personal-only", "body": "Personal-only corpus body", "surface": "always"}})["details"]["ref"]
+        self.assertEqual([{"target": "@local/personal", "label": "Personal corpus", "item_count": 1}],
+                         self.installer.setup_local_corpus())
         self.assertEqual([ref], self.store().snapshot("codex")["item_refs"])
+
+    def _retained_snapshot(self):
+        return {str(path.relative_to(self.root)): (path.read_bytes(), path.stat().st_mode)
+                for root in (self.state, self.user, self.home) if root.exists()
+                for path in root.rglob("*") if path.is_file() and not path.is_symlink()}
+
+    def test_retained_counts_are_storage_only_and_read_without_lock_or_recovery(self):
+        self.installer.install(selection_mode="none", targets=[])
+        item = {"title": "Project content", "body": "PRIVATE_RETAINED_BODY", "surface": "always"}
+        ref = self.apply({"operation": "create", "item": item})["details"]["ref"]
+        store = self.store()
+        user = json.loads(store._user_state_path.read_text())
+        user["items"][ref]["origin"] = {"type": "instruction_import", "hosts": ["claude"],
+                                       "scope": {"kind": "project", "root": str(self.root.resolve() / "other-project")}}
+        store._user_state_path.write_text(json.dumps(user))
+        self.apply({"operation": "enable", "items": {ref: False}})
+        store.capture_learning("claude", {"schema_version": 1, "learning_id": "11111111-1111-4111-8111-111111111111",
+                                          "lesson": "PRIVATE_RETAINED_LEARNING", "domain": "unclassified",
+                                          "created": "2026-09-13T00:00:00Z", "supporting_sessions": ["claude:abcd1234"]})
+        native = self.home / ".codex/AGENTS.md"
+        native.parent.mkdir(parents=True, exist_ok=True)
+        native.write_text("NATIVE_SOURCE_MUST_REMAIN_PRIVATE\n")
+        before = self._retained_snapshot()
+        original_open = Path.open
+        def private_only(path, *args, **kwargs):
+            if path == native:
+                raise AssertionError("retained inventory read native global instructions")
+            return original_open(path, *args, **kwargs)
+        with mock.patch.object(self.installer, "_store", return_value=store), \
+                mock.patch.object(store, "_lock", side_effect=AssertionError("read acquired a writing lock")), \
+                mock.patch.object(store, "_recover_locked", side_effect=AssertionError("read recovered state")), \
+                mock.patch.object(Path, "open", private_only):
+            rows = self.installer.setup_local_corpus()
+        self.assertEqual([{"target": "@local/personal", "label": "Personal corpus", "item_count": 1},
+                          {"target": "@local/learnings-claude", "label": "Claude learning records", "item_count": 1}], rows)
+        self.assertNotIn("PRIVATE_RETAINED", json.dumps(rows))
+        self.assertEqual(before, self._retained_snapshot())
+        self.assertEqual([], store.snapshot("claude")["item_refs"])
+        self.assertNotIn(ref, store.snapshot("codex", selection=["all"], selection_mode="selected")["item_refs"])
+        self.assertNotIn(ref, store.snapshot("claude", selection=["all"], selection_mode="selected")["item_refs"])
+
+    def test_retained_inventory_excludes_removed_suppressed_and_inactive_items(self):
+        self.installer.install(selection_mode="none", targets=[])
+        removed = self.apply({"operation": "create", "item": {"title": "Removed", "body": "Removed body"}})["details"]["ref"]
+        self.apply({"operation": "remove", "ref": removed})
+        self.apply({"operation": "create", "item": {"title": "Inactive", "body": "Inactive body", "active": False}})
+        store = self.store()
+        for index, host in enumerate(("claude", "codex"), 1):
+            store.capture_learning(host, {"schema_version": 1, "learning_id": f"{index:08d}-1111-4111-8111-111111111111",
+                                          "lesson": "Stored learning " + host, "domain": "unclassified",
+                                          "created": "2026-09-13T00:00:00Z", "supporting_sessions": [host + ":abcd1234"]})
+        event = store._learning_events("claude")[0]
+        from corpus_store import _digest
+        user = json.loads(store._user_state_path.read_text())
+        user["learning_suppressions"]["claude"] = [_digest(event)]
+        store._user_state_path.write_text(json.dumps(user))
+        self.assertEqual([{"target": "@local/learnings-codex", "label": "Codex learning records", "item_count": 1}],
+                         self.installer.setup_local_corpus())
+
+    def test_retained_personal_content_survives_uninstalled_runtime_inventory(self):
+        self.installer.install(selection_mode="none", targets=[])
+        self.apply({"operation": "create", "item": {"title": "Retained", "body": "Retained after uninstall"}})
+        self.installer.uninstall()
+        before = self._retained_snapshot()
+        self.assertEqual([{"target": "@local/personal", "label": "Personal corpus", "item_count": 1}],
+                         self.installer.setup_local_corpus())
+        self.assertEqual(before, self._retained_snapshot())
+
+    def test_retained_inventory_refuses_malformed_private_state_without_writes(self):
+        self.user.mkdir()
+        target = self.user / "state.json"
+        for value in ("not json", "[]", '{"schema_version": 1, "items": []}'):
+            with self.subTest(value=value):
+                target.write_text(value)
+                with self.assertRaises(InstallError):
+                    self.installer.setup_local_corpus()
+                self.assertEqual(value, target.read_text())
+                self.assertFalse(self.state.exists())
+        target.unlink()
+        target.mkdir()
+        with self.assertRaisesRegex(InstallError, "not a file"):
+            self.installer.setup_local_corpus()
+        self.assertFalse(self.state.exists())
+        target.rmdir()
+        learning = self.user / "learnings/codex/events.jsonl"
+        learning.parent.mkdir(parents=True)
+        for value in ("not json", "{}"):
+            learning.write_text(value)
+            with self.assertRaises(InstallError):
+                self.installer.setup_local_corpus()
+            self.assertEqual(value, learning.read_text())
+            self.assertFalse(self.state.exists())
+
+    def test_retained_inventory_refuses_symlinks_and_pending_state_without_recovery(self):
+        external = self.root / "external"
+        external.mkdir()
+        self.user.symlink_to(external, target_is_directory=True)
+        with self.assertRaisesRegex(InstallError, "symlink"):
+            self.installer.setup_local_corpus()
+        self.user.unlink()
+        self.user.mkdir()
+        (self.user / "learnings").symlink_to(external, target_is_directory=True)
+        with self.assertRaisesRegex(InstallError, "symlink"):
+            self.installer.setup_local_corpus()
+        self.assertEqual([], list(external.iterdir()))
+        (self.user / "learnings").unlink()
+        journal = self.state / "runtime/transactions/fixture/journal.json"
+        journal.parent.mkdir(parents=True)
+        journal.write_text(json.dumps({"state": "PREPARED", "owner": "store"}))
+        before = self._retained_snapshot()
+        with self.assertRaisesRegex(InstallError, "pending transaction"):
+            self.installer.setup_local_corpus()
+        self.assertEqual(before, self._retained_snapshot())
+        self.assertFalse((self.state / ".corpus-store.lock").exists())
 
     def test_exact_learning_target_is_valid_but_only_delivered_to_its_host(self):
         self.installer.install(selection_mode="none", targets=[])

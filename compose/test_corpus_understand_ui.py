@@ -116,6 +116,11 @@ class UnderstandLaunchTests(Fixture, unittest.TestCase):
             self.assertNotIn("--dangerously-skip-permissions", argv)
             self.assertNotIn("--dangerously-bypass-approvals-and-sandbox", argv)
             self.assertIn("understand", plan["mission"].lower())
+            for text in (plan["mission"], self.launch.understand_initial_prompt("<prompt>")):
+                self.assertIn("10", text)
+                self.assertIn("followups", text)
+                self.assertIn("without a compulsory question", text)
+                self.assertNotIn("End each active learning turn", text)
 
     def test_dry_run_does_not_create_a_learning_session(self):
         for host in ("claude", "codex"):

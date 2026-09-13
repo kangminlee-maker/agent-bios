@@ -161,6 +161,16 @@ class ReceiptTests(unittest.TestCase):
         self.assertEqual(hashlib.sha256(self.installer.instructions.read_bytes()).hexdigest(), reviewed["preview"]["source_versions"][0]["sha256"])
         self.no_setup_writes()
 
+    def test_inspection_keeps_retained_local_inventory_separate_from_choices_and_plan(self):
+        rows = [{"target": "@local/personal", "label": "Personal corpus", "item_count": 2}]
+        self.installer.setup_local_corpus = lambda: copy.deepcopy(rows)
+        result = self.service.inspect("ko")
+        self.assertEqual(rows, result["retained_corpus"])
+        self.assertNotEqual(rows[0]["label"], result["display"]["retained_corpus"][0]["label"])
+        self.assertEqual([], result["default_plan"]["targets"])
+        self.assertFalse(any(row["target"].startswith("@local/") for row in result["choices"]))
+        self.no_setup_writes()
+
     def test_yes_identity_and_client_commands_are_checked_before_writes(self):
         review = self.plan(dependencies=["first"])
         with self.assertRaises(SetupError):

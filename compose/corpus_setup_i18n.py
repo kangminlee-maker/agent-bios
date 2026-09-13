@@ -51,17 +51,25 @@ MESSAGES: dict[str, tuple[str, str]] = {
     "Every dependency: purpose and location": ("전체 의존성: 용도와 위치", "すべての依存関係：用途と場所"),
     "Exact commands, paths and plan": ("실행 명령·경로·계획 원문", "実行コマンド・パス・計画の原文"),
     "Operation output": ("실행 출력", "実行出力"),
-    "Read-only checks; no installation changes yet.": ("읽기만 하며 확인 중입니다. 아직 설치한 내용은 없습니다.", "読み取りのみで確認しています。まだインストールによる変更はありません。"),
-    "No installation changes yet. Choose only what you want to use.": ("아직 설치한 내용은 없습니다. 사용할 항목만 선택하세요.", "まだインストールによる変更はありません。使用する項目だけを選んでください。"),
+    "Read-only checks; no installation changes yet.": ("읽기만 하며 확인 중입니다. 아직 변경 사항을 적용하지 않았습니다.", "読み取りのみで確認しています。まだインストールによる変更はありません。"),
+    "No installation changes yet. Choose only what you want to use.": ("아직 변경 사항을 적용하지 않았습니다. 사용할 항목만 선택하세요.", "まだインストールによる変更はありません。使用する項目だけを選んでください。"),
     "Choose what future activated launches may use. App tasks require their own explicit use.": (
         "앞으로 활성화하는 세션에서 사용할 코퍼스를 선택하세요. 앱의 각 작업에서는 별도로 사용을 요청해야 합니다.",
         "今後有効にするセッションで使用するコーパスを選んでください。アプリ内の各タスクでは別途、使用を明示する必要があります。"),
     "Optional: capture existing instructions for later model review. Space toggles a source; originals stay unchanged.": (
         "선택 사항: 기존 지침을 복사해 나중에 모델이 검토하도록 준비합니다. Space로 원본을 선택하며 원본 파일은 바꾸지 않습니다.",
         "任意：既存の指示をコピーし、後でモデルが確認できるように準備します。Spaceでソースを選択します。元のファイルは変更しません。"),
-    "All dependencies are shown. Only missing capabilities with an installation recipe can be selected. Space toggles installation.": (
-        "모든 의존성을 표시합니다. 설치 방법이 준비된 미충족 항목만 선택할 수 있습니다. Space로 설치 여부를 바꾸세요.",
-        "すべての依存関係を表示しています。インストール手順がある未充足の項目だけ選択できます。Spaceでインストールの選択を切り替えます。"),
+    "Available dependencies are checked and locked. Choose only additional installations; missing items without an installer stay unchecked.": (
+        "이미 사용 가능한 항목은 체크된 고정 상태입니다. 추가로 설치할 항목만 선택하세요. 설치 방법이 없는 미충족 항목은 체크하지 않습니다.",
+        "利用可能な項目はチェック済みで固定されています。追加でインストールする項目だけ選んでください。インストール手順がない未充足の項目は未選択です。"),
+    "Already on this device — kept unchanged. This does not turn on corpus use.": (
+        "이 기기에 보관 중인 개인 자료 — 그대로 보존합니다. 보관된 자료가 자동으로 사용되지는 않습니다.",
+        "この端末に保存済みの個人データ — そのまま保持します。この表示でコーパスの使用が有効になることはありません。"),
+    "{name} — {count} items retained": ("{name} — {count}개 항목 보관 중", "{name} — {count}件を保存済み"),
+    "Connect to the Codex app": ("Codex 앱 연결", "Codexアプリと連携"),
+    "Adds the $agent-bios command to Codex app conversations for setup and personal instruction management. Choose separately which tasks use the instructions.": (
+        "$agent-bios는 Codex 앱 대화에서 설정과 개인 지침을 관리하는 명령입니다. 지침을 사용할 작업은 따로 선택합니다.",
+        "$agent-biosはCodexアプリの会話で設定や個人の指示を管理するコマンドです。指示を使用するタスクは別途選びます。"),
     "All content in {package}": ("{package}의 모든 내용", "{package} のすべての内容"),
     "{description} ({target})": ("{description} ({target})", "{description} ({target})"),
     "{package} (included)": ("{package} (포함됨)", "{package}（同梱）"),
@@ -195,8 +203,6 @@ MESSAGES: dict[str, tuple[str, str]] = {
     "This setup does not add corpus to the current app task.": ("이 설정은 현재 앱 작업에 코퍼스를 추가하지 않습니다.", "このセットアップでは、現在のアプリタスクにコーパスを追加しません。"),
     "Library files remain stored privately when active corpus is off.": ("코퍼스를 사용하지 않아도 라이브러리 파일은 개인 저장소에 남아 있습니다.", "コーパスを使用しない場合も、ライブラリファイルは専用の保存場所に保持されます。"),
     "Captured instructions need a separate semantic review before import.": ("캡처한 지침은 가져오기 전에 내용을 별도로 검토해야 합니다.", "キャプチャした指示は、取り込む前に内容を別途確認する必要があります。"),
-    "Register $agent-bios in app: not selected": ("앱에 $agent-bios 등록: 선택 안 함", "アプリに$agent-biosを登録：未選択"),
-    "Register $agent-bios in app: selected": ("앱에 $agent-bios 등록: 선택함", "アプリに$agent-biosを登録：選択済み"),
     "Setup could not be prepared.\n\n{error}": ("설정을 준비하지 못했습니다.\n\n{error}", "セットアップを準備できませんでした。\n\n{error}"),
     "No setup plan was applied. Close to see the diagnostic.": ("설치 계획은 적용하지 않았습니다. 닫으면 진단 결과를 확인할 수 있습니다.", "セットアップ計画は適用していません。閉じると診断情報を確認できます。"),
     "{step} of 4 — {stage}": ("4단계 중 {step} — {stage}", "4段階中 {step} — {stage}"),

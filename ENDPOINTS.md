@@ -163,9 +163,15 @@ uses host tools; it is not an automatic installer request or a corpus transport.
 The URL exception is limited to each exact request line and its declared repository.
 
 `compose/corpus_setup.py` probes local commands and previews fixed dependency
-installation argv. Only selected dependency actions run after Apply; no package
+installation argv. Already available dependencies are readiness observations and
+are excluded from requested installation actions. Only selected missing-dependency
+actions run after Apply; no package
 manager is a source for an ingest URL or token. `--corpus none`, selected packages,
 app registration, and instruction capture are separate setup choices.
+
+The separate retained-corpus inventory reports only package identities, labels and
+stored item counts. It reads local state without recovery writes or upload and returns
+no instruction bodies. Storage does not indicate that the content is selected or active.
 
 `agent-bios setup start|inspect|discover|plan|apply|status|resume` exposes the same
 controller through local JSON commands in `compose/corpus_setup_cli.py`. It requires
@@ -187,6 +193,13 @@ These checks stay local. Resume follows recorded continuations and returns a
 nested review when the remaining work can be reviewed safely.
 Neither the protocol nor the app helper's `setup` forwarding fills a transport slot,
 enables hooks, registers a server or activates corpus context.
+
+Understanding reads use local `understand read` and `turns` commands. They return
+bounded pages of pinned material or the selected native session's turns, with byte
+offsets and resource digests; startup responses contain compact guidance and metadata.
+Supplying a requested page to the tutor uses the host's ordinary model context, not
+an ingest operation. Paging adds no endpoint, transport configuration or background
+upload.
 
 `install` and `onboard` use interactive setup unless `--non-interactive` is explicit;
 non-TTY callers without it fail before writes. The package UI's Textual wheels are
