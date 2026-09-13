@@ -7,7 +7,7 @@ the closest existing rule — and splits <out>/digests.json into per-provider
 batch files of at most --batch-size digests. <out>/batch_index.json records the
 absolute paths; the screening workflows take that index as their `args`.
 
-The baseline is the repo's canonical corpus, not the deployed copy: promotion
+The baseline is the repo's canonical instructions, not the deployed copy: promotion
 targets the repo, so novelty is judged against what will ship.
 
 Usage: batch.py [--out DIR] [--batch-size N]

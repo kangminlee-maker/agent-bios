@@ -1,8 +1,8 @@
 # Installation, migration, and recovery
 
-[← Overview](../README.md) · [Setup](setup.md) · [Corpus](corpus.md) · [Sessions](session-model.md) · [Recovery](recovery.md) · [Launch](advanced-launch.md) · [Understand!](understand.md)
+[← Overview](../README.md) · [Setup](setup.md) · [Instructions](instructions.md) · [Sessions](session-model.md) · [Recovery](recovery.md) · [Launch](advanced-launch.md) · [Understand!](understand.md)
 
-Start with `agent-bios status`. Commands use the installed `agent-bios@0.19.1` CLI;
+Start with `agent-bios status`. Commands use the installed `agent-bios@0.19.0` CLI;
 from a source checkout use `bash install.sh <command>`. For first installation and app
 setup recovery, see [Setup](setup.md). Commands below are **operation references, not a sequence to paste and run**. Preview the specific action you need; do not delete an ownership conflict just to make installation succeed.
 
@@ -14,18 +14,18 @@ an immutable release and baseline under agent-bios-owned state. It installs the
 `agent-launch` entrypoint and its own profile/catalog files, but does not change native
 Claude/Codex globals, settings or hooks. Optional app registration adds only its
 owned discovery link, and optional shell connection changes only its owned startup
-wiring. Neither activates corpus in a task.
+wiring. Neither activates instructions in a task.
 
 | Command | Purpose |
 | --- | --- |
-| `npm install -g agent-bios@0.19.1` | install the CLI package; private setup is a separate explicit command |
+| `npm install -g agent-bios@0.19.0` | install the CLI package; private setup is a separate explicit command |
 | `agent-bios install` | open the guided installation UI |
-| `agent-bios install --non-interactive --corpus none` | store runtime with no active corpus |
+| `agent-bios install --non-interactive --instructions none` | store runtime with no active instructions |
 | `agent-bios onboard --non-interactive --domains builder-base,multi-agent-orchestration` | store the named domains with compatibility core/infra selection |
 | `agent-bios setup status --review-id ID` / `resume --review-id ID` | inspect the setup receipt / prepare a safe continuation without executing it |
 | `agent-bios verify` | verify stored bytes/catalog/baseline; not host activation |
 | `agent-bios status` | show the private release, baseline, conflicts, and evidence state |
-| `agent-bios corpus` | rich Corpus Studio in a TTY; list in a non-TTY |
+| `agent-bios instructions` | rich Instructions Studio in a TTY; list in a non-TTY |
 | `agent-launch claude` | open the launch TUI for Claude |
 | `agent-launch codex` | open the launch TUI for Codex |
 | `agent-bios shell restore` | opt in: bare claude/codex opens the TUI |
@@ -34,9 +34,9 @@ wiring. Neither activates corpus in a task.
 | `agent-bios reset --apply --yes --expected-revision REV` | use the revision returned by preview |
 | `agent-bios migrate` | preview legacy global cleanup; --apply --yes performs it |
 | `agent-bios update` | git pull + reinstall (clone), or print the npm update line |
-| `agent-bios uninstall` | remove owned runtime entries; retain user corpus and pinned sessions |
+| `agent-bios uninstall` | remove owned runtime entries; retain user instructions and pinned sessions |
 
-`agent-launch` examples assume `~/.local/bin` is on `PATH`; otherwise use `"$HOME/.local/bin/agent-launch"`. From a checkout, deploy with `bash install.sh install` at its root, not the globally installed CLI. A blocked npm postinstall message does not deploy the corpus; the explicit `install` command remains necessary.
+`agent-launch` examples assume `~/.local/bin` is on `PATH`; otherwise use `"$HOME/.local/bin/agent-launch"`. From a checkout, deploy with `bash install.sh install` at its root, not the globally installed CLI. A blocked npm postinstall message does not deploy the instructions; the explicit `install` command remains necessary.
 
 ## Ownership and legacy migration
 
@@ -185,7 +185,7 @@ agent-bios migrate --apply --yes
 
 Installation and rollback validate the target baseline and personal field/member
 changes together. Conflicts preserve the current selection rather than dropping
-items from a successful snapshot. Installation publishes a complete corpus/config
+items from a successful snapshot. Installation publishes a complete instructions/config
 association under the same lock used by readers. Pending publication is disclosed
 by status and prevents a new configured launch from reading mixed state; bare and
 pinned replay can use the last confirmed immutable release.
@@ -198,4 +198,4 @@ an interrupted reset, or review and accept a fresh revision to replace a stale
 reset intent. Later user changes and replacement credentials are not overwritten
 by the old intent. Nonsecret settings are archived; token bytes never are.
 
-Reset also clears individual on/off overrides and the active trophy display generation. It is not a deletion of uploaded learning records. See [corpus controls](corpus.md) and [learning discoveries](understand.md).
+Reset also clears individual on/off overrides and the active trophy display generation. It is not a deletion of uploaded learning records. See [instructions controls](instructions.md) and [learning discoveries](understand.md).

@@ -5,19 +5,42 @@
 지침을 직접 읽고 고치며, CLI 세션과 Codex 앱 작업마다 무엇을 사용할지 선택합니다.
 기존 전역 지침 파일은 보존합니다.
 
-[빠른 시작](#빠른-시작) · [Corpus Studio](#내-지침-라이브러리) · [작동 방식](#세션은-어떻게-작동하나) · [Understand!](#규칙의-이유-이해하기) · [문서](#문서) · [English](../README.md)
+[0.19.2 변경 내역](../docs/releases/0.19.2.md)
 
-![가이드 연결과 미적용 켜기·끄기 선택을 보여주는 Corpus Studio](../docs/assets/corpus-studio.svg)
+## 목적
 
-*0.18.0의 실제 Studio 화면입니다. Textual을 켜고 기본 corpus만 사용한
-격리된 테스트 환경에서 캡처했습니다.*
+agent-bios는 Instructions(작업 지침), Domain knowledge(도메인 지식),
+Decision memory(의사결정 기억)를 선택하고 조합해, 여러 작업자가 팀·직무·산업에
+맞는 업무환경을 공유하고 이어받아 일할 수 있게 하는 것을 목표로 합니다.
+
+업무환경을 선택·채택·공유하는 기본 단위는 **팀(Team)**입니다.
+팀은 회사나 조직에 속할 수 있으며, 회사 소속이 없어도 팀의 업무환경을 구성할 수 있습니다.
+
+작업자·모델·세션·기기가 바뀌어도 공통된 기준과 결정의 맥락을 유지하면서,
+개인·팀·조직의 경계를 지키는 것이 목적입니다. 같은 환경을 공유한다는 것이
+같은 답을 내야 한다는 뜻은 아닙니다.
+
+현재 서비스는 Instructions 라이브러리와 호스트 실행·전달 기능을 제공합니다.
+공유 업무환경 버전, Domain knowledge, Decision memory는 설계 중인 확장 방향입니다.
+
+[빠른 시작](#빠른-시작) · [Instructions Studio](#내-지침-라이브러리) · [작동 방식](#세션은-어떻게-작동하나) · [Understand!](#규칙의-이유-이해하기) · [문서](#문서) · [English](../README.md)
+
+![가이드 연결과 미적용 켜기·끄기 선택을 보여주는 Studio](../docs/assets/instructions-studio.svg)
+
+*Textual을 켜고 기본 지침만 사용한 격리된 테스트 환경에서 캡처한 0.18.0의 실제
+화면입니다. 당시 이름인 Corpus Studio가 표시되어 있으며, 현재 이름은 Instructions Studio입니다.*
 
 영문이 배포 정본이며, 이 한글 문서는 참고용입니다. 설치되거나 모델에게 로드되지 않습니다.
 
 ## 내 작업에 맞는 지침 만들기
 
-agent-bios는 규칙·가이드·절차로 이루어진 기본 라이브러리, **corpus**를 제공합니다.
-어떤 내용을 자신의 작업환경에 사용할지는 사용자가 정합니다.
+agent-bios는 일하는 기준과 방법을 담은 규칙·가이드·절차, **Instructions(작업 지침)**을 제공합니다.
+어떤 내용을 자신의 업무환경에 사용할지는 사용자가 정합니다.
+현재 CLI에서는 `instructions` 명령을 사용하며, 라이브러리 UI의 이름은 **Instructions Studio**입니다.
+
+이 명칭은 현재 소스 버전의 기준입니다. 설치된 버전에서 `agent-bios instructions`를
+인식하지 못하면 `agent-bios corpus`를 사용하세요. 현재 소스 버전도 이 이전 명령을 지원합니다.
+[호환성 안내](../docs/instructions-compatibility.md)를 참고하세요.
 
 | 하고 싶은 일 | 제공하는 기능 |
 | --- | --- |
@@ -32,7 +55,7 @@ agent-bios는 규칙·가이드·절차로 이루어진 기본 라이브러리, 
 ## 빠른 시작
 
 터미널 설치 화면이나 Codex 앱 대화로 설정할 수 있습니다. 두 경로 모두 언어,
-의존성, corpus, 선택적인 앱 연결과 지침 가져오기를 지원합니다.
+의존성, 지침, 선택적인 앱 연결과 지침 가져오기를 지원합니다.
 [설정과 준비 사항](../docs/setup.md)을 참고하세요.
 
 ### 터미널에서
@@ -41,12 +64,12 @@ agent-bios는 규칙·가이드·절차로 이루어진 기본 라이브러리, 
 **Node.js 18 이상·npm**이 필요합니다. 다음 명령을 실행하세요.
 
 ```bash
-npm install -g agent-bios@0.19.1
+npm install -g agent-bios@0.19.0
 agent-bios install
 ```
 
 English·한국어·日本語를 지원하는 설치 화면이 열립니다. 검증된 Textual 런타임이
-내장되어 있어 UI를 따로 설치할 필요가 없습니다. 사용할 의존성과 corpus를 고르세요.
+내장되어 있어 UI를 따로 설치할 필요가 없습니다. 사용할 의존성과 지침을 고르세요.
 [전체 설정 안내 →](../docs/setup.md)
 
 CLI 세션을 실행하려면 해당 호스트 CLI를 설치·인증한 뒤, 작업할 프로젝트에서 실행합니다.
@@ -61,7 +84,7 @@ Codex CLI 세션은 마지막 인자를 `codex`로 바꾸면 됩니다.
 2. 모델·리뷰·권한을 확인합니다. **일부 프리셋은 권한 우회를 요청**하므로 프로젝트에 맞게 선택하세요.
 3. 세션을 시작합니다. 호스트 기본 설정으로 시작하려면 **Software Engineer / Vanilla**를 선택합니다.
 
-런처의 **Corpus Studio**나 `agent-bios corpus`로 라이브러리를 살펴볼 수 있습니다.
+런처의 **Instructions Studio**나 `agent-bios instructions`로 라이브러리를 살펴볼 수 있습니다.
 `agent-bios status`는 설치된 private 릴리즈와 위치를 보여줍니다.
 
 <details>
@@ -80,7 +103,7 @@ Bash와 Python 3.11 이상이 필요하며, 소스를 받는 데 Node/npm은 필
 
 </details>
 
-일반 `claude`·`codex` 명령에는 corpus가 자동 추가되지 않습니다.
+일반 `claude`·`codex` 명령에는 지침이 자동 추가되지 않습니다.
 선택적인 [zsh 셸 연결](../docs/advanced-launch.md#optional-shell-connection)을 켜면
 인자 없는 대화형 명령을 런처로 연결할 수 있습니다. 기존 전역 설치가 있다면
 [마이그레이션 안내](../docs/recovery.md#ownership-and-legacy-migration)를 먼저 확인하세요.
@@ -94,18 +117,18 @@ https://github.com/kangminlee-maker/agent-bios 설치해줘
 ```
 
 에이전트가 [INSTALL.md](../INSTALL.md)에 따라 소스의 특정 리비전을 준비하고,
-English·한국어·日本語 중 사용할 언어를 묻습니다. 설치할 의존성, corpus 사용 안 함
-또는 특정 corpus, 앱 연결, 기존 지침 파일 캡처를 선택하고 적용할 내용을 확인합니다.
+English·한국어·日本語 중 사용할 언어를 묻습니다. 설치할 의존성, 지침 사용 안 함
+또는 특정 지침, 앱 연결, 기존 지침 파일 캡처를 선택하고 적용할 내용을 확인합니다.
 로컬 경로를 직접 적거나 Codex CLI를 따로 설치할 필요는 없습니다.
 
 등록한 명령이 앱에 나타나면 `$agent-bios`로 설정과 라이브러리를 관리할 수 있습니다.
-현재 작업에 corpus를 넣으려면 사용할 corpus를 명시해서 요청하세요.
+현재 작업에 지침을 넣으려면 사용할 지침을 명시해서 요청하세요.
 설치하거나 Studio를 여는 것만으로는 작업에 지침이 추가되지 않습니다.
-[앱에서 사용·끄기·개인 지침 가져오기 →](../docs/setup.md#use-corpus-in-a-codex-app-task)
+[앱에서 사용·끄기·개인 지침 가져오기 →](../docs/setup.md#use-instructions-in-a-codex-app-task)
 
 ## 내 지침 라이브러리
 
-런처의 **Corpus Studio**를 선택하거나 `agent-bios corpus`를 실행합니다.
+런처의 **Instructions Studio**를 선택하거나 `agent-bios instructions`를 실행합니다.
 앱의 `$agent-bios`도 대화로 같은 라이브러리를 관리합니다.
 
 - **커서 이동 즉시 읽기:** 목록에서 항목을 옮기면 Enter 없이 오른쪽 문서가 바뀝니다.
@@ -125,7 +148,7 @@ English·한국어·日本語 중 사용할 언어를 묻습니다. 설치할 �
 꺼도 내용과 개인 수정은 남고 학습할 수도 있습니다.
 업데이트 후에도 선택은 유지되며, 전체 초기화는 설치 기본 선택으로 돌아갑니다.
 
-[상세 조작·키보드 이동·소비방식·기본 가이드 →](../docs/corpus.md)
+[상세 조작·키보드 이동·소비방식·기본 가이드 →](../docs/instructions.md)
 
 ## 세션은 어떻게 작동하나
 
@@ -179,7 +202,7 @@ English·한국어·日本語 중 사용할 언어를 묻습니다. 설치할 �
 | 필요한 내용 | 문서 |
 | --- | --- |
 | 설치·앱 연결·기존 지침 가져오기 | [설정](../docs/setup.md) |
-| corpus 편집·선택·복원 | [Corpus](../docs/corpus.md) |
+| 지침 편집·선택·복원 | [Instructions](../docs/instructions.md) |
 | 고정본·저장·검증 범위 | [세션 모델](../docs/session-model.md) |
 | 설치 충돌·마이그레이션·초기화 | [복구](../docs/recovery.md) |
 | 프리셋·셸 연결·전역 지침·native 기능·리뷰 | [실행 설정](docs/advanced-launch.md) |
@@ -188,7 +211,7 @@ English·한국어·日本語 중 사용할 언어를 묻습니다. 설치할 �
 | 저장소 개발 | [기여 안내](CONTRIBUTING.md) — checkout 필요 |
 
 상세 운영 문서는 영문이 기준입니다. 명령은 `agent-bios help`와
-`agent-bios corpus --help`에서 확인할 수 있습니다.
+`agent-bios instructions --help`에서 확인할 수 있습니다.
 소스 참고: [전달 표면](../SURFACES.md), [네트워크 계약](../ENDPOINTS.md), [용어](../LEXICON.md).
 
 ## 다른 환경에서 사용하기
@@ -198,7 +221,7 @@ English·한국어·日本語 중 사용할 언어를 묻습니다. 설치할 �
 
 ## 포함 범위
 
-패키지는 지침과 실행 도구를 포함합니다. 개인 corpus 상태·학습 기록·세션 고정 정보·
+패키지는 지침과 실행 도구를 포함합니다. 개인 지침 상태·학습 기록·세션 고정 정보·
 자격증명·호스트 설정은 포함하지 않습니다.
 
 ## 라이선스

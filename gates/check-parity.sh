@@ -16,6 +16,14 @@ SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"   # resolved BEFORE the c
 cd "$(dirname "$0")/.."
 fail=0
 
+# Project purpose reaches the repository entrypoints and public README coherently.
+if [ -f gates/check-product-purpose.py ]; then
+  python3 gates/check-product-purpose.py --self-test \
+    || { echo "FAIL: product purpose negative controls"; fail=1; }
+  python3 gates/check-product-purpose.py \
+    || { echo "FAIL: product purpose projection or entrypoint"; fail=1; }
+fi
+
 # Non-empty-subject guards: a parity check over missing inputs must fail, not pass vacuously.
 for p in claude/guides codex/guides ko/claude/guides ko/codex/guides; do
   [ -d "$p" ] || { echo "FAIL: required dir missing: $p"; exit 1; }
@@ -149,7 +157,7 @@ code-level circuit breaker|claude/CLAUDE.md|claude/guides/cli-multi-model-workfl
 current-state dashboard|claude/CLAUDE.md|claude/guides/implementation-map.md
 Verification Menus|claude/CLAUDE.md|claude/guides/verification-discipline.md
 real Microsoft Excel engine|claude/CLAUDE.md|claude/guides/verification-discipline.md
-severity contract|docs/corpus.md|claude/guides/coding-staged-workflow.md
+severity contract|docs/instructions.md|claude/guides/coding-staged-workflow.md
 Ambient state|claude/CLAUDE.md|claude/guides/tooling-gotchas.md
 the full lifecycle of what you create|claude/CLAUDE.md|claude/guides/tooling-gotchas.md
 dual-provider frontier design drafts|claude/CLAUDE.md|claude/guides/cli-multi-model-workflow.md
@@ -230,14 +238,14 @@ if [ -f learn/learning.schema.json ]; then
     || { echo "FAIL: collect-learning upload-drain self-test"; fail=1; }
 fi
 
-# Corpus rollback (compose/corpus-state.py) — a destructive path with no other
+# Instructions rollback (compose/instructions-state.py) — a destructive path with no other
 # coverage: every version registered today is UNAVAILABLE (it predates the assembled
 # layout), so the write loop is unreachable from `list` and nothing else exercises it.
 # --self-test drives it against a throwaway git repo and proves a run that fails
-# partway restores rather than leaving the corpus split across two versions.
-if [ -f compose/corpus-state.py ]; then
-  python3 compose/corpus-state.py --self-test >/dev/null \
-    || { echo "FAIL: corpus rollback self-test (compose/corpus-state.py)"; fail=1; }
+# partway restores rather than leaving the instructions split across two versions.
+if [ -f compose/instructions-state.py ]; then
+  python3 compose/instructions-state.py --self-test >/dev/null \
+    || { echo "FAIL: instructions rollback self-test (compose/instructions-state.py)"; fail=1; }
 fi
 
 # Secret-redaction floor (learn/redact.py) — single-sourced by the heavy
@@ -297,7 +305,7 @@ if [ -f LEXICON.md ]; then
     || { echo "FAIL: lexicon gate self-test failed"; fail=1; }
 fi
 
-# Content-hygiene gate: the shipped distribution (npm payload + ko corpus trees) stays
+# Content-hygiene gate: the shipped distribution (npm payload + ko instructions trees) stays
 # free of org identifiers everywhere and author identifiers outside `(private)`-marked
 # lines or per-reason exemptions. The subject set is derived from package.json files[]
 # and asserted non-empty; --self-test plants each violation class and requires a named
@@ -1189,7 +1197,7 @@ fi
 if ! "$VENV/bin/python" launch/test-tier-effort.py; then
   fail=1
 fi
-if ! "$VENV/bin/python" -m unittest discover -s compose -p 'test_corpus*.py'; then
+if ! "$VENV/bin/python" -m unittest discover -s compose -p 'test_instructions*.py'; then
   fail=1
 fi
 if ! "$VENV/bin/python" gates/test-slide-writing.py; then

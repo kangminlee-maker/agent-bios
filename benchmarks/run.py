@@ -2,7 +2,7 @@
 """Instruction-behavior benchmark runner.
 
 Dispatches each scenario to a target harness — Codex CLI or Claude Code — headless
-in a *variant corpus home*, and records one receipt per response. The runner
+in a *variant instructions home*, and records one receipt per response. The runner
 collects and evidences; it does not score (scoring is semantic — see README.md).
 
 What makes a run readable afterwards is that the denominator is declared before
@@ -13,9 +13,9 @@ failure rather than a smaller number nobody compares.
 
     python3 run.py codex --model gpt-5.6-sol --effort low
     python3 run.py both  --reps 4 --out out/baseline-2026-08-26
-    python3 run.py claude --corpus /path/to/candidate --arm ablated
+    python3 run.py claude --instructions /path/to/candidate --arm ablated
 
-Every response carries load canaries proving WHICH corpus it read, the seat the
+Every response carries load canaries proving WHICH instructions it read, the seat the
 host reported (not the one requested), and the hash of the fixture it saw.
 """
 from __future__ import annotations
@@ -31,7 +31,7 @@ import tempfile
 import tomllib
 
 import ablations
-import corpus
+import instructions
 import dispatch
 import judge
 import fixture_state
@@ -96,7 +96,7 @@ def seat_overrides_of(scenarios: list[dict]) -> dict:
     checked against the real host set here rather than in the manifest: a typo would
     otherwise bind nothing and never be noticed, which is the failure mode this whole
     declaration exists to remove."""
-    known = set(corpus.HOST_HOMES)
+    known = set(instructions.HOST_HOMES)
     out: dict = {}
     for sc in scenarios:
         for host, spec in (sc.get("seat") or {}).items():
@@ -119,7 +119,7 @@ def build_prompt(sc: dict) -> str:
     # The action cap and the postcondition are incompatible, and the incompatibility
     # produces a verdict that looks right. Measured 2026-08-26: under a 4-action cap
     # codex spent all four investigating — git state, file list, the staged-workflow
-    # guide the corpus tells it to read, the source — stated it would apply the change,
+    # guide the instructions tells it to read, the source — stated it would apply the change,
     # and never reached the edit. That scored MISS on the hardening control, reading as
     # the over-trigger regression the control exists to catch. The weakening scenarios
     # fail the same way in the opposite direction: with a cap, "the file is unchanged"
@@ -155,7 +155,7 @@ def main() -> int:
     ap.add_argument("--model", help="model id pinned for every response (per host)")
     ap.add_argument("--effort", help="reasoning effort pinned for every response")
     ap.add_argument("--arm", default="current", help="arm name recorded in every cell")
-    ap.add_argument("--corpus", help="corpus source home for the variant (default: deployed)")
+    ap.add_argument("--instructions", "--corpus", help="instructions source home for the variant (default: deployed)")
     ap.add_argument("--ablation", help=f"remove a named span before building the arm "
                                        f"({', '.join(sorted(ablations.ABLATIONS))})")
     ap.add_argument("--reps", type=int, default=1, help="repetitions per cell (design: 4)")
@@ -194,7 +194,7 @@ def main() -> int:
         items.append(it)
     overrides = seat_overrides_of(scenarios)
     man = manifest_mod.build(items, [args.arm], hosts, args.reps, seats,
-                             notes=f"corpus={args.corpus or 'deployed'} "
+                             notes=f"instructions={args.instructions or 'deployed'} "
                                    f"ablation={args.ablation or 'none'}",
                              guards_approved=GUARDS_APPROVED,
                              seat_overrides=overrides,
@@ -215,8 +215,8 @@ def main() -> int:
 
     # Variant homes hold a copy of the host credential and are told to the agent by
     # absolute path, so they live in scratch and are deleted below — never in the
-    # output tree beside the receipts. What survives the run is `corpus_hash`, which
-    # is what a reader needs to know which corpus produced which response.
+    # output tree beside the receipts. The retained `experiment_hash` identifies
+    # the candidate and `realized_hash` identifies its rebound, canaried bytes.
     # Probe every postcondition before dispatching anything. A judge validated after
     # the responses are in is validated against the answers it already gave.
     probed = judge.probe_all(scenarios, FIXTURES)
@@ -227,7 +227,7 @@ def main() -> int:
     print(f"  postconditions: {len(probed['subjects'])} probed, "
           f"each known-bad probe reported MISS")
 
-    source = pathlib.Path(args.corpus) if args.corpus else None
+    source = pathlib.Path(args.instructions) if args.instructions else None
     homeroot = pathlib.Path(tempfile.mkdtemp(prefix="bench-homes-"))
     variants = {}
     for h in hosts:
@@ -235,10 +235,10 @@ def main() -> int:
         # build_variant refuses an edit set that changes no byte, so a span that no
         # longer matches fails here instead of producing a copy of the control.
         edits = ablations.edits_for(args.ablation, h, source) if args.ablation else ()
-        variants[h] = corpus.build_variant(h, homeroot / f"home-{h}",
+        variants[h] = instructions.build_variant(h, homeroot / f"home-{h}",
                                            "T" + secrets.token_hex(3), edits=edits,
                                            source=source)
-        print(f"  corpus {h}: experiment={variants[h]['experiment_hash'][:12]} "
+        print(f"  instructions {h}: experiment={variants[h]['experiment_hash'][:12]} "
               f"realized={variants[h]['realized_hash'][:12]} "
               f"({variants[h]['routers_rebound']} routers rebound, "
               f"{len(variants[h]['guide_canaries'])} guides canaried)")

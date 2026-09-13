@@ -5,21 +5,48 @@
 Build an instruction library you can inspect, edit, and reuse. Choose what each
 CLI session or Codex app task uses, while preserving your existing global instruction files.
 
-[Quick start](#quick-start) · [Corpus Studio](#your-instruction-library) · [How it works](#how-sessions-work) · [Understand!](#understand-the-reasoning) · [Documentation](#documentation) · [한국어](ko/README.md)
+[0.19.2 release notes](docs/releases/0.19.2.md)
 
-![Corpus Studio showing a guide-linked rule and an unapplied on/off choice](docs/assets/corpus-studio.svg)
+## Purpose
 
-*Actual 0.18.0 Studio UI, captured with Textual enabled and the bundled corpus
-in an isolated test environment.*
+<!-- product-purpose:start -->
+agent-bios exists to let workers compose, share, and inherit team work environments
+from Instructions, Domain knowledge, and Decision memory, so they can perform
+their roles within the standards and context of their team, industry, and organization.
+
+A team is the basic unit for selecting, adopting, and sharing a work environment.
+
+Workers should be able to select an environment appropriate to their role and
+team, collaborate from shared standards and decision context, and continue
+the work when a worker, model, session, or device changes. Shared context does
+not require identical outputs or erase personal, team, and organizational boundaries.
+<!-- product-purpose:end -->
+
+The current service provides the Instructions library and host launch/delivery
+integration. Shared environment editions, Domain knowledge, and Decision memory
+are the design direction; this purpose statement does not claim they are shipped.
+
+[Quick start](#quick-start) · [Instructions Studio](#your-instruction-library) · [How it works](#how-sessions-work) · [Understand!](#understand-the-reasoning) · [Documentation](#documentation) · [한국어](ko/README.md)
+
+![Studio showing a guide-linked rule and an unapplied on/off choice](docs/assets/instructions-studio.svg)
+
+*Actual 0.18.0 UI, captured with Textual enabled and the bundled instructions
+in an isolated test environment. This earlier capture retains its Corpus Studio title;
+the current UI is named Instructions Studio.*
 
 ## Make your instructions your own
 
-agent-bios ships a starting library of rules, guides, and procedures, called a
-**corpus**. You decide which parts belong in your working environment.
+agent-bios ships **Instructions**: rules, guides, and procedures for how you work.
+You decide which parts belong in your working environment. The CLI command is
+`instructions`, and the library UI is named **Instructions Studio**.
+
+These names apply to this source revision. If your installed version does not
+recognize `agent-bios instructions`, use `agent-bios corpus`; this revision also
+accepts that older command name. See [compatibility](docs/instructions-compatibility.md).
 
 | What you want to do | What agent-bios provides |
 | --- | --- |
-| See what your instructions say | Browse and search documents in Corpus Studio; follow a rule's links to its guides. |
+| See what your instructions say | Browse and search documents in Instructions Studio; follow a rule's links to its guides. |
 | Adapt them to your work | Edit supplied items, create personal ones, and choose their delivery method. |
 | Choose what a session uses | Switch individual items on or off without deleting their content or edits. |
 | Recover the starting point | Restore supplied content, recover personal items, or preview a full reset. |
@@ -30,7 +57,7 @@ It does not train the model or guarantee that the model follows every instructio
 ## Quick start
 
 Use the terminal installer or set up through a Codex app conversation. Both offer
-language, dependency, corpus and optional app/import choices.
+language, dependency, instructions and optional app/import choices.
 See [setup and prerequisites](docs/setup.md).
 
 ### In a terminal
@@ -39,13 +66,13 @@ You need **macOS or Linux**, **Bash**, **Python 3.11+**, and **Node.js 18+ with 
 for package installation. Run:
 
 ```bash
-npm install -g agent-bios@0.19.1
+npm install -g agent-bios@0.19.0
 agent-bios install
 ```
 
 The installer opens a guided terminal UI with English, Korean and Japanese. Its
 verified Textual bundle is included; a separate UI installation is unnecessary.
-Choose only the dependencies and corpus you want. [Full setup options →](docs/setup.md)
+Choose only the dependencies and instructions you want. [Full setup options →](docs/setup.md)
 
 To launch a CLI session, install and authenticate that host CLI, then run this from
 your project:
@@ -60,9 +87,9 @@ Use `codex` instead of `claude` for a Codex CLI session.
 2. Review the model, review setup, and permissions. **Some presets request
    permission bypass**; select settings appropriate for your project.
 3. Start the session. Choose **Software Engineer / Vanilla** to use the host's
-   native setup without an agent-bios corpus snapshot.
+   native setup without an agent-bios instructions snapshot.
 
-Open **Corpus Studio** from the launcher or run `agent-bios corpus` to inspect the
+Open **Instructions Studio** from the launcher or run `agent-bios instructions` to inspect the
 library. `agent-bios status` shows the installed private release and its location.
 
 <details>
@@ -96,18 +123,18 @@ Install https://github.com/kangminlee-maker/agent-bios
 ```
 
 The agent follows [INSTALL.md](INSTALL.md), obtains a fixed source revision, and
-asks for English, 한국어 or 日本語. Choose dependencies, no active corpus or specific
-corpus, and optional app connection or instruction-file capture. Review the effects
+asks for English, 한국어 or 日本語. Choose dependencies, no active instructions or specific
+instructions, and optional app connection or instruction-file capture. Review the effects
 before Apply. You do not need to supply a local path or install Codex CLI.
 
 Once the registered command appears in the app, use `$agent-bios` for setup or management.
-To add corpus to a task, explicitly ask it to use your chosen corpus there.
-Installation and opening Corpus Studio do not activate task context.
-[App use, off, and personal instruction import →](docs/setup.md#use-corpus-in-a-codex-app-task)
+To add instructions to a task, explicitly ask it to use your chosen instructions there.
+Installation and opening Instructions Studio do not activate task context.
+[App use, off, and personal instruction import →](docs/setup.md#use-instructions-in-a-codex-app-task)
 
 ## Your instruction library
 
-Open **Corpus Studio** in the launcher, or run `agent-bios corpus`.
+Open **Instructions Studio** in the launcher, or run `agent-bios instructions`.
 In the app, `$agent-bios` can manage the same library through conversation.
 
 - **Read as you navigate.** Arrow keys move between reading controls and update
@@ -128,7 +155,7 @@ Individual on/off choices take precedence over default domain/core selections.
 Off is not deletion: content and edits remain available, including for learning.
 Updates retain those choices; a full reset returns to installed defaults.
 
-[Corpus controls, keyboard navigation, delivery methods, and included guides →](docs/corpus.md)
+[Instructions controls, keyboard navigation, delivery methods, and included guides →](docs/instructions.md)
 
 ## How sessions work
 
@@ -149,8 +176,8 @@ does not. Project instructions and prior conversation content are separate.
 
 ## Understand the reasoning
 
-Choose **Understand!** in the launcher to explore why the corpus is written the
-way it is. Select a coherent learning bundle rather than memorizing separate files.
+Choose **Understand!** in the launcher to explore why the instructions are written the
+way they are. Select a coherent learning bundle rather than memorizing separate files.
 
 The tutor chooses a small set of core learning points and tracks questions by their
 source bullet. No bullet receives more than ten questions, including follow-ups.
@@ -187,29 +214,29 @@ requires your confirmation.
 | When you need more detail | Read |
 | --- | --- |
 | Install, connect the app, or import existing instructions | [Setup](docs/setup.md) |
-| Author, enable, restore, or inspect corpus items | [Corpus](docs/corpus.md) |
+| Author, enable, restore, or inspect instructions items | [Instructions](docs/instructions.md) |
 | Understand snapshots, storage, and session evidence | [Session model](docs/session-model.md) |
 | Migrate, reset, or resolve installation conflicts | [Recovery](docs/recovery.md) |
 | Configure presets, globals, shell connection, native hooks, or review | [Advanced launch](docs/advanced-launch.md) |
-| Learn the corpus and preserve a discovery | [Understand!](docs/understand.md) |
+| Learn the instructions and preserve a discovery | [Understand!](docs/understand.md) |
 | Check prerequisites and optional tools | [Dependencies](DEPENDENCIES.md) |
 | Develop this repository | [Contributing](CONTRIBUTING.md) — requires a checkout |
 
-Use `agent-bios help` and `agent-bios corpus --help` for command discovery.
+Use `agent-bios help` and `agent-bios instructions --help` for command discovery.
 Source references: [delivery surfaces](SURFACES.md), [network contract](ENDPOINTS.md),
 and [terminology](LEXICON.md).
 
 ## Adopting elsewhere
 
 Review the `(private)` bindings and environment-specific dependencies before
-adopting the defaults. Keep personal adjustments in Corpus Studio, or follow
+adopting the defaults. Keep personal adjustments in Instructions Studio, or follow
 [the source-authoring workflow](CONTRIBUTING.md#adopting-elsewhere) when changing
 what the package ships.
 
 ## Scope
 
 The package contains instruction sources and runtime machinery, not your
-personal corpus state, learning events, session pins, credentials, or native settings.
+personal instructions state, learning events, session pins, credentials, or native settings.
 
 ## License
 

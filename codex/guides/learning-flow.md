@@ -76,7 +76,7 @@ Surface each surviving candidate compactly — lesson, type, intended layer,
 admission-bar verdict, domain (+ proposed_domain) — and record ONLY what the
 user explicitly approves.
 
-In a Codex app task using the explicit corpus bridge, use the `learn` command
+In a Codex app task using the explicit instructions bridge, use the `learn` command
 and environment returned in its `runtime` metadata, or its registered helper.
 Shell exports from an earlier app tool call do not persist into later calls.
 
@@ -96,11 +96,11 @@ match your host):
 
 The script (capability boundary) owns `learning_id` / `created` / `schema_version`
 and validates against `learn/learning.schema.json`. It appends the record to the
-private corpus's `learnings/<host>/events.jsonl`, keeping Claude and Codex captures
+private instruction store's `learnings/<host>/events.jsonl`, keeping Claude and Codex captures
 separate. Selected learnings enter future activated-session snapshots through the
-private corpus. Capture preserves the user's global instruction files and the
+private instructions. Capture preserves the user's global instruction files and the
 running session's snapshot. Upload runs after local storage when transport is configured.
-The private root is `$AGENT_BIOS_CORPUS_DIR`, defaulting to
+The private root is `$AGENT_BIOS_INSTRUCTIONS_DIR`, defaulting to
 `~/.config/agent-bios/corpus`; native host-home settings do not relocate it.
 `--config-dir` is restricted to explicit legacy mode. Use `--no-upload` for
 local-only capture or `--dry-run` to validate without writes or uploads.

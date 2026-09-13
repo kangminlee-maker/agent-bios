@@ -17,7 +17,7 @@ The second classification axis (`concepts.md` owns the first). Classified by
 | **P2 derived** | mechanically produced from P1 by a named producer | `codex/guides/tooling-gotchas.md` |
 | **P3 packaged** | inside the shipped payload or an assembled bundle | `package.json` `files[]` entry |
 | **P4 deployed** | written onto a machine | a selected guide under an immutable private snapshot |
-| **P5 consumed** | a branch or harness load that reads it and changes behaviour | the corpus rule whose pointer fires it |
+| **P5 consumed** | a branch or harness load that reads it and changes behaviour | the instructions rule whose pointer fires it |
 | **P6 asserted** | a check that binds two or more positions | `gates/check-parity.sh` pointer resolvability |
 
 An entity's **manifestation set** is the set of positions it occupies, each with
@@ -32,7 +32,7 @@ brownfield change has to satisfy.
 - **R2 — Every P2 names its producer** and is byte-reproducible by re-running it.
   A P2 with no producer is not derived, it is a duplicate.
 - **R3 — P5 absent means inert.** A value nothing reads does not change
-  behaviour, however present it is in the repo. This is the corpus's own rule
+  behaviour, however present it is in the repo. This is the instructions's own rule
   ("treat a produced field as inert until a downstream consumer reads it and the
   output changes"), stated as a structural property.
 - **R4 — P6 absent means unguarded.** Not "fine" and not "broken" — *unknown*.
@@ -75,8 +75,8 @@ subject set includes it, at a declared strength.
 *Breaks:* `verify` is the tool for detecting post-install drift; a deployed
 artifact outside its subject set is drift it structurally cannot see.
 *Verification:* private release inventory and owned projection digests are checked
-by `compose/corpus_install.py`; snapshot file sets and digests are checked by
-`compose/corpus_store.py`. Compatibility `deploy_file`/`deploy_glob` and
+by `compose/instructions_install.py`; snapshot file sets and digests are checked by
+`compose/instructions_store.py`. Compatibility `deploy_file`/`deploy_glob` and
 `verify_match`/`verify_present` sites remain a separate extracted subject set.
 `python3 ontology/extract.py` reports their per-write strengths and omissions;
 those results do not stand in for private lifecycle or host-delivery tests.

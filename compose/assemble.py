@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Per-selection assembler: canonical corpus + domains.json -> deployed trees.
+"""Per-selection assembler: canonical instructions + domains.json -> deployed trees.
 
 Claude side (central-managed tree, overwritten on every run):
   <claude-dir>/central/bundle.md     core+infra+selected-domain bullets, the
@@ -174,7 +174,7 @@ def filtered_files(manifest, key, selection):
 
 
 def author_only(path):
-    """Does this file's own frontmatter say it is for the corpus author?
+    """Does this file's own frontmatter say it is for the instructions author?
 
     A guide declaring `audience: author` documents a step only the author can
     perform, and names repository paths that exist in a checkout and nowhere
@@ -666,7 +666,7 @@ def seed_entry(claude_dir, legacy_monolith, prior_deployed=(), dry=False):
     Telling those apart used to be a byte-comparison against THIS commit's monolith, which
     recognizes only a re-install of the same release. Anyone upgrading from an earlier one had
     that release's monolith on disk — our file, not theirs — and it was reported as user-owned,
-    so the import line was never added and the corpus did not load until they edited it by hand.
+    so the import line was never added and the instructions did not load until they edited it by hand.
 
     `prior_deployed` is the previous install's manifest, which is the repo's existing answer to
     "did we write this": deploy_file records every destination it writes, and the pre-unification
@@ -800,7 +800,7 @@ def main():
 
     if args.remove_owned:
         # No domains gate: removal does not depend on the manifest being well-formed, and an
-        # uninstall that refuses to run because the corpus is mid-edit would strand the user.
+        # uninstall that refuses to run because the instructions are mid-edit would strand the user.
         # That was the claim; the parse sat ABOVE this branch and ran first, so a malformed
         # domains.json raised out of uninstall before the branch that does not need it. The
         # two halves of the removal need it differently: the Codex region is bounded by our
@@ -823,7 +823,7 @@ def main():
     gate = subprocess.run([sys.executable, str(REPO / "compose" / "check-domains.py")],
                           capture_output=True, text=True)
     if gate.returncode != 0:
-        die("domains gate FAILED — fix manifest/corpus first:\n" + gate.stdout + gate.stderr)
+        die("domains gate FAILED — fix manifest/instructions first:\n" + gate.stdout + gate.stderr)
     if args.domains is not None:
         selection = frozenset(d for d in args.domains.split(",") if d)
     else:

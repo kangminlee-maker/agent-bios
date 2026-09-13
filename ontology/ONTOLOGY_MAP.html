@@ -62,7 +62,7 @@
     <div><b>Judgment question</b><span>Change one concept — how far do the obligations reach, and which of them is anything actually holding?</span></div>
     <div><b>Coverage</b><span>38 entities across 5 families; 55 obligation edges over 9 kinds; 12 golden relationships</span></div>
     <div><b>Held against code</b><span class="ok"><code>gates/check-ontology.py</code> — anchors, derived counts, edge integrity, graph health, projection freshness; 7 negative controls</span></div>
-    <div><b>Derived from source</b><span>10 legacy deploy targets · 19 guides · 8 tier bindings · 17 subcommands · 61 payload paths</span></div>
+    <div><b>Derived from source</b><span>10 legacy deploy targets · 20 guides · 8 tier bindings · 18 subcommands · 77 payload paths</span></div>
     <div><b>Main risk</b><span class="risk">11 of 38 entities carry no P6 assertion at all; 4 of 12 golden relationships are unguarded and GR-4 is violated</span></div>
   </section>
 
@@ -104,7 +104,7 @@
       <rect class="node" x="322"  y="146" width="252" height="96" rx="5" fill="#dcfce7" stroke="#18794e"/>
       <text class="s" x="340" y="174"><tspan font-weight="700">P2 derived</tspan><tspan x="340" dy="22">emitted by a named producer</tspan><tspan class="m" x="340" dy="21">codex/, ko/codex/, promotions</tspan></text>
       <rect class="node" x="608"  y="146" width="252" height="96" rx="5" fill="#e7eaee" stroke="#667085"/>
-      <text class="s" x="626" y="174"><tspan font-weight="700">P3 packaged</tspan><tspan x="626" dy="22">in the shipped payload</tspan><tspan class="m" x="626" dy="21">61 files[] paths</tspan></text>
+      <text class="s" x="626" y="174"><tspan font-weight="700">P3 packaged</tspan><tspan x="626" dy="22">in the shipped payload</tspan><tspan class="m" x="626" dy="21">77 files[] paths</tspan></text>
       <rect class="node" x="894"  y="146" width="252" height="96" rx="5" fill="#e7eaee" stroke="#667085"/>
       <text class="s" x="912" y="174"><tspan font-weight="700">P4 deployed</tspan><tspan x="912" dy="22">written onto a machine</tspan><tspan class="m" x="912" dy="21">10 legacy targets</tspan></text>
       <rect class="node" x="1180" y="146" width="284" height="96" rx="5" fill="#f3e8ff" stroke="#7c3aed"/>
@@ -164,7 +164,7 @@ const P = ["P1","P2","P3","P4","P5","P6"];
 const FAM = {"F1": "F1 · Instruction content", "F2": "F2 · Classification & packaging", "F3": "F3 · Capability binding", "F4": "F4 · Distribution mechanism", "F5": "F5 · Assurance"};
 const E = [
  {
-  "name": "CorpusRule",
+  "name": "InstructionsRule",
   "fam": "F1",
   "pos": [
    "P1",
@@ -175,7 +175,7 @@ const E = [
    "P6"
   ],
   "guard": "gated",
-  "anchor": "claude/CLAUDE.md, compose/corpus_catalog.py",
+  "anchor": "claude/CLAUDE.md, compose/instructions_catalog.py",
   "note": "An instruction bullet identified by its source anchor; selected always-surface rules enter explicitly activated private sessions"
  },
  {
@@ -218,7 +218,7 @@ const E = [
    "P6"
   ],
   "guard": "partial",
-  "anchor": "claude/hooks/*.py, compose/corpus_catalog.py, compose/corpus_session.py",
+  "anchor": "claude/hooks/*.py, compose/instructions_catalog.py, compose/instructions_session.py",
   "note": "An event instruction with a canonical carrier and manifest binding, compiled into host-specific session hooks when native consumption is selected"
  },
  {
@@ -231,7 +231,7 @@ const E = [
    "P6"
   ],
   "guard": "gated",
-  "anchor": "learn/learning.schema.json, learn/collect-learning.py, learn/check-learning.py, learn/redact.py, compose/corpus_store.py",
+  "anchor": "learn/learning.schema.json, learn/collect-learning.py, learn/check-learning.py, learn/redact.py, compose/instructions_store.py",
   "note": "An immutable session learning event validated and scrubbed by the collector, stored privately and projected into later selected snapshots"
  },
  {
@@ -244,7 +244,7 @@ const E = [
   ],
   "guard": "partial",
   "anchor": "session-distill/*.py",
-  "note": "The heavy curator flow that mines many sessions into corpus-grade items"
+  "note": "The heavy curator flow that mines many sessions into instructions-grade items"
  },
  {
   "name": "PackagingTier",
@@ -290,7 +290,7 @@ const E = [
    "P5"
   ],
   "guard": "unguarded",
-  "anchor": "compose/corpus_store.py, compose/corpus.py, compose/corpus_ui.py, launch/agent-launch.py, compose/corpus_setup.py, compose/corpus_app.py, compose/corpus_setup_ui.py",
+  "anchor": "compose/instructions_store.py, compose/instructions.py, compose/instructions_ui.py, launch/agent-launch.py, compose/instructions_setup.py, compose/instructions_app.py, compose/instructions_setup_ui.py",
   "note": "Saved or invocation-local none/default/selected policies and qualified targets, reviewed through SetupController and its UI; imported host/project scope constrains delivery"
  },
  {
@@ -395,7 +395,7 @@ const E = [
    "P6"
   ],
   "guard": "partial",
-  "anchor": "launch/provision-venv.sh, compose/corpus_setup.py, compose/corpus_ui_runtime.py, compose/ui_runtime/manifest.json, compose/ui_runtime/*.whl",
+  "anchor": "launch/provision-venv.sh, compose/instructions_setup.py, compose/instructions_ui_runtime.py, compose/ui_runtime/manifest.json, compose/ui_runtime/*.whl",
   "note": "A supplied Python dependency environment: verified shipped UI wheels loaded into a process-owned temporary directory on package CLI paths, with separately retained managed/numbered compatibility clients"
  },
  {
@@ -408,7 +408,7 @@ const E = [
    "P5"
   ],
   "guard": "unguarded",
-  "anchor": "install.sh, compose/corpus.py, compose/corpus_install.py, compose/corpus_understand.py, compose/corpus_import.py, compose/corpus_app.py, compose/corpus_setup.py, compose/app_bridge/scripts/bridge.py, compose/corpus_setup_ui.py, compose/corpus_setup_i18n.py, compose/corpus_setup_cli.py, compose/setup/START.md, INSTALL.md, docs/setup.md",
+  "anchor": "install.sh, compose/instructions.py, compose/instructions_install.py, compose/instructions_understand.py, compose/instructions_import.py, compose/instructions_app.py, compose/instructions_setup.py, compose/app_bridge/scripts/bridge.py, compose/instructions_setup_ui.py, compose/instructions_setup_i18n.py, compose/instructions_setup_cli.py, compose/setup/START.md, INSTALL.md, docs/setup.md",
   "note": "A user-invocable operation with a named command owner; install/onboard default to terminal setup while JSON setup serves reviewed conversation installation through the same controller, reached from a public repository-link request or an installed skill"
  },
  {
@@ -420,8 +420,8 @@ const E = [
    "P6"
   ],
   "guard": "partial",
-  "anchor": "install.sh deploy_file, compose/corpus_install.py CorpusInstaller.install, compose/corpus_app.py, compose/app_bridge/agents/openai.yaml",
-  "note": "A bounded owned write: private releases and launcher projections, an explicitly registered app discovery link, or native corpus destinations on the compatibility route"
+  "anchor": "install.sh deploy_file, compose/instructions_install.py InstructionsInstaller.install, compose/instructions_app.py, compose/app_bridge/agents/openai.yaml",
+  "note": "A bounded owned write: private releases and launcher projections, an explicitly registered app discovery link, or native instructions destinations on the compatibility route"
  },
  {
   "name": "PayloadEntry",
@@ -443,7 +443,7 @@ const E = [
    "P5"
   ],
   "guard": "unguarded",
-  "anchor": "install.sh deploy_file, compose/corpus_install.py PRIVATE_RECORD, launch/shell_integration.py, compose/corpus_app.py",
+  "anchor": "install.sh deploy_file, compose/instructions_install.py PRIVATE_RECORD, launch/shell_integration.py, compose/instructions_app.py",
   "note": "Ownership records for removal: private installation metadata, shell receipts and exact app bridge generations; legacy deployment uses manifest.txt"
  },
  {
@@ -455,7 +455,7 @@ const E = [
    "P6"
   ],
   "guard": "partial",
-  "anchor": "compose/corpus_store.py, compose/corpus_session.py, compose/corpus_transaction.py, compose/corpus_understand.py, compose/corpus-state.py, compose/prune-backups.py, compose/write-update-cache.py, compose/corpus_install.py, compose/corpus_import.py, compose/corpus_app.py, compose/corpus_setup_cli.py",
+  "anchor": "compose/instructions_store.py, compose/instructions_session.py, compose/instructions_transaction.py, compose/instructions_understand.py, compose/instructions-state.py, compose/prune-backups.py, compose/write-update-cache.py, compose/instructions_install.py, compose/instructions_import.py, compose/instructions_app.py, compose/instructions_setup_cli.py",
   "note": "Persisted private sources, import evidence and receipts, baselines, immutable snapshots, native pins, app context receipts, setup review/outcome receipts and transaction journals; each has owning writers and readers"
  },
  {
@@ -466,7 +466,7 @@ const E = [
    "P5"
   ],
   "guard": "unguarded",
-  "anchor": "compose/corpus_install.py CorpusInstaller.migrate, compose/corpus_transaction.py, install.sh migrate_state, learn/migrate-learnings.py",
+  "anchor": "compose/instructions_install.py InstructionsInstaller.migrate, compose/instructions_transaction.py, install.sh migrate_state, learn/migrate-learnings.py",
   "note": "An explicit transform of owned legacy state into private state, with pinned release authority and replayable cleanup; compatibility installer migrations remain on their selected route"
  },
  {
@@ -477,7 +477,7 @@ const E = [
    "P5"
   ],
   "guard": "unguarded",
-  "anchor": "compose/corpus_install.py SCHEMA_VERSION, compose/corpus_store.py, compose/corpus_session.py, launch/agent-launch.toml schema_version, compose/domains.json version, compose/corpus_setup_cli.py",
+  "anchor": "compose/instructions_install.py SCHEMA_VERSION, compose/instructions_store.py, compose/instructions_session.py, launch/agent-launch.toml schema_version, compose/domains.json version, compose/instructions_setup_cli.py",
   "note": "The declared format contract of a persisted artifact, and migration's trigger"
  },
  {
@@ -490,7 +490,7 @@ const E = [
    "P6"
   ],
   "guard": "partial",
-  "anchor": "launch/shell_integration.py, compose/corpus_install.py, compose/assemble.py, codex/config-additions.toml, compose/corpus_app.py, compose/app_bridge/agents/openai.yaml",
+  "anchor": "launch/shell_integration.py, compose/instructions_install.py, compose/assemble.py, codex/config-additions.toml, compose/instructions_app.py, compose/app_bridge/agents/openai.yaml",
   "note": "A bounded managed span or discovery entry in user-owned native state: optional shell wiring and explicit app bridge registration; globals remain preserved outside explicit legacy cleanup"
  },
  {
@@ -513,11 +513,11 @@ const E = [
    "P5"
   ],
   "guard": "unguarded",
-  "anchor": "compose/corpus_store.py, compose/corpus_install.py, compose/corpus_session.py, launch/shell_integration.py, install.sh ZDOTDIR",
-  "note": "An explicit runtime override for private state, personal corpus, native identity or shell startup location; each owner interprets its own roots"
+  "anchor": "compose/instructions_store.py, compose/instructions_install.py, compose/instructions_session.py, launch/shell_integration.py, install.sh ZDOTDIR",
+  "note": "An explicit runtime override for private state, personal instructions, native identity or shell startup location; each owner interprets its own roots"
  },
  {
-  "name": "CorpusAssembler",
+  "name": "InstructionsAssembler",
   "fam": "F4",
   "pos": [
    "P1",
@@ -526,7 +526,7 @@ const E = [
    "P6"
   ],
   "guard": "gated",
-  "anchor": "compose/corpus_catalog.py, compose/corpus_store.py, compose/corpus_session.py, compose/assemble.py, compose/corpus_app.py, compose/corpus_import.py",
+  "anchor": "compose/instructions_catalog.py, compose/instructions_store.py, compose/instructions_session.py, compose/assemble.py, compose/instructions_app.py, compose/instructions_import.py",
   "note": "Compiles selected items into immutable snapshots for native session adapters or explicit app context; reviewed imports publish private personal items through the same store"
  },
  {
@@ -538,7 +538,7 @@ const E = [
    "P6"
   ],
   "guard": "gated",
-  "anchor": "gates/check-parity.sh driver, compose/check-domains.py, gates/build-ui-runtime.py",
+  "anchor": "gates/check-parity.sh driver, compose/check-domains.py, gates/build-ui-runtime.py, gates/check-product-purpose.py",
   "note": "An executable check owning an invariant, a subject set and an enforcement claim"
  },
  {
@@ -562,7 +562,7 @@ const E = [
    "P5"
   ],
   "guard": "unguarded",
-  "anchor": "gates/check_parity.py review-editor checks",
+  "anchor": "gates/check_parity.py review-editor checks, gates/check-product-purpose.py planted purpose controls",
   "note": "A case asserting the gate fails when it should; without one a gate is unproven"
  },
  {
@@ -607,7 +607,7 @@ const E = [
    "P5"
   ],
   "guard": "unguarded",
-  "anchor": "install.sh check_prereqs, compose/corpus_install.py, compose/corpus_setup.py",
+  "anchor": "install.sh check_prereqs, compose/instructions_install.py, compose/instructions_setup.py",
   "note": "Locally probed host tools and interpreters; explicit setup offers available fixed installation commands, while manual account/configuration steps remain separate"
  },
  {
@@ -721,7 +721,7 @@ show(null); render();
       <tr><td>GR-1 canonical uniqueness</td><td>P1</td><td>per entity, |P1| == 1</td><td class="warn">unguarded</td></tr>
       <tr><td>GR-2 derived closure</td><td>P1→P2</td><td>emit-mirrors.py --check, build-promotions.py --check</td><td class="ok">derived</td></tr>
       <tr><td>GR-3 payload completeness</td><td>P4/P5→P3</td><td>gates/check-package.sh greps live $REPO references</td><td class="ok">derived</td></tr>
-      <tr><td>GR-4 deploy / verify coverage</td><td>P4→P6</td><td>ontology/extract.py compares explicit legacy deploy and verify sites. Private install verification and corpus tests separately check pinned releases and owned projections</td><td class="info">partial</td></tr>
+      <tr><td>GR-4 deploy / verify coverage</td><td>P4→P6</td><td>ontology/extract.py compares explicit legacy deploy and verify sites. Private install verification and instructions tests separately check pinned releases and owned projections</td><td class="info">partial</td></tr>
       <tr><td>GR-5 deploy / removal coverage</td><td>P4</td><td>Private ownership records and shell receipts determine bounded removal; explicit legacy deployment uses its manifest and region removers</td><td class="warn">unguarded</td></tr>
       <tr><td>GR-6 non-inertness</td><td>P5</td><td>each declared value has a reader on the live path</td><td class="warn">unguarded</td></tr>
       <tr><td>GR-7 lockstep agreement</td><td>P1↔P1'</td><td>Compare declared binding sites; gates/check_parity.py checks runtime projections and ontology/check-ontology.py compares launch/template site sets</td><td class="info">partial</td></tr>
@@ -734,7 +734,7 @@ show(null); render();
   </table>
 
   <h2>GR-4, computed</h2>
-  <p class="lede"><code>ontology/extract.py</code> reads the explicit legacy installer's <code>deploy_file</code>/<code>deploy_glob</code> and <code>verify_match</code>/<code>verify_present</code> call sites at generation time. 10 legacy deploy writes, 3 without complete verification. Private installation uses its own release and ownership verification in <code>compose/corpus_install.py</code>.</p>
+  <p class="lede"><code>ontology/extract.py</code> reads the explicit legacy installer's <code>deploy_file</code>/<code>deploy_glob</code> and <code>verify_match</code>/<code>verify_present</code> call sites at generation time. 10 legacy deploy writes, 3 without complete verification. Private installation uses its own release and ownership verification in <code>compose/instructions_install.py</code>.</p>
   <table>
     <thead><tr><th>P4 write</th><th>P6 assertion</th><th>Strength</th></tr></thead>
     <tbody>

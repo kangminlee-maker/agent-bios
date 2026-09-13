@@ -18,15 +18,15 @@ decision, not this file.
 | Operation | State | Realized by |
 | --- | --- | --- |
 | `ingest-learning` | **extracted** — operating, contract below | `learn/collect-learning.py` upload drain |
-| `publish-corpus` | **defined** — name and subject reserved; no network implementation, deliberately | `npm publish` (gated by `gates/check-publish.sh`) |
-| `fetch-corpus` | **defined** — same | `npm install` / `git pull` (`install.sh` `cmd_update`) |
+| `publish-instructions` | **defined** — name and subject reserved; no network implementation, deliberately | `npm publish` (gated by `gates/check-publish.sh`) |
+| `fetch-instructions` | **defined** — same | `npm install` / `git pull` (`install.sh` `cmd_update`) |
 | `check-version` | **extracted** — operating, no endpoint of ours | `install.sh` `refresh_update_cache` via `npm view <name> version` |
 | `ingest-session` | **not in the extracted contract** — vocabulary reserved, home undecided | dashboard-owned collectors, entirely outside this repo |
 
 `check-version` reads a public version number and sends the package name — nothing
-derived from this machine. Selected dependency installation in `compose/corpus_setup.py`
+derived from this machine. Selected dependency installation in `compose/instructions_setup.py`
 and `launch/provision-venv.sh` likewise uses the user's package-manager configuration;
-neither configures corpus ingestion. Three properties
+neither configures instructions ingestion. Three properties
 make that true rather than merely intended, and each is worth stating because losing
 any one of them turns it into a different operation:
 
@@ -98,7 +98,7 @@ that the name is taken.
    endpoint — a half-configured, empty, unreadable, or unparseable slot fails
    loud with the file named, and never falls through. The slot is rooted at
    `$HOME`, deliberately host-independent. Private learning records and upload
-   state live under `$AGENT_BIOS_CORPUS_DIR`, defaulting to
+   state live under `$AGENT_BIOS_INSTRUCTIONS_DIR`, defaulting to
    `~/.config/agent-bios/corpus`, with a separate `learnings/<host>/` directory
    for each host. Changing that private root does not move the transport slot.
    `--config-dir` is accepted only with `AGENT_BIOS_LEGACY_INSTALL=1`, where
@@ -159,22 +159,22 @@ The repository-link request in `README.md` and `ko/README.md` names the public
 source declared by `package.json` repository metadata. `INSTALL.md` guides the
 host agent through an explicit source download when needed, pinned to one commit
 in a caller-owned directory. This acquisition precedes the local setup plan and
-uses host tools; it is not an automatic installer request or a corpus transport.
+uses host tools; it is not an automatic installer request or an instructions transport.
 The URL exception is limited to each exact request line and its declared repository.
 
-`compose/corpus_setup.py` probes local commands and previews fixed dependency
+`compose/instructions_setup.py` probes local commands and previews fixed dependency
 installation argv. Already available dependencies are readiness observations and
 are excluded from requested installation actions. Only selected missing-dependency
 actions run after Apply; no package
-manager is a source for an ingest URL or token. `--corpus none`, selected packages,
+manager is a source for an ingest URL or token. `--instructions none`, selected packages,
 app registration, and instruction capture are separate setup choices.
 
-The separate retained-corpus inventory reports only package identities, labels and
+The separate retained-instructions inventory reports only package identities, labels and
 stored item counts. It reads local state without recovery writes or upload and returns
 no instruction bodies. Storage does not indicate that the content is selected or active.
 
 `agent-bios setup start|inspect|discover|plan|apply|status|resume` exposes the same
-controller through local JSON commands in `compose/corpus_setup_cli.py`. It requires
+controller through local JSON commands in `compose/instructions_setup_cli.py`. It requires
 no TTY, Textual, MCP/HTTP server or model SDK. `start` returns the local
 `compose/setup/START.md` guide path and language choices before dependency probes.
 The conversation uses normal host file/command tools and receives review data through
@@ -192,7 +192,7 @@ still returns recorded progress and handoff defers checks with null readiness fi
 These checks stay local. Resume follows recorded continuations and returns a
 nested review when the remaining work can be reviewed safely.
 Neither the protocol nor the app helper's `setup` forwarding fills a transport slot,
-enables hooks, registers a server or activates corpus context.
+enables hooks, registers a server or activates instructions context.
 
 Understanding reads use local `understand read` and `turns` commands. They return
 bounded pages of pinned material or the selected native session's turns, with byte
@@ -203,9 +203,9 @@ upload.
 
 `install` and `onboard` use interactive setup unless `--non-interactive` is explicit;
 non-TTY callers without it fail before writes. The package UI's Textual wheels are
-shipped in `compose/ui_runtime/`. Installation, package/current-checkout Corpus Studio,
+shipped in `compose/ui_runtime/`. Installation, package/current-checkout Instructions Studio,
 and private/current-checkout launcher rich entrypoints use that bundle.
-`compose/corpus_ui_runtime.py` verifies their
+`compose/instructions_ui_runtime.py` verifies their
 manifest, hashes and metadata and extracts them into a process-owned temporary
 directory. The UI makes no runtime download or pip installation and requires no
 preinstalled system/managed Textual. Normal process exit cleans the extraction; the
@@ -216,32 +216,32 @@ author-side `--build` fetches packages, deriving the root version from the provi
 `TEXTUAL_PIN`. Optional dependency actions such as learning-validator
 installation remain separately selected and may use the configured package index.
 
-`compose/corpus_import.py` reads only selected discovered instruction paths and
+`compose/instructions_import.py` reads only selected discovered instruction paths and
 stores redacted evidence in the private user root. It neither uploads those sources
 nor follows references in their text. Supplying that evidence to a host agent for
 semantic classification makes it part of the user's normal model context; it is
 not an `ingest-learning` or `ingest-session` operation. The import transaction
 preserves original files and records provenance for the new private items.
 
-`compose/corpus_app.py` registers no network service. Optional app registration
+`compose/instructions_app.py` registers no network service. Optional app registration
 creates a local discovery link with implicit invocation disabled. Explicit per-task
-use returns selected corpus text through the app's tool/context path, governed by
+use returns selected instructions text through the app's tool/context path, governed by
 the host's normal data handling. Its local receipt states `returned-as-context`,
 not native startup activation or proof of model reading. Off and unregister do not
 retract context already returned. The app helper's explicit `learn` command uses
 the same collector and transport slot defined above; app registration and use do
 not fill that slot or enable collection hooks.
 
-## publish-corpus / fetch-corpus — defined, not implemented
+## publish-instructions / fetch-instructions — defined, not implemented
 
-The subject is the **corpus**: the assembler input set — the `claude/` tree plus
+The subject is the **instructions**: the assembler input set — the `claude/` tree plus
 a `compose/domains.json` manifest under a `@scope/name` package identity
 (`compose/pkgid.py`). Private baselines and snapshots are local artifacts; these
 operation names do not define a network distribution protocol for them.
-`publish-corpus` is whatever moves that set to a distribution point;
-`fetch-corpus` is whatever brings it to a machine `install.sh` can assemble
+`publish-instructions` is whatever moves that set to a distribution point;
+`fetch-instructions` is whatever brings it to a machine `install.sh` can assemble
 from. Today both are realized by the npm package (and, in a clone, `git pull`)
 — the table above. The names are reserved here so the
-public corpus-sharing service (roadmap step 7, demand-gated) and the SDK
+public instructions-sharing service (roadmap step 7, demand-gated) and the SDK
 (step 6) implement this contract instead of minting a second vocabulary — until
 then, adding network machinery for them would be capability nobody consumes.

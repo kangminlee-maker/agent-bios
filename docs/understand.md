@@ -1,8 +1,8 @@
-# Understand why the corpus works this way
+# Understand why the instructions work this way
 
-[← Overview](../README.md) · [Setup](setup.md) · [Corpus](corpus.md) · [Sessions](session-model.md) · [Recovery](recovery.md) · [Launch](advanced-launch.md) · [Understand!](understand.md)
+[← Overview](../README.md) · [Setup](setup.md) · [Instructions](instructions.md) · [Sessions](session-model.md) · [Recovery](recovery.md) · [Launch](advanced-launch.md) · [Understand!](understand.md)
 
-Understand! is learning for the person using the corpus, not model training. It explores reasons and limits through a conversation rather than asking you to memorize files.
+Understand! is learning for the person using the instructions, not model training. It explores reasons and limits through a conversation rather than asking you to memorize files.
 
 ## Start a learning session
 
@@ -16,7 +16,7 @@ agent-launch --understand core-purpose claude   # or codex
 
 The selection is a coherent bundle, not an individual file: core groups cover goals
 and scope, decision support, adaptation, evidence/safety, and retained learning;
-domain and personal bundles come from the effective corpus. A session freezes its
+domain and personal bundles come from the effective instructions. A session freezes its
 selected source references and edited content. The tutor explains the purpose,
 background, mechanisms, tradeoffs, and limits, distinguishing documented rationale
 from inference. The tutor chooses a small finite set of core points and tracks their
@@ -74,11 +74,11 @@ ordering, and asks for a later exact save confirmation. Unsupported provenance l
 the award pending, without blocking learning. Significance and semantic originality
 remain explicit tutor/user judgments; transcript validation does not prove them or
 authenticate against an owner who can edit local files. Only a successfully saved
-requested-only personal corpus note can unlock the trophy. The CLI prints it, and the
+requested-only personal instructions note can unlock the trophy. The CLI prints it, and the
 TUI shows it when there is room. Retries do not duplicate the note; updates and note
 deletion retain the trophy. Full reset archives the active unlock generation and clears
 the display; older discovery records cannot reactivate it. Native global files and
-corpus source rules are not rewritten by learning.
+instructions source rules are not rewritten by learning.
 
 The runtime checks a new proposal's complete review-response size before storing
 its candidate. An oversized proposal can be shortened and retried without leaving

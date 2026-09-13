@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Private captures are retained; promotion suppression is a snapshot projection.
 
-The default entrypoint performs no source deletion. CorpusStore requires exact
+The default entrypoint performs no source deletion. InstructionsStore requires exact
 source and replacement evidence before omitting a duplicate from one snapshot.
 The functions below implement only the explicit AGENT_BIOS_LEGACY_INSTALL=1
 compatibility path, whose removal contract is described here.
 
-After a push lands, a learning that was promoted into the shared corpus is now
-loaded from the corpus — its personal copy (written by `learn!`,
+After a push lands, a learning that was promoted into the shared instructions are now
+loaded from the instructions — its personal copy (written by `learn!`,
 learn/collect-learning.py) would double-load. This user-side tool removes the
 absorbed personal copy, and ONLY it (never the user's hand-written entry
 CLAUDE.md `## Personal` section).
@@ -19,11 +19,11 @@ install must NOT trigger removal — that would silently lose the learning. When
 unsure, KEEP (a kept duplicate is redundant; a wrong removal is data loss).
 
 HOW THAT RULE IS ENFORCED (contract v2): audience metadata SELECTS candidates,
-presence in the deployed corpus AUTHORIZES the delete. Metadata is a build-time
+presence in the deployed instructions AUTHORIZES the delete. Metadata is a build-time
 projection — it cannot see that this user runs a package or version whose bundle
 never received the promoted bullet — so it is never the authority for an
 irreversible act. Every uncertainty resolves to KEEP: a foreign package we
-cannot confirm, an audience miss, an anchor absent from the corpus, a v1 record
+cannot confirm, an audience miss, an anchor absent from the instructions, a v1 record
 with no anchor to verify.
 
 Candidate selection (mirrors compose/assemble.py `kept`): universal tier
@@ -33,7 +33,7 @@ is one install shape — what used to be a "full" install is every domain
 selected — so a selection always answers this.
 
 Run per host (mirrors collect-learning: --host + --config-dir); install.sh calls
-it after the corpus deploy. Manifest absent/empty -> no-op.
+it after the instructions deploy. Manifest absent/empty -> no-op.
 """
 import argparse
 import importlib.util
@@ -50,7 +50,7 @@ import pkgid  # noqa: E402  (package-identity primitive owned by compose/)
 import assemble  # noqa: E402  (owns the atomic-replace primitive both packages write with)
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
-# Same home compose/corpus-state.py uses; the canary writes its activation proof here.
+# Same home compose/instructions-state.py uses; the canary writes its activation proof here.
 STATE_DIR = pathlib.Path(os.environ.get("AGENT_BIOS_STATE_DIR")
                          or pathlib.Path.home() / ".local/share/agent-bios")
 MANIFEST = REPO / "learn" / "promotions.json"
@@ -58,7 +58,7 @@ UNIVERSAL_TIERS = frozenset({"core", "infra"})  # == assemble.audience UNIVERSAL
 # learning_id inside a personal bullet's TRAILING comment (collect-learning
 # prose_bullet: "... <!-- learning_id: <uuid> created: <ts> -->"). Anchored to
 # end-of-line so a lesson body that quotes a `<!-- learning_id: … -->` string
-# can never shadow the bullet's own id (this corpus is about agent tooling).
+# can never shadow the bullet's own id (this instructions are about agent tooling).
 BULLET_LID_RE = re.compile(r"<!--\s*learning_id:\s*([0-9a-fA-F-]+)[^>]*-->\s*$")
 
 
@@ -120,22 +120,22 @@ def make_in_bundle(selection):
     return in_bundle
 
 
-def corpus_surfaces(home):
-    """Files and dirs that hold the DEPLOYED corpus for this host.
+def instructions_surfaces(home):
+    """Files and dirs that hold the DEPLOYED instructions for this host.
 
     Deliberately excludes `personal/` — the user's own copy of a promoted
     learning quotes the same lesson, so searching it would find the very thing
     we are deciding whether to delete and always answer yes.
     """
-    texts = [home / "central" / "bundle.md",          # the assembled corpus
+    texts = [home / "central" / "bundle.md",          # the assembled instructions
              home / "CLAUDE.md", home / "AGENTS.md"]  # entry files, for a pre-convergence layout
     dirs = [home / "central" / d for d in ("guides", "hooks", "agents")]
     dirs += [home / d for d in ("guides", "hooks", "agents")]
     return texts, dirs
 
 
-def corpus_text(path, collect=None):
-    """A corpus file's text with the user's personal region removed.
+def instructions_text(path, collect=None):
+    """A instructions file's text with the user's personal region removed.
 
     On codex the personal copy lives INSIDE AGENTS.md, and a promoted bullet is
     written FROM the user's lesson — so its anchor can legitimately appear in
@@ -165,26 +165,26 @@ def anchor_names_a_file(anchor):
 
 
 def placed_here(home, anchor, collect=None):
-    """Is the promoted item REALLY in this user's deployed corpus?
+    """Is the promoted item REALLY in this user's deployed instructions?
 
     This is the authorization for an irreversible delete, so it asks the
     filesystem rather than trusting build-time audience metadata, which is a
     projection that goes stale the moment packages or versions diverge. A whole
     guide/hook/agent placement is a deployed file; a bullet placement is its
-    anchor appearing in the deployed corpus text.
+    anchor appearing in the deployed instructions text.
     """
     if not isinstance(anchor, str) or not anchor:
         return False
-    texts, dirs = corpus_surfaces(home)
+    texts, dirs = instructions_surfaces(home)
     if anchor_names_a_file(anchor):
         # A whole-file placement is proven by the deployed FILE and by nothing else. It
-        # used to fall through to the text scan below, where any corpus document that
+        # used to fall through to the text scan below, where any instructions document that
         # merely NAMES the guide counted as proof the guide was installed — and the
-        # corpus names its guides constantly. This is the reachable case rather than the
+        # instructions names its guides constantly. This is the reachable case rather than the
         # hypothetical one: the live manifest's only anchor is `tooling-gotchas.md`.
         return any((d / anchor).is_file() for d in dirs)
     for f in texts:
-        if f.is_file() and anchor in corpus_text(f, collect):
+        if f.is_file() and anchor in instructions_text(f, collect):
             return True
     return False
 
@@ -277,10 +277,10 @@ def prune_codex_prose(home, remove_ids, collect, dry):
     return removed
 
 
-def claude_corpus_loaded(home, state_dir=None):
-    """Is the shared corpus actually LOADED for this claude home?
+def claude_instructions_loaded(home, state_dir=None):
+    """Is the shared instructions actually LOADED for this claude home?
 
-    Removing a personal copy while the corpus copy is not loaded makes the rule
+    Removing a personal copy while the instructions copy is not loaded makes the rule
     vanish (Review F2). The entry import line is necessary and NOT sufficient. Testing
     whether the file contains `@central/bundle.md` also passes on the string in a
     fenced block or in prose, and no reading of the file can see an import the
@@ -317,11 +317,11 @@ def collect_central_import():
     return "@central/bundle.md"
 
 
-def migrate(home, host, promotions, in_bundle, collect, dry=False, corpus_loaded=True):
+def migrate(home, host, promotions, in_bundle, collect, dry=False, instructions_loaded=True):
     """Remove personal copies of promoted+in-bundle learnings present locally.
-    corpus_loaded=False (the corpus is not actually loaded for this host) -> keep
+    instructions_loaded=False (the instructions are not actually loaded for this host) -> keep
     everything (never orphan a personal copy)."""
-    if not corpus_loaded:
+    if not instructions_loaded:
         return {"removed": 0, "jsonl_removed": 0, "prose_removed": 0,
                 "kept_not_in_bundle": 0, "skipped": "corpus-not-loaded"}
     jsonl = home / "personal" / "learnings.jsonl"
@@ -339,7 +339,7 @@ def migrate(home, host, promotions, in_bundle, collect, dry=False, corpus_loaded
             if isinstance(lid, str):
                 local_ids.add(lid)
 
-    # Metadata SELECTS candidates; presence in the deployed corpus AUTHORIZES the
+    # Metadata SELECTS candidates; presence in the deployed instructions AUTHORIZES the
     # delete (contract v2 §4). Audience metadata is a build-time projection: it
     # cannot see that this user is on a package or version whose bundle never
     # received the promoted bullet, and acting on it alone loses the learning.
@@ -359,7 +359,7 @@ def migrate(home, host, promotions, in_bundle, collect, dry=False, corpus_loaded
             kept_not_in_bundle += 1  # promoted but not in THIS user's audience
             continue
         if not placed_here(home, p.get("anchor"), collect):
-            kept_not_placed += 1     # audience says yes, the corpus does not have it
+            kept_not_placed += 1     # audience says yes, the instructions does not have it
             continue
         remove_ids.add(lid)
 
@@ -424,10 +424,10 @@ def main():
     collect = load_collect()
     home = collect.resolve_home(args.host, args.config_dir)
 
-    # F2 gate: only prune where the shared corpus is actually loaded. Codex always
+    # F2 gate: only prune where the shared instructions are actually loaded. Codex always
     # loads AGENTS.md's central region; claude loads central only via the entry
     # import (or inline in a full install).
-    corpus_loaded = True if args.host == "codex" else claude_corpus_loaded(home)
+    instructions_loaded = True if args.host == "codex" else claude_instructions_loaded(home)
 
     if args.domains is not None:
         selection = [d for d in args.domains.split(",") if d]
@@ -439,7 +439,7 @@ def main():
     in_bundle = make_in_bundle(selection)
 
     s = migrate(home, args.host, promotions, in_bundle, collect,
-                dry=args.dry_run, corpus_loaded=corpus_loaded)
+                dry=args.dry_run, instructions_loaded=instructions_loaded)
     tag = "[dry] " if args.dry_run else ""
     if s.get("skipped"):
         print(f"migrate-learnings: {tag}host={args.host} skipped ({s['skipped']}) — "
@@ -473,16 +473,16 @@ def _self_test():
     L = {"core": "0f8c1c2a-4d1e-4abc-9def-0000000000a1",
          "bb": "0f8c1c2a-4d1e-4abc-9def-0000000000b2",
          "off": "0f8c1c2a-4d1e-4abc-9def-0000000000c3"}
-    A = {"core": "universal corpus rule", "bb": "builder corpus rule",
-         "off": "office corpus rule"}
+    A = {"core": "universal instructions rule", "bb": "builder instructions rule",
+         "off": "office instructions rule"}
     promos = [{"learning_id": L["core"], "anchor": A["core"], "tier": "core", "domains": []},
               {"learning_id": L["bb"], "anchor": A["bb"], "tier": "domain", "domains": ["builder-base"]},
               {"learning_id": L["off"], "anchor": A["off"], "tier": "domain", "domains": ["office-work"]}]
 
     def seed_claude(placed=("core", "bb", "off")):
-        """`placed` = which promoted anchors this user's DEPLOYED corpus actually
+        """`placed` = which promoted anchors this user's DEPLOYED instructions actually
         carries. Deletion is authorized by that, not by the audience metadata, so
-        a fixture without a corpus would let a metadata-only bug pass."""
+        a fixture without an instruction would let a metadata-only bug pass."""
         home = pathlib.Path(tempfile.mkdtemp(prefix="migrate-selftest-"))
         (home / "personal").mkdir(parents=True)
         (home / "central").mkdir(parents=True)
@@ -524,13 +524,13 @@ def _self_test():
     checks.append(("idempotent re-run", s2["removed"] == 0))
 
     # 1b) CONTRAST CONTROL for the v2 authorization. Same audience metadata as
-    #     above — builder-base IS selected — but this user's deployed corpus does
+    #     above — builder-base IS selected — but this user's deployed instructions does
     #     NOT carry the bullet (a package/version whose bundle never got it). The
     #     metadata-only rule deletes here and loses the learning; presence keeps.
     #     If placed_here() ever returns True unconditionally, this check fails.
     home = seed_claude(placed=("core",))
     s = migrate(home, "claude", promos, make_in_bundle(["builder-base"]), collect)
-    checks.append(("audience says yes but corpus lacks it -> KEEP",
+    checks.append(("audience says yes but instructions lacks it -> KEEP",
                    s["removed"] == 1 and s["kept_not_placed"] == 1
                    and L["bb"] in local_ids(home) and md_has(home, L["bb"])))
 
@@ -578,13 +578,13 @@ def _self_test():
                    s["prose_removed"] == 1 and L["bb"] not in agents_txt))
 
     # 5) F2 gate: a packaged claude entry lacking @central/bundle.md means the
-    #    corpus is NOT loaded -> keep everything (never orphan a personal copy).
+    #    instructions are NOT loaded -> keep everything (never orphan a personal copy).
     home = seed_claude()  # apply_claude writes an entry WITHOUT @central/bundle.md
-    checks.append(("F2: unwired packaged entry -> corpus not loaded",
-                   claude_corpus_loaded(home) is False))
+    checks.append(("F2: unwired packaged entry -> instructions not loaded",
+                   claude_instructions_loaded(home) is False))
     s = migrate(home, "claude", promos, make_in_bundle(["builder-base"]),
-                collect, corpus_loaded=False)
-    checks.append(("F2: corpus-not-loaded keeps ALL",
+                collect, instructions_loaded=False)
+    checks.append(("F2: instructions-not-loaded keeps ALL",
                    s.get("skipped") == "corpus-not-loaded"
                    and local_ids(home) == {L["core"], L["bb"], L["off"]}))
     entry = home / "CLAUDE.md"
@@ -593,24 +593,24 @@ def _self_test():
     # harness declined, which is what the canary exists to detect, so the authorization is its
     # recorded proof — and the proof is bound to a rev, so a reassembly does not inherit it.
     checks.append(("F2: wired entry, no activation proof -> KEEP",
-                   claude_corpus_loaded(home, state_dir=home / "state") is False))
+                   claude_instructions_loaded(home, state_dir=home / "state") is False))
     bundle = home / "central" / "bundle.md"
     bundle.write_text(bundle.read_text(encoding="utf-8") + "\nagent-bios-bundle-rev: deadbeef\n",
                       encoding="utf-8")
     state = home / "state"
     state.mkdir(parents=True, exist_ok=True)
     (state / "activation.txt").write_text("agent-bios-bundle-rev: deadbeef\n", encoding="utf-8")
-    checks.append(("F2: wired entry + matching proof -> corpus loaded",
-                   claude_corpus_loaded(home, state_dir=state) is True))
+    checks.append(("F2: wired entry + matching proof -> instructions loaded",
+                   claude_instructions_loaded(home, state_dir=state) is True))
     (state / "activation.txt").write_text("agent-bios-bundle-rev: 00000000\n", encoding="utf-8")
     checks.append(("F2: proof for a different rev -> KEEP",
-                   claude_corpus_loaded(home, state_dir=state) is False))
+                   claude_instructions_loaded(home, state_dir=state) is False))
     # CONTRAST CONTROL for the substring hole: the import string inside a fenced block is not an
     # import, and before the proof requirement this alone authorized the delete.
     fenced = pathlib.Path(tempfile.mkdtemp(prefix="migrate-fenced-"))
     (fenced / "CLAUDE.md").write_text("# CLAUDE.md\n```\n@central/bundle.md\n```\n", encoding="utf-8")
     checks.append(("F2: import string with no activation proof -> KEEP",
-                   claude_corpus_loaded(fenced, state_dir=fenced) is False))
+                   claude_instructions_loaded(fenced, state_dir=fenced) is False))
     # …and the same file WITH a matching proof, which is the case the line above cannot
     # separate: it passes whether the import test is honest or not, because the missing
     # proof decides it either way. The proof is bound to the bundle's rev and not to this
@@ -621,13 +621,13 @@ def _self_test():
         "# bundle\nagent-bios-bundle-rev: deadbeef\n", encoding="utf-8")
     (fenced / "activation.txt").write_text("agent-bios-bundle-rev: deadbeef\n", encoding="utf-8")
     checks.append(("F2: FENCED import + matching proof -> still KEEP",
-                   claude_corpus_loaded(fenced, state_dir=fenced) is False))
+                   claude_instructions_loaded(fenced, state_dir=fenced) is False))
     (fenced / "CLAUDE.md").write_text("# CLAUDE.md\n@central/bundle.md\n", encoding="utf-8")
     checks.append(("F2: the same proof with a REAL import -> loaded",
-                   claude_corpus_loaded(fenced, state_dir=fenced) is True))
+                   claude_instructions_loaded(fenced, state_dir=fenced) is True))
 
     # placed_here verifies a whole-file placement as a FILE and a bullet anchor as TEXT.
-    # They used to be OR'd, so any corpus document that merely NAMED a guide authorized
+    # They used to be OR'd, so any instructions document that merely NAMED a guide authorized
     # deleting the personal copy of a learning placed in it — and the live manifest's one
     # anchor is `tooling-gotchas.md`, which the entry file names in prose.
     mention = pathlib.Path(tempfile.mkdtemp(prefix="migrate-anchor-"))
@@ -637,13 +637,13 @@ def _self_test():
         encoding="utf-8")
     checks.append(("anchor: a named-but-absent guide is NOT placed",
                    placed_here(mention, "tooling-gotchas.md") is False))
-    checks.append(("anchor: a phrase anchor still matches corpus TEXT",
+    checks.append(("anchor: a phrase anchor still matches instructions TEXT",
                    placed_here(mention, "the bullet text itself") is True))
     (mention / "guides" / "tooling-gotchas.md").write_text("# guide\n", encoding="utf-8")
     checks.append(("anchor: the deployed guide file IS placed",
                    placed_here(mention, "tooling-gotchas.md") is True))
     # (The old "full install is always loaded" case is gone with full mode: there is no shape
-    # whose corpus loads without the entry import, so nothing is exempt from the proof.)
+    # whose instructions loads without the entry import, so nothing is exempt from the proof.)
 
     # 6) F5: the TRAILING comment's id wins; a learning_id quoted in the lesson
     #    body must never shadow it (else a jsonl/prose desync).

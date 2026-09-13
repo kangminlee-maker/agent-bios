@@ -976,7 +976,7 @@ def _capture(*, only: set[str] | None = None) -> dict:
         os.environ["CLAUDE_CONFIG_DIR"] = str(claude_home)
         # These are legacy projection goldens; an operator's private install
         # must not turn only the subprocess half into snapshot activation.
-        os.environ["AGENT_BIOS_PRIVATE_CORPUS"] = "0"
+        os.environ["AGENT_BIOS_PRIVATE_INSTRUCTIONS"] = "0"
         # The session-distill nudge reads the OPERATOR's state file and history line
         # counts through Path.home(), not through the homes pinned above, so it leaked
         # into every cell's stderr the day the author's history crossed the threshold
@@ -1228,15 +1228,15 @@ def private_mode_controls(stored: dict) -> list[str]:
                     # A deliberately incomplete private record is enough to poison
                     # auto-detection if the capture's mode pin disappears. All private
                     # paths stay in the fixture even in that failing control.
-                    os.environ["AGENT_BIOS_CORPUS_DIR"] = str(root / "corpus")
+                    os.environ["AGENT_BIOS_INSTRUCTIONS_DIR"] = str(root / "instructions")
                     os.environ["AGENT_BIOS_PACKAGE_ROOT"] = str(REPO)
                     marker = root / "state/runtime/private-install.json"
                     marker.parent.mkdir(parents=True)
                     marker.write_text('{"mode":"private-session-scoped"}\n')
                     if flag is None:
-                        os.environ.pop("AGENT_BIOS_PRIVATE_CORPUS", None)
+                        os.environ.pop("AGENT_BIOS_PRIVATE_INSTRUCTIONS", None)
                     else:
-                        os.environ["AGENT_BIOS_PRIVATE_CORPUS"] = flag
+                        os.environ["AGENT_BIOS_PRIVATE_INSTRUCTIONS"] = flag
                     observed = capture(only={key})
                     if observed != {key: stored[key]}:
                         label = "installed state" if flag is None else "inherited private flag"

@@ -46,7 +46,7 @@ bundle, goldens captured by their capture script, the distill pipeline producing
 learning records, install writing the version marker.
 
 **`owes_entry`** — `from` is an item; `to` is a registry that must carry a row for
-it. Corpus classification and runtime payload membership both use this relation.
+it. Instructions classification and runtime payload membership both use this relation.
 *Obligation:* **forward**. Add the item, add the row.
 *Enforcement available:* `derived` when the registry is checked against the real
 item set (`gates/check-package.sh` greps live `$REPO/` references); otherwise
@@ -56,7 +56,7 @@ deploy target → payload entry, wrapper → payload entry.
 
 **`controls`** — `from` determines how `to` behaves.
 *Obligation:* **forward**. Change the controller, the controlled surface changes with it.
-The controller's scope is explicit: `AGENT_BIOS_CORPUS_DIR` relocates personal
+The controller's scope is explicit: `AGENT_BIOS_INSTRUCTIONS_DIR` relocates personal
 sources; host-home variables locate native host state. Ownership records govern
 what removal may touch. A controller change obliges those consumers even if its
 identity stays the same.
@@ -91,7 +91,7 @@ scans it proves nothing about it.
 subject population, never hand-listed; a hand-listed subject set silently excludes
 whatever is added later.
 *Instances:* gate → deploy target, negative control → gate, self-test → gate,
-activation canary → corpus rule, measurement instrument → guide.
+activation canary → instructions rule, measurement instrument → guide.
 
 **`owes_removal`** — `from` writes something; `to` is what must be able to undo it.
 *Obligation:* **forward**.

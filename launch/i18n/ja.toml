@@ -4,7 +4,7 @@
 "mode.swe.label" = "Software Engineer"
 "mode.swe.description" = "既存プロジェクトで CLI 標準の指示読み込みに従って作業します。Vanilla はランチャーの追加設定なしで開始し、Custom ではモデルとレビュー方法を選びます。"
 "mode.builder.label" = "Builder"
-"mode.builder.description" = "インストール済みコーパスを使う一般開発モードです。Balanced・Deep review・Fast batch・Solo または Custom で、メインモデル、委任、レビュー、実行権限を選びます。"
+"mode.builder.description" = "インストール済み指示を使う一般開発モードです。Balanced・Deep review・Fast batch・Solo または Custom で、メインモデル、委任、レビュー、実行権限を選びます。"
 "mode.distill.label" = "Session distill"
 "mode.distill.description" = "過去の AI 作業セッションを振り返り、共通指示に反映する教訓を提案します。状態確認と実行メニューを開きます。現在は agent-bios のソースチェックアウトが必要です。"
 
@@ -18,7 +18,7 @@
 "preset.custom.label" = "自分で設定 (Custom)"
 
 "language.label" = "言語"
-"language.description" = "TUI の言語を選択します (English / 한국어 / 日本語)。AI が消費するコーパスは英語のままで、ランチャーの画面だけが変わります。"
+"language.description" = "TUI の言語を選択します (English / 한국어 / 日本語)。AI が消費する指示は英語のままで、ランチャーの画面だけが変わります。"
 "language.title" = "言語"
 
 "shell.title" = "シェル接続"
@@ -28,12 +28,12 @@
 "shell.restore" = "接続を復元"
 "shell.restore.description" = ".zshrcをバックアップし管理ブロックを追加します。引数付き・非対話呼び出しは追加の権限フラグなしで元のCLIに渡します。"
 "shell.remove" = "接続を削除"
-"shell.remove.description" = "agent-biosのシェル接続だけを削除します。他のシェル設定とcorpus項目は保持します。"
+"shell.remove.description" = "agent-biosのシェル接続だけを削除します。他のシェル設定とinstructions項目は保持します。"
 "shell.back" = "シェル接続を変更せず戻ります。"
 "shell.confirm" = "シェル接続の変更を適用しますか?"
 "shell.cancel" = "キャンセル"
 "shell.apply" = "適用"
-"shell.scope" = "zsh起動ファイルの接続部分と管理スクリプトのみ変更します。グローバルAGENTS.md/CLAUDE.md、プロジェクト、corpusは変更しません。"
+"shell.scope" = "zsh起動ファイルの接続部分と管理スクリプトのみ変更します。グローバルAGENTS.md/CLAUDE.md、プロジェクト、instructionsは変更しません。"
 "shell.preview" = "プレビューのみです。シェルファイルは変更していません。"
 "shell.restored" = "接続を復元しました。新しい端末を開くか.zshrcをsourceしてください。"
 "shell.removed" = "接続を削除しました。開いているシェルも次のコマンドで管理ラッパーを解除します。新しい端末も未接続で開始します。"
@@ -41,36 +41,36 @@
 "language.ko.description" = "런처 화면을 한국어로 표시합니다."
 "language.ja.description" = "ランチャーの画面を日本語で表示します。"
 
-"corpus.label" = "コーパスパッケージ"
-"corpus.private.title" = "Corpus Studio"
-"corpus.private.description" = "個人の corpus を閲覧・作成・編集・削除・復元します。変更は次の有効化セッションに反映され、実行中のセッションは固定した内容を維持します。"
-"corpus.private.relationship" = "Corpus は専用ストレージに保存されます。Builder は選択したスナップショットを有効化し、通常の CLI と Vanilla には自動追加しません。既存のグローバル設定は明示的な移行が必要です。"
-"corpus.private.vanilla" = "通常の CLI とユーザー・プロジェクトの指示を使用します。Private agent-bios corpus、スキル説明、起動設定は追加しません。"
-"corpus.description" = "AI が参照する作業指示を選びます。開発、複数エージェントの協働、スプレッドシートなどの作業別パッケージです。選んでから「選択を適用」でインストールします。このマシンの今後の CLI 実行に使う共通指示が変わり、他のプロジェクトにも影響します。"
-"corpus.title" = "コーパスパッケージ"
-"corpus.core.line" = "目標設定・意思決定・教訓記録の基本ルール（core + infra）は常に含まれます。以下から作業別パッケージを選びます。"
-"corpus.toggle.description" = "このパッケージを選択・解除します。「選択を適用」でチェックした全パッケージをインストールし、解除したものは対象から外します。適用前に戻るかキャンセルすると、インストール状態は変わりません。"
-"corpus.size.legend" = "各パッケージ横のサイズは、すべてのセッションが読む全体設定に加わる量です。ガイドも配置されますが、ルールが指したときだけ読まれます。"
-"corpus.size.detail" = "すべてのセッションにルール {rules} 件（{size}）を加え、ルールが指したときだけ読まれるガイド {guides} 件（{guide_size}）を配置します。"
-"corpus.size.detail.noguides" = "すべてのセッションにルール {rules} 件（{size}）を加え、配置するガイドはありません。"
-"corpus.apply.label" = "選択を適用{pending}"
-"corpus.apply.description" = "チェックしたパッケージをインストールし、解除したものをこのマシンの共通指示から外します。AI が指示を読み込めるか確認し、結果を表示します。他のプロジェクトにも適用されますが、プロジェクトのコードは変更しません。"
-"corpus.apply.unchanged" = "チェックされた集合は適用済みの集合と同じです — 適用するものがありません"
-"corpus.unavailable.line1" = "corpus status projection が存在しないか、ドメイン報告以前のバージョンです。"
-"corpus.none.line" = "この投影には選択できるドメインパッケージがありません — core と infra は常にインストールされるため、ここで選ぶものはありません。"
-"corpus.unavailable.line2" = "実行: agent-bios install   (この画面が読む projection を書き直します)"
-"corpus.back.hint" = "モードメニューに戻ります。"
+"instructions.label" = "指示パッケージ"
+"instructions.private.title" = "Instructions Studio"
+"instructions.private.description" = "個人の指示を閲覧・作成・編集・削除・復元します。変更は次の有効化セッションに反映され、実行中のセッションは固定した内容を維持します。"
+"instructions.private.relationship" = "指示は専用ストレージに保存されます。Builder は選択したスナップショットを有効化し、通常の CLI と Vanilla には自動追加しません。既存のグローバル設定は明示的な移行が必要です。"
+"instructions.private.vanilla" = "通常の CLI とユーザー・プロジェクトの指示を使用します。agent-bios の個人指示、スキル説明、起動設定は追加しません。"
+"instructions.description" = "AI が参照する作業指示を選びます。開発、複数エージェントの協働、スプレッドシートなどの作業別パッケージです。選んでから「選択を適用」でインストールします。このマシンの今後の CLI 実行に使う共通指示が変わり、他のプロジェクトにも影響します。"
+"instructions.title" = "指示パッケージ"
+"instructions.core.line" = "目標設定・意思決定・教訓記録の基本ルール（core + infra）は常に含まれます。以下から作業別パッケージを選びます。"
+"instructions.toggle.description" = "このパッケージを選択・解除します。「選択を適用」でチェックした全パッケージをインストールし、解除したものは対象から外します。適用前に戻るかキャンセルすると、インストール状態は変わりません。"
+"instructions.size.legend" = "各パッケージ横のサイズは、すべてのセッションが読む全体設定に加わる量です。ガイドも配置されますが、ルールが指したときだけ読まれます。"
+"instructions.size.detail" = "すべてのセッションにルール {rules} 件（{size}）を加え、ルールが指したときだけ読まれるガイド {guides} 件（{guide_size}）を配置します。"
+"instructions.size.detail.noguides" = "すべてのセッションにルール {rules} 件（{size}）を加え、配置するガイドはありません。"
+"instructions.apply.label" = "選択を適用{pending}"
+"instructions.apply.description" = "チェックしたパッケージをインストールし、解除したものをこのマシンの共通指示から外します。AI が指示を読み込めるか確認し、結果を表示します。他のプロジェクトにも適用されますが、プロジェクトのコードは変更しません。"
+"instructions.apply.unchanged" = "チェックされた集合は適用済みの集合と同じです — 適用するものがありません"
+"instructions.unavailable.line1" = "指示の状態表示が存在しないか、ドメイン報告以前のバージョンです。"
+"instructions.none.line" = "この投影には選択できるドメインパッケージがありません — core と infra は常にインストールされるため、ここで選ぶものはありません。"
+"instructions.unavailable.line2" = "実行: agent-bios install   (この画面が読む projection を書き直します)"
+"instructions.back.hint" = "モードメニューに戻ります。"
 
-"corpus.launch.relationship" = "モードとプリセットはセッションの実行方法を決めます。インストール済みコーパスの選択は維持され、変更は「コーパスパッケージ」で行います。Vanilla でもホスト標準の指示読み込みを通じて、インストール済みの全体ルールを読みます。"
-"corpus.launch.applied" = "現在適用されているコーパス:"
-"corpus.launch.base" = "core + infra: 目標と制約の確認、選択肢の比較、検証結果の報告、次のセッションで再利用する教訓の記録を扱います。"
-"corpus.launch.unknown" = "このインストールではパッケージの内容を確認できません。"
-"corpus.domain.builder-base.label" = "開発の基本原則"
-"corpus.domain.llm-pipeline-dev.label" = "LLM パイプライン開発"
-"corpus.domain.multi-agent-orchestration.label" = "複数エージェントの協働"
-"corpus.domain.visualization-docs.label" = "図表と実装マップ"
-"corpus.domain.office-work.label" = "スプレッドシート作業"
-"corpus.domain.builder-base" = """
+"instructions.launch.relationship" = "モードとプリセットはセッションの実行方法を決めます。インストール済み指示の選択は維持され、変更は「指示パッケージ」で行います。Vanilla でもホスト標準の指示読み込みを通じて、インストール済みの全体ルールを読みます。"
+"instructions.launch.applied" = "現在適用されている指示:"
+"instructions.launch.base" = "core + infra: 目標と制約の確認、選択肢の比較、検証結果の報告、次のセッションで再利用する教訓の記録を扱います。"
+"instructions.launch.unknown" = "このインストールではパッケージの内容を確認できません。"
+"instructions.domain.builder-base.label" = "開発の基本原則"
+"instructions.domain.llm-pipeline-dev.label" = "LLM パイプライン開発"
+"instructions.domain.multi-agent-orchestration.label" = "複数エージェントの協働"
+"instructions.domain.visualization-docs.label" = "図表と実装マップ"
+"instructions.domain.office-work.label" = "スプレッドシート作業"
+"instructions.domain.builder-base" = """
 ソフトウェアの実装・検証・保守に共通する開発原則です。
 • Coding（開発手順）: 完了基準を決め、作業を計画し、必要な箇所を変更して結果をレビューします。
 • Verification menus（検証の選択）: コード・設定・文書など対象に合う検査を選び、実際の変更経路を検証します。
@@ -81,14 +81,14 @@
 • Review requests & defect criteria（レビュー基準）: 根拠と具体的な失敗基準をレビュアーに渡し、重要な指摘を解決します。
 • Repository instructions（リポジトリ指示）: repo-charter スキルで、コードに基づく AGENTS.md 作業ルールを作成します。
 """
-"corpus.domain.llm-pipeline-dev" = """
+"instructions.domain.llm-pipeline-dev" = """
 モデルの判断とコードで保証する契約を分けて LLM パイプラインを構築します。
 • Capability boundary（役割の境界）: 意味の解釈と選択はモデルが担い、正確な計算と変換はツールが行います。
 • Structured output（構造化出力）: 提出形式を制約し、コードが検証・直列化・最終成果物の生成を担います。
 • Runtime authority（実行権限）: 実際のツールと利用経路で権限と実行経路を保証します。プロンプトや未使用のフラグだけでは動作は変わりません。
 • Failure handling（失敗処理）: 契約違反の出力を拒否し、不確かな品質判断は利用者に伝えます。モデル出力を黙って補正しません。
 """
-"corpus.domain.multi-agent-orchestration" = """
+"instructions.domain.multi-agent-orchestration" = """
 複数モデルと CLI エージェントの役割・引き継ぎ・独立レビューを調整します。
 • Delegation（委任）: 独立作業や反復作業にエージェントが有用か判断し、範囲と完了基準を決めて任せます。
 • Model allocation（モデル配分）: 難度と影響に応じてティアを割り当て、安価なモデルによる実装には検証を補強します。
@@ -96,13 +96,13 @@
 • Independent review（独立レビュー）: 提供元と観点を比較し、指定モデルと設定でレビューが実際に動いたことを確認します。
 • Continuation & batches（再開・一括処理）: 再開可能な成果物を保持し、セッション状態を再確認し、利用制限に対する反復リトライを止めます。
 """
-"corpus.domain.visualization-docs" = """
+"instructions.domain.visualization-docs" = """
 システムと意思決定を図表で説明し、現在の実装状態を地図として管理します。
 • Visual explanations（視覚的な説明）: 比較・流れ・状態変化を最も明確に伝えるテキスト・表・HTML 表現を選びます。
 • SVG diagrams（SVG 図）: 役割・境界・依存関係・方向を読みやすい配置と一貫した表記で示します。
 • Implementation map（実装マップ）: 構造・目標・リスク・決定・検証状態を現在のダッシュボードとして維持します。
 """
-"corpus.domain.office-work" = """
+"instructions.domain.office-work" = """
 スプレッドシート作業をインストール済みの spreadsheet-processing スキルへ案内します。
 • Spreadsheet processing（シート作業）: スキルがあれば、ブックの編集・生成・照合・検証に使用します。
 • Formula verification（数式検証）: 数式に依存する Excel の結果を実際の Microsoft Excel エンジンで確認します。
@@ -129,7 +129,7 @@
 "wizard.perspectives.refused" = "観点を少なくとも 1 つ挙げてください — レビュアーに何を見るよう伝えるかです。"
 "wizard.trials.label" = "Trials (分離パスの回数; 1 以上)"
 "wizard.trials.refused" = "1 以上の整数が必要です。"
-"wizard.instructions.label" = "Instructions (slot: {command} {model} {effort} {provider} {host} {service_tier} {perspectives} {trials} {severities})"
+"wizard.instructions.label" = "指示 (slot: {command} {model} {effort} {provider} {host} {service_tier} {perspectives} {trials} {severities})"
 "wizard.emits.label" = "レビュアーが実際に報告する severity 値、そのまま (カンマ区切り)"
 "wizard.map.title" = "canonical ladder へマッピング — {value}"
 "wizard.confirm.title" = "reader がこのブロックを受理しました — 書き込みますか?"
@@ -213,15 +213,15 @@
 "policy.claude.standard.label" = "標準"
 "policy.claude.standard.description" = "ポリシーフラグを渡さず、Claude 本来の既定の権限確認を使います。"
 
-# セッションディスティル領域 — コーパス内容のバージョン、パッケージ、ロールバック。
+# セッションディスティル領域 — 指示内容のバージョン、パッケージ、ロールバック。
 "distill.title" = "Session Distill"
 "distill.start.label" = "Session distill を開始"
 "distill.start.description" = "Session distill プリセットで起動します。ミッション行がセッションをワークフローガイドと SSOT へ導きます。"
 "distill.start.unavailable" = "プリセット {preset} が設定されていません"
-"distill.packages.label" = "コーパスパッケージ"
-"distill.packages.description" = "どのコーパス内容が適用されているかを、インストール可能なパッケージ単位で表示します (v1: 単一 core コーパス)。"
+"distill.packages.label" = "指示パッケージ"
+"distill.packages.description" = "どの指示内容が適用されているかを、インストール可能なパッケージ単位で表示します (v1: 単一 core 指示)。"
 "distill.versions.label" = "バージョンとロールバック"
-"distill.versions.description" = "コーパス内容のバージョンです (システム配備とは別)。コーパスを前後のバージョンへ戻します。"
+"distill.versions.description" = "指示内容のバージョンです (システム配備とは別)。指示を前後のバージョンへ戻します。"
 "distill.back.label" = "戻る"
 "distill.back.hint" = "Session distill へ戻ります。"
 "distill.back.launch" = "起動メニューへ戻ります。"
@@ -229,19 +229,19 @@
 "distill.version.description" = "closed {closed} · commit {commit} · {summary}"
 "distill.version.applied.title" = "{version} が現在適用中のバージョンです"
 "distill.version.applied.line" = "ロールバックまたはロールフォワードするには別のバージョンを選択してください。"
-"distill.package.core.label" = "core コーパス @ {version}"
-"distill.package.core.description" = "ドメインパッケージングが入るまで、すべてのコーパスドメインが一つのパッケージです (バックログ)。レイヤー: {layers}。ドメインごとの選択・バージョン・ロールバックは今後ここに表示されます。"
-"distill.rollback.title" = "コーパスを {version} へロールバックしますか?"
+"distill.package.core.label" = "core 指示 @ {version}"
+"distill.package.core.description" = "ドメインパッケージングが入るまで、すべての指示ドメインが一つのパッケージです (バックログ)。レイヤー: {layers}。ドメインごとの選択・バージョン・ロールバックは今後ここに表示されます。"
+"distill.rollback.title" = "指示を {version} へロールバックしますか?"
 "distill.rollback.cancel.label" = "キャンセル"
-"distill.rollback.cancel.description" = "現在配備されているコーパス内容をそのまま維持します。"
+"distill.rollback.cancel.description" = "現在配備されている指示内容をそのまま維持します。"
 "distill.rollback.confirm.label" = "{version} へロールバック"
-"distill.rollback.confirm.description" = "そのコーパスバージョン時点の globals/guides/hooks を再配備します。システム配備 (ランチャー、ラッパー) は現行のままです。最新バージョンを選べば再びロールフォワードできます。"
+"distill.rollback.confirm.description" = "その指示バージョン時点の globals/guides/hooks を再配備します。システム配備 (ランチャー、ラッパー) は現行のままです。最新バージョンを選べば再びロールフォワードできます。"
 "distill.rollback.done" = "ロールバック完了。"
 "distill.rollback.failed" = "ロールバック失敗。"
 
-# コーパス状態パネル — Session Distill 領域とチェックリストが共用します。
+# 指示状態パネル — Session Distill 領域とチェックリストが共用します。
 # ラベルは表示セル基準で整列するため、翻訳の長さが違っても崩れません。
-"panel.unprojected" = "コーパス状態がまだ生成されていません — 実行: agent-bios install"
+"panel.unprojected" = "指示状態がまだ生成されていません — 実行: agent-bios install"
 "panel.version.label" = "適用バージョン"
 "panel.mechanisms.label" = "メカニズム"
 "panel.ledger.label" = "台帳"
@@ -258,7 +258,7 @@
 "panel.ledger.value" = "配置 {placed} · インキュベート {incubating} · バージョン {versions}"
 "panel.domains.unset" = "(未選択)"
 "panel.last-apply" = "⚠ 最終適用 {outcome} @ {at} — 要求: {requested}"
-"corpus.core-only" = "core+infra のみ"
+"instructions.core-only" = "core+infra のみ"
 
 # Numbered-prompt chrome. These were printed as English literals from the renderer
 # while every line of content around them was translated, so the Korean and Japanese
@@ -281,7 +281,7 @@
 "global-instructions.exclude.private-unavailable" = "agent-bios で有効化されたセッションが必要です。Vanilla と通常の CLI 起動はネイティブの指示読み込みを維持します。"
 "setup.inactive.label" = "非活性"
 "setup.inactive.value" = "{tiers} — 非活性、投影されません ({reason})"
-"tui.corpus.title" = "コーパス状態"
+"tui.instructions.title" = "指示状態"
 "tui.detail.title" = "選択中の項目の説明"
 "tui.detail.scroll" = "j/k: 説明を下/上へ · Shift+PgUp/PgDn"
 "tui.options.header" = "項目 (1-{count} / {count})"
@@ -302,10 +302,10 @@
 "prompt.unavailable" = "利用不可"
 "prompt.unavailable.retry" = "利用不可: {reason}。利用可能な項目を選択してください。"
 "prompt.no.previous" = "前のメニューがありません。q でキャンセルしてください。"
-"prompt.corpus.header" = "-- コーパス状態 --"
+"prompt.instructions.header" = "-- 指示状態 --"
 
-"understand.title" = "Understand! · Corpus の原理"
-"understand.description" = "Corpus のまとまりが存在する理由、規則の背景と文脈、仕組みと限界を対話で理解します。"
-"understand.empty" = "この corpus には学習できるまとまりがありません。"
+"understand.title" = "Understand! · 指示 の原理"
+"understand.description" = "指示 のまとまりが存在する理由、規則の背景と文脈、仕組みと限界を対話で理解します。"
+"understand.empty" = "この 指示 には学習できるまとまりがありません。"
 "understand.bundle.detail" = "関連資料 {count} 件 · 個別ファイルではなく、まとまりとして学習します。"
-"understand.session.scope" = "固定した学習資料を使い、新しい対話セッションを開きます。Corpus フックの有効化やグローバル指示ファイルの変更は行いません。"
+"understand.session.scope" = "固定した学習資料を使い、新しい対話セッションを開きます。指示 フックの有効化やグローバル指示ファイルの変更は行いません。"

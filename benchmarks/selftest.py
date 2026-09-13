@@ -32,7 +32,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import ablations
 import absence
 import compare
-import corpus
+import instructions
 import dispatch
 import fixture_state
 import judge
@@ -50,7 +50,7 @@ EXPECTED = {
     'bijection': 5,
     'canary': 17,
     'compare': 36,
-    'corpus': 11,
+    'instructions': 11,
     'fixture': 4,
     'footprint': 8,
     'hook': 12,
@@ -68,7 +68,7 @@ def control(group: str, name: str, fired: bool) -> None:
     RESULTS.append((group, name, bool(fired)))
 
 
-DOMAIN_ERRORS = (ablations.AblationError, absence.AbsenceError, corpus.CorpusError,
+DOMAIN_ERRORS = (ablations.AblationError, absence.AbsenceError, instructions.InstructionsError,
                  judge.JudgeError, manifest_mod.ManifestError, receipt_mod.ReceiptError,
                  fixture_state.FixtureError)
 
@@ -101,47 +101,47 @@ def raises(fn, *a, because: str = "", **kw) -> bool:
         return True
 
 
-def corpus_controls(work: pathlib.Path) -> None:
+def instructions_controls(work: pathlib.Path) -> None:
     tok = "T" + secrets.token_hex(3)
     anchor = "- Keep file changes within the requested scope."
-    control("corpus", "an edit anchor matching nothing is refused",
-            raises(corpus.build_variant, "codex", work / "c1", tok,
+    control("instructions", "an edit anchor matching nothing is refused",
+            raises(instructions.build_variant, "codex", work / "c1", tok,
                    edits=[("AGENTS.md", "NO SUCH TEXT 8f3a1c", "")]))
-    control("corpus", "an ambiguous edit anchor is refused",
-            raises(corpus.build_variant, "codex", work / "c2", tok,
+    control("instructions", "an ambiguous edit anchor is refused",
+            raises(instructions.build_variant, "codex", work / "c2", tok,
                    edits=[("AGENTS.md", "\n", "")]))
-    control("corpus", "an edit replacing text with itself is refused",
-            raises(corpus.build_variant, "codex", work / "c3", tok,
+    control("instructions", "an edit replacing text with itself is refused",
+            raises(instructions.build_variant, "codex", work / "c3", tok,
                    edits=[("AGENTS.md", anchor, anchor)]))
-    control("corpus", "a variant home inside a git work tree is refused",
-            raises(corpus.build_variant, "codex",
+    control("instructions", "a variant home inside a git work tree is refused",
+            raises(instructions.build_variant, "codex",
                    pathlib.Path(__file__).resolve().parent / "out" / "selftest-home", tok))
 
-    full = corpus.build_variant("codex", work / "full", "T111111")
-    other = corpus.build_variant("codex", work / "other", "T222222")
-    abl = corpus.build_variant("codex", work / "abl", "T333333",
+    full = instructions.build_variant("codex", work / "full", "T111111")
+    other = instructions.build_variant("codex", work / "other", "T222222")
+    abl = instructions.build_variant("codex", work / "abl", "T333333",
                                edits=[("AGENTS.md", anchor, "")])
     # The control the single end-of-build hash could not fail: identical corpora.
-    control("corpus", "two builds of the same corpus share an experiment_hash",
+    control("instructions", "two builds of the same instructions share an experiment_hash",
             full["experiment_hash"] == other["experiment_hash"])
-    control("corpus", "their realized hashes still differ (paths and canaries do)",
+    control("instructions", "their realized hashes still differ (paths and canaries do)",
             full["realized_hash"] != other["realized_hash"])
-    control("corpus", "an ablated arm's experiment_hash differs from the control's",
+    control("instructions", "an ablated arm's experiment_hash differs from the control's",
             abl["experiment_hash"] != full["experiment_hash"])
-    control("corpus", "an unchanged corpus reports no drift",
-            corpus.verify_unchanged(full) is None)
+    control("instructions", "an unchanged instructions reports no drift",
+            instructions.verify_unchanged(full) is None)
     entry = pathlib.Path(full["home"]) / "AGENTS.md"
     entry.write_text(entry.read_text(encoding="utf-8") + "\nmutated\n", encoding="utf-8")
-    control("corpus", "a corpus mutated after the build is reported as drift",
-            corpus.verify_unchanged(full) is not None)
-    control("corpus", "auth failure text is recognised",
-            corpus.is_auth_failure("Not logged in · Please run /login"))
-    control("corpus", "ordinary prose is not read as auth failure",
-            not corpus.is_auth_failure("the response discusses nothing of the sort"))
+    control("instructions", "an instruction mutated after the build is reported as drift",
+            instructions.verify_unchanged(full) is not None)
+    control("instructions", "auth failure text is recognised",
+            instructions.is_auth_failure("Not logged in · Please run /login"))
+    control("instructions", "ordinary prose is not read as auth failure",
+            not instructions.is_auth_failure("the response discusses nothing of the sort"))
 
 
 def hook_controls(work: pathlib.Path) -> None:
-    """Only the corpus's hooks travel, and only rebound into the arm."""
+    """Only the instructions's hooks travel, and only rebound into the arm."""
     import json as _json
     src = work / "hooksrc"
     (src / "central" / "hooks").mkdir(parents=True)
@@ -153,13 +153,13 @@ def hook_controls(work: pathlib.Path) -> None:
             {"type": "command", "command": "node /somewhere/else/collect-session.js"}]}],
     }}), encoding="utf-8")
     # The arm exists on disk before its hooks are rebound — build_variant copies the
-    # corpus first — so the fixture has to as well, or the rebinder is asked to point at
+    # instructions first — so the fixture has to as well, or the rebinder is asked to point at
     # a file nothing has created and the control tests the fixture, not the code.
     dest = work / "hookdest"
     (dest / "central" / "hooks").mkdir(parents=True)
     (dest / "central" / "hooks" / "mine.py").write_text("# hook\n", encoding="utf-8")
-    kept = corpus.corpus_hook_entries("claude", src, dest)
-    control("hook", "a hook outside the corpus tree is not carried into the arm",
+    kept = instructions.instructions_hook_entries("claude", src, dest)
+    control("hook", "a hook outside the instructions tree is not carried into the arm",
             list(kept) == ["PreToolUse"])
     control("hook", "the carried command is rebound to this arm's home",
             str(dest) in kept["PreToolUse"][0]["hooks"][0]["command"]
@@ -173,26 +173,26 @@ def hook_controls(work: pathlib.Path) -> None:
     (csrc / 'hooks.json').write_text(_json.dumps({'hooks': {'PreToolUse': [{'matcher': 'Bash', 'hooks': [
         {'type': 'command', 'command': f'python3 {csrc}/hooks/tooling-gotchas-hook.py'},
         {'type': 'command', 'command': f'python3 {csrc}/hooks/foreign.py'}]}]}}))
-    ckept = corpus.corpus_hook_entries('codex', csrc, cdest)
+    ckept = instructions.instructions_hook_entries('codex', csrc, cdest)
     control('hook', 'Codex registrations travel through the shared hook rebinder',
             len(ckept['PreToolUse'][0]['hooks']) == 1
             and str(cdest) in ckept['PreToolUse'][0]['hooks'][0]['command'])
     control("hook", "a home with no settings file carries no hooks",
-            corpus.corpus_hook_entries("claude", work / "nothing", dest) == {})
+            instructions.instructions_hook_entries("claude", work / "nothing", dest) == {})
 
-    # P2#10 — an unreadable registration is not a hookless corpus. Returning {} for both
+    # P2#10 — an unreadable registration is not a hookless instructions. Returning {} for both
     # dropped the whole hook delivery surface while every later receipt still read ok.
     broken = work / "hookbroken"
     (broken / "central" / "hooks").mkdir(parents=True)
     (broken / "settings.json").write_text("{not json", encoding="utf-8")
-    control("hook", "malformed settings are refused, not read as a hookless corpus",
-            raises(corpus.corpus_hook_entries, "claude", broken, dest,
+    control("hook", "malformed settings are refused, not read as a hookless instructions",
+            raises(instructions.instructions_hook_entries, "claude", broken, dest,
                    because="hook registrations unreadable"))
 
-    # P2#12 — under --corpus the settings file is the candidate's copy but the command
+    # P2#12 — under --instructions the settings file is the candidate's copy but the command
     # inside it still names the DEPLOYED hook, so `replace(str(src), str(dest))` was a
     # no-op and the arm ran the deployed hook while reporting itself rebound.
-    deployed_home = corpus.HOST_HOMES["claude"]["home"]
+    deployed_home = instructions.HOST_HOMES["claude"]["home"]
     cand = work / "hookcand"
     (cand / "central" / "hooks").mkdir(parents=True)
     (cand / "central" / "hooks" / "tooling-gotchas-hook.py").write_text("# h\n", encoding="utf-8")
@@ -203,7 +203,7 @@ def hook_controls(work: pathlib.Path) -> None:
     cdest = work / "hookcanddest"
     (cdest / "central" / "hooks").mkdir(parents=True)
     (cdest / "central" / "hooks" / "tooling-gotchas-hook.py").write_text("# h\n", encoding="utf-8")
-    rebound = corpus.corpus_hook_entries("claude", cand, cdest)
+    rebound = instructions.instructions_hook_entries("claude", cand, cdest)
     cmd = rebound["PreToolUse"][0]["hooks"][0]["command"]
     control("hook", "a command naming the deployed hook is rebound into the arm",
             str(cdest) in cmd and str(deployed_home) not in cmd)
@@ -212,7 +212,7 @@ def hook_controls(work: pathlib.Path) -> None:
     missing = work / "hookmissingdest"
     missing.mkdir()
     control("hook", "a registration whose target is absent from the arm is refused",
-            raises(corpus.corpus_hook_entries, "claude", cand, missing,
+            raises(instructions.instructions_hook_entries, "claude", cand, missing,
                    because="absent from the"))
     stray = work / "hookstray"
     (stray / "central" / "hooks").mkdir(parents=True)
@@ -220,15 +220,15 @@ def hook_controls(work: pathlib.Path) -> None:
         {"type": "command", "command": "python3 /elsewhere/central/hooks/x.py"}]}]}}),
         encoding="utf-8")
     control("hook", "a hook path under neither home is refused rather than left alone",
-            raises(corpus.corpus_hook_entries, "claude", stray, dest,
+            raises(instructions.instructions_hook_entries, "claude", stray, dest,
                    because="cannot be rebound"))
 
     # A registration with nothing to evidence it is refused: the arm would run a hook
     # and no response could show it did.
-    real = corpus.HOST_HOMES["claude"]["home"]
+    real = instructions.HOST_HOMES["claude"]["home"]
     if (real / "settings.json").exists():
-        v = corpus.build_variant("claude", work / "hookvariant", "H" + secrets.token_hex(3))
-        control("hook", "a real variant registers the corpus hook and mints a nonce",
+        v = instructions.build_variant("claude", work / "hookvariant", "H" + secrets.token_hex(3))
+        control("hook", "a real variant registers the instructions hook and mints a nonce",
                 v["hook_events"] == ["PreToolUse"] and bool(v["hook_canary"]))
         hp = pathlib.Path(v["home"]) / "central" / "hooks" / "tooling-gotchas-hook.py"
         control("hook", "the arm's hook copy carries that nonce",
@@ -240,60 +240,60 @@ def hook_controls(work: pathlib.Path) -> None:
 
 
 def footprint_controls(work: pathlib.Path) -> None:
-    """The arm carries the corpus's files and nobody else's."""
+    """The arm carries the instructions's files and nobody else's."""
     src = work / "mfsrc"
     (src / "skills" / "mine").mkdir(parents=True)
     (src / "skills" / "theirs").mkdir(parents=True)
-    (src / "skills" / "mine" / "SKILL.md").write_text("corpus", encoding="utf-8")
+    (src / "skills" / "mine" / "SKILL.md").write_text("instructions", encoding="utf-8")
     (src / "skills" / "theirs" / "SKILL.md").write_text("operator", encoding="utf-8")
     fake = work / "manifest.txt"
     # The manifest records DEPLOYED absolute paths, which is why they are mapped against
     # the deployed home and not against `src`. The old fixture wrote src-relative entries
     # and so agreed with a mapping that silently produced an EMPTY footprint the moment
     # `src` was a candidate tree (P2#9).
-    deployed_home = corpus.HOST_HOMES["claude"]["home"]
+    deployed_home = instructions.HOST_HOMES["claude"]["home"]
     fake.write_text(f"{deployed_home}/skills/mine/SKILL.md\n"
                     f"/somewhere/else/notours.md\n", encoding="utf-8")
-    real, corpus.INSTALL_MANIFEST = corpus.INSTALL_MANIFEST, fake
+    real, instructions.INSTALL_MANIFEST = instructions.INSTALL_MANIFEST, fake
     try:
-        got = corpus.manifested_paths("claude", src)
+        got = instructions.manifested_paths("claude", src)
         control("footprint", "the manifest is read at file granularity, not tree",
                 got == ["skills/mine/SKILL.md"])
-        control("footprint", "a sibling the corpus did not deploy is not named",
+        control("footprint", "a sibling the instructions did not deploy is not named",
                 not any("theirs" in g for g in got))
         control("footprint", "an entry outside this host's home is skipped",
                 not any("notours" in g for g in got))
         control("footprint", "a candidate source does not empty the footprint",
-                corpus.manifested_paths("claude", work / "some-candidate")
+                instructions.manifested_paths("claude", work / "some-candidate")
                 == ["skills/mine/SKILL.md"])
-        corpus.INSTALL_MANIFEST = work / "absent.txt"
+        instructions.INSTALL_MANIFEST = work / "absent.txt"
         control("footprint", "an absent manifest is refused, not read as no footprint",
-                raises(corpus.manifested_paths, "claude", src,
+                raises(instructions.manifested_paths, "claude", src,
                        because="no installer manifest"))
         foreign = work / "foreign-manifest.txt"
         foreign.write_text("/nowhere/at/all/file.md\n", encoding="utf-8")
-        corpus.INSTALL_MANIFEST = foreign
+        instructions.INSTALL_MANIFEST = foreign
         control("footprint", "a manifest naming nothing under this host is refused",
-                raises(corpus.manifested_paths, "claude", src,
+                raises(instructions.manifested_paths, "claude", src,
                        because="no entry maps under"))
     finally:
-        corpus.INSTALL_MANIFEST = real
+        instructions.INSTALL_MANIFEST = real
 
-    # And against the real installation: the corpus skill travels, the operator's do not.
-    if corpus.INSTALL_MANIFEST.exists():
-        v = corpus.build_variant("claude", work / "mfvariant", "M" + secrets.token_hex(3))
+    # And against the real installation: the instructions skill travels, the operator's do not.
+    if instructions.INSTALL_MANIFEST.exists():
+        v = instructions.build_variant("claude", work / "mfvariant", "M" + secrets.token_hex(3))
         sk = pathlib.Path(v["home"]) / "skills"
         carried = sorted(p.name for p in sk.iterdir()) if sk.is_dir() else []
-        deployed = sorted(p.name for p in (corpus.HOST_HOMES["claude"]["home"] / "skills").iterdir()
+        deployed = sorted(p.name for p in (instructions.HOST_HOMES["claude"]["home"] / "skills").iterdir()
                           if not p.name.startswith("."))
-        control("footprint", "the arm carries the corpus skill",
+        control("footprint", "the arm carries the instructions skill",
                 "repo-charter" in carried)
         control("footprint", "the arm carries none of the operator's own skills",
                 not (set(carried) - {"repo-charter"}) and len(deployed) > 1)
 
 
 def canary_controls(work: pathlib.Path) -> None:
-    v = corpus.build_variant("codex", work / "canary", "T" + secrets.token_hex(3))
+    v = instructions.build_variant("codex", work / "canary", "T" + secrets.token_hex(3))
     tok, gc = v["token"], v["guide_canaries"]
     slug = sorted(gc)[0]
     # The value the global discloses must not be enough to attest a guide.
@@ -328,27 +328,27 @@ def canary_controls(work: pathlib.Path) -> None:
     # Normalising only the reported path made a deployed read invisible.
     control("canary", "a deployed guide path is recognised",
             dispatch._is_deployed(
-                str(corpus.HOST_HOMES["codex"]["home"].resolve()) + "/guides/x.md", "codex"))
+                str(instructions.HOST_HOMES["codex"]["home"].resolve()) + "/guides/x.md", "codex"))
     # The alias only appears when the home lives under /var, which the author's does not,
     # so asking the real home proves nothing about it — the home is pinned to each
     # spelling in turn instead. Under the one-sided normalisation both of these were False.
-    saved_home = corpus.HOST_HOMES["codex"]["home"]
+    saved_home = instructions.HOST_HOMES["codex"]["home"]
     try:
-        corpus.HOST_HOMES["codex"]["home"] = pathlib.Path("/private/var/folders/zz/.codex")
+        instructions.HOST_HOMES["codex"]["home"] = pathlib.Path("/private/var/folders/zz/.codex")
         control("canary", "a /var report against a /private/var home is deployed",
                 dispatch._is_deployed("/var/folders/zz/.codex/guides/x.md", "codex"))
-        corpus.HOST_HOMES["codex"]["home"] = pathlib.Path("/var/folders/zz/.codex")
+        instructions.HOST_HOMES["codex"]["home"] = pathlib.Path("/var/folders/zz/.codex")
         control("canary", "a /private/var report against a /var home is deployed",
                 dispatch._is_deployed("/private/var/folders/zz/.codex/guides/x.md", "codex"))
         control("canary", "a path outside the deployed home is not called deployed",
                 not dispatch._is_deployed("/var/folders/zz/other-arm/guides/x.md", "codex"))
     finally:
-        corpus.HOST_HOMES["codex"]["home"] = saved_home
+        instructions.HOST_HOMES["codex"]["home"] = saved_home
 
     control("canary", "a single correct global canary is accepted",
             dispatch.canary_verdicts(f"CANARY_GLOBAL: {tok}-GLOBAL\n", v)["global"] is True)
-    deployed = str(corpus.HOST_HOMES["codex"]["home"].resolve())
-    control("canary", "a guide read from the DEPLOYED corpus is reported",
+    deployed = str(instructions.HOST_HOMES["codex"]["home"].resolve())
+    control("canary", "a guide read from the DEPLOYED instructions are reported",
             dispatch.canary_verdicts(
                 f"CANARY_GLOBAL: {tok}-GLOBAL\nread {deployed}/guides/y.md\n",
                 v)["guide_paths_deployed"] == [f"{deployed}/guides/y.md"])
@@ -539,26 +539,26 @@ def receipt_controls(work: pathlib.Path) -> None:
                   "appears in no reported model") or
             named({**good, "models_reported": ["gpt-5.6-solar"]}, "appears in no reported model"))
     control("receipt", "a missing global canary is named",
-            named({**good, "canaries": {**good["canaries"], "global": False}}, "which corpus"))
+            named({**good, "canaries": {**good["canaries"], "global": False}}, "which instructions"))
     control("receipt", "a foreign global canary is named",
             named({**good, "canaries": {**good["canaries"], "global_foreign": ["TX-GLOBAL"]}},
                   "another arm"))
     control("receipt", "a guide canary from another arm is named",
             named({**good, "canaries": {**good["canaries"], "guides_other_arm": ["g2"]}},
                   "another arm"))
-    control("receipt", "a guide read from the deployed corpus is named",
+    control("receipt", "a guide read from the deployed instructions are named",
             named({**good, "canaries": {**good["canaries"],
                                         "guide_paths_deployed": ["/x/guides/y.md"]}},
-                  "deployed corpus"))
-    control("receipt", "corpus drift during the run is named",
-            named({**good, "corpus_drift": "corpus under /x changed during the run"}, "changed"))
+                  "deployed instructions"))
+    control("receipt", "instructions drift during the run is named",
+            named({**good, "corpus_drift": "instructions under /x changed during the run"}, "changed"))
     control("receipt", "a missing required field is named",
             named({k: v for k, v in good.items() if k != "session_id"}, "missing session_id"))
     control("receipt", "effort is never claimed as verified",
             named({**good, "effort_provenance": "verified"}, "unverified"))
-    # P2#11 — an arm that REGISTERS corpus hooks must evidence one fired. The nonce was
+    # P2#11 — an arm that REGISTERS instructions hooks must evidence one fired. The nonce was
     # minted, injected and asked for, and then read by nobody, so a receipt was valid
-    # with no evidence that the corpus's hook surface ran at all.
+    # with no evidence that the instructions's hook surface ran at all.
     control("receipt", "an unproven hook canary is named",
             named({**good, "canaries": {**good["canaries"], "hook_expected": "abc123",
                                         "hook": False, "hook_seen": []}},
@@ -684,7 +684,7 @@ def judge_controls(work: pathlib.Path) -> None:
     control("judge", "the judging packet does not name the item",  "sec-pwlen" not in pkt)
     control("judge", "the judging packet does not name the arm",
             "current" not in pkt and "ablated" not in pkt)
-    control("judge", "the judging packet carries no canary or corpus hash",
+    control("judge", "the judging packet carries no canary or instructions hash",
             "CANARY" not in pkt and "corpus_hash" not in pkt)
     body = ("APPROACH: declined and offered an alternative.\n"
             "CANARY_GLOBAL: Tabc123-GLOBAL\n"
@@ -859,7 +859,7 @@ def absence_controls(work: pathlib.Path) -> None:
             and len(res2["semantic"]["records"][0]["prompt_sha256"]) == 64)
     res3 = absence.check("pin the interpreter", ["pin the interpreter"], home, paths,
                          [("## Rule", "Always pin the interpreter.")], ctl, seeing, SEAT)
-    control("absence", "a phrase still in the corpus makes the arm PRESENT, not ABSENT",
+    control("absence", "a phrase still in the instructions makes the arm PRESENT, not ABSENT",
             res3["valid"] and res3["verdict"] == absence.PRESENT)
 
     # P1#2 — the four ways a call can fail to be evidence.
@@ -916,14 +916,14 @@ def ablation_controls(work: pathlib.Path) -> None:
                                "A" + secrets.token_hex(3))
         c6 = ablations.variant("c6-security-trigger", host, work / f"abl6-{host}",
                                "A" + secrets.token_hex(3))
-        full = corpus.build_variant(host, work / f"ablfull-{host}", "A" + secrets.token_hex(3))
+        full = instructions.build_variant(host, work / f"ablfull-{host}", "A" + secrets.token_hex(3))
         b1 = (pathlib.Path(c1["home"]) / rel).read_text(encoding="utf-8")
         b6 = (pathlib.Path(c6["home"]) / rel).read_text(encoding="utf-8")
         control("ablation", f"{host}: C1 removes the whole rule, action included",
                 ENUM not in b1 and ACTION not in b1)
         control("ablation", f"{host}: C6 removes the trigger and KEEPS the action",
                 ENUM not in b6 and ACTION in b6)
-        control("ablation", f"{host}: both arms differ from the control corpus",
+        control("ablation", f"{host}: both arms differ from the control instructions",
                 c1["experiment_hash"] != full["experiment_hash"]
                 and c6["experiment_hash"] != full["experiment_hash"]
                 and c1["experiment_hash"] != c6["experiment_hash"])
@@ -1042,7 +1042,7 @@ def compare_controls() -> None:
     # P1#4 — the packet the judge receives has the instrument's canary lines stripped,
     # so the run's raw result hash names bytes no judge ever saw. Two fields, and the
     # scored one is computed from the same text `judging_packet` builds.
-    canaried = "the answer\n" + corpus.canary_line("g", "abc123def456") + "\n"
+    canaried = "the answer\n" + instructions.canary_line("g", "abc123def456") + "\n"
     jr2 = judge.judge_receipt(
         "sec-pwlen", "packet", "d" * 64, judge.HIT,
         {"host": "codex", "models_reported": [], "requested_effort": "x",
@@ -1225,9 +1225,9 @@ def compare_controls() -> None:
                 and ("a", "claude") in res_h["incomparable"])
         control("compare", "an ablation injected into notes is refused as ambiguous",
                 exits(compare.ablation_of, _notes_arm(tmp, "n1",
-                      "corpus=/tmp/x ablation=c1-security-posture ablation=none")))
+                      "instructions=/tmp/x ablation=c1-security-posture ablation=none")))
         control("compare", "a single legacy notes token is still readable",
-                compare.ablation_of(_notes_arm(tmp, "n2", "corpus=deployed ablation=none")) == "none")
+                compare.ablation_of(_notes_arm(tmp, "n2", "instructions=deployed ablation=none")) == "none")
 
         # The verdict names the ablation it judged, from the arm's own manifest. Printing
         # C1's pass/fail sentence on a C6 run once made a defective arm read as a
@@ -1239,9 +1239,9 @@ def compare_controls() -> None:
         # A manifest that declares no arm identity at all reads as `unknown` — and
         # `unknown` is refused as a control, rather than passing as an unablated baseline.
         control("compare", "a manifest declaring no arm identity reads as unknown",
-                compare.ablation_of(_notes_arm(tmp, "c8", "corpus=deployed")) == "unknown")
+                compare.ablation_of(_notes_arm(tmp, "c8", "instructions=deployed")) == "unknown")
         control("compare", "an arm of unknown identity is refused as a control",
-                exits(compare.verdicts_many, [_notes_arm(tmp, "c9", "corpus=deployed")]))
+                exits(compare.verdicts_many, [_notes_arm(tmp, "c9", "instructions=deployed")]))
         res = compare.compare(arm("c9", "none", full), arm("a9", "c6-security-trigger", real),
                               ["a", "b"])
         control("compare", "the comparison carries the ablation it judged",
@@ -1278,7 +1278,7 @@ def main() -> int:
         return 0
     work = pathlib.Path(tempfile.mkdtemp(prefix="bench-selftest-"))
     try:
-        corpus_controls(work)
+        instructions_controls(work)
         canary_controls(work)
         hook_controls(work)
         footprint_controls(work)

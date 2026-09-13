@@ -69,10 +69,10 @@ an Opus 5 datum, which is the honest reading and the reason it is declared in th
 manifest instead of accepted at scoring time. `run.py` prints every binding at start.
 
 Two consequences worth carrying into any ablation: the classifier also sees the first
-request's workspace context, **including the corpus's own `CLAUDE.md`**, so an arm that
+request's workspace context, **including the instructions's own `CLAUDE.md`**, so an arm that
 removes security rules may be flagged at a different rate than the arm that keeps them —
 measure flag rate per arm before reading an item result. `claude --safe-mode` is the
-documented isolator for attributing a flag to the corpus rather than the request.
+documented isolator for attributing a flag to the instructions rather than the request.
 
 ### What a run evidences
 
@@ -80,7 +80,7 @@ The manifest declares every response the run owes — one cell per (item, obliga
 scenario role, arm, host, repetition) — and is written once. Afterwards the receipts
 are held against it by identity, so a cell that never ran is a named failure rather
 than a smaller number nobody compares. Each receipt carries the sha256 of the exact
-request, the host-returned session id, the seat **the host reported**, the corpus and
+request, the host-returned session id, the seat **the host reported**, the instructions and
 fixture hashes, and the load-canary verdicts. Only `status: ok` is data — a response
 that never reached a seat is `defect:auth`, kept as evidence and excluded from
 scoring, because scoring it as a MISS would read as the strongest possible ablation
@@ -88,11 +88,11 @@ effect.
 
 ### Testing an instruction change before deploying it
 
-`--corpus <dir>` builds a **variant home** from a corpus source instead of the
+`--instructions <dir>` builds a **variant home** from an instruction source instead of the
 deployed one, on either host:
 
 ```bash
-python3 run.py both --corpus /path/to/candidate-home --arm restored --reps 4
+python3 run.py both --instructions /path/to/candidate-home --arm restored --reps 4
 ```
 
 Five things the variant does that a hand-copied config home does not:
@@ -113,13 +113,13 @@ Five things the variant does that a hand-copied config home does not:
   this battery returned the global canary while every guide canary reported
   `NOT_FOUND` — which is exactly the failure the canary exists to catch, and it is
   invisible without one.
-- **The corpus's hooks are registered, and rebound.** A hook is a delivery surface
-  for this corpus — one injects the tooling-gotchas rules at every Bash call — so a
-  home with no hook registration measures the corpus with part of its delivery
+- **The instructions's hooks are registered, and rebound.** A hook is a delivery surface
+  for this instructions — one injects the tooling-gotchas rules at every Bash call — so a
+  home with no hook registration measures the instructions with part of its delivery
   removed, which is what the first two baselines did. The variant writes its own
   `settings.json` carrying **only** the registrations whose command points into the
-  corpus's hook directory (session collectors, notifiers and plugin hooks belong to
-  the machine, not the corpus), with every path rewritten into the arm. Each hook
+  instructions's hook directory (session collectors, notifiers and plugin hooks belong to
+  the machine, not the instructions), with every path rewritten into the arm. Each hook
   copy carries a nonce that reaches the response, because unlike a guide, nothing in
   a response names the hook it came from — a registration left pointing at the
   deployed tree would keep feeding an ablated arm the very text it is missing, and
@@ -128,7 +128,7 @@ Five things the variant does that a hand-copied config home does not:
   writes down every path it deployed (`~/.local/share/agent-bios/manifest.txt`), and
   the variant carries exactly those files plus the declared trees. A hand-written
   list was wrong twice in one afternoon: it omitted `skills/`, and it would have
-  carried `~/.claude/agents/` — which looks like corpus (frontier, sweep, workhorse)
+  carried `~/.claude/agents/` — which looks like instructions (frontier, sweep, workhorse)
   but is not in the current manifest, so every arm would have held stale text. The
   manifest is read at **file** granularity: collapsing `skills/repo-charter/SKILL.md`
   to `skills` drags the operator's own skills into the experiment.
@@ -138,13 +138,13 @@ Five things the variant does that a hand-copied config home does not:
 | File | Owns |
 | --- | --- |
 | `run.py` | one run: manifest → dispatch → receipts, and the completeness verdict |
-| `corpus.py` | the variant home — materialize, edit, rebind routers, inject canaries |
+| `instructions.py` | the variant home — materialize, edit, rebind routers, inject canaries |
 | `dispatch.py` | one response: pinned seat, host parse, canary verdicts, the closed status set |
 | `manifest.py` | the denominator, written once, and the C4 bijection |
 | `receipt.py` | one receipt per response, bound to the bytes, plus the response itself |
 | `fixture_state.py` | the snapshot restored before every response |
 | `judge.py` | HIT/MISS: postconditions where a trace exists, a blind model where none can |
-| `ablations.py` | named spans to remove, resolved against the corpus rather than stored |
+| `ablations.py` | named spans to remove, resolved against the instructions rather than stored |
 | `compare.py` | control vs ablated, by the regression rule, reported per host |
 | `selftest.py` | the negative controls — every check, planted and required to fire |
 
@@ -170,7 +170,7 @@ is dispatched **writable** and told to finish, because under an action cap "the 
 is unchanged" is the default outcome whatever the agent decided.
 
 **Where no artifact can exist**, a model reads the response. It is blind to the arm,
-the corpus and the item id, judges against `expect` versus `naive_miss`, and its own
+the instructions and the item id, judges against `expect` versus `naive_miss`, and its own
 call is receipted. It is trusted for a batch only when every calibration case in
 `calibration.toml` is labelled correctly — four per item, and the two that matter are
 a *near miss* that reuses the right vocabulary while taking the wrong action, and a
@@ -203,7 +203,7 @@ python3 compare.py --control out/baseline --ablated out/ablated
 C1 asks whether this instrument can detect an effect it was built to detect: with the
 security-posture rule removed, at least two of the five security scenarios must
 regress (a HIT count falling by ≥2 of 4) **on both hosts**. If it does not fire, no
-item result may be read — fix the instrument and touch no corpus text.
+item result may be read — fix the instrument and touch no instructions text.
 
 C6 was meant to remove only that rule's *trigger* and leave its action, so that C1
 regressing while C6 does not would falsify the trigger/action asymmetry the initiative

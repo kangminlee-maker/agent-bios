@@ -10,7 +10,7 @@ recorded the requested seat would have recorded a seat that never ran.
 Statuses are a closed set, and only `ok` is data:
 
   ok            reached the seat, produced a result
-  defect:auth   never reached a seat (see corpus.AUTH_FAILURE_MARKERS) — scoring
+  defect:auth   never reached a seat (see instructions.AUTH_FAILURE_MARKERS) — scoring
                 this as a MISS would read as the strongest possible ablation effect
   defect:seat   reached a seat outside the accepted set
   defect:empty  produced nothing
@@ -26,7 +26,7 @@ import re
 import subprocess
 import time
 
-import corpus
+import instructions
 
 # Reasoning effort reaches each host differently; the level names are the host's.
 CLAUDE_EFFORTS = ("low", "medium", "high", "xhigh", "max")
@@ -174,14 +174,14 @@ def _alias_free(path: str) -> str:
 
 
 def _is_deployed(path: str, host: str) -> bool:
-    """True only when the path is unmistakably the deployed corpus.
+    """True only when the path is unmistakably the deployed instructions.
 
     BOTH operands are alias-normalised. Normalising only the reported path let a
     /var-form report miss a /private/var-form home on both prefix tests, so a
     response that had plainly read the deployed guide came back with an empty
     `guide_paths_deployed` and validated. An abbreviated path still cannot be decided
     either way and is deliberately not flagged."""
-    home = _alias_free(str(corpus.HOST_HOMES[host]["home"].resolve()))
+    home = _alias_free(str(instructions.HOST_HOMES[host]["home"].resolve()))
     return _alias_free(path).startswith(home + "/")
 
 
@@ -212,7 +212,7 @@ def canary_verdicts(text: str, variant: dict) -> dict:
         # WHETHER a guide was read is the measurement, so reading none is data and
         # never a defect. Reading one from the DEPLOYED home is an integrity failure.
         #
-        # The test is "is this path the deployed corpus", not "is this path inside the
+        # The test is "is this path the deployed instructions", not "is this path inside the
         # variant". The negative form produced 25 false positives in the first baseline:
         # macOS reports the temp home as /private/var/... while the runner stored
         # /var/..., and agents abbreviate long paths with an ellipsis, so a path INSIDE
@@ -223,7 +223,7 @@ def canary_verdicts(text: str, variant: dict) -> dict:
         "guide_paths_deployed": sorted({
             m for m in GUIDE_PATH_RE.findall(text) if _is_deployed(m, variant["host"])}),
         # The hook nonce was generated, injected and asked for, and then read by
-        # nobody: a receipt was valid with no evidence that the corpus's own hook
+        # nobody: a receipt was valid with no evidence that the instructions's own hook
         # delivery surface ran at all — the same shape as the guide canary defect this
         # instrument already fixed once. `expected` is None on an arm that registers no
         # hooks on either host, and then there is nothing to prove. Registered
@@ -268,18 +268,18 @@ def dispatch(host: str, prompt: str, variant: dict, model: str, effort: str,
              writable: bool = False) -> dict:
     """Run one response and return everything a receipt needs about it."""
     env = dict(os.environ)
-    for spec in corpus.HOST_HOMES.values():
+    for spec in instructions.HOST_HOMES.values():
         env.pop(spec["env"], None)
     # The operator's own seat must not be inherited by the agent under test's tool
     # subprocesses, so it never enters this environment; it travels on an fd.
     env.pop("CLAUDE_CODE_OAUTH_TOKEN", None)
-    env[corpus.HOST_HOMES[host]["env"]] = variant["home"]
+    env[instructions.HOST_HOMES[host]["env"]] = variant["home"]
 
     cmd = command_for(host, prompt, model, effort, str(cwd), writable)
     started = time.time()
     binary = cmd[0]
     try:
-        with corpus.auth_channel(host) as (auth_add, pass_fds):
+        with instructions.auth_channel(host) as (auth_add, pass_fds):
             proc = subprocess.run(cmd, cwd=cwd, env={**env, **auth_add},
                                   stdin=subprocess.DEVNULL, capture_output=True,
                                   text=True, timeout=timeout, pass_fds=pass_fds)
@@ -313,7 +313,7 @@ def dispatch(host: str, prompt: str, variant: dict, model: str, effort: str,
     try:
         parsed = _parse_claude(stdout) if host == "claude" else _parse_codex(stdout)
     except (json.JSONDecodeError, ValueError) as exc:
-        record["status"] = ("defect:auth" if corpus.is_auth_failure(stdout + stderr)
+        record["status"] = ("defect:auth" if instructions.is_auth_failure(stdout + stderr)
                             else f"defect:dispatch:{type(exc).__name__}")
         return record
     record.update(parsed)
@@ -323,12 +323,12 @@ def dispatch(host: str, prompt: str, variant: dict, model: str, effort: str,
     record["result_sha256"] = sha256_text(record["result_text"])
     record["canaries"] = canary_verdicts(record["result_text"], variant)
     # The build-time hash describes bytes that may have moved since. Ask again.
-    record["corpus_drift"] = corpus.verify_unchanged(variant)
+    record["corpus_drift"] = instructions.verify_unchanged(variant)
 
     # The host's own failure signals gate the status. Both were recorded and
     # neither was read, so a nonzero exit with a well-formed payload became data.
     if rc != 0:
-        record["status"] = ("defect:auth" if corpus.is_auth_failure(stdout + stderr)
+        record["status"] = ("defect:auth" if instructions.is_auth_failure(stdout + stderr)
                             else f"defect:dispatch:returncode-{rc}")
     elif record.get("host_error"):
         record["status"] = "defect:dispatch:host-error"

@@ -74,8 +74,8 @@ resolved paths remain inside the source; do not follow links to outside files:
 
 - `INSTALL.md`
 - `install.sh`
-- `compose/corpus_setup_cli.py`
-- `compose/corpus_setup.py`
+- `compose/instructions_setup_cli.py`
+- `compose/instructions_setup.py`
 - `compose/setup/START.md`
 
 If they are missing, explain that the selected public revision/package does not
@@ -105,8 +105,8 @@ Require a successful JSON response with `kind: "agent-bios-setup-start"`,
 `setup_argv`, keeping the same source, working directory and reviewed execution
 context. Do not fall back to a PATH command if validation fails.
 
-The detailed guide collects corpus, optional dependencies, app connection and
+The detailed guide collects instructions, optional dependencies, app connection and
 instruction-source choices, then prepares the exact review for authorized Apply.
 Use the existing authorization for concrete effects already accepted by the user.
 Preserve global/project `AGENTS.md` and `CLAUDE.md`. Installation and app connection
-do not authorize corpus content in this task; that remains a separate explicit use.
+do not authorize instructions content in this task; that remains a separate explicit use.

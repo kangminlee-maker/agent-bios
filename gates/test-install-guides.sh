@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Explicit compatibility-install scenarios against a throwaway HOME.
 # Native deployment, withholding, cleanup and canary assertions use the legacy
-# installer route; private CLI installation is tested by test_corpus_end_to_end.py.
+# installer route; private CLI installation is tested by test_instructions_end_to_end.py.
 #
 # I1 author-only guide withheld in full mode; I2 a copy an earlier install left
 # behind is removed; I3 verify accepts the absence rather than demanding presence;
@@ -101,7 +101,7 @@ run_install install
 chk "I1 install exits 0" "[ \$(cat \"$T/rc\") -eq 0 ]"
 # The mode still matters, but "full" is no longer the ABSENCE of a selection: the
 # two install paths collapsed into one, and full mode is now "every domain
-# selected" (install.sh assemble_corpus). Asserting no selection.json existed
+# selected" (install.sh assemble_instructions). Asserting no selection.json existed
 # described a branch that is gone. Naming every domain keeps the contrast this
 # file needs — it is what separates this run from I6's single-domain one — where
 # asserting mere presence would pass for either.
@@ -111,7 +111,7 @@ chk "I1 author-only guide withheld from claude" "[ ! -f \"$CD/guides/$AUTHOR_GUI
 chk "I1 author-only guide withheld from codex" "[ ! -f \"$XD/guides/$AUTHOR_GUIDE\" ]"
 # Each absence above needs a presence beside it: an empty guides directory
 # satisfies "the author-only guide is not there" for entirely the wrong reason.
-# The two hosts read differently on purpose: the claude corpus now lands under
+# The two hosts read differently on purpose: the claude instructions now lands under
 # central/, while the codex tree keeps its flat guides dir. $CD/guides is the
 # PRE-unification destination, which is why nothing is expected there any more —
 # it is only swept (below), never written.
@@ -372,7 +372,7 @@ run_install verify
 chk "I8 verify fails on a copy restored under the packaged path" "[ \$(cat \"$T/rc\") -ne 0 ]"
 chk "I8 and names the file it found" "grep -q 'author-only guide is still installed' \"$T/log\""
 
-# I9: a failed activation canary records its outcome where the launcher's corpus
+# I9: a failed activation canary records its outcome where the launcher's instructions
 # checklist reads it. The claude CLI is stubbed to reply without the rev marker,
 # so the canary runs its REAL probe path and fails without a live session. The
 # flip-side (outcome overwritten on a later apply) is proven through the same
@@ -390,13 +390,13 @@ chk "I9 the failed canary recorded its outcome" \
     "python3 -c \"import json,sys; s=json.load(open('$S9')); sys.exit(0 if s.get('last_apply',{}).get('outcome')=='canary_failed' else 1)\""
 chk "I9 the record names the requested selection" \
     "python3 -c \"import json,sys; s=json.load(open('$S9')); sys.exit(0 if s['last_apply']['requested']==['office-work'] else 1)\""
-env $(sandbox_env) python3 "$REPO/compose/corpus-state.py" record-apply \
+env $(sandbox_env) python3 "$REPO/compose/instructions-state.py" record-apply \
   --requested office-work --outcome applied >/dev/null 2>&1
 chk "I9 a later apply overwrites the failure (negative control: the assertion above cannot pass now)" \
     "python3 -c \"import json,sys; s=json.load(open('$S9')); sys.exit(0 if s['last_apply']['outcome']=='applied' else 1)\""
 
 # I11: `--dry-run` changes nothing. install.sh's own help and README both say "print
-# actions without changing anything", and the corpus-status projection sat outside the
+# actions without changing anything", and the instructions-status projection sat outside the
 # dry-run branch — so the one command a user runs when unwilling to touch anything
 # rewrote the file that records what is deployed. The fingerprint covers the whole state
 # directory rather than that one file, because the next unguarded write will not be in
@@ -410,7 +410,7 @@ run_install install --dry-run
 chk "I11 dry-run exits 0" "[ \$(cat \"$T/rc\") -eq 0 ]"
 DRY_AFTER=$(fingerprint "$S11")
 chk "I11 dry-run left every state file untouched" "[ \"$DRY_BEFORE\" = \"$DRY_AFTER\" ]"
-chk "I11 and it still reported the step it skipped" "grep -q 'dry-run..project corpus-status' \"$T/log\""
+chk "I11 and it still reported the step it skipped" "grep -q 'dry-run..project instructions-status' \"$T/log\""
 
 # I12: a shipped skill is a directory in a directory the host scans and other tools
 # populate. It must land on BOTH hosts file by file, each file named in the manifest, and
@@ -571,11 +571,11 @@ chk "I16 the opt-out writes no cache at all" "[ ! -f \"$UPD\" ]"
 chk "I16 and says why rather than going quiet" \
     "grep -q 'update check disabled' \"$T/log\""
 
-# I17: the corpus-status projection is required, and the npm layout degrades honestly.
+# I17: the instructions-status projection is required, and the npm layout degrades honestly.
 #
-# The defect this pins: `compose/corpus-state.py` was not in the package, install.sh
+# The defect this pins: `compose/instructions-state.py` was not in the package, install.sh
 # discarded the command's stderr AND exit status, and printed one guessed note for every
-# failure. A real npm install then rewrote the corpus, passed verification, exited 0, and
+# failure. A real npm install then rewrote the instructions, passed verification, exited 0, and
 # left corpus-status.json describing a PREVIOUS deployment — which is what the launcher's
 # panel reads. Two separate silences, so two separate cases below.
 UPD_HOME="$T/i17home"; mkdir -p "$UPD_HOME"
@@ -590,13 +590,13 @@ run_i17() {   # $1: extra env
   echo $? > "$T/rc"
 }
 
-run_i17 "AGENT_BIOS_CORPUS_STATUS=$BLOCKED/status.json"
-chk "I17 an unwritable corpus status fails the install" "[ \$(cat \"$T/rc\") -ne 0 ]"
+run_i17 "AGENT_BIOS_INSTRUCTIONS_STATUS=$BLOCKED/status.json"
+chk "I17 an unwritable instructions status fails the install" "[ \$(cat \"$T/rc\") -ne 0 ]"
 chk "I17 and names the projection rather than guessing a cause" \
-    "grep -q 'corpus-status projection FAILED' \"$T/log\""
+    "grep -q 'instructions-status projection FAILED' \"$T/log\""
 chk "I17 and does not also say Done" "! grep -q '^Done\.' \"$T/log\""
 # The manifest must still describe what IS deployed: returning at the projection would
-# fire the EXIT trap and restore the PREVIOUS manifest, leaving the new corpus on disk
+# fire the EXIT trap and restore the PREVIOUS manifest, leaving the new instructions on disk
 # under the old record — the split state this whole check exists to prevent.
 chk "I17 and the manifest still records the deployment" \
     "[ -s \"$UPD_HOME/.local/share/agent-bios/manifest.txt\" ]"
@@ -611,8 +611,8 @@ chmod 700 "$BLOCKED"
 # half must be real and the version half must say it cannot know — null, never 0, because
 # a fabricated zero is indistinguishable from a real count.
 NPM="$T/i17npm"; mkdir -p "$NPM/compose"
-cp "$REPO/compose/domains.json" "$REPO/compose/corpus-state.py" "$REPO/compose/assemble.py" "$NPM/compose/"
-env AGENT_BIOS_CORPUS_STATUS="$NPM/status.json" python3 "$NPM/compose/corpus-state.py" \
+cp "$REPO/compose/domains.json" "$REPO/compose/instructions-state.py" "$REPO/compose/instructions_transaction.py" "$REPO/compose/assemble.py" "$NPM/compose/"
+env AGENT_BIOS_INSTRUCTIONS_STATUS="$NPM/status.json" python3 "$NPM/compose/instructions-state.py" \
     project --repo "$NPM" >"$T/log" 2>&1
 echo $? > "$T/rc"
 chk "I17 project succeeds with no author registries" "[ \$(cat \"$T/rc\") -eq 0 ]"
@@ -620,7 +620,7 @@ chk "I17 and reports version/ledger as unknown, not as zero" \
     "python3 -c \"import json,sys; d=json.load(open('$NPM/status.json')); sys.exit(0 if d['versions'] is None and d['summary'] is None else 1)\""
 chk "I17 and still projects real domains" \
     "python3 -c \"import json,sys; d=json.load(open('$NPM/status.json')); sys.exit(0 if d['domains']['available'] else 1)\""
-env AGENT_BIOS_CORPUS_STATUS="$NPM/status.json" python3 "$NPM/compose/corpus-state.py" \
+env AGENT_BIOS_INSTRUCTIONS_STATUS="$NPM/status.json" python3 "$NPM/compose/instructions-state.py" \
     list --repo "$NPM" >"$T/log" 2>&1
 chk "I17 list refuses by name instead of dying on a missing file" \
     "grep -q 'not part of a packaged install' \"$T/log\""

@@ -6,7 +6,7 @@ audience: author
 use_when:
   - a session was launched with the Session distill preset (mission-injected)
   - the launcher nudge says enough sessions accumulated for a mining window
-  - learning from LLM work sessions to improve the corpus and its application
+  - learning from LLM work sessions to improve the instructions and its application
   - promoting, incubating, or retiring items in the session-distill ledger
 core_rules:
   - read Goal and desired outcomes before state files or pipeline work; use it to judge the run and its delegated work
@@ -69,7 +69,7 @@ keep existing content, or a clearly bounded unresolved finding, is also useful.
 Carry this goal and the relevant outcome criteria into delegated work, then
 assess its results against them before presenting the run as complete.
 
-**Requires an agent-bios checkout.** This runbook edits the corpus itself, so it
+**Requires an agent-bios checkout.** This runbook edits the instructions themselves, so it
 names repo paths and runs repo scripts. On a packaged install those do not exist:
 say so and stop rather than following steps you cannot execute.
 
@@ -87,7 +87,7 @@ Everything durable lives in the agent-bios repo.
    correct on the day it is written and silently wrong afterwards.
 2. `design/session-distill/versions.json` — authoring provenance mapping each
    closed mining window to its commit. Private rollback selects an installed
-   `baseline_ref` through the corpus plan; this registry is not that authority.
+   `baseline_ref` through the instructions plan; this registry is not that authority.
 3. `design/session-distill/PLACEMENT-FRAMEWORK.md` — the placement framework
    (typology A–G, layers, admission bars, lifecycle). Apply the current
    `AGENTS.md` reductions-only rule and `SURFACES.md` delivery contract when
@@ -105,7 +105,7 @@ Run in order; each stage reads the previous stage's `out/`:
 2. `digest.py` — one secret-redacted digest per session with deterministic
    6-criteria signals. Screen ALL digests; triage orders, never drops.
 3. `batch.py` — the baseline blob (`claude/CLAUDE.md` + every guide, the
-   repo's canonical corpus) and per-provider batches; writes
+   repo's canonical instructions) and per-provider batches; writes
    `out/batch_index.json`, which the screeners take as their `args`.
 4. Provider-affine screening against that baseline: `screen-claude.js`
    (Claude sessions; a Workflow script — pass the index as `args`, one
@@ -173,12 +173,12 @@ Run in order; each stage reads the previous stage's `out/`:
    dated corrections for anything refuted.
 2. Write a new timestamped completion record under `design/session-distill/`
    following `AGENTS.md`; incidental finds become next-window candidates.
-3. Register the corpus version: append {version = window end, commit = the
-   corpus-close commit} to `design/session-distill/versions.json` for authoring provenance. Private rollback selects an installed `baseline_ref`
-   through `agent-bios corpus plan`; the window registry does not authorize a
+3. Register the instructions version: append {version = window end, commit = the
+   instructions-close commit} to `design/session-distill/versions.json` for authoring provenance. Private rollback selects an installed `baseline_ref`
+   through `agent-bios instructions plan`; the window registry does not authorize a
    global-file rollback. Then run
    `python3 session-distill/update-state.py --window-end <date>`
-   (nudge baseline) and `corpus-state.py project` (launcher status panel).
+   (nudge baseline) and `instructions-state.py project` (launcher status panel).
 4. Merge the branch, push, and confirm the private release from this checkout
    (`bash install.sh verify`); report stored-state and session-delivery evidence
    separately.

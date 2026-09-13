@@ -31,7 +31,7 @@ def launcher_environment(root, repo, *, backends=("claude", "codex"), isolate_ho
             adapter.write_text("#!/bin/sh\nexit 0\n")
             adapter.chmod(0o755)
     values = {"HOME": str(home), "CODEX_HOME": str(codex), "CLAUDE_CONFIG_DIR": str(claude),
-              "AGENT_BIOS_PRIVATE_CORPUS": "0", "AGENT_BIOS_STATE_DIR": str(root / "state"),
+              "AGENT_BIOS_PRIVATE_INSTRUCTIONS": "0", "AGENT_BIOS_STATE_DIR": str(root / "state"),
               "XDG_CACHE_HOME": str(root / "cache"),
               "PATH": os.pathsep.join(filter(None, (str(binaries), os.environ.get("PATH", os.defpath))))}
     if not isolate_home:

@@ -293,7 +293,7 @@ def main(root=REPO):
 # IS a git repository, and the pre-commit hook runs gates against a materialised
 # index with no `.git` at all (and with GIT_DIR exported, which is how a gate
 # once rewrote the real repository's config). Copying everything is 416 MB, most
-# of it a research corpus no harness reads. Sufficiency is not asserted here —
+# of it a research instructions no harness reads. Sufficiency is not asserted here —
 # the positive control proves it, and fails loudly if this list is short.
 COPY_SET = ("learn", "gates/check-endpoints.py", "install.sh", "package.json",
             "ENDPOINTS.md", "learn/learning.schema.json")

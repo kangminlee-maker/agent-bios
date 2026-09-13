@@ -6,7 +6,7 @@ audience: author
 use_when:
   - Session distill preset(mission-injected)로 세션이 실행됐을 때
   - launcher nudge가 mining window에 충분한 세션이 쌓였다고 알릴 때
-  - LLM 작업 세션의 경험으로 corpus와 그 적용을 개선할 때
+  - LLM 작업 세션의 경험으로 instructions와 그 적용을 개선할 때
   - session-distill ledger의 item을 promote·incubate·retire할 때
 core_rules:
   - 상태 파일이나 pipeline 작업 전에 목표와 원하는 결과를 읽고 실행과 위임 작업의 판단 기준으로 삼는다
@@ -68,7 +68,7 @@ core_rules:
 위임 작업에도 이 목표와 해당 단계의 결과 기준을 전달하고, 실행 완료를
 보고하기 전에 그 기준으로 결과를 검토한다.
 
-**Requires an agent-bios checkout.** 이 runbook은 corpus 자체를 편집하므로 repo
+**Requires an agent-bios checkout.** 이 runbook은 instructions 자체를 편집하므로 repo
 경로를 지목하고 repo 스크립트를 실행한다. packaged install에는 그것들이 없으니,
 실행할 수 없는 단계를 따르는 대신 그렇다고 말하고 멈춘다.
 
@@ -77,7 +77,7 @@ session-distill 실행을 위한 runbook: 최근 main-context 세션을 mining�
 ## 다음으로 읽기 (SSOT)
 
 1. `design/session-distill/ledger.json` — initiative의 상태. 모든 item이 status(placed / incubating / incubating-G / absorbed / adopted-no-text)와 strength, provenance를 들고 있으므로 무엇이 열려 있고 무엇이 promote됐고 무엇이 아직 incubating인지는 전부 이 파일에 대한 query다. 상태는 여기서만 읽는다: 산문에 적힌 수치나 상태는 적은 날에만 맞고 그 뒤로는 조용히 틀린다.
-2. `design/session-distill/versions.json` — 닫힌 mining window와 해당 commit을 연결하는 저작 provenance. Private rollback은 corpus plan에서 설치된 `baseline_ref`를 선택하며, 이 registry가 그 선택의 기준은 아니다.
+2. `design/session-distill/versions.json` — 닫힌 mining window와 해당 commit을 연결하는 저작 provenance. Private rollback은 instructions plan에서 설치된 `baseline_ref`를 선택하며, 이 registry가 그 선택의 기준은 아니다.
 3. `design/session-distill/PLACEMENT-FRAMEWORK.md` — placement framework(typology A–G, layer, admission bar, lifecycle). 위치를 고를 때는 현재 `AGENTS.md`의 축소 전용 규칙과 `SURFACES.md`의 전달 계약을 적용한다. 이 framework가 global 증가를 허용하지는 않는다.
 
 ## Stage 1 — Mine (pipeline in `session-distill/`)
@@ -87,7 +87,7 @@ session-distill 실행을 위한 runbook: 최근 main-context 세션을 mining�
 
 1. `census.py --end YYYY-MM-DD` — 두 provider의 history.jsonl에서 열거한다; transcript-side provenance(dispatched = Codex source=exec / Claude sidechain/sdk-cli/agentId)로 직접 처리된 main-context 세션만 남긴다.
 2. `digest.py` — 세션당 secret-redacted digest 하나에 deterministic 6-criteria signal을 담는다. 모든 digest를 screen한다; triage는 order를 매기되 버리지 않는다.
-3. `batch.py` — baseline blob(`claude/CLAUDE.md` + 모든 guide, 레포의 canonical corpus)과 provider별 batch를 만든다; screener가 `args`로 받는 `out/batch_index.json`을 쓴다.
+3. `batch.py` — baseline blob(`claude/CLAUDE.md` + 모든 guide, 레포의 canonical instructions)과 provider별 batch를 만든다; screener가 `args`로 받는 `out/batch_index.json`을 쓴다.
 4. 그 baseline에 대한 provider-affine screening: `screen-claude.js`(Claude 세션; Workflow script — index를 `args`로 넘기고 batch당 WORKHORSE screener 하나)와 `screen-codex.py`(Codex 세션; batch당 hermetic read-only `codex exec` 하나, packet은 stdin). novelty는 memory가 아니라 real baseline text에 대해 판단한다. 이어서 `collect.py`가 두 출력을 `out/candidates-all.json`으로 합치고, provider의 screened set이 batch보다 작으면 실패한다.
 5. `consolidate.js`(Workflow; `args` = baseline, candidates 경로, 개수, ledger의 `{id, lesson}` 목록) — dedup과 독립적인 novelty 검증, 이어서 어떤 survivor가 기존 ledger entry의 재발인지 이름 붙이는 match pass. strength(recurrence × materiality)로 순위를 매기고, 자기 보고된 confidence로는 매기지 않는다. 반환값을 `out/consolidated.json`으로 저장한다.
 6. `bundle_final.py` — tiered bundle. `merge-ledger.py --window-end <date>`(dry-run; `--apply`가 쓴다)가 survivor를 `ledger.json`에 merge한다: 재발은 그 window의 세션을 `recurrence` 아래에 얻고, 새 lesson은 `candidate` entry가 된다 — 그래서 recurrence가 window를 가로질러 누적되고 incubated item은 재발생하면 promote된다.
@@ -112,5 +112,5 @@ session-distill 실행을 위한 runbook: 최근 main-context 세션을 mining�
 
 1. Ledger: 상태를 placed(구현 경로 포함) / incubating으로 바꾼다; 반박된 것에는 날짜를 붙인 정정을 남긴다.
 2. `AGENTS.md` 형식에 따라 `design/session-distill/`에 timestamp가 있는 새 완료 기록을 쓴다. 우발적 발견은 next-window candidate로 남긴다.
-3. corpus version을 등록한다: {version = window 종료일, commit = corpus 마감 commit}을 `design/session-distill/versions.json`에 append하여 저작 provenance를 남긴다. Private rollback은 `agent-bios corpus plan`에서 설치된 `baseline_ref`를 선택하며 이 window registry가 전역 파일 rollback을 허용하지는 않는다. 그 다음 `python3 session-distill/update-state.py --window-end <date>`(nudge baseline)와 `corpus-state.py project`(launcher 상태 패널)를 실행한다.
+3. instructions version을 등록한다: {version = window 종료일, commit = instructions 마감 commit}을 `design/session-distill/versions.json`에 append하여 저작 provenance를 남긴다. Private rollback은 `agent-bios instructions plan`에서 설치된 `baseline_ref`를 선택하며 이 window registry가 전역 파일 rollback을 허용하지는 않는다. 그 다음 `python3 session-distill/update-state.py --window-end <date>`(nudge baseline)와 `instructions-state.py project`(launcher 상태 패널)를 실행한다.
 4. branch를 merge하고, push하고, 이 checkout의 private release를 확인한다(`bash install.sh verify`). 저장 상태와 세션 전달의 근거는 따로 보고한다.

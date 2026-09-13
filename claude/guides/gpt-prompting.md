@@ -225,7 +225,7 @@ that sample, not Astra measurements or promised gains on another workload.
 
 The GPT-5.6 section is derived from `prompt-guidance-gpt-5p6`; the GPT-6 Astra
 section from `model-guidance-gpt-6-astra`. The shared recipe retains task, evidence,
-tool, and validation practices from the GPT-5.6 guidance and the corpus; model
+tool, and validation practices from the GPT-5.6 guidance and the instructions; model
 behavior claims belong only to their matching section. `source_pins` records the
 exact bytes used for this derivation so later vendor edits can be detected.
 

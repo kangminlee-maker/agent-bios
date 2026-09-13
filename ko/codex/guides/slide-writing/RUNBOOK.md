@@ -12,7 +12,7 @@ runtime check를 하지 않았는지 밝힌다. HTML 산출물로 바꾸거나 �
 paired runtime을 통과했다고 주장하지 않는다.
 
 `<runbook-root>`는 이 파일과 `scripts/` directory를 담는 directory이고, `<job>`은
-immutable corpus bundle 밖의 새 directory다. Runtime은 이미 있는 job directory를
+immutable instructions bundle 밖의 새 directory다. Runtime은 이미 있는 job directory를
 거부한다. 입력이나 산출물을 고치면 새 job revision을 쓴다. 모든 명령에서 `--base`는
 companion directory를 가리킨다. Criteria source는 그 형제인
 `<runbook-root>/../slide-writing.md`다.
@@ -34,7 +34,7 @@ python3 -B "<runbook-root>/scripts/pair.py" --base "<runbook-root>" prepare \
 ```
 
 Asset이 없으면 `--asset`을 생략하며, 여러 파일에는 반복해서 쓴다. Asset basename은
-고유해야 한다. Asset은 `input/assets/<name>`으로 복사되므로 `output/deck.html`에서
+고유해야 한다. Asset은 `<job>/input/assets/<name>`으로 복사되므로 `<job>/output/deck.html`에서
 URL은 `../input/assets/<name>`을 사용한다.
 
 `check`는 primary criteria source를 parse하고 validate할 뿐 guide bundle에 쓰지 않는다.
@@ -110,8 +110,8 @@ python3 -B "<runbook-root>/scripts/pair.py" --base "<runbook-root>" verify --job
 ```
 
 모든 consuming command는 자체 preflight check도 수행한다. 편집 내용은 다음에 activate한
-corpus snapshot과 다음에 준비하는 job에서 사용할 수 있다. 기존 job은 원래의 immutable
-corpus snapshot, freeze한 criterion source, derived oracle, runtime version으로 검증한다.
+instructions snapshot과 다음에 준비하는 job에서 사용할 수 있다. 기존 job은 원래의 immutable
+instructions snapshot, freeze한 criterion source, derived oracle, runtime version으로 검증한다.
 원래 snapshot을 쓰지 않고 그 job이 기록한 guide나 code path를 바꾸면 binding이 무효가
 된다. Job의 source document, specification, asset, HTML, request, 등록된 render/result를
 바꿔도 마찬가지다. 이전 job은 그 revision의 근거로 보존하고, current하게 보이도록 상태나

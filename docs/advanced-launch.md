@@ -1,6 +1,6 @@
 # Launch configuration
 
-[← Overview](../README.md) · [Setup](setup.md) · [Corpus](corpus.md) · [Sessions](session-model.md) · [Recovery](recovery.md) · [Launch](advanced-launch.md) · [Understand!](understand.md)
+[← Overview](../README.md) · [Setup](setup.md) · [Instructions](instructions.md) · [Sessions](session-model.md) · [Recovery](recovery.md) · [Launch](advanced-launch.md) · [Understand!](understand.md)
 
 Inspect settings before launching. Some Builder and internal-wrapper defaults use permission bypass. A configured review or registered hook is not evidence that it ran.
 
@@ -8,13 +8,13 @@ Inspect settings before launching. Some Builder and internal-wrapper defaults us
 
 The preflight keeps the current setup above each choice, supports the configured model
 catalog and **Other**, and offers Builder presets, Software Engineer / Vanilla,
-Session distill, Custom, Language, and **Corpus Studio**. Studio is the same backend as
-`agent-bios corpus`: it searches and renders the library, edits Markdown and
+Session distill, Custom, Language, and **Instructions Studio**. Studio is the same backend as
+`agent-bios instructions`: it searches and renders the library, edits Markdown and
 consumption surface, and requires Preview then revision-bound Apply. Packaged
 entrypoints validate and temporarily extract their included UI bundle before loading
 Rich/Textual. A missing or corrupt bundle fails explicitly; no preinstalled Textual
 environment is required. Interface catalogs change only human UI text;
-model-consumed corpus remains English.
+model-consumed instructions remain English.
 
 Every arrow-key TUI selection screen keeps the complete current setup in a fixed top
 panel, followed by the highlighted option's description and the option list. Custom
@@ -59,14 +59,14 @@ contain instructions independently of the excluded documents.
 
 ## Native hooks and agents
 
-Native corpus consumption is default-off. `agent-bios corpus snapshot --host codex
---native --json` (or `--host claude`) composes a preview; `agent-launch --corpus-native`
-opts one configured session into selected corpus hooks. Both hosts use the same
+Native instructions consumption is default-off. `agent-bios instructions snapshot --host codex
+--native --json` (or `--host claude`) composes a preview; `agent-launch --instructions-native`
+opts one configured session into selected instructions hooks. Both hosts use the same
 installed Python carrier and typed `event`/`matcher` binding. Authoring accepts the
 combined event vocabulary; compilation reports an event unsupported by the selected
 host without changing its name or executing it through another event.
 
-Claude receives a namespaced plugin per CorpusRef through `--plugin-dir`. Codex
+Claude receives a namespaced plugin per InstructionsRef through `--plugin-dir`. Codex
 receives inline `hooks.<Event>` config through per-session `-c` arguments. Existing
 user, project and session hooks remain present, and resume retains the pin's exact
 registrations. Neither adapter installs global hooks. Codex hook enablement and native
@@ -75,7 +75,7 @@ checked before launch, but discovery alone does not establish execution. Hooks u
 host's command permissions; opting in permits the selected carrier to run. Editing an
 event binding does not rewrite the Python carrier's input/output contract.
 
-Native corpus agents currently use Claude plugins and retain authored frontmatter and
+Native instructions agents currently use Claude plugins and retain authored frontmatter and
 plugin-qualified names, distinct from launcher's bare tier agents. A Codex agent
 projection still needs to translate agent-specific model and tool restrictions; this
 does not limit shared hook delivery. Arbitrary prose promoted to `event` or `delegated`
@@ -95,7 +95,7 @@ loaded managed wrappers on the next shell command. An edited managed file or blo
 is preserved and reported for reconciliation, not overwritten. Backups remain private
 under `runtime/shell-backups/`; `ZDOTDIR` must match the connection's recorded path.
 Updates preserve an opted-in connection; reset and uninstall remove it. This setting
-never edits global `AGENTS.md`/`CLAUDE.md`, project files, or corpus content. Ordinary
+never edits global `AGENTS.md`/`CLAUDE.md`, project files, or instructions content. Ordinary
 private installation also leaves those globals alone; explicit `migrate` can remove
 the old agent-bios-managed regions and imports while preserving user-authored text.
 First opt-in records ownership before publishing shell wiring, so interrupted restores
@@ -110,7 +110,7 @@ Both the legacy shell adapter and the optional private shell connection preserve
 argument-bearing and non-TTY calls as direct backend invocations. The private
 connection adds no permission flags on that path. Without opting in, the private
 default installs no shell functions; an explicit `agent-launch` call projects a
-launch profile or corpus snapshot.
+launch profile or instructions snapshot.
 
 Direct `agent-launch` calls still require a valid profile to resolve the backend command and its default arguments. `--preset`, `--custom`, or `--dry-run` select the configured-launch path even when non-TTY or combined with `--no-tui`; a non-TTY bare `--dry-run` deterministically uses Balanced, and a custom profile without that preset must pass `--preset NAME`. Forwarded backend arguments are appended verbatim after the projected defaults; one that would override a projected option (the seat, the contract, delegation, policy) is refused at launch so the contract keeps describing the run, and the summary discloses forwarded arguments when present. For scripted configured launches, call `$HOME/.local/bin/agent-launch --preset NAME --yes HOST -- ...` or add `$HOME/.local/bin` to `PATH`. The summary goes to stderr so backend stdout stays machine-consumable.
 

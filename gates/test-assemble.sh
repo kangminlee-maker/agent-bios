@@ -132,7 +132,7 @@ chk "S3 legacy backup kept" "ls $T2/claude/*.bak-legacy-* >/dev/null 2>&1"
 
 # S3b is the ACTUAL upgrade input, which S3 misses: someone on an EARLIER release has that
 # release's monolith on disk, so it does not byte-match this one. Recognizing legacy by content
-# alone reported our own file as the user's, and the corpus never loaded until they edited it.
+# alone reported our own file as the user's, and the instructions never loaded until they edited it.
 # Ownership comes from the previous install's manifest — the record of what we deployed.
 T2b="$T/upgrade"; mkdir -p "$T2b/claude" "$T2b/state"
 printf '# CLAUDE.md\n\n## Global Preferences\n\n- an earlier release, not this one\n' \

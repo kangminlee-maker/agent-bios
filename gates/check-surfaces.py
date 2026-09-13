@@ -54,7 +54,7 @@ NOT_A_SURFACE: dict[str, str] = {
     # The launcher's UI text catalogs translate interface strings (menus, labels,
     # descriptions) for the HUMAN operating the TUI. Nothing a model consumes is
     # sourced from them — the contract-invariance parity leg holds contract
-    # renderers catalog-free, and the AI-consumed corpus is English-unified by
+    # renderers catalog-free, and the AI-consumed instructions are English-unified by
     # user decision (2026-08-10).
     "launch/i18n/$lang.toml": "interface text for the human operator; never reaches a model",
 }

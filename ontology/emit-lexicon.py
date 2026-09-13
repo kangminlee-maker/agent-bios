@@ -52,9 +52,10 @@ def build(graph: dict) -> str:
     return f"""# LEXICON — canonical terminology (operated)
 
 Single source of truth for the repo's shared, lasting concept names. Every
-concept below has **one** canonical term; each term is bound to the concrete
-identifiers (paths, config keys, variable/function prefixes, triggers) that
-must carry it. Deprecated aliases must not appear as live identifiers — the
+concept below has **one** canonical term and declared concrete bindings
+(paths, config keys, variable/function prefixes, triggers). A binding may retain
+an existing implementation name when its entry explains why. Deprecated aliases
+must not appear as live identifiers where the denylist enforces them — the
 `gates/check-lexicon.py` gate enforces this (it fails if a deprecated token
 resurfaces outside the archive allowlist, and fails if any token it enforces
 is missing from this file, so the two can never drift).
@@ -75,7 +76,7 @@ near-duplicate — fewer name-driven bugs, smoother maintenance.
 {core}
 
 Semantic model: users **LEARN** (capture a learning) → curators **DISTILL**
-(reduce collected learnings) → the **corpus** is redistributed. `learning` is
+(reduce collected learnings) → **Instructions** are redistributed. `learning` is
 the artifact and stays valid wherever it means the artifact (e.g. "the
 learning ledger", "placed learning items"); only the compound proper noun of
 the heavy subsystem changed.
@@ -87,7 +88,7 @@ names one canonical **home**; any machinery file whose path carries that concept
 **slug** must live under it. `gates/check-lexicon.py` enforces this, which is what
 keeps the layout guessable from a concept name instead of from a translation table.
 
-Scope: machinery only. The corpus trees (`claude/`, `codex/`, `ko/`) are organized by
+Scope: machinery only. The instruction trees (`claude/`, `codex/`, `ko/`) are organized by
 target because the harness loads fixed paths, `packages/` is organized by package
 identity for the same reason — a package carries its own manifest and prose, so the
 concept names repeat inside every package root — and `design/`, `benchmarks/` hold dated

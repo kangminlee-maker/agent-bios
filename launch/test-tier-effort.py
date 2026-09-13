@@ -236,14 +236,14 @@ def run_checks() -> int:
     picker_answers = iter(["5", "5", "5", "2", "", "5", "10"])
     picker_prompts: list[str] = []
     original_read_input = launch.read_input
-    original_private = os.environ.get("AGENT_BIOS_PRIVATE_CORPUS")
+    original_private = os.environ.get("AGENT_BIOS_PRIVATE_INSTRUCTIONS")
 
     def picker_read_input(prompt: str) -> str:
         picker_prompts.append(prompt)
         return next(picker_answers, "q")
 
     launch.read_input = picker_read_input
-    os.environ["AGENT_BIOS_PRIVATE_CORPUS"] = "0"
+    os.environ["AGENT_BIOS_PRIVATE_INSTRUCTIONS"] = "0"
     try:
         with contextlib.redirect_stdout(io.StringIO()):
             try:
@@ -253,9 +253,9 @@ def run_checks() -> int:
     finally:
         launch.read_input = original_read_input
         if original_private is None:
-            os.environ.pop("AGENT_BIOS_PRIVATE_CORPUS", None)
+            os.environ.pop("AGENT_BIOS_PRIVATE_INSTRUCTIONS", None)
         else:
-            os.environ["AGENT_BIOS_PRIVATE_CORPUS"] = original_private
+            os.environ["AGENT_BIOS_PRIVATE_INSTRUCTIONS"] = original_private
     assert any("[max]" in prompt for prompt in picker_prompts), picker_prompts
     assert picker_plan["tiers"]["frontier"] == {
         "model": "claude-fable-5-1", "effort": "max"
@@ -422,7 +422,7 @@ def run_checks() -> int:
             check=False,
             env={
                 **os.environ,
-                "AGENT_BIOS_PRIVATE_CORPUS": "0",
+                "AGENT_BIOS_PRIVATE_INSTRUCTIONS": "0",
                 "AGENT_BIOS_SESSION_DISTILL_STATE": str(temporary / "session-distill-state.json"),
                 "HOME": str(temporary / "home"),
                 "XDG_CACHE_HOME": str(temporary / "cache"),

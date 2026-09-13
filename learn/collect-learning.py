@@ -9,8 +9,8 @@ optional criteria / classification / proposed_domain / context) plus its session
   * mints learning_id (a lowercase UUID) + created (ISO-8601) + schema_version;
   * validates the full record against learn/learning.schema.json — the single
     validation source, reused from learn/check-learning.py (no second schema);
-  * appends the exact record to the private corpus's host-qualified events.jsonl;
-  * supplies it to future activated snapshots through CorpusStore, without changing
+  * appends the exact record to the private instructions's host-qualified events.jsonl;
+  * supplies it to future activated snapshots through InstructionsStore, without changing
     native global instructions or the running session;
   * drains explicitly configured ingestion from that immutable private event source.
 
@@ -23,7 +23,7 @@ never patches the payload to make it pass (runtime enforces, does not reason).
 
 Input:  the semantic payload as one JSON object on stdin.
 Host:   --host claude|codex (default: the tool prefix of supporting_sessions[0]).
-Private storage: $AGENT_BIOS_CORPUS_DIR, else ~/.config/agent-bios/corpus.
+Private storage: $AGENT_BIOS_INSTRUCTIONS_DIR, else ~/.config/agent-bios/corpus.
 Legacy storage: --config-dir, else $CLAUDE_CONFIG_DIR / $CODEX_HOME by host.
 --config-dir requires AGENT_BIOS_LEGACY_INSTALL=1; it cannot relocate private capture.
 After the local writes it best-effort uploads not-yet-delivered records to
@@ -52,7 +52,7 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 OWNED_FIELDS = ("schema_version", "learning_id", "created")
 # Free-text the LLM authored — scrubbed through the shared secret-redaction floor
 # at capture, so secrets never reach the durable log, the upload, or the curator
-# export (design/collection-loop/PHASE3-CURATION-DESIGN.md; the corpus floor in
+# export (design/collection-loop/PHASE3-CURATION-DESIGN.md; the instructions floor in
 # design/corpus-domain-packaging.md). Pattern-locked fields (domain,
 # supporting_sessions, criteria) carry no free text and are left untouched.
 FREE_TEXT_FIELDS = ("lesson", "context")
@@ -74,7 +74,7 @@ def import_line_index(body, directive):
     example, or named in a sentence, loads nothing — and reading it as an import made
     two different files claim a file was wired when it was not: capture reported the
     entry `present` and wrote nothing, and migrate-learnings read a fenced central
-    import as evidence the corpus was loaded, which is half of what authorizes deleting
+    import as evidence the instructions was loaded, which is half of what authorizes deleting
     a user's personal copy. An import is a line whose whole content is the directive.
 
     Fences are tracked rather than stripped so the index is an index into `body`'s own
@@ -276,7 +276,7 @@ def apply_codex(home, bullet, dry):
     if agents.exists():
         body = agents.read_text(encoding="utf-8")
     else:
-        # Degenerate (corpus not installed): seed EMPTY central markers so a
+        # Degenerate (instructions not installed): seed EMPTY central markers so a
         # later assemble fills them and keeps our region in the preserved tail.
         body = f"{CENTRAL_START}\n{CENTRAL_END}\n"
     if PERSONAL_START in body and PERSONAL_END in body:
@@ -1151,7 +1151,7 @@ def main():
                     help="session host (default: tool prefix of supporting_sessions[0])")
     ap.add_argument("--config-dir", default=None,
                     help="legacy host home only (requires AGENT_BIOS_LEGACY_INSTALL=1); "
-                         "private capture uses AGENT_BIOS_CORPUS_DIR")
+                         "private capture uses AGENT_BIOS_INSTRUCTIONS_DIR")
     ap.add_argument("--dry-run", action="store_true",
                     help="validate and print actions; write nothing")
     ap.add_argument("--no-upload", action="store_true",
@@ -1167,7 +1167,7 @@ def main():
     legacy = os.environ.get("AGENT_BIOS_LEGACY_INSTALL") == "1"
     if args.config_dir is not None and not legacy:
         ap.error("--config-dir applies only to AGENT_BIOS_LEGACY_INSTALL=1; "
-                 "set AGENT_BIOS_CORPUS_DIR to relocate private learning storage")
+                 "set AGENT_BIOS_INSTRUCTIONS_DIR to relocate private learning storage")
 
     payload = read_payload()
     host = resolve_host(args.host, payload)
@@ -1186,8 +1186,8 @@ def main():
         # Capture is an immutable private source. Model-visible projections are
         # composed when an activated session is started, never written globally.
         sys.path.insert(0, str(REPO / "compose"))
-        from corpus_store import CorpusStore
-        store = CorpusStore(REPO)
+        from instructions_store import InstructionsStore
+        store = InstructionsStore(REPO)
         destination = store.user_root / "learnings" / host
         if dry:
             print(f"collect-learning: [dry] private capture host={host} -> {destination / 'events.jsonl'}")

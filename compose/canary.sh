@@ -15,7 +15,7 @@ CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 BUNDLE="$CLAUDE_DIR/central/bundle.md"
 
 # Every install assembles a central bundle now — the shape that had none, where the entry file
-# WAS the corpus, is gone. So a missing bundle is a real failure again rather than the N/A it
+# WAS the instructions, is gone. So a missing bundle is a real failure again rather than the N/A it
 # used to be, and an entry file with no bundle beside it is a pre-convergence layout that a
 # re-install fixes.
 if [ ! -f "$BUNDLE" ]; then
@@ -24,7 +24,7 @@ if [ ! -f "$BUNDLE" ]; then
     echo "             whole-file layout; re-run: agent-bios install"
     exit 1
   fi
-  echo "CANARY FAIL: no corpus deployed at $CLAUDE_DIR (run: agent-bios install)"
+  echo "CANARY FAIL: no instructions deployed at $CLAUDE_DIR (run: agent-bios install)"
   exit 1
 fi
 
@@ -38,7 +38,7 @@ probe_status=$?
 
 if printf '%s' "$out" | grep -qF "$expected"; then
   # Record WHICH bundle was proven to load. This is the only evidence in the system that
-  # distinguishes a corpus that landed from one that is read, so the irreversible act that
+  # distinguishes an instruction that landed from one that is read, so the irreversible act that
   # depends on that distinction — pruning a user's personal copy of a promoted learning — reads
   # this file rather than re-deriving a weaker answer from file contents. The rev is part of the
   # proof: a later reassembly invalidates it instead of inheriting it.
@@ -50,7 +50,7 @@ fi
 
 # A pre-dispatch refusal produces no model output at all, so the reply carries
 # nothing about activation. Attributing it to a declined import would blame the
-# corpus for an auth or quota problem.
+# instructions for an auth or quota problem.
 case "$out" in
   *"Not logged in"*|*"/login"*|*"Invalid API key"*|*"authentication"*|*"Authentication"*)
     echo "CANARY SKIP: claude CLI is not authenticated for this config dir — cannot probe activation"

@@ -63,7 +63,7 @@ Entities are **concepts**, not files. Files are where concepts show up.
 One guide has several manifestations of one concept:
 `claude/guides/<id>.md` (canonical), `codex/guides/<id>.md` + `ko/` ×2
 (derived), its `compose/domains.json` `guides{}` entry (classified),
-its selected immutable private snapshot path (deployed), the corpus rule whose pointer fires it
+its selected immutable private snapshot path (deployed), the instructions rule whose pointer fires it
 (consumed), and the parity check that binds them (asserted). A tier binding is
 one concept across `launch/agent-launch.toml`, the prompting guide's `targets:`
 frontmatter, the guide display map, session projection, and a captured golden.
@@ -87,7 +87,7 @@ invisible into structural.
 - **Implementation interior** — individual functions, local variables, control
   flow that no other surface depends on. These change without consequence
   elsewhere; recording them buys staleness and no safety.
-- **Prose wording** — the semantic content of corpus rules and guides. What each
+- **Prose wording** — the semantic content of instructions rules and guides. What each
   rule *says* is payload; where it lives, what it points at, and what it obliges
   are in scope.
 - **Dated records** — `design/`, `benchmarks/`, `research/`, `session-distill/out/`.

@@ -119,7 +119,7 @@ def self_consistency():
     return problems
 
 
-# Trees organized on an axis other than the concept graph: the corpus is laid out by
+# Trees organized on an axis other than the concept graph: the instructions are laid out by
 # target because the harness loads fixed paths, and these hold dated records. A slug
 # appearing under them is a mention of a concept, not a home for it.
 NOT_A_HOME = ("claude/", "codex/", "ko/", "design/", "benchmarks/", "research/",
@@ -128,8 +128,9 @@ NOT_A_HOME = ("claude/", "codex/", "ko/", "design/", "benchmarks/", "research/",
 # These two files describe a concept; they do not implement it. Keep the
 # exceptions by name so placing machinery under docs/ still fails the home rule.
 DOC_MENTIONS = {
-    "docs/corpus.md": "user reference for inspecting and editing corpus items",
-    "docs/assets/corpus-studio.svg": "static screenshot of the corpus UI, not runtime machinery",
+    "docs/instructions-compatibility.md": "user reference for named legacy instruction interfaces and retained storage",
+    "docs/instructions.md": "user reference for inspecting and editing instructions items",
+    "docs/assets/instructions-studio.svg": "static screenshot of the instructions UI, not runtime machinery",
 }
 
 
@@ -449,17 +450,17 @@ def self_test():
 
     # Closed, independent fixtures: document exceptions cannot excuse machinery
     # or count as the implementation that a concept home must actually contain.
-    if scattered(["compose/corpus.py", "docs/corpus.md", "docs/assets/corpus-studio.svg"], [("corpus", "compose/")]):
+    if scattered(["compose/instructions.py", "docs/instructions.md", "docs/assets/instructions-studio.svg"], [("instructions", "compose/")]):
         failures.append("concept-home check rejected the declared documentation mentions")
-    if not scattered(["compose/corpus.py", "docs/corpus.py"], [("corpus", "compose/")]):
+    if not scattered(["compose/instructions.py", "docs/instructions.py"], [("instructions", "compose/")]):
         failures.append("concept-home check exempted machinery placed under docs/")
-    if not scattered(["docs/corpus.md"], [("corpus", "compose/")]):
+    if not scattered(["docs/instructions.md"], [("instructions", "compose/")]):
         failures.append("a documentation mention incorrectly satisfied an implementation home")
     if documentation_mention_errors({"docs/example.md": "prose"}, ["docs/example.md"]):
         failures.append("documentation mention positive control failed")
     for entries, files in (({"docs/example.md": "prose"}, []),
                            ({"docs/example.md": ""}, ["docs/example.md"]),
-                           ({"docs/corpus.py": "claimed documentation"}, ["docs/corpus.py"])):
+                           ({"docs/instructions.py": "claimed documentation"}, ["docs/instructions.py"])):
         if not documentation_mention_errors(entries, files):
             failures.append("documentation mention accepted a stale, unexplained, or machinery exemption")
 
@@ -484,7 +485,7 @@ def self_test():
         failures.append("archive-reference check flags its own operator, which must name the path")
     if not archive_referenced_by_runtime([], look):
         failures.append("archive-reference check passed over an empty subject (vacuous)")
-    for doc in ("docs/recovery.md", "docs/assets/corpus-studio.svg", "CONTRIBUTING.md"):
+    for doc in ("docs/recovery.md", "docs/assets/instructions-studio.svg", "CONTRIBUTING.md"):
         if not archive_referenced_by_runtime([doc], lambda _: f"see {ARCHIVE_DIR}past.md"):
             failures.append(f"active documentation escaped archive-reference checking: {doc}")
     if ARCHIVE_DIR not in ARCHIVE:

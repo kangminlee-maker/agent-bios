@@ -73,7 +73,7 @@ curator가 나중에 배정). 맞는 등록 domain이 없으면 `domain: "unclas
 admission-bar 판정, domain(+ proposed_domain) — 그리고 사용자가 명시적으로
 승인한 것만 기록한다.
 
-명시적 corpus bridge를 사용하는 Codex 앱 작업에서는 응답의 `runtime`에 있는
+명시적 instructions bridge를 사용하는 Codex 앱 작업에서는 응답의 `runtime`에 있는
 `learn` 명령·환경 또는 등록된 helper를 사용한다. 이전 앱 도구 호출의 shell export는
 다음 호출에 유지되지 않는다.
 
@@ -91,12 +91,12 @@ admission-bar 판정, domain(+ proposed_domain) — 그리고 사용자가 명�
       | bash "$AGENT_BIOS_PACKAGE_ROOT/install.sh" learn --host <claude|codex>
 
 스크립트(capability boundary)가 `learning_id` / `created` / `schema_version`를
-생성하고 `learn/learning.schema.json`에 따라 검증한다. 기록은 개인 corpus의
+생성하고 `learn/learning.schema.json`에 따라 검증한다. 기록은 개인 instructions의
 `learnings/<host>/events.jsonl`에 추가하며 Claude와 Codex의 기록을 구분한다.
-선택한 교훈은 개인 corpus를 통해 이후 활성화되는 세션의 스냅샷에 포함된다.
+선택한 교훈은 개인 instructions를 통해 이후 활성화되는 세션의 스냅샷에 포함된다.
 기록 시 사용자의 전역 지침 파일과 실행 중인 세션의 스냅샷은 보존한다.
 전송이 설정되어 있으면 로컬 저장을 마친 뒤 업로드한다.
-개인 저장 루트는 `$AGENT_BIOS_CORPUS_DIR`이며 기본값은
+개인 저장 루트는 `$AGENT_BIOS_INSTRUCTIONS_DIR`이며 기본값은
 `~/.config/agent-bios/corpus`이다. 호스트의 설정 홈을 바꿔도 이 위치는 바뀌지 않는다.
 `--config-dir`는 명시적인 레거시 모드에서만 허용된다. 로컬에만 기록하려면
 `--no-upload`를, 쓰기와 업로드 없이 검증하려면 `--dry-run`을 사용한다.

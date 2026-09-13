@@ -30,7 +30,7 @@ P1/P2/P3/P4/P5/P6) — anchored at `claude/guides/*.md guide_id frontmatter`.
 
 | Counterpart | Kind / direction | Enforcement | Why |
 | --- | --- | --- | --- |
-| CorpusRule | requires ← | gated | The private compiler emits router links for selected relevant guides; legacy global pointers remain only on the retained deployment route |
+| InstructionsRule | requires ← | gated | The private compiler emits router links for selected relevant guides; legacy global pointers remain only on the retained deployment route |
 | Hook | requires ← | gated | domains.json hooks[].source_guide binds a hook to the guide it enforces |
 | Domain | owes_entry → | gated | Every instruction unit carries a domains[] membership |
 | TierBinding | lockstep_with ← | partial | The prompting guide's targets: is gated; its Environment Binding table is not |
@@ -39,7 +39,7 @@ P1/P2/P3/P4/P5/P6) — anchored at `claude/guides/*.md guide_id frontmatter`.
 
 ### Verification checklist
 
-- [ ] CorpusRule — requires
+- [ ] InstructionsRule — requires
 - [ ] Hook — requires
 - [ ] Domain — owes_entry
 - [ ] TierBinding — lockstep_with
@@ -78,14 +78,14 @@ P1/P4/P5/P6) — anchored at `launch/agent-launch.toml [hosts.*.tiers.*]`.
 **Situation.** install.sh gains a new deploy_file/deploy_glob call.
 
 **Entity.** `DeployTarget` (F4, guard partial, reaches
-P1/P4/P6) — anchored at `install.sh deploy_file, compose/corpus_install.py CorpusInstaller.install, compose/corpus_app.py, compose/app_bridge/agents/openai.yaml`.
+P1/P4/P6) — anchored at `install.sh deploy_file, compose/instructions_install.py InstructionsInstaller.install, compose/instructions_app.py, compose/app_bridge/agents/openai.yaml`.
 
 ### Impact — computed from the obligation graph
 
 | Counterpart | Kind / direction | Enforcement | Why |
 | --- | --- | --- | --- |
 | DeploymentManifest | owes_removal → | **unguarded** | Each writer preserves verifiable ownership for removal: private install metadata, shell receipt, app bridge generation or compatibility manifest |
-| Gate | asserts ← | **unguarded** | Runtime private verification and corpus tests check private writes; ontology/extract.py separately discloses legacy deploy targets without complete verify assertions |
+| Gate | asserts ← | **unguarded** | Runtime private verification and instructions tests check private writes; ontology/extract.py separately discloses legacy deploy targets without complete verify assertions |
 | PayloadEntry | owes_entry → | derived | check-package.sh greps real $REPO references rather than holding a list |
 | StateArtifact | projects_to → | partial | Private installation writes its ownership record, baseline reference and status; compatibility install writes its version marker |
 | ShellInterception | lockstep_with ← | partial | Optional shell restore owns the shell.zsh script and receipt; its bounded .zshrc block remains a user-owned region |
@@ -106,13 +106,13 @@ P1/P4/P6) — anchored at `install.sh deploy_file, compose/corpus_install.py Cor
 **Situation.** A new agent-bios subcommand is introduced.
 
 **Entity.** `CliSubcommand` (F4, guard unguarded, reaches
-P1/P3/P4/P5) — anchored at `install.sh, compose/corpus.py, compose/corpus_install.py, compose/corpus_understand.py, compose/corpus_import.py, compose/corpus_app.py, compose/corpus_setup.py, compose/app_bridge/scripts/bridge.py, compose/corpus_setup_ui.py, compose/corpus_setup_i18n.py, compose/corpus_setup_cli.py, compose/setup/START.md, INSTALL.md, docs/setup.md`.
+P1/P3/P4/P5) — anchored at `install.sh, compose/instructions.py, compose/instructions_install.py, compose/instructions_understand.py, compose/instructions_import.py, compose/instructions_app.py, compose/instructions_setup.py, compose/app_bridge/scripts/bridge.py, compose/instructions_setup_ui.py, compose/instructions_setup_i18n.py, compose/instructions_setup_cli.py, compose/setup/START.md, INSTALL.md, docs/setup.md`.
 
 ### Impact — computed from the obligation graph
 
 | Counterpart | Kind / direction | Enforcement | Why |
 | --- | --- | --- | --- |
-| DeployTarget | controls → | partial | Private install stores a pinned release and owns launcher projections; the explicit legacy install route writes native corpus destinations |
+| DeployTarget | controls → | partial | Private install stores a pinned release and owns launcher projections; the explicit legacy install route writes native instructions destinations |
 | CliSubcommand | precedes → | **unguarded** | usage() advertises the operations dispatched by case blocks and early command branches |
 | Migration | precedes → | **unguarded** | Explicit migrate coordinates legacy cleanup and private installation; compatibility install runs its own migrations before deploy writes |
 | ManagedRuntime | controls → | partial | Interactive package CLI entrypoints activate the verified UI bundle without persistent installation; explicit optional recipes separately provision the learning validator or compatibility environment |
@@ -134,7 +134,7 @@ P1/P3/P4/P5) — anchored at `install.sh, compose/corpus.py, compose/corpus_inst
 **Situation.** A persisted artifact's shape changes and its schema version is bumped.
 
 **Entity.** `SchemaVersion` (F4, guard unguarded, reaches
-P1/P5) — anchored at `compose/corpus_install.py SCHEMA_VERSION, compose/corpus_store.py, compose/corpus_session.py, launch/agent-launch.toml schema_version, compose/domains.json version, compose/corpus_setup_cli.py`.
+P1/P5) — anchored at `compose/instructions_install.py SCHEMA_VERSION, compose/instructions_store.py, compose/instructions_session.py, launch/agent-launch.toml schema_version, compose/domains.json version, compose/instructions_setup_cli.py`.
 
 ### Impact — computed from the obligation graph
 
@@ -154,7 +154,7 @@ P1/P5) — anchored at `compose/corpus_install.py SCHEMA_VERSION, compose/corpus
 **Situation.** The installer starts writing a marked region into another file it does not own.
 
 **Entity.** `UserOwnedFileRegion` (F4, guard partial, reaches
-P1/P4/P5/P6) — anchored at `launch/shell_integration.py, compose/corpus_install.py, compose/assemble.py, codex/config-additions.toml, compose/corpus_app.py, compose/app_bridge/agents/openai.yaml`.
+P1/P4/P5/P6) — anchored at `launch/shell_integration.py, compose/instructions_install.py, compose/assemble.py, codex/config-additions.toml, compose/instructions_app.py, compose/app_bridge/agents/openai.yaml`.
 
 ### Impact — computed from the obligation graph
 

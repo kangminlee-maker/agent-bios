@@ -36,7 +36,7 @@ Claude는 지원 버전에서 `claudeMdExcludes`를 사용한다. 현재 Codex �
 
 ## Native 훅과 에이전트
 
-`agent-launch --corpus-native`는 선택한 corpus 훅을 해당 Claude 또는 Codex
+`agent-launch --instructions-native`는 선택한 지침 훅을 해당 Claude 또는 Codex
 세션에만 전달한다. 기본값은 꺼짐이다. 두 호스트가 같은 Python 본문과
 `event`/`matcher`를 사용하며, 지원하지 않는 이벤트는 실행 불가로 표시한다.
 Claude는 항목별 플러그인, Codex는 세션별 `-c hooks.<Event>=...` 설정을 사용한다.
@@ -45,7 +45,7 @@ Claude는 항목별 플러그인, Codex는 세션별 `-c hooks.<Event>=...` 설�
 Codex의 활성화·신뢰 검토는 별도로 적용된다. 새 정의나 바뀐 정의는 해당 세션의
 `/hooks`에서 검토해야 한다. 설정 발견과 실제 실행은 다르다.
 체크박스의 켜짐도 native 동의를 대신하지 않는다.
-현재 corpus agent의 native 전달은 Claude 플러그인 경로를 사용한다.
+현재 지침 agent의 native 전달은 Claude 플러그인 경로를 사용한다.
 
 ## 셸 연결
 

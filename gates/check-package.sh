@@ -284,26 +284,27 @@ AUTHOR_SIDE_DIRS = {
                   "not something its users install",
     "design/": "dated design records and per-initiative SSOTs; history, not runtime",
     "benchmarks/": "the instruction-behavior benchmark; run from a checkout only",
-    "session-distill/": "the curator pipeline that authors corpus content. Users get the "
+    "session-distill/": "the curator pipeline that authors instructions content. Users get the "
                         "workflow guide, not the authoring machinery",
     ".githooks/": "the pre-commit gate; enabled per clone with core.hooksPath",
 }
 
-# Author-side FILES inside shipped directories. Promote — certifying a corpus
+# Author-side FILES inside shipped directories. Promote — certifying an instruction
 # package as globally distributable — is an administrator/developer action, so its
 # machinery stays in the checkout even though it lives beside the shipped capture
 # flow in learn/. A directory rule cannot express this: learn/ ships.
 AUTHOR_SIDE_FILES = {
-    "compose/test_corpus_end_to_end.py": "author-side npm-layout and public CLI integration tests",
-    "compose/test_corpus_catalog.py": "author-side catalog and private compiler tests",
-    "compose/test_corpus_store.py": "author-side storage transaction tests",
-    "compose/test_corpus_ui.py": "author-side Corpus Studio and CLI tests",
-    "compose/test_corpus_install.py": "author-side private installation and migration tests",
-    "compose/test_corpus_session.py": "author-side session activation and pin tests",
-    "compose/test_corpus_native.py": "author-side native opt-in and immutable plugin integration tests",
-    "compose/test_corpus_shell.py": "author-side optional shell lifecycle and recovery tests",
-    "compose/test_corpus_understand.py": "author-side learning bundle and discovery provenance tests",
-    "compose/test_corpus_understand_ui.py": "author-side learning session launcher and trophy UI tests",
+    "compose/test_instructions_compatibility.py": "author-side legacy alias, lock, root and immutable-snapshot regression tests",
+    "compose/test_instructions_end_to_end.py": "author-side npm-layout and public CLI integration tests",
+    "compose/test_instructions_catalog.py": "author-side catalog and private compiler tests",
+    "compose/test_instructions_store.py": "author-side storage transaction tests",
+    "compose/test_instructions_ui.py": "author-side Instructions Studio and CLI tests",
+    "compose/test_instructions_install.py": "author-side private installation and migration tests",
+    "compose/test_instructions_session.py": "author-side session activation and pin tests",
+    "compose/test_instructions_native.py": "author-side native opt-in and immutable plugin integration tests",
+    "compose/test_instructions_shell.py": "author-side optional shell lifecycle and recovery tests",
+    "compose/test_instructions_understand.py": "author-side learning bundle and discovery provenance tests",
+    "compose/test_instructions_understand_ui.py": "author-side learning session launcher and trophy UI tests",
     "learn/build-promotions.py":
         "derives the promotion manifest from the curator ledger; promote is an "
         "administrator/developer action, never a user one",
@@ -539,17 +540,17 @@ if stale_guards:
              f"silently exempts nothing and hides the next real one")
 
 # Third direction: SHIPPED PROSE that sends the reader to an unshipped path. The
-# corpus is loaded into an agent's context on a user's machine, so a guide naming
+# instructions are loaded into an agent's context on a user's machine, so a guide naming
 # a repo file the user does not have is a broken instruction that no clone-side
 # test can see — the same failure class as an unshipped runtime path, with the
 # guide as the referrer instead of the installer.
 #
-# A step only the corpus author can perform is legitimate; documenting it as
+# A step only the instructions author can perform is legitimate; documenting it as
 # everyone's is not. So a file may reference author-side paths when its
 # frontmatter declares `audience: author`, and that declaration is the whole
 # exception: unlabelled, it fails.
 #
-# Scope is the corpus trees, not README/DEPENDENCIES — those describe the repo to
+# Scope is the instructions trees, not README/DEPENDENCIES — those describe the repo to
 # contributors, and pointing at gates/ is exactly their job.
 # The suffix is not length-limited. A 2-4 letter class silently excluded `.jsonl`
 # — this repo's own ledger extension — so the one reference the leg most needed to
@@ -557,7 +558,7 @@ if stale_guards:
 # digits after the last dot", which is what a filename suffix is.
 PROSE_PATH = re.compile(r'`([A-Za-z0-9_.-]+/[A-Za-z0-9_./-]+\.[a-z][a-z0-9]*)`')
 # Bare filenames are NOT checked. The list held IMPLEMENTATION_MAP.html until it
-# produced fourteen false positives — the corpus tells an agent to maintain that
+# produced fourteen false positives — the instructions tells an agent to maintain that
 # file in its own repo — and then LEXICON.md until this branch removed the single
 # shipped reference that gave it a subject. A leg with no possible subject is not
 # a check, so the whole idea is retired: only directory-qualified paths are judged.
@@ -586,20 +587,20 @@ except ImportError as exc:
 def author_doc(rel):
     return author_only(REPO / rel)
 
-corpus_prose = sorted(
+instructions_prose = sorted(
     str(f.relative_to(REPO)) for tree in ("claude", "codex")
     for f in (REPO / tree).rglob("*.md")
     if shipped(str(f.relative_to(REPO))))
-if not corpus_prose:
-    sys.exit("check-package: FAILED — no shipped corpus prose found, so the "
+if not instructions_prose:
+    sys.exit("check-package: FAILED — no shipped instructions prose found, so the "
              "reference scan below would pass over nothing")
 
 prose_bad, prose_scanned = [], 0
-declared = [r for r in corpus_prose if author_doc(r)]
+declared = [r for r in instructions_prose if author_doc(r)]
 for rel in leg("audience-declared docs", declared):
     if PREREQ not in (REPO / rel).read_text(encoding="utf-8"):
         prose_bad.append((rel, f"declares audience: author without stating {PREREQ!r}"))
-for rel in corpus_prose:
+for rel in instructions_prose:
     # An author-declared guide is still SCANNED, not skipped. The declaration
     # excuses naming a path the reader will not have; it does not excuse naming a
     # path nobody has. Skipping the file outright made the one document allowed to
@@ -704,7 +705,7 @@ if empty:
              "author-side rule has no subject, so a green result would be vacuous")
 gates = [n for names in author_files.values() for n in names]
 leg("author-side files", gates)
-leg("shipped corpus docs", corpus_prose)
+leg("shipped instructions docs", instructions_prose)
 
 # provenance.json is EXEMPT above because a clone legitimately lacks a
 # pack-generated file — but the exemption also skips shipped(), and an unshipped

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """One receipt per response, bound to the bytes that produced it.
 
-A receipt exists so a response can be traced to the exact request, corpus, fixture
+A receipt exists so a response can be traced to the exact request, instructions, fixture
 and seat that produced it, without trusting the runner's own account of the run.
-Every field here is either computed from bytes (`request_sha256`, `corpus_hash`,
-`fixture_hash`, `result_sha256`) or returned by the host (`session_id`,
+Every field here is either computed from bytes (`request_sha256`, `experiment_hash`,
+`realized_hash`, `fixture_hash`, `result_sha256`) or returned by the host (`session_id`,
 `models_reported`, `binary_version`). Nothing is copied from the request.
 
 The receipt is a claim ABOUT a response; the response itself is written beside it as
@@ -97,16 +97,16 @@ def validate(r: dict, accepted_seats: dict, cell: dict | None = None) -> list[st
         if not can.get("global"):
             seen = can.get("global_seen")
             problems.append(
-                "no single load canary for this arm — nothing evidences which corpus was read"
+                "no single load canary for this arm — nothing evidences which instructions were read"
                 + (f" (saw {seen})" if seen else ""))
         if can.get("global_foreign"):
             problems.append(f"global canaries from another arm: {can['global_foreign']}")
         if can.get("guides_other_arm"):
             problems.append(f"guide canaries from another arm: {can['guides_other_arm']}")
         # Reading NO guide is data — that is what the trigger scenarios measure.
-        # Reading one from outside this arm is the deployed corpus answering.
+        # Reading one from outside this arm is the deployed instructions answering.
         if can.get("guide_paths_deployed"):
-            problems.append(f"read guides from the deployed corpus, not this arm: "
+            problems.append(f"read guides from the deployed instructions, not this arm: "
                             f"{can['guide_paths_deployed']}")
         # A hook the arm REGISTERS must evidence that it fired. `hook_expected` is None
         # for an arm with no hook registrations, and then silence is the correct answer;
@@ -115,7 +115,7 @@ def validate(r: dict, accepted_seats: dict, cell: dict | None = None) -> list[st
         if can.get("hook_expected") and not can.get("hook"):
             seen = can.get("hook_seen")
             problems.append(
-                "this arm registers corpus hooks but no response carries its hook canary, "
+                "this arm registers instructions hooks but no response carries its hook canary, "
                 "so nothing evidences the hook ran"
                 + (f" (saw {seen})" if seen else ""))
         if r.get("corpus_drift"):

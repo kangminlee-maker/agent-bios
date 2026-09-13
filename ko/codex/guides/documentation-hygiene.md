@@ -17,6 +17,9 @@ core_rules:
 
 # Documentation Hygiene
 
+한국어 글을 작성·수정·번역하기 전에
+`${CODEX_HOME:-$HOME/.codex}/guides/korean-writing.md` 전문을 읽고 적용한다.
+
 전역 Documentation Hygiene 섹션의 scoped extension이다. 주제는 배치다: **과거에 대한 산문과
 현재에 대한 산문은 주소가 달라야 한다.**
 
