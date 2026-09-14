@@ -145,7 +145,7 @@ def leak_problems(workdir: pathlib.Path, manifest: dict) -> list[str]:
 # found by one of them — with the content scan clean on all of them. Every tool call in
 # every participant's artifact is scanned for what it names, and every tool OUTPUT for the
 # names only key material carries. What the seats also do, on every run, is read the
-# deployed corpus guides under the host's config home, run `git status`, and make a
+# deployed instructions guides under the host's config home, run `git status`, and make a
 # scratch directory under /tmp: the instruction surface, repository metadata, and a tree
 # the key never enters now that it is regenerated only for scoring (`D-20260904-4ccdf9`)
 # — allowed / disclosed rather than voided. Only a tool-call unit is a call: a turn's

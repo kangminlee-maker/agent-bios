@@ -5,8 +5,8 @@ description: Write or overhaul a repository's AGENTS.md (with CLAUDE.md as a one
 
 # Repo charter
 
-A repository's AGENTS.md is the repo's own layer of agent instruction — what a global
-corpus cannot know because it is true only here. This skill produces that layer for a real
+A repository's AGENTS.md is the repo's own layer of agent instruction — what global
+instructions cannot supply because it is true only here. This skill produces that layer for a real
 repository, and it produces it *from the repository*: the substantive half is reading the
 invariants, the gates and the traps out of the code, and no template can do that part.
 
@@ -40,7 +40,7 @@ thick; everything else stays thin or absent.
 | Application / product | project invariants, pitfall warnings, co-change duties |
 | CLI / single-author tool | repo orientation, project invariants, task procedure |
 | Monorepo / platform | context routing, task procedure |
-| Corpus / payload the repo publishes elsewhere (the code is delivery, the content is the product) | hard boundaries, co-change duties, completion gates |
+| Instructions / payload the repo publishes elsewhere (the code is delivery, the content is the product) | hard boundaries, co-change duties, completion gates |
 | Content / docs | repo orientation only, minimal |
 
 A repo may take two rows; take the union and note which row explains each thick category.

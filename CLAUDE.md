@@ -1,5 +1,6 @@
-Development rules for this repo live in AGENTS.md. Claude Code does not discover
-AGENTS.md on its own (verified on 2.1.221), so this file imports it.
+The product purpose and development rules for every task in this repo live in
+AGENTS.md. Read its Product purpose section before designing, implementing,
+reviewing, or documenting a change. This file imports that canonical text.
 
 Not to be confused with `claude/CLAUDE.md`, which is deployed payload.
 

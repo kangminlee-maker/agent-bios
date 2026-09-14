@@ -59,24 +59,24 @@ and the user's activation-policy decision.
 
 Collect the six plan fields without asking the user to author JSON:
 
-- `selection_mode` and `targets`: keep saved policy, no active corpus, all available
-  corpus, or specific returned package/domain/item targets. Start from the returned
-  default. No active corpus retains private library assets but delivers no corpus.
+- `selection_mode` and `targets`: keep saved policy, no active instructions, all available
+  instructions, or specific returned package/domain/item targets. Start from the returned
+  default. No active instructions retains private library assets but delivers no instructions.
 - `dependencies`: chosen installable inventory IDs; an empty list installs none.
 - `app_bridge`: the explicit **Connect to the Codex app** choice, adding `$agent-bios`
   for setup and personal instruction management. Registration enables discovery only;
-  each task still requires its own explicit corpus use.
+  each task still requires its own explicit instructions use.
 - `project_roots` and `import_paths`: absolute project folders and explicitly
-  selected files from discovery. Capture is independent of corpus selection.
+  selected files from discovery. Capture is independent of instructions selection.
 
-Keep saved policy uses `selection_mode: null` and `targets: null`. No active corpus
+Keep saved policy uses `selection_mode: null` and `targets: null`. No active instructions
 uses `"none"` and `[]`. Explicit choices use `"selected"` and their target list;
-all available corpus uses `"selected"` and `["all"]`.
+all available instructions uses `"selected"` and `["all"]`.
 
 Discovery checks known global instruction locations and the specified project
 roots. Show detected sources before selecting them. Capture preserves originals
 and prepares private evidence for later model review; it is not an automatically
-optimized personal corpus. Read the import procedure only when the user requests
+optimized personal instructions. Read the import procedure only when the user requests
 that subsequent review.
 
 Save choices to a new caller-owned artifact. Run `plan` and save its complete
@@ -89,7 +89,7 @@ agent-bios setup plan --language ko --input /absolute/choices.json > /absolute/r
 The returned review envelope contains `review_id`, `context`, `language`,
 `preview` and `summary`. Keep the entire envelope; do not reconstruct it from the
 summary, copy only `preview`, change its IDs, or accept truncated output. Show the
-concrete private paths, selected dependency commands/destinations, corpus policy,
+concrete private paths, selected dependency commands/destinations, instructions policy,
 app discovery change and selected capture sources. Keep the exact artifact
 available for inspection. Preparing these caller-owned files is separate from
 applying installation effects.
@@ -149,10 +149,10 @@ through its reviewed entrypoint/context; changing entrypoints requires a fresh
 review. Status and subsequent setup can use the verified handoff.
 Do not create a duplicate personal skill or edit host discovery settings to force
 refresh. Once discovered, `$agent-bios` is the ordinary entrypoint. Registration
-on disk is not proof of discovery or corpus loading.
+on disk is not proof of discovery or instructions loading.
 
 If capture completed, report its actual capture ID and returned next action. Its
 semantic review, proposed consumption placement and revision-checked import are
 separate from installation. Setup enables no hooks, native agent registration,
 permissions or edits to global/project instruction files. Each app task requires
-its own explicit corpus use; neither setup nor opening the app performs it.
+its own explicit instructions use; neither setup nor opening the app performs it.

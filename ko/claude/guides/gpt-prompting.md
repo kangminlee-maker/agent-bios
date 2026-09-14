@@ -210,7 +210,7 @@ Astra 측정치나 다른 workload에서 보장되는 이득이 아니다.
 
 GPT-5.6 section은 `prompt-guidance-gpt-5p6`에서, GPT-6 Astra section은
 `model-guidance-gpt-6-astra`에서 파생했다. 공유 recipe는 GPT-5.6 guidance와
-corpus에서 온 task, evidence, tool, validation 관행을 유지하며, model behavior 주장은
+instructions에서 온 task, evidence, tool, validation 관행을 유지하며, model behavior 주장은
 오직 각 model에 맞는 section에만 둔다. `source_pins`는 이 도출에 쓴 정확한 byte를
 기록하므로 이후 공급사 편집을 감지할 수 있다.
 

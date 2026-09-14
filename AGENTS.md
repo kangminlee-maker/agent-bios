@@ -1,10 +1,38 @@
 # AGENTS.md — working rules for developing this repo
 
+## Product purpose — read before every task
+
+<!-- product-purpose:start -->
+agent-bios exists to let workers compose, share, and inherit team work environments
+from Instructions, Domain knowledge, and Decision memory, so they can perform
+their roles within the standards and context of their team, industry, and organization.
+
+A team is the basic unit for selecting, adopting, and sharing a work environment.
+
+Workers should be able to select an environment appropriate to their role and
+team, collaborate from shared standards and decision context, and continue
+the work when a worker, model, session, or device changes. Shared context does
+not require identical outputs or erase personal, team, and organizational boundaries.
+<!-- product-purpose:end -->
+
+Before designing, implementing, reviewing, or documenting a change, identify how
+it advances or preserves this purpose. Judge a proposed simplification by whether
+it preserves environment selection, sharing, continuity, and authority boundaries.
+Record material exclusions with their reasons and revisit conditions in the
+decision ledger. The purpose is the decision criterion; future capabilities must
+not be described as already implemented.
+
+This block is the canonical purpose text. `gates/check-product-purpose.py`
+**ENFORCES** its non-empty presence, its README projection, and root `CLAUDE.md`'s
+import of this file; its self-test plants missing, empty, and divergent subjects.
+Purpose alignment and model attention remain **CONVENTION**, evaluated in review.
+Regenerate the README block with `python3 gates/check-product-purpose.py --emit`.
+
 **This repo's product is agent instructions. Do not confuse the product with your
 instructions.** `claude/CLAUDE.md`, `codex/AGENTS.md`, `claude/guides/`,
 `codex/guides/`, and all of `ko/` are **payload** — content deployed to other
-machines (private release inventory in `compose/corpus_catalog.py` and
-`compose/corpus_install.py`; the shipped set is `package.json` `files[]`).
+machines (private release inventory in `compose/instructions_catalog.py` and
+`compose/instructions_install.py`; the shipped set is `package.json` `files[]`).
 Editing them changes what ships, not how you work here.
 How you work here is this file.
 
@@ -30,7 +58,7 @@ treating it as authority.
 | Work in flight — a design that must stay current until it lands | **`design/<initiative>/`** (isolated) |
 | Regenerable pipeline snapshots | **`session-distill/out/`** |
 | Deployed instruction text | **`claude/`**, **`codex/`**, **`ko/`** — payload, not docs; `claude/skills/` is one tree for both hosts, not mirrored |
-| Shipped machinery outside the corpus | **`learn/`**, **`wrappers/`**, **`compose/`**, **`launch/`**, `session-cost.py` — exact members in `package.json` `files[]` |
+| Shipped machinery outside the instructions | **`learn/`**, **`wrappers/`**, **`compose/`**, **`launch/`**, `session-cost.py` — exact members in `package.json` `files[]` |
 | Author-side only, never shipped | **`gates/`**, **`ontology/`**, **`decisions/`**, **`design/`**, **`research/`**, **`benchmarks/`**, **`packages/`**, **`session-distill/`** — `gates/check-package.sh` holds the boundary |
 
 ## 1. Active files describe the present — CONVENTION, partly enforced
@@ -107,7 +135,7 @@ skip; the payload and prompting-target gates keep running there because at 0.16s
 they buy back nothing and their running is what proves verify still wires its gates up.
 Re-measure before quoting either number — this one has been wrong by 4× before.
 
-`gates/test-install-guides.sh` exercises compatibility installation; the corpus
+`gates/test-install-guides.sh` exercises compatibility installation; the instructions
 test suite exercises private installation and session delivery. The hook lives in
 the repo rather than
 `.git/hooks` so the rule travels with the code instead of with one laptop — the
@@ -163,7 +191,7 @@ Blocking is for deterministically decidable violations only. Gate a judgment
 call and people learn to route around the gate.
 
 `bash install.sh verify` checks the private release, baseline, catalog, and owned
-launcher paths through `compose/corpus_install.py`; it reports activation as
+launcher paths through `compose/instructions_install.py`; it reports activation as
 unverified. Run the author-side package and parity gates explicitly from the
 checkout. The compatibility `cmd_verify` in `install.sh` runs those gates only
 when its required author-side paths are present.
@@ -176,7 +204,7 @@ unreachable HEAD and stamping `provenance.json` with the commit the tarball carr
 They are generated projections of `claude/` and `ko/claude/`
 (`gates/emit-mirrors.py` `TREES`), differing only in config-home variable and title,
 plus one pinned Codex-only authorization bullet. `claude/skills/` is not projected —
-one tree serves both hosts through `compose/corpus_catalog.py`. Edit order:
+one tree serves both hosts through `compose/instructions_catalog.py`. Edit order:
 
 1. Edit `claude/` — and `ko/claude/` when the change is user-facing.
 2. `python3 gates/emit-mirrors.py`
@@ -199,7 +227,7 @@ over nothing.
 
 It also enforces **concept homes**: a machinery file whose path carries a
 concept's slug must live under that concept's declared home. The trees named in
-`NOT_A_HOME` (the corpus trees, `design/`, `benchmarks/`, `research/`, `packages/`)
+`NOT_A_HOME` (the instructions trees, `design/`, `benchmarks/`, `research/`, `packages/`)
 are exempt — a slug there is a mention, not a home. A home matching no file fails
 as a stale declaration.
 
@@ -229,7 +257,7 @@ guard that protects it, which the gate then requires to still be present in the
 referring file.
 
 The third: **shipped prose may not name a path the user will not have.** It covers
-the corpus markdown and shipped config alike, because a launch preset's mission
+the instructions markdown and shipped config alike, because a launch preset's mission
 instructs an agent exactly as a guide does. A file may name author-side paths only
 by declaring `audience: author` and stating `Requires an agent-bios checkout` in
 its own text — and `compose/assemble.py` withholds such a file from delivery, so
@@ -257,7 +285,7 @@ content. `launch/provision-venv.sh` owns `TEXTUAL_PIN`; regenerate the bundle wi
 author-side `gates/build-ui-runtime.py --build`, which can access the network. Its
 `--check` and `--self-test` run offline in the umbrella and validate the exact wheel
 inventory, metadata, hashes, licenses and isolated loading. Do not hand-edit wheels or
-their manifest. `compose/corpus_ui_runtime.py` owns temporary extraction and release;
+their manifest. `compose/instructions_ui_runtime.py` owns temporary extraction and release;
 the actual CLI entrypoints activate it before Rich/Textual imports.
 
 ## 7. Rule bodies use role slots and tiers, not model names — CONVENTION, with a gated exception
@@ -311,8 +339,8 @@ Run `--online` when a model binding changes and before trusting either guide.
 ## 8. The canonical always surface is a per-activated-session token budget — CONVENTION
 
 Selected rules from `claude/CLAUDE.md` reach explicitly activated sessions through
-`compose/corpus_catalog.py`, `compose/corpus_store.py`, and
-`compose/corpus_session.py`. Child reach requires its own projection evidence.
+`compose/instructions_catalog.py`, `compose/instructions_store.py`, and
+`compose/instructions_session.py`. Child reach requires its own projection evidence.
 The source file is not the user's global instruction file; private installation
 preserves native `AGENTS.md` and `CLAUDE.md`. Procedures, tables, numbers, and
 worked examples belong in a guide.
@@ -342,7 +370,7 @@ bash install.sh install --non-interactive
 ```
 
 `install` and `onboard` otherwise open the interactive UI, including when selection
-flags are present. Non-TTY callers must opt out explicitly; `--corpus`/`--select`
+flags are present. Non-TTY callers must opt out explicitly; `--instructions`/`--select`
 initialize UI choices, while private `--domains` calls require `--non-interactive`.
 The bundled UI requires Python 3.11+, not a preinstalled Textual environment.
 
@@ -353,7 +381,7 @@ Three more, each of which cost a real failed attempt:
   `version.json`, never the registry.
 - `install.sh` parks caller input on fd 3 and restores it for interactive installation
   and payload-bearing commands; machine installation must use `--non-interactive`.
-- Never publish a corpus that calls a new CLI subcommand before the CLI carrying it ships.
+- Never publish instructions that call a new CLI subcommand before the CLI carrying it ships.
 
 ## 10. Record a decision when it closes an alternative — CONVENTION
 
@@ -519,7 +547,7 @@ A green gate means "it ran", not "it checked your change".
 - **Know which legs run.** Default private `verify` checks stored runtime state,
   not author-side mirrors. Compatibility `cmd_verify` runs the parity gate only
   when `ko/` exists; npm excludes it. Run the author-side umbrella directly from
-  the checkout for mirror and corpus checks.
+  the checkout for mirror and instructions checks.
 - **A gate you have not seen fail is not a gate.** Most gates here ship a
   `--self-test`; `check-parity.sh`'s own runtime-projection module
   (`gates/check_parity.py`) and `launch/check-prompting-targets.sh` do not, so do
@@ -575,7 +603,7 @@ obligations currently represented in the graph.
 | Terminology and concept homes | `ontology/instances/graph.json` §lexicon → `LEXICON.md` (generated), operated by `gates/check-lexicon.py` |
 | Delivery surfaces and their admission bars | `SURFACES.md`, held against the installer, compiler, and session adapters by `gates/check-surfaces.py` |
 | npm payload boundary | `package.json` `files[]`, enforced both ways by `gates/check-package.sh` |
-| Corpus classification | `compose/domains.json`, gated by `compose/check-domains.py` |
+| Instructions classification | `compose/domains.json`, gated by `compose/check-domains.py` |
 | Launch bindings and projection | `launch/agent-launch.toml`, `launch/agent-launch.py` |
 | Runtime-projection checks | `gates/check_parity.py` (`--list`, `--only`) |
 | Cost accounting | `session-cost.py` |
@@ -584,7 +612,7 @@ obligations currently represented in the graph.
 The README entrypoints are gate-bound to their detailed documentation links.
 `gates/check_parity.py` checks layout coverage in `CONTRIBUTING.md` and its Korean
 reference, plus the launch contracts in `docs/advanced-launch.md` and its Korean
-reference. `gates/check-parity.sh` anchors the guide inventory in `docs/corpus.md`
+reference. `gates/check-parity.sh` anchors the guide inventory in `docs/instructions.md`
 to the staged-workflow guide, so relocating a contract includes its check.
 
 `IMPLEMENTATION_MAP.html` describes current structure and names the commands
@@ -593,16 +621,16 @@ that derive live state. Keep dated measurements and completion records outside i
 ## What this file deliberately leaves out
 
 General engineering discipline — tool traps, verification menus, spawn policy,
-review contracts — is not repeated here. It is available through the corpus
+review contracts — is not repeated here. It is available through the instructions
 selected for an activated session; plain CLI and Vanilla do not receive it
-automatically. Corpus payload files are not instructions for developing this
+automatically. Instructions payload files are not instructions for developing this
 repo. Only repo-specific working rules belong in this file.
 
 ## Traps that cost a real attempt here
 
 - **A gate that runs `git init` under the hook's exported `GIT_DIR` rewrites the real
   `.git/config`** (`core.worktree`) and breaks `git status`. Scrub `GIT_DIR`/`GIT_WORK_TREE`
-  before creating a scratch repo inside a gate (`compose/corpus-state.py` `own_repo_env`); the
+  before creating a scratch repo inside a gate (`compose/instructions-state.py` `own_repo_env`); the
   hook now detects and restores the value, but only after the damage.
 - **`git add -A` sweeps files that other sessions left untracked in the tree** — it once
   widened a PR with somebody else's work in flight (`1acdd65`). Add by name.

@@ -128,7 +128,7 @@ def build(items: list[dict], arms: list[str], hosts: list[str], reps: int,
     body = {"schema": SCHEMA, "arms": arms, "hosts": hosts, "reps": reps,
             "seats": seats, "notes": notes, "guards_approved": guards_approved,
             # Arm identity as a field, not a substring of prose. It was read out of
-            # `notes` by first textual match, so a --corpus path containing the text
+            # `notes` by first textual match, so a --instructions path containing the text
             # `ablation=...` relabelled an unablated arm as an ablated one and the
             # verdict followed the label.
             "ablation": ablation or "none",

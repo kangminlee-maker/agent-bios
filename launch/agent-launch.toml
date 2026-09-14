@@ -248,7 +248,7 @@ codex_execution_policy = "standard"
 claude_permission_mode = "standard"
 
 [presets.session-distill]
-# Author-only: the workflow edits the agent-bios corpus and needs a checkout, so
+# Author-only: the workflow edits the agent-bios instructions and needs a checkout, so
 # its mission names repo paths a packaged user does not have. Declaring it lets
 # gates/check-package.sh judge the mission text. NOTE: this declaration is read by
 # the gate, not yet by the launcher — the preset is still offered on a packaged
@@ -261,7 +261,7 @@ main_tier = "helm"
 delegation = true
 codex_execution_policy = "bypass"
 claude_permission_mode = "bypassPermissions"
-mission = "This is a session-distill initiative session, gated on a trigger. When the user enters the trigger command '{trigger}': FIRST read 'Goal and desired outcomes' at the start of claude/guides/session-distill-workflow.md in the agent-bios checkout. Use that definition to guide this run and its delegated work before reading state or starting the pipeline. Then read the rest of that guide and the initiative state in design/session-distill/ledger.json in the same checkout, and run the next mining window per the guide. Until the trigger arrives, respond normally and do not start the workflow. Every promotion passes through explicit user approval; nothing is applied to the corpus without it."
+mission = "This is a session-distill initiative session, gated on a trigger. When the user enters the trigger command '{trigger}': FIRST read 'Goal and desired outcomes' at the start of claude/guides/session-distill-workflow.md in the agent-bios checkout. Use that definition to guide this run and its delegated work before reading state or starting the pipeline. Then read the rest of that guide and the initiative state in design/session-distill/ledger.json in the same checkout, and run the next mining window per the guide. Until the trigger arrives, respond normally and do not start the workflow. Every promotion passes through explicit user approval; nothing is applied to the instructions without it."
 trigger = "distill!"
 
 

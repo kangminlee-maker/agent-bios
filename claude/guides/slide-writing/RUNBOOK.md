@@ -13,7 +13,7 @@ Do not substitute an HTML deliverable or claim that unrelated screenshots passed
 this paired runtime.
 
 Use `<runbook-root>` for the directory containing this file and its `scripts/`
-directory, and `<job>` for a new directory outside the immutable corpus bundle.
+directory, and `<job>` for a new directory outside the immutable instructions bundle.
 The runtime refuses an existing job directory; revised inputs or output use a
 new job revision. In every command, `--base` names the companion directory. The
 criteria source is its sibling, `<runbook-root>/../slide-writing.md`.
@@ -36,8 +36,8 @@ python3 -B "<runbook-root>/scripts/pair.py" --base "<runbook-root>" prepare \
 ```
 
 Omit `--asset` when no assets are needed; repeat it for additional files. Asset
-basenames must be unique. They are copied to `input/assets/<name>`, so URLs from
-`output/deck.html` use `../input/assets/<name>`.
+basenames must be unique. They are copied to `<job>/input/assets/<name>`, so URLs from
+`<job>/output/deck.html` use `../input/assets/<name>`.
 
 `check` parses and validates the primary criteria source without writing to the
 guide bundle. `prepare` derives `<job>/input/slide-writing.md` and the job-only
@@ -116,8 +116,8 @@ python3 -B "<runbook-root>/scripts/pair.py" --base "<runbook-root>" verify --job
 ```
 
 Every consuming command also performs its own preflight checks. An edit becomes
-available to the next activated corpus snapshot and the next prepared job. An
-existing job verifies against its original immutable corpus snapshot, frozen
+available to the next activated instructions snapshot and the next prepared job. An
+existing job verifies against its original immutable instructions snapshot, frozen
 criterion source, derived oracle, and runtime version. Mutating the guide or code
 path recorded by that job instead of using its original snapshot invalidates the
 binding, as do changes to its source document, specification, assets, HTML,

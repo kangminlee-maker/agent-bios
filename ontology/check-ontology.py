@@ -366,7 +366,7 @@ def check_site_agreement(ev: dict) -> list[str]:
     The extractors already return site sets — this is the consumer that was missing. The
     subcommand extractor has computed `advertised_but_absent` since it was written and nothing
     read it, so a command added to the dispatch and not to `usage()` passed every gate: a
-    produced value with no reader, which is exactly what the corpus calls inert.
+    produced value with no reader, which is exactly what the instructions calls inert.
 
     Only a value declared at two sites and differing fails here. A site that says less than
     another is reported by `extract.py --json`, not failed on, because absence is a different
@@ -412,8 +412,8 @@ def check_site_agreement(ev: dict) -> list[str]:
     if len(dm["sites"]) < 3:
         fails.append(f"domain classification was read from {sorted(dm['sites'])} — fewer than "
                      f"the three sites that author it, so a disagreement could not be seen")
-    if not dm["corpus_bullet_count"] or not any(dm["files_on_disk"].values()):
-        fails.append("domain classification read an empty corpus or empty tree — the comparison "
+    if not dm["instructions_bullet_count"] or not any(dm["files_on_disk"].values()):
+        fails.append("domain classification read an empty instructions or empty tree — the comparison "
                      "would pass vacuously")
     return fails
 
@@ -766,7 +766,7 @@ def check_no_restated_counts(graph: dict, docs=None) -> list[str]:
 def check_competency_resolvers(graph: dict) -> list[str]:
     """Every P1 competency question must have something that answers it.
 
-    A question list with no resolvers is a wish list, and the corpus rule is explicit:
+    A question list with no resolvers is a wish list, and the instructions rule is explicit:
     if no gate can judge a criterion, build the judge or do not claim the criterion met.
     So P1 questions must carry a resolver, `query` resolvers must name a script that
     exists, and `graph` resolvers must name a block the graph actually has.
@@ -1176,7 +1176,7 @@ def self_test(graph: dict, ev: dict, human_facing: dict, sources: dict) -> int:
                      lambda: check_site_agreement(evdm)))
 
     evdmv = copy.deepcopy(ev)
-    evdmv["domain_manifest"]["corpus_bullet_count"] = 0
+    evdmv["domain_manifest"]["instructions_bullet_count"] = 0
     controls.append(("site agreement refuses a vacuous domain comparison",
                      lambda: check_site_agreement(evdmv)))
 

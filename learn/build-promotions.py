@@ -2,7 +2,7 @@
 """Derive the promotion manifest from the ledger (collection loop, Phase 4).
 
 `learn/promotions.json` names the personal learnings that have been PROMOTED
-into the shared corpus, so the user-side migrate rule can clear the now-absorbed
+into the shared instructions, so the user-side migrate rule can clear the now-absorbed
 personal copy (learn/migrate-learnings.py). The manifest is DERIVED — never
 hand-edited: a promoted user learning is a ledger entry with `status == placed`
 AND a `learning_id` (the Phase 3 dedup key kept on merge). Session-distill
@@ -14,7 +14,7 @@ bullet ACTUALLY landed — the placed entry's `placed_anchor`, resolved against
 `compose/domains.json` (the placement source of truth) — NOT the ledger's free
 `domain` tag. A placed+learning_id entry with a missing or unresolvable
 `placed_anchor` FAILS the build/--check, so a promotion can neither ship with a
-wrong audience nor ship without actually landing in the corpus.
+wrong audience nor ship without actually landing in the instructions.
 
 Manifest shape (no PII — learning_id + the derived audience):
   { "version": 1, "promotions": [
@@ -84,7 +84,7 @@ def build_manifest(ledger, domains_manifest):
                 f"placed_anchor {anchor!r} (learning {lid}) does not resolve in "
                 "compose/domains.json — the promotion has no verifiable placement")
         tier, domains = aud
-        # A promotion says "this landed in the shared corpus, so the personal copy is
+        # A promotion says "this landed in the shared instructions, so the personal copy is
         # now redundant." An env-personal anchor never reaches any bundle — assemble.py
         # maps that tier to NEVER and migrate-learnings' in_bundle answers False — so
         # promoting one emits a row that both consumers are structurally unable to act
@@ -101,7 +101,7 @@ def build_manifest(ledger, domains_manifest):
                 f"placed_package_id {pid!r} (learning {lid}) is not @scope/name")
         # `anchor` ships alongside the derived audience because the consumer
         # (migrate-learnings) must verify the bullet is REALLY in the user's
-        # deployed corpus before deleting their personal copy. Audience metadata
+        # deployed instructions before deleting their personal copy. Audience metadata
         # alone cannot answer that — it is a build-time projection that drifts.
         promotions.append({"learning_id": lid.lower(), "package_id": pid,
                            "anchor": anchor, "tier": tier, "domains": domains})
@@ -176,7 +176,7 @@ def _self_test():
     checks.append(("malformed placed_package_id fails",
                    raises(lambda l: l["entries"][0].__setitem__("placed_package_id", "Acme/Sec"))))
 
-    # A promotion asserts "this landed in the shared corpus". An anchor whose tier the
+    # A promotion asserts "this landed in the shared instructions". An anchor whose tier the
     # assembler maps to NEVER lands in no bundle, so the row it produced was one neither
     # the assembler nor migrate-learnings could ever act on — counted as a promotion and
     # inert by construction. The pair is what makes this a check: the same shape with a

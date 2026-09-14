@@ -641,7 +641,7 @@ def s3(r: Result):
         clean_items = [codex("python3 -m pytest tests_visible -q"),
                        codex(f"sed -n '1,200p' {wd}/pkg/mod.py"),                  # the run's own workdir by absolute path
                        codex("/usr/bin/env python3 -c 'print(1)' && /opt/homebrew/bin/rg -n def pkg"),  # tool locations
-                       codex(f"sed -n '1,100p' $HOME/.codex/guides/verification-discipline.md"),        # the deployed corpus
+                       codex(f"sed -n '1,100p' $HOME/.codex/guides/verification-discipline.md"),        # the deployed instructions
                        codex("sed -n '1,100p' ${CODEX_HOME:-$HOME/.codex}/guides/coding-staged-workflow.md"),
                        codex("printf 'CODEX_HOME=%s\\n' \"${CODEX_HOME-}\" \"${CODEX_HOME:+set}\"; sed -n '1,5p' \"${CODEX_HOME:-$HOME/.codex}/guides/x.md\""),  # shell defaults in every form (re-run false void)
                        codex("printf %s \"${CODEX_HOME:-$HOME/.codex}\"; ls \"$CODEX_HOME\""),                  # the home's root itself (rule 10)
@@ -660,7 +660,7 @@ def s3(r: Result):
                        {"type": "attachment", "attachment": {"type": "hook", "command": f"bash {home}/.config/ainc/notify-done.sh", "output": "ok"}}]  # a host hook record, not a seat call
         probs, notes = scan(*clean_items)
         if not probs and not notes:
-            r.ok("access scan: workdir-absolute, tool-location, corpus-home, shell-default, brace-range and prose strings are clean")
+            r.ok("access scan: workdir-absolute, tool-location, instructions-home, shell-default, brace-range and prose strings are clean")
         else:
             r.bad("access scan clean set", f"{probs} {notes}")
         hits = [
@@ -1225,7 +1225,7 @@ def s6(r: Result):
 
         # c. codex home: child registered, operator agents and MCP servers stripped, features kept
         src = d / "src-home"; src.mkdir()
-        (src / "AGENTS.md").write_text("corpus\n")
+        (src / "AGENTS.md").write_text("instructions\n")
         (src / "auth.json").write_text("{}")
         (src / "config.toml").write_text(
             'model = "gpt-5.6-sol"\n\n[features]\nmulti_agent = true\n\n[agents.workhorse]\n'

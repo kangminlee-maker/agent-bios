@@ -1,9 +1,9 @@
 ---
 name: agent-bios
-description: Inspect or change the private agent-bios corpus used by activated sessions, including item creation, edits, consumption placement, enablement, removal, restore, recovery, selection, reset, rollback, history, and current-vs-pinned explanation. Use for requests about the user's agent-bios instructions or personal learnings; it does not alter the running session or native global files.
+description: Inspect or change the private agent-bios instructions used by activated sessions, including item creation, edits, consumption placement, enablement, removal, restore, recovery, selection, reset, rollback, history, and current-vs-pinned explanation. Use for requests about the user's agent-bios instructions or personal learnings; it does not alter the running session or native global files.
 ---
 
-# Corpus management
+# Instructions management
 
 For installation, dependency choices or setup reconfiguration, read
 `compose/setup/START.md` from the confirmed `AGENT_BIOS_PACKAGE_ROOT` and use
@@ -13,17 +13,17 @@ operations supply the confirmed runtime and saved roots on every tool call.
 A completed setup can return that helper path before native discovery refreshes;
 use the returned path directly.
 Do not copy this private bootstrap into host discovery or register a second
-personal skill named `agent-bios`. Setup does not activate corpus in the current
+personal skill named `agent-bios`. Setup does not activate instructions in the current
 task; use the app bridge's explicit session-use procedure when requested.
 
-For a guided conversation about why a corpus bundle exists and how its rules work,
+For a guided conversation about why an instruction bundle exists and how its rules work,
 use the `understand!` / `$understand` skill. `agent-bios understand list` lists
 learning bundles; `agent-launch --understand BUNDLE claude` (or `codex`) opens a
-dedicated learning session. Understanding is not a corpus mutation or `learn!`
+dedicated learning session. Understanding is not an instruction mutation or `learn!`
 capture request; use the management operations below for ordinary edits.
 
-Use the deterministic `agent-bios corpus` client. In an activated launch, invoke
-it as `bash "$AGENT_BIOS_PACKAGE_ROOT/install.sh" corpus` (the examples below use
+Use the deterministic `agent-bios instructions` client. In an activated launch, invoke
+it as `bash "$AGENT_BIOS_PACKAGE_ROOT/install.sh" instructions` (the examples below use
 the shorter command name). The launcher supplies that package path, so a checkout
 installation does not accidentally call an older global npm CLI. If the variable
 is absent, resolve the installed `agent-bios` command before using the examples.
@@ -36,9 +36,9 @@ discovery directories, or the current conversation.
 Start with:
 
 ```bash
-agent-bios corpus status --json
-agent-bios corpus list --json
-agent-bios corpus show '<CorpusRef>' --view effective --json
+agent-bios instructions status --json
+agent-bios instructions list --json
+agent-bios instructions show '<InstructionsRef>' --view effective --json
 ```
 
 The running session is pinned to the `ContentRef` stated by its launch contract.
@@ -51,7 +51,7 @@ items and instruction text of the running or resumed session, independently of
 current authoring.
 
 Use `show --view installed|change|diff|history` to compare the selected installed
-baseline, the personal layer, and effective authoring. Use `history [CorpusRef]
+baseline, the personal layer, and effective authoring. Use `history [InstructionsRef]
 --json` for recoverable revisions.
 
 ## Plan, preview, then apply
@@ -62,8 +62,8 @@ edit those values. For writes, preserve the `digest` returned by `list` as
 `item_digest`; preserve the plan's `expected_revision` when applying it.
 
 ```bash
-agent-bios corpus plan --input request.json --json
-agent-bios corpus apply '<plan_id>' --expected-revision '<expected_revision>' --json
+agent-bios instructions plan --input request.json --json
+agent-bios instructions apply '<plan_id>' --expected-revision '<expected_revision>' --json
 ```
 
 Supported payloads:
@@ -105,16 +105,16 @@ edits the binding through the same plan/apply path. Preserve the installed sourc
 carrier and native agent frontmatter, including tool restrictions. Changing an
 ordinary prose item's kind/surface does not turn it into executable hook code.
 
-Native hook execution and corpus-agent registration are off by default. The user
-opts in per launch with `agent-launch --corpus-native`; `snapshot --host claude
+Native hook execution and instructions-agent registration are off by default. The user
+opts in per launch with `agent-launch --instructions-native`; `snapshot --host claude
 --native --json` or `snapshot --host codex --native --json` previews/composes that
 selection without activating a host. Hook bodies and typed bindings are shared;
 compilation reports events the selected host does not support. Codex uses session
 config flags and its native `/hooks` review; Claude uses per-item plugins. Native
-corpus-agent registration currently projects Claude agent frontmatter only.
+instructions-agent registration currently projects Claude agent frontmatter only.
 The snapshot supplies session-only local plugins; it does not install them into
 global discovery. Check `unavailable` for unsupported carriers or hosts. Native
-corpus agent names are qualified by their item plugin, distinct from the launcher's
+instructions agent names are qualified by their item plugin, distinct from the launcher's
 bare tier names. Removing/restoring one item changes only future snapshots.
 
 Show the plan and its consequences before Apply when the user has not already
@@ -143,7 +143,7 @@ current session is unchanged and a new activated launch is needed.
 
 Claude and Codex learning sources are separate, host-qualified local authorities.
 Captured events and their `learning_id` identify immutable captured bytes. Editing
-their corpus presentation creates a local overlay for future snapshots; it does
+their instructions presentation creates a local overlay for future snapshots; it does
 not change an already uploaded record. Uploading revised wording is a new explicit
 capture with a new id and provenance link. Never claim that local remove, reset,
 promotion, or purge deleted an uploaded learning unless a real remote delete

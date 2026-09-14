@@ -1,0 +1,424 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-09-12T11:52:20.160114+09:00",
+  "repository_head": "588260e5b60f52f0f58b47e8d2ef7ae567b382a6",
+  "status": "research supporting a proposed design",
+  "execution_scope": "Documentation/source inspection only; no external installer/auth/model execution",
+  "products": [
+    {
+      "product": "Codex CLI",
+      "repository": "openai/codex",
+      "sha": "6b9826e3aa83b1a5947db50f4332cb9c65f1b340",
+      "committed_at": "2026-09-09T21:43:48Z",
+      "version_scope": "release tag 0.154.0",
+      "evidence_scope": "source and current documentation"
+    },
+    {
+      "product": "Claude Code",
+      "repository": "anthropics/claude-code",
+      "sha": "df52d04a4e65195c1621fe6222e0564bcccb1804",
+      "committed_at": "2026-09-11T19:17:47Z",
+      "version_scope": "public documentation repository; npm observed 2.1.269",
+      "evidence_scope": "documentation; no CLI implementation pin"
+    },
+    {
+      "product": "Gemini CLI",
+      "repository": "google-gemini/gemini-cli",
+      "sha": "fb0d535af931b27c51e87e5e6ade72905b1e8390",
+      "committed_at": "2026-09-08T21:06:55Z",
+      "version_scope": "release tag 0.59.0",
+      "evidence_scope": "source and documentation; tarball-to-source reproduction not established"
+    },
+    {
+      "product": "Hermes Agent",
+      "repository": "NousResearch/hermes-agent",
+      "sha": "76a0c9d4c43cf55b3fbc9d71f49940dad505fc5f",
+      "committed_at": "2026-09-12T02:37:59Z",
+      "version_scope": "development commit, manifest 0.21.2",
+      "evidence_scope": "source and documentation; advertised installer matches source hash"
+    },
+    {
+      "product": "Ouroboros",
+      "repository": "Q00/ouroboros",
+      "sha": "1c96832803add472b7b1ec6a01d92a266c60cd82",
+      "committed_at": "2026-09-10T13:03:02Z",
+      "version_scope": "development commit; release version not inferred",
+      "evidence_scope": "source and documentation; advertised installer matches source hash"
+    },
+    {
+      "product": "OpenCode",
+      "repository": "anomalyco/opencode",
+      "sha": "95daf90670b7c039c436c85537da5fbfe2205b41",
+      "committed_at": "2026-09-11T13:16:41Z",
+      "version_scope": "dev branch commit",
+      "evidence_scope": "source and documentation"
+    },
+    {
+      "product": "Goose",
+      "repository": "aaif-goose/goose",
+      "sha": "50666ae0b9a51e260b52b7efbab2e4e020346e94",
+      "committed_at": "2026-09-11T20:42:56Z",
+      "version_scope": "main branch commit",
+      "evidence_scope": "source and documentation"
+    },
+    {
+      "product": "Aider",
+      "repository": "Aider-AI/aider",
+      "sha": "5dc9490bb35f9729ef2c95d00a19ccd30c26339c",
+      "committed_at": "2026-05-22T14:02:20Z",
+      "version_scope": "main branch commit",
+      "evidence_scope": "source and documentation; separate aider-install internals not audited"
+    },
+    {
+      "product": "OpenHands CLI",
+      "repository": "OpenHands/OpenHands-CLI",
+      "sha": "954f2ba646e8d749261a8f2b2b7e3031fa39be9f",
+      "committed_at": "2026-08-11T12:57:52Z",
+      "version_scope": "main branch commit, CLI marked unmaintained",
+      "evidence_scope": "historical design pattern; not a tool adoption recommendation"
+    }
+  ],
+  "references": [
+    {
+      "id": "codex",
+      "sources": [
+        {
+          "title": "installer",
+          "url": "https://github.com/openai/codex/blob/6b9826e3aa83b1a5947db50f4332cb9c65f1b340/scripts/install/install.sh"
+        },
+        {
+          "title": "onboarding controller",
+          "url": "https://github.com/openai/codex/blob/6b9826e3aa83b1a5947db50f4332cb9c65f1b340/codex-rs/tui/src/onboarding/onboarding_screen.rs"
+        },
+        {
+          "title": "directory-trust choices",
+          "url": "https://github.com/openai/codex/blob/6b9826e3aa83b1a5947db50f4332cb9c65f1b340/codex-rs/tui/src/onboarding/trust_directory.rs"
+        }
+      ]
+    },
+    {
+      "id": "claude",
+      "sources": [
+        {
+          "title": "setup",
+          "url": "https://code.claude.com/docs/en/setup"
+        },
+        {
+          "title": "authentication",
+          "url": "https://code.claude.com/docs/en/authentication"
+        },
+        {
+          "title": "settings",
+          "url": "https://code.claude.com/docs/en/settings"
+        },
+        {
+          "title": "instruction initialization",
+          "url": "https://code.claude.com/docs/en/memory"
+        },
+        {
+          "title": "Repository README",
+          "url": "https://github.com/anthropics/claude-code/blob/df52d04a4e65195c1621fe6222e0564bcccb1804/README.md"
+        }
+      ]
+    },
+    {
+      "id": "gemini",
+      "sources": [
+        {
+          "title": "installation",
+          "url": "https://github.com/google-gemini/gemini-cli/blob/fb0d535af931b27c51e87e5e6ade72905b1e8390/docs/get-started/installation.mdx"
+        },
+        {
+          "title": "dialog priority",
+          "url": "https://github.com/google-gemini/gemini-cli/blob/fb0d535af931b27c51e87e5e6ade72905b1e8390/packages/cli/src/ui/components/DialogManager.tsx"
+        },
+        {
+          "title": "trust preview",
+          "url": "https://github.com/google-gemini/gemini-cli/blob/fb0d535af931b27c51e87e5e6ade72905b1e8390/packages/cli/src/ui/components/FolderTrustDialog.tsx"
+        },
+        {
+          "title": "auth state",
+          "url": "https://github.com/google-gemini/gemini-cli/blob/fb0d535af931b27c51e87e5e6ade72905b1e8390/packages/cli/src/ui/auth/useAuth.ts"
+        }
+      ]
+    },
+    {
+      "id": "hermes",
+      "sources": [
+        {
+          "title": "installation documentation",
+          "url": "https://github.com/NousResearch/hermes-agent/blob/76a0c9d4c43cf55b3fbc9d71f49940dad505fc5f/website/docs/getting-started/installation.md"
+        },
+        {
+          "title": "bootstrap",
+          "url": "https://github.com/NousResearch/hermes-agent/blob/76a0c9d4c43cf55b3fbc9d71f49940dad505fc5f/scripts/install.sh"
+        },
+        {
+          "title": "setup controller",
+          "url": "https://github.com/NousResearch/hermes-agent/blob/76a0c9d4c43cf55b3fbc9d71f49940dad505fc5f/hermes_cli/setup.py"
+        }
+      ]
+    },
+    {
+      "id": "hermes-ui",
+      "sources": [
+        {
+          "title": "curses implementation",
+          "url": "https://github.com/NousResearch/hermes-agent/blob/76a0c9d4c43cf55b3fbc9d71f49940dad505fc5f/hermes_cli/curses_ui.py"
+        },
+        {
+          "title": "conversation TUI manifest",
+          "url": "https://github.com/NousResearch/hermes-agent/blob/76a0c9d4c43cf55b3fbc9d71f49940dad505fc5f/ui-tui/package.json"
+        },
+        {
+          "title": "desktop bootstrap manifest",
+          "url": "https://github.com/NousResearch/hermes-agent/blob/76a0c9d4c43cf55b3fbc9d71f49940dad505fc5f/apps/bootstrap-installer/package.json"
+        }
+      ]
+    },
+    {
+      "id": "hermes-minimal",
+      "sources": [
+        {
+          "title": "Quick and Blank Slate implementation",
+          "url": "https://github.com/NousResearch/hermes-agent/blob/76a0c9d4c43cf55b3fbc9d71f49940dad505fc5f/hermes_cli/setup_quick.py#L184-L294"
+        }
+      ]
+    },
+    {
+      "id": "hermes-stage",
+      "sources": [
+        {
+          "title": "machine-readable stage protocol",
+          "url": "https://github.com/NousResearch/hermes-agent/blob/76a0c9d4c43cf55b3fbc9d71f49940dad505fc5f/scripts/install.sh#L321-L355"
+        }
+      ]
+    },
+    {
+      "id": "ouroboros",
+      "sources": [
+        {
+          "title": "Quick Start",
+          "url": "https://github.com/Q00/ouroboros/blob/1c96832803add472b7b1ec6a01d92a266c60cd82/README.md#L145-L171"
+        },
+        {
+          "title": "setup CLI",
+          "url": "https://github.com/Q00/ouroboros/blob/1c96832803add472b7b1ec6a01d92a266c60cd82/src/ouroboros/cli/commands/setup.py"
+        },
+        {
+          "title": "refresh scope",
+          "url": "https://github.com/Q00/ouroboros/blob/1c96832803add472b7b1ec6a01d92a266c60cd82/src/ouroboros/cli/commands/setup_refresh.py"
+        }
+      ]
+    },
+    {
+      "id": "ouroboros-ui",
+      "sources": [
+        {
+          "title": "setup skill",
+          "url": "https://github.com/Q00/ouroboros/blob/1c96832803add472b7b1ec6a01d92a266c60cd82/skills/setup/SKILL.md"
+        },
+        {
+          "title": "Textual settings app",
+          "url": "https://github.com/Q00/ouroboros/blob/1c96832803add472b7b1ec6a01d92a266c60cd82/src/ouroboros/config_tui/app.py"
+        },
+        {
+          "title": "settings dispatch",
+          "url": "https://github.com/Q00/ouroboros/blob/1c96832803add472b7b1ec6a01d92a266c60cd82/src/ouroboros/config_tui/launcher.py"
+        },
+        {
+          "title": "dependencies",
+          "url": "https://github.com/Q00/ouroboros/blob/1c96832803add472b7b1ec6a01d92a266c60cd82/pyproject.toml"
+        }
+      ]
+    },
+    {
+      "id": "ouroboros-selection",
+      "sources": [
+        {
+          "title": "interactive and noninteractive runtime selection",
+          "url": "https://github.com/Q00/ouroboros/blob/1c96832803add472b7b1ec6a01d92a266c60cd82/scripts/install.sh#L1107-L1248"
+        }
+      ]
+    },
+    {
+      "id": "opencode",
+      "sources": [
+        {
+          "title": "getting started",
+          "url": "https://github.com/anomalyco/opencode/blob/95daf90670b7c039c436c85537da5fbfe2205b41/packages/web/src/content/docs/index.mdx"
+        },
+        {
+          "title": "startup dialog",
+          "url": "https://github.com/anomalyco/opencode/blob/95daf90670b7c039c436c85537da5fbfe2205b41/packages/tui/src/app.tsx#L539-L549"
+        },
+        {
+          "title": "provider flow",
+          "url": "https://github.com/anomalyco/opencode/blob/95daf90670b7c039c436c85537da5fbfe2205b41/packages/tui/src/component/dialog-provider.tsx"
+        },
+        {
+          "title": "focus and cancellation",
+          "url": "https://github.com/anomalyco/opencode/blob/95daf90670b7c039c436c85537da5fbfe2205b41/packages/tui/src/ui/dialog.tsx#L104-L135"
+        }
+      ]
+    },
+    {
+      "id": "goose",
+      "sources": [
+        {
+          "title": "installer configure branch",
+          "url": "https://github.com/aaif-goose/goose/blob/50666ae0b9a51e260b52b7efbab2e4e020346e94/download_cli.sh#L349-L435"
+        },
+        {
+          "title": "configuration controller",
+          "url": "https://github.com/aaif-goose/goose/blob/50666ae0b9a51e260b52b7efbab2e4e020346e94/crates/goose-cli/src/commands/configure.rs"
+        },
+        {
+          "title": "provider test",
+          "url": "https://github.com/aaif-goose/goose/blob/50666ae0b9a51e260b52b7efbab2e4e020346e94/crates/goose/src/providers/provider_test.rs#L7-L45"
+        }
+      ]
+    },
+    {
+      "id": "aider",
+      "sources": [
+        {
+          "title": "installation guide",
+          "url": "https://aider.chat/docs/install.html"
+        },
+        {
+          "title": "conditional onboarding",
+          "url": "https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/onboarding.py"
+        },
+        {
+          "title": "optional dependency helper",
+          "url": "https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/utils.py#L298-L329"
+        }
+      ]
+    },
+    {
+      "id": "openhands",
+      "sources": [
+        {
+          "title": "status and installation",
+          "url": "https://github.com/OpenHands/OpenHands-CLI/blob/954f2ba646e8d749261a8f2b2b7e3031fa39be9f/README.md#L30-L76"
+        },
+        {
+          "title": "first-run controller",
+          "url": "https://github.com/OpenHands/OpenHands-CLI/blob/954f2ba646e8d749261a8f2b2b7e3031fa39be9f/openhands_cli/tui/textual_app.py#L283-L341"
+        },
+        {
+          "title": "settings modal",
+          "url": "https://github.com/OpenHands/OpenHands-CLI/blob/954f2ba646e8d749261a8f2b2b7e3031fa39be9f/openhands_cli/tui/modals/settings/settings_screen.py"
+        },
+        {
+          "title": "dependent fields",
+          "url": "https://github.com/OpenHands/OpenHands-CLI/blob/954f2ba646e8d749261a8f2b2b7e3031fa39be9f/openhands_cli/tui/modals/settings/components/settings_tab.py#L25-L155"
+        }
+      ]
+    },
+    {
+      "id": "frameworks",
+      "sources": [
+        {
+          "title": "Codex TUI manifest",
+          "url": "https://github.com/openai/codex/blob/6b9826e3aa83b1a5947db50f4332cb9c65f1b340/codex-rs/tui/Cargo.toml"
+        },
+        {
+          "title": "Gemini CLI manifest",
+          "url": "https://github.com/google-gemini/gemini-cli/blob/fb0d535af931b27c51e87e5e6ade72905b1e8390/packages/cli/package.json"
+        },
+        {
+          "title": "OpenCode TUI manifest",
+          "url": "https://github.com/anomalyco/opencode/blob/95daf90670b7c039c436c85537da5fbfe2205b41/packages/tui/package.json"
+        },
+        {
+          "title": "Goose CLI manifest",
+          "url": "https://github.com/aaif-goose/goose/blob/50666ae0b9a51e260b52b7efbab2e4e020346e94/crates/goose-cli/Cargo.toml"
+        },
+        {
+          "title": "Aider UI imports",
+          "url": "https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/io.py#L15-L31"
+        }
+      ]
+    },
+    {
+      "id": "textual",
+      "sources": [
+        {
+          "title": "App basics and inline mode",
+          "url": "https://textual.textualize.io/guide/app/#run-inline"
+        },
+        {
+          "title": "SelectionList",
+          "url": "https://textual.textualize.io/widgets/selection_list/"
+        }
+      ]
+    },
+    {
+      "id": "questions",
+      "sources": [
+        {
+          "title": "Question pages",
+          "url": "https://design-system.service.gov.uk/patterns/question-pages/"
+        }
+      ]
+    },
+    {
+      "id": "disclosure",
+      "sources": [
+        {
+          "title": "Progressive Disclosure",
+          "url": "https://www.nngroup.com/articles/progressive-disclosure/"
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "sources": [
+        {
+          "title": "Check answers",
+          "url": "https://design-system.service.gov.uk/patterns/check-answers/"
+        }
+      ]
+    },
+    {
+      "id": "clig",
+      "sources": [
+        {
+          "title": "Command Line Interface Guidelines",
+          "url": "https://clig.dev/"
+        }
+      ]
+    }
+  ],
+  "advertised_installer_sha256": {
+    "hermes": "5854b15670b51a8daae8f59ddfa917062de9f74be261eb73b4b8d719710f8968",
+    "ouroboros": "c62cf1f3185d8b7e587e9f7c0701f3984e5b32a34aca6bcf8133b2d1a327aad9"
+  },
+  "report_sha256": "5fac9213534002fbb56683ea907d6ca5bdfa11968e1e8150f51ab47e1ac79cfc",
+  "working_tree_sources": {
+    "install.sh": "028de3e8d032acf9607621f8b14bb2d82788cebfbbf3b7961595ad4ba792071d",
+    "compose/corpus_setup.py": "d08302b3cba4dd35689ff5445cb2be2f0497a5c4aad8d9182cbca5c892c63436",
+    "compose/corpus_install.py": "2a6079f546180bf01ff47861007651867b4f12609fc4ae42003da55f20fb6f0b",
+    "compose/corpus_import.py": "3fe8308f76a408c6926ab232ee2ad8884723354cab6d448959cd1bcd75a065e2",
+    "compose/corpus_app.py": "7be1a67b29c6a2a1ce1d47f907e7915b75d7451c53e66a57ef02c4aaa56b98de",
+    "compose/corpus_store.py": "e7c9947f1cc598e30c6a4c0f015f83ca41f0813f47f042ab66f3e9ef19967a55",
+    "compose/app_bridge/SKILL.md": "7d351376f532d2a35597759529f337412fc183493da912215a7d84ab2b6e028d",
+    "launch/provision-venv.sh": "7042de61b55c77cd56f96f6859dbe62fe360f23c057e50b787393a368dc0d94e",
+    "README.md": "a401534775caa6a016878be0abd2647e232a55327178cc6392c2c2f05e557637",
+    "SURFACES.md": "ae2f71a289bfbbfcb0dad73ba7242ed7e7347ccbf6ac28633ce31caad61976dd",
+    "package.json": "d7afb040912aefe0eb7cf269e8b9c913745500ab83fe02d3c55d5ede09cb09cf",
+    "decisions/decisions.jsonl": "4bf1f07007272d8af5d722c4fc999dbea1e67d8352daf88b03a3fdb16046d888"
+  },
+  "prototype": {
+    "kind": "interactive design simulation; no installation or network calls",
+    "sha256": "a32abe5fe80680821256061ceb2a45c16145f5b6770248c9f164e54364108b1a",
+    "filename": "agent-bios-setup-proposal.html",
+    "limits": [
+      "No actual terminal execution",
+      "No measured browser/narrow-terminal usability",
+      "Acquisition and interrupted external-operation recovery specified in report, not simulated in every prototype branch"
+    ]
+  }
+}

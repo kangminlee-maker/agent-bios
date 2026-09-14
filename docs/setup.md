@@ -1,8 +1,8 @@
 # Setup, app connection, and personal instructions
 
-[← Overview](../README.md) · [Corpus](corpus.md) · [Sessions](session-model.md) · [Recovery](recovery.md)
+[← Overview](../README.md) · [Instructions](instructions.md) · [Sessions](session-model.md) · [Recovery](recovery.md)
 
-Install `agent-bios@0.19.1` through the [README quick start](../README.md#quick-start)
+Install `agent-bios@0.19.0` through the [README quick start](../README.md#quick-start)
 to use the guided installer, conversation setup, app bridge and instruction import.
 Commands below use the installed `agent-bios` CLI. From a source checkout, run
 `bash install.sh <command>` at its root instead.
@@ -33,7 +33,7 @@ older installation mode.
 Install the exact package version, then start setup:
 
 ```bash
-npm install -g agent-bios@0.19.1
+npm install -g agent-bios@0.19.0
 agent-bios install
 ```
 
@@ -43,33 +43,33 @@ For the source alternative, obtain the repository through its Code menu and run
 `install` and `onboard` open the wizard by default. After the language choice,
 four stages collect the choices:
 
-1. **Corpus:** no active corpus, all available corpus, selected packages/domains,
+1. **Instructions:** no active instructions, all available instructions, selected packages/domains,
    or saved policy on an existing installation. **Connect to the Codex app** is
    an independent option for adding `$agent-bios` to app conversations.
 2. **Personal instructions:** optionally add project folders and select detected
-   global/project instruction files for capture. This is independent of corpus use.
+   global/project instruction files for capture. This is independent of instructions use.
 3. **Dependencies:** inspect the full inventory. Ready dependencies are checked
    and cannot be toggled; only missing dependencies with a supported recipe can
    be selected for installation. Leaving those unselected installs none.
 4. **Review:** inspect the effects and, when useful, expand exact commands and
    paths before Apply.
 
-The fresh wizard starts with no active corpus. Reinstalling keeps saved choices
-unless you change them. No active corpus retains the library privately but delivers
-no corpus instruction text or management bootstrap. Explicit selected mode includes
+The fresh wizard starts with no active instructions. Reinstalling keeps saved choices
+unless you change them. Selecting **No active instructions** retains the library privately but delivers
+no agent-bios instruction text or management bootstrap. Explicit selected mode includes
 only its targets within applicable host/project scope; it does not add unrelated
 enabled items or implicit core content.
 
 Personal instructions and host learning records already on this device appear in
 a separate checked, read-only list with stored item counts. These entries describe
-retained content across project scopes, not the active corpus policy or new installation
-choices. No active corpus preserves them. Use Corpus Studio for personal content and
+retained content across project scopes, not the active instructions policy or new installation
+choices. Selecting **No active instructions** preserves them. Use Instructions Studio for personal content and
 selection changes; merely displaying stored content does not activate it. The list
 can also show retained content after private runtime removal.
 
-The installer, launcher and Corpus Studio use a verified UI bundle without downloading or installing
+The installer, launcher and Instructions Studio use a verified UI bundle without downloading or installing
 Textual. Its extraction is temporary and removed on exit. Missing or damaged
-bundled UI fails explicitly. Language changes presentation, not corpus text,
+bundled UI fails explicitly. Language changes presentation, not instructions text,
 identifiers or host settings.
 
 Back preserves your choices. Cancelling before Apply performs no planned setup
@@ -81,8 +81,8 @@ before retrying rather than assuming everything rolled back.
 Selection flags seed the wizard; they do not skip it:
 
 ```bash
-agent-bios install --corpus none
-agent-bios install --corpus selected --select '@agent-bios/core/builder-base'
+agent-bios install --instructions none
+agent-bios install --instructions selected --select '@agent-bios/core/builder-base'
 agent-bios install --dry-run
 ```
 
@@ -90,15 +90,15 @@ agent-bios install --dry-run
 machine route. Direct storage-only examples are:
 
 ```bash
-agent-bios install --non-interactive --corpus none
-agent-bios install --non-interactive --corpus all
-agent-bios install --non-interactive --corpus selected --select '@agent-bios/core/builder-base'
+agent-bios install --non-interactive --instructions none
+agent-bios install --non-interactive --instructions all
+agent-bios install --non-interactive --instructions selected --select '@agent-bios/core/builder-base'
 ```
 
 Those direct commands do not collect dependency, app or import choices. Use the
 shared conversation protocol below for a complete machine setup plan. The legacy
 `--domains` flag requires `--non-interactive` and retains its implicit core/infra
-meaning; `--domains none` is different from `--corpus none`.
+meaning; `--domains none` is different from `--instructions none`.
 
 ## Setup through conversation or automation
 
@@ -119,7 +119,7 @@ agent-bios setup resume --review-id REVIEW_ID
 `start` returns the supported languages, execution target and guide without
 dependency probes or private setup writes. Choose the language before `inspect`.
 The agent produces the six choice fields from your answers and saves the entire
-engine-issued review. It shows the selected commands, destinations, corpus policy,
+engine-issued review. It shows the selected commands, destinations, instructions policy,
 app change and capture sources before applying authorized effects. The engine
 rejects a changed source, environment, plan or state; `--yes` alone is not evidence
 that the effects were reviewed.
@@ -127,7 +127,8 @@ that the effects were reviewed.
 Dependency readiness and installation intent are separate: an already available
 dependency never belongs in the requested `dependencies` list or new install actions.
 The separate `retained_corpus` inventory contains `{target, label, item_count}` rows,
-with localized labels in `display.retained_corpus`, and no instruction bodies. Source
+with localized labels in `display.retained_corpus`, and no instruction bodies. These
+serialized names remain for [compatibility](instructions-compatibility.md). Source
 package choices and the selected activation policy remain independent of that storage
 view; retained entries are not added to `targets` by being displayed.
 
@@ -139,7 +140,7 @@ it does not replay uncertain operations. The agent follows the full procedure in
 [START.md](../compose/setup/START.md), including exact review preservation and verified
 entrypoint handoff. Source and reviewed artifacts remain available for recovery.
 
-## Use corpus in a Codex app task
+## Use instructions in a Codex app task
 
 Choose **Connect to the Codex app** during setup, or explicitly run:
 
@@ -155,7 +156,7 @@ entry is preserved. Registration on disk does not prove the app discovered it;
 setup can return a usable helper path to continue before discovery refreshes.
 
 Once discovered, use `$agent-bios` in the chosen task. Ask it to manage the library,
-change setup, show task status, or explicitly use selected corpus in this task.
+change setup, show task status, or explicitly use selected instructions in this task.
 A setup or management request does not activate content. Each task starts with
 managed delivery off and requires its own explicit use.
 
@@ -165,13 +166,13 @@ Use previews a `ContentRef` and then returns the exact snapshot's
 Session operations require the real task ID, normally `CODEX_THREAD_ID`. Setup and
 management do not require that ID. App use enables no hooks, agents or permissions.
 
-Ask `$agent-bios` to turn corpus delivery off to stop consulting it in subsequent
+Ask `$agent-bios` to turn instructions delivery off to stop consulting it in subsequent
 work. Text already returned cannot be erased; a fresh task is needed for clean
 exclusion. A resumed or forked conversation can carry earlier content independently
 of the new task's receipt. Native global/project instructions still follow host rules.
 
 `agent-bios app unregister` removes only the owned discovery link. It does not erase
-prior task context or personal corpus data. Corpus Studio can also run in the app's
+prior task context or personal instructions data. Instructions Studio can also run in the app's
 integrated terminal; editing it changes future snapshots, not current task context.
 
 ## Import existing instructions
@@ -190,14 +191,14 @@ agent-bios import apply PLAN_ID --expected-revision REV --json
 Discovery checks known global locations and fixed filenames in chosen project
 roots. It does not crawl the home directory or follow instruction references.
 Capture preserves originals and stores redacted evidence with source digests
-privately. It is pending review, not an automatically optimized personal corpus.
+privately. It is pending review, not an automatically optimized personal instructions.
 
 In an app task, ask `$agent-bios` to review the returned capture ID. The agent
 proposes content, `always`/`relevant`/`requested` placement, rationale, and source-line
 coverage or exclusions. The runtime checks the evidence and structure, and Apply
 requires the reviewed revision. Changed originals or conflicting edits require
 fresh review. Project-scoped imports remain limited to their recorded root and
-applicable hosts, even when all corpus or an enable override is selected.
+applicable hosts, even when all instructions or an enable override is selected.
 
 Native hosts may still read the untouched originals. Importing a procedure as
 requested content does not suppress the same rule in a native file, and changing

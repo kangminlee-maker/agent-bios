@@ -39,9 +39,9 @@
   ],
   "entities": [
     {
-      "id": "corpus-rule",
-      "class": "CorpusRule",
-      "name": "Corpus Rule",
+      "id": "instructions-rule",
+      "class": "InstructionsRule",
+      "name": "Instructions Rule",
       "family": "F1",
       "icon": "📜",
       "pos": [
@@ -53,7 +53,7 @@
         "P6"
       ],
       "guard": "gated",
-      "anchor": "claude/CLAUDE.md, compose/corpus_catalog.py",
+      "anchor": "claude/CLAUDE.md, compose/instructions_catalog.py",
       "desc": "An instruction bullet identified by its source anchor; selected always-surface rules enter explicitly activated private sessions",
       "evidence": "## Session Learning"
     },
@@ -108,7 +108,7 @@
         "P6"
       ],
       "guard": "partial",
-      "anchor": "claude/hooks/*.py, compose/corpus_catalog.py, compose/corpus_session.py",
+      "anchor": "claude/hooks/*.py, compose/instructions_catalog.py, compose/instructions_session.py",
       "desc": "An event instruction with a canonical carrier and manifest binding, compiled into host-specific session hooks when native consumption is selected",
       "evidence": "def matches"
     },
@@ -125,7 +125,7 @@
         "P6"
       ],
       "guard": "gated",
-      "anchor": "learn/learning.schema.json, learn/collect-learning.py, learn/check-learning.py, learn/redact.py, compose/corpus_store.py",
+      "anchor": "learn/learning.schema.json, learn/collect-learning.py, learn/check-learning.py, learn/redact.py, compose/instructions_store.py",
       "desc": "An immutable session learning event validated and scrubbed by the collector, stored privately and projected into later selected snapshots",
       "evidence": "\"title\":"
     },
@@ -142,7 +142,7 @@
       ],
       "guard": "partial",
       "anchor": "session-distill/*.py",
-      "desc": "The heavy curator flow that mines many sessions into corpus-grade items",
+      "desc": "The heavy curator flow that mines many sessions into instructions-grade items",
       "evidence": "distill"
     },
     {
@@ -204,7 +204,7 @@
         "P5"
       ],
       "guard": "unguarded",
-      "anchor": "compose/corpus_store.py, compose/corpus.py, compose/corpus_ui.py, launch/agent-launch.py, compose/corpus_setup.py, compose/corpus_app.py, compose/corpus_setup_ui.py",
+      "anchor": "compose/instructions_store.py, compose/instructions.py, compose/instructions_ui.py, launch/agent-launch.py, compose/instructions_setup.py, compose/instructions_app.py, compose/instructions_setup_ui.py",
       "desc": "Saved or invocation-local none/default/selected policies and qualified targets, reviewed through SetupController and its UI; imported host/project scope constrains delivery",
       "evidence": "_validate_selection"
     },
@@ -341,7 +341,7 @@
         "P6"
       ],
       "guard": "partial",
-      "anchor": "launch/provision-venv.sh, compose/corpus_setup.py, compose/corpus_ui_runtime.py, compose/ui_runtime/manifest.json, compose/ui_runtime/*.whl",
+      "anchor": "launch/provision-venv.sh, compose/instructions_setup.py, compose/instructions_ui_runtime.py, compose/ui_runtime/manifest.json, compose/ui_runtime/*.whl",
       "desc": "A supplied Python dependency environment: verified shipped UI wheels loaded into a process-owned temporary directory on package CLI paths, with separately retained managed/numbered compatibility clients",
       "evidence": "textual"
     },
@@ -358,7 +358,7 @@
         "P5"
       ],
       "guard": "unguarded",
-      "anchor": "install.sh, compose/corpus.py, compose/corpus_install.py, compose/corpus_understand.py, compose/corpus_import.py, compose/corpus_app.py, compose/corpus_setup.py, compose/app_bridge/scripts/bridge.py, compose/corpus_setup_ui.py, compose/corpus_setup_i18n.py, compose/corpus_setup_cli.py, compose/setup/START.md, INSTALL.md, docs/setup.md",
+      "anchor": "install.sh, compose/instructions.py, compose/instructions_install.py, compose/instructions_understand.py, compose/instructions_import.py, compose/instructions_app.py, compose/instructions_setup.py, compose/app_bridge/scripts/bridge.py, compose/instructions_setup_ui.py, compose/instructions_setup_i18n.py, compose/instructions_setup_cli.py, compose/setup/START.md, INSTALL.md, docs/setup.md",
       "desc": "A user-invocable operation with a named command owner; install/onboard default to terminal setup while JSON setup serves reviewed conversation installation through the same controller, reached from a public repository-link request or an installed skill",
       "evidence": "if [ \"$CMD\" = \"learn\" ]; then"
     },
@@ -374,8 +374,8 @@
         "P6"
       ],
       "guard": "partial",
-      "anchor": "install.sh deploy_file, compose/corpus_install.py CorpusInstaller.install, compose/corpus_app.py, compose/app_bridge/agents/openai.yaml",
-      "desc": "A bounded owned write: private releases and launcher projections, an explicitly registered app discovery link, or native corpus destinations on the compatibility route",
+      "anchor": "install.sh deploy_file, compose/instructions_install.py InstructionsInstaller.install, compose/instructions_app.py, compose/app_bridge/agents/openai.yaml",
+      "desc": "A bounded owned write: private releases and launcher projections, an explicitly registered app discovery link, or native instructions destinations on the compatibility route",
       "evidence": "deploy_file() {"
     },
     {
@@ -405,7 +405,7 @@
         "P5"
       ],
       "guard": "unguarded",
-      "anchor": "install.sh deploy_file, compose/corpus_install.py PRIVATE_RECORD, launch/shell_integration.py, compose/corpus_app.py",
+      "anchor": "install.sh deploy_file, compose/instructions_install.py PRIVATE_RECORD, launch/shell_integration.py, compose/instructions_app.py",
       "desc": "Ownership records for removal: private installation metadata, shell receipts and exact app bridge generations; legacy deployment uses manifest.txt",
       "evidence": "MANIFEST"
     },
@@ -421,9 +421,9 @@
         "P6"
       ],
       "guard": "partial",
-      "anchor": "compose/corpus_store.py, compose/corpus_session.py, compose/corpus_transaction.py, compose/corpus_understand.py, compose/corpus-state.py, compose/prune-backups.py, compose/write-update-cache.py, compose/corpus_install.py, compose/corpus_import.py, compose/corpus_app.py, compose/corpus_setup_cli.py",
+      "anchor": "compose/instructions_store.py, compose/instructions_session.py, compose/instructions_transaction.py, compose/instructions_understand.py, compose/instructions-state.py, compose/prune-backups.py, compose/write-update-cache.py, compose/instructions_install.py, compose/instructions_import.py, compose/instructions_app.py, compose/instructions_setup_cli.py",
       "desc": "Persisted private sources, import evidence and receipts, baselines, immutable snapshots, native pins, app context receipts, setup review/outcome receipts and transaction journals; each has owning writers and readers",
-      "evidence": "class CorpusStore:"
+      "evidence": "class InstructionsStore:"
     },
     {
       "id": "migration",
@@ -436,7 +436,7 @@
         "P5"
       ],
       "guard": "unguarded",
-      "anchor": "compose/corpus_install.py CorpusInstaller.migrate, compose/corpus_transaction.py, install.sh migrate_state, learn/migrate-learnings.py",
+      "anchor": "compose/instructions_install.py InstructionsInstaller.migrate, compose/instructions_transaction.py, install.sh migrate_state, learn/migrate-learnings.py",
       "desc": "An explicit transform of owned legacy state into private state, with pinned release authority and replayable cleanup; compatibility installer migrations remain on their selected route",
       "evidence": "def migrate("
     },
@@ -451,7 +451,7 @@
         "P5"
       ],
       "guard": "unguarded",
-      "anchor": "compose/corpus_install.py SCHEMA_VERSION, compose/corpus_store.py, compose/corpus_session.py, launch/agent-launch.toml schema_version, compose/domains.json version, compose/corpus_setup_cli.py",
+      "anchor": "compose/instructions_install.py SCHEMA_VERSION, compose/instructions_store.py, compose/instructions_session.py, launch/agent-launch.toml schema_version, compose/domains.json version, compose/instructions_setup_cli.py",
       "desc": "The declared format contract of a persisted artifact, and migration's trigger",
       "evidence": "schema_version"
     },
@@ -468,7 +468,7 @@
         "P6"
       ],
       "guard": "partial",
-      "anchor": "launch/shell_integration.py, compose/corpus_install.py, compose/assemble.py, codex/config-additions.toml, compose/corpus_app.py, compose/app_bridge/agents/openai.yaml",
+      "anchor": "launch/shell_integration.py, compose/instructions_install.py, compose/assemble.py, codex/config-additions.toml, compose/instructions_app.py, compose/app_bridge/agents/openai.yaml",
       "desc": "A bounded managed span or discovery entry in user-owned native state: optional shell wiring and explicit app bridge registration; globals remain preserved outside explicit legacy cleanup",
       "evidence": "allow_implicit_invocation: false"
     },
@@ -499,14 +499,14 @@
         "P5"
       ],
       "guard": "unguarded",
-      "anchor": "compose/corpus_store.py, compose/corpus_install.py, compose/corpus_session.py, launch/shell_integration.py, install.sh ZDOTDIR",
-      "desc": "An explicit runtime override for private state, personal corpus, native identity or shell startup location; each owner interprets its own roots",
+      "anchor": "compose/instructions_store.py, compose/instructions_install.py, compose/instructions_session.py, launch/shell_integration.py, install.sh ZDOTDIR",
+      "desc": "An explicit runtime override for private state, personal instructions, native identity or shell startup location; each owner interprets its own roots",
       "evidence": "ZDOTDIR"
     },
     {
-      "id": "corpus-assembler",
-      "class": "CorpusAssembler",
-      "name": "Corpus Assembler",
+      "id": "instructions-assembler",
+      "class": "InstructionsAssembler",
+      "name": "Instructions Assembler",
       "family": "F4",
       "icon": "🔨",
       "pos": [
@@ -516,7 +516,7 @@
         "P6"
       ],
       "guard": "gated",
-      "anchor": "compose/corpus_catalog.py, compose/corpus_store.py, compose/corpus_session.py, compose/assemble.py, compose/corpus_app.py, compose/corpus_import.py",
+      "anchor": "compose/instructions_catalog.py, compose/instructions_store.py, compose/instructions_session.py, compose/assemble.py, compose/instructions_app.py, compose/instructions_import.py",
       "desc": "Compiles selected items into immutable snapshots for native session adapters or explicit app context; reviewed imports publish private personal items through the same store",
       "evidence": "compile_items"
     },
@@ -532,7 +532,7 @@
         "P6"
       ],
       "guard": "gated",
-      "anchor": "gates/check-parity.sh driver, compose/check-domains.py, gates/build-ui-runtime.py",
+      "anchor": "gates/check-parity.sh driver, compose/check-domains.py, gates/build-ui-runtime.py, gates/check-product-purpose.py",
       "desc": "An executable check owning an invariant, a subject set and an enforcement claim",
       "evidence": "Non-empty-subject guards"
     },
@@ -564,7 +564,7 @@
         "P5"
       ],
       "guard": "unguarded",
-      "anchor": "gates/check_parity.py review-editor checks",
+      "anchor": "gates/check_parity.py review-editor checks, gates/check-product-purpose.py planted purpose controls",
       "desc": "A case asserting the gate fails when it should; without one a gate is unproven",
       "evidence": "negative control"
     },
@@ -625,7 +625,7 @@
         "P5"
       ],
       "guard": "unguarded",
-      "anchor": "install.sh check_prereqs, compose/corpus_install.py, compose/corpus_setup.py",
+      "anchor": "install.sh check_prereqs, compose/instructions_install.py, compose/instructions_setup.py",
       "desc": "Locally probed host tools and interpreters; explicit setup offers available fixed installation commands, while manual account/configuration steps remain separate",
       "evidence": "missing prerequisite: git"
     },
@@ -666,7 +666,7 @@
     {
       "id": "rule-points-to-guide",
       "name": "points_to",
-      "from": "corpus-rule",
+      "from": "instructions-rule",
       "to": "guide",
       "card": "one-to-many",
       "kind": "requires",
@@ -686,7 +686,7 @@
     {
       "id": "tier-classifies-rule",
       "name": "tiered_in",
-      "from": "corpus-rule",
+      "from": "instructions-rule",
       "to": "packaging-tier",
       "card": "one-to-many",
       "kind": "owes_entry",
@@ -717,17 +717,17 @@
       "id": "selection-routes-assembler",
       "name": "routes",
       "from": "selection",
-      "to": "corpus-assembler",
+      "to": "instructions-assembler",
       "card": "one-to-one",
       "kind": "controls",
       "guard": "unguarded",
-      "desc": "Selection mode and qualified targets determine snapshot items; none produces no corpus or bootstrap, and imported host/project scope constrains every selection"
+      "desc": "Selection mode and qualified targets determine snapshot items; none produces no instructions or bootstrap, and imported host/project scope constrains every selection"
     },
     {
       "id": "assembler-composes-rule",
       "name": "composes",
-      "from": "corpus-assembler",
-      "to": "corpus-rule",
+      "from": "instructions-assembler",
+      "to": "instructions-rule",
       "card": "one-to-many",
       "kind": "projects_to",
       "guard": "gated",
@@ -736,7 +736,7 @@
     {
       "id": "assembler-registers-hook",
       "name": "registers",
-      "from": "corpus-assembler",
+      "from": "instructions-assembler",
       "to": "hook",
       "card": "one-to-many",
       "kind": "controls",
@@ -751,13 +751,13 @@
       "card": "one-to-many",
       "kind": "projects_to",
       "guard": "partial",
-      "desc": "The heavy pipeline reduces many sessions into corpus-grade items"
+      "desc": "The heavy pipeline reduces many sessions into instructions-grade items"
     },
     {
       "id": "learning-promotes-rule",
       "name": "promotes_into",
       "from": "learning-record",
-      "to": "corpus-rule",
+      "to": "instructions-rule",
       "card": "many-to-one",
       "kind": "projects_to",
       "guard": "gated",
@@ -861,7 +861,7 @@
       "card": "one-to-many",
       "kind": "controls",
       "guard": "partial",
-      "desc": "Private install stores a pinned release and owns launcher projections; the explicit legacy install route writes native corpus destinations"
+      "desc": "Private install stores a pinned release and owns launcher projections; the explicit legacy install route writes native instructions destinations"
     },
     {
       "id": "deploy-records-manifest",
@@ -881,7 +881,7 @@
       "card": "many-to-many",
       "kind": "asserts",
       "guard": "unguarded",
-      "desc": "Runtime private verification and corpus tests check private writes; ontology/extract.py separately discloses legacy deploy targets without complete verify assertions"
+      "desc": "Runtime private verification and instructions tests check private writes; ontology/extract.py separately discloses legacy deploy targets without complete verify assertions"
     },
     {
       "id": "payload-covers-deploy",
@@ -987,7 +987,7 @@
       "id": "canary-proves-load",
       "name": "confirms_load",
       "from": "activation-canary",
-      "to": "corpus-rule",
+      "to": "instructions-rule",
       "card": "one-to-many",
       "kind": "asserts",
       "guard": "unguarded",
@@ -1071,7 +1071,7 @@
       "card": "one-to-many",
       "kind": "controls",
       "guard": "unguarded",
-      "desc": "CLAUDE_CONFIG_DIR and CODEX_HOME relocate destinations only on the retained legacy deployment route; private corpus state uses its own roots"
+      "desc": "CLAUDE_CONFIG_DIR and CODEX_HOME relocate destinations only on the retained legacy deployment route; private instructions state uses its own roots"
     },
     {
       "id": "manifest-determines-removal",
@@ -1156,12 +1156,12 @@
     {
       "id": "assembler-writes-snapshot",
       "name": "materializes",
-      "from": "corpus-assembler",
+      "from": "instructions-assembler",
       "to": "state-artifact",
       "card": "one-to-many",
       "kind": "projects_to",
       "guard": "gated",
-      "desc": "CorpusStore.snapshot compiles and verifies immutable snapshot bytes and their content references; corpus session and integrity tests check the projection"
+      "desc": "InstructionsStore.snapshot compiles and verifies immutable snapshot bytes and their content references; instructions session and integrity tests check the projection"
     },
     {
       "id": "state-routes-host",
@@ -1186,7 +1186,7 @@
     {
       "id": "imported-rule-requires-source",
       "name": "traces_to",
-      "from": "corpus-rule",
+      "from": "instructions-rule",
       "to": "state-artifact",
       "card": "many-to-many",
       "kind": "requires",
@@ -1211,18 +1211,18 @@
       "card": "one-to-many",
       "kind": "controls",
       "guard": "gated",
-      "desc": "SetupService.apply re-derives the exact reviewed context, source/state and dependency executable identities before effects; test_corpus_setup_cli checks mismatch refusal and receipt-based non-replay. Review identifiers establish consistency, not human consent"
+      "desc": "SetupService.apply re-derives the exact reviewed context, source/state and dependency executable identities before effects; test_instructions_setup_cli checks mismatch refusal and receipt-based non-replay. Review identifiers establish consistency, not human consent"
     }
   ],
   "derived": {
     "note": "Extracted by ontology/extract.py from real source. ontology/check-ontology.py fails if these drift from code. Deploy counts cover the explicit legacy installer call sites.",
     "deploy_targets": 10,
     "deploy_uncovered": 3,
-    "guides": 19,
+    "guides": 21,
     "domains": 5,
     "tier_bindings": 8,
-    "subcommands": 17,
-    "payload_files": 61
+    "subcommands": 18,
+    "payload_files": 77
   },
   "golden_relationships": [
     {
@@ -1263,7 +1263,7 @@
       "title": "deploy / verify coverage",
       "binds": "P4→P6",
       "status": "partial",
-      "verification": "ontology/extract.py compares explicit legacy deploy and verify sites. Private install verification and corpus tests separately check pinned releases and owned projections",
+      "verification": "ontology/extract.py compares explicit legacy deploy and verify sites. Private install verification and instructions tests separately check pinned releases and owned projections",
       "serves": [
         "PU-5"
       ]
@@ -1360,7 +1360,7 @@
         "steps": [
           {
             "step": "author a rule or guide",
-            "entity": "corpus-rule"
+            "entity": "instructions-rule"
           },
           {
             "step": "project to codex/ and ko/",
@@ -1381,7 +1381,7 @@
         ]
       },
       "install": {
-        "source": "install.sh private dispatch -> compose/corpus_install.py CorpusInstaller.install and _finish_install_transaction",
+        "source": "install.sh private dispatch -> compose/instructions_install.py InstructionsInstaller.install and _finish_install_transaction",
         "steps": [
           {
             "step": "dispatch to the private installer",
@@ -1397,7 +1397,7 @@
           },
           {
             "step": "prepare the installed baseline candidate",
-            "entity": "corpus-assembler"
+            "entity": "instructions-assembler"
           },
           {
             "step": "journal planned projections and source publication",
@@ -1418,7 +1418,7 @@
         ]
       },
       "uninstall": {
-        "source": "compose/corpus_install.py CorpusInstaller.uninstall",
+        "source": "compose/instructions_install.py InstructionsInstaller.uninstall",
         "steps": [
           {
             "step": "dispatch private uninstall",
@@ -1458,8 +1458,8 @@
             "entity": "learning-record"
           },
           {
-            "step": "promote into the corpus",
-            "entity": "corpus-rule"
+            "step": "promote into the instructions",
+            "entity": "instructions-rule"
           }
         ]
       },
@@ -1521,8 +1521,8 @@
             "entity": "migration"
           },
           {
-            "step": "assemble_packaged or deploy the corpus",
-            "entity": "corpus-assembler"
+            "step": "assemble_packaged or deploy the instructions",
+            "entity": "instructions-assembler"
           },
           {
             "step": "deploy_file / deploy_glob",
@@ -1582,7 +1582,7 @@
           },
           {
             "step": "native host discovers the installed instruction entry",
-            "entity": "corpus-rule"
+            "entity": "instructions-rule"
           }
         ],
         "ordering": [
@@ -1614,15 +1614,15 @@
         ]
       },
       "session-activation": {
-        "source": "launch/agent-launch.py main -> CorpusStore.snapshot -> corpus_session.launch",
+        "source": "launch/agent-launch.py main -> InstructionsStore.snapshot -> instructions_session.launch",
         "steps": [
           {
-            "step": "select corpus mode, targets and native/global-instruction options",
+            "step": "select instructions mode, targets and native/global-instruction options",
             "entity": "selection"
           },
           {
             "step": "compile and verify the immutable session snapshot",
-            "entity": "corpus-assembler"
+            "entity": "instructions-assembler"
           },
           {
             "step": "compose host-specific arguments from the verified snapshot",
@@ -1643,7 +1643,7 @@
         ]
       },
       "migrate": {
-        "source": "compose/corpus_install.py CorpusInstaller.migrate",
+        "source": "compose/instructions_install.py InstructionsInstaller.migrate",
         "steps": [
           {
             "step": "preview or explicitly apply migration",
@@ -1668,7 +1668,7 @@
         ]
       },
       "reset": {
-        "source": "compose/corpus_install.py CorpusInstaller.reset",
+        "source": "compose/instructions_install.py InstructionsInstaller.reset",
         "steps": [
           {
             "step": "preview or confirm the current reset revision",
@@ -1714,7 +1714,7 @@
         ]
       },
       "setup": {
-        "source": "compose/corpus_install.py main -> corpus_ui_runtime.activate_ui_runtime -> corpus_setup_ui language choice -> SetupController.preview/apply",
+        "source": "compose/instructions_install.py main -> instructions_ui_runtime.activate_ui_runtime -> instructions_setup_ui language choice -> SetupController.preview/apply",
         "steps": [
           {
             "step": "select interactive install/onboard or explicit --non-interactive; reject a missing terminal before writes",
@@ -1729,7 +1729,7 @@
             "entity": "cli-subcommand"
           },
           {
-            "step": "review none, all or selected corpus targets in the shared setup plan",
+            "step": "review none, all or selected instructions targets in the shared setup plan",
             "entity": "selection"
           },
           {
@@ -1751,7 +1751,7 @@
         ]
       },
       "instruction-import": {
-        "source": "compose/corpus_import.py discover/capture/prepare_items -> CorpusStore.plan/apply",
+        "source": "compose/instructions_import.py discover/capture/prepare_items -> InstructionsStore.plan/apply",
         "steps": [
           {
             "step": "discover fixed instruction filenames within selected roots",
@@ -1763,7 +1763,7 @@
           },
           {
             "step": "review model-authored content and consumption placement",
-            "entity": "corpus-rule"
+            "entity": "instructions-rule"
           },
           {
             "step": "validate evidence coverage and unchanged source versions",
@@ -1775,12 +1775,12 @@
           },
           {
             "step": "compile only items matching selected host/project scope",
-            "entity": "corpus-assembler"
+            "entity": "instructions-assembler"
           }
         ]
       },
       "app-context": {
-        "source": "compose/corpus_app.py AppBridge.register -> AppSessions.preview/use/off",
+        "source": "compose/instructions_app.py AppBridge.register -> AppSessions.preview/use/off",
         "steps": [
           {
             "step": "optionally register the explicit-use bridge discovery entry",
@@ -1796,7 +1796,7 @@
           },
           {
             "step": "return the selected immutable snapshot as task context",
-            "entity": "corpus-assembler"
+            "entity": "instructions-assembler"
           },
           {
             "step": "record returned-as-context separately from native pins",
@@ -1809,7 +1809,7 @@
         ]
       },
       "conversation_setup": {
-        "source": "install.sh setup -> corpus_setup_cli.SetupService start/inspect/discover/plan/apply/status/resume -> SetupController",
+        "source": "install.sh setup -> instructions_setup_cli.SetupService start/inspect/discover/plan/apply/status/resume -> SetupController",
         "steps": [
           {
             "step": "read the exact package setup guide and choose a presentation language before dependency inspection",
@@ -1820,7 +1820,7 @@
             "entity": "host-prerequisite"
           },
           {
-            "step": "collect none, all or exact corpus choices without activating task context",
+            "step": "collect none, all or exact instructions choices without activating task context",
             "entity": "selection"
           },
           {
@@ -1854,16 +1854,16 @@
         "concept": "The per-session learning **artifact** (a captured lesson: prose + JSON record)",
         "canonical_term": "**learning**",
         "trigger": "—",
-        "bindings": "`learn/learning.schema.json`, `learn/check-learning.py`, `compose/corpus_store.py`, private `learnings/<host>/events.jsonl`, `POST /api/ingest/learnings`, per-host `upload-state.json`, ledger `entries[].lesson`"
+        "bindings": "`learn/learning.schema.json`, `learn/check-learning.py`, `compose/instructions_store.py`, private `learnings/<host>/events.jsonl`, `POST /api/ingest/learnings`, per-host `upload-state.json`, ledger `entries[].lesson`"
       },
       {
         "concept": "The **light**, per-user, single-session in-conversation capture flow that produces a learning; available in every session mode",
         "canonical_term": "**session learning**",
         "trigger": "`learn!`",
-        "bindings": "`claude/guides/learning-flow.md` (guide_id `learning-flow`), `learn/collect-learning.py`, the `## Session Learning` corpus rule, private `learnings/<host>/events.jsonl` capture, `compose/corpus_store.py` selection and activated-session snapshots; user-global instruction files are preserved. Identifiers stay on the `learn`/`learning` root — the hyphen token `session-learning` is the deprecated heavy-subsystem alias (below), so it must NOT appear in light-flow identifiers"
+        "bindings": "`claude/guides/learning-flow.md` (guide_id `learning-flow`), `learn/collect-learning.py`, the `## Session Learning` instruction rule, private `learnings/<host>/events.jsonl` capture, `compose/instructions_store.py` selection and activated-session snapshots; user-global instruction files are preserved. Identifiers stay on the `learn`/`learning` root — the hyphen token `session-learning` is the deprecated heavy-subsystem alias (below), so it must NOT appear in light-flow identifiers"
       },
       {
-        "concept": "The **heavy** curator/power-user pipeline that mines many sessions and distills them into corpus-grade items; runs only in its dedicated preset",
+        "concept": "The **heavy** curator/power-user pipeline that mines many sessions and distills them into reusable instruction items; runs only in its dedicated preset",
         "canonical_term": "**session distill**",
         "trigger": "`distill!`",
         "bindings": "`design/session-distill/` (HANDOFF, PLACEMENT-FRAMEWORK, ledger.json, versions.json), `session-distill/`, `claude/guides/session-distill-workflow.md` (+ codex/ + ko/ mirrors, `guide_id: session-distill-workflow`), `compose/domains.json` guides key, `[presets.session-distill]` + `[session_distill]` in `launch/agent-launch.toml`, `mode = \"distill\"`, `session-distill-state.json`, launcher `DISTILL_MODE`/`DISTILL_PRESET`/`distill_hub`/`session_distill_nudge`"
@@ -1875,16 +1875,16 @@
         "bindings": "`decisions/record-decision.py`, `decisions/decisions.jsonl`, kinds `design`/`direction`/`stop`/`steering`, `AGENTS.md`"
       },
       {
-        "concept": "The private instruction catalog and personal authoring from which selected immutable snapshots are compiled; native sessions and explicit app tasks have separate delivery records",
-        "canonical_term": "**corpus**",
+        "concept": "Rules, guides, and procedures that govern how a worker performs a task. The private catalog and personal authoring compile selected immutable snapshots; native sessions and explicit app tasks have separate delivery records",
+        "canonical_term": "**Instructions**",
         "trigger": "—",
-        "bindings": "`compose/corpus_catalog.py`, `compose/corpus_store.py`, `compose/corpus.py`, `compose/corpus_ui.py`, `compose/corpus_import.py`, `compose/corpus_app.py`, `corpus-status.json`, `launch/agent-launch.py` corpus clients"
+        "bindings": "`agent-bios instructions`, Instructions Studio, `compose/instructions_catalog.py`, `compose/instructions_store.py`, `compose/instructions.py`, `compose/instructions_ui.py`, `compose/instructions_import.py`, `compose/instructions_app.py`, and their `launch/agent-launch.py` clients. Legacy command/module/env aliases and schema-v1 physical storage remain explicit compatibility interfaces; see `docs/instructions-compatibility.md`."
       },
       {
-        "concept": "A finite guided dialogue about why a coherent corpus bundle exists, its context, mechanisms and limits. Distinct from session learning (capture) and session distill (mining): compact entry guidance and requested pages expose pinned effective corpus as learning data; supporting guides are references, not an unbounded question queue. A meaningful user-first discovery may save a requested-only personal note and unlock a persistent UI trophy; semantic originality remains a judgment, not a provenance-check claim",
-        "canonical_term": "**corpus understanding**",
+        "concept": "A finite guided dialogue about why a coherent instruction bundle exists, its context, mechanisms and limits. Distinct from session learning (capture) and session distill (mining): compact entry guidance and requested pages expose pinned effective instructions as learning data; supporting guides are references, not an unbounded question queue. A meaningful user-first discovery may save a requested-only personal note and unlock a persistent UI trophy; semantic originality remains a judgment, not a provenance-check claim",
+        "canonical_term": "**instruction understanding**",
         "trigger": "`understand!`",
-        "bindings": "`compose/corpus_understand.py` compact entry and `read`/`turns` paging, `claude/skills/understand/SKILL.md`, `launch/agent-launch.py` Understand! menu and `--understand`, private user `understand/state.json` reset generation"
+        "bindings": "`compose/instructions_understand.py` compact entry and `read`/`turns` paging, `claude/skills/understand/SKILL.md`, `launch/agent-launch.py` Understand! menu and `--understand`, private user `understand/state.json` reset generation"
       },
       {
         "concept": "**Deep review** — a deep check on an IMPLEMENTATION (functional, adversarial, logic, scenario, stress). **One concept, two host-bound mechanisms, both the host CLIs themselves**: `ultracode` runs on Claude (the Claude Code CLI's own dynamic workflow — many agents, each candidate finding adversarially verified — opened by the keyword in the prompt), `codex-exec` runs on Codex (the CLI's non-interactive exec mode: the whole packet handed to one frontier-effort pass). Personal or third-party reviewers are not shipped; they register in the user-owned methods file",
@@ -1905,10 +1905,10 @@
         "bindings": "`SURFACES.md` — the catalog and each surface's admission bar. Realized by `compose/assemble.py` (tiering, audience filtering), the router bullets in `claude/CLAUDE.md`, `claude/hooks/`, `claude/agents/` + `codex/agents/`, `launch/agent-launch.py` (contract projection, MCP registration, receipt adjudication), `wrappers/`, `gates/`"
       },
       {
-        "concept": "A **procedure for one task**, packaged as `SKILL.md` with name/description and supporting files. Selected requested procedures and the management bootstrap remain private snapshot resources; no-corpus mode emits neither. The optional explicit-use app bridge has a separate native discovery entry with implicit invocation disabled; registering it does not select corpus content",
+        "concept": "A **procedure for one task**, packaged as `SKILL.md` with name/description and supporting files. Selected requested procedures and the management bootstrap remain private snapshot resources; no-instructions mode emits neither. The optional explicit-use app bridge has a separate native discovery entry with implicit invocation disabled; registering it does not select instruction content",
         "canonical_term": "**skill**",
         "trigger": "—",
-        "bindings": "`claude/skills/<name>/SKILL.md`, `compose/domains.json` skills, `compose/check-domains.py`, `compose/corpus_catalog.py`, `compose/bootstrap/SKILL.md`, `compose/corpus_store.py`, `compose/app_bridge/`, `compose/corpus_app.py`, `SURFACES.md` \"Requested procedure\", \"Private management bootstrap\" and \"App discovery metadata\""
+        "bindings": "`claude/skills/<name>/SKILL.md`, `compose/domains.json` skills, `compose/check-domains.py`, `compose/instructions_catalog.py`, `compose/bootstrap/SKILL.md`, `compose/instructions_store.py`, `compose/app_bridge/`, `compose/instructions_app.py`, `SURFACES.md` \"Requested procedure\", \"Private management bootstrap\" and \"App discovery metadata\""
       },
       {
         "concept": "A repository's **own layer** of agent instruction — its `AGENTS.md` body and `CLAUDE.md` shim — which agent-bios **teaches how to fill and never fills**: the produced file belongs to that repository, carries no marker or version, and is never a deploy or prune target. The repo-charter skill produces it by reading invariants and traps out of the code",
@@ -1917,13 +1917,13 @@
         "bindings": "`claude/skills/repo-charter/`, `design/repo-charter/`, `SURFACES.md` \"Requested procedure\" (the taught-not-filled distinction)"
       },
       {
-        "concept": "The declared, greppable marker — the literal `(private)` on a line — naming an author or environment binding an adopter swaps: the response-language preference in the global, a guide's Environment Binding author examples. One half of the content-hygiene bar: `gates/check-hygiene.py` scans the shipped distribution (npm payload + ko corpus trees) and refuses org identifiers everywhere and author identifiers outside marked lines or per-reason exemptions, so the already-clean distribution stays clean by construction",
+        "concept": "The declared, greppable marker — the literal `(private)` on a line — naming an author or environment binding an adopter swaps: the response-language preference in the global, a guide's Environment Binding author examples. One half of the content-hygiene bar: `gates/check-hygiene.py` scans the shipped distribution (npm payload + ko instructions trees) and refuses org identifiers everywhere and author identifiers outside marked lines or per-reason exemptions, so the already-clean distribution stays clean by construction",
         "canonical_term": "**private binding**",
         "trigger": "—",
         "bindings": "`gates/check-hygiene.py`, `CONTRIBUTING.md` (Adopting elsewhere), `claude/CLAUDE.md` (the marked language bullet)"
       },
       {
-        "concept": "The core-owned **endpoint contract** — the network operations agent-bios speaks (`publish-corpus` / `fetch-corpus` / `ingest-learning`; `ingest-session`'s home is an open design question, its name only reserved): the ingest-learning wire contract extracted from the operating code, the transport-config resolution — the slot `~/.config/agent-bios/{ingest-url,token}`, whose resolution and failure rules `ENDPOINTS.md` owns rather than restates here, and the zero-egress default (a default install configures no endpoint and registers no collection hook)",
+        "concept": "The core-owned **endpoint contract** — the network operations agent-bios speaks (`publish-instructions` / `fetch-instructions` / `ingest-learning`; `ingest-session`'s home is an open design question, its name only reserved): the ingest-learning wire contract extracted from the operating code, the transport-config resolution — the slot `~/.config/agent-bios/{ingest-url,token}`, whose resolution and failure rules `ENDPOINTS.md` owns rather than restates here, and the zero-egress default (a default install configures no endpoint and registers no collection hook)",
         "canonical_term": "**endpoint contract**",
         "trigger": "—",
         "bindings": "`ENDPOINTS.md` (the contract, author-side), `gates/check-endpoints.py` (holds the doc's wire literals against the code and the default against the real resolver), `transport_config` in `learn/collect-learning.py`, `~/.config/agent-bios/{ingest-url,token}`"
@@ -1946,8 +1946,8 @@
         "home": "learn/"
       },
       {
-        "concept": "The **corpus** (deployed instruction content) and its state",
-        "slug": "corpus",
+        "concept": "**Instructions** and their state",
+        "slug": "instructions",
         "home": "compose/"
       },
       {
@@ -1956,7 +1956,7 @@
         "home": "compose/"
       },
       {
-        "concept": "The domain manifest that classifies the corpus",
+        "concept": "The domain manifest that classifies instructions",
         "slug": "domains",
         "home": "compose/"
       },
@@ -2026,25 +2026,25 @@
       },
       {
         "token": "learning-status",
-        "replaced_by": "corpus-status",
-        "reason": "deployed-corpus status projection (`corpus-status.json`)",
+        "replaced_by": "instructions-status",
+        "reason": "deployed-instructions status projection (`corpus-status.json`)",
         "enforced": true
       },
       {
         "token": "learning-state.py",
-        "replaced_by": "corpus-state.py",
-        "reason": "deployed-corpus status/rollback tool",
+        "replaced_by": "instructions-state.py",
+        "reason": "deployed-instructions status/rollback tool",
         "enforced": true
       },
       {
         "token": "AGENT_BIOS_LEARNING_STATUS",
-        "replaced_by": "AGENT_BIOS_CORPUS_STATUS",
-        "reason": "env override for corpus status path",
+        "replaced_by": "AGENT_BIOS_INSTRUCTIONS_STATUS",
+        "reason": "env override for instructions status path",
         "enforced": true
       },
       {
         "token": "learning-rollback",
-        "replaced_by": "corpus-rollback",
+        "replaced_by": "instructions-rollback",
         "reason": "rollback backup directory under the state dir (`backups/corpus-rollback-<ts>`)",
         "enforced": true
       },
@@ -2382,7 +2382,7 @@
         "id": "PU-2",
         "clause": "An edit made once is projected through the selected delivery route",
         "source": "docs/session-model.md",
-        "quote": "Edit once;\nthe private corpus compiler projects the selected content through the chosen delivery route."
+        "quote": "Edit once;\nthe private instructions compiler projects the selected content through the chosen delivery route."
       },
       {
         "id": "PU-3",
@@ -2392,9 +2392,9 @@
       },
       {
         "id": "PU-4",
-        "clause": "The CLI installs, verifies and evolves the corpus",
+        "clause": "The CLI installs, verifies and evolves the instructions",
         "source": "docs/session-model.md",
-        "quote": "plus the CLI that\ninstalls, verifies, and evolves it"
+        "quote": "The product supplies deployable instructions for coding agents and the CLI that\ninstalls, verifies, and evolves them."
       },
       {
         "id": "PU-5",
@@ -2404,9 +2404,9 @@
       },
       {
         "id": "PU-6",
-        "clause": "Corpus content is stored privately and applied only to explicitly activated sessions",
+        "clause": "Instructions content is stored privately and applied only to explicitly activated sessions",
         "source": "install.sh",
-        "quote": "manage private corpus content for explicitly activated sessions",
+        "quote": "manage private instructions content for explicitly activated sessions",
         "enforcement": {
           "kind": "elsewhere",
           "note": "check_parity.purpose_obligations parses the postinstall script and fails unless it is a single print-only printf",
@@ -2426,8 +2426,8 @@
         "quote": "select named domains for future activated snapshots",
         "enforcement": {
           "kind": "elsewhere",
-          "note": "compose/test_corpus_store.py checks snapshot selection validation and pinned inventory; the private compiler selects effective items for the requested domains",
-          "site": "compose/test_corpus_store.py"
+          "note": "compose/test_instructions_store.py checks snapshot selection validation and pinned inventory; the private compiler selects effective items for the requested domains",
+          "site": "compose/test_instructions_store.py"
         }
       },
       {
@@ -2476,7 +2476,7 @@
       },
       {
         "id": "PU-13",
-        "clause": "Deployment is not loading — a corpus that landed but is not read has changed nothing",
+        "clause": "Deployment is not loading — instructions that landed but are not read have changed nothing",
         "source": "docs/session-model.md",
         "quote": "neither stored bytes nor a dry-run argv proves a\nhost loaded the snapshot"
       },
@@ -2503,6 +2503,17 @@
         "clause": "Legacy global migration removes only proven owned material after explicit apply confirmation",
         "source": "CONTRIBUTING.md",
         "quote": "removes only proven legacy-owned material"
+      },
+      {
+        "id": "PU-19",
+        "clause": "Workers compose, share, and inherit work environments for their teams and roles; the team is the basic unit for selection, adoption, and sharing",
+        "source": "AGENTS.md",
+        "quote": "agent-bios exists to let workers compose, share, and inherit team work environments\nfrom Instructions, Domain knowledge, and Decision memory, so they can perform\ntheir roles within the standards and context of their team, industry, and organization.\n\nA team is the basic unit for selecting, adopting, and sharing a work environment.",
+        "enforcement": {
+          "kind": "accepted",
+          "note": "Semantic alignment with the product purpose is judged in review, not reduced to a proxy gate. gates/check-product-purpose.py enforces only non-empty source presence, the README projection, the CLAUDE import, and its parity-suite calls, with planted negative controls. It does not certify that a model considered the purpose or that future capabilities are implemented.",
+          "site": null
+        }
       }
     ],
     "limits": [
@@ -2593,7 +2604,7 @@
     "transitional": [
       {
         "id": "PT-T2",
-        "observation": "the multi-package composer that a corpus catalog needs is specified but not built",
+        "observation": "the multi-package composer that an instructions catalog needs is specified but not built",
         "why_in_flight": "deliberately deferred until a real second package exists",
         "deferral": {
           "source": "design/adapter-split/ECOSYSTEM-ARCHITECTURE.md",

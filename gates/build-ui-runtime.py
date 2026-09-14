@@ -19,7 +19,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "compose"))
-from corpus_ui_runtime import UiRuntimeError, _bundle_id, runtime_inventory, wheel_metadata
+from instructions_ui_runtime import UiRuntimeError, _bundle_id, runtime_inventory, wheel_metadata
 
 
 def root_requirement(repo: Path = ROOT) -> str:
@@ -41,7 +41,7 @@ socket.create_connection = forbidden
 socket.socket.connect = forbidden
 sys.path.insert(0, {str(ROOT / 'compose')!r})
 from pathlib import Path
-from corpus_ui_runtime import activate_ui_runtime
+from instructions_ui_runtime import activate_ui_runtime
 root = activate_ui_runtime(Path({str(repo)!r}))
 from textual.app import App, ComposeResult
 from textual.widgets import MarkdownViewer, TextArea, SelectionList, DirectoryTree, ProgressBar, Static

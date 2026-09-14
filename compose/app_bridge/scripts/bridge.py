@@ -12,7 +12,7 @@ import sys
 def main() -> int:
     root = Path(__file__).resolve().parents[1]
     expected = {"SKILL.md", "agents/openai.yaml", "scripts/bridge.py",
-                "scripts/corpus_transaction.py", "bridge.json"}
+                "scripts/instructions_transaction.py", "bridge.json"}
     try:
         paths = list(root.rglob("*"))
         if any(path.is_symlink() for path in paths):
@@ -32,7 +32,7 @@ def main() -> int:
             if not isinstance(config.get(key), str) or not Path(config[key]).is_absolute():
                 raise RuntimeError("registered bridge needs absolute private roots")
         sys.dont_write_bytecode = True
-        from corpus_transaction import confirmed_release, guard_pending, reject_symlink_ancestors
+        from instructions_transaction import confirmed_release, guard_pending, reject_symlink_ancestors
         state = Path(config["state_root"])
         reject_symlink_ancestors(state)
         reject_symlink_ancestors(Path(config["user_root"]))
@@ -41,8 +41,10 @@ def main() -> int:
         reject_symlink_ancestors(release)
         env = dict(os.environ)
         env.update({"HOME": config["home"], "AGENT_BIOS_STATE_DIR": config["state_root"],
+                    "AGENT_BIOS_INSTRUCTIONS_DIR": config["user_root"],
                     "AGENT_BIOS_CORPUS_DIR": config["user_root"],
-                    "AGENT_BIOS_PACKAGE_ROOT": str(release), "AGENT_BIOS_PRIVATE_CORPUS": "1",
+                    "AGENT_BIOS_PACKAGE_ROOT": str(release), "AGENT_BIOS_PRIVATE_INSTRUCTIONS": "1",
+                    "AGENT_BIOS_PRIVATE_CORPUS": "1",
                     "AGENT_BIOS_LEGACY_INSTALL": "0",
                     "PYTHONDONTWRITEBYTECODE": "1"})
         if "launch_venv" in config:
@@ -57,14 +59,20 @@ def main() -> int:
             print((release / "compose/bootstrap/SKILL.md").read_text(encoding="utf-8"), end="")
             return 0
         if command == "tui":
-            argv = ["/bin/bash", str(release / "install.sh"), "corpus", *tail]
-        elif command in {"setup", "corpus", "import", "learn"}:
+            operation = "instructions" if (release / "compose/instructions.py").is_file() else "corpus"
+            argv = ["/bin/bash", str(release / "install.sh"), operation, *tail]
+        elif command in {"setup", "instructions", "corpus", "import", "learn"}:
+            if command == "instructions" and not (release / "compose/instructions.py").is_file():
+                command = "corpus"
             argv = ["/bin/bash", str(release / "install.sh"), command, *tail]
         elif command == "session":
-            argv = [sys.executable, str(release / "compose/corpus_app.py"), "--repo", str(release),
+            manager = release / "compose/instructions_app.py"
+            if not manager.is_file():
+                manager = release / "compose/corpus_app.py"
+            argv = [sys.executable, str(manager), "--repo", str(release),
                     "--state-dir", config["state_root"], "--user-dir", config["user_root"], "session", *tail]
         else:
-            raise RuntimeError("bridge supports setup, session, corpus, import, learn, bootstrap and tui")
+            raise RuntimeError("bridge supports setup, session, instructions, import, learn, bootstrap and tui")
         os.execve(argv[0], argv, env)
     except (OSError, RuntimeError, ValueError, KeyError) as exc:
         print(f"agent-bios app bridge: {exc}", file=sys.stderr)

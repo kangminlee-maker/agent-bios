@@ -17,6 +17,9 @@ core_rules:
 
 # Documentation Hygiene
 
+Before writing, revising, or translating Korean prose, read and apply
+`${CODEX_HOME:-$HOME/.codex}/guides/korean-writing.md` in full.
+
 A scoped extension of the global Documentation Hygiene section. The subject is placement: **prose
 about the past and prose about the present need different addresses.**
 

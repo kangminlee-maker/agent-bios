@@ -137,7 +137,7 @@ def failure_statements(tree, data_names=frozenset()):
             # findings_queue_open_only() do — and review caught that these were neither
             # mutated nor disclosed, so the totals overstated coverage. Only lists whose
             # elements are message strings count: a comprehension returning data (
-            # corpus_bullets returns the monolith's lines) is plumbing, and mutating it
+            # instructions_bullets returns the monolith's lines) is plumbing, and mutating it
             # would inflate the denominator with non-checks. Neutering is `return []`,
             # not `pass` — a None return crashes the caller and scores a false KILLED.
             v = node.value

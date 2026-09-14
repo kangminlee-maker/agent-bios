@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bijection/coverage gate: compose/domains.json vs the canonical corpus.
+"""Bijection/coverage gate: compose/domains.json vs the canonical instructions.
 
 The manifest is the sole classification authority (tagged-monolith layout);
 claude/CLAUDE.md stays the sole text authority. This gate closes the
@@ -50,7 +50,7 @@ from assemble import (  # noqa: E402  the shipped structural/audience/ownership 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 MANIFEST = REPO / "compose" / "domains.json"
 MONOLITH = REPO / "claude" / "CLAUDE.md"
-FILE_SECTIONS = {  # manifest key -> corpus dir, glob
+FILE_SECTIONS = {  # manifest key -> instructions dir, glob
     "guides": ("claude/guides", "*.md"),
     "hooks": ("claude/hooks", "*"),
     "agents": ("claude/agents", "*.md"),
@@ -89,7 +89,7 @@ def load_manifest(path=MANIFEST):
         return json.load(f)
 
 
-def corpus_bullets(path=MONOLITH):
+def instructions_bullets(path=MONOLITH):
     text = path.read_text(encoding="utf-8")
     return [ln for ln in text.splitlines() if ln.startswith("- ")]
 
@@ -406,7 +406,7 @@ def run_gate(manifest, bullets, repo=REPO):
     # written, packaged, and delivered while nothing reaches it, and every other check is green.
     #
     # Three consumer kinds exist and each is a real delivery path, so none of them is an
-    # exemption: a corpus bullet (by path or declared handle), a parent guide citing a child
+    # exemption: an instruction bullet (by path or declared handle), a parent guide citing a child
     # as a depth chain, and a launch preset's mission. An exemption list would be the fourth,
     # and it is the one that lets a genuinely orphaned guide through.
     launch = repo / "launch" / "agent-launch.toml"
@@ -920,7 +920,7 @@ def self_test(manifest, bullets):
     print(f"self-test [{'CAUGHT' if xd_ok else 'MISSED'}] a declared handle spelling "
           f"another guide's derived name fails as a collision")
 
-    # Guide-to-guide audience. The mutation is a manifest narrowing, not a corpus edit, so it
+    # Guide-to-guide audience. The mutation is a manifest narrowing, not an instruction edit, so it
     # cannot trip the bijection the way the orphan control first did: take a guide that some
     # OTHER guide cites and shrink its domain set to one the citing guide does not hold.
     # The cited guide must be one NO bullet points at — a depth-chain child. Pick one a bullet
@@ -1364,7 +1364,7 @@ def self_test(manifest, bullets):
 
 def main():
     manifest = load_manifest()
-    bullets = corpus_bullets()
+    bullets = instructions_bullets()
     extra = [a for a in sys.argv[1:] if a != "--self-test"]
     if extra:
         sys.exit(f"check-domains: refusing unknown argument(s) {extra!r}. This gate "

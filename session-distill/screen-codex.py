@@ -53,7 +53,7 @@ def packet(baseline, batch):
         'Each digest has the human goal(s), a deterministic timeline (U:/A: turns), tools, error signatures, and token/correction signals — redacted, own-machine data.',
         CRITERIA,
         'For EACH session, emit a candidate only when the learning (a) fits a criterion, (b) generalizes beyond the incident, and (c) is genuinely absent or only partially covered in the baseline. Be strict on novelty: name the closest existing baseline rule and say covered/partial/absent. Ground every candidate in the digest; do not invent. Write each principle as a general rule with no transcript ids, names, dates, or repo-specific paths. Put every examined session_id in screened_ids even when it yields no candidate. Reply with JSON matching the output schema and nothing else.',
-        '===== BASELINE (current canonical corpus) =====\n' + baseline,
+        '===== BASELINE (current canonical instructions) =====\n' + baseline,
         '===== BATCH (session digests, JSON) =====\n' + batch,
     ])
 

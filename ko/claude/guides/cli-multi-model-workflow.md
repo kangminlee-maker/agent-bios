@@ -35,7 +35,7 @@ Global Multi-Model Workflow 규칙의 scoped extension이다. 규칙은 portable
 
 Main context pollution이 보통 spawn overhead보다 비싸다. 다음 gate를 순서대로 적용하고 처음 발동한 것이 결정한다.
 
-1. **Independence:** verification/review는 자신의 대화 밖이 아니라 자신의 추론 밖으로 나간다. 자식은 양쪽 host에서 standing corpus를 지닌다 — 단 Claude 내장 `Explore`와 `Plan`은 CLAUDE.md 계층을 뺀다. 그 외에 Claude의 자식은 새 대화로 시작하지만, Codex `spawn_agent`은 기본이 fork다: `fork_turns`의 기본값이 `all`이라, 호출이 `none`이나 turn 수를 넘기지 않으면 자식이 부모의 turn 입력까지 지닌다. spawn이 사들이는 것은 seat으로 채점되지 spawn했다는 사실로 채점되지 않는다.
+1. **Independence:** verification/review는 자신의 대화 밖이 아니라 자신의 추론 밖으로 나간다. 자식은 양쪽 host에서 standing instructions를 지닌다 — 단 Claude 내장 `Explore`와 `Plan`은 CLAUDE.md 계층을 뺀다. 그 외에 Claude의 자식은 새 대화로 시작하지만, Codex `spawn_agent`은 기본이 fork다: `fork_turns`의 기본값이 `all`이라, 호출이 `none`이나 turn 수를 넘기지 않으면 자식이 부모의 turn 입력까지 지닌다. spawn이 사들이는 것은 seat으로 채점되지 spawn했다는 사실로 채점되지 않는다.
    spawn 여부는 아티팩트로 확인한다: Claude는 자식을 session transcript 옆 `agent-<id>.jsonl`에 쓰고, Codex는 헤더에 `parent_thread_id`·`agent_nickname`·`agent_path`·`agent_role`을 지닌 rollout을 쓴다. Codex의 `--json` 스트림으로는 spawn을 볼 수 없다 — `collab_tool_call` 객체가 spawn 유무와 무관하게 동일하다.
 2. **Parallelism:** 독립 item은 per-item tracking과 함께 병렬 spawn한다.
 3. **Residual context:** main이 보존할 결론보다 working log가 훨씬 큰 wide read, search, test, implementation burst를 spawn한다.
@@ -65,7 +65,7 @@ Decision이 아니라 execution을 위임한다. Unit은 decision-complete, self
 - Worker 비용은 request count × transcript prefix로 증가한다. 독립 read를 batch하고 edit round를 줄이며 독립 worker/message를 한 turn에 dispatch한다.
 - **dispatch 전에 tier를 pin한다.** pin하지 않으면 tier가 작업을 본 뒤에 정해지고, 작업의 난이도가 아니라 크기를 따라간다. 비용 우위는 해당 작업의 근거가 있을 때에만 주장한다.
 - Codex `spawn_agent`은 부모의 무엇이 얼마나 넘어갈지를 정한다: `fork_turns`의 기본값은 `all`이고 `none` 또는 turn 수를 받는다. 그 host의 `SubagentStart` hook은 `agent_type`을 받고 `continue: false`를 반환할 수 있으므로, tier 규칙을 문장이 아니라 강제로 둘 수 있다.
-- 어느 host에도 spawn 단위의 corpus 억제 수단은 없다: subagent 정의는 model과 effort를 담을 뿐 scope를 담지 않는다. standing instruction 배제는 프로세스 수준의 행위이며(`claude --setting-sources ''`, 또는 `auth.json`만 든 디렉터리를 가리키는 `CODEX_HOME`), tier 정의도 함께 사라지므로 corpus 없는 reader와 pin된 tier를 한 프로세스에서 얻을 수 없다. `auth.json` 없이 비운 `CODEX_HOME`은 401로 실패하고, skill은 그래도 로드된다.
+- 어느 host에도 spawn 단위의 instructions 억제 수단은 없다: subagent 정의는 model과 effort를 담을 뿐 scope를 담지 않는다. standing instruction 배제는 프로세스 수준의 행위이며(`claude --setting-sources ''`, 또는 `auth.json`만 든 디렉터리를 가리키는 `CODEX_HOME`), tier 정의도 함께 사라지므로 instructions 없는 reader와 pin된 tier를 한 프로세스에서 얻을 수 없다. `auth.json` 없이 비운 `CODEX_HOME`은 401로 실패하고, skill은 그래도 로드된다.
 - Resident teammate는 한 burst의 dependent slice에만 쓴다. CLI가 model/context를 보존하는지 확인한다. Resume-after-completion은 둘 다 바꿀 수 있다. Burst/cache TTL 뒤 retire하고 durable knowledge는 파일에 둔다.
 - Discard/direction change 뒤 routine round가 fresh slice와 비슷하게 비싸지면 respawn한다. 유일한 in-flight state는 먼저 파일로 회수한다.
 - Busy worker redirect는 preempt하지 않고 queue될 수 있다. Destructive redirect 전에 artifact를 확인하고 조건부로 표현하며, 실제로 해로운 worker는 PID/worktree 단위 권한으로 중단한다.
@@ -126,7 +126,7 @@ Instruction/config reach는 invocation마다 정한다. AGENTS.md 규칙은 herm
 
 - Trigger: 작업이 설계이고(코드를 쓰기 전의 high-level shape과 구현 프로세스) 두 개 이상의 provider가 frontier tier로 접근 가능하다. OAuth 세션을 통한 접근은 구독 커버라 한계 지출이 없어 승인도 질문도 필요 없다: 메인 컨텍스트 외의 OAuth frontier provider가 존재하면 곧바로 dual-provider 설계를 진행한다. 승인 게이트는 오직 metered API key로만 도달하는 provider에만 적용된다: 거기에 dispatch하려면 그 지출에 대한 사용자의 명시적 건별 승인이 필요하다(건별이며 상시 아님 — 과거 승인은 다음 설계로 이월되지 않는다). 두 번째 provider에 도달하는 유일한 방법이 승인되지 않은 metered API 지출뿐이라면, 설계를 막지 말고 single-provider로 진행한다.
 - Mechanics: blind packet 하나를 구성해(evidence, constraint, rubric, 중립적 대안 — escalation-gate packet 형태) provider별 frontier-tier model 하나에 변경 없이 dispatch한다; 초안은 독립을 유지한다 — 서로의 출력을 보지 않는다. 그 다음 판정한다: 두 dual-provider frontier design drafts를 rubric에 대조해 비교하고, 우승안을 뼈대로 삼고 패자의 더 나은 부분을 접붙이고, 무엇이 달랐고 종합이 왜 그렇게 선택했는지 기록한다(FRONTIER disposition line).
-- Packet injection: dispatch된 designer는 hermetic하다 — 자기 packet만 읽고 이 corpus를 로드하지 않는다. corpus가 공급했을 설계 원칙을 주입한다: concept economy(reuse/extend/rename/split, compact concept graph), LLM/tools-code capability boundary, staged 설계 규칙(smallest viable path, falsifiable done-when), 그리고 설계가 건드리는 도메인별 원칙. 원칙 없이 만들어진 초안은 원칙과 함께 만들어진 초안과 비교 가능하지 않다.
+- Packet injection: dispatch된 designer는 hermetic하다 — 자기 packet만 읽고 이 instructions를 로드하지 않는다. instructions가 공급했을 설계 원칙을 주입한다: concept economy(reuse/extend/rename/split, compact concept graph), LLM/tools-code capability boundary, staged 설계 규칙(smallest viable path, falsifiable done-when), 그리고 설계가 건드리는 도메인별 원칙. 원칙 없이 만들어진 초안은 원칙과 함께 만들어진 초안과 비교 가능하지 않다.
 
 ## Unattended Batch Safety
 

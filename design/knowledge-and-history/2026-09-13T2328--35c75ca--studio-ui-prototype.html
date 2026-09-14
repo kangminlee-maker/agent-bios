@@ -1,0 +1,304 @@
+<div id="team-studio-prototype" aria-label="팀 업무환경 Studio 목업"></div>
+<style>
+#team-studio-prototype {
+  --studio-bg: light-dark(#ffffff, #171c1b);
+  --studio-soft: light-dark(#f5f7f5, #202724);
+  --studio-text: light-dark(#1f302a, #e8f0ea);
+  --studio-muted: light-dark(#586960, #aebeb4);
+  --studio-line: light-dark(#dce4de, #3a4740);
+  --studio-accent: light-dark(#25644d, #a6dec2);
+  --studio-on-accent: light-dark(#ffffff, #153426);
+  --studio-tint: light-dark(#eaf3ed, #263d30);
+  --studio-warn: light-dark(#775513, #ebca8a);
+  --studio-warn-bg: light-dark(#fcf5e7, #3a3020);
+  --studio-pad: 24px;
+  color: var(--studio-text); background: var(--studio-bg); border: 1px solid var(--studio-line);
+  border-radius: 12px; font: 14px/1.6 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  width: 100%; box-sizing: border-box; overflow-wrap: anywhere; isolation: isolate;
+}
+#team-studio-prototype * {box-sizing: border-box;}
+#team-studio-prototype h1, #team-studio-prototype h2, #team-studio-prototype h3, #team-studio-prototype p {margin: 0; color: inherit;}
+#team-studio-prototype h1 {font-size: 25px; line-height: 1.35; font-weight: 600; letter-spacing: -.6px;}
+#team-studio-prototype h2 {font-size: 19px; line-height: 1.4; font-weight: 600; letter-spacing: -.3px;}
+#team-studio-prototype h3 {font-size: 15px; font-weight: 600;}
+#team-studio-prototype button, #team-studio-prototype input, #team-studio-prototype select {font: inherit; color: inherit;}
+#team-studio-prototype button {cursor: pointer;}
+#team-studio-prototype button:disabled {cursor: default; opacity: .5;}
+#team-studio-prototype button, #team-studio-prototype select {min-height: 36px;}
+#team-studio-prototype input, #team-studio-prototype select {max-width:100%; border:1px solid var(--studio-line); border-radius:6px; background:var(--studio-bg); padding:7px 10px;}
+#team-studio-prototype input[type=checkbox] {width:18px; height:18px; accent-color:var(--studio-accent); margin:0; flex:none;}
+#team-studio-prototype .studio-demo {padding:9px 16px; display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px; background:var(--studio-soft); border-bottom:1px solid var(--studio-line); border-radius:12px 12px 0 0; font-size:12px;}
+#team-studio-prototype .studio-demo-tools {display:flex; flex-wrap:wrap; gap:6px; align-items:center;}
+#team-studio-prototype .studio-demo select {font-size:12px; padding:3px 8px; min-height:30px;}
+#team-studio-prototype .studio-quiet {border:0; background:transparent; color:var(--studio-muted); padding:4px 8px;}
+#team-studio-prototype .studio-shell {display:grid; grid-template-columns:168px minmax(0,1fr);}
+#team-studio-prototype .studio-sidebar {background:var(--studio-soft); padding:24px 12px; border-right:1px solid var(--studio-line); border-radius:0 0 0 12px;}
+#team-studio-prototype .studio-brand {padding:0 10px 26px; display:flex; gap:10px; align-items:center; font-size:17px; font-weight:600;}
+#team-studio-prototype .studio-mark {display:grid; place-items:center; background:var(--studio-accent); color:var(--studio-on-accent); width:28px; height:28px; border-radius:7px; font:500 20px/1 Georgia,serif; flex:none;}
+#team-studio-prototype .studio-brand small {display:block; font-size:11px; line-height:1.5; font-weight:400; color:var(--studio-muted);}
+#team-studio-prototype .studio-nav {display:flex; flex-direction:column; gap:5px;}
+#team-studio-prototype .studio-nav button {display:flex; gap:10px; align-items:center; text-align:left; background:transparent; border:0; border-radius:7px; padding:10px; color:var(--studio-muted);}
+#team-studio-prototype .studio-nav button[aria-current=page] {color:var(--studio-accent); background:var(--studio-tint); font-weight:600;}
+#team-studio-prototype .studio-nav svg {flex:none; width:17px; height:17px;}
+#team-studio-prototype .studio-sidebar-note {padding:24px 10px 0; color:var(--studio-muted); font-size:12px;}
+#team-studio-prototype .studio-workspace {min-width:0;}
+#team-studio-prototype .studio-chrome {padding:18px var(--studio-pad) 14px; border-bottom:1px solid var(--studio-line);}
+#team-studio-prototype .studio-context {display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+#team-studio-prototype .studio-context label {display:flex; align-items:center; gap:7px; font-size:12px; color:var(--studio-muted);}
+#team-studio-prototype .studio-context select {font-size:13px; color:var(--studio-text);}
+#team-studio-prototype .studio-editions {display:flex; flex-wrap:wrap; gap:8px 20px; margin-top:12px; font-size:12px; color:var(--studio-muted);}
+#team-studio-prototype .studio-editions strong {font-weight:500; color:var(--studio-text); margin-left:5px;}
+#team-studio-prototype .studio-main {padding:var(--studio-pad); min-width:0;}
+#team-studio-prototype .studio-pagehead {display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; margin-bottom:24px;}
+#team-studio-prototype .studio-overline {font-size:11px; letter-spacing:1.1px; color:var(--studio-muted); text-transform:uppercase; margin-bottom:7px;}
+#team-studio-prototype .studio-subtitle {color:var(--studio-muted); margin-top:8px; max-width:50em;}
+#team-studio-prototype .studio-actions {display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+#team-studio-prototype .studio-button {border:1px solid var(--studio-line); background:var(--studio-bg); padding:7px 12px; border-radius:6px; text-align:center; font-weight:500;}
+#team-studio-prototype .studio-button-primary {background:var(--studio-accent); border-color:var(--studio-accent); color:var(--studio-on-accent);}
+#team-studio-prototype .studio-button-link {border:0; padding:4px 0; background:transparent; color:var(--studio-accent); text-align:left;}
+#team-studio-prototype .studio-note {padding:12px 14px; background:var(--studio-tint); color:var(--studio-accent); border-radius:7px; margin:16px 0;}
+#team-studio-prototype .studio-note-warn {background:var(--studio-warn-bg); color:var(--studio-warn);}
+#team-studio-prototype .studio-section {margin-top:24px;}
+#team-studio-prototype .studio-sectionhead {display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px;}
+#team-studio-prototype .studio-small {font-size:12px; color:var(--studio-muted);}
+#team-studio-prototype .studio-pill {display:inline-block; padding:2px 7px; border-radius:4px; background:var(--studio-soft); color:var(--studio-muted); font-size:11px; white-space:nowrap;}
+#team-studio-prototype .studio-pill-good {background:var(--studio-tint); color:var(--studio-accent);}
+#team-studio-prototype .studio-table {width:100%; border-collapse:collapse; font-size:13px;}
+#team-studio-prototype .studio-table th {font-size:11px; text-align:left; font-weight:500; color:var(--studio-muted); padding:9px 8px; border-bottom:1px solid var(--studio-line); background:var(--studio-soft);}
+#team-studio-prototype .studio-table td {padding:14px 8px; border-bottom:1px solid var(--studio-line); vertical-align:top;}
+#team-studio-prototype .studio-table th:first-child, #team-studio-prototype .studio-table td:first-child {padding-left:0;}
+#team-studio-prototype .studio-table td:last-child {text-align:right;}
+#team-studio-prototype .studio-table small {display:block; color:var(--studio-muted); font-size:11px; margin-top:3px;}
+#team-studio-prototype .studio-twocol {display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:24px;}
+#team-studio-prototype .studio-summary {border-top:1px solid var(--studio-line); padding-top:13px;}
+#team-studio-prototype .studio-summary p {margin-top:7px;}
+#team-studio-prototype .studio-library {display:grid; grid-template-columns:190px minmax(0,1fr); gap:22px;}
+#team-studio-prototype .studio-list {display:flex; flex-direction:column; gap:8px;}
+#team-studio-prototype .studio-list button {background:var(--studio-bg); border:1px solid var(--studio-line); border-radius:7px; padding:12px; text-align:left;}
+#team-studio-prototype .studio-list button[aria-pressed=true] {border-color:var(--studio-accent); background:var(--studio-tint);}
+#team-studio-prototype .studio-list strong {display:block; font-weight:500; margin-bottom:6px;}
+#team-studio-prototype .studio-detail {min-width:0; border-left:1px solid var(--studio-line); padding-left:22px;}
+#team-studio-prototype .studio-detail h2 {margin:10px 0;}
+#team-studio-prototype .studio-detail p {margin:10px 0;}
+#team-studio-prototype .studio-detail ul, #team-studio-prototype .studio-detail ol {margin:12px 0; padding-left:21px;}
+#team-studio-prototype .studio-detail li {margin:7px 0;}
+#team-studio-prototype .studio-facts {display:grid; grid-template-columns:72px minmax(0,1fr); gap:7px 12px; font-size:12px; margin:16px 0;}
+#team-studio-prototype .studio-facts dt {color:var(--studio-muted);}
+#team-studio-prototype .studio-facts dd {margin:0;}
+#team-studio-prototype details {border-top:1px solid var(--studio-line); margin-top:15px; padding-top:12px;}
+#team-studio-prototype summary {cursor:pointer; color:var(--studio-accent); font-weight:500;}
+#team-studio-prototype .studio-timeline {list-style:none; padding:0!important; margin-top:20px;}
+#team-studio-prototype .studio-timeline li {border-left:2px solid var(--studio-line); padding:0 0 17px 15px; margin:0;}
+#team-studio-prototype .studio-timeline li:first-child {border-color:var(--studio-accent);}
+#team-studio-prototype .studio-timeline strong {display:block; font-weight:500;}
+#team-studio-prototype .studio-steps {display:flex; flex-wrap:wrap; gap:8px 18px; list-style:none; padding:0; margin:0 0 25px; font-size:12px; color:var(--studio-muted);}
+#team-studio-prototype .studio-steps li[aria-current=step] {color:var(--studio-accent); font-weight:600;}
+#team-studio-prototype .studio-field {display:block; margin:20px 0;}
+#team-studio-prototype .studio-field>span {display:block; font-weight:500; margin-bottom:7px;}
+#team-studio-prototype .studio-field select {width:100%; font-size:14px;}
+#team-studio-prototype .studio-consumed {padding:16px 0; border-bottom:1px solid var(--studio-line);}
+#team-studio-prototype .studio-consumed h3 {display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:7px;}
+#team-studio-prototype .studio-checks {list-style:none; padding:0; margin:20px 0;}
+#team-studio-prototype .studio-checks li {display:flex; gap:12px; align-items:flex-start; padding:12px 0; border-bottom:1px solid var(--studio-line);}
+#team-studio-prototype .studio-check-symbol {color:var(--studio-accent); font-weight:600;}
+#team-studio-prototype .studio-checks strong {font-weight:500; display:block;}
+#team-studio-prototype .studio-bottom {display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; align-items:center; margin-top:24px; padding-top:18px; border-top:1px solid var(--studio-line);}
+#team-studio-prototype .studio-choice {display:flex; gap:12px; align-items:flex-start; padding:17px 12px; border-bottom:1px solid var(--studio-line); cursor:pointer;}
+#team-studio-prototype .studio-choice input {margin-top:3px;}
+#team-studio-prototype .studio-choice strong {display:block; font-weight:500;}
+#team-studio-prototype .studio-diff {display:grid; grid-template-columns:minmax(0,1fr) 25px minmax(0,1fr); gap:12px; padding:18px 0; border-bottom:1px solid var(--studio-line); align-items:center;}
+#team-studio-prototype .studio-footer {border-top:1px solid var(--studio-line); padding:12px var(--studio-pad); color:var(--studio-muted); font-size:12px; min-height:45px;}
+#team-studio-prototype [data-layout=top] .studio-shell {grid-template-columns:1fr;}
+#team-studio-prototype [data-layout=top] .studio-sidebar {border-right:0; border-bottom:1px solid var(--studio-line); display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:12px var(--studio-pad); border-radius:0;}
+#team-studio-prototype [data-layout=top] .studio-brand {padding:0;}
+#team-studio-prototype [data-layout=top] .studio-nav {flex-direction:row; flex-wrap:wrap;}
+#team-studio-prototype [data-layout=top] .studio-sidebar-note {display:none;}
+@media(max-width:800px) {
+ #team-studio-prototype .studio-shell {grid-template-columns:1fr;}
+ #team-studio-prototype .studio-sidebar {border-right:0; border-bottom:1px solid var(--studio-line); padding:12px 16px; border-radius:0;}
+ #team-studio-prototype .studio-brand {padding:0 0 12px;}
+ #team-studio-prototype .studio-nav {flex-direction:row; flex-wrap:wrap; gap:4px;}
+ #team-studio-prototype .studio-nav button {padding:8px;}
+ #team-studio-prototype .studio-sidebar-note {display:none;}
+}
+@media(max-width:550px) {
+ #team-studio-prototype {--studio-pad:16px!important;}
+ #team-studio-prototype .studio-library, #team-studio-prototype .studio-twocol {grid-template-columns:1fr;}
+ #team-studio-prototype .studio-detail {border-left:0; border-top:1px solid var(--studio-line); padding:16px 0 0;}
+ #team-studio-prototype .studio-list {display:grid; grid-template-columns:1fr 1fr;}
+ #team-studio-prototype .studio-list button {padding:9px;}
+ #team-studio-prototype .studio-context {align-items:stretch; flex-direction:column; gap:8px;}
+ #team-studio-prototype .studio-context label {display:grid; grid-template-columns:50px minmax(0,1fr);}
+ #team-studio-prototype .studio-table th:nth-child(2), #team-studio-prototype .studio-table td:nth-child(2) {display:none;}
+ #team-studio-prototype .studio-nav button {font-size:12px; gap:5px;}
+ #team-studio-prototype .studio-diff {gap:6px; grid-template-columns:minmax(0,1fr) 18px minmax(0,1fr);}
+ #team-studio-prototype .studio-demo-tools {width:100%; justify-content:space-between;}
+ #team-studio-prototype h1 {font-size:23px;}
+ #team-studio-prototype .studio-field select {font-size:16px;}
+}
+@media(pointer:coarse) {#team-studio-prototype button, #team-studio-prototype select, #team-studio-prototype summary {min-height:44px;}}
+</style>
+<script>
+(() => {
+  const root = document.getElementById('team-studio-prototype');
+  const design = {density:'comfortable', navigation:'side', tone:'green'};
+  const teams = {
+    product: {name:'제품 개발팀', envs:['제품 개발 기본 환경','변경 검토 환경'], role:'개발자', task:['결제 오류 재시도 기능 구현','결제 기능 변경 검토'],
+      source:'결제 서비스 운영 원칙', scope:'결제 요청 · 외부 결제사 연동', stable:'같은 결제 요청을 중복 처리하지 않는다.',
+      stableBody:'결과를 아직 받지 못했다는 사실은 결제 실패를 뜻하지 않는다. 같은 요청의 상태를 먼저 확인하고, 다시 전송할 때는 같은 요청 식별자를 사용한다.',
+      changing:'일시적 오류의 재시도 기준', limit:'첫 시도를 제외하고 최대 2회 재시도한다.',
+      exception:'결제사가 거절을 확정한 요청은 재시도하지 않는다.',
+      condition:'네트워크 단절 또는 일시적 서버 오류이며, 결제 결과가 확정되지 않은 요청에 적용한다.',
+      reason:'일시적 오류는 복구하되, 반복 요청에 따른 중복 처리와 외부 시스템의 부하를 줄이기 위해서다.',
+      streams:['결제 안정성','출시 운영'], optional:'출시 전 확인표', optionalDesc:'배포 직전 점검 항목을 필요할 때 읽는다.',
+      memory:'재시도 상한을 2회로 정함', open:'재시도 사이의 대기 간격은 아직 결정하지 않았다.',
+      old:'최대 3회', owner:'제품 개발팀', library:'고객 지원팀의 응대 원칙'},
+    support: {name:'고객 지원팀', envs:['문의 응대 기본 환경','답변 검토 환경'], role:'고객 지원 담당자', task:['중복 결제 문의에 답변 작성','중복 결제 안내문 검토'],
+      source:'결제 문의 응대 원칙', scope:'중복 결제 문의 · 확인 중인 거래', stable:'확인되지 않은 결제 결과를 고객에게 확정해서 말하지 않는다.',
+      stableBody:'고객의 문의 내용과 실제 거래 상태를 함께 확인한다. 확인이 끝나기 전에는 조사 중인 내용과 확정된 사실을 구분해서 안내한다.',
+      changing:'조사 중 고객 안내 기준', limit:'담당 팀의 거래 상태 확인 후 다음 안내를 보낸다.',
+      exception:'거래가 한 건으로 확정된 경우에는 중복 결제가 발생했다고 안내하지 않는다.',
+      condition:'같은 주문에 두 건 이상의 결제 알림이 접수되었지만 실제 거래 수가 확인되지 않은 경우에 적용한다.',
+      reason:'추정으로 환불이나 중복 결제를 약속하면 잘못된 안내를 정정하는 비용이 커지기 때문이다.',
+      streams:['응대 기준','운영 협의'], optional:'답변 발송 전 확인표', optionalDesc:'답변 발송 직전 확인 항목을 필요할 때 읽는다.',
+      memory:'거래 확인 뒤 안내하기로 정함', open:'거래 조사 중 중간 안내 주기는 아직 결정하지 않았다.',
+      old:'접수 즉시 환불 예상 안내', owner:'고객 지원팀', library:'제품 개발팀의 코드 검토 원칙'}
+  };
+  let s;
+  const initialRecord = (index) => ({adopted:3, latest:3, editions:{3:{optional:index===0}}, draft:null});
+  function reset(scenario='worker') {
+    s={scenario, team:'product', env:0, area:'environment', item:0, page:'home', prepare:0, task:0, preview:null, ready:false, active:null, prior:[], message:'가상 데이터로 화면과 작업 흐름을 살펴보세요.', visited:{knowledge:false,memory:false}, records:{}};
+    for(const team of Object.keys(teams)) for(let i=0;i<2;i++) s.records[team+':'+i]=initialRecord(i);
+    if(scenario==='maintainer') {s.active={team:'product',env:0,edition:3,task:0,frontier:'M-42',optional:true}; s.page='edit'; s.records['product:0'].draft={optional:true}; s.message='진행 중인 작업은 3판입니다. 구성 변경부터 새 판 채택까지 확인해 보세요.';}
+    render();
+  }
+  function t(){return teams[s.team];}
+  function rec(){return s.records[s.team+':'+s.env];}
+  function cfg(){return rec().editions[rec().adopted];}
+  function esc(value){return String(value).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+  function button(label,action,primary=false,extra=''){return `<button type="button" class="studio-button${primary?' studio-button-primary':''}" data-action="${action}" ${extra}>${label}</button>`;}
+  function link(label,action,extra=''){return `<button type="button" class="studio-button-link" data-action="${action}" ${extra}>${label}</button>`;}
+  function badge(label,good=false){return `<span class="studio-pill${good?' studio-pill-good':''}">${label}</span>`;}
+  function head(eyebrow,title,subtitle,actions=''){return `<div class="studio-pagehead"><div><div class="studio-overline">${eyebrow}</div><h1>${title}</h1><div class="studio-subtitle">${subtitle}</div></div>${actions?`<div class="studio-actions">${actions}</div>`:''}</div>`;}
+  function sourceRows(){return `<table class="studio-table"><thead><tr><th>이 환경에 포함된 자료</th><th>소유자 · 범위</th><th>열기</th></tr></thead><tbody>
+    <tr><td><strong>작업 기본 지침</strong> ${badge('필수')}<small>Instructions · 5판 · 시작할 때 + 필요할 때</small></td><td>${t().owner}</td><td>${link('지침 보기','nav', 'data-area="instructions"')}</td></tr>
+    ${cfg().optional?`<tr><td><strong>${t().optional}</strong> ${badge('선택')}<small>Instructions · 2판 · 필요할 때</small></td><td>${t().owner}</td><td>${link('확인표 보기','optional')}</td></tr>`:''}
+    <tr><td><strong>${t().source}</strong> ${badge('필수')}<small>Domain knowledge · 7판 · 질문에 맞춰 읽기</small></td><td>${t().scope}</td><td>${link('지식 보기','nav','data-area="knowledge"')}</td></tr>
+    <tr><td><strong>${t().streams.join(' + ')}</strong> ${badge('필수')}<small>Decision memory · 작업 시점까지 기록 조회</small></td><td>${t().owner}<small>두 업무 흐름의 정정 포함</small></td><td>${link('결정 보기','nav','data-area="memory"')}</td></tr>
+    </tbody></table>`;}
+  function home(){const r=rec();return head('WORK ENVIRONMENT',t().envs[s.env],`${t().role}가 팀의 기준과 결정 맥락을 이어받는 환경`,button('작업 준비','prepare',true))+
+    (r.latest>r.adopted?`<div class="studio-note">새 ${r.latest}판을 발행했습니다. 팀 기준은 아직 ${r.adopted}판입니다. ${link('채택할 판 검토','adopt-review')}</div>`:'')+
+    `<div class="studio-sectionhead"><h2>팀이 채택한 ${r.adopted}판</h2>${link(r.draft?'초안 이어서 수정':'환경 구성 수정','edit')}</div>`+sourceRows()+
+    `<div class="studio-section studio-twocol"><section class="studio-summary"><h3>먼저 이해할 업무 지식</h3><p>${t().stable}</p>${link('원칙과 적용 조건 확인 →','nav','data-area="knowledge"')}</section><section class="studio-summary"><h3>이어받을 결정</h3><p>${t().memory}</p>${link('왜 이렇게 정했는지 확인 →','nav','data-area="memory"')}</section></div>`+
+    `<div class="studio-note">시작 흐름 &nbsp; 지식·결정 확인 → 작업 준비 → 전달 내용 미리보기 → 사용 가능 확인 → 새 작업 시작</div>`+
+    `<div class="studio-small">자료 원본의 소유자와 버전을 확인한 뒤 포함합니다. 공유 자료를 열어보는 것만으로 이 환경에 추가되지는 않습니다.</div>`;}
+  function library(){
+    const area=s.area, knowledge=area==='knowledge', memory=area==='memory';
+    const title=knowledge?'업무 지식':memory?'결정 기억':'작업 지침';
+    const english=knowledge?'DOMAIN KNOWLEDGE':memory?'DECISION MEMORY':'INSTRUCTIONS';
+    const subtitle=knowledge?'판단에 필요한 원칙과, 지금 적용할 조건을 함께 읽습니다.':memory?'현재의 선택부터 읽고, 필요한 만큼 이유를 거슬러 올라갑니다.':'행동 기준과 절차를 필요한 순간에 꺼내 읽습니다.';
+    let entries=knowledge?[[t().source,'환경에 포함 · 7판'],['공유 자료 살펴보기','미포함 · 원본 읽기 전용']]:memory?[[t().memory,'현재 결정 · 정정 반영'],['미결정 질문','열린 상태 · 결정 필요']]:[['작업 기본 지침','필수 · 5판'],[t().optional,(cfg().optional?'환경에 포함':'환경에 미포함')+' · 2판']];
+    return head(english,title,subtitle,button('작업 준비','prepare',true))+
+      `<div class="studio-library"><div class="studio-list" aria-label="${title} 목록">${entries.map((e,i)=>`<button type="button" data-action="item" data-item="${i}" aria-pressed="${s.item===i}"><strong>${e[0]}</strong><span class="studio-small">${e[1]}</span></button>`).join('')}</div><article class="studio-detail">${knowledge?knowledgeDetail():memory?memoryDetail():instructionDetail()}</article></div>`;
+  }
+  function knowledgeDetail(){
+    if(s.item===1) return `${badge('환경에 미포함')}<h2>${t().library}</h2><p>다른 팀이 공유한 자료입니다. 이 예시에서는 읽기 권한만 있습니다.</p><dl class="studio-facts"><dt>소유자</dt><dd>${s.team==='product'?'고객 지원팀':'제품 개발팀'}</dd><dt>버전</dt><dd>3판</dd><dt>권한</dt><dd>읽기 가능 · 원본 수정 불가</dd></dl><p>기록을 검토할 때는 확인된 사실과 아직 확인하지 못한 사실을 구분한다.</p><div class="studio-note">열람 중입니다. 선택한 환경의 구성은 그대로입니다.</div><p class="studio-small">이 목업은 공유 자료의 권한과 미포함 상태만 보여줍니다. 사본 만들기와 외부 자료 추가는 상세 명세에 남겨두었습니다.</p>`;
+    return `${badge('환경에 포함',true)} ${badge('7판')}<h2>${t().source}</h2><dl class="studio-facts"><dt>소유자</dt><dd>${t().owner}</dd><dt>적용 범위</dt><dd>${t().scope}</dd><dt>검토 상태</dt><dd>2026.09.10 확인 · 2026.10.01 재검토 예정</dd></dl>
+      <div class="studio-section"><div class="studio-overline">쉽게 변하지 않는 원칙</div><h3>${t().stable}</h3><p>${t().stableBody}</p></div>
+      <div class="studio-section"><div class="studio-overline">현재 적용하는 기준</div><h3>${t().changing}</h3><p>${t().limit}</p><dl class="studio-facts"><dt>시행 기간</dt><dd>2026.09.01부터 · 종료일 미정</dd><dt>적용 조건</dt><dd>${t().condition}</dd><dt>예외</dt><dd>${t().exception}</dd></dl></div>
+      <details><summary>근거와 확인 질문 보기</summary><p class="studio-small">가상 원문: 팀 운영 기준 7판 §2 · 운영 검토 기록 2026.09.10</p><p>확인 질문: 결과가 이미 확정된 요청에도 이 기준을 적용할 수 있는가?</p><p>답: 아니다. 결과가 확정되지 않았다는 적용 조건을 먼저 확인한다.</p></details>
+      <div class="studio-bottom"><span class="studio-small">내용을 바꾸면 새 버전으로 기록합니다.</span>${link('관련 결정의 이유 보기 →','nav','data-area="memory"')}</div>`;
+  }
+  function memoryDetail(){
+    if(s.item===1)return `${badge('미결정')}<h2>아직 정하지 않은 것</h2><p>${t().open}</p><dl class="studio-facts"><dt>관련 흐름</dt><dd>${t().streams[0]}</dd><dt>담당</dt><dd>${t().owner}</dd><dt>기록된 이유</dt><dd>운영 사례를 더 확인한 뒤 결정하기로 함</dd></dl><div class="studio-note studio-note-warn">이 부분은 팀의 확정 기준으로 사용할 수 없습니다. 작업에 필요하면 결정을 요청합니다.</div>${link('현재 결정으로 돌아가기','item','data-item="0"')}`;
+    return `${badge('현재 결정',true)} ${badge('정정 반영')}<h2>${t().memory}</h2><p>${t().limit}</p><dl class="studio-facts"><dt>업무 흐름</dt><dd>${t().streams.join(' + ')}</dd><dt>적용 조건</dt><dd>${t().condition}</dd><dt>조회 범위</dt><dd>선택한 환경의 두 업무 흐름 · 기록 M-42까지</dd></dl>
+      <details open><summary>왜 이렇게 결정했나</summary><p>${t().reason}</p><p class="studio-small">기록된 이유: D-018 · 운영 회의 메모. 대안: ${t().old} 유지.</p></details>
+      <ol class="studio-timeline" aria-label="의사결정 흐름"><li><span class="studio-small">09.10 · ${t().streams[1]} · C-021</span><strong>기록 정정</strong><p>${t().old}로 적혔던 D-018의 본문을 정정했습니다. 현재의 선택은 위 기준입니다.</p></li><li><span class="studio-small">09.08 · ${t().streams[0]} · D-018</span><strong>운영 회의에서 결정</strong><p>검토한 대안과 채택 이유를 기록했습니다.</p></li><li><span class="studio-small">09.06 · ${t().streams[0]} · Q-012</span><strong>문제 제기</strong><p>불확실한 거래 상태에서 후속 처리를 어떻게 할 것인가?</p></li></ol>
+      <details><summary>원기록과 근거 보기</summary><p>D-018 원기록: ${t().old}. C-021이 이 표현을 정정했습니다.</p><p>C-021 근거: 09.08 회의 메모의 실제 선택. 이 정정은 새 정책 도입이 아니라 잘못 적힌 본문을 바로잡은 기록입니다.</p></details>
+      <div class="studio-note studio-note-warn">${t().open} ${link('열린 질문 보기','item','data-item="1"')}</div>`;
+  }
+  function instructionDetail(){return s.item===0?`${badge('필수',true)} ${badge('5판')}<h2>작업 기본 지침</h2><dl class="studio-facts"><dt>소유자</dt><dd>${t().owner}</dd><dt>시작할 때</dt><dd>팀 환경 확인 · 필요한 지식과 현재 결정 조회</dd><dt>필요할 때</dt><dd>작업 절차 · 점검표 · 기록 방법</dd></dl><h3>처음에 읽는 지침</h3><ol><li>이번 작업에 적용되는 팀 환경과 판을 확인한다.</li><li>판단에 필요한 업무 지식은 적용 조건과 예외까지 함께 읽는다.</li><li>관련 결정의 현재 상태와 미결정 사항을 확인한다.</li><li>새 결정이 다른 선택지를 닫았다면 이유와 함께 기록한다.</li></ol><details><summary>작업별 절차 보기</summary><p>작업 범위 확인 → 관련 근거 조회 → 변경 수행 → 영향에 맞는 검증 → 결과와 결정 기록</p></details><div class="studio-note">작업 기본 지침은 시작 시 전달됩니다. 상세 절차는 필요할 때 불러옵니다.</div>`:
+      `${badge(cfg().optional?'환경에 포함':'환경에 미포함',cfg().optional)} ${badge('선택 · 2판')}<h2>${t().optional}</h2><p>${t().optionalDesc}</p><ul><li>이번 변경의 영향을 확인했는가?</li><li>필요한 근거와 점검 결과를 남겼는가?</li><li>후속 담당자가 알아야 할 미결정 사항이 있는가?</li></ul><div class="studio-note">목록에서 열어보는 동작과 환경에 포함하는 동작은 별개입니다.</div>${link('환경에서 포함 여부 바꾸기','edit')}`;}
+  function prepare(){
+    const step=s.prepare;
+    const steps=['작업 선택','전달 내용 확인','사용 가능 확인','작업 시작'];
+    let html=head('START A TASK','작업 준비',`${t().name} · ${t().envs[s.env]} · 팀 채택 ${rec().adopted}판`,link('환경으로 돌아가기','home'))+
+      `<ol class="studio-steps">${steps.map((label,i)=>`<li ${i===step?'aria-current="step"':''}>${i<step?'✓':i+1} ${label}</li>`).join('')}</ol>`;
+    if(step===0)return html+`<h2>어떤 작업을 시작하나요?</h2><label class="studio-field"><span>이번 작업</span><select data-field="task" aria-label="이번 작업">${t().task.map((q,i)=>`<option value="${i}" ${s.task===i?'selected':''}>${q}</option>`).join('')}</select></label><dl class="studio-facts"><dt>작업자 역할</dt><dd>${t().role}</dd><dt>대상</dt><dd>새 작업 · 독립된 대화 문맥</dd><dt>지식 기준</dt><dd>2026.09.13 · 선택한 환경의 7판</dd><dt>결정 범위</dt><dd>${t().streams.join(' + ')} · 정정·미결정 포함</dd></dl><div class="studio-note">필수 근거는 먼저 담고, 자세한 원문은 필요할 때 펼칩니다.</div><div class="studio-bottom"><span class="studio-small">아직 어떤 작업에도 전달하지 않았습니다.</span>${button('전달 내용 미리보기','preview',true)}</div>`;
+    if(step===1)return html+`<h2>이 작업이 전달받을 내용</h2><p class="studio-subtitle">${t().task[s.task]} · 아래 내용은 미리보기입니다.</p>
+      <section class="studio-consumed"><h3>작업 지침 ${badge('필수 · 5판')}</h3><p>적용할 팀 환경을 확인하고, 관련 지식의 조건·예외와 결정의 현재 상태를 먼저 읽습니다.</p><details><summary>필수 지침 전문 보기</summary><ol><li>팀 환경과 판을 확인한다.</li><li>관련 지식은 조건과 예외를 함께 읽는다.</li><li>현재 결정과 미결정을 확인한다.</li><li>선택지를 닫은 새 결정은 이유와 함께 기록한다.</li></ol></details></section>
+      <section class="studio-consumed"><h3>업무 지식 ${badge('필수 · 7판')}</h3><p>${t().stable} ${t().stableBody}</p><p style="margin-top:9px">${t().limit}</p><dl class="studio-facts"><dt>적용 조건</dt><dd>${t().condition}</dd><dt>예외</dt><dd>${t().exception}</dd><dt>기간 · 출처</dt><dd>2026.09.01부터 · 팀 운영 기준 7판 §2 · 09.10 확인</dd></dl></section>
+      <section class="studio-consumed"><h3>결정 기억 ${badge('필수 · M-42까지')}</h3><p>${t().memory} · D-018에 대한 C-021의 정정을 반영했습니다.</p><p style="margin-top:9px">기록된 이유: ${t().reason}</p><div class="studio-note studio-note-warn">미결정: ${t().open}</div></section>
+      ${cfg().optional?`<section class="studio-consumed"><h3>${t().optional} ${badge('필요할 때')}</h3><p>${t().optionalDesc} 지금은 읽을 수 있는 경로만 전달합니다.</p></section>`:''}
+      <div class="studio-bottom"><span class="studio-small">이 예시 작업의 필수 내용 포함 · 원문은 추가 조회 가능</span><div class="studio-actions">${button('작업 다시 선택','prepare')}${button('사용 가능 확인','check',true)}</div></div>`;
+    if(step===2)return html+`<h2>새 작업을 시작할 준비가 되었습니다</h2><p class="studio-subtitle">가상 실행 환경에서 아래 조건이 충족된 상태입니다.</p><ul class="studio-checks"><li><span class="studio-check-symbol">✓</span><div><strong>환경과 자료 접근</strong><span class="studio-small">${rec().adopted}판의 필수 자료를 읽을 권한이 있습니다.</span></div></li><li><span class="studio-check-symbol">✓</span><div><strong>지식의 적용 조건과 결정의 정정</strong><span class="studio-small">업무 지식 7판과 M-42까지의 필수 기록이 준비되었습니다.</span></div></li><li><span class="studio-check-symbol">✓</span><div><strong>새 작업 문맥 준비</strong><span class="studio-small">기존 작업의 지침과 섞이지 않는 새 문맥을 사용합니다.</span></div></li><li><span class="studio-check-symbol">✓</span><div><strong>전달 기능 준비</strong><span class="studio-small">목업에서 준비 완료로 가정합니다. 실제 호스트는 검사하지 않았습니다.</span></div></li></ul>
+      ${s.active?`<div class="studio-note">앞선 작업은 ${teams[s.active.team].name}의 ${s.active.edition}판을 유지합니다.</div>`:''}
+      <div class="studio-bottom"><span class="studio-small">준비 완료 · 아직 새 작업에 전달 전</span><div class="studio-actions">${button('전달 내용 다시 보기','preview')}${button('새 작업에서 사용','activate',true)}</div></div>`;
+    return html+`<div class="studio-note">✓ 가상 작업을 시작했습니다.</div><h2>${t().task[s.task]}</h2><dl class="studio-facts"><dt>팀 · 환경</dt><dd>${t().name} · ${t().envs[s.env]}</dd><dt>사용 판</dt><dd>환경 ${s.active.edition}판 · 지침 5판 · 지식 7판</dd><dt>결정 범위</dt><dd>${t().streams.join(' + ')} · ${s.active.frontier}까지</dd><dt>이번 전달</dt><dd>필수 내용 포함 · 상세 원문은 필요할 때 조회</dd></dl><p>앞으로 팀이 새 판을 채택해도 이 작업의 판이 자동으로 바뀌지는 않습니다.</p>${s.prior.length?`<p class="studio-small" style="margin-top:12px">앞선 작업: ${teams[s.prior[s.prior.length-1].team].name} · ${s.prior[s.prior.length-1].edition}판 유지</p>`:''}<div class="studio-bottom"><span class="studio-small">실제 세션을 만들거나 에이전트를 실행하지 않았습니다.</span>${button('환경으로 돌아가기','home',true)}</div>`;
+  }
+  function edit(){const r=rec();return head('EDIT COMPOSITION',`환경 ${r.latest+1}판 초안`,'이 환경이 참조할 자료를 바꿉니다. 원본 자료의 내용은 그대로입니다.',link('환경으로 돌아가기','home'))+
+    `<h2>환경에 포함할 자료</h2><label class="studio-choice"><input type="checkbox" checked disabled><span><strong>작업 기본 지침 · 5판 ${badge('필수')}</strong><span class="studio-small">${t().owner} · 이 환경의 필수 지침</span></span></label><label class="studio-choice"><input type="checkbox" data-field="optional" ${r.draft.optional?'checked':''}><span><strong>${t().optional} · 2판 ${badge('선택')}</strong><span class="studio-small">${t().optionalDesc}</span></span></label><label class="studio-choice"><input type="checkbox" checked disabled><span><strong>${t().source} · 7판 ${badge('필수')}</strong><span class="studio-small">원칙·현재 기준·적용 조건·예외 포함</span></span></label><label class="studio-choice"><input type="checkbox" checked disabled><span><strong>${t().streams.join(' + ')} ${badge('필수')}</strong><span class="studio-small">이 두 흐름의 결정과 관련 정정을 함께 조회</span></span></label>
+    <div class="studio-note">팀은 ${r.adopted}판을 사용합니다. 초안 수정은 팀 기준이나 진행 중인 작업을 바꾸지 않습니다.</div><div class="studio-bottom"><div class="studio-actions">${button('초안 버리기','discard')}</div>${button('변경 내용 검토','review',true, r.draft.optional===r.editions[r.latest].optional?'disabled':'')}</div>`;}
+  function review(){const r=rec(), before=r.editions[r.latest].optional, after=r.draft.optional;return head('REVIEW CHANGES',`${r.latest+1}판으로 발행할 변경`,'발행은 공유 가능한 판을 만드는 단계입니다. 팀 채택은 다음 단계입니다.')+
+    `<div class="studio-diff"><div><span class="studio-small">기준 ${r.latest}판</span><p>${t().optional}<br>${before?'포함':'미포함'}</p></div><span aria-hidden="true">→</span><div><span class="studio-small">새 ${r.latest+1}판</span><p>${t().optional}<br>${after?'포함':'미포함'}</p></div></div><div class="studio-section"><h3>이 변경의 영향</h3><ul><li>선택 항목의 ${after?'읽을 수 있는 경로를 추가':'읽을 수 있는 경로를 제거'}합니다.</li><li>필수 지침, 지식 7판, 결정 조회 범위는 동일합니다.</li><li>원본 확인표는 삭제하거나 수정하지 않습니다.</li></ul></div><div class="studio-note">팀 채택 ${r.adopted}판과 진행 중인 작업은 그대로 유지됩니다.</div><div class="studio-bottom">${button('초안으로 돌아가기','edit')}${button(`${r.latest+1}판 발행`,'publish',true)}</div>`;}
+  function adoption(){const r=rec();return head('TEAM ADOPTION',s.page==='published'?`${r.latest}판을 발행했습니다`:`팀에서 채택할 ${r.latest}판`,'이 판을 팀의 새로운 시작 기준으로 선택합니다.')+
+    `<div class="studio-diff"><div><span class="studio-small">현재 팀 기준</span><h2>${r.adopted}판</h2></div><span aria-hidden="true">→</span><div><span class="studio-small">채택할 판</span><h2>${r.latest}판</h2></div></div><dl class="studio-facts"><dt>팀</dt><dd>${t().name}</dd><dt>환경</dt><dd>${t().envs[s.env]}</dd><dt>구성 변화</dt><dd>${t().optional}: ${r.editions[r.latest].optional?'포함':'미포함'}</dd><dt>가상 권한</dt><dd>환경 발행 가능 · 팀 기준 변경 가능</dd></dl><div class="studio-note">팀이 채택하면 이후 작업의 시작 기준이 바뀝니다. 이미 진행 중인 작업은 자동으로 전환되지 않습니다.</div><div class="studio-bottom">${button('지금은 발행만 유지','home')}${button(`팀에서 ${r.latest}판 채택`,'adopt',true)}</div>`;}
+  function activeLabel(){if(!s.active)return '사용 전';const different=s.active.team!==s.team||s.active.env!==s.env;return `${different?teams[s.active.team].name+' / ':''}${s.active.edition}판${different?' · 다른 환경':''}`;}
+  function render(){
+    const focused=root.contains(document.activeElement)?document.activeElement:null;
+    const focusKey=focused?.dataset.field||null;
+    const focusAction=focused?.dataset.action||null;
+    const focusArea=focused?.dataset.area||null;
+    const focusItem=focused?.dataset.item||null;
+    const r=rec();
+    root.style.setProperty('--studio-pad',design.density==='compact'?'18px':'24px');
+    root.style.setProperty('--studio-accent',design.tone==='blue'?'light-dark(#315c8c, #afcfff)':'light-dark(#25644d, #a6dec2)');
+    root.style.setProperty('--studio-tint',design.tone==='blue'?'light-dark(#ecf2fa, #26394f)':'light-dark(#eaf3ed, #263d30)');
+    root.style.setProperty('--studio-on-accent',design.tone==='blue'?'light-dark(#ffffff, #173352)':'light-dark(#ffffff, #153426)');
+    const navs=[['environment','업무환경','layers'],['instructions','작업 지침','list-checks'],['knowledge','업무 지식','book-open'],['memory','결정 기억','git-branch']];
+    let content=s.page==='prepare'?prepare():s.page==='edit'?edit():s.page==='review'?review():['published','adoption'].includes(s.page)?adoption():s.area==='environment'?home():library();
+    root.innerHTML=`<div data-layout="${design.navigation}"><div class="studio-demo"><span>목업 · 모든 팀과 자료는 가상 · 실제 저장·배포 없음</span><div class="studio-demo-tools"><select data-field="scenario" aria-label="체험 시나리오"><option value="worker" ${s.scenario==='worker'?'selected':''}>① 신규 작업자 시작</option><option value="maintainer" ${s.scenario==='maintainer'?'selected':''}>② 관리자 환경 변경</option></select><button type="button" class="studio-quiet" data-action="reset">처음부터</button></div></div><div class="studio-shell"><aside class="studio-sidebar"><div class="studio-brand"><span class="studio-mark" aria-hidden="true">b</span><span>Studio<small>agent-bios</small></span></div><nav class="studio-nav" aria-label="주요 영역">${navs.map(([id,name,icon])=>`<button type="button" data-action="nav" data-area="${id}" ${s.area===id?'aria-current="page"':''}><i data-lucide="${icon}" aria-hidden="true"></i>${name}</button>`).join('')}</nav><div class="studio-sidebar-note">같은 팀의 기준으로<br>다음 작업을 이어갑니다.</div></aside><div class="studio-workspace"><header class="studio-chrome"><div class="studio-context"><label>팀<select data-field="team" aria-label="팀">${Object.entries(teams).map(([id,team])=>`<option value="${id}" ${s.team===id?'selected':''}>${team.name}</option>`).join('')}</select></label><label>환경<select data-field="env" aria-label="환경">${t().envs.map((env,i)=>`<option value="${i}" ${s.env===i?'selected':''}>${env}</option>`).join('')}</select></label></div><div class="studio-editions"><span>팀 채택<strong data-status="adopted">${r.adopted}판</strong></span><span>작성 중<strong data-status="draft">${r.draft?(r.latest+1)+'판 초안':'없음'}</strong></span><span>최근 가상 작업<strong data-status="active">${activeLabel()}</strong></span></div></header><main class="studio-main">${content}</main><div class="studio-footer" role="status" aria-live="polite">${esc(s.message)}</div></div></div></div>`;
+    if(globalThis.lucide)globalThis.lucide.createIcons({attrs:{width:17,height:17}});
+    if(focusKey) root.querySelector(`[data-field="${focusKey}"]`)?.focus({preventScroll:true});
+    else if(focusAction){
+      const selector=`[data-action="${focusAction}"]${focusArea?`[data-area="${focusArea}"]`:''}${focusItem!==null?`[data-item="${focusItem}"]`:''}`;
+      const next=root.querySelector(selector)||root.querySelector('main select, main .studio-button-primary, main button');
+      next?.focus({preventScroll:true});
+    }
+  }
+  function invalidate(){s.preview=null;s.ready=false;}
+  function goHome(){s.area='environment';s.page='home';s.prepare=0;}
+  function navigate(area){s.area=area;s.page='home';s.item=0;if(area==='knowledge'||area==='memory')s.visited[area]=true;}
+  root.addEventListener('click',event=>{
+    const control=event.target.closest('button[data-action]');if(!control||control.disabled)return;
+    const action=control.dataset.action, r=rec();
+    if(action==='reset'){reset(s.scenario);return;}
+    if(action==='nav'){navigate(control.dataset.area);s.message='열람 중입니다. 환경 구성과 사용 중인 판은 바뀌지 않습니다.';}
+    if(action==='home'){goHome();s.message='팀의 채택 상태와 최근 가상 작업의 판을 함께 확인하세요.';}
+    if(action==='item'){s.item=Number(control.dataset.item);s.message='선택한 자료를 열었습니다. 필터와 열람은 원기록을 바꾸지 않습니다.';}
+    if(action==='optional'){navigate('instructions');s.item=1;}
+    if(action==='prepare'){s.area='environment';s.page='prepare';s.prepare=0;invalidate();s.message='새 작업에 필요한 내용만 준비합니다.';}
+    if(action==='preview'){s.preview={team:s.team,env:s.env,edition:r.adopted,task:s.task,frontier:'M-42',optional:cfg().optional};s.page='prepare';s.prepare=1;s.ready=false;s.message='미리보기만 완료했습니다. 아직 전달하거나 작업을 시작하지 않았습니다.';}
+    if(action==='check'&&s.preview){s.prepare=2;s.ready=true;s.message='가상 조건에서 사용 가능을 확인했습니다. 실제 호스트를 검사한 결과는 아닙니다.';}
+    if(action==='activate'&&s.ready&&s.preview&&s.preview.team===s.team&&s.preview.env===s.env&&s.preview.edition===r.adopted&&s.preview.task===s.task){if(s.active)s.prior.push({...s.active});s.active={...s.preview};s.prepare=3;s.ready=false;s.message='가상 사용 기록을 만들었습니다. 모델이 실제로 읽거나 따랐음을 증명하지 않습니다.';}
+    if(action==='edit'){s.area='environment';s.page='edit';if(!r.draft)r.draft={...r.editions[r.latest]};s.message='초안은 이 환경에만 속합니다. 팀 채택과 기존 작업은 유지됩니다.';}
+    if(action==='discard'){r.draft=null;goHome();s.message='초안을 버렸습니다. 발행된 판과 팀 기준은 그대로입니다.';}
+    if(action==='review'&&r.draft&&r.draft.optional!==r.editions[r.latest].optional){s.page='review';s.message='선택 항목의 포함 여부만 달라집니다.';}
+    if(action==='publish'&&r.draft){r.latest++;r.editions[r.latest]={...r.draft};r.draft=null;s.page='published';s.message=`가상 ${r.latest}판 발행 완료. 팀은 아직 ${r.adopted}판입니다.`;}
+    if(action==='adopt-review'){s.page='adoption';s.area='environment';}
+    if(action==='adopt'){r.adopted=r.latest;invalidate();goHome();s.message=`팀이 ${r.adopted}판을 채택했습니다. 진행 중인 작업의 판은 바뀌지 않았습니다.`;}
+    render();
+  });
+  root.addEventListener('change',event=>{
+    const field=event.target.dataset.field;if(!field)return;
+    if(field==='scenario'){reset(event.target.value);return;}
+    if(field==='team'){s.team=event.target.value;s.env=0;s.task=0;goHome();invalidate();s.message='탐색할 팀을 바꿨습니다. 앞선 작업의 환경과 전달 내용은 유지됩니다.';}
+    if(field==='env'){s.env=Number(event.target.value);s.task=0;goHome();invalidate();s.message='탐색할 환경을 바꿨습니다. 사용하려면 이 환경으로 작업을 준비하세요.';}
+    if(field==='task'){s.task=Number(event.target.value);invalidate();}
+    if(field==='optional'){rec().draft.optional=event.target.checked;s.message='초안의 포함 여부만 바꿨습니다.';}
+    render();
+  });
+  reset();
+  if(globalThis.Tweak){const tweak=new Tweak({container:root,onChange:render});tweak.addSelect(design,'navigation',{label:'주요 탐색 위치',options:[{label:'왼쪽 탐색',value:'side'},{label:'상단 탐색',value:'top'}]});tweak.addSelect(design,'density',{label:'화면 밀도',options:[{label:'여유 있게',value:'comfortable'},{label:'간결하게',value:'compact'}]});tweak.addSelect(design,'tone',{label:'강조 색상',options:[{label:'초록',value:'green'},{label:'파랑',value:'blue'}]});}
+})();
+</script>

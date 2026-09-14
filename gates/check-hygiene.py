@@ -2,10 +2,10 @@
 """Content-hygiene gate: the shipped distribution carries no org or personal
 binding outside a declared slot.
 
-Measured 2026-08-19 (v0.13.0 payload plus the ko corpus trees): the distribution
+Measured 2026-08-19 (v0.13.0 payload plus the ko instructions trees): the distribution
 is already lexically clean — zero org identifiers, two author identifiers, both
 declared in EXEMPT below. This gate keeps it that way. It is the regression bar
-for the already-public scope (package + corpus are one distribution,
+for the already-public scope (package + instructions are one distribution,
 D-20260818-71be4e) and the seed of the admission bar for the future public-repo
 tree (the org→public boundary the 2026-08-19 roadmap names).
 
@@ -250,7 +250,7 @@ def validated_binary_subjects(root: pathlib.Path, subjects: list) -> tuple:
     if not scoped:
         return set(), []
     manifest_path = prefix + "manifest.json"
-    loader = root / "compose/corpus_ui_runtime.py"
+    loader = root / "compose/instructions_ui_runtime.py"
     try:
         if loader.is_symlink() or not loader.is_file():
             raise ValueError("the shipped UI bundle validator is missing or unsafe")
@@ -506,7 +506,7 @@ def self_test() -> int:
         expect("an unlisted wheel inside the bundle", "invalid binary bundle", manifest,
                "exact wheel inventory", subject_list=[*subjects, rogue])
         (scratch / rogue).unlink()
-        validator = scratch / "compose/corpus_ui_runtime.py"
+        validator = scratch / "compose/instructions_ui_runtime.py"
         validator_bytes = validator.read_bytes()
         validator.write_text("def runtime_inventory(repo):\n    return {'status': 'unavailable', 'issues': ['validation disabled']}\n",
                              encoding="utf-8")

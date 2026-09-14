@@ -24,6 +24,11 @@ surgical edit을 한다 — 바뀐 모든 줄이 요청으로 추적되고, 인�
 
 사용자가 "설계"나 design을 요청하면 design 모드에 머문다. high-level 설계와 구현 프로세스 설계에 집중한 뒤 계획, tradeoff, review gate, 구현 트리거를 제시한다. 구현은 사용자가 구현을 요청하거나 계획을 승인한 뒤 진행한다.
 
+업무용 UI의 작업 흐름, 정보 배치, 시각적 계층이나 상호작용을 설계할 때는
+`${CLAUDE_CONFIG_DIR:-$HOME/.claude}/guides/ui-design.md`를 사용한다.
+범위가 정해진 작은 수정은 경량 경로로 처리한다. 이 연결이 전체 UI 재설계를
+요구하는 것은 아니다.
+
 ## When To Use
 
 - 이 워크플로는 architecture 변경, 신규 기능, cross-module 동작 변경, ontology 변경, review 기반 수정, 또는 사용자에게 보이는 동작·authority·lifecycle·validation·failure handling·roadmap 약속에 영향을 주는 작업에 쓴다.

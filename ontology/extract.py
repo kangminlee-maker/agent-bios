@@ -161,7 +161,7 @@ def user_owned_regions() -> list[dict]:
     """Managed user-file spans on the legacy install and explicit shell-connection routes.
 
     Ops describe each span's own install/remove route. Explicit private migration
-    cleanup is owned separately by CorpusInstaller and its pinned cleanup plan.
+    cleanup is owned separately by InstructionsInstaller and its pinned cleanup plan.
     """
     install = read(INSTALL)
     assemble = read(REPO / "compose" / "assemble.py")
@@ -243,7 +243,7 @@ def guides() -> list[dict]:
 
 
 def domain_manifest() -> dict:
-    """The manifest, the corpus text, and the filesystem — three authors of one classification.
+    """The manifest, the instructions text, and the filesystem — three authors of one classification.
 
     Reading the manifest alone made it the truth by construction: an anchor that no longer
     matched a bullet, or a guide on disk nobody claimed, looked like a well-formed manifest.
@@ -289,9 +289,9 @@ def domain_manifest() -> dict:
         "guides_unclassified": [k for k, v in d["guides"].items()
                                 if not v.get("domains") and v.get("tier") == "domain"],
         "sites": {"manifest": "compose/domains.json",
-                  "corpus_text": "claude/CLAUDE.md",
+                  "instructions_text": "claude/CLAUDE.md",
                   "filesystem": sorted(rel for rel, _ in sections.values())},
-        "corpus_bullet_count": len(bullets),
+        "instructions_bullet_count": len(bullets),
         "files_on_disk": on_disk,
         "anchors_not_matching_one_bullet": {a: n for a, n in anchor_hits.items() if n != 1},
         "bullets_not_claimed_once": [bullets[j][:70] for j, n in enumerate(claimed_count) if n != 1],
@@ -447,9 +447,9 @@ HUMAN_FACING = {
     "user_owned_regions.merge_without_remove": "scoped lifecycle inventory for review; private "
                                                "migration cleanup is a separate authority",
     "user_owned_regions.merge_without_check": "scoped verification inventory for review",
-    "guides.guide_id": "corpus inventory for a reader of extract.py --json",
-    "guides.has_use_when": "corpus inventory; frontmatter completeness is check-parity's job",
-    "guides.has_core_rules": "corpus inventory; frontmatter completeness is check-parity's job",
+    "guides.guide_id": "instructions inventory for a reader of extract.py --json",
+    "guides.has_use_when": "instructions inventory; frontmatter completeness is check-parity's job",
+    "guides.has_core_rules": "instructions inventory; frontmatter completeness is check-parity's job",
     "domain_manifest.bullets_untiered": "compose/check-domains.py owns this enforcement and "
                                         "check-parity.sh runs it; a second failing site would "
                                         "make this a second author of one rule",

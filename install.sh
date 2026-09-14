@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 # agent-bios installer.
 #
-# Stores the corpus and runtime privately for explicitly activated sessions.
+# Stores the instructions and runtime privately for explicitly activated sessions.
 # Native global instructions and host discovery paths remain user-owned.
 # AGENT_BIOS_LEGACY_INSTALL=1 selects the compatibility deployer.
 #
 # Usage: agent-bios help
-# Private roots: AGENT_BIOS_STATE_DIR, AGENT_BIOS_CORPUS_DIR.
+# Private roots: AGENT_BIOS_STATE_DIR, AGENT_BIOS_INSTRUCTIONS_DIR.
 # Host/runtime overrides: CLAUDE_CONFIG_DIR, CODEX_HOME, AGENT_LAUNCH_VENV, ZDOTDIR.
 set -euo pipefail
 
 # Preserve caller input for explicit interactive setup and payload commands;
 # dependency and compatibility child processes receive /dev/null by default.
-# Preserve caller input on fd 3 for payload-bearing subcommands (learn, corpus,
+# Preserve caller input on fd 3 for payload-bearing subcommands (learn, instructions,
 # understand, and cost); other child processes see /dev/null.
 # The braces matter. `exec` with redirections and no command applies them to the
 # SHELL, permanently — so the bare `exec 3<&0 2>/dev/null` this used to be sent
@@ -81,11 +81,11 @@ CLEANUP_FAILED=0
 # Set when the assembler reported the user-owned entry file needs a line added by hand. That
 # is an outstanding ACTION, not a failed deployment: everything else really did land, and
 # treating it as a failure made cmd_install exit 1 and the EXIT trap restore the previous
-# manifest — leaving the new corpus on disk with the record saying the old one was deployed.
+# manifest — leaving the new instructions on disk with the record saying the old one was deployed.
 ENTRY_NEEDS_ACTION=0
-# Set when the required corpus-status projection could not be written. Deferred rather than
-# returned on the spot: the projection runs AFTER the corpus is deployed, and returning
-# there would fire the EXIT trap and restore the PREVIOUS manifest — leaving the new corpus
+# Set when the required instructions-status projection could not be written. Deferred rather than
+# returned on the spot: the projection runs AFTER the instructions are deployed, and returning
+# there would fire the EXIT trap and restore the PREVIOUS manifest — leaving the new instructions
 # on disk with the record naming the old one, which is the split state above. The manifest
 # is completed first so it describes what is really there, and the command then exits
 # non-zero. The files, the record, and the exit code then each say something true.
@@ -169,7 +169,7 @@ shipped_skills() {
 }
 
 # The selection, as the assembler receives it: an explicit --domains, else the saved
-# selection.json, else every domain (what "full" means). One function so the corpus and
+# selection.json, else every domain (what "full" means). One function so the instructions and
 # the skills are always answered from the same selection — a skill decided from a
 # different reading than the bundle would ship a package the bundle disagrees with.
 selection_args() {   # -> SEL_ARGS
@@ -261,7 +261,7 @@ prune_backups() {
 }
 
 # Guides whose frontmatter declares `audience: author`. They document steps only
-# the corpus author can perform and name paths that exist in a checkout and
+# the instructions author can perform and name paths that exist in a checkout and
 # nowhere else, so they are never installed. compose/assemble.py owns the
 # declaration and withholds them from the destinations it writes; this asks it
 # rather than keeping a second parser. Both callers below need that same answer
@@ -323,12 +323,12 @@ prune_withheld() {
   done
 }
 
-# ---- corpus deploy -------------------------------------------------------
-# assemble.py owns the corpus surfaces (central tree, entry seeding, codex marker region,
+# ---- instructions deploy -------------------------------------------------------
+# assemble.py owns the instructions surfaces (central tree, entry seeding, codex marker region,
 # settings merge). The entry CLAUDE.md and AGENTS.md are NOT manifested — the entry is
 # user-owned after seeding and AGENTS.md holds a personal region — so uninstall removes our
 # central tree and marked regions and leaves the user's file itself alone.
-# There is ONE install shape. There used to be two: a "full" deploy that wrote the corpus into
+# There is ONE install shape. There used to be two: a "full" deploy that wrote the instructions into
 # the entry file, and a packaged one that assembled selected domains under `central/` and left the
 # entry file to the user. They differed in the thing that matters most — who owns the entry file —
 # so the same path was ours in one mode and theirs in the other, and no rule about user-owned
@@ -344,7 +344,7 @@ all_domains_csv() {
     "$REPO/compose/domains.json"
 }
 
-assemble_corpus() {
+assemble_instructions() {
   local args=(--claude-dir "$CLAUDE_DIR" --codex-dir "$CODEX_DIR" --state-dir "$STATE_DIR") rc=0
   # No flag and no saved selection: install everything. This is what "full" meant, expressed as
   # a selection so it goes down the same path as every other one (selection_args).
@@ -740,15 +740,15 @@ remove_zsh_hook() {
   info "removed zsh hook  $ZSHRC"
 }
 
-# Promote -> migrate (collection loop, Phase 4): after the corpus is deployed,
+# Promote -> migrate (collection loop, Phase 4): after the instructions are deployed,
 # clear personal copies of learnings that have been promoted into the shared
-# corpus AND are in this user's assembled bundle. Best-effort: a prune failure
+# instructions AND are in this user's assembled bundle. Best-effort: a prune failure
 # (or an absent manifest/script) never fails the install. Runs per host.
 migrate_learnings() {
   local script="$REPO/learn/migrate-learnings.py"
   { [ -f "$script" ] && [ -f "$REPO/learn/promotions.json" ]; } || return 0
   local -a sel dry
-  # The SAME three-way assemble_corpus resolves, because these two must be answering one
+  # The SAME three-way assemble_instructions resolves, because these two must be answering one
   # question. Naming only the selection file made a fresh `--dry-run` preview migration as
   # "skipped" — a dry run deliberately does not write selection.json, while the real run
   # writes it moments earlier and then migrates for real. A preview that reports the
@@ -795,12 +795,12 @@ cmd_install() {
   # Refuse loudly before doing any work: an unreadable declaration must not degrade
   # into withholding nothing, which is the fail-open shape this rule exists to avoid.
   WITHHELD_GUIDES="$(author_only_guides)" || exit 1
-  assemble_corpus || exit 1
+  assemble_instructions || exit 1
   # assemble.py withholds author-only guides and prunes the destinations it writes.
   # $CLAUDE_DIR/guides is not one of them — it is where the pre-unification full
   # install put guides, so a machine that installed then would keep its copy for good.
   prune_withheld "$CLAUDE_DIR/guides"
-  migrate_learnings   # Phase 4: clear personal copies now absorbed by the corpus
+  migrate_learnings   # Phase 4: clear personal copies now absorbed by the instructions
   deploy_glob "$REPO/codex/agents" "*.toml" "$CODEX_DIR/agents"
   # Resolved once, before the prune that reads it: an assembler that cannot answer must
   # stop the install here, not let `for skill in $(...)` iterate an empty answer and
@@ -850,7 +850,7 @@ cmd_install() {
   # of this comment claimed: the notice fires only for a key the FIRST SCREEN itself
   # requests and the old catalogs lack. Adding keys anywhere is not enough. This
   # release adds four and the root screen requests none of them — they are reached
-  # from the registration wizard and the corpus screens — so for this release the
+  # from the registration wizard and the instructions screens — so for this release the
   # ordering buys no diagnostic at all, only the smaller blast radius of a launcher
   # that is newer than its catalogs rather than older. The shape-changed keys are
   # silent in that direction too: an old value with no slot formats to itself and the
@@ -882,10 +882,10 @@ cmd_install() {
   # The projection is REQUIRED, not best-effort. It used to be neither: stderr and the
   # exit status were both discarded and every failure printed one guess of a note —
   # "versions.json/ledger missing?" — which was wrong for the failure that actually
-  # happened. `compose/corpus-state.py` was not in the npm package at all, so a real
-  # npm install rewrote the corpus, updated selection.json and version.json, passed
+  # happened. `compose/instructions-state.py` was not in the npm package at all, so a real
+  # npm install rewrote the instructions, updated selection.json and version.json, passed
   # verification, exited 0, and left corpus-status.json stale from a previous
-  # deployment. The launcher's corpus panel reads that file, so the machine reported a
+  # deployment. The launcher's instructions panel reads that file, so the machine reported a
   # selection the successful run had not recorded. A command that deploys the launcher
   # and advertises its panel cannot call that a success.
   #
@@ -894,15 +894,15 @@ cmd_install() {
   # an unwritable destination, an invalid status, a missing interpreter. Those fail
   # the install, and the reason reaches the operator instead of /dev/null.
   if [ "$DRY_RUN" = 1 ]; then
-    info "[dry-run] project corpus-status"
+    info "[dry-run] project instructions-status"
   else
     local projection_log
-    projection_log="$(mktemp -t corpus-projection)"
-    if python3 "$REPO/compose/corpus-state.py" project --repo "$REPO" >"$projection_log" 2>&1; then
-      info "corpus-status projected"
+    projection_log="$(mktemp -t instructions-projection)"
+    if python3 "$REPO/compose/instructions-state.py" project --repo "$REPO" >"$projection_log" 2>&1; then
+      info "instructions-status projected"
       rm -f "$projection_log"
     else
-      log "corpus-status projection FAILED — the launcher's corpus panel would report a"
+      log "instructions-status projection FAILED — the launcher's instructions panel would report a"
       log "selection this run did not record. Its own output:"
       sed 's/^/    /' "$projection_log"
       log "    full output: $projection_log"
@@ -910,7 +910,7 @@ cmd_install() {
     fi
   fi
   # Deploy/system version marker for the launcher's TUI version line, read from
-  # package.json (version + releaseDate) — distinct from the corpus content
+  # package.json (version + releaseDate) — distinct from the instructions content
   # version. Best-effort: a failure here never fails the install.
   if [ "$DRY_RUN" != 1 ]; then
     if python3 - "$REPO/package.json" "$STATE_DIR/version.json" "$REPO/provenance.json" \
@@ -971,7 +971,7 @@ PY
       log ""
       log "ONE STEP LEFT: add this line to $CLAUDE_DIR/CLAUDE.md (yours; we never rewrite it):"
       log "  @central/bundle.md"
-      log "Until then the deployed corpus will not load."
+      log "Until then the deployed instructions will not load."
     fi
     # An untouched backup dir means nothing was replaced; that healthy state
     # must not become a nonzero exit under set -e.
@@ -979,8 +979,8 @@ PY
     prune_backups
     if [ "$PROJECTION_FAILED" = 1 ]; then
       log ""
-      log "INSTALL INCOMPLETE: the corpus is deployed and the manifest records it, but the"
-      log "corpus-status projection failed above — the launcher's panel would describe a"
+      log "INSTALL INCOMPLETE: the instructions are deployed and the manifest records it, but the"
+      log "instructions-status projection failed above — the launcher's panel would describe a"
       log "state this run did not record. Fix the cause and re-run: agent-bios install"
       exit 1
     fi
@@ -1011,7 +1011,7 @@ cmd_verify() {
     done
   done
   [ -n "$verify_withheld" ] && info "author-only guides withheld: $(printf '%s' "$verify_withheld" | tr '\n' ' ')"
-  # Corpus surfaces are selection-derived, not repo-identical, so verify reads the assembled
+  # Instructions surfaces are selection-derived, not repo-identical, so verify reads the assembled
   # shape rather than byte-comparing against the repo. The entry file is user-owned — READ-check
   # the import line, never rewrite it.
   python3 "$REPO/compose/check-domains.py" >/dev/null 2>&1 && info "domains gate OK" || { log "domains gate FAILED"; fail=1; }
@@ -1022,10 +1022,10 @@ cmd_verify() {
     # The install that just ran said this, and said it because the file is the user's and is
     # never rewritten. Failing on it a second time turned a deployment that fully succeeded
     # into one whose record was rolled back. Standalone `agent-bios verify` has this unset,
-    # so it still reports a corpus that is not loading as the failure it is.
+    # so it still reports instructions that are not loading as the failure they are.
     log "ACTION NEEDED: add '@central/bundle.md' to $CLAUDE_DIR/CLAUDE.md — everything else deployed"
   else
-    log "entry $CLAUDE_DIR/CLAUDE.md lacks '@central/bundle.md' — central corpus is NOT loading"; fail=1
+    log "entry $CLAUDE_DIR/CLAUDE.md lacks '@central/bundle.md' — central instructions are NOT loading"; fail=1
   fi
   if grep -qF 'agent-bios:central:start' "$CODEX_DIR/AGENTS.md" 2>/dev/null; then
     info "codex central region present"
@@ -1202,7 +1202,7 @@ cmd_uninstall() {
   if [ -f "$MANIFEST" ]; then
     # Back up before deleting, the way install backs up before overwriting. Full mode deploys the
     # entry CLAUDE.md/AGENTS.md as ordinary targets, so they are manifested and removed here —
-    # correct, since in that mode the entry file IS the corpus. What was wrong is that anything a
+    # correct, since in that mode the entry file IS the instructions. What was wrong is that anything a
     # user added to it disappeared with no copy, while the same file overwritten during install
     # would have been backed up. Removal is symmetric with deployment; recoverability now is too.
     [ "$DRY_RUN" = 1 ] || { mkdir -p "$STATE_DIR"; BACKUP_DIR="$STATE_DIR/backups/uninstall-$(date +%Y%m%d-%H%M%S)"; }
@@ -1307,7 +1307,7 @@ cmd_uninstall() {
 }
 
 # Uninstall is a SECURITY operation — nothing of ours may survive it on the machine. That
-# conflicts with never destroying what a user added, because full mode writes the corpus into an
+# conflicts with never destroying what a user added, because full mode writes the instructions into an
 # entry file they then edit, so removal takes their work with it. One artifact settles both:
 # everything removed leaves as a single archive that can be handed off or deleted in one act,
 # and every managed location is then purged. The archive lands in $HOME, outside every path we
@@ -1438,7 +1438,7 @@ cmd_onboard() {
   DOMAINS_ARG="$sel"; DOMAINS_SET=1
   log "selection: ${sel:-<core+infra only>}"
   # Subshelled so a failing install can still record its outcome: the launcher's
-  # corpus checklist reads `last_apply` from corpus-status.json, and an exit with
+  # instructions checklist reads `last_apply` from corpus-status.json, and an exit with
   # nothing recorded reads as "nothing happened". cmd_install's shell state stays
   # in the subshell; everything after here uses only top-level globals.
   local apply_rc=0
@@ -1452,7 +1452,7 @@ cmd_onboard() {
   apply_rc=$?
   set -e
   if [ "$apply_rc" -ne 0 ]; then
-    python3 "$REPO/compose/corpus-state.py" record-apply \
+    python3 "$REPO/compose/instructions-state.py" record-apply \
       --requested "$sel" --outcome install_failed >/dev/null 2>&1 || true
     exit "$apply_rc"
   fi
@@ -1466,7 +1466,7 @@ cmd_onboard() {
     # probe" (no CLI/auth). Both leave the apply unproven, so both record as
     # canary_failed — the tail carries which, so the panel's loud line does
     # not send the operator to debug imports over an auth problem.
-    python3 "$REPO/compose/corpus-state.py" record-apply \
+    python3 "$REPO/compose/instructions-state.py" record-apply \
       --requested "$sel" --outcome canary_failed \
       --error-tail "canary exit $canary_rc$([ "$canary_rc" = 3 ] && printf ' (could not probe)')" \
       >/dev/null 2>&1 || true
@@ -1479,11 +1479,11 @@ cmd_onboard() {
   # onboarding prints a completed summary over a status file that never learned the
   # selection was applied. That is the state this whole change exists to remove, so it
   # cannot be the one still guarded by `|| true`.
-  record_log="$(mktemp -t corpus-record-apply)"
-  if ! python3 "$REPO/compose/corpus-state.py" record-apply \
+  record_log="$(mktemp -t instructions-record-apply)"
+  if ! python3 "$REPO/compose/instructions-state.py" record-apply \
        --requested "$sel" --outcome applied >"$record_log" 2>&1; then
-    log "ONBOARDING INCOMPLETE: the corpus applied, but recording that outcome failed —"
-    log "the corpus panel would not show this selection as applied. Its own output:"
+    log "ONBOARDING INCOMPLETE: the instructions applied, but recording that outcome failed —"
+    log "the instructions panel would not show this selection as applied. Its own output:"
     sed 's/^/    /' "$record_log"
     log "    full output: $record_log"
     exit 1
@@ -1732,7 +1732,7 @@ cmd_update() {
     if [ "${AGENT_BIOS_LEGACY_INSTALL:-0}" = 1 ]; then
       cmd_install
     else
-      python3 "$REPO/compose/corpus_install.py" --repo "$REPO" install --non-interactive
+      python3 "$REPO/compose/instructions_install.py" --repo "$REPO" install --non-interactive
     fi
   else
     log "Installed as an npm package. Update with:"
@@ -1745,25 +1745,26 @@ cmd_update() {
 
 usage() {
   cat <<'EOF'
-agent-bios — manage private corpus content for explicitly activated sessions.
+agent-bios — manage private instructions content for explicitly activated sessions.
 
   agent-bios install                 open the Textual installation wizard
-  agent-bios install --non-interactive --corpus none   store runtime with no active corpus
-  agent-bios install --corpus selected --select @scope/package   select only that corpus
+  agent-bios install --non-interactive --instructions none   store runtime with no active instructions
+  agent-bios install --instructions selected --select @scope/package   select only that package
   agent-bios onboard     select domains for future activated sessions
   agent-bios setup start             report setup languages, execution target, and conversation guide
-  agent-bios setup inspect --language ko   inspect dependencies and corpus choices as JSON
+  agent-bios setup inspect --language ko   inspect dependencies and instructions choices as JSON
   agent-bios setup discover --project-root /path/to/project   list eligible instruction sources
   agent-bios setup plan --language ko --input request.json    preview selected setup effects as JSON
   agent-bios setup apply --input review.json --review-id ID --yes   apply the accepted review
   agent-bios setup status --review-id ID    inspect a recorded setup outcome
   agent-bios setup resume --review-id ID    re-probe and prepare a fresh review without applying
-  agent-bios corpus      open Corpus Studio; list/show/plan/apply also work non-TTY
+  agent-bios corpus      compatibility alias for instructions (existing scripts)
+  agent-bios instructions      open Instructions Studio; list/show/plan/apply also work non-TTY
   agent-bios import      discover/capture/review local instructions; --help lists source-preserving steps
-  agent-bios app         register an explicit Codex app bridge or manage per-task corpus input
-  agent-bios app session use   return selected corpus as context for this Codex app task
+  agent-bios app         register an explicit Codex app bridge or manage per-task instructions input
+  agent-bios app session use   return selected instructions as context for this Codex app task
   agent-bios app session off   stop future delivery; earlier context requires a new task to exclude
-  agent-bios understand  list corpus learning bundles; --help shows session/discovery commands
+  agent-bios understand  list instructions learning bundles; --help shows session/discovery commands
   agent-bios shell       show the optional zsh connection status
   agent-bios shell restore   make bare claude/codex open the launcher TUI
   agent-bios shell remove    return bare claude/codex to their native CLI
@@ -1786,8 +1787,8 @@ agent-bios — manage private corpus content for explicitly activated sessions.
 Launcher (run in an interactive terminal):
   agent-launch claude    open the Claude launch TUI
   agent-launch codex     open the Codex launch TUI
-  agent-launch --corpus  open Corpus Studio directly
-  agent-launch --understand BUNDLE claude   start a corpus understanding session
+  agent-launch --instructions  open Instructions Studio directly
+  agent-launch --understand BUNDLE claude   start an instruction understanding session
   agent-launch --preset balanced claude   launch with a named preset
 
 Shell connection is opt-in and changes only zsh startup wiring, not global
@@ -1797,9 +1798,9 @@ the commands above. After restoring, open a new terminal or reload .zshrc.
 Flags: --dry-run       print actions without changing anything
        --interactive open the Textual installation wizard (default)
        --non-interactive opt out of the wizard and return JSON; required without a terminal
-       --corpus / --select seed wizard choices; --dry-run previews without Apply
-       --corpus none  deliver no corpus, including core and management bootstrap
-       --corpus all   select all corpus; --corpus selected uses repeated --select targets
+       --instructions / --select seed wizard choices; --dry-run previews without Apply
+       --instructions none  deliver no instructions, including core and management bootstrap
+       --instructions all   select all instructions; --instructions selected uses repeated --select targets
                       Library assets remain in the private runtime; these choices govern delivery.
        --domains a,b  select named domains for future activated snapshots, plus
                       implicit core+infra; '--domains none' keeps that core-only meaning. Saved selections
@@ -1807,7 +1808,7 @@ Flags: --dry-run       print actions without changing anything
                       installation selects every domain.
        --with a,b     optional dependency installation in explicit legacy mode only;
                       private installation rejects this option.
-Env:   AGENT_BIOS_STATE_DIR, AGENT_BIOS_CORPUS_DIR (private runtime and user roots)
+Env:   AGENT_BIOS_STATE_DIR, AGENT_BIOS_INSTRUCTIONS_DIR (private runtime and user roots)
        CLAUDE_CONFIG_DIR, CODEX_HOME (native host configuration)
        AGENT_LAUNCH_VENV, ZDOTDIR
 EOF
@@ -1818,10 +1819,10 @@ EOF
   [ -n "$known" ] && printf '       --with names: %s\n' "${known% }"
 
   if [ "${AGENT_BIOS_LEGACY_INSTALL:-0}" != 1 ]; then
-    printf '\nRecover: agent-bios corpus history --json; submit an operation=rollback request\n'
-    printf '         through agent-bios corpus plan/apply for a baseline_ref or history_id.\n'
+    printf '\nRecover: agent-bios instructions history --json; submit an operation=rollback request\n'
+    printf '         through agent-bios instructions plan/apply for a baseline_ref or history_id.\n'
   elif [ -e "$REPO/.git" ]; then
-    printf '\nRecover: python3 %s/compose/corpus-state.py list, then rollback --version V\n' "$REPO"
+    printf '\nRecover: python3 %s/compose/instructions-state.py list, then rollback --version V\n' "$REPO"
   else
     printf '\nRecover: npm install -g agent-bios@<older-version> && agent-bios install\n'
   fi
@@ -1834,20 +1835,20 @@ if [ $# -gt 0 ]; then shift; fi
 # Private installation is the default path. The explicit legacy flag selects
 # compatibility installation and its regression fixtures. No private operation
 # falls through to a global writer.
-if [ "$CMD" = "corpus" ]; then
-  exec python3 "$REPO/compose/corpus.py" --repo "$REPO" "$@" <&3
+if [ "$CMD" = "instructions" ] || [ "$CMD" = "corpus" ]; then
+  exec python3 "$REPO/compose/instructions.py" --repo "$REPO" "$@" <&3
 fi
 if [ "$CMD" = "shell" ]; then
   exec python3 "$REPO/launch/shell_integration.py" "$@" <&3
 fi
 if [ "$CMD" = "understand" ]; then
-  exec python3 "$REPO/compose/corpus_understand.py" --repo "$REPO" "$@" <&3
+  exec python3 "$REPO/compose/instructions_understand.py" --repo "$REPO" "$@" <&3
 fi
 if [ "$CMD" = "app" ]; then
-  exec python3 "$REPO/compose/corpus_app.py" --repo "$REPO" "$@" <&3
+  exec python3 "$REPO/compose/instructions_app.py" --repo "$REPO" "$@" <&3
 fi
 if [ "$CMD" = "import" ]; then
-  exec python3 "$REPO/compose/corpus_import.py" --repo "$REPO" "$@" <&3
+  exec python3 "$REPO/compose/instructions_import.py" --repo "$REPO" "$@" <&3
 fi
 if [ "$CMD" = "setup" ]; then
   if ! command -v python3 >/dev/null 2>&1 || ! python3 -c 'import sys; sys.exit(sys.version_info < (3, 11))' </dev/null; then
@@ -1855,7 +1856,7 @@ if [ "$CMD" = "setup" ]; then
     log "Install Python with your operating system package manager, then rerun this command."
     exit 1
   fi
-  exec python3 "$REPO/compose/corpus_setup_cli.py" --repo "$REPO" "$@" <&3
+  exec python3 "$REPO/compose/instructions_setup_cli.py" --repo "$REPO" "$@" <&3
 fi
 if [ "${AGENT_BIOS_LEGACY_INSTALL:-0}" != 1 ]; then
   case "$CMD" in
@@ -1865,14 +1866,14 @@ if [ "${AGENT_BIOS_LEGACY_INSTALL:-0}" != 1 ]; then
         log "Install Python with your operating system package manager, then rerun this command."
         exit 1
       fi
-      exec python3 "$REPO/compose/corpus_install.py" --repo "$REPO" "$CMD" "$@" <&3
+      exec python3 "$REPO/compose/instructions_install.py" --repo "$REPO" "$CMD" "$@" <&3
       ;;
   esac
 fi
 
 # `learn` forwards its arguments and stdin straight to the collector, so it must
 # bypass the flag parser below (which rejects anything it does not know). This
-# subcommand is the only PATH-reachable entry to capture: the corpus guide used
+# subcommand is the only PATH-reachable entry to capture: the instructions guide used
 # to invoke learn/collect-learning.py relative to the cwd, which works from a
 # clone and silently fails for every other install.
 if [ "$CMD" = "learn" ]; then

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Named ablations, resolved against the corpus rather than transcribed from it.
+"""Named ablations, resolved against the instructions rather than transcribed from it.
 
 An ablation names a span by its start and end markers and resolves it in the file
 at build time. Nothing here stores the text being removed, deliberately: a copied
 598-character clause goes stale the first time someone rewords the rule, and the
 failure is silent — the edit anchor stops matching, and a variant that ablated
 nothing gets compared against the control as though it differed. Resolving instead
-turns that into a loud refusal, and `corpus.build_variant` already refuses an edit
+turns that into a loud refusal, and `instructions.build_variant` already refuses an edit
 set that changes no byte.
 
 The two ablations here are the instrument's own controls, not experiment material:
@@ -26,14 +26,14 @@ The two ablations here are the instrument's own controls, not experiment materia
                        naming the trigger, and because the rule is the second sentence
                        of the default-off bullet the remainder is grafted onto that
                        bullet's trigger. 9/10 cells held; that is the instrument, not
-                       the corpus. The asymmetry needs a rewrite arm (neutral referent),
+                       the instructions. The asymmetry needs a rewrite arm (neutral referent),
                        which this module cannot yet express. Kept as the worked example.
 """
 from __future__ import annotations
 
 import pathlib
 
-import corpus
+import instructions
 
 # Where each host keeps the rules themselves. The Claude entry file is a shim whose
 # body lives in an imported bundle, so ablating CLAUDE.md would ablate nothing.
@@ -135,7 +135,7 @@ def resolve(text: str, start: str, end: str | None) -> str:
     if text.count(start) != 1:
         raise AblationError(
             f"start marker {start[:48]!r} occurs {text.count(start)} times, not once — "
-            f"the corpus moved and this ablation would remove the wrong span")
+            f"the instructions moved and this ablation would remove the wrong span")
     i = text.index(start)
     if end is None:
         j = text.index("\n", i)
@@ -150,11 +150,11 @@ def resolve(text: str, start: str, end: str | None) -> str:
 
 
 def edits_for(name: str, host: str, source: pathlib.Path | None = None) -> list[tuple]:
-    """(relpath, old, new) triples for `corpus.build_variant`."""
+    """(relpath, old, new) triples for `instructions.build_variant`."""
     if name not in ABLATIONS:
         raise AblationError(f"unknown ablation {name!r}; have {sorted(ABLATIONS)}")
     rel = RULE_FILE[host]
-    home = pathlib.Path(source) if source else corpus.HOST_HOMES[host]["home"]
+    home = pathlib.Path(source) if source else instructions.HOST_HOMES[host]["home"]
     path = home / rel
     if not path.exists():
         raise AblationError(f"{path}: the host's rule file is not there")
@@ -173,9 +173,9 @@ def edits_for(name: str, host: str, source: pathlib.Path | None = None) -> list[
 def variant(name: str, host: str, dest: pathlib.Path, token: str,
             source: pathlib.Path | None = None) -> dict:
     """Build the ablated arm. `build_variant` refuses a no-op edit set, so an
-    ablation that resolved to text the corpus no longer contains fails here rather
+    ablation that resolved to text the instructions no longer contains fails here rather
     than producing an arm identical to the control."""
-    v = corpus.build_variant(host, dest, token, edits=edits_for(name, host, source),
+    v = instructions.build_variant(host, dest, token, edits=edits_for(name, host, source),
                              source=source)
     v["ablation"] = name
     return v

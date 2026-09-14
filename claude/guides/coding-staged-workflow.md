@@ -25,6 +25,11 @@ change introduced. The stages below are for work that outgrows that sentence.
 
 When the user asks to "설계" or design, stay in design mode. Focus on high-level design and implementation-process design, then present the plan, tradeoffs, review gates, and implementation trigger. Move to implementation after the user asks to implement or approves the plan.
 
+For operational user-interface flows, information layout, visual hierarchy or
+interaction design, use `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/guides/ui-design.md`.
+Keep bounded corrections on the lightweight path; this pointer does not require
+a full UI redesign.
+
 ## When To Use
 
 - Use this workflow for architecture changes, new features, cross-module behavior changes, ontology changes, review-driven fixes, or work that affects user-visible behavior, authority, lifecycle, validation, failure handling, or roadmap commitments.

@@ -2,7 +2,7 @@
 """Legacy utility: merge canonical hook registrations into Claude settings.
 
 The private installer registers no global host hooks. Explicit native session
-activation is shared by Claude and Codex through corpus_catalog/corpus_session.
+activation is shared by Claude and Codex through instructions_catalog/instructions_session.
 This compatibility utility retains the legacy Claude settings.json ownership
 and merge behavior by calling the assembler's merge_settings implementation.
 

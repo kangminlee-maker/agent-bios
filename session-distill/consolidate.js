@@ -38,7 +38,7 @@ const VERDICT_SCHEMA = {
     lesson: { type: 'string' },
     verdict: { enum: ['novel', 'partial', 'already_covered', 'too_specific', 'weak'], description: 'novel/partial = add or extend; already_covered/too_specific/weak = drop with reason' },
     criteria: { type: 'array', items: { enum: ['high_token', 'rollback', 're_exploration', 'recurrent_error', 'rare_high_cost', 'quality_lever'] } },
-    principle: { type: 'string', description: 'the final de-anecdotalized rule as it would read in the corpus — invariant trigger + desired behavior + boundary; no names/dates/paths/ids' },
+    principle: { type: 'string', description: 'the final de-anecdotalized rule as it would read in the instructions — invariant trigger + desired behavior + boundary; no names/dates/paths/ids' },
     baseline_ref: { type: 'string', description: 'the closest existing baseline rule/guide and whether it covers/partially-covers/omits this; "none" if truly absent' },
     placement: { type: 'string', description: 'exact target: "global CLAUDE.md §Section" or "guides/<file>.md §Section"' },
     strength: { type: 'integer', minimum: 1, maximum: 5, description: '5=multi-session recurrence + high materiality + clearly general; 1=single weak anecdote' },
@@ -61,7 +61,7 @@ phase('Verify')
 const verdicts = await parallel(clusters.map((cl, i) => () => agent(
   [`You are the verification judge for one consolidated session-distill cluster. Read the current baseline at ${baselinePath} and the full candidate list at ${candsPath}.`,
    `This cluster's shared lesson: "${cl.lesson}". Its member candidate indices: ${JSON.stringify(cl.member_indices)}. Look up those members in the candidate file.`,
-   'Judge the cluster strictly and independently — do NOT trust the members\' self-reported novelty or confidence. Verify against the ACTUAL baseline text: is this genuinely absent (novel), partially covered (partial), or already stated (already_covered)? Also judge whether it is too_specific (a one-off with no general form) or weak (thin evidence). Only novel/partial survive. Write the final principle as it would read in the corpus: an invariant trigger, the desired behavior, and its applicability boundary — no transcript ids, names, dates, or repo-specific paths. Set strength from recurrence (how many INDEPENDENT sessions support it) and materiality (criteria ⑤rare-high-cost and repeated ④recurrent-error/②rollback weigh higher). Name the exact placement (global CLAUDE.md section, or a specific guide + section).',
+   'Judge the cluster strictly and independently — do NOT trust the members\' self-reported novelty or confidence. Verify against the ACTUAL baseline text: is this genuinely absent (novel), partially covered (partial), or already stated (already_covered)? Also judge whether it is too_specific (a one-off with no general form) or weak (thin evidence). Only novel/partial survive. Write the final principle as it would read in the instructions: an invariant trigger, the desired behavior, and its applicability boundary — no transcript ids, names, dates, or repo-specific paths. Set strength from recurrence (how many INDEPENDENT sessions support it) and materiality (criteria ⑤rare-high-cost and repeated ④recurrent-error/②rollback weigh higher). Name the exact placement (global CLAUDE.md section, or a specific guide + section).',
   ].join('\n\n'),
   { label: `verify:${i}`, phase: 'Verify', schema: VERDICT_SCHEMA, effort: 'high' },
 )))

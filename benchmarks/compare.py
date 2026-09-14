@@ -10,18 +10,18 @@ applies the design's regression rule rather than an eyeball:
 A HIT count is only comparable against a denominator. The judge scores `status: ok`
 receipts only, so a cell that lost two responses to a defect yields two verdicts, and
 "2 HITs" reads as a two-of-four drop that never happened. That is not hypothetical
-here: the ablated arm carries DIFFERENT corpus text, the safety classifier that can
-re-run a request on another model sees the corpus in the first request's context, and
+here: the ablated arm carries DIFFERENT instructions text, the safety classifier that can
+re-run a request on another model sees the instructions in the first request's context, and
 a re-run lands as `defect:seat`. An ablation could therefore manufacture its own
 regression by shrinking the denominator. So every cell carries the count it was
 scored out of, a cell whose denominator is short of the manifest's declared `reps` is
 NOT COMPARABLE, and a non-comparable cell can never count as a regression — the
 direction that would let C1 pass for the wrong reason.
 
-C1 is not a result about the corpus. It is the question "can this instrument detect
+C1 is not a result about the instructions. It is the question "can this instrument detect
 an effect it was built to detect at all", and a C1 that does not fire means no item
 result may be read — the redesign trigger is to fix the instrument and touch no
-corpus text. Reported per host, never aggregated: an effect present on one host and
+instructions text. Reported per host, never aggregated: an effect present on one host and
 absent on the other is the finding, and a total hides it.
 """
 from __future__ import annotations
@@ -54,7 +54,7 @@ def verdicts_many(outdirs: list) -> tuple:
     REFUSES a cell present in two runs: two baselines for one cell is not more data, it
     is an undeclared choice of which to compare against. Every run must declare the
     same repetitions and carry no ablation, or the merge would compare against a
-    denominator or a corpus the design did not name."""
+    denominator or an instruction the design did not name."""
     merged, reps, seen, hosts = {}, None, {}, None
     for d in outdirs:
         d = pathlib.Path(d)
@@ -125,7 +125,7 @@ def ablation_of(outdir: pathlib.Path) -> str:
     """Which ablation this arm was built with, from its manifest's own FIELD.
 
     It used to be parsed out of the free-form `notes` string by first textual match,
-    so `--corpus /tmp/candidate ablation=c1-security-posture` relabelled an unablated
+    so `--instructions /tmp/candidate ablation=c1-security-posture` relabelled an unablated
     arm and the C1 verdict followed the label. Older runs carry only notes, so those
     are still read — but a notes string carrying more than one `ablation=` token is
     refused rather than resolved by position."""
@@ -349,7 +349,7 @@ def main() -> int:
             print("C1 PASSES — the instrument detects the effect on every host")
             return 0
         print("C1 DOES NOT FIRE — no item result may be read from this instrument (R1): "
-              "fix the instrument, touch no corpus text")
+              "fix the instrument, touch no instructions text")
         return 1
     print(f"(no pass/fail is attached to {tag}; read it against its design record)")
     return 0

@@ -31,6 +31,15 @@ HERE = pathlib.Path(__file__).resolve().parent
 REPO = HERE.parent
 GRAPH = HERE / "instances" / "graph.json"
 
+# Query compatibility for the two renamed author-side entities. Published RDF
+# remains a versioned projection; these aliases do not rewrite historical data.
+LEGACY_ENTITY_TOKENS = {
+    "corpus-rule": "instructions-rule",  # prior stable query ID
+    "corpusrule": "instructions-rule",  # prior class-name query
+    "corpus-assembler": "instructions-assembler",  # prior stable query ID
+    "corpusassembler": "instructions-assembler",  # prior class-name query
+}
+
 OBLIGATION = {
     "projects_to": "forward",
     "owes_entry": "forward",
@@ -88,6 +97,11 @@ def resolve(graph: dict, token: str, files: dict[str, set[str]]) -> list[str]:
     ids = {e["id"] for e in graph["entities"]}
     if token in ids:
         return [token]
+    legacy = LEGACY_ENTITY_TOKENS.get(token.lower())
+    if legacy is not None:
+        if legacy not in ids:
+            raise ValueError(f"legacy entity alias {token!r} has no current target {legacy!r}")
+        return [legacy]
     by_class = {e["class"].lower(): e["id"] for e in graph["entities"]}
     if token.lower() in by_class:
         return [by_class[token.lower()]]

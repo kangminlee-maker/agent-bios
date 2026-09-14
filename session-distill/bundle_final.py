@@ -36,7 +36,7 @@ def main():
     L.append('`strength` = recurrence (independent sessions) × materiality (1–5). '
              '`novel` = new rule; `partial` = extend an existing rule. '
              'Placement respects the repo rule that **only situation-recognition failures belong in global CLAUDE.md; '
-             'procedures/thresholds/examples belong in scoped guides.** Nothing is written to the corpus yet — this is for your selection.\n')
+             'procedures/thresholds/examples belong in scoped guides.** Nothing is written to the instructions yet — this is for your selection.\n')
     L.append('---\n')
 
     for tier in [5, 4, 3, 2, 1]:

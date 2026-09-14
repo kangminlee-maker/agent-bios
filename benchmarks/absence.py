@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Is the child's behaviour really absent from this variant?
 
-An ablated arm is only an ablated arm if the corpus no longer instructs the
+An ablated arm is only an ablated arm if the instructions no longer instructs the
 behaviour. Deleting the sentence is not the same thing: a guide can carry the
 same instruction in other words, and then the "ablated" arm still teaches it and
 the experiment measures nothing.
@@ -33,7 +33,7 @@ import dispatch
 
 ABSENT, PRESENT, UNCLEAR = "ABSENT", "PRESENT", "UNCLEAR"
 
-SEMANTIC_PROMPT = """You are checking whether a section of an agent instruction corpus
+SEMANTIC_PROMPT = """You are checking whether a section of an agent instruction library
 instructs a specific behaviour. You are NOT checking whether it uses particular words.
 
 THE BEHAVIOUR:
@@ -58,19 +58,19 @@ class AbsenceError(RuntimeError):
     """An absence check that cannot be trusted to detect presence."""
 
 
-def lexical(phrases: list[str], home: pathlib.Path, corpus_paths: tuple) -> dict:
-    """Every ledger phrase for the child, searched across the variant's corpus."""
+def lexical(phrases: list[str], home: pathlib.Path, instructions_paths: tuple) -> dict:
+    """Every ledger phrase for the child, searched across the variant's instructions."""
     if not phrases:
         raise AbsenceError("no phrases to search — a lexical check over nothing is vacuous")
     files = []
-    for rel in corpus_paths:
+    for rel in instructions_paths:
         p = home / rel
         if p.is_file():
             files.append(p)
         elif p.is_dir():
             files += [q for q in p.rglob("*.md") if q.is_file()]
     if not files:
-        raise AbsenceError(f"no corpus files under {home} — nothing was searched")
+        raise AbsenceError(f"no instructions files under {home} — nothing was searched")
     hits = {}
     for phrase in phrases:
         found = [str(f.relative_to(home)) for f in files
@@ -86,7 +86,7 @@ def sections_of(path: pathlib.Path) -> list[tuple[str, str]]:
 
     The text BEFORE the first heading is a section too. It was emitted only when the
     file had no H2-H4 at all, so in any file with sections the H1 and the introduction
-    under it were dropped — and a corpus file's opening paragraph is exactly where a
+    under it were dropped — and an instruction file's opening paragraph is exactly where a
     standing instruction tends to live. A file whose only statement of the behaviour
     sat there was judged ABSENT with the answer visible in the input."""
     text = path.read_text(encoding="utf-8", errors="replace")
@@ -172,7 +172,7 @@ def semantic(behaviour: str, sections: list[tuple[str, str]], ask, seat: dict) -
     return {"records": records, "verdict": aggregate, "problems": problems}
 
 
-def check(behaviour: str, phrases: list[str], home: pathlib.Path, corpus_paths: tuple,
+def check(behaviour: str, phrases: list[str], home: pathlib.Path, instructions_paths: tuple,
           carrier_sections: list[tuple[str, str]], control_section: tuple[str, str],
           ask, seat: dict) -> dict:
     """The full check, positive control first.
@@ -194,7 +194,7 @@ def check(behaviour: str, phrases: list[str], home: pathlib.Path, corpus_paths: 
                 "why": (f"the paraphrase positive control ({control_section[0]}) was judged "
                         f"{control_verdict}; a seat that misses a known paraphrase cannot "
                         f"evidence absence")}
-    lex = lexical(phrases, home, corpus_paths)
+    lex = lexical(phrases, home, instructions_paths)
     sem = semantic(behaviour, carrier_sections, ask, seat)
     common = {"control": control_verdict, "control_session_id": control_receipt.get("session_id"),
               "control_prompt_sha256": _sha(SEMANTIC_PROMPT.format(

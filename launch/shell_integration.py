@@ -1,4 +1,4 @@
-"""Opt-in zsh entrypoints, independent of native instruction files and corpus content."""
+"""Opt-in zsh entrypoints, independent of native instruction files and instructions content."""
 from __future__ import annotations
 
 import argparse
@@ -39,7 +39,7 @@ class ShellIntegration:
         compose = str(Path(__file__).resolve().parent.parent / "compose")
         if compose not in sys.path:
             sys.path.insert(0, compose)
-        from corpus_transaction import reject_symlink_ancestors, TransactionError
+        from instructions_transaction import reject_symlink_ancestors, TransactionError
         try:
             reject_symlink_ancestors(path)
         except TransactionError as exc:
@@ -195,12 +195,12 @@ class ShellIntegration:
 
     def apply(self, action, dry_run=False):
         # One writer lock is shared with install/reset/migrate. Imports stay lazy so
-        # status and help do not create state or require an installed corpus.
+        # status and help do not create state or require an installed instructions.
         import sys
         compose = str(Path(__file__).resolve().parent.parent / "compose")
         if compose not in sys.path:
             sys.path.insert(0, compose)
-        from corpus_transaction import transaction_lock, guard_pending
+        from instructions_transaction import transaction_lock, guard_pending
         lock = contextlib.nullcontext() if dry_run else transaction_lock(self.state)
         with lock:
             guard_pending(self.state)

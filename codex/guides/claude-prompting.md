@@ -49,7 +49,7 @@ Claude.
 
 Use the shared recipe and checklist together with the section for the model being
 prompted, even when a subagent uses a different model from the main. Model-specific
-tuning preserves the corpus's permission boundaries and required verification.
+tuning preserves the instructions' permission boundaries and required verification.
 
 | Target | Apply |
 | --- | --- |

@@ -37,7 +37,7 @@ import time
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent))
-import corpus      # noqa: E402  (benchmarks/corpus.py: auth channel)
+import instructions      # noqa: E402  (benchmarks/instructions.py: auth channel)
 import dispatch    # noqa: E402  (benchmarks/dispatch.py: real_bin, parsers)
 import fixture_gen  # noqa: E402
 import level       # noqa: E402
@@ -273,7 +273,7 @@ def claude_agents_json(agents: dict) -> str:
 
 def codex_home(dest: pathlib.Path, agents: dict, source: pathlib.Path | None = None,
                reuse: bool = False) -> dict:
-    """A CODEX_HOME carrying the deployed corpus and auth, every child seat registered,
+    """A CODEX_HOME carrying the deployed instructions and auth, every child seat registered,
     and nothing else the operator's home adds (MCP servers are stripped so the child's
     tool surface is the host's own — recorded as a disclosure). `reuse` keeps an
     existing home: a fresh one bootstraps ~28 MB of curated plugins on first start
@@ -403,7 +403,7 @@ def parent_cmd(host: str, row: dict, prompt: str, cwd: pathlib.Path, agents_json
 
 def spawn_process(host: str, cmd: list[str], cwd: pathlib.Path, home: str | None) -> dict:
     env = dict(os.environ)
-    for spec in corpus.HOST_HOMES.values():
+    for spec in instructions.HOST_HOMES.values():
         env.pop(spec["env"], None)
     env.pop("CLAUDE_CODE_OAUTH_TOKEN", None)
     if host == "codex":
@@ -416,9 +416,9 @@ def spawn_process(host: str, cmd: list[str], cwd: pathlib.Path, home: str | None
     # says so, because the process's own login is what the shell probes proved works.
     auth_note = None
     try:
-        channel = corpus.auth_channel(host)
+        channel = instructions.auth_channel(host)
         auth_add, pass_fds = channel.__enter__()
-    except corpus.CorpusError as exc:
+    except instructions.InstructionsError as exc:
         channel, auth_add, pass_fds = None, {}, ()
         auth_note = f"no token channel ({str(exc).splitlines()[0][:80]}); process self-authenticates"
     try:
@@ -444,9 +444,9 @@ def spawn_process(host: str, cmd: list[str], cwd: pathlib.Path, home: str | None
            "auth_note": auth_note}
     if host == "claude" and stdout.strip() and not parsed.get("parse_error"):
         rec["wrapper"] = usage.claude_wrapper(stdout)
-    if rc is None or rc != 0 or parsed.get("parse_error") or corpus.is_auth_failure(stdout + stderr):
+    if rc is None or rc != 0 or parsed.get("parse_error") or instructions.is_auth_failure(stdout + stderr):
         rec["status"] = ("defect:timeout" if rc is None else
-                         "defect:auth" if corpus.is_auth_failure(stdout + stderr) else
+                         "defect:auth" if instructions.is_auth_failure(stdout + stderr) else
                          f"defect:rc{rc}" if rc else "defect:parse")
     else:
         rec["status"] = "ok"

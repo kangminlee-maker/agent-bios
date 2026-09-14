@@ -4,7 +4,7 @@
 "mode.swe.label" = "Software Engineer"
 "mode.swe.description" = "기존 프로젝트에서 CLI의 기본 지침 로딩 방식으로 작업합니다. Vanilla는 런처의 추가 설정 없이 시작하고, Custom에서는 모델과 리뷰 방식을 직접 고릅니다."
 "mode.builder.label" = "Builder"
-"mode.builder.description" = "설치된 코퍼스를 활용하는 일반 개발 모드입니다. Balanced·Deep review·Fast batch·Solo 또는 Custom에서 메인 모델, 위임, 리뷰, 실행 권한을 고릅니다."
+"mode.builder.description" = "설치된 지침을 활용하는 일반 개발 모드입니다. Balanced·Deep review·Fast batch·Solo 또는 Custom에서 메인 모델, 위임, 리뷰, 실행 권한을 고릅니다."
 "mode.distill.label" = "Session distill"
 "mode.distill.description" = "지난 AI 작업 대화를 살펴보고 공통 지침에 반영할 교훈을 제안합니다. 상태 확인과 실행 메뉴를 엽니다. 현재 이 작업에는 agent-bios 소스 저장소가 필요합니다."
 
@@ -18,7 +18,7 @@
 "preset.custom.label" = "직접 설정 (Custom)"
 
 "language.label" = "언어"
-"language.description" = "TUI 언어를 선택합니다 (English / 한국어 / 日本語). AI가 소비하는 코퍼스는 영어 그대로이며, 런처 화면만 바뀝니다."
+"language.description" = "TUI 언어를 선택합니다 (English / 한국어 / 日本語). AI가 소비하는 지침은 영어 그대로이며, 런처 화면만 바뀝니다."
 "language.title" = "언어"
 
 "shell.title" = "셸 연결"
@@ -28,12 +28,12 @@
 "shell.restore" = "연결 복원"
 "shell.restore.description" = ".zshrc를 백업하고 관리 구간 하나를 추가합니다. 인자가 있거나 비대화형인 호출은 추가 권한 옵션 없이 원본 CLI로 전달합니다."
 "shell.remove" = "연결 제거"
-"shell.remove.description" = "agent-bios의 셸 연결만 제거합니다. 다른 셸 설정과 corpus 항목은 그대로 보존합니다."
+"shell.remove.description" = "agent-bios의 셸 연결만 제거합니다. 다른 셸 설정과 지침 항목은 그대로 보존합니다."
 "shell.back" = "셸 연결을 변경하지 않고 돌아갑니다."
 "shell.confirm" = "셸 연결 변경을 적용할까요?"
 "shell.cancel" = "취소"
 "shell.apply" = "적용"
-"shell.scope" = "zsh 시작 파일의 연결 구간과 관리 스크립트만 변경합니다. 전역 AGENTS.md/CLAUDE.md, 프로젝트 파일, corpus 내용은 바꾸지 않습니다."
+"shell.scope" = "zsh 시작 파일의 연결 구간과 관리 스크립트만 변경합니다. 전역 AGENTS.md/CLAUDE.md, 프로젝트 파일, 지침 내용은 바꾸지 않습니다."
 "shell.preview" = "미리보기만 실행했습니다. 셸 파일은 변경하지 않았습니다."
 "shell.restored" = "연결을 복원했습니다. 새 터미널을 열거나 .zshrc를 source하여 불러오세요."
 "shell.removed" = "연결을 제거했습니다. 이미 열린 셸도 다음 명령에서 관리 래퍼를 해제합니다. 새 터미널 역시 연결 없이 시작합니다."
@@ -41,36 +41,36 @@
 "language.ko.description" = "런처 화면을 한국어로 표시합니다."
 "language.ja.description" = "ランチャーの画面を日本語で表示します。"
 
-"corpus.label" = "코퍼스 패키지"
-"corpus.private.title" = "Corpus Studio"
-"corpus.private.description" = "개인 corpus 항목을 조회·생성·편집·삭제·복원합니다. 변경은 다음 활성 세션에 반영되고, 실행 중인 세션은 고정한 내용을 유지합니다."
-"corpus.private.relationship" = "Corpus는 별도 저장소에 보관됩니다. Builder는 선택한 사본을 활성화하고, 기본 CLI와 Vanilla에는 자동 추가하지 않습니다. 기존 전역 설치는 별도 이전이 필요합니다."
-"corpus.private.vanilla" = "기본 CLI와 사용자가 설정한 개인·프로젝트 지시문을 사용합니다. Private agent-bios corpus, 스킬 설명, 실행 설정은 추가하지 않습니다."
-"corpus.description" = "AI가 참고할 작업 지침을 고릅니다. 개발·여러 에이전트의 협업·스프레드시트 같은 작업별 묶음입니다. 패키지를 고른 뒤 ‘선택 적용’으로 설치합니다. 이 컴퓨터의 이후 CLI 실행에 쓰는 공통 지침을 바꾸므로 다른 프로젝트에도 영향을 줍니다."
-"corpus.title" = "코퍼스 패키지"
-"corpus.core.line" = "목표 설정·의사결정·교훈 기록의 기본 규칙(core + infra)은 항상 포함됩니다. 아래에서 작업별 패키지를 고르세요."
-"corpus.toggle.description" = "이 패키지를 선택하거나 해제합니다. ‘선택 적용’은 체크된 패키지 전체를 함께 설치하고 해제한 패키지는 설치 목록에서 뺍니다. 적용 전에 뒤로 돌아가거나 취소하면 설치 상태는 그대로입니다."
-"corpus.size.legend" = "각 패키지 옆의 크기는 모든 세션이 읽는 전역에 더해지는 양입니다. 가이드도 함께 배포되지만 규칙이 가리킬 때만 읽힙니다."
-"corpus.size.detail" = "모든 세션에 규칙 {rules}개({size})를 더하고, 규칙이 가리킬 때만 읽히는 가이드 {guides}개({guide_size})를 배포합니다."
-"corpus.size.detail.noguides" = "모든 세션에 규칙 {rules}개({size})를 더하고, 배포하는 가이드는 없습니다."
-"corpus.apply.label" = "선택 적용{pending}"
-"corpus.apply.description" = "체크한 패키지를 설치하고 해제한 패키지를 이 컴퓨터의 공통 지침에서 뺍니다. 설치 후 AI가 지침을 읽을 수 있는지 확인하고 결과를 보여 줍니다. 다른 프로젝트에서도 사용하는 지침이며, 프로젝트 코드를 바꾸는 작업은 아닙니다."
-"corpus.apply.unchanged" = "체크된 집합이 적용된 집합과 같습니다 — 적용할 것이 없습니다"
-"corpus.unavailable.line1" = "corpus status projection이 없거나 도메인 보고 이전 버전입니다."
-"corpus.none.line" = "이 투영에는 선택 가능한 도메인 패키지가 없습니다 — core와 infra는 항상 설치되므로 여기서 고를 것이 없습니다."
-"corpus.unavailable.line2" = "실행: agent-bios install   (이 화면이 읽는 projection을 다시 씁니다)"
-"corpus.back.hint" = "모드 메뉴로 돌아갑니다."
+"instructions.label" = "지침 패키지"
+"instructions.private.title" = "Instructions Studio"
+"instructions.private.description" = "개인 지침 항목을 조회·생성·편집·삭제·복원합니다. 변경은 다음 활성 세션에 반영되고, 실행 중인 세션은 고정한 내용을 유지합니다."
+"instructions.private.relationship" = "지침은 별도 저장소에 보관됩니다. Builder는 선택한 사본을 활성화하고, 기본 CLI와 Vanilla에는 자동 추가하지 않습니다. 기존 전역 설치는 별도 이전이 필요합니다."
+"instructions.private.vanilla" = "기본 CLI와 사용자가 설정한 개인·프로젝트 지시문을 사용합니다. agent-bios의 개인 지침, 스킬 설명, 실행 설정은 추가하지 않습니다."
+"instructions.description" = "AI가 참고할 작업 지침을 고릅니다. 개발·여러 에이전트의 협업·스프레드시트 같은 작업별 묶음입니다. 패키지를 고른 뒤 ‘선택 적용’으로 설치합니다. 이 컴퓨터의 이후 CLI 실행에 쓰는 공통 지침을 바꾸므로 다른 프로젝트에도 영향을 줍니다."
+"instructions.title" = "지침 패키지"
+"instructions.core.line" = "목표 설정·의사결정·교훈 기록의 기본 규칙(core + infra)은 항상 포함됩니다. 아래에서 작업별 패키지를 고르세요."
+"instructions.toggle.description" = "이 패키지를 선택하거나 해제합니다. ‘선택 적용’은 체크된 패키지 전체를 함께 설치하고 해제한 패키지는 설치 목록에서 뺍니다. 적용 전에 뒤로 돌아가거나 취소하면 설치 상태는 그대로입니다."
+"instructions.size.legend" = "각 패키지 옆의 크기는 모든 세션이 읽는 전역에 더해지는 양입니다. 가이드도 함께 배포되지만 규칙이 가리킬 때만 읽힙니다."
+"instructions.size.detail" = "모든 세션에 규칙 {rules}개({size})를 더하고, 규칙이 가리킬 때만 읽히는 가이드 {guides}개({guide_size})를 배포합니다."
+"instructions.size.detail.noguides" = "모든 세션에 규칙 {rules}개({size})를 더하고, 배포하는 가이드는 없습니다."
+"instructions.apply.label" = "선택 적용{pending}"
+"instructions.apply.description" = "체크한 패키지를 설치하고 해제한 패키지를 이 컴퓨터의 공통 지침에서 뺍니다. 설치 후 AI가 지침을 읽을 수 있는지 확인하고 결과를 보여 줍니다. 다른 프로젝트에서도 사용하는 지침이며, 프로젝트 코드를 바꾸는 작업은 아닙니다."
+"instructions.apply.unchanged" = "체크된 집합이 적용된 집합과 같습니다 — 적용할 것이 없습니다"
+"instructions.unavailable.line1" = "지침 상태 요약이 없거나 도메인 보고 이전 버전입니다."
+"instructions.none.line" = "이 투영에는 선택 가능한 도메인 패키지가 없습니다 — core와 infra는 항상 설치되므로 여기서 고를 것이 없습니다."
+"instructions.unavailable.line2" = "실행: agent-bios install   (이 화면이 읽는 projection을 다시 씁니다)"
+"instructions.back.hint" = "모드 메뉴로 돌아갑니다."
 
-"corpus.launch.relationship" = "모드와 프리셋은 세션의 실행 방식을 정합니다. 설치된 코퍼스 선택은 그대로 유지되며, 변경은 ‘코퍼스 패키지’에서 합니다. Vanilla에서도 호스트의 기본 지침 로딩을 통해 설치된 전역 규칙을 읽습니다."
-"corpus.launch.applied" = "현재 적용된 코퍼스:"
-"corpus.launch.base" = "core + infra: 목표·제약 확인, 선택지 비교, 검증 결과 보고, 다음 세션에 재사용할 교훈 기록을 다룹니다."
-"corpus.launch.unknown" = "이 설치본에서 패키지 내용을 확인할 수 없습니다."
-"corpus.domain.builder-base.label" = "개발 기본 원칙"
-"corpus.domain.llm-pipeline-dev.label" = "LLM 파이프라인 개발"
-"corpus.domain.multi-agent-orchestration.label" = "여러 에이전트의 협업"
-"corpus.domain.visualization-docs.label" = "도표와 구현 지도"
-"corpus.domain.office-work.label" = "스프레드시트 작업"
-"corpus.domain.builder-base" = """
+"instructions.launch.relationship" = "모드와 프리셋은 세션의 실행 방식을 정합니다. 설치된 지침 선택은 그대로 유지되며, 변경은 ‘지침 패키지’에서 합니다. Vanilla에서도 호스트의 기본 지침 로딩을 통해 설치된 전역 규칙을 읽습니다."
+"instructions.launch.applied" = "현재 적용된 지침:"
+"instructions.launch.base" = "core + infra: 목표·제약 확인, 선택지 비교, 검증 결과 보고, 다음 세션에 재사용할 교훈 기록을 다룹니다."
+"instructions.launch.unknown" = "이 설치본에서 패키지 내용을 확인할 수 없습니다."
+"instructions.domain.builder-base.label" = "개발 기본 원칙"
+"instructions.domain.llm-pipeline-dev.label" = "LLM 파이프라인 개발"
+"instructions.domain.multi-agent-orchestration.label" = "여러 에이전트의 협업"
+"instructions.domain.visualization-docs.label" = "도표와 구현 지도"
+"instructions.domain.office-work.label" = "스프레드시트 작업"
+"instructions.domain.builder-base" = """
 소프트웨어 구현·검증·유지보수에 공통으로 쓰는 개발 원칙입니다.
 • Coding(개발 절차): 완료 기준을 정하고 작업을 계획한 뒤, 필요한 부분을 수정하고 결과를 리뷰합니다.
 • Verification menus(검증 선택): 코드·설정·문서 등 작업 대상에 맞는 검사를 고르고 실제 변경 경로를 검증합니다.
@@ -81,14 +81,14 @@
 • Review requests & defect criteria(리뷰 기준): 근거와 구체적인 실패 기준을 리뷰어에게 주고 중요한 지적을 해결합니다.
 • Repository instructions(저장소 지침): repo-charter 스킬로 저장소 코드에 근거한 AGENTS.md 작업 규칙을 만듭니다.
 """
-"corpus.domain.llm-pipeline-dev" = """
+"instructions.domain.llm-pipeline-dev" = """
 모델의 판단과 코드로 보장할 계약을 구분해 LLM 파이프라인을 만듭니다.
 • Capability boundary(역할 경계): 의미 해석과 선택은 모델이 맡고, 정확한 계산과 변환은 도구가 수행합니다.
 • Structured output(구조화 출력): 제출 형식을 제한하고 코드가 검증·직렬화·최종 산출물 생성을 맡습니다.
 • Runtime authority(실행 권한): 실제 도구와 소비 경로에서 권한·실행 경로를 보장합니다. 프롬프트나 읽히지 않는 플래그만으로는 동작이 바뀌지 않습니다.
 • Failure handling(실패 처리): 계약을 어긴 출력은 거부하고 불확실한 품질 판단은 사용자에게 알립니다. 모델 출력을 몰래 보정하지 않습니다.
 """
-"corpus.domain.multi-agent-orchestration" = """
+"instructions.domain.multi-agent-orchestration" = """
 여러 모델과 CLI 에이전트의 역할·인수인계·독립 리뷰를 조율합니다.
 • Delegation(위임): 독립 작업이나 반복 작업에 에이전트가 유용한지 판단하고 범위와 완료 기준을 정해 맡깁니다.
 • Model allocation(모델 배분): 난도와 영향에 따라 티어를 배정하고 저렴한 모델의 구현에는 검증을 보강합니다.
@@ -96,13 +96,13 @@
 • Independent review(독립 리뷰): 제공자와 관점을 비교하고 요청한 모델·설정에서 리뷰가 실제로 실행됐는지 확인합니다.
 • Continuation & batches(재개·일괄 작업): 재개 가능한 산출물을 보존하고 세션 상태를 재확인하며 사용량 제한의 반복 재시도를 멈춥니다.
 """
-"corpus.domain.visualization-docs" = """
+"instructions.domain.visualization-docs" = """
 시스템과 의사결정을 도표로 설명하고 현재 구현 상태를 지도로 관리합니다.
 • Visual explanations(시각 설명): 비교·흐름·상태 변화를 가장 잘 전달하는 텍스트·표·HTML 표현을 고릅니다.
 • SVG diagrams(SVG 도표): 역할·경계·의존성·방향을 읽기 쉬운 배치와 일관된 표기로 나타냅니다.
 • Implementation map(구현 지도): 구조·목표·위험·결정·검증 상태를 현재 시점의 대시보드로 유지합니다.
 """
-"corpus.domain.office-work" = """
+"instructions.domain.office-work" = """
 스프레드시트 작업을 설치된 spreadsheet-processing 스킬로 안내합니다.
 • Spreadsheet processing(시트 작업): 스킬이 있으면 통합문서 편집·생성·대사·검증에 사용합니다.
 • Formula verification(수식 검증): 수식에 의존하는 Excel 결과를 실제 Microsoft Excel 엔진으로 확인합니다.
@@ -129,7 +129,7 @@
 "wizard.perspectives.refused" = "관점을 최소 1개 적어 주세요 — 리뷰어에게 무엇을 보라고 지시할지입니다."
 "wizard.trials.label" = "Trials (격리 패스 횟수; 1 이상)"
 "wizard.trials.refused" = "1 이상의 정수가 필요합니다."
-"wizard.instructions.label" = "Instructions (slot: {command} {model} {effort} {provider} {host} {service_tier} {perspectives} {trials} {severities})"
+"wizard.instructions.label" = "지침 (slot: {command} {model} {effort} {provider} {host} {service_tier} {perspectives} {trials} {severities})"
 "wizard.emits.label" = "리뷰어가 실제로 보고하는 severity 값들, 그대로 (쉼표 구분)"
 "wizard.map.title" = "canonical ladder로 매핑 — {value}"
 "wizard.confirm.title" = "reader가 이 블록을 수락했습니다 — 기록할까요?"
@@ -213,15 +213,15 @@
 "policy.claude.standard.label" = "표준"
 "policy.claude.standard.description" = "정책 플래그를 전달하지 않고 Claude의 기본 권한 확인을 사용합니다."
 
-# 세션 디스틸 영역 — 코퍼스 내용의 버전, 패키지, 롤백.
+# 세션 디스틸 영역 — 지침 내용의 버전, 패키지, 롤백.
 "distill.title" = "Session Distill"
 "distill.start.label" = "Session distill 실행 시작"
 "distill.start.description" = "Session distill 프리셋으로 실행합니다. 미션 라인이 세션을 워크플로 가이드와 SSOT로 안내합니다."
 "distill.start.unavailable" = "프리셋 {preset}이(가) 설정되지 않았습니다"
-"distill.packages.label" = "코퍼스 패키지"
-"distill.packages.description" = "어떤 코퍼스 내용이 적용돼 있는지 설치 가능한 패키지 단위로 봅니다 (v1: 단일 core 코퍼스)."
+"distill.packages.label" = "지침 패키지"
+"distill.packages.description" = "어떤 지침 내용이 적용돼 있는지 설치 가능한 패키지 단위로 봅니다 (v1: 단일 core 지침)."
 "distill.versions.label" = "버전 및 롤백"
-"distill.versions.description" = "코퍼스 내용의 버전입니다(시스템 배포와는 별개). 코퍼스를 이전 또는 이후 버전으로 되돌립니다."
+"distill.versions.description" = "지침 내용의 버전입니다(시스템 배포와는 별개). 지침을 이전 또는 이후 버전으로 되돌립니다."
 "distill.back.label" = "뒤로"
 "distill.back.hint" = "Session distill로 돌아갑니다."
 "distill.back.launch" = "실행 메뉴로 돌아갑니다."
@@ -229,19 +229,19 @@
 "distill.version.description" = "closed {closed} · commit {commit} · {summary}"
 "distill.version.applied.title" = "{version}이(가) 현재 적용된 버전입니다"
 "distill.version.applied.line" = "롤백하거나 롤포워드하려면 다른 버전을 선택하세요."
-"distill.package.core.label" = "core 코퍼스 @ {version}"
-"distill.package.core.description" = "도메인 패키징이 도입되기 전까지 모든 코퍼스 도메인이 하나의 패키지입니다(백로그). 레이어: {layers}. 도메인별 선택·버전·롤백은 이후 여기에 표시됩니다."
-"distill.rollback.title" = "코퍼스를 {version}(으)로 롤백할까요?"
+"distill.package.core.label" = "core 지침 @ {version}"
+"distill.package.core.description" = "도메인 패키징이 도입되기 전까지 모든 지침 도메인이 하나의 패키지입니다(백로그). 레이어: {layers}. 도메인별 선택·버전·롤백은 이후 여기에 표시됩니다."
+"distill.rollback.title" = "지침을 {version}(으)로 롤백할까요?"
 "distill.rollback.cancel.label" = "취소"
-"distill.rollback.cancel.description" = "현재 배포된 코퍼스 내용을 그대로 유지합니다."
+"distill.rollback.cancel.description" = "현재 배포된 지침 내용을 그대로 유지합니다."
 "distill.rollback.confirm.label" = "{version}(으)로 롤백"
-"distill.rollback.confirm.description" = "해당 코퍼스 버전 시점의 globals/guides/hooks를 다시 배포합니다. 시스템 배포(런처, 래퍼)는 현재 상태를 유지합니다. 최신 버전을 선택하면 다시 롤포워드됩니다."
+"distill.rollback.confirm.description" = "해당 지침 버전 시점의 globals/guides/hooks를 다시 배포합니다. 시스템 배포(런처, 래퍼)는 현재 상태를 유지합니다. 최신 버전을 선택하면 다시 롤포워드됩니다."
 "distill.rollback.done" = "롤백 완료."
 "distill.rollback.failed" = "롤백 실패."
 
-# 코퍼스 상태 패널 — Session Distill 영역과 체크리스트가 함께 씁니다.
+# 지침 상태 패널 — Session Distill 영역과 체크리스트가 함께 씁니다.
 # 라벨은 표시 셀 기준으로 정렬되므로 번역 길이가 달라도 어긋나지 않습니다.
-"panel.unprojected" = "코퍼스 상태가 아직 생성되지 않았습니다 — 실행: agent-bios install"
+"panel.unprojected" = "지침 상태가 아직 생성되지 않았습니다 — 실행: agent-bios install"
 "panel.version.label" = "적용 버전"
 "panel.mechanisms.label" = "메커니즘"
 "panel.ledger.label" = "원장"
@@ -258,7 +258,7 @@
 "panel.ledger.value" = "배치 {placed} · 인큐베이팅 {incubating} · 버전 {versions}"
 "panel.domains.unset" = "(아직 선택 안 함)"
 "panel.last-apply" = "⚠ 마지막 적용 {outcome} @ {at} — 요청: {requested}"
-"corpus.core-only" = "core+infra만"
+"instructions.core-only" = "core+infra만"
 
 # Numbered-prompt chrome. These were printed as English literals from the renderer
 # while every line of content around them was translated, so the Korean and Japanese
@@ -281,7 +281,7 @@
 "global-instructions.exclude.private-unavailable" = "agent-bios 활성 세션이 필요합니다. Vanilla와 일반 CLI 실행은 네이티브 지침 로딩을 유지합니다."
 "setup.inactive.label" = "비활성"
 "setup.inactive.value" = "{tiers} — 비활성, 투영되지 않음 ({reason})"
-"tui.corpus.title" = "코퍼스 상태"
+"tui.instructions.title" = "지침 상태"
 "tui.detail.title" = "선택 중인 항목 설명"
 "tui.detail.scroll" = "j/k: 설명 아래/위 · Shift+PgUp/PgDn"
 "tui.options.header" = "항목 (1-{count} / {count})"
@@ -302,10 +302,10 @@
 "prompt.unavailable" = "사용 불가"
 "prompt.unavailable.retry" = "사용 불가: {reason}. 사용 가능한 항목을 선택하세요."
 "prompt.no.previous" = "이전 메뉴가 없습니다. q로 취소하세요."
-"prompt.corpus.header" = "-- 코퍼스 상태 --"
+"prompt.instructions.header" = "-- 지침 상태 --"
 
-"understand.title" = "Understand! · Corpus 원리 이해"
-"understand.description" = "Corpus 묶음이 존재하는 이유, 규칙의 배경과 맥락, 작동 원리와 한계를 문답으로 이해합니다."
-"understand.empty" = "이 corpus에는 학습할 수 있는 묶음이 없습니다."
+"understand.title" = "Understand! · 지침 원리 이해"
+"understand.description" = "지침 묶음이 존재하는 이유, 규칙의 배경과 맥락, 작동 원리와 한계를 문답으로 이해합니다."
+"understand.empty" = "이 instructions에는 학습할 수 있는 묶음이 없습니다."
 "understand.bundle.detail" = "관련 자료 {count}개 · 개별 파일이 아니라 하나의 묶음으로 학습합니다."
-"understand.session.scope" = "선택한 내용을 고정한 새 대화 세션에서 학습합니다. Corpus 훅을 활성화하거나 전역 지침 파일을 수정하지 않습니다."
+"understand.session.scope" = "선택한 내용을 고정한 새 대화 세션에서 학습합니다. 지침 훅을 활성화하거나 전역 지침 파일을 수정하지 않습니다."

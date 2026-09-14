@@ -335,7 +335,7 @@ show(null); render();
   </table>
 
   <h2>GR-4, computed</h2>
-  <p class="lede"><code>ontology/extract.py</code> reads the explicit legacy installer's <code>deploy_file</code>/<code>deploy_glob</code> and <code>verify_match</code>/<code>verify_present</code> call sites at generation time. {gr4["deploy_count"]} legacy deploy writes, {len(gr4["uncovered"])} without complete verification. Private installation uses its own release and ownership verification in <code>compose/corpus_install.py</code>.</p>
+  <p class="lede"><code>ontology/extract.py</code> reads the explicit legacy installer's <code>deploy_file</code>/<code>deploy_glob</code> and <code>verify_match</code>/<code>verify_present</code> call sites at generation time. {gr4["deploy_count"]} legacy deploy writes, {len(gr4["uncovered"])} without complete verification. Private installation uses its own release and ownership verification in <code>compose/instructions_install.py</code>.</p>
   <table>
     <thead><tr><th>P4 write</th><th>P6 assertion</th><th>Strength</th></tr></thead>
     <tbody>

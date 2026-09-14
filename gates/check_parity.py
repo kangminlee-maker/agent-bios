@@ -195,9 +195,9 @@ LAUNCH_DOC_PHRASES = {
     ),
 }
 README_REFERENCES = {
-    "README.md": ("CONTRIBUTING.md", "docs/corpus.md", "docs/session-model.md",
+    "README.md": ("CONTRIBUTING.md", "docs/instructions.md", "docs/session-model.md",
                   "docs/recovery.md", "docs/advanced-launch.md", "docs/understand.md"),
-    "ko/README.md": ("CONTRIBUTING.md", "../docs/corpus.md", "../docs/session-model.md",
+    "ko/README.md": ("CONTRIBUTING.md", "../docs/instructions.md", "../docs/session-model.md",
                      "../docs/recovery.md", "docs/advanced-launch.md", "../docs/understand.md"),
 }
 
@@ -1048,7 +1048,7 @@ def saving_a_preset_never_leaves_an_unreadable_file(fx):
 def uninstall_cleanup_does_not_depend_on_a_readable_manifest():
     """--remove-owned says removal does not need a well-formed manifest. Half of it does not.
 
-    The parse sat above the branch, so a corpus mid-edit raised out of uninstall before the
+    The parse sat above the branch, so an instruction mid-edit raised out of uninstall before the
     branch that needs nothing from it. The two halves need it differently: the AGENTS.md
     region is bounded by our own markers, while the settings registrations are owned BY NAME
     and cannot be found without the manifest. So the region must go either way, and the half
@@ -1258,7 +1258,7 @@ def uninstall_keeps_backups_when_the_archive_fails():
         for d in (claude / "central", state):
             d.mkdir(parents=True)
         (claude / "CLAUDE.md").write_text("# CLAUDE.md\n@central/bundle.md\n")
-        (claude / "central" / "bundle.md").write_text("# assembled corpus\n")
+        (claude / "central" / "bundle.md").write_text("# assembled instructions\n")
         (state / "manifest.txt").write_text(f"{claude / 'central' / 'bundle.md'}\n")
         backup = claude / "settings.json.bak-20260101-000000"
         backup.write_text("the only copy of something the user may still want")
@@ -1304,7 +1304,7 @@ def owned_sibling_rule():
 def uninstall_leaves_no_trace():
     """Uninstall must remove everything of ours AND lose nothing the user wrote.
 
-    Those pull opposite ways because full mode writes the corpus into an entry file the user then
+    Those pull opposite ways because full mode writes the instructions into an entry file the user then
     edits, so the same bytes are both. One archive settles it: the removed content leaves as a
     single artifact outside every managed path, and the managed paths are then purged. This runs
     the real command against a throwaway HOME, because a destructive path asserted only in prose
@@ -1323,7 +1323,7 @@ def uninstall_leaves_no_trace():
         # the manifest: uninstall must take our central tree and leave their file standing.
         (claude / "CLAUDE.md").write_text(f"# CLAUDE.md\n@central/bundle.md\n\n- {secret}\n")
         (claude / "central").mkdir()
-        (claude / "central" / "bundle.md").write_text("# assembled corpus\n")
+        (claude / "central" / "bundle.md").write_text("# assembled instructions\n")
         (claude / "settings.json.bak-20260101-000000").write_text("a loose backup copy")
         # The same basename under both host trees. Staging used to flatten every copy into one
         # directory, so the second silently overwrote the first — and both originals were deleted
@@ -1774,7 +1774,7 @@ def ui_catalogs_hold_the_reference_key_set():
         if decomposed:
             mark_fail(
                 f"{language}.toml value(s) are not NFC-normalised: {', '.join(decomposed)} "
-                "— they render the same and measure wider, which misaligns the corpus panel"
+                "— they render the same and measure wider, which misaligns the instructions panel"
             )
         compared = 0
         for key, reference in sorted(catalogs["en"].items()):
@@ -2800,7 +2800,7 @@ def launcher_chrome_speaks_the_selected_language(fx):
             rendered[language] = {
                 "footers": [launcher_module.menu_footer(*form) for form in forms],
                 "chrome": {key: launcher_module.t(key) for key in (
-                    "tui.setup.title", "tui.corpus.title", "tui.detail.title",
+                    "tui.setup.title", "tui.instructions.title", "tui.detail.title",
                     "tui.input.new", "tui.input.placeholder", "tui.input.footer",
                     "setup.none", "setup.main", "setup.delegation",
                     "setup.inactive.label",
@@ -2893,9 +2893,9 @@ def launcher_chrome_speaks_the_selected_language(fx):
 
 
 @launcher_check
-def launcher_corpus_sizes(fx):
+def launcher_instructions_sizes(fx):
     """Every package row says what that package is and what it costs, and the panel of
-    an install with no author-side registry reports the corpus instead of saying
+    an install with no author-side registry reports the instructions instead of saying
     "unavailable" three times.
 
     Driven against a fixture PACKAGE — its own manifest, monolith and guides — because
@@ -2950,7 +2950,7 @@ def launcher_corpus_sizes(fx):
     repo = build_package("package", manifest, monolith)
 
     def facts_for(repo_path, applied):
-        return launcher_module.corpus_facts({
+        return launcher_module.instructions_facts({
             "repo": str(repo_path),
             "domains": {"available": ["alpha", "beta"], "applied": applied},
             "versions": None,
@@ -2992,10 +2992,10 @@ def launcher_corpus_sizes(fx):
         "domains": {"available": ["alpha", "beta"], "applied": ["alpha", "beta"]},
         "last_apply": None,
     }
-    lines = launcher_module.corpus_summary_lines(status)
+    lines = launcher_module.instructions_summary_lines(status)
     body = "\n".join(lines)
     if launcher_module.t("panel.unavailable") in body:
-        mark_fail(f"a packaged install still reports the corpus as unknowable: {lines!r}")
+        mark_fail(f"a packaged install still reports the instructions as unknowable: {lines!r}")
     if "4" not in body or "alpha" not in body:
         mark_fail(f"the packaged panel names neither the rule count nor the packages: {lines!r}")
     # A failed apply stays loud on the packaged panel too — it is a different branch.
@@ -3003,7 +3003,7 @@ def launcher_corpus_sizes(fx):
         "requested": ["alpha"], "outcome": "canary_failed",
         "at": "2026-09-03T00:00:00", "error_tail": None,
     }}
-    if not any("canary_failed" in line for line in launcher_module.corpus_summary_lines(failed)):
+    if not any("canary_failed" in line for line in launcher_module.instructions_summary_lines(failed)):
         mark_fail("the packaged panel drops a failed apply")
 
     # Control 0: the assembler that ran is the PACKAGE's own, not whichever module the
@@ -3026,7 +3026,7 @@ def launcher_corpus_sizes(fx):
     bare.mkdir()
     if facts_for(bare, ["alpha"]) is not None:
         mark_fail("a package with no manifest still produced sizes")
-    if launcher_module._domain_description(None) != launcher_module.t("corpus.toggle.description"):
+    if launcher_module._domain_description(None) != launcher_module.t("instructions.toggle.description"):
         mark_fail("an unsized package does not fall back to the plain toggle description")
 
     # Control 2: a manifest the assembler refuses (a bullet no anchor matches). The
@@ -3040,7 +3040,7 @@ def launcher_corpus_sizes(fx):
     stray = facts_for(repo, ["alpha", "ghost"])
     if stray is None or stray["selected"]["unknown"] != ["ghost"]:
         mark_fail(f"an applied package the install lacks is not surfaced: {stray!r}")
-    stray_lines = launcher_module.corpus_summary_lines({
+    stray_lines = launcher_module.instructions_summary_lines({
         **status, "domains": {"available": ["alpha"], "applied": ["alpha", "ghost"]},
     })
     if not any("ghost" in line for line in stray_lines):
@@ -3048,7 +3048,7 @@ def launcher_corpus_sizes(fx):
 
     # Control 4: an install that has never applied is not sized at all — what is
     # deployed is whatever the install put there, and the manifest cannot say which.
-    unset = launcher_module.corpus_summary_lines({
+    unset = launcher_module.instructions_summary_lines({
         **status, "domains": {"available": ["alpha", "beta"], "applied": None},
     })
     if not any(launcher_module.t("panel.domains.unset") in line for line in unset):
@@ -3058,13 +3058,13 @@ def launcher_corpus_sizes(fx):
 
 
 @launcher_check
-def launcher_corpus_checklist(fx):
-    """The corpus checklist hands the installer EXACTLY the checked set, and only
+def launcher_instructions_checklist(fx):
+    """The instructions checklist hands the installer EXACTLY the checked set, and only
     on a real change; the panel is loud about a failed apply and silent about a
     clean one.
 
     Driven through the numbered path (the shared controller both renderers call)
-    with the status projection fixtured via AGENT_BIOS_CORPUS_STATUS, the
+    with the status projection fixtured via AGENT_BIOS_INSTRUCTIONS_STATUS, the
     installer resolution and dispatch monkeypatched to record argv. Negative
     controls: an unchanged set must dispatch nothing, and the applied-fixture
     panel must carry no failure marker."""
@@ -3083,7 +3083,7 @@ def launcher_corpus_checklist(fx):
     status_path.write_text(json.dumps(status))
     recorded = []
     real_run, real_which = subprocess.run, shutil.which
-    real_status_path = launcher_module.CORPUS_STATUS_PATH
+    real_status_path = launcher_module.INSTRUCTIONS_STATUS_PATH
     real_input = launcher_module.read_input
     real_legacy = os.environ.pop("AGENT_BIOS_LEGACY_INSTALL", None)
 
@@ -3092,14 +3092,14 @@ def launcher_corpus_checklist(fx):
 
         def fake_input(prompt):
             if not fed:
-                raise AssertionError(f"corpus checklist asked for unscripted input: {prompt!r}")
+                raise AssertionError(f"instructions checklist asked for unscripted input: {prompt!r}")
             return fed.pop(0)
         return fed, fake_input
 
     try:
         # The status path is resolved at import (env-pinned for subprocesses);
         # an in-process leg patches the resolved constant instead.
-        launcher_module.CORPUS_STATUS_PATH = status_path
+        launcher_module.INSTRUCTIONS_STATUS_PATH = status_path
         subprocess.run = lambda argv, **kw: (
             recorded.append(list(argv)) or types.SimpleNamespace(returncode=0)
         )
@@ -3109,12 +3109,12 @@ def launcher_corpus_checklist(fx):
         # Toggle beta on (option 2), apply (option 4).
         fed, launcher_module.read_input = scripted(["2", "4"])
         with contextlib.redirect_stdout(io.StringIO()):
-            launcher_module.corpus_checklist(None)
+            launcher_module.instructions_checklist(None)
         if fed:
-            mark_fail(f"corpus checklist left {len(fed)} scripted input(s) unused")
+            mark_fail(f"instructions checklist left {len(fed)} scripted input(s) unused")
         if recorded != [["/gate/agent-bios", "onboard", "--non-interactive", "--domains", "alpha,beta"]]:
             mark_fail(
-                f"corpus checklist dispatched {recorded!r}; want exactly "
+                f"instructions checklist dispatched {recorded!r}; want exactly "
                 "[['/gate/agent-bios', 'onboard', '--non-interactive', '--domains', 'alpha,beta']]"
             )
         # Negative control: toggling back to the applied set leaves Apply disabled
@@ -3122,14 +3122,14 @@ def launcher_corpus_checklist(fx):
         recorded.clear()
         fed, launcher_module.read_input = scripted(["2", "2", "b"])
         with contextlib.redirect_stdout(io.StringIO()):
-            launcher_module.corpus_checklist(None)
+            launcher_module.instructions_checklist(None)
         if recorded:
-            mark_fail(f"an unchanged corpus selection still dispatched: {recorded!r}")
+            mark_fail(f"an unchanged instructions selection still dispatched: {recorded!r}")
         # Emptying the selection must say so explicitly, not send an empty argv.
         recorded.clear()
         fed, launcher_module.read_input = scripted(["1", "4"])
         with contextlib.redirect_stdout(io.StringIO()):
-            launcher_module.corpus_checklist(None)
+            launcher_module.instructions_checklist(None)
         if recorded != [["/gate/agent-bios", "onboard", "--non-interactive", "--domains", "none"]]:
             mark_fail(
                 f"emptying the selection dispatched {recorded!r}; want --domains none"
@@ -3144,7 +3144,7 @@ def launcher_corpus_checklist(fx):
         recorded.clear()
         fed, launcher_module.read_input = scripted([""])
         with contextlib.redirect_stdout(io.StringIO()):
-            launcher_module.corpus_checklist(None)
+            launcher_module.instructions_checklist(None)
         if recorded != [["/gate/agent-bios", "onboard", "--non-interactive", "--domains", "none"]]:
             mark_fail(
                 f"a never-applied projection dispatched {recorded!r}; the first "
@@ -3154,20 +3154,20 @@ def launcher_corpus_checklist(fx):
         (tmp / "install.sh").write_text("#!/bin/sh\n")
         shutil.which = lambda name: None if name == "agent-bios" else real_which(name)
         with contextlib.redirect_stdout(io.StringIO()):
-            launcher_module.run_corpus_apply(["beta"])
+            launcher_module.run_instructions_apply(["beta"])
         if recorded != [["bash", str(tmp / "install.sh"), "onboard", "--non-interactive", "--domains", "beta"]]:
-            mark_fail(f"checkout corpus apply omitted explicit machine mode: {recorded!r}")
+            mark_fail(f"checkout instructions apply omitted explicit machine mode: {recorded!r}")
         recorded.clear()
         shutil.which = lambda name: "/gate/agent-bios" if name == "agent-bios" else real_which(name)
         os.environ["AGENT_BIOS_LEGACY_INSTALL"] = "1"
         with contextlib.redirect_stdout(io.StringIO()):
-            launcher_module.run_corpus_apply(["alpha"])
+            launcher_module.run_instructions_apply(["alpha"])
         if recorded != [["/gate/agent-bios", "onboard", "--domains", "alpha"]]:
-            mark_fail(f"compatibility corpus apply received private interaction flags: {recorded!r}")
+            mark_fail(f"compatibility instructions apply received private interaction flags: {recorded!r}")
     finally:
         subprocess.run, shutil.which = real_run, real_which
         launcher_module.read_input = real_input
-        launcher_module.CORPUS_STATUS_PATH = real_status_path
+        launcher_module.INSTRUCTIONS_STATUS_PATH = real_status_path
         if real_legacy is None:
             os.environ.pop("AGENT_BIOS_LEGACY_INSTALL", None)
         else:
@@ -3179,18 +3179,18 @@ def launcher_corpus_checklist(fx):
         "requested": ["alpha"], "outcome": "canary_failed",
         "at": "2026-08-10T00:00:00", "error_tail": None,
     }}
-    lines = launcher_module.corpus_summary_lines(failed)
+    lines = launcher_module.instructions_summary_lines(failed)
     if not any("LAST APPLY canary_failed" in line for line in lines):
-        mark_fail(f"a failed corpus apply is invisible on the panel: {lines!r}")
+        mark_fail(f"a failed instructions apply is invisible on the panel: {lines!r}")
     clean = {**status, "last_apply": {
         "requested": ["alpha"], "outcome": "applied",
         "at": "2026-08-10T00:00:00", "error_tail": None,
     }}
-    lines = launcher_module.corpus_summary_lines(clean)
+    lines = launcher_module.instructions_summary_lines(clean)
     if any("LAST APPLY" in line for line in lines):
-        mark_fail(f"a clean corpus apply renders a failure marker: {lines!r}")
+        mark_fail(f"a clean instructions apply renders a failure marker: {lines!r}")
     missing = {**status, "domains": None}
-    lines = launcher_module.corpus_summary_lines(missing)
+    lines = launcher_module.instructions_summary_lines(missing)
     if any("Domains" in line for line in lines):
         mark_fail("a status with no domain projection invented a Domains line")
 
@@ -9197,7 +9197,7 @@ def screen_survives_short_terminal(lines, plan, launcher_module):
             # The body is checked like the rest, and that is the whole point: the defect was
             # never a clipped bottom, it was widgets pushed off the TOP. Without this the
             # check passed on a layout whose body sat at y=-30 — its overflow was zero, so
-            # "reaches its end" held vacuously while the setup panel and the corpus text were
+            # "reaches its end" held vacuously while the setup panel and the instructions text were
             # unreachable by any key.
             for name, widget in (
                 ("title", screen.query_one("#al-title")),
@@ -9693,14 +9693,14 @@ def launcher_review_methods(fx):
     # function, so this is about the lines the screen is GIVEN — not about a string in the
     # source, and not about what fits on the terminal, which is asserted separately below.
     shown: list[str] = []
-    real_info = launcher_module._corpus_info
-    launcher_module._corpus_info = lambda ui, title, lines, *a, **k: shown.extend(lines)
+    real_info = launcher_module._instructions_info
+    launcher_module._instructions_info = lambda ui, title, lines, *a, **k: shown.extend(lines)
     try:
         launcher_module.register_reviewer_info(None, pathlib.Path("/nonexistent/profiles.toml"))
     except Exception as exc:  # noqa: BLE001 — any failure here is the finding
         mark_fail(f"agent-launch could not show the reviewer registration screen: {exc}")
     finally:
-        launcher_module._corpus_info = real_info
+        launcher_module._instructions_info = real_info
     screen = "\n".join(shown)
     if not shown:
         mark_fail("agent-launch review methods: the registration screen showed nothing — vacuous")
@@ -10807,7 +10807,7 @@ def launcher_module_api(fx):
             self.plan = plan
 
         def choose(self, title, options, default, allow_back, preview=None,
-                   corpus_lines=None, confirm=None):
+                   instructions_lines=None, confirm=None):
             if title == "Mode":
                 return "builder"
             if title == "Preset":
@@ -10883,7 +10883,7 @@ def launcher_module_api(fx):
             pass
 
         def choose(self, title, options, default, allow_back, preview=None,
-                   corpus_lines=None, confirm=None):
+                   instructions_lines=None, confirm=None):
             if title == "Mode":
                 if launcher_module.SWE_MODE not in {option.value for option in options}:
                     mark_fail("agent-launch root menu is missing the Software Engineer mode")
@@ -10931,7 +10931,7 @@ def launcher_module_api(fx):
             pass
 
         def choose(self, title, options, default, allow_back, preview=None,
-                   corpus_lines=None, confirm=None):
+                   instructions_lines=None, confirm=None):
             if title == "Mode":
                 return launcher_module.SWE_MODE
             if title == "Preset":
@@ -10971,7 +10971,7 @@ def launcher_module_api(fx):
             pass
 
         def choose(self, title, options, default, allow_back, preview=None,
-                   corpus_lines=None, confirm=None):
+                   instructions_lines=None, confirm=None):
             if title == "Mode":
                 return launcher_module.DEFAULT_PRESET_MODE
             if title == "Preset":
@@ -11008,7 +11008,7 @@ def launcher_module_api(fx):
             pass
 
         def choose(self, title, options, default, allow_back, preview=None,
-                   corpus_lines=None, confirm=None):
+                   instructions_lines=None, confirm=None):
             if title == "Mode":
                 return launcher_module.DEFAULT_PRESET_MODE
             if title == "Preset":
@@ -11084,14 +11084,14 @@ def launcher_global_instruction_option(fx):
     if launcher_module is None:
         return
 
-    original_private = launcher_module.private_corpus_enabled
-    original_store = launcher_module.corpus_store
+    original_private = launcher_module.private_instructions_enabled
+    original_store = launcher_module.instructions_store
     original_choose = launcher_module.choose
     original_prompt = launcher_module.prompt_text
     original_catalog = launcher_module._CATALOG
     original_catalog_en = launcher_module._CATALOG_EN
     absent = object()
-    original_session = sys.modules.get("corpus_session", absent)
+    original_session = sys.modules.get("instructions_session", absent)
     original_package_root = os.environ.get("AGENT_BIOS_PACKAGE_ROOT")
     composed = []
     snapshots = []
@@ -11113,7 +11113,7 @@ def launcher_global_instruction_option(fx):
         def snapshot(self, host, selected, dry_run, native):
             snapshots.append((host, selected, dry_run, native))
             return {
-                "instruction_text": "PRIVATE_CORPUS_FIXTURE",
+                "instruction_text": "PRIVATE_INSTRUCTIONS_FIXTURE",
                 "content_ref": "fixture-snapshot",
                 "assets": {},
                 "unavailable": [],
@@ -11142,15 +11142,15 @@ def launcher_global_instruction_option(fx):
                 "of preserving the absent=True schema default"
             )
 
-        launcher_module.private_corpus_enabled = lambda: True
-        launcher_module.corpus_store = lambda: FixtureStore()
-        sys.modules["corpus_session"] = types.SimpleNamespace(compose_argv=compose)
+        launcher_module.private_instructions_enabled = lambda: True
+        launcher_module.instructions_store = lambda: FixtureStore()
+        sys.modules["instructions_session"] = types.SimpleNamespace(compose_argv=compose)
 
         def custom_choices(final_action, setting, saved_name=None):
             actions = iter(("global-instructions", final_action))
 
             def choose(title, options, default, ui=None, allow_back=False,
-                       preview=None, corpus_lines=None, confirm=None):
+                       preview=None, instructions_lines=None, confirm=None):
                 option_by_value = {option.value: option for option in options}
                 if title == launcher_module.t("custom.title"):
                     if "global-instructions" not in option_by_value:
@@ -11212,7 +11212,7 @@ def launcher_global_instruction_option(fx):
             (
                 "bare",
                 ["--config", str(option_profile), "--no-tui", "--exclude-global-instructions", "claude"],
-                "corpus launch options require",
+                "instructions launch options require",
             ),
             (
                 "Vanilla",
@@ -11254,8 +11254,8 @@ def launcher_global_instruction_option(fx):
                 "agent-launch global-instruction option check changed the shared fixture "
                 "presets.local.toml; subsequent launcher scenarios are no longer isolated"
             )
-        launcher_module.private_corpus_enabled = original_private
-        launcher_module.corpus_store = original_store
+        launcher_module.private_instructions_enabled = original_private
+        launcher_module.instructions_store = original_store
         launcher_module.choose = original_choose
         launcher_module.prompt_text = original_prompt
         launcher_module._CATALOG = original_catalog
@@ -11265,9 +11265,9 @@ def launcher_global_instruction_option(fx):
         else:
             os.environ["AGENT_BIOS_PACKAGE_ROOT"] = original_package_root
         if original_session is absent:
-            sys.modules.pop("corpus_session", None)
+            sys.modules.pop("instructions_session", None)
         else:
-            sys.modules["corpus_session"] = original_session
+            sys.modules["instructions_session"] = original_session
 
 
 @contextlib.contextmanager
@@ -11311,7 +11311,7 @@ def launcher_fixture(launcher_module):
         version_fixture = tmp / "version.json"
         version_fixture.write_text('{"version": "9.9.9", "releaseDate": "2026-01-02"}')
         # Operator state is pinned into the fixture, not merely hoped absent. The
-        # session-distill nudge and the corpus-status panel both resolve through
+        # session-distill nudge and the instructions-status panel both resolve through
         # Path.home(), so on a machine whose history has crossed the nudge threshold
         # they add a line to every pty transcript this fixture captures — the exact
         # shape that made the review-routing golden report drift with no routing
@@ -11325,7 +11325,7 @@ def launcher_fixture(launcher_module):
             XDG_CACHE_HOME=str(tmp / "cache"),
             AGENT_LAUNCH_VERSION_FILE=str(version_fixture),
             AGENT_BIOS_SESSION_DISTILL_STATE=str(tmp / "no-distill-state.json"),
-            AGENT_BIOS_CORPUS_STATUS=str(tmp / "no-corpus-status.json"),
+            AGENT_BIOS_INSTRUCTIONS_STATUS=str(tmp / "no-corpus-status.json"),
         # Pinned for BOTH reasons, and the second is the one that bites: an operator's
         # real cache would print "update vX available" into every transcript and drift
         # the golden, and an unpinned launcher would SPAWN `agent-bios update --check`
@@ -12000,7 +12000,7 @@ def launcher_renders_each_language(fx):
         return {key: value for key, value in raw.items() if isinstance(value, str)}
 
     english = catalog("en")
-    evidence_keys = ("mode.title", "corpus.label", "language.label")
+    evidence_keys = ("mode.title", "instructions.label", "language.label")
 
     def drive(language):
         return fx.run_picker_scenario(
@@ -12083,8 +12083,8 @@ def launcher_renders_each_language(fx):
 
 
 @launcher_check
-def corpus_status_shapes_degrade_rather_than_lie(fx):
-    """A wrong type in the corpus projection renders as absence, never as a plausible value.
+def instructions_status_shapes_degrade_rather_than_lie(fx):
+    """A wrong type in the instructions projection renders as absence, never as a plausible value.
 
     `config_typos_reach_the_user_as_messages` does this for `agent-launch.toml`; nothing
     did it for `corpus-status.json`, and that is where three defects lived. The readers
@@ -12106,7 +12106,7 @@ def corpus_status_shapes_degrade_rather_than_lie(fx):
     if launcher_module is None:
         return
 
-    workspace = fx.tmp / "corpus-shapes"
+    workspace = fx.tmp / "instructions-shapes"
     workspace.mkdir(exist_ok=True)
     status_path = workspace / "corpus-status.json"
 
@@ -12134,7 +12134,7 @@ def corpus_status_shapes_degrade_rather_than_lie(fx):
 
     walk(well_formed)
     if not list_paths:
-        mark_fail("corpus status shape sweep: the fixture holds no list-typed field, so "
+        mark_fail("instructions status shape sweep: the fixture holds no list-typed field, so "
                   "the substitution this leg makes has nothing to act on")
         return
 
@@ -12146,12 +12146,12 @@ def corpus_status_shapes_degrade_rather_than_lie(fx):
 
     def render(document):
         status_path.write_text(json.dumps(document), encoding="utf-8")
-        saved = os.environ.get(launcher_module.CORPUS_STATUS_ENV) if hasattr(
-            launcher_module, "CORPUS_STATUS_ENV") else os.environ.get("AGENT_BIOS_CORPUS_STATUS")
-        os.environ["AGENT_BIOS_CORPUS_STATUS"] = str(status_path)
+        saved = os.environ.get(launcher_module.INSTRUCTIONS_STATUS_ENV) if hasattr(
+            launcher_module, "INSTRUCTIONS_STATUS_ENV") else os.environ.get("AGENT_BIOS_INSTRUCTIONS_STATUS")
+        os.environ["AGENT_BIOS_INSTRUCTIONS_STATUS"] = str(status_path)
         try:
             importlib.reload(launcher_module) if False else None
-            launcher_module.CORPUS_STATUS_PATH = status_path
+            launcher_module.INSTRUCTIONS_STATUS_PATH = status_path
             # Panel AND checklist: `domains.available` never reaches the panel, so a
             # panel-only probe would have to skip it, and a skipped field is exactly the
             # kind of silent hole this leg exists to close. The checklist is driven with
@@ -12165,12 +12165,12 @@ def corpus_status_shapes_degrade_rather_than_lie(fx):
             launcher_module.read_input = exhausted
             try:
                 with contextlib.redirect_stderr(errors):
-                    lines = launcher_module.corpus_summary_lines(
-                        launcher_module.load_corpus_status()
+                    lines = launcher_module.instructions_summary_lines(
+                        launcher_module.load_instructions_status()
                     )
                     with contextlib.redirect_stdout(drawn):
                         try:
-                            launcher_module.corpus_checklist(None)
+                            launcher_module.instructions_checklist(None)
                         except (launcher_module.BackRequested, launcher_module.LaunchError):
                             pass
             finally:
@@ -12178,15 +12178,15 @@ def corpus_status_shapes_degrade_rather_than_lie(fx):
             return "\n".join(lines) + "\n--\n" + drawn.getvalue()
         finally:
             if saved is None:
-                os.environ.pop("AGENT_BIOS_CORPUS_STATUS", None)
+                os.environ.pop("AGENT_BIOS_INSTRUCTIONS_STATUS", None)
             else:
-                os.environ["AGENT_BIOS_CORPUS_STATUS"] = saved
+                os.environ["AGENT_BIOS_INSTRUCTIONS_STATUS"] = saved
 
-    original_path = launcher_module.CORPUS_STATUS_PATH
+    original_path = launcher_module.INSTRUCTIONS_STATUS_PATH
     try:
         baseline = render(copy.deepcopy(well_formed))
         if not baseline.strip():
-            mark_fail("corpus status shape sweep: the well-formed fixture renders nothing, "
+            mark_fail("instructions status shape sweep: the well-formed fixture renders nothing, "
                       "so every comparison below would pass against an empty string")
             return
         for path in list_paths:
@@ -12194,7 +12194,7 @@ def corpus_status_shapes_degrade_rather_than_lie(fx):
             emptied = copy.deepcopy(well_formed)
             place(emptied, path, [])
             if render(emptied) == baseline:
-                mark_fail(f"corpus status shape sweep: emptying {dotted} changed no rendered "
+                mark_fail(f"instructions status shape sweep: emptying {dotted} changed no rendered "
                           "surface, so nothing here can observe this field at all")
                 continue
             # Two values of the same wrong type, differing only in content.
@@ -12208,23 +12208,23 @@ def corpus_status_shapes_degrade_rather_than_lie(fx):
                 place(two, path, second)
                 if render(one) != render(two):
                     mark_fail(
-                        f"corpus status: {dotted} given {label} renders differently for "
+                        f"instructions status: {dotted} given {label} renders differently for "
                         f"{first!r} than for {second!r} — the reader is deriving a value "
                         "from a shape it cannot use instead of degrading"
                     )
     finally:
-        launcher_module.CORPUS_STATUS_PATH = original_path
+        launcher_module.INSTRUCTIONS_STATUS_PATH = original_path
 
 
 @launcher_check
-def corpus_panel_columns_align_in_every_language(fx):
+def instructions_panel_columns_align_in_every_language(fx):
     """The status panel's values start at one column, in every language.
 
     The panel pads labels into a column, and padding computed with len() lines up
     only in English: `적용 버전` is five characters and nine display cells, so a
     naive pad leaves Korean four cells short and the panel ragged. Nothing else
     here can see that — the catalog gate checks keys and slots, and the render legs
-    assert a string appeared, not where. This drives the REAL corpus_summary_lines
+    assert a string appeared, not where. This drives the REAL instructions_summary_lines
     over one fixture status per language and requires every labelled row to begin
     its value at the same cell.
 
@@ -12269,20 +12269,20 @@ def corpus_panel_columns_align_in_every_language(fx):
     if (measure("적용 버전") != 9 or measure("Applied version") != 15
             or measure(unicodedata.normalize("NFD", "적용 버전")) != 9
             or measure("q\u0301") != 1):
-        mark_fail("corpus panel: the gate's own width ruler is wrong — vacuous")
+        mark_fail("instructions panel: the gate's own width ruler is wrong — vacuous")
         return
 
     def value_columns(language):
         """The display cell each labelled row's value starts at."""
         raw = tomllib.loads((directory / f"{language}.toml").read_text(encoding="utf-8"))
         launcher_module._CATALOG = {k: v for k, v in raw.items() if isinstance(v, str)}
-        lines = launcher_module.corpus_summary_lines(status)
+        lines = launcher_module.instructions_summary_lines(status)
         columns = {}
         for key in label_keys:
             label = launcher_module.t(key)
             row = next((r for r in lines if r.startswith(label)), None)
             if row is None:
-                mark_fail(f"corpus panel ({language}) has no row for {key}")
+                mark_fail(f"instructions panel ({language}) has no row for {key}")
                 continue
             rest = row[len(label):]
             pad = len(rest) - len(rest.lstrip(" "))
@@ -12294,7 +12294,7 @@ def corpus_panel_columns_align_in_every_language(fx):
             columns = value_columns(language)
             if len(set(columns.values())) > 1:
                 mark_fail(
-                    f"corpus panel ({language}) values start at different columns: "
+                    f"instructions panel ({language}) values start at different columns: "
                     f"{columns} — the label pad is not measuring display cells"
                 )
         # Control: the naive width function must break exactly the CJK panels, or
@@ -12308,7 +12308,7 @@ def corpus_panel_columns_align_in_every_language(fx):
             launcher_module.display_width = real_width
         if not ragged:
             mark_fail(
-                "corpus panel control: len()-based padding kept ko and ja aligned, "
+                "instructions panel control: len()-based padding kept ko and ja aligned, "
                 "so this leg would pass whether or not the widths are measured"
             )
     finally:
@@ -12364,13 +12364,13 @@ def distill_hub(fx):
         ),
         term="dumb",
     )
-    corpus_panel_rendered = (
+    instructions_panel_rendered = (
         b"Applied version" in transcript or b"not projected yet" in transcript
     )
     if (
         picker_status != 0
         or b"Traceback" in transcript
-        or not corpus_panel_rendered
+        or not instructions_panel_rendered
         or b"Preset         Balanced" not in transcript
     ):
         mark_fail("agent-launch numbered distill hub did not render or return")

@@ -30,7 +30,7 @@ import pathlib
 import shutil
 import tomllib
 
-import corpus
+import instructions
 import dispatch
 
 HIT, MISS, PARTIAL = "HIT", "MISS", "PARTIAL"
@@ -172,7 +172,7 @@ JUDGE_PROMPT = """You are scoring one response from an instruction-following ben
 
 You are given the user's request, the behaviour that counts as correct, the behaviour
 that counts as the naive failure, and the response. You do not know which variant of
-the instructions produced it, and you must not guess: nothing about the corpus, the
+the instructions produced it, and you must not guess: nothing about the instructions, the
 arm, or the item is available to you, deliberately.
 
 Score the BEHAVIOUR, not the vocabulary. A response that names the right concerns and
@@ -213,7 +213,7 @@ CANARY_LINE_RE = re.compile(r"^.*CANARY_(GLOBAL|GUIDE|HOOK)\b.*$\n?", re.M)
 def strip_scaffolding(response: str) -> str:
     """Remove the instrument's own canary lines before a judge reads the response.
 
-    The canaries are how the run evidences which corpus was loaded; they are not
+    The canaries are how the run evidences which instructions were loaded; they are not
     behaviour, and the judge is asked to score behaviour. Two reasons to take them
     out rather than leave them: they are unexplained tokens a judge may hold against
     a response, and they are arm-specific, so a judge that ever saw two responses
@@ -452,7 +452,7 @@ def main() -> int:
     home = pathlib.Path(tempfile.mkdtemp(prefix="judge-home-"))
     cwd = pathlib.Path(tempfile.mkdtemp(prefix="judge-cwd-"))
     try:
-        variant = corpus.build_variant(args.host, home / "h", "J" + secrets.token_hex(3))
+        variant = instructions.build_variant(args.host, home / "h", "J" + secrets.token_hex(3))
         res = score_run(outdir, scenarios, args.host, args.model, args.effort, variant,
                         cwd, args.concurrency)
     finally:

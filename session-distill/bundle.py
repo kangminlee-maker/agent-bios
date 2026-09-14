@@ -4,7 +4,7 @@
 Merges Claude + Codex screening candidates, attaches the deterministic session
 evidence (goal, signals) from the digests, groups by proposed placement, and
 emits a Markdown bundle the user reviews before anything is written to the
-canonical instruction corpus. Nothing here edits CLAUDE.md/guides — that is a
+canonical instruction library. Nothing here edits CLAUDE.md/guides — that is a
 separate, explicitly-approved step.
 
 Usage: bundle.py [--claude FILE] [--codex FILE] [--digests FILE] [--out FILE]
@@ -56,8 +56,8 @@ def main():
     lines.append(f'Screened **{len(screened)}** directly-handled main-context sessions '
                  f'({len(cl["screened_ids"])} Claude + {len(cx["screened_ids"])} Codex) over the rolling window. '
                  f'**{len(cands)}** candidate learnings survived screening against the current baseline '
-                 f'(CLAUDE.md + 12 guides). Nothing below is written to the corpus yet — this is for your review.\n')
-    lines.append('Each candidate: the criteria it meets, the general principle proposed for the corpus, '
+                 f'(CLAUDE.md + 12 guides). Nothing below is written to the instructions yet — this is for your review.\n')
+    lines.append('Each candidate: the criteria it meets, the general principle proposed for the instructions, '
                  'why it is novel vs the baseline, the session evidence it rests on, and proposed placement. '
                  'Sorted by confidence within each placement group.\n')
     lines.append('---\n')

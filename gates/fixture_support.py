@@ -36,7 +36,7 @@ def legacy_host_environment(repo):
 
     Apply at the observation boundary, before importing the launcher, so its
     in-process readers and child processes see the same environment. Private
-    corpus tests select their own mode; this fixture is not an umbrella default.
+    instructions tests select their own mode; this fixture is not an umbrella default.
     """
     repo = Path(repo).resolve()
     from launcher_fixture_env import launcher_environment
@@ -48,9 +48,9 @@ def legacy_host_environment(repo):
             "AGENT_LAUNCH_CONFIG": repo / "launch" / "agent-launch.toml",
             "AGENT_LAUNCH_LANG": "en",
             "AGENT_BIOS_STATE_DIR": root / "state",
-            "AGENT_BIOS_CORPUS_DIR": root / "corpus",
+            "AGENT_BIOS_INSTRUCTIONS_DIR": root / "instructions",
             "XDG_CACHE_HOME": root / "cache",
-            "AGENT_BIOS_CORPUS_STATUS": root / "no-corpus-status.json",
+            "AGENT_BIOS_INSTRUCTIONS_STATUS": root / "no-corpus-status.json",
             "AGENT_BIOS_SESSION_DISTILL_STATE": root / "no-distill-state.json",
             "AGENT_BIOS_UPDATE_CHECK_STATE": root / "no-update-check.json",
             "AGENT_BIOS_UPDATE_CHECK": "0",
@@ -157,13 +157,13 @@ def self_test():
                 (state / "runtime").mkdir(parents=True)
                 marker = state / "runtime/private-install.json"
                 marker.write_text("ambient private-install sentinel")
-                values = {"AGENT_BIOS_PRIVATE_CORPUS": "1", "AGENT_BIOS_STATE_DIR": str(state),
+                values = {"AGENT_BIOS_PRIVATE_INSTRUCTIONS": "1", "AGENT_BIOS_STATE_DIR": str(state),
                           "CODEX_HOME": str(ambient / "absent-codex"),
                           "CLAUDE_CONFIG_DIR": str(ambient / "absent-claude")}
                 with patched_environment(values):
                     with legacy_host_environment(repo) as fixture:
                         launch = load("launch/agent-launch.py", "fixture_launch_test")
-                        self.assertFalse(launch.private_corpus_enabled())
+                        self.assertFalse(launch.private_instructions_enabled())
                         config = launch.load_config(repo / "launch/agent-launch.toml")
                         for binding in config["backends"].values():
                             binding["command"] = sys.executable
@@ -178,8 +178,8 @@ def self_test():
                                          (fixture / "codex/agents/frontier.toml").read_bytes())
                         child = json.loads(subprocess.check_output([sys.executable, "-c",
                             "import os,json; print(json.dumps({k:os.environ.get(k) for k in "
-                            "['AGENT_BIOS_PRIVATE_CORPUS','CODEX_HOME','CLAUDE_CONFIG_DIR']}))"], text=True))
-                        self.assertEqual("0", child["AGENT_BIOS_PRIVATE_CORPUS"])
+                            "['AGENT_BIOS_PRIVATE_INSTRUCTIONS','CODEX_HOME','CLAUDE_CONFIG_DIR']}))"], text=True))
+                        self.assertEqual("0", child["AGENT_BIOS_PRIVATE_INSTRUCTIONS"])
                         self.assertEqual(str(fixture / "codex"), child["CODEX_HOME"])
                         self.assertEqual(str(fixture / "claude"), child["CLAUDE_CONFIG_DIR"])
                     self.assertEqual(values, {key: os.environ.get(key) for key in values})
@@ -189,29 +189,29 @@ def self_test():
                 self.assertFalse(fixture.exists())
 
         def test_environment_restores_absent_empty_and_set_values_after_exception(self):
-            values = {"CODEX_HOME": None, "CLAUDE_CONFIG_DIR": "", "AGENT_BIOS_PRIVATE_CORPUS": "1"}
+            values = {"CODEX_HOME": None, "CLAUDE_CONFIG_DIR": "", "AGENT_BIOS_PRIVATE_INSTRUCTIONS": "1"}
             with patched_environment(values):
                 with self.assertRaisesRegex(RuntimeError, "fixture interruption"):
                     with legacy_host_environment(repo):
                         raise RuntimeError("fixture interruption")
                 self.assertNotIn("CODEX_HOME", os.environ)
                 self.assertEqual("", os.environ["CLAUDE_CONFIG_DIR"])
-                self.assertEqual("1", os.environ["AGENT_BIOS_PRIVATE_CORPUS"])
+                self.assertEqual("1", os.environ["AGENT_BIOS_PRIVATE_INSTRUCTIONS"])
 
         def test_entrypoints_apply_and_restore_their_boundary(self):
             cases = (("gates/capture-review-goldens.py", "capture", "_capture", ()),
                      ("gates/check_parity.py", "main", "run_checks", ([],)),
                      ("launch/test-tier-effort.py", "main", "run_checks", ()))
-            with patched_environment({"AGENT_BIOS_PRIVATE_CORPUS": "1", "CODEX_HOME": "/absent-fixture-host"}):
+            with patched_environment({"AGENT_BIOS_PRIVATE_INSTRUCTIONS": "1", "CODEX_HOME": "/absent-fixture-host"}):
                 for index, (path, entry, inner, args) in enumerate(cases):
                     with self.subTest(entry=path):
                         module = load(path, f"fixture_entry_{index}")
                         def observe(*unused, **kwargs):
-                            return (os.environ.get("AGENT_BIOS_PRIVATE_CORPUS"),
+                            return (os.environ.get("AGENT_BIOS_PRIVATE_INSTRUCTIONS"),
                                     (Path(os.environ["CODEX_HOME"]) / "agents/frontier.toml").is_file())
                         setattr(module, inner, observe)
                         self.assertEqual(("0", True), getattr(module, entry)(*args))
-                        self.assertEqual("1", os.environ["AGENT_BIOS_PRIVATE_CORPUS"])
+                        self.assertEqual("1", os.environ["AGENT_BIOS_PRIVATE_INSTRUCTIONS"])
                         self.assertEqual("/absent-fixture-host", os.environ["CODEX_HOME"])
 
     result = unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.loadTestsFromTestCase(FixtureTests))

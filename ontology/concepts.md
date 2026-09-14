@@ -48,7 +48,7 @@ obligations survive. Where a concept already carries a stable machine
 identifier, that identifier *is* the entity id:
 
 - a guide → its `guide_id` frontmatter value (`tooling-gotchas`, not the filename)
-- a corpus rule → its `anchor` substring, the mechanism `compose/domains.json`
+- an instruction rule → its `anchor` substring, the mechanism `compose/domains.json`
   `bullets[]` already uses; private catalog items carry stable package-qualified refs
 - a review method / capability → its TOML table key
 - a tier binding → `(host, tier)`
@@ -60,11 +60,11 @@ ids is what keeps the graph joinable to real code without a translation table.
 
 ## F1 — Instruction content
 
-**corpus rule** — one instruction bullet selected for an activated session.
+**instructions rule** — one instruction bullet selected for an activated session.
 *Identity:* the manifest's stable item id; `anchor` locates the canonical bullet.
 *Manifestations:* `claude/CLAUDE.md` → Codex and Korean projections →
-`compose/domains.json` classification → `compose/corpus_catalog.py` inventory →
-`compose/corpus_store.py` immutable snapshot → `compose/corpus_session.py` delivery.
+`compose/domains.json` classification → `compose/instructions_catalog.py` inventory →
+`compose/instructions_store.py` immutable snapshot → `compose/instructions_session.py` delivery.
 Native global instruction files are preserved by private installation. The canonical
 always surface permits reductions only; placement additions use another surface.
 *Missed when:* an unclassified rule is absent from the catalog, or a selected rule
@@ -81,15 +81,15 @@ no registered consumer. The domain and parity gates check declared relationships
 **agent template** — a subagent role definition. Launcher tier templates are
 selected through `[hosts.<host>.agent_templates]` in `launch/agent-launch.toml`;
 HELM is the main and is not a spawnable template. `reviewer.toml` is a Codex role
-with no Claude source counterpart. Authored corpus agent items have separate
+with no Claude source counterpart. Authored instructions agent items have separate
 catalog refs and default-off native delivery. Claude's per-item plugins carry
 those agents; their frontmatter translation to Codex is not implemented.
 Registration or configuration is not evidence that a child executed the body.
 
 **hook** — executable guidance for a supported host event. *Identity:* manifest
 name and catalog ref. *Manifestations:* `claude/hooks/*.py` → `domains.json`
-`hooks{}` and `source_guide` → common compiler in `compose/corpus_catalog.py` →
-selected snapshot → `compose/corpus_session.py` adapter. `--corpus-native` is
+`hooks{}` and `source_guide` → common compiler in `compose/instructions_catalog.py` →
+selected snapshot → `compose/instructions_session.py` adapter. `--instructions-native` is
 required: Claude uses per-item plugins and Codex uses session configuration;
 unsupported events remain non-executable. Existing native hooks and host trust
 remain in force. Private installation does not register global hooks.
@@ -100,7 +100,7 @@ or credited with execution without an observed invocation.
 `learning_id` the collector mints. *Manifestations:* `learn/learning.schema.json`
 (shape) → `learn/collect-learning.py` (writer, PATH-reachable only via the
 `learn` subcommand) → private `learnings/<host>/events.jsonl` through
-`compose/corpus_store.py` → selected activated-session snapshots.
+`compose/instructions_store.py` → selected activated-session snapshots.
 `learn/check-learning.py` validates the record; per-host `upload-state.json`
 tracks delivery when transport is configured. `learn/promotions.json` supplies
 promotion claims; the store suppresses a captured source in a snapshot only when
@@ -108,7 +108,7 @@ its exact digest has a safe selected replacement. Capture preserves user-global
 instruction files and immutable source events.
 
 **session distill pipeline** — the curator flow that learns from many directly
-handled sessions and authors corpus improvements. *Identity:* `session-distill`.
+handled sessions and authors instructions improvements. *Identity:* `session-distill`.
 *Manifestations:* the Python/JavaScript pipeline under `session-distill/`, the
 `distill!` trigger, launch preset and hub, and the author-only
 `session-distill-workflow` guide. It produces proposals and ledger evidence;
@@ -136,7 +136,7 @@ individual item enablement can override selection.
 pair `(package_id, domain)` is the real key.
 
 **selection** — qualified package/domain or item choices resolved by
-`compose/corpus_store.py`. Installed defaults, personal selection, explicit
+`compose/instructions_store.py`. Installed defaults, personal selection, explicit
 session requests, and per-item enablement determine future snapshots; they do not
 rewrite existing pins. `selection.json` and `packaged_mode()` describe retained
 compatibility installation, not the private store's selection authority.
@@ -189,7 +189,7 @@ adapter's arguments and result rather than infer execution from file presence.
 role. `launch/provision-venv.sh` owns the Textual root pin; the author builder derives
 the exact `compose/ui_runtime/manifest.json` and wheel set. The runtime loader verifies
 and extracts those files temporarily before the package CLI imports UI modules.
-Installation, package/current-checkout Corpus Studio and private/current-checkout
+Installation, package/current-checkout Instructions Studio and private/current-checkout
 launcher rich paths need no prior Textual installation. Their corrupt-bundle outcome
 is a named failure requiring repair. Normal exit and backend process replacement
 release the temporary runtime. Standalone compatibility launcher copies and retained
@@ -203,16 +203,16 @@ metadata, hashes, licensing and offline loading against the source.
 
 **CLI subcommand** — a user-invocable entry advertised and dispatched by
 `install.sh`. The private dispatcher routes lifecycle commands to
-`compose/corpus_install.py`, corpus management to `compose/corpus.py`, and
-session understanding to `compose/corpus_understand.py`. The early `learn` branch
+`compose/instructions_install.py`, instructions management to `compose/instructions.py`, and
+session understanding to `compose/instructions_understand.py`. The early `learn` branch
 preserves stdin through fd 3. Compatibility dispatch has a separate explicit
 `AGENT_BIOS_LEGACY_INSTALL=1` boundary. Extraction must cover all dispatch sites.
 Private `install` and `onboard` open the UI unless `--non-interactive` is explicit;
 selection flags initialize the shared `SetupController` plan. The Textual client in
-`compose/corpus_setup_ui.py` renders choices while the controller owns preview/apply.
+`compose/instructions_setup_ui.py` renders choices while the controller owns preview/apply.
 
 **deploy target** — a source-to-owned-destination write with a stated verification
-and removal contract. `compose/corpus_install.py` inventories the private release
+and removal contract. `compose/instructions_install.py` inventories the private release
 and its owned launcher projections. Release files are immutable and digest-checked.
 Compatibility `deploy_file`/`deploy_glob`/`deploy_tree` calls retain separate
 native-destination obligations; their verification does not establish private
@@ -232,12 +232,12 @@ migration. A stale path list alone does not authorize deleting user content.
 **state artifact** — persisted authority or projection with named writers,
 readers, identity, and validation. Private runtime and user `state.json`, baseline
 inventories, transaction journals, immutable snapshot inventories, and host session
-pins have distinct lifetimes. `compose/corpus-state.py` projects the launcher panel;
+pins have distinct lifetimes. `compose/instructions-state.py` projects the launcher panel;
 that projection is not the source authority for private reset or rollback.
 
 **migration** — an explicit, recovery-backed transform of legacy native state
-into private ownership, implemented by `compose/corpus_install.py` and
-`compose/corpus_transaction.py`. Preview identifies exact owned inputs; apply
+into private ownership, implemented by `compose/instructions_install.py` and
+`compose/instructions_transaction.py`. Preview identifies exact owned inputs; apply
 backs up originals, imports and verifies learnings, rechecks native inputs, and
 retires only proven owned regions. Pending operations block conflicting writes.
 Ambiguous ownership or changed inputs require recovery, not a guessed deletion.
@@ -253,8 +253,8 @@ the entity relation, and neither half is currently gated.
 **user-owned file region** — a bounded managed span or discovery entry inside
 otherwise user-owned native state. Default private installation preserves global
 instructions, settings, and discovery directories. Explicit app registration owns
-only its verified discovery link through `compose/corpus_app.py`; it carries no
-selected corpus body and disables implicit invocation. Optional shell connection owns
+only its verified discovery link through `compose/instructions_app.py`; it carries no
+selected instructions body and disables implicit invocation. Optional shell connection owns
 only its marked `.zshrc` span and managed script through
 `launch/shell_integration.py`. Explicit migration can retire proven legacy
 agent-bios spans, imports, and registrations while preserving other content.
@@ -270,20 +270,20 @@ conflict; native instruction files are outside this operation's write set.
 
 **environment variable** — a named runtime override with a precise authority.
 `AGENT_BIOS_STATE_DIR` moves private runtime/session state;
-`AGENT_BIOS_CORPUS_DIR` moves personal corpus sources;
+`AGENT_BIOS_INSTRUCTIONS_DIR` moves personal instructions sources;
 `AGENT_BIOS_PACKAGE_ROOT` selects the session's package runtime.
 `CLAUDE_CONFIG_DIR` and `CODEX_HOME` locate native host state,
 `AGENT_LAUNCH_VENV` selects the optional interpreter, and `ZDOTDIR` locates shell
 startup files. Each reader must preserve that scope; one override does not move
 unrelated roots or the HOME-rooted learning transport slot.
 
-**corpus assembler** — selection-aware composition owned by
-`compose/corpus_catalog.py` and `compose/corpus_store.py` for the private path.
+**instructions assembler** — selection-aware composition owned by
+`compose/instructions_catalog.py` and `compose/instructions_store.py` for the private path.
 It combines the installed baseline, personal source, overlays, and host learnings
-into a content-addressed snapshot. No-corpus mode emits no instruction text or
+into a content-addressed snapshot. No-instructions mode emits no instruction text or
 management bootstrap; imported host/project scope constrains selection.
-`compose/corpus_session.py` delivers and pins native sessions separately, while
-`compose/corpus_app.py` records explicit returned task context without claiming a
+`compose/instructions_session.py` delivers and pins native sessions separately, while
+`compose/instructions_app.py` records explicit returned task context without claiming a
 native pin or retracting earlier text. `compose/assemble.py` retains source parsing helpers
 and the guarded compatibility assembly path; its native entry seeding and
 settings merge are not default private behavior.
@@ -316,13 +316,13 @@ that goes stale on the next added case.
 run by `gates/check-parity.sh`.
 
 **activation canary** — an observation that content reached a host, distinct from
-stored-state verification. Private activation uses `compose/corpus_session.py`
+stored-state verification. Private activation uses `compose/instructions_session.py`
 with host-observed evidence and session pins; its evidence level does not imply
-model compliance or corpus-agent execution. `compose/canary.sh` probes only the
+model compliance or instructions-agent execution. `compose/canary.sh` probes only the
 retained compatibility global bundle. Neither a stored release nor a launcher
 status projection is an activation result.
 
-**measurement instrument** — the tool that produces the numbers the corpus
+**measurement instrument** — the tool that produces the numbers the instructions
 cites (`session-cost.py`; CONTRIBUTING.md binds it as the measurement authority
 for each guide's `Evidence Base`, the single owner of numbers). *Why F5 rather than a
 utility:* a guide's quantitative claim and the instrument that can reproduce it

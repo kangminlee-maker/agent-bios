@@ -47,7 +47,7 @@ prompt를 작성할 때 사용한다 — cross-family로 dispatch하는 review p
 subagent brief, 또는 main이 Claude일 때 main 자신의 지시.
 
 main과 다른 model을 쓰는 subagent일 때도 prompt를 받는 model의 section과 아래
-공유 recipe 및 checklist를 함께 쓴다. model별 조정은 corpus의 permission 경계와
+공유 recipe 및 checklist를 함께 쓴다. model별 조정은 instructions의 permission 경계와
 필수 verification을 보존한다.
 
 | Target | Apply |

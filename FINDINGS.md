@@ -18,7 +18,7 @@ Every entry names its alternatives. An item with one path is not a finding, it i
 
 ---
 
-## F-17 — conditional prohibitions in the selected startup corpus need evaluation
+## F-17 — conditional prohibitions in the selected startup instructions need evaluation
 
 `claude/CLAUDE.md` embeds prohibitions inside longer conditional bullets, including
 runtime enforcement, lifecycle ownership, destructive operations, and spawn policy.

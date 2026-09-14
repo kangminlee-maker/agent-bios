@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Author-side integration gate for the slide-writing corpus member.
+"""Author-side integration gate for the slide-writing instructions member.
 
 Fixture rendering is deliberately test-local.  It exercises production
 registration and artifact validation, but proves no rendering or semantic
@@ -33,9 +33,9 @@ RENDER_PATH = WRITING / "scripts" / "render.mjs"
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(REPO / "compose"))
 
-from corpus_catalog import compile_items, load_catalog  # noqa: E402
-from corpus_install import CorpusInstaller  # noqa: E402
-from corpus_store import CorpusStore  # noqa: E402
+from instructions_catalog import compile_items, load_catalog  # noqa: E402
+from instructions_install import InstructionsInstaller  # noqa: E402
+from instructions_store import InstructionsStore  # noqa: E402
 
 
 def load_pair_module():
@@ -351,7 +351,7 @@ class PairCliIntegrationTests(unittest.TestCase):
         (job / "review.md").write_text("manual edit\n"); self.error("review output changed", "verify", "--job", str(job))
 
 
-class CorpusProjectionTests(unittest.TestCase):
+class InstructionsProjectionTests(unittest.TestCase):
     """Catalog and compiler checks for the package-facing guide runtime."""
 
     def setUp(self) -> None:
@@ -402,7 +402,7 @@ class CorpusProjectionTests(unittest.TestCase):
     def test_primary_body_edit_changes_only_the_next_compiled_job_oracle(self):
         with tempfile.TemporaryDirectory(prefix="slide-writing-store-edit-") as temp:
             root = Path(temp)
-            store = CorpusStore(REPO, root / "state", root / "user")
+            store = InstructionsStore(REPO, root / "state", root / "user")
             store.install(["office-work"])
             source, spec = root / "source.md", root / "spec.json"
             source.write_text("# source\n", encoding="utf-8")
@@ -463,8 +463,8 @@ class CorpusProjectionTests(unittest.TestCase):
     def test_private_installer_accepts_the_runtime_payload_without_author_test_files(self):
         with tempfile.TemporaryDirectory(prefix="slide-writing-install-") as temp:
             root = Path(temp); home, state, user = root / "home", root / "state", root / "user"
-            installer = CorpusInstaller(REPO, {"HOME": str(home), "AGENT_BIOS_STATE_DIR": str(state),
-                                               "AGENT_BIOS_CORPUS_DIR": str(user), "CLAUDE_CONFIG_DIR": str(home / ".claude"),
+            installer = InstructionsInstaller(REPO, {"HOME": str(home), "AGENT_BIOS_STATE_DIR": str(state),
+                                               "AGENT_BIOS_INSTRUCTIONS_DIR": str(user), "CLAUDE_CONFIG_DIR": str(home / ".claude"),
                                                "CODEX_HOME": str(home / ".codex"), "ZDOTDIR": str(home)})
             result = installer.install("office-work")
             release = Path(result["record"]["package_root"])
