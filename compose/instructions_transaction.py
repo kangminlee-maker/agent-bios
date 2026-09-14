@@ -9,7 +9,10 @@ from __future__ import annotations
 
 import contextlib
 import base64
-from host_platform import file_locks as fcntl, redirected
+try:
+    from host_platform import file_locks as fcntl, redirected
+except ImportError:
+    from .host_platform import file_locks as fcntl, redirected
 import hashlib
 import json
 import os

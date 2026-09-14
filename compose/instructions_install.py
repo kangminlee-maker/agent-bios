@@ -6,7 +6,10 @@ activation path: installed instructions are stored and verifiable, while a launc
 activation creates the per-session snapshot and pin.
 """
 from __future__ import annotations
-from host_platform import WINDOWS
+try:
+    from host_platform import WINDOWS
+except ImportError:
+    from .host_platform import WINDOWS
 
 import argparse
 import base64

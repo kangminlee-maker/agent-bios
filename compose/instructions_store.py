@@ -6,7 +6,10 @@ does not alter a host configuration or claim that a snapshot was loaded by a
 host; that is the launch adapter's job.
 """
 from __future__ import annotations
-from host_platform import sync_directory, cli_argv
+try:
+    from host_platform import sync_directory, cli_argv
+except ImportError:
+    from .host_platform import sync_directory, cli_argv
 
 import copy
 import contextlib

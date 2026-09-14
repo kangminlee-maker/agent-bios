@@ -21,7 +21,10 @@ import datetime
 import io
 import json
 import contextlib
-from host_platform import file_locks as fcntl
+try:
+    from host_platform import file_locks as fcntl
+except ImportError:
+    from .host_platform import file_locks as fcntl
 import os
 import pathlib
 import shutil

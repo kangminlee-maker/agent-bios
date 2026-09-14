@@ -227,3 +227,9 @@ English·한국어·日本語 중 사용할 언어를 묻습니다. 설치할 �
 ## 라이선스
 
 [MIT](../LICENSE).
+
+## Windows 네이티브 시험판
+
+Windows 워크플로에서 Python을 포함한 x64 설치 파일을 만듭니다. npm이나 WSL 없이
+`agent-bios.exe`와 `agent-launch.exe`를 실행합니다.
+[설치 방법과 검증 범위](../docs/windows.md)를 확인하세요.

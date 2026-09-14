@@ -4,7 +4,10 @@ Native homes stay native. The only files this module writes are private activati
 records and pins; no global instructions, auth, or discovery registration is copied.
 """
 from __future__ import annotations
-from host_platform import sync_directory, cli_argv
+try:
+    from host_platform import sync_directory, cli_argv
+except ImportError:
+    from .host_platform import sync_directory, cli_argv
 
 import hashlib
 import json

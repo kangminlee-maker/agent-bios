@@ -25,3 +25,7 @@ class HostPlatformTests(unittest.TestCase):
         p=subprocess.run([sys.executable,str(ROOT/'compose/native_cli.py'),'--version'],capture_output=True,text=True)
         self.assertEqual(p.returncode,0,p.stderr)
         self.assertRegex(p.stdout.strip(),r'^\d+\.\d+\.\d+$')
+
+    def test_package_import_does_not_need_compose_on_pythonpath(self):
+        p=subprocess.run([sys.executable, '-c', 'import compose.instructions_transaction; import compose.instructions_store'],cwd=ROOT,capture_output=True,text=True)
+        self.assertEqual(p.returncode,0,p.stderr)

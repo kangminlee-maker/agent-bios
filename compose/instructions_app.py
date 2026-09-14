@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Explicit Codex app discovery and per-task instructions context delivery."""
 from __future__ import annotations
-from host_platform import cli_argv, create_junction
+try:
+    from host_platform import cli_argv, create_junction
+except ImportError:
+    from .host_platform import cli_argv, create_junction
 
 import argparse
 from datetime import datetime, timezone

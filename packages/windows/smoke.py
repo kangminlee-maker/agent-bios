@@ -30,6 +30,9 @@ with tempfile.TemporaryDirectory(prefix='agent-bios 한글 공백 ') as temp:
         path = winreg.QueryValueEx(key,'Path')[0]
     assert str(app).casefold() in [p.casefold() for p in path.split(';')]
     checks.append('user PATH registration')
+    shortcuts = Path(os.environ['APPDATA'])/'Microsoft/Windows/Start Menu/Programs/agent-bios'
+    assert (shortcuts/'agent-bios.lnk').is_file() and (shortcuts/'Instructions Studio.lnk').is_file()
+    checks.append('Start menu shortcuts')
     for host in ('.codex','.claude'):
         p=home/host;p.mkdir();(p/('AGENTS.md' if host=='.codex' else 'CLAUDE.md')).write_text('NATIVE KEEP',encoding='utf-8')
     result=cli('install','--non-interactive');assert result['stored']

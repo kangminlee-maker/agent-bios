@@ -8,6 +8,7 @@ AppVersion={#AppVersion}
 DefaultDirName={localappdata}\Programs\agent-bios
 DefaultGroupName=agent-bios
 PrivilegesRequired=lowest
+MinVersion=10.0
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=..\..\dist\windows
@@ -16,11 +17,13 @@ Compression=lzma2
 SolidCompression=yes
 ChangesEnvironment=yes
 UninstallDisplayIcon={app}\agent-bios.exe
+[Messages]
+FinishedLabel=agent-bios is installed. Open a new PowerShell window to use its commands, or open setup below.
 [Files]
 Source: "..\..\dist\windows\app\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 [Icons]
-Name: "{group}\agent-bios"; Filename: "{app}\agent-bios.exe"; Parameters: "install"; WorkingDir: "{userprofile}"
-Name: "{group}\Instructions Studio"; Filename: "{app}\agent-bios.exe"; Parameters: "instructions"; WorkingDir: "{userprofile}"
+Name: "{group}\agent-bios"; Filename: "{app}\agent-bios.exe"; Parameters: "install"; WorkingDir: "{userdocs}"
+Name: "{group}\Instructions Studio"; Filename: "{app}\agent-bios.exe"; Parameters: "instructions"; WorkingDir: "{userdocs}"
 [Run]
 Filename: "{app}\agent-bios.exe"; Parameters: "install"; Description: "Open agent-bios setup"; Flags: postinstall skipifsilent nowait
 [UninstallRun]

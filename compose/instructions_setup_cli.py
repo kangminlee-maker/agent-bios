@@ -20,7 +20,10 @@ from typing import Any, Callable
 if __name__ == "__main__":
     sys.dont_write_bytecode = True
 
-from host_platform import sync_directory, cli_argv
+try:
+    from host_platform import sync_directory, cli_argv
+except ImportError:
+    from .host_platform import sync_directory, cli_argv
 
 try:
     from instructions_install import InstructionsInstaller

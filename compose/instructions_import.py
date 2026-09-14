@@ -5,7 +5,10 @@ meaning, wording and consumption surface; this module checks source provenance,
 evidence coverage and publication preconditions for InstructionsStore's transaction.
 """
 from __future__ import annotations
-from host_platform import sync_directory, cli_argv, redirected
+try:
+    from host_platform import sync_directory, cli_argv, redirected
+except ImportError:
+    from .host_platform import sync_directory, cli_argv, redirected
 
 import copy
 import argparse
