@@ -83,6 +83,10 @@ def _roots(environ: dict[str, str] | None) -> tuple[dict[str, str], Path, Path, 
     home = Path(env.get("HOME", str(Path.home()))).expanduser().absolute()
     state = Path(env.get("AGENT_BIOS_STATE_DIR", str(home / ".local/share/agent-bios"))).expanduser().absolute()
     user = Path(environment_value(env, "AGENT_BIOS_INSTRUCTIONS_DIR", "AGENT_BIOS_CORPUS_DIR", str(home / ".config/agent-bios/corpus"))).expanduser().absolute()
+    if os.name == "nt":
+        for path in (home, state, user):
+            reject_symlink_ancestors(path)
+        home, state, user = (path.resolve() for path in (home, state, user))
     return env, home, state, user
 
 

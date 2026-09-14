@@ -26,9 +26,16 @@ Name: "{group}\agent-bios"; Filename: "{app}\agent-bios.exe"; Parameters: "insta
 Name: "{group}\Instructions Studio"; Filename: "{app}\agent-bios.exe"; Parameters: "instructions"; WorkingDir: "{userdocs}"
 [Run]
 Filename: "{app}\agent-bios.exe"; Parameters: "install"; Description: "Open agent-bios setup"; Flags: postinstall skipifsilent nowait
-[UninstallRun]
-Filename: "{app}\agent-bios.exe"; Parameters: "uninstall"; Flags: runhidden waituntilterminated
 [Code]
+function InitializeUninstall(): Boolean;
+var ExitCode: Integer;
+begin
+  Result := Exec(ExpandConstant('{app}\agent-bios.exe'), 'uninstall', '', SW_HIDE, ewWaitUntilTerminated, ExitCode);
+  if Result then Result := ExitCode = 0;
+  if not Result then
+    SuppressibleMsgBox('agent-bios could not safely detach its private runtime. Run agent-bios uninstall in a terminal, resolve the reported issue, then retry.', mbError, MB_OK, IDOK);
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var P, Entry: String;
 begin

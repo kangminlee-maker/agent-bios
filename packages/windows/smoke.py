@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import winreg
 
 root = Path(__file__).resolve().parents[2]
@@ -76,6 +77,8 @@ with tempfile.TemporaryDirectory(prefix='agent-bios 한글 공백 ') as temp:
     checks.append('reinstall preserves private and native files')
     cli('uninstall')
     run([app/'unins000.exe','/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART'])
+    deadline=time.monotonic()+20
+    while exe.exists() and time.monotonic()<deadline: time.sleep(.1)
     assert not exe.exists() and sentinel.read_text()=='KEEP'
     with winreg.OpenKey(winreg.HKEY_CURRENT_USER,'Environment') as key:path=winreg.QueryValueEx(key,'Path')[0]
     assert str(app).casefold() not in [p.casefold() for p in path.split(';')]
