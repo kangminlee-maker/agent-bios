@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import copy
 import datetime
-import fcntl
 import hashlib
 import json
 import os
@@ -23,6 +22,12 @@ import tomllib
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Callable, NoReturn
+
+if os.name == "nt":
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "compose"))
+    from host_platform import file_locks as fcntl
+else:
+    import fcntl
 
 
 TIER_ORDER = ("frontier", "helm", "workhorse", "sweep")
@@ -4123,6 +4128,8 @@ _UI_RUNTIME_RELEASE: Callable[[], None] | None = None
 def exec_backend(command: str, args: list[str], env: dict[str, str] | None = None) -> NoReturn:
     if _UI_RUNTIME_RELEASE is not None:
         _UI_RUNTIME_RELEASE()
+    if os.name == "nt":
+        raise SystemExit(subprocess.call([command, *args], env=os.environ.copy() if env is None else env))
     os.execve(command, [command, *args], os.environ.copy() if env is None else env)
 
 
@@ -6618,7 +6625,7 @@ def register_reviewer_wizard(
             # a planted symlink and truncates whatever it points at, merely by
             # opening the wizard.
             lock_fd = os.open(
-                lock_path, os.O_CREAT | os.O_WRONLY | os.O_NOFOLLOW, 0o600
+                lock_path, os.O_CREAT | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0), 0o600
             )
             with os.fdopen(lock_fd, "w") as lock_handle:
                 fcntl.flock(lock_handle, fcntl.LOCK_EX)
@@ -7667,7 +7674,7 @@ def save_preset(
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
         lock_path = target.with_name(target.name + ".lock")
-        lock_fd = os.open(lock_path, os.O_CREAT | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
+        lock_fd = os.open(lock_path, os.O_CREAT | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0), 0o600)
         with os.fdopen(lock_fd, "w") as lock_handle:
             fcntl.flock(lock_handle, fcntl.LOCK_EX)
             try:

@@ -44,7 +44,7 @@ def dependency_inventory(repo: Path, environ: dict[str, str] | None = None, *,
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     home = Path(env.get("HOME", str(Path.home())))
     system = system or platform.system()
-    supported = system in {"Darwin", "Linux"}
+    supported = system in {"Darwin", "Linux", "Windows"}
     paths = {name: which(name, path=env.get("PATH", os.defpath))
              for name in ("bash", "python3", "node", "npm", "brew", "git", "zsh", "claude", "codex", "cp", "mktemp")}
 
@@ -76,7 +76,7 @@ def dependency_inventory(repo: Path, environ: dict[str, str] | None = None, *,
     brew_row = add("homebrew", "Homebrew", "optional package manager", "Offers local package installation recipes when available.",
         path=paths["brew"], argv=[paths["brew"], "--version"] if paths["brew"] else None,
         reason="Optional: use an existing operating-system package manager or the official host installer.")
-    brew = paths["brew"] if brew_row["status"] == "available" else None
+    brew = paths["brew"] if brew_row["status"] == "available" and system != "Windows" else None
 
     def formula(name: str) -> list[str] | None:
         return [brew, "install", name] if brew else None
@@ -84,7 +84,7 @@ def dependency_inventory(repo: Path, environ: dict[str, str] | None = None, *,
     add("bash", "Bash", "runtime", "Runs the package entry point and bundled shell tools.",
         path=paths["bash"], argv=[paths["bash"], "--version"] if paths["bash"] else None,
         action=formula("bash"), scope="Homebrew prefix", reason="Install Bash using your operating system package manager.")
-    py = paths["python3"]
+    py = sys.executable if system == "Windows" else paths["python3"]
     add("python3", "Python 3.11+", "runtime", "Runs installation, instructions storage, and terminal interfaces.", path=py,
         argv=[py, "-c", "import sys; print(sys.version.split()[0]); raise SystemExit(sys.version_info < (3,11))"] if py else None,
         action=formula("python"), scope="Homebrew prefix", reason="Install Python 3.11+ and ensure python3 resolves to it.")
@@ -144,7 +144,7 @@ def dependency_inventory(repo: Path, environ: dict[str, str] | None = None, *,
     bootstrap = add("python-venv", "Python venv / pip bootstrap", "managed dependency prerequisite", "Creates the managed environment using AGENT_LAUNCH_PYTHON when set, otherwise python3.", path=bootstrap_python,
         argv=[bootstrap_python, "-c", "import sys, venv, ensurepip; print('venv; bundled pip ' + ensurepip.version()); raise SystemExit(sys.version_info < (3, 11))"] if bootstrap_python else None,
         reason="Install venv/ensurepip for Python 3.11+; check AGENT_LAUNCH_PYTHON if configured. An existing managed environment does not need this bootstrap.")
-    can_provision = bool(paths["bash"] and provisioner.is_file() and (vpy.is_file() or bootstrap["status"] == "available"))
+    can_provision = system != "Windows" and bool(paths["bash"] and provisioner.is_file() and (vpy.is_file() or bootstrap["status"] == "available"))
     try:
         from .instructions_ui_runtime import runtime_inventory
     except ImportError:
@@ -181,6 +181,8 @@ def dependency_inventory(repo: Path, environ: dict[str, str] | None = None, *,
         row = add(identifier, title, "optional job / personal integration", purpose, present=False,
                   reason="Configure this only for a workflow that requires it; setup cannot choose your job environment or account.")
         row["status"] = "not assessed"
+    if system == "Windows":
+        rows = [row for row in rows if row["id"] not in {"homebrew", "bash", "zsh", "cp", "mktemp", "python-bootstrap"}]
     return rows
 
 

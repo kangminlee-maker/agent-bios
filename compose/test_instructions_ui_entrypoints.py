@@ -124,7 +124,7 @@ class BundledUiEntrypointTests(unittest.TestCase):
         (package / "compose").mkdir(parents=True)
         (package / "launch").mkdir()
         for filename in ("instructions.py", "instructions_store.py", "instructions_transaction.py", "instructions_catalog.py",
-                         "instructions_ui_runtime.py", "instructions_ui.py", "assemble.py", "pkgid.py"):
+                         "instructions_ui_runtime.py", "instructions_ui.py", "assemble.py", "pkgid.py", "host_platform.py"):
             shutil.copy2(ROOT / "compose" / filename, package / "compose" / filename)
         shutil.copy2(ROOT / "launch/agent-launch.py", package / "launch/agent-launch.py")
         shutil.copytree(ROOT / "compose/ui_runtime", package / "compose/ui_runtime")

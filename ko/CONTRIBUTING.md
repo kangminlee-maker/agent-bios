@@ -11,12 +11,13 @@ agent-bios checkout이 필요하다. 작업 규칙의 기준은 [AGENTS.md](../A
 3. 클론마다 `git config core.hooksPath .githooks`를 설정한다. 패키지·파리티 게이트를 통과시킨 뒤 커밋한다.
 4. 작업 중인 checkout을 로컬에 배포하려면 루트에서 `bash install.sh install --non-interactive`를 사용한다. 전역 CLI는 설치된 npm 패키지를 배포한다.
 
-게이트는 인덱스 스냅샷을 검사하며 검증 중 인덱스가 바뀌면 커밋을 거부한다. CI는 없으므로 실제 검사 결과를 확인한다. 게시에는 별도의 출처·깨끗한 커밋·원격 도달성 검사가 적용된다.
+게이트는 인덱스 스냅샷을 검사하며 검증 중 인덱스가 바뀌면 커밋을 거부한다. Windows 워크플로는 네이티브 설치 파일을 빌드하고 검사한다. 전체 author 검사는 커밋 훅에서 수행한다. 게시에는 별도의 출처·깨끗한 커밋·원격 도달성 검사가 적용된다.
 
 ## Layout
 
 | 경로 | 역할 |
 | --- | --- |
+| `.github/` | Windows 네이티브 빌드와 설치·업데이트·제거 검증 워크플로 |
 | `claude/CLAUDE.md`, `codex/AGENTS.md` | 선택된 활성 세션에 전달하는 영어 정본·생성 투영. 사용자 전역 파일에 설치하지 않음 |
 | `claude/guides/*.md`, `codex/guides/*.md` | 선택된 불변 고정본에 복사하는 영어 가이드 |
 | `codex/agents/*.toml` | private 릴리즈에 보관하는 Codex 역할 템플릿. native 활성화는 별도 |

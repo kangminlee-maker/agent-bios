@@ -6,6 +6,7 @@ does not alter a host configuration or claim that a snapshot was loaded by a
 host; that is the launch adapter's job.
 """
 from __future__ import annotations
+from host_platform import sync_directory, cli_argv
 
 import copy
 import contextlib
@@ -126,11 +127,7 @@ def _atomic_write(path: Path, value: Any) -> None:
             tmp.chmod(path.stat().st_mode & 0o777)
         os.replace(tmp, path)
         # Persist the directory entry as well as the file bytes.
-        directory = os.open(path.parent, os.O_RDONLY)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
+        sync_directory(path.parent)
     finally:
         with contextlib.suppress(FileNotFoundError):
             tmp.unlink()
@@ -151,7 +148,7 @@ def _rewrite_staged_paths(staging: Path, destination: Path) -> None:
         except UnicodeDecodeError as exc:
             raise InstructionsStoreError(f"snapshot compiler emitted non-text member: {path}") from exc
         if old in text:
-            path.write_text(text.replace(old, new), encoding="utf-8")
+            path.write_text(text.replace(old, new), encoding="utf-8", newline="\n")
 
 
 def _snapshot_relative_paths(files: Any) -> list[str]:

@@ -4,6 +4,7 @@ Native homes stay native. The only files this module writes are private activati
 records and pins; no global instructions, auth, or discovery registration is copied.
 """
 from __future__ import annotations
+from host_platform import sync_directory, cli_argv
 
 import hashlib
 import json
@@ -144,18 +145,14 @@ def atomic_json(path, data):
         raise SessionError(f"refusing symlink: {path}")
     tmp = path.with_name(path.name + '.' + uuid.uuid4().hex + '.tmp')
     try:
-        with open(tmp, 'x', encoding='utf-8') as out:
+        with open(tmp, 'x', encoding='utf-8', newline='\n') as out:
             os.chmod(tmp, 0o600)
             json.dump(data, out, ensure_ascii=False, indent=2)
             out.write('\n')
             out.flush()
             os.fsync(out.fileno())
         os.replace(tmp, path)
-        fd = os.open(path.parent, os.O_RDONLY)
-        try:
-            os.fsync(fd)
-        finally:
-            os.close(fd)
+        sync_directory(path.parent)
     finally:
         tmp.unlink(missing_ok=True)
 

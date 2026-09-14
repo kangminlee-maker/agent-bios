@@ -11,12 +11,13 @@ Requires an agent-bios checkout. [AGENTS.md](AGENTS.md) owns the working rules; 
 3. Enable the commit hook once per clone with `git config core.hooksPath .githooks`. Run `bash gates/check-package.sh` and `bash gates/check-parity.sh`; allow several minutes.
 4. Commit the validated changes. To deploy that checkout locally, run `bash install.sh install --non-interactive` from its root. The globally installed `agent-bios install` deploys its npm package instead.
 
-The hook judges a snapshot of the index and refuses a commit if the index changes during validation. There is no CI; do not treat an unrun hook as evidence. Publication has a separate clean/reachable-commit guard and archive provenance. See [AGENTS.md](AGENTS.md) before publishing or changing a gate.
+The hook judges a snapshot of the index and refuses a commit if the index changes during validation. The Windows workflow builds and checks the native installer; the full author suite remains in the hook. Do not treat an unrun hook as evidence. Publication has a separate clean/reachable-commit guard and archive provenance. See [AGENTS.md](AGENTS.md) before publishing or changing a gate.
 
 ## Layout
 
 | Path | Role |
 | --- | --- |
+| `.github/` | Windows native build and installer lifecycle workflow |
 | `claude/CLAUDE.md`, `codex/AGENTS.md` | canonical and generated always-surface sources (en); shipped privately and selected into activated snapshots, never installed into native global files by default |
 | `claude/guides/*.md`, `codex/guides/*.md` | scoped-guide sources copied to immutable private snapshots when selected |
 | `codex/agents/*.toml` | Codex role-template sources retained in the private release; agent-item activation remains separately evidenced |

@@ -1,0 +1,35 @@
+name: Windows native build
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/windows-native]
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Build bundled application
+        run: python packages/windows/build.py
+      - name: Compile per-user installer
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$version" packages/windows/installer.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify native install and lifecycle
+        run: python packages/windows/smoke.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: agent-bios-windows-x64
+          path: |
+            dist/windows/*setup.exe
+            dist/windows/build-manifest.json
+            dist/windows/smoke-result.json
+            dist/windows/*.log

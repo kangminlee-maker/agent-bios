@@ -111,6 +111,7 @@ class AppInstructionsTests(unittest.TestCase):
         files = {path.relative_to(current).as_posix(): path.read_bytes()
                  for path in current.rglob("*") if path.is_file()}
         files["scripts/corpus_transaction.py"] = files.pop("scripts/instructions_transaction.py")
+        files.pop("scripts/host_platform.py", None)
         digest = hashlib.sha256()
         for name, body in sorted(files.items()):
             digest.update(name.encode() + b"\0" + body + b"\0")

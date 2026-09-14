@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Explicit Codex app discovery and per-task instructions context delivery."""
 from __future__ import annotations
+from host_platform import cli_argv, create_junction
 
 import argparse
 from datetime import datetime, timezone
@@ -26,7 +27,8 @@ except ImportError:
 
 SCHEMA_VERSION = 1
 BRIDGE_MEMBERS = ("SKILL.md", "agents/openai.yaml", "scripts/bridge.py",
-                  "scripts/instructions_transaction.py", "bridge.json")
+                  "scripts/instructions_transaction.py", "scripts/host_platform.py", "bridge.json")
+PREVIOUS_BRIDGE_MEMBERS = tuple(x for x in BRIDGE_MEMBERS if x != "scripts/host_platform.py")
 LEGACY_BRIDGE_MEMBERS = ("SKILL.md", "agents/openai.yaml", "scripts/bridge.py",
                          "scripts/corpus_transaction.py", "bridge.json")
 SESSION_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,127}\Z")
@@ -121,21 +123,26 @@ class AppBridge:
                 members[name] = _json_bytes(self._config())
                 continue
             path = release / "compose" / Path(name).name if name in {
-                "scripts/instructions_transaction.py", "scripts/corpus_transaction.py"
+                "scripts/instructions_transaction.py", "scripts/corpus_transaction.py", "scripts/host_platform.py"
             } else source / name
             reject_symlink_ancestors(path)
             if not path.is_file():
                 raise AppError(f"installed release has no app bridge member: {path}")
             members[name] = path.read_bytes()
+            if os.name == "nt" and name == "SKILL.md":
+                interpreter = sys.executable.replace("'", "''")
+                text = members[name].decode("utf-8").replace('python3 "$BRIDGE"', f"& '{interpreter}' \"$BRIDGE\"")
+                text += "\nOn Windows use PowerShell and the bundled interpreter shown above. Set $BRIDGE to the absolute scripts/bridge.py path beside this skill. Follow returned command argument arrays for setup; do not translate them into Bash commands.\n"
+                members[name] = text.encode("utf-8")
         return members
 
     def _owned_target(self) -> Path | None:
         reject_symlink_ancestors(self.target.parent)
         if not os.path.lexists(self.target):
             return None
-        if not self.target.is_symlink():
+        if not (self.target.is_symlink() or (os.name == "nt" and self.target.is_junction())):
             raise AppError(f"preserving unowned app skill: {self.target}")
-        raw = Path(os.readlink(self.target))
+        raw = self.target.resolve() if os.name == "nt" else Path(os.readlink(self.target))
         if not raw.is_absolute() or raw.parent != self.generations or not re.fullmatch(r"[a-f0-9]{64}", raw.name):
             raise AppError(f"preserving unowned app skill link: {self.target}")
         reject_symlink_ancestors(raw)
@@ -145,7 +152,7 @@ class AppBridge:
         if any(path.is_symlink() for path in paths):
             raise AppError(f"preserving redirected app skill generation: {raw}")
         files = {path.relative_to(raw).as_posix(): path.read_bytes() for path in paths if path.is_file()}
-        if set(files) not in (set(BRIDGE_MEMBERS), set(LEGACY_BRIDGE_MEMBERS)) or _tree_digest(files) != raw.name:
+        if set(files) not in (set(BRIDGE_MEMBERS), set(PREVIOUS_BRIDGE_MEMBERS), set(LEGACY_BRIDGE_MEMBERS)) or _tree_digest(files) != raw.name:
             raise AppError(f"preserving changed app skill generation: {raw}")
         config = _read_json(raw / "bridge.json")
         base = self._base_config()
@@ -170,9 +177,9 @@ class AppBridge:
         """Identify our link namespace without opening unrelated skill contents."""
         try:
             reject_symlink_ancestors(self.target.parent)
-            if not self.target.is_symlink():
+            if not (self.target.is_symlink() or (os.name == "nt" and self.target.is_junction())):
                 return False
-            target = Path(os.readlink(self.target))
+            target = self.target.resolve() if os.name == "nt" else Path(os.readlink(self.target))
             return target.is_absolute() and target.parent == self.generations
         except (OSError, TransactionError):
             return False
@@ -228,11 +235,16 @@ class AppBridge:
             os.close(descriptor)
             os.unlink(temporary)
             try:
-                os.symlink(str(generation), temporary)
+                if os.name == "nt":
+                    create_junction(Path(temporary), generation)
+                    if before is not None:
+                        self.target.rmdir()
+                else:
+                    os.symlink(str(generation), temporary)
                 os.replace(temporary, self.target)
             finally:
                 if os.path.lexists(temporary):
-                    os.unlink(temporary)
+                    os.rmdir(temporary) if os.name == "nt" and Path(temporary).is_junction() else os.unlink(temporary)
             return result
 
     def unregister(self, dry_run: bool = False) -> dict[str, Any]:
@@ -244,7 +256,7 @@ class AppBridge:
         with transaction_lock(self.state_root):
             before = self._owned_target()
             if before is not None:
-                self.target.unlink()
+                self.target.rmdir() if os.name == "nt" else self.target.unlink()
             return {"registered": False, "dry_run": False, "changed": before is not None,
                     "discovery_path": str(self.target), "retained_private_generations": True}
 
@@ -335,7 +347,7 @@ class AppSessions:
         release = confirmed_release(self.state_root)
         bridge = AppBridge(self.repo, self.env)
         result = {"package_root": str(release),
-                  "learn_argv": ["/bin/bash", str(release / "install.sh"), "learn"],
+                  "learn_argv": cli_argv(release, "learn"),
                   "environment": {"AGENT_BIOS_PACKAGE_ROOT": str(release),
                                   "AGENT_BIOS_STATE_DIR": str(self.state_root),
                                   "AGENT_BIOS_INSTRUCTIONS_DIR": str(self.user_root),

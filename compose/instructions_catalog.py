@@ -573,7 +573,7 @@ def _write_private(path: pathlib.Path, content: str) -> None:
         raise CatalogError(f"compiler refuses symlink output: {path}")
     path.parent.mkdir(parents=True, exist_ok=True)
     try:
-        with path.open('x', encoding='utf-8') as output:
+        with path.open('x', encoding='utf-8', newline='\n') as output:
             output.write(content)
     except FileExistsError as exc:
         raise CatalogError(f"compiler output already exists or aliases another member: {path}") from exc
@@ -586,7 +586,7 @@ def _replace_private_owned(path: pathlib.Path, content: str) -> None:
     descriptor, name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     temporary = pathlib.Path(name)
     try:
-        with os.fdopen(descriptor, "w", encoding="utf-8") as output:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as output:
             output.write(content)
             output.flush()
             os.fsync(output.fileno())

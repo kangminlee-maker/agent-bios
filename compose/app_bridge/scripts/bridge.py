@@ -12,7 +12,7 @@ import sys
 def main() -> int:
     root = Path(__file__).resolve().parents[1]
     expected = {"SKILL.md", "agents/openai.yaml", "scripts/bridge.py",
-                "scripts/instructions_transaction.py", "bridge.json"}
+                "scripts/instructions_transaction.py", "scripts/host_platform.py", "bridge.json"}
     try:
         paths = list(root.rglob("*"))
         if any(path.is_symlink() for path in paths):
@@ -32,6 +32,7 @@ def main() -> int:
             if not isinstance(config.get(key), str) or not Path(config[key]).is_absolute():
                 raise RuntimeError("registered bridge needs absolute private roots")
         sys.dont_write_bytecode = True
+        from host_platform import cli_argv
         from instructions_transaction import confirmed_release, guard_pending, reject_symlink_ancestors
         state = Path(config["state_root"])
         reject_symlink_ancestors(state)
@@ -56,15 +57,19 @@ def main() -> int:
         command = args[0] if args else "session"
         tail = args[1:] if args else ["status", "--json"]
         if command == "bootstrap":
-            print((release / "compose/bootstrap/SKILL.md").read_text(encoding="utf-8"), end="")
+            text = (release / "compose/bootstrap/SKILL.md").read_text(encoding="utf-8")
+            if os.name == "nt":
+                prefix = "& '" + sys.executable.replace("'", "''") + "' '" + str(root / "scripts/bridge.py").replace("'", "''") + "' instructions"
+                text = text.replace('bash "$AGENT_BIOS_PACKAGE_ROOT/install.sh" instructions', prefix).replace('agent-bios instructions', prefix)
+            print(text, end="")
             return 0
         if command == "tui":
             operation = "instructions" if (release / "compose/instructions.py").is_file() else "corpus"
-            argv = ["/bin/bash", str(release / "install.sh"), operation, *tail]
+            argv = cli_argv(release, operation, *tail)
         elif command in {"setup", "instructions", "corpus", "import", "learn"}:
             if command == "instructions" and not (release / "compose/instructions.py").is_file():
                 command = "corpus"
-            argv = ["/bin/bash", str(release / "install.sh"), command, *tail]
+            argv = cli_argv(release, command, *tail)
         elif command == "session":
             manager = release / "compose/instructions_app.py"
             if not manager.is_file():
@@ -73,6 +78,9 @@ def main() -> int:
                     "--state-dir", config["state_root"], "--user-dir", config["user_root"], "session", *tail]
         else:
             raise RuntimeError("bridge supports setup, session, instructions, import, learn, bootstrap and tui")
+        if os.name == "nt":
+            import subprocess
+            return subprocess.call(argv, env=env)
         os.execve(argv[0], argv, env)
     except (OSError, RuntimeError, ValueError, KeyError) as exc:
         print(f"agent-bios app bridge: {exc}", file=sys.stderr)

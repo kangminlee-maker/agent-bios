@@ -7,6 +7,7 @@ import hashlib
 import importlib
 import io
 import json
+import os
 from pathlib import Path, PurePosixPath
 import re
 import stat
@@ -255,7 +256,7 @@ def activate_ui_runtime(repo: Path) -> Path:
             return active
         parent = Path(tempfile.gettempdir()).resolve()
         home = Path.home().resolve()
-        if parent == home or home in parent.parents:
+        if os.name != "nt" and (parent == home or home in parent.parents):
             parent = Path("/tmp").resolve()
         temporary = tempfile.TemporaryDirectory(prefix="agent-bios-ui-", dir=parent)
         target = Path(temporary.name)

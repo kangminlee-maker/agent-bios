@@ -5,6 +5,7 @@ meaning, wording and consumption surface; this module checks source provenance,
 evidence coverage and publication preconditions for InstructionsStore's transaction.
 """
 from __future__ import annotations
+from host_platform import sync_directory, cli_argv, redirected
 
 import copy
 import argparse
@@ -67,7 +68,7 @@ def _safe_source_path(source: dict[str, Any], *, inspect: bool = True) -> Path:
         raise ValidationError("only discovered instruction files may be captured")
     if inspect:
         for member in (root, *(root / Path(*relative.parts[:index]) for index in range(1, len(relative.parts) + 1))):
-            if member.is_symlink():
+            if redirected(member):
                 raise ValidationError(f"instruction source is symlinked: {member}")
     return path
 
@@ -125,12 +126,20 @@ def _read_source(source: dict[str, Any]) -> tuple[bytes, str]:
     directories = []
     try:
         flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
-        directory = os.open(path.anchor, flags | os.O_DIRECTORY)
-        directories.append(directory)
-        for part in path.parts[1:-1]:
-            directory = os.open(part, flags | os.O_DIRECTORY, dir_fd=directory)
+        if os.name == "nt":
+            # Reparse points are rejected before and after opening; bind the opened
+            # file identity to the selected source below.
+            from host_platform import redirected
+            if any(redirected(p) for p in (path, *path.parents)):
+                raise ValidationError("redirected instruction source")
+            descriptor = os.open(path, os.O_RDONLY | os.O_BINARY)
+        else:
+            directory = os.open(path.anchor, flags | os.O_DIRECTORY)
             directories.append(directory)
-        descriptor = os.open(path.name, flags | os.O_NONBLOCK, dir_fd=directory)
+            for part in path.parts[1:-1]:
+                directory = os.open(part, flags | os.O_DIRECTORY, dir_fd=directory)
+                directories.append(directory)
+            descriptor = os.open(path.name, flags | os.O_NONBLOCK, dir_fd=directory)
         with os.fdopen(descriptor, "rb") as stream:
             before = os.fstat(stream.fileno())
             if not stat.S_ISREG(before.st_mode) or before.st_size > MAX_SOURCE_BYTES:
@@ -311,11 +320,7 @@ def capture(store, paths: list[str | Path], *, environ: dict[str, str] | None = 
                     os.link(temporary, path)
                 except FileExistsError:
                     record = load_capture(store, record["capture_id"])
-                directory = os.open(path.parent, os.O_RDONLY)
-                try:
-                    os.fsync(directory)
-                finally:
-                    os.close(directory)
+                sync_directory(path.parent)
             finally:
                 temporary.unlink(missing_ok=True)
     return {**record, "review_prompt": review_prompt(record)}

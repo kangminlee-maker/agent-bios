@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import contextlib
 import base64
-import fcntl
+from host_platform import file_locks as fcntl, redirected
 import hashlib
 import json
 import os
@@ -57,7 +57,7 @@ def reject_symlink_ancestors(path: Path) -> None:
     a same-named link elsewhere, or a user-owned link.
     """
     for ancestor in (path, *path.parents):
-        if not ancestor.is_symlink():
+        if not redirected(ancestor):
             continue
         system_alias = (sys.platform == "darwin" and ancestor != path
                         and ancestor in {Path("/var"), Path("/tmp"), Path("/etc")}
@@ -82,10 +82,9 @@ def _depths(name: str) -> dict[str, int]:
 @contextlib.contextmanager
 def _transaction_lock(state_root: Path, *, readonly: bool) -> Iterator[bool]:
     root = Path(state_root).expanduser()
-    if root.is_symlink():
+    if redirected(root):
         raise TransactionError(f"unsafe instructions state root: {root}")
-    if readonly:
-        reject_symlink_ancestors(root)
+    reject_symlink_ancestors(root)
     key = _key(root)
     depths = _depths("lock_depths")
     if depths.get(key, 0):
@@ -101,7 +100,7 @@ def _transaction_lock(state_root: Path, *, readonly: bool) -> Iterator[bool]:
     lock = root / ".corpus-store.lock"
     if lock.is_symlink():
         raise TransactionError(f"unsafe instructions transaction lock: {lock}")
-    flags = (os.O_RDONLY | os.O_NONBLOCK if readonly else os.O_CREAT | os.O_RDWR) | getattr(os, "O_NOFOLLOW", 0)
+    flags = ((os.O_RDWR if os.name == "nt" else os.O_RDONLY) | getattr(os, "O_NONBLOCK", 0) if readonly else os.O_CREAT | os.O_RDWR) | getattr(os, "O_NOFOLLOW", 0)
     try:
         descriptor = os.open(lock, flags, 0o600)
     except FileNotFoundError:

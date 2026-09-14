@@ -160,8 +160,9 @@ to build the commit — so the hook compares the tree afterwards and fails by na
 it differs. A tree hash is decidable, which is why this one blocks. Coordinate index
 writes with any parallel session rather than racing them.
 
-There is no CI (`.github/` absent) and no npm test script, so this hook is the
-only automatic enforcement in the repo. Run the umbrella directly any time with
+The Windows workflow in `.github/workflows/windows.yml` builds and exercises the
+native Windows installer. There is no npm test script; the commit hook remains the
+full author-side gate. Run the umbrella directly any time with
 `./gates/check-parity.sh`.
 
 It is an umbrella — the mirror generator's `--check`, the domain manifest gate,

@@ -21,7 +21,7 @@ import datetime
 import io
 import json
 import contextlib
-import fcntl
+from host_platform import file_locks as fcntl
 import os
 import pathlib
 import shutil
@@ -561,7 +561,7 @@ def _flock(lock_path: pathlib.Path):
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     # O_NOFOLLOW and no truncation: a "w" open follows a planted symlink and
     # truncates its target merely by running the command.
-    fd = os.open(str(lock_path), os.O_CREAT | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
+    fd = os.open(str(lock_path), os.O_CREAT | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0), 0o600)
     with os.fdopen(fd, "w") as handle:
         fcntl.flock(handle, fcntl.LOCK_EX)
         yield
