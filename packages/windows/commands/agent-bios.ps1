@@ -81,9 +81,13 @@ try {
     $ErrorActionPreference = 'Stop'
     $global:LASTEXITCODE = $LASTEXITCODE
 } finally {
+    # Restore through both the process block and the Env: drive; a variable that
+    # was absent before must be absent afterwards in Windows PowerShell 5.1 and 7.
     [Environment]::SetEnvironmentVariable('AGENT_BIOS_WINDOWS_BINDING', $previousBinding, 'Process')
+    if ($null -eq $previousBinding) { Remove-Item -LiteralPath 'Env:AGENT_BIOS_WINDOWS_BINDING' -ErrorAction SilentlyContinue }
     foreach ($name in $previousEnvironment.Keys) {
         [Environment]::SetEnvironmentVariable($name, $previousEnvironment[$name], 'Process')
+        if ($null -eq $previousEnvironment[$name]) { Remove-Item -LiteralPath ('Env:' + $name) -ErrorAction SilentlyContinue }
     }
     [Console]::OutputEncoding = $previousConsoleEncoding
     $OutputEncoding = $previousOutputEncoding

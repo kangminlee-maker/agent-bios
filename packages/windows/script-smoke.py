@@ -390,7 +390,8 @@ class Driver:
         assert Path(observed["package_root"]).is_relative_to(Path(env["AGENT_BIOS_STATE_DIR"]))
         source = (f"& {quote(root / 'bin/agent-bios.ps1')} status | Out-Null; "
                   "if ($LASTEXITCODE -ne 0) { throw 'fresh-shell status failed' }; "
-                  "if (Test-Path Env:AGENT_BIOS_STATE_DIR) { throw 'saved roots leaked into caller environment' }; "
+                  "if (Test-Path Env:AGENT_BIOS_STATE_DIR) { throw ('saved roots leaked into caller environment: ' + "
+                  "$env:AGENT_BIOS_STATE_DIR + ' / dotnet=' + [Environment]::GetEnvironmentVariable('AGENT_BIOS_STATE_DIR', 'Process')) }; "
                   "if (Test-Path Env:AGENT_BIOS_INSTRUCTIONS_DIR) { throw 'saved user root leaked into caller environment' }; ")
         self.ps(shell, source, fresh)
         self.checked("fresh shell restores saved custom roots for execution without changing caller environment", shell=shell.name)
