@@ -16,7 +16,9 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$approvedScriptSigners = @('__AGENT_BIOS_SCRIPT_SIGNERS__' | ConvertFrom-Json)
+# Windows PowerShell 5.1 returns a top-level JSON array as one object; the cast
+# yields the same string array in 5.1 and 7.
+$approvedScriptSigners = [string[]](ConvertFrom-Json -InputObject '__AGENT_BIOS_SCRIPT_SIGNERS__')
 $stage = 'preflight'
 $temporaryRoot = $null
 $previousTls = [Net.ServicePointManager]::SecurityProtocol

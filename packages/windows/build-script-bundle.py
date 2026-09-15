@@ -98,7 +98,7 @@ def main():
     expanded=out/'runtime-inspection';expanded.mkdir()
     with zipfile.ZipFile(runtimezip) as z:z.extractall(expanded)
     signers=set()
-    for binary in [*expanded.glob('*.exe'),*expanded.glob('*.dll'),Path(sys.executable)]:
+    for binary in [*expanded.glob('*.exe'),*expanded.glob('*.dll'),*expanded.glob('*.pyd'),Path(sys.executable)]:
         info=signature(binary)
         if info['status']!='Valid' or not any(name in info['subject'] for name in ['Python Software Foundation','Microsoft Corporation']):
             raise RuntimeError('unapproved runtime signature: '+str(binary)+' '+str(info))
