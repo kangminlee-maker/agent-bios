@@ -20,6 +20,8 @@ is an optional connection, never the Team's identity or root of authority.
 
 This record specifies behavior for the lifecycle design and simulated UI. It
 does not establish that a Team/P2P/GitHub runtime provider is implemented.
+The [main Team CRUD design](2026-09-14T0132--35c75ca--team-crud-and-creation-design.md)
+owns the integrated screen flow, founding protocol and lifecycle state model.
 
 ## Creation checklist
 

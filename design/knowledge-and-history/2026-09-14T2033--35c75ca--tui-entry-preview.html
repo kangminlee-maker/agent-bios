@@ -1,0 +1,1601 @@
+<!doctype html>
+<html lang="en" data-visualize-standalone>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src 'unsafe-inline' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>2026 09 14t2033 35c75ca Tui Entry Prototype</title>
+<style>:root{color-scheme:light dark;background:light-dark(rgb(255 255 255), rgb(24 24 24))}html,body{margin:0}body{box-sizing:border-box;padding:1rem;background:inherit}iframe{display:block;width:100%;height:calc(100vh - 2rem);margin:0 auto;border:0}</style>
+</head>
+<body>
+<iframe sandbox="allow-scripts" referrerpolicy="no-referrer" title="2026 09 14t2033 35c75ca Tui Entry Prototype" srcdoc="&lt;!doctype html&gt;
+&lt;html lang=&quot;en&quot; data-visualize-standalone&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+&lt;meta name=&quot;referrer&quot; content=&quot;no-referrer&quot;&gt;
+&lt;meta http-equiv=&quot;Content-Security-Policy&quot; content=&quot;default-src &#x27;none&#x27;; script-src &#x27;unsafe-inline&#x27; &#x27;unsafe-eval&#x27; &#x27;wasm-unsafe-eval&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src &#x27;unsafe-inline&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src &#x27;none&#x27;; object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;&quot;&gt;
+&lt;title&gt;2026 09 14t2033 35c75ca Tui Entry Prototype&lt;/title&gt;
+&lt;style&gt;:root {
+  color-scheme: light dark;
+  background-color: var(
+    --background,
+    var(--color-background-primary, light-dark(rgb(255 255 255), rgb(24 24 24)))
+  ) !important;
+
+  /* Agent-facing contract; keep in sync with SKILL.md. */
+  --background: var(
+    --color-background-primary,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --card: color-mix(in oklab, var(--foreground) 5%, var(--background));
+  --card-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --popover: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255), rgb(45 45 45))
+  );
+  --popover-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --primary: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --primary-foreground: var(
+    --color-text-inverse,
+    light-dark(rgb(255 255 255), rgb(13 13 13))
+  );
+  --secondary: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255 / 96%), rgb(54 54 54 / 96%))
+  );
+  --secondary-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --muted: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --muted-foreground: var(
+    --color-text-secondary,
+    light-dark(rgb(26 28 31 / 49.4%), rgb(255 255 255 / 49.8%))
+  );
+  --accent: var(
+    --color-background-info,
+    light-dark(rgb(229 242 255), rgb(13 39 63))
+  );
+  --accent-foreground: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --destructive: var(
+    --color-text-warning,
+    light-dark(rgb(226 85 7), rgb(255 133 73))
+  );
+  --border: var(
+    --color-border-secondary,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+  --input: var(
+    --color-border-primary,
+    light-dark(
+      rgb(26 28 31 / 11.8%),
+      color-mix(in oklab, rgb(0 0 0) 10%, transparent)
+    )
+  );
+  --ring: var(
+    --color-ring-primary,
+    light-dark(rgb(51 156 255), rgb(131 195 255 / 76%))
+  );
+  --font-size-base: var(--font-text-md-size, 14px);
+  --blue: light-dark(rgb(51 156 255), rgb(51 156 255));
+  --orange: light-dark(rgb(226 85 7), rgb(251 106 34));
+  --green: light-dark(rgb(0 162 64), rgb(64 201 119));
+  --red: light-dark(rgb(224 46 42), rgb(255 103 100));
+  --purple: light-dark(rgb(146 79 247), rgb(173 123 249));
+  --yellow: light-dark(rgb(255 195 0), rgb(255 210 64));
+  --viz-series-1: var(--primary);
+  --viz-series-2: light-dark(rgb(243 136 59), rgb(245 154 86));
+  --viz-series-3: light-dark(rgb(93 201 119), rgb(116 213 139));
+  --viz-series-4: light-dark(rgb(235 119 177), rgb(240 143 192));
+  --viz-series-5: light-dark(rgb(155 121 236), rgb(170 145 239));
+  --viz-series-6: light-dark(rgb(58 185 177), rgb(90 203 194));
+
+  /* Internal implementation variables; not part of the agent contract. */
+  --font-sans: -apple-system, system-ui, &quot;Segoe UI&quot;, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, &quot;SF Mono&quot;, Menlo, Consolas, &quot;Liberation Mono&quot;,
+    monospace;
+  --font-size-normal: max(11px, var(--font-size-base));
+  --font-size-tooltip: calc(var(--font-size-base) - 1px);
+  --font-size-small: max(11px, calc(var(--font-size-base) - 2px));
+  --font-size-h1: calc(var(--font-size-normal) * 1.7142857143);
+  --font-size-h2: calc(var(--font-size-normal) * 1.4285714286);
+  --font-size-h3: calc(var(--font-size-normal) * 1.2857142857);
+  --font-weight-normal: 430;
+  --font-weight-medium: 500;
+  --icon-size: 16px;
+  --line-height-normal: calc(var(--font-size-normal) * 1.5);
+  --line-height-tooltip: calc(var(--font-size-tooltip) * 1.4285714286);
+  --line-height-small: calc(var(--font-size-small) + 4px);
+  --corner-shape: round;
+  --radius: var(--border-radius-lg, 10px);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-2xl: calc(var(--radius) * 1.6);
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px -1px rgb(0 0 0 / 8%);
+  --checkmark-image: url(&quot;data:image/svg+xml,%3Csvg xmlns=&#x27;http://www.w3.org/2000/svg&#x27; viewBox=&#x27;0 0 17 17&#x27;%3E%3Cpath d=&#x27;M12.8961 3.64101C13.1297 3.41418 13.4984 3.37523 13.7779 3.56581C14.0571 3.75635 14.1554 4.11331 14.0299 4.41347L13.9615 4.53847L7.71151 13.7045C7.59411 13.8767 7.4063 13.9877 7.19881 14.0072C6.99136 14.0267 6.78564 13.9533 6.63826 13.806L2.88826 10.056L2.79842 9.9457C2.6192 9.67407 2.64927 9.30496 2.88826 9.06581C3.12738 8.82669 3.49647 8.79676 3.76815 8.97597L3.8785 9.06581L7.03084 12.2182L12.8053 3.74941L12.8961 3.64101Z&#x27;/%3E%3C/svg%3E&quot;);
+
+  /* Legacy aliases; not part of the current agent contract. */
+  --viz-bg: transparent;
+  --viz-panel: var(--card);
+  --viz-border: var(--border);
+  --viz-text: var(--foreground);
+  --viz-muted: var(--muted-foreground);
+  --viz-accent: var(--primary);
+  --viz-accent-text: var(--primary-foreground);
+  --viz-accent-bg: var(--accent);
+  --viz-font-size: var(--font-size-base);
+  --viz-warning: var(--destructive);
+}
+
+:root[data-theme=&quot;light&quot;] {
+  color-scheme: light;
+}
+
+:root[data-theme=&quot;dark&quot;] {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html &gt; body {
+  /* Preserve MCP aliases for older inline renderers without creating :root cycles. */
+  --color-background-primary: var(
+    --background,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --color-text-primary: var(
+    --foreground,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --color-border-secondary: var(
+    --border,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+
+  margin: 0;
+  padding: var(--visualize-paint-gutter, 0px);
+  color: var(--foreground);
+  background: transparent !important;
+  font-family: var(--font-sans) !important;
+  font-size: var(--font-size-normal);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+
+a {
+  color: color-mix(in srgb, var(--viz-accent) 80%, var(--viz-text) 20%);
+  cursor: pointer;
+  font-weight: var(--font-weight-medium, 500);
+  text-decoration: none;
+  text-underline-offset: 2px;
+}
+
+a:is(:hover, :focus-visible) {
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-thickness: 0.5px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin-block: 0;
+}
+
+h1 {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h3,
+h4,
+h5,
+h6 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+}
+
+b,
+strong,
+th {
+  font-weight: var(--font-weight-medium);
+}
+
+code:not(pre code) {
+  display: inline;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  corner-shape: var(--corner-shape);
+  background: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  word-break: break-word;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--foreground);
+  font: inherit;
+  text-align: start;
+}
+
+.table :is(th, td) {
+  padding-block: 10px;
+  padding-inline: 0 24px;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.table-responsive &gt; .table :is(th, td) {
+  overflow-wrap: break-word;
+}
+
+.table :is(th, td):last-child {
+  padding-inline-end: 0;
+}
+
+.table :is(caption, thead th) {
+  font-weight: 600;
+}
+
+.table thead th {
+  padding-block: 8px;
+  border-bottom-color: color-mix(in srgb, var(--foreground) 16%, transparent);
+}
+
+.table tbody tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+
+.table.table-sm :is(th, td) {
+  padding-block: 6px;
+}
+
+.table.table-sm :is(th, td):not(:last-child) {
+  padding-inline-end: 16px;
+}
+
+.table :is(.text-end, [align=&quot;right&quot;]) {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.table :is(.text-center, [align=&quot;center&quot;]) {
+  text-align: center;
+}
+
+.table .text-nowrap {
+  white-space: nowrap;
+}
+
+#widget {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  background: transparent !important;
+}
+
+.card {
+  min-width: 0;
+  padding: 12px;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  border-radius: var(--radius-2xl);
+  corner-shape: var(--corner-shape);
+  color: var(--card-foreground);
+  background: var(--card);
+}
+
+#widget &gt; :not(.card, .progress) {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 50;
+  top: 0;
+  left: 0;
+  width: max-content;
+  max-width: min(
+    20rem,
+    var(--tooltip-available-width, calc(100vw - 10px)),
+    calc(100vw - 10px)
+  );
+  max-height: min(
+    var(--tooltip-available-height, calc(100vh - 10px)),
+    calc(100vh - 10px)
+  );
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--popover-foreground);
+  background: var(--popover);
+  box-shadow: none;
+  font-size: var(--font-size-tooltip);
+  line-height: var(--line-height-tooltip);
+  overflow-wrap: break-word;
+  white-space: normal;
+  pointer-events: none;
+  user-select: none;
+}
+
+.viz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(max(180px, 24%), 1fr));
+  gap: 10px;
+}
+
+.viz-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.viz-stat-value {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+.viz-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+hr {
+  width: 100%;
+  height: 1px;
+  margin-block: 6px;
+  border: 0;
+  background: var(--border);
+}
+
+.nav {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+}
+
+.progress {
+  display: flex;
+  height: 8px;
+  margin-block: calc((var(--line-height-normal, 1.5em) - 8px) / 2);
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+}
+
+.progress-bar:only-child {
+  border-radius: var(--radius-full);
+}
+
+.progress-bar {
+  height: 100%;
+  flex-shrink: 0;
+  border: 0;
+  background: var(--viz-series-1);
+}
+
+.viz-badge {
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  color: var(--accent-foreground);
+  background: var(--accent);
+  font-weight: var(--font-weight-medium);
+}
+
+small,
+.text-small,
+.viz-badge {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.text-muted {
+  color: var(--muted-foreground);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.viz-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.viz-controls &gt; .form-label {
+  display: grid;
+  min-width: min(100%, 260px);
+  flex: 1 1 280px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 12px;
+  margin-bottom: 0;
+}
+
+.viz-controls &gt; .form-label &gt; :is(.form-control, .form-range, .form-select) {
+  grid-column: 1 / -1;
+}
+
+.btn,
+.nav-link,
+.form-check-input,
+.form-control,
+.form-range,
+.form-select {
+  font: inherit;
+}
+
+.btn,
+.nav-link {
+  appearance: button;
+  display: inline-flex;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0 8px;
+  -webkit-app-region: no-drag;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: var(--cursor-interaction, pointer);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn:is(.btn-block, .viz-tile) {
+  inline-size: 100%;
+}
+
+.btn.viz-tile {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+a.btn {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn:not(:disabled):hover,
+.nav-link:not(:disabled):not([aria-disabled=&quot;true&quot;]):hover {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn-primary {
+  border-color: transparent;
+  color: var(--primary-foreground);
+  background: var(--foreground);
+  background-clip: padding-box;
+}
+
+.btn-primary .text-muted {
+  color: color-mix(in srgb, var(--primary-foreground) 50%, transparent);
+}
+
+.btn-primary:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 80%, transparent);
+  background-clip: padding-box;
+}
+
+.btn-ghost {
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.btn-ghost:not(:disabled):hover {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.nav-pills .nav-link {
+  min-width: 0;
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.nav-justified .nav-link {
+  flex: 1 1 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.nav-pills .nav-link.active {
+  color: var(--foreground);
+  background: var(--muted);
+}
+
+.btn:disabled,
+.nav-link:disabled,
+.nav-link[aria-disabled=&quot;true&quot;] {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+[data-lucide] {
+  stroke-width: 1.6;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--foreground);
+}
+
+.form-control {
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  padding: 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--foreground);
+  background: var(--secondary);
+}
+
+.form-control::placeholder {
+  color: var(--muted-foreground);
+}
+
+.form-control[type=&quot;file&quot;] {
+  padding: 0;
+  overflow: hidden;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control[type=&quot;file&quot;]::file-selector-button {
+  min-height: 26px;
+  margin-right: 8px;
+  padding: 0 8px;
+  border: 0;
+  border-right: 1px solid var(--input);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: inherit;
+  font: inherit;
+}
+
+.form-control[type=&quot;file&quot;]:not(:disabled):hover::file-selector-button {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-control-color[type=&quot;color&quot;] {
+  width: 40px;
+  height: 28px;
+  padding: 3px;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch {
+  border: 0;
+  border-radius: calc(var(--radius-lg) - 4px);
+  corner-shape: var(--corner-shape);
+}
+
+textarea.form-control {
+  height: auto;
+  min-height: 72px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.form-control:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-control:disabled,
+.form-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.form-select {
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  margin: 0;
+  padding: 0 32px 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--foreground);
+  background-color: var(--secondary);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%),
+    linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 10px) 50%;
+  background-repeat: no-repeat;
+  background-size: 4px 4px;
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-select:not(:disabled):hover {
+  background-color: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-select:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-check {
+  display: flex;
+  min-height: 20px;
+  align-items: center;
+  gap: 6px;
+}
+
+.form-check-input {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  margin: 0;
+  border: 1px solid var(--input);
+  color: var(--primary-foreground);
+  background-color: transparent;
+  cursor: var(--cursor-interaction, default);
+  transition:
+    background-color 150ms,
+    border-color 150ms,
+    box-shadow 150ms;
+}
+
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;] {
+  border-color: var(--input);
+  border-radius: var(--radius-sm);
+  corner-shape: var(--corner-shape);
+  background-color: var(--secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input:not(:disabled):not(:checked):hover {
+  background-color: var(--card);
+}
+
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;]:checked {
+  border-color: var(--primary);
+  background-color: var(--primary);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input[type=&quot;checkbox&quot;]:checked::before {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--primary-foreground);
+  content: &quot;&quot;;
+  mask: var(--checkmark-image) center / 12px 12px no-repeat;
+}
+
+.form-check-input[type=&quot;radio&quot;] {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+}
+
+.form-check-input[type=&quot;radio&quot;]:checked {
+  border: 2px solid var(--primary);
+  background:
+    radial-gradient(circle, var(--primary-foreground) 0 2.5px, transparent 3px),
+    var(--primary);
+}
+
+.form-check:not(.form-switch) .form-check-input:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled {
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+}
+
+.form-switch .form-check-input:disabled,
+.form-switch .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.form-check-label {
+  color: var(--foreground);
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-switch .form-check-input {
+  position: relative;
+  width: 32px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+  box-shadow: none;
+  transition: background-color 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 1px solid light-dark(var(--primary-foreground), var(--foreground));
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+  box-shadow: var(--shadow-sm);
+  content: &quot;&quot;;
+  transform: translate(2px, -50%);
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input:checked {
+  background: var(--primary);
+}
+
+.form-switch .form-check-input:checked::before {
+  transform: translate(14px, -50%);
+}
+
+.form-switch .form-check-input:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.form-range {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 28px;
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  outline: none;
+  border: 0;
+  accent-color: var(--primary);
+  background: linear-gradient(
+      color-mix(in srgb, var(--foreground) 7%, transparent),
+      color-mix(in srgb, var(--foreground) 7%, transparent)
+    )
+    center / 100% 2px no-repeat;
+}
+
+.form-range::-webkit-slider-runnable-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-webkit-slider-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range::-moz-range-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-moz-range-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.btn:not(.btn-primary, .viz-tile):is(
+  [aria-pressed=&quot;true&quot;],
+  [aria-selected=&quot;true&quot;],
+  .is-selected
+) {
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.btn.viz-tile:is([aria-pressed=&quot;true&quot;], [aria-selected=&quot;true&quot;], .is-selected) {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.btn:focus-visible,
+.nav-link:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+  .btn,
+  .nav-link,
+  .form-control,
+  .form-select {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Keep small-screen WebKit from zooming when a text field receives focus. */
+  .form-control,
+  .form-select {
+    font-size: max(16px, var(--font-size-normal));
+  }
+
+  .form-control[type=&quot;file&quot;]::file-selector-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .form-control-color[type=&quot;color&quot;] {
+    width: 44px;
+    height: 44px;
+  }
+
+  .form-control:is(
+    [type=&quot;date&quot;],
+    [type=&quot;datetime-local&quot;],
+    [type=&quot;month&quot;],
+    [type=&quot;time&quot;],
+    [type=&quot;week&quot;]
+  ) {
+    min-width: 0;
+    max-width: 100%;
+    padding-block: 8px;
+  }
+
+  .form-check {
+    min-height: 44px;
+    padding-inline: 15px;
+  }
+
+  .form-check-input {
+    position: relative;
+  }
+
+  .form-check-input::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    content: &quot;&quot;;
+    transform: translate(-50%, -50%);
+  }
+
+  .form-check-label {
+    display: inline-flex;
+    min-width: 44px;
+    min-height: 44px;
+    align-items: center;
+  }
+
+  .form-range {
+    height: 44px;
+    touch-action: pan-y;
+  }
+
+  .form-range::-webkit-slider-runnable-track {
+    height: 44px;
+  }
+
+  .form-range::-moz-range-track {
+    height: 44px;
+  }
+
+  .form-range::-webkit-slider-thumb {
+    margin-top: 12px;
+  }
+}
+
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+#widget &gt; svg {
+  width: 100%;
+}
+
+/* Model-authored chart rules can otherwise stretch icons after these styles load. */
+svg.lucide {
+  display: block;
+  width: var(--icon-size) !important;
+  height: var(--icon-size) !important;
+  flex: none;
+  margin: 0 !important;
+  stroke-width: 1.6;
+}
+
+.text-warning,
+.text-destructive {
+  color: var(--destructive);
+}
+
+html&gt;body{padding:0}&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;div id=&quot;tui-entry-study&quot; aria-label=&quot;작업 진입 화면 설계&quot;&gt;&lt;/div&gt;
+&lt;style&gt;
+#tui-entry-study{--te-bg:light-dark(#fff,#191919);--te-panel:light-dark(#f4f4f2,#252525);--te-text:light-dark(#262626,#e6e6e3);--te-muted:light-dark(#61615d,#b9b9b3);--te-line:light-dark(#cececa,#555550);--te-strong:light-dark(#30302e,#e3e3df);--te-on:light-dark(#fff,#20201e);font:14px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,&quot;Apple SD Gothic Neo&quot;,&quot;Malgun Gothic&quot;,monospace;color:var(--te-text);background:var(--te-bg);width:100%;border:1px solid var(--te-line);isolation:isolate;box-sizing:border-box;overflow-wrap:anywhere}
+#tui-entry-study *{box-sizing:border-box}
+#tui-entry-study h1,#tui-entry-study h2,#tui-entry-study h3,#tui-entry-study p{margin:0;color:inherit}
+#tui-entry-study h1{font-size:18px;line-height:1.4;font-weight:500}
+#tui-entry-study h2{font-size:15px;font-weight:500}
+#tui-entry-study h3{font-size:14px;font-weight:500}
+#tui-entry-study button,#tui-entry-study input,#tui-entry-study select{font:inherit;color:inherit}
+#tui-entry-study button{min-height:34px;cursor:pointer}
+#tui-entry-study button:disabled{opacity:.5;cursor:default}
+#tui-entry-study .te-chrome{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:5px 14px;border-bottom:1px solid var(--te-line);background:var(--te-panel)}
+#tui-entry-study .te-brand{font-weight:500}
+#tui-entry-study .te-small{font-size:12px;color:var(--te-muted)}
+#tui-entry-study .te-content{padding:14px 16px}
+#tui-entry-study .te-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:12px}
+#tui-entry-study .te-head p{margin-top:5px;color:var(--te-muted)}
+#tui-entry-study .te-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#tui-entry-study .te-button{border:1px solid var(--te-line);background:var(--te-bg);padding:6px 11px;border-radius:2px;text-align:left;font-weight:500}
+#tui-entry-study .te-primary{background:var(--te-strong);color:var(--te-on);border-color:var(--te-strong)}
+#tui-entry-study .te-link{padding:3px 0;background:transparent;border:0;text-decoration:underline;text-underline-offset:3px;text-align:left}
+#tui-entry-study .te-grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(225px,1fr);gap:24px}
+#tui-entry-study[data-layout=&quot;single&quot;] .te-grid{grid-template-columns:1fr}
+#tui-entry-study .te-section+.te-section{margin-top:10px;padding-top:8px;border-top:1px solid var(--te-line)}
+#tui-entry-study .te-sectionhead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:5px}
+#tui-entry-study .te-facts{display:grid;grid-template-columns:78px minmax(0,1fr);gap:4px 12px;margin:0}
+#tui-entry-study .te-source-summary{display:grid;grid-template-columns:68px minmax(0,1fr);gap:4px 10px;margin:8px 0 0}
+#tui-entry-study .te-source-summary dt{color:var(--te-muted)}
+#tui-entry-study dt{color:var(--te-muted)}
+#tui-entry-study dd{margin:0;min-width:0}
+#tui-entry-study .te-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--te-line)}
+#tui-entry-study .te-row:last-child{border-bottom:0}
+#tui-entry-study .te-row strong{font-weight:500}
+#tui-entry-study .te-row small{display:block;color:var(--te-muted);font-size:12px;margin-top:3px}
+#tui-entry-study .te-summary{border-left:1px solid var(--te-line);padding-left:22px;min-width:0}
+#tui-entry-study[data-layout=&quot;single&quot;] .te-summary{border-left:0;padding-left:0;border-top:1px solid var(--te-line);padding-top:18px}
+#tui-entry-study .te-summary h2{margin-bottom:12px}
+#tui-entry-study .te-summary p+p{margin-top:10px}
+#tui-entry-study .te-summary .te-actions{margin-top:16px}
+#tui-entry-study .te-state{border-left:3px solid var(--te-strong);padding:10px 12px;background:var(--te-panel);margin:14px 0}
+#tui-entry-study .te-state strong{font-weight:500}
+#tui-entry-study .te-steps{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px;padding:0;list-style:none;color:var(--te-muted);font-size:12px}
+#tui-entry-study .te-steps li[aria-current=&quot;step&quot;]{color:var(--te-text);font-weight:500}
+#tui-entry-study .te-form{display:grid;gap:14px}
+#tui-entry-study .te-field{display:grid;gap:5px;min-width:0}
+#tui-entry-study .te-field input,#tui-entry-study .te-field select{width:100%;max-width:100%;min-width:0;background:var(--te-bg);border:1px solid var(--te-line);border-radius:2px;padding:8px 9px}
+#tui-entry-study .te-choices{display:grid;gap:10px}
+#tui-entry-study .te-choice{display:flex;align-items:flex-start;gap:9px;border:1px solid var(--te-line);padding:12px;cursor:pointer}
+#tui-entry-study .te-choice input{margin:3px 0 0;accent-color:var(--te-strong);flex:none}
+#tui-entry-study .te-choice:has(input:checked){background:var(--te-panel);border-color:var(--te-strong)}
+#tui-entry-study .te-choice small{display:block;color:var(--te-muted);margin-top:3px}
+#tui-entry-study .te-bottom{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:1px solid var(--te-line);padding-top:16px;margin-top:20px}
+#tui-entry-study .te-hub{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#tui-entry-study .te-intent{border:1px solid var(--te-line);padding:14px;background:var(--te-bg);text-align:left;border-radius:2px}
+#tui-entry-study .te-intent strong{display:block;font-weight:500}
+#tui-entry-study .te-intent span{display:block;font-size:12px;color:var(--te-muted);margin-top:5px}
+#tui-entry-study .te-hub .te-intent:first-child{grid-column:1/-1;background:var(--te-panel)}
+#tui-entry-study .te-foot{padding:10px 18px;border-top:1px solid var(--te-line);background:var(--te-panel);display:grid;gap:4px;font-size:12px}
+#tui-entry-study .te-error{margin-top:14px;border:1px solid var(--te-strong);padding:10px 12px}
+#tui-entry-study .te-quote{white-space:pre-wrap;margin:14px 0;padding:12px;border-left:2px solid var(--te-line);background:var(--te-panel)}
+@media(max-width:650px){#tui-entry-study .te-grid{grid-template-columns:1fr}#tui-entry-study .te-summary{border-left:0;padding-left:0;border-top:1px solid var(--te-line);padding-top:18px}#tui-entry-study .te-content{padding:16px}#tui-entry-study .te-chrome{padding:10px 14px}#tui-entry-study .te-hub{grid-template-columns:1fr}#tui-entry-study .te-facts{grid-template-columns:65px minmax(0,1fr);gap:8px 10px}#tui-entry-study .te-field input,#tui-entry-study .te-field select{font-size:16px}}
+@media(pointer:coarse){#tui-entry-study button,#tui-entry-study select,#tui-entry-study input{min-height:44px}}
+&lt;/style&gt;
+&lt;script&gt;
+(function(){
+  &#x27;use strict&#x27;;
+  const root=document.getElementById(&#x27;tui-entry-study&#x27;);
+  const design={entry:&#x27;host&#x27;,scenario:&#x27;personal&#x27;,layout:&#x27;split&#x27;};
+  let appliedDesign={...design};
+  const clone=value=&gt;JSON.parse(JSON.stringify(value));
+  const esc=value=&gt;String(value==null?&#x27;&#x27;:value).replace(/[&amp;&lt;&gt;&quot;&#x27;]/g,c=&gt;({&#x27;&amp;&#x27;:&#x27;&amp;amp;&#x27;,&#x27;&lt;&#x27;:&#x27;&amp;lt;&#x27;,&#x27;&gt;&#x27;:&#x27;&amp;gt;&#x27;,&#x27;&quot;&#x27;:&#x27;&amp;quot;&#x27;,&quot;&#x27;&quot;:&#x27;&amp;#39;&#x27;}[c]));
+  const cases={
+    personal:{label:&#x27;첫 개인 시작&#x27;,team:false,location:&#x27;payments · 로컬 레포&#x27;,checkpoint:&#x27;이 범위의 진행 기록 없음&#x27;,environment:&#x27;personal&#x27;,prior:null},
+    team:{label:&#x27;팀 환경 선택&#x27;,team:true,location:&#x27;payments · 로컬 레포&#x27;,checkpoint:&#x27;9월 14일 14:20 · 검토 메모 저장&#x27;,environment:&#x27;team&#x27;,prior:&#x27;이전 세션 04 · 환경 2판 전달 기록&#x27;},
+    empty:{label:&#x27;레포 없는 시작&#x27;,team:false,location:&#x27;연결된 레포 없음&#x27;,checkpoint:&#x27;확인된 진행 기록 없음&#x27;,environment:&#x27;personal&#x27;,prior:null},
+    missing:{label:&#x27;필수 초기 자료 없음&#x27;,team:true,location:&#x27;payments · 로컬 레포&#x27;,checkpoint:&#x27;9월 14일 14:20 · 검토 메모 저장&#x27;,environment:&#x27;team&#x27;,prior:&#x27;이전 세션 04 · 환경 2판 전달 기록&#x27;},
+    offline:{label:&#x27;오프라인&#x27;,team:true,location:&#x27;payments · 로컬 레포&#x27;,checkpoint:&#x27;9월 12일 · 마지막 로컬 기록&#x27;,environment:&#x27;team&#x27;,prior:&#x27;이전 세션 04 · 환경 2판 전달 기록&#x27;},
+    unknown:{label:&#x27;이전 실행 결과 미확인&#x27;,team:true,location:&#x27;payments · 로컬 레포&#x27;,checkpoint:&#x27;모의 실행 07 · 응답 미확인&#x27;,environment:&#x27;team&#x27;,prior:&#x27;이전 세션 04 · 환경 2판 전달 기록&#x27;},
+    locked:{label:&#x27;잠긴 범위&#x27;,team:true,location:&#x27;payments · 로컬 레포&#x27;,checkpoint:&#x27;보호된 기록&#x27;,environment:&#x27;team&#x27;,prior:&#x27;이전 세션 04 · 환경 2판 전달 기록&#x27;},
+    denied:{label:&#x27;필수 자료 접근 불가&#x27;,team:true,location:&#x27;payments · 로컬 레포&#x27;,checkpoint:&#x27;9월 14일 14:20 · 검토 메모 저장&#x27;,environment:&#x27;team&#x27;,prior:&#x27;이전 세션 04 · 환경 2판 전달 기록&#x27;}
+  };
+  const environments={personal:{name:&#x27;개인 기본 자료&#x27;,state:&#x27;개인용 · 조사와 초안에 사용&#x27;},reference:{name:&#x27;공통 기초 자료&#x27;,state:&#x27;제공된 참고 자료 · 개인 사용&#x27;},team:{name:&#x27;변경 점검 · 3판&#x27;,state:&#x27;업무팀에서 채택한 기준&#x27;},review:{name:&#x27;문서 점검 · 1판&#x27;,state:&#x27;업무팀에서 채택한 기준&#x27;}};
+  const configurations={standard:{name:&#x27;기본 실행&#x27;,model:&#x27;도구의 기본 모델&#x27;,delegation:&#x27;추가 작업자 없음&#x27;,review:&#x27;필요할 때 직접 요청&#x27;},careful:{name:&#x27;검토 강화&#x27;,model:&#x27;설정된 검토 모델&#x27;,delegation:&#x27;추가 검토자 1명&#x27;,review:&#x27;별도 검토 요청 포함&#x27;},fast:{name:&#x27;반복 작업용&#x27;,model:&#x27;설정된 실행 모델&#x27;,delegation:&#x27;추가 작업자 없음&#x27;,review:&#x27;필요할 때 직접 요청&#x27;}};
+  let s;
+  function resetCase(){
+    const example=cases[design.scenario]||cases.personal;
+    s={page:design.entry===&#x27;host&#x27;?&#x27;prepare&#x27;:&#x27;home&#x27;,revision:0,preview:null,result:null,error:&#x27;&#x27;,notice:&#x27;선택은 이번 준비에만 반영 · 아직 실행 전&#x27;,hint:&#x27;Tab 이동 · Enter 표시된 동작 · 입력 중 단축키 실행 안 함&#x27;,recovered:false,unlocked:design.scenario!==&#x27;locked&#x27;,requestSequence:0,source:null,returnPage:&#x27;prepare&#x27;,draft:{environment:example.environment,configuration:&#x27;standard&#x27;,permission:&#x27;confirm&#x27;},active:example.prior,pending:null};
+    if(design.scenario===&#x27;unknown&#x27;)s.pending={id:&#x27;모의 실행 07&#x27;,draft:clone(s.draft),location:example.location,revision:0};
+  }
+  const currentCase=()=&gt;cases[design.scenario]||cases.personal;
+  const locked=()=&gt;!s.unlocked;
+  const environment=()=&gt;environments[s.draft.environment];
+  const configuration=()=&gt;configurations[s.draft.configuration];
+  const scopeName=()=&gt;currentCase().team?&#x27;업무팀&#x27;:&#x27;개인 작업&#x27;;
+  function button(label,action,primary=false,extra=&#x27;&#x27;,hint=&#x27;&#x27;){
+    return &#x27;&lt;button type=&quot;button&quot; class=&quot;te-button&#x27;+(primary?&#x27; te-primary&#x27;:&#x27;&#x27;)+&#x27;&quot; data-action=&quot;&#x27;+action+&#x27;&quot; &#x27;+extra+&#x27; data-hint=&quot;&#x27;+esc(hint||label)+&#x27;&quot;&gt;&#x27;+label+&#x27;&lt;/button&gt;&#x27;;
+  }
+  const link=(label,action,hint=&#x27;&#x27;)=&gt;&#x27;&lt;button type=&quot;button&quot; class=&quot;te-link&quot; data-action=&quot;&#x27;+action+&#x27;&quot; data-hint=&quot;&#x27;+esc(hint||label)+&#x27;&quot;&gt;&#x27;+label+&#x27;&lt;/button&gt;&#x27;;
+  const header=(title,sub=&#x27;&#x27;)=&gt;&#x27;&lt;div class=&quot;te-head&quot;&gt;&lt;div&gt;&lt;h1&gt;&#x27;+title+&#x27;&lt;/h1&gt;&#x27;+(sub?&#x27;&lt;p&gt;&#x27;+sub+&#x27;&lt;/p&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;/div&gt;&lt;/div&gt;&#x27;;
+  const facts=rows=&gt;&#x27;&lt;dl class=&quot;te-facts&quot;&gt;&#x27;+rows.map(row=&gt;&#x27;&lt;dt&gt;&#x27;+row[0]+&#x27;&lt;/dt&gt;&lt;dd&gt;&#x27;+row[1]+&#x27;&lt;/dd&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/dl&gt;&#x27;;
+  const phases=active=&gt;&#x27;&lt;ol class=&quot;te-steps&quot; aria-label=&quot;현재 단계&quot;&gt;&#x27;+[&#x27;작업 준비&#x27;,&#x27;예상 결과 확인&#x27;,&#x27;모의 결과&#x27;].map((label,i)=&gt;&#x27;&lt;li&#x27;+(i===active?&#x27; aria-current=&quot;step&quot;&#x27;:&#x27;&#x27;)+&#x27;&gt;&#x27;+(i+1)+&#x27;. &#x27;+label+&#x27;&lt;/li&gt;&#x27;).join(&#x27;&lt;li aria-hidden=&quot;true&quot;&gt;→&lt;/li&gt;&#x27;)+&#x27;&lt;/ol&gt;&#x27;;
+  function sources(){
+    if(locked())return [];
+    const team=currentCase().team;
+    const alternate=[&#x27;reference&#x27;,&#x27;review&#x27;].includes(s.draft.environment);
+    return [
+      {id:&#x27;instructions&#x27;,role:&#x27;지침&#x27;,name:team?(alternate?&#x27;문서 점검 지침 · 1판&#x27;:&#x27;변경 점검 지침 · 5판&#x27;):(alternate?&#x27;자료 읽기 지침 · 1판&#x27;:&#x27;기본 작업 지침 · 1판&#x27;),owner:team?&#x27;업무팀&#x27;:&#x27;제공 자료의 원소유자&#x27;,status:&#x27;본문 준비됨&#x27;,meta:true,read:true,use:true,body:&#x27;확인한 내용과 아직 확인하지 못한 내용을 구분합니다. 참고 자료의 조건을 함께 읽습니다.&#x27;},
+      {id:&#x27;knowledge&#x27;,role:&#x27;지식&#x27;,name:team?&#x27;업무 확인 기준 · 7판&#x27;:(alternate?&#x27;자료 해석 원칙 · 1판&#x27;:&#x27;기초 검토 원칙 · 1판&#x27;),owner:team?&#x27;업무팀&#x27;:&#x27;제공 자료의 원소유자&#x27;,status:design.scenario===&#x27;denied&#x27;?&#x27;접근 확인 필요&#x27;:design.scenario===&#x27;missing&#x27;&amp;&amp;!s.recovered?&#x27;필수 초기 본문 받기 필요&#x27;:&#x27;연결됨 · 업무별 조회 전&#x27;,meta:design.scenario!==&#x27;denied&#x27;,read:design.scenario!==&#x27;denied&#x27;,use:design.scenario!==&#x27;denied&#x27;,available:design.scenario!==&#x27;missing&#x27;||s.recovered,body:&#x27;근거가 확인된 내용과 해석을 분리합니다. 확인하지 못한 결과를 확정된 사실로 표시하지 않습니다.&#x27;},
+      {id:&#x27;memory&#x27;,role:&#x27;결정 기록&#x27;,name:team?&#x27;팀·레포 결정 자료&#x27;:&#x27;연결한 결정 자료 없음&#x27;,owner:team?&#x27;업무팀&#x27;:&#x27;개인 작업&#x27;,status:team?&#x27;업무별 조회 전&#x27;:&#x27;과거 기록 전체를 확인한 것은 아님&#x27;,meta:true,read:true,use:true,body:team?&#x27;확인된 사실과 미확인 항목을 구분해 남기기로 했습니다. 안내 주기는 아직 정하지 않았습니다.&#x27;:&#x27;이번 환경에 연결한 결정 자료가 없습니다. 과거의 전체 기록이 없다는 뜻은 아닙니다.&#x27;}
+    ];
+  }
+  function assessment(){
+    if(locked())return {allowed:false,title:&#x27;잠금 해제가 필요합니다&#x27;,reason:&#x27;보호된 자료와 이전 결과를 표시하지 않습니다.&#x27;,action:&#x27;unlock&#x27;};
+    if(s.pending)return {allowed:false,title:&#x27;이전 실행의 결과부터 확인하세요&#x27;,reason:&#x27;같은 실행의 결과를 확인한 뒤 새로 준비합니다.&#x27;,action:&#x27;pending&#x27;};
+    const unavailable=sources().find(source=&gt;!source.meta||!source.read||!source.use);
+    if(unavailable)return {allowed:false,title:&#x27;필요한 자료를 확인할 권한이 없습니다&#x27;,reason:&#x27;자료의 제목·내용을 대신 표시하지 않습니다.&#x27;,action:&#x27;recovery&#x27;};
+    const missing=sources().find(source=&gt;source.available===false);
+    if(missing)return {allowed:false,title:&#x27;필수 초기 자료 확인이 필요합니다&#x27;,reason:&#x27;복구 화면을 여는 것만으로 준비되지는 않습니다.&#x27;,action:&#x27;recovery&#x27;};
+    return {allowed:true,title:&#x27;이 환경으로 시작할 조건을 확인했습니다&#x27;,reason:(design.scenario===&#x27;offline&#x27;?&#x27;마지막 로컬 기준입니다. &#x27;:&#x27;&#x27;)+&#x27;구체 업무와 필요한 지식·결정은 시작 후 실제 요청에 따라 확인합니다.&#x27;};
+  }
+  function changed(message){s.revision++;s.preview=null;s.result=null;s.error=&#x27;&#x27;;s.notice=message||&#x27;준비 초안만 바뀌었습니다. 이전 미리보기는 무효이며 기존 작업은 그대로입니다.&#x27;;}
+  function sourceRows(){return sources().map(source=&gt;&#x27;&lt;div class=&quot;te-row&quot;&gt;&lt;div&gt;&lt;strong&gt;&#x27;+source.role+&#x27;&lt;/strong&gt;&lt;div&gt;&#x27;+esc(source.meta?source.name:&#x27;필요한 자료 확인 불가&#x27;)+&#x27;&lt;/div&gt;&lt;small&gt;&#x27;+esc(source.status)+&#x27;&lt;/small&gt;&lt;/div&gt;&#x27;+(source.meta?button(&#x27;내용 보기&#x27;,&#x27;source&#x27;,false,&#x27;data-source=&quot;&#x27;+source.id+&#x27;&quot;&#x27;,&#x27;허용된 본문을 읽습니다. 선택·채택·전달을 수행하지 않습니다.&#x27;):button(&#x27;접근 확인&#x27;,&#x27;recovery&#x27;,false,&#x27;&#x27;,&#x27;허가된 접근 경로만 확인합니다.&#x27;))+&#x27;&lt;/div&gt;&#x27;).join(&#x27;&#x27;);}
+  function activeLine(){return s.active?&#x27;기존 작업: &#x27;+esc(s.active)+&#x27; · 이 화면의 선택으로 바뀌지 않음&#x27;:&#x27;현재 이 예시에서 시작한 실제 작업 없음&#x27;;}
+  function primaryPreparation(){
+    if(s.pending)return button(&#x27;이전 실행 결과 확인&#x27;,&#x27;pending&#x27;,true,&#x27;&#x27;,&#x27;기존 실행의 식별자를 유지해 결과를 확인합니다. 새 실행이 아닙니다.&#x27;);
+    return button(&#x27;준비 상태 확인&#x27;,&#x27;prepare-check&#x27;,true,&#x27;&#x27;,&#x27;환경의 필수 초기 자료·접근·시작 조건을 확인합니다. 현재 업무는 추정하지 않습니다.&#x27;);
+  }
+  function prepareView(){
+    const status=design.scenario===&#x27;offline&#x27;?&#x27;오프라인 · 9월 12일 로컬 기준 / 이후 변경 미확인&#x27;:s.pending?&#x27;이전 실행 결과 미확인&#x27;:design.scenario===&#x27;empty&#x27;?&#x27;레포 없이 환경 선택 가능&#x27;:&#x27;아직 실행 전&#x27;;
+    const rows=sources().map(item=&gt;&#x27;&lt;dt&gt;&#x27;+esc(item.role)+&#x27;&lt;/dt&gt;&lt;dd&gt;&#x27;+esc(item.meta?item.name:&#x27;필요한 자료 확인 불가&#x27;)+&#x27; · &#x27;+esc(item.status)+&#x27;&lt;/dd&gt;&#x27;).join(&#x27;&#x27;);
+    return header(&#x27;어떤 환경으로 시작할까요?&#x27;,scopeName()+&#x27; · &#x27;+status)+&#x27;&lt;div class=&quot;te-grid&quot;&gt;&lt;div&gt;&lt;section class=&quot;te-section&quot;&gt;&lt;div class=&quot;te-sectionhead&quot;&gt;&lt;h2&gt;현재 확인되는 맥락&lt;/h2&gt;&#x27;+link(&#x27;기록 자세히&#x27;,&#x27;context-details&#x27;)+&#x27;&lt;/div&gt;&#x27;+facts([[&#x27;현재 위치&#x27;,esc(currentCase().location)],[&#x27;최근 기록&#x27;,esc(currentCase().checkpoint)]])+&#x27;&lt;p class=&quot;te-small&quot;&gt;현재 할 일이나 업무 완료를 뜻하지 않습니다.&lt;/p&gt;&#x27;+&#x27;&lt;/section&gt;&lt;section class=&quot;te-section&quot;&gt;&lt;div class=&quot;te-sectionhead&quot;&gt;&lt;h2&gt;업무환경&lt;/h2&gt;&#x27;+link(&#x27;환경 선택&#x27;,&#x27;edit-environment&#x27;)+&#x27;&lt;/div&gt;&lt;p&gt;&#x27;+esc(environment().name)+&#x27; &lt;span class=&quot;te-small&quot;&gt;· &#x27;+esc(environment().state)+&#x27;&lt;/span&gt;&lt;/p&gt;&lt;dl class=&quot;te-source-summary&quot;&gt;&#x27;+rows+&#x27;&lt;/dl&gt;&#x27;+link(&#x27;자료 자세히 보기&#x27;,&#x27;materials&#x27;,&#x27;선택한 자료의 본문과 출처를 엽니다. 선택이나 전달은 하지 않습니다.&#x27;)+&#x27;&lt;/section&gt;&lt;section class=&quot;te-section&quot;&gt;&lt;div class=&quot;te-sectionhead&quot;&gt;&lt;h2&gt;실행 방법&lt;/h2&gt;&#x27;+link(&#x27;구성 변경&#x27;,&#x27;edit-tools&#x27;)+&#x27;&lt;/div&gt;&#x27;+facts([[&#x27;도구 / 대상&#x27;,&#x27;Codex CLI / 새 세션 예정&#x27;],[&#x27;구성&#x27;,esc(configuration().name)+&#x27; · &#x27;+esc(configuration().delegation)],[&#x27;파일 변경&#x27;,s.draft.permission===&#x27;confirm&#x27;?&#x27;변경 전에 사용자 확인&#x27;:&#x27;세션의 명시적 허용 범위만 변경&#x27;]])+&#x27;&lt;/section&gt;&lt;/div&gt;&lt;aside class=&quot;te-summary&quot;&gt;&lt;h2&gt;다음 행동의 결과&lt;/h2&gt;&lt;p&gt;선택한 환경·접근 조건·실행 설정을 확인합니다.&lt;/p&gt;&lt;p class=&quot;te-small&quot;&gt;구체적인 할 일은 세션을 시작한 뒤 정합니다. 업무별 지식·결정 조회도 그 요청에 따릅니다.&lt;/p&gt;&#x27;+(s.pending?&#x27;&lt;div class=&quot;te-state&quot;&gt;&#x27;+esc(s.pending.id)+&#x27; · 같은 요청의 결과 확인 필요&lt;/div&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;div class=&quot;te-actions&quot;&gt;&#x27;+primaryPreparation()+&#x27;&lt;/div&gt;&#x27;+(s.active?&#x27;&lt;p class=&quot;te-small&quot; style=&quot;margin-top:14px&quot;&gt;&#x27;+activeLine()+&#x27;&lt;/p&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;/aside&gt;&lt;/div&gt;&#x27;;
+  }
+  function homeView(){return header(&#x27;agent-bios에서 할 수 있는 일&#x27;,scopeName()+&#x27; · 메뉴를 열어도 선택이나 실행 상태는 바뀌지 않습니다.&#x27;)+&#x27;&lt;div class=&quot;te-hub&quot; data-menu&gt;&#x27;+[
+    [&#x27;환경 준비·시작&#x27;,&#x27;업무환경과 세션 시작 조건 확인&#x27;,&#x27;prepare&#x27;],
+    [&#x27;환경과 자료 관리&#x27;,&#x27;지침·지식·결정의 원본과 후보 확인&#x27;,&#x27;materials&#x27;],
+    [&#x27;변경 검토&#x27;,&#x27;정확한 요청과 승인 이후의 할 일&#x27;,&#x27;reviews&#x27;],
+    [&#x27;팀과 연결 관리&#x27;,&#x27;참여·권한·기기·공유 경로&#x27;,&#x27;team-settings&#x27;],
+    [&#x27;교환·문제 해결&#x27;,&#x27;누락 자료와 미확인 실행 결과&#x27;,&#x27;recovery&#x27;]
+  ].map(row=&gt;&#x27;&lt;button type=&quot;button&quot; class=&quot;te-intent&quot; data-action=&quot;&#x27;+row[2]+&#x27;&quot; data-hint=&quot;이 화면을 열기만 합니다. 아직 변경이나 실행은 하지 않습니다.&quot;&gt;&lt;strong&gt;&#x27;+row[0]+&#x27;&lt;/strong&gt;&lt;span&gt;&#x27;+row[1]+&#x27;&lt;/span&gt;&lt;/button&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;+(currentCase().team?&#x27;&#x27;:&#x27;&lt;p class=&quot;te-small&quot; style=&quot;margin-top:18px&quot;&gt;개인 작업에는 제품 계정이나 팀 생성이 필요하지 않습니다.&lt;/p&gt;&#x27;);}
+  function contextView(){return header(&#x27;관찰된 위치와 최근 기록&#x27;,&#x27;업무 의도나 다음 할 일을 추정하지 않습니다.&#x27;)+facts([[&#x27;현재 위치&#x27;,esc(currentCase().location)],[&#x27;최근 기록&#x27;,esc(currentCase().checkpoint)],[&#x27;알 수 있는 범위&#x27;,&#x27;이 위치와 연결해 확인한 마지막 기록&#x27;],[&#x27;아직 모르는 것&#x27;,&#x27;현재 하고 싶은 일 · 전체 업무의 완료 여부&#x27;]])+&#x27;&lt;div class=&quot;te-state&quot;&gt;기록을 보는 것은 이전 업무를 재개하거나 새 요청을 만드는 동작이 아닙니다.&lt;/div&gt;&lt;div class=&quot;te-bottom&quot;&gt;&#x27;+button(&#x27;환경 선택으로&#x27;,&#x27;prepare&#x27;,true)+&#x27;&lt;/div&gt;&#x27;;}
+  function editEnvironment(){const ids=currentCase().team?[&#x27;team&#x27;,&#x27;review&#x27;]:[&#x27;personal&#x27;,&#x27;reference&#x27;];return header(&#x27;업무에 쓸 환경&#x27;,&#x27;자료의 기준을 고르는 일입니다. 도구 실행 구성과는 별개입니다.&#x27;)+&#x27;&lt;div class=&quot;te-choices&quot;&gt;&#x27;+ids.map(id=&gt;&#x27;&lt;label class=&quot;te-choice&quot;&gt;&lt;input type=&quot;radio&quot; name=&quot;te-environment&quot; data-field=&quot;environment&quot; value=&quot;&#x27;+id+&#x27;&quot; &#x27;+(s.draft.environment===id?&#x27;checked&#x27;:&#x27;&#x27;)+&#x27;&gt;&lt;span&gt;&#x27;+esc(environments[id].name)+&#x27;&lt;small&gt;&#x27;+esc(environments[id].state)+&#x27;&lt;/small&gt;&lt;/span&gt;&lt;/label&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&lt;div class=&quot;te-state&quot;&gt;환경 선택은 원본 편집·팀 채택·기존 작업 전환이 아닙니다.&lt;/div&gt;&lt;div class=&quot;te-bottom&quot;&gt;&#x27;+button(&#x27;준비 화면으로&#x27;,&#x27;prepare&#x27;,true)+&#x27;&lt;/div&gt;&#x27;;}
+  function editTools(){return header(&#x27;도구의 실행 구성&#x27;,&#x27;업무 기준이나 자료 접근 권한을 바꾸지 않습니다.&#x27;)+&#x27;&lt;div class=&quot;te-form&quot;&gt;&lt;label class=&quot;te-field&quot;&gt;&lt;span&gt;이번 실행 구성&lt;/span&gt;&lt;select data-field=&quot;configuration&quot;&gt;&#x27;+Object.entries(configurations).map(([id,c])=&gt;&#x27;&lt;option value=&quot;&#x27;+id+&#x27;&quot; &#x27;+(s.draft.configuration===id?&#x27;selected&#x27;:&#x27;&#x27;)+&#x27;&gt;&#x27;+c.name+&#x27;&lt;/option&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/select&gt;&lt;/label&gt;&lt;label class=&quot;te-field&quot;&gt;&lt;span&gt;파일 변경 방식&lt;/span&gt;&lt;select data-field=&quot;permission&quot;&gt;&lt;option value=&quot;confirm&quot; &#x27;+(s.draft.permission===&#x27;confirm&#x27;?&#x27;selected&#x27;:&#x27;&#x27;)+&#x27;&gt;변경 전에 사용자 확인&lt;/option&gt;&lt;option value=&quot;allowed&quot; &#x27;+(s.draft.permission===&#x27;allowed&#x27;?&#x27;selected&#x27;:&#x27;&#x27;)+&#x27;&gt;세션에서 명시적으로 허용한 범위만 변경&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&#x27;+facts([[&#x27;모델&#x27;,esc(configuration().model)],[&#x27;리뷰&#x27;,esc(configuration().review)],[&#x27;추가 작업&#x27;,esc(configuration().delegation)]])+&#x27;&lt;p class=&quot;te-small&quot;&gt;검토 강화는 추가 호출·대기·사용량을 늘릴 수 있습니다. 실제 금액은 이 예시에서 측정하지 않습니다.&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;te-bottom&quot;&gt;&#x27;+button(&#x27;준비 화면으로&#x27;,&#x27;prepare&#x27;,true)+&#x27;&lt;/div&gt;&#x27;;}
+  function previewView(){const a=assessment();const valid=s.preview&amp;&amp;s.preview.revision===s.revision;return phases(1)+header(&#x27;이렇게 시작할 예정입니다&#x27;,&#x27;선택한 기준·대상·영향을 확인한 뒤 결정하세요.&#x27;)+(valid?&#x27;&lt;div class=&quot;te-state&quot;&gt;&lt;strong&gt;&#x27;+esc(a.title)+&#x27;&lt;/strong&gt;&lt;br&gt;&lt;span class=&quot;te-small&quot;&gt;&#x27;+esc(a.reason)+&#x27;&lt;/span&gt;&lt;/div&gt;&#x27;:&#x27;&lt;div class=&quot;te-state&quot;&gt;선택이 바뀌어 이전 확인은 무효입니다. 준비 상태를 다시 확인해 주세요.&lt;/div&gt;&#x27;)+facts([[&#x27;현재 위치&#x27;,esc(currentCase().location)],[&#x27;시작 방식&#x27;,&#x27;Codex CLI의 새 세션 · 예정된 수신자&#x27;],[&#x27;업무 기준&#x27;,esc(environment().name)+&#x27;&lt;br&gt;&lt;span class=&quot;te-small&quot;&gt;&#x27;+esc(environment().state)+&#x27;&lt;/span&gt;&#x27;],[&#x27;도구 구성&#x27;,esc(configuration().name)+&#x27; · &#x27;+esc(configuration().delegation)],[&#x27;파일 변경&#x27;,s.draft.permission===&#x27;confirm&#x27;?&#x27;변경 전에 사용자 확인&#x27;:&#x27;세션에서 명시적으로 허용한 범위만 변경&#x27;],[&#x27;모의 효과&#x27;,&#x27;선택한 지침과 지식·결정 조회 경로를 새 세션에 제공&#x27;],[&#x27;업무별 준비&#x27;,&#x27;현재 요청 없음 · 구체 업무의 자료 충분성은 아직 평가하지 않음&#x27;],[&#x27;기존 상태&#x27;,&#x27;원본·저장된 기본값·팀 채택·기존 작업은 그대로&#x27;]])+&#x27;&lt;div class=&quot;te-bottom&quot;&gt;&#x27;+link(&#x27;준비 내용 수정&#x27;,&#x27;prepare&#x27;)+&#x27;&lt;div class=&quot;te-actions&quot;&gt;&#x27;+(!a.allowed?button(a.action===&#x27;pending&#x27;?&#x27;같은 실행 결과 확인&#x27;:&#x27;문제 해결 경로&#x27;,a.action||&#x27;recovery&#x27;,true):button(&#x27;이 내용으로 모의 실행&#x27;,&#x27;execute&#x27;,true,valid?&#x27;&#x27;:&#x27;disabled&#x27;,&#x27;이 예시의 결과만 만듭니다. 실제 도구·계정·파일·네트워크는 변경하지 않습니다.&#x27;))+&#x27;&lt;/div&gt;&lt;/div&gt;&#x27;;}
+  function sourceView(){const source=sources().find(row=&gt;row.id===s.source);if(!source||!source.meta||!source.read)return header(&#x27;자료를 표시할 수 없습니다&#x27;,&#x27;필요한 권한을 확인해야 합니다.&#x27;)+button(&#x27;접근 문제 확인&#x27;,&#x27;recovery&#x27;,true);return header(source.name,source.role+&#x27; · &#x27;+source.owner)+facts([[&#x27;읽기&#x27;,source.available===false?&#x27;권한 있음 · 본문은 아직 없음&#x27;:&#x27;이 예시에서 허용된 본문&#x27;],[&#x27;현재 효과&#x27;,&#x27;조회만 · 원본 편집이나 전달 없음&#x27;]])+(source.available===false?&#x27;&lt;div class=&quot;te-state&quot;&gt;필수 본문이 로컬에 없습니다. 목록은 본문의 대체물이 아닙니다.&lt;/div&gt;&#x27;+button(&#x27;필수 자료 복구로&#x27;,&#x27;recovery&#x27;,true):&#x27;&lt;div class=&quot;te-quote&quot;&gt;&#x27;+esc(source.body)+&#x27;&lt;/div&gt;&#x27;)+&#x27;&lt;div class=&quot;te-bottom&quot;&gt;&#x27;+button(&#x27;원래 화면으로&#x27;,&#x27;return&#x27;,true)+&#x27;&lt;/div&gt;&#x27;;}
+  function recoveryView(){
+    if(s.pending)return pendingView();
+    if(design.scenario===&#x27;denied&#x27;)return header(&#x27;필요한 자료의 접근 확인&#x27;,&#x27;권한이 없는 제목·본문·소유 정보는 표시하지 않습니다.&#x27;)+&#x27;&lt;div class=&quot;te-state&quot;&gt;허용된 계정·기기와 자료 접근 범위를 확인해야 합니다. 이번 선택만으로 권한을 늘릴 수 없습니다.&lt;/div&gt;&#x27;+button(&#x27;준비 화면으로&#x27;,&#x27;prepare&#x27;,true);
+    if(design.scenario===&#x27;missing&#x27;&amp;&amp;!s.recovered)return header(&#x27;선택 환경의 필수 초기 자료 받기&#x27;,&#x27;준비 초안과 누락 상태를 그대로 가져왔습니다.&#x27;)+facts([[&#x27;선택 환경&#x27;,esc(environment().name)],[&#x27;누락&#x27;,&#x27;업무 확인 기준 · 7판 본문&#x27;],[&#x27;받을 범위&#x27;,&#x27;환경이 초기 필수로 지정한 본문·조건·정정&#x27;]])+&#x27;&lt;div class=&quot;te-state&quot;&gt;아직 받거나 검증하지 않았습니다. 화면 이동으로 준비 상태가 바뀌지 않습니다.&lt;/div&gt;&lt;div class=&quot;te-bottom&quot;&gt;&#x27;+link(&#x27;받지 않고 돌아가기&#x27;,&#x27;prepare&#x27;)+button(&#x27;본문 수신·검증을 모의&#x27;,&#x27;recover-body&#x27;,true,&#x27;&#x27;,&#x27;허용된 본문을 받은 가상 조건만 반영합니다. 전달·시작은 별도입니다.&#x27;)+&#x27;&lt;/div&gt;&#x27;;
+    return header(&#x27;교환·문제 해결&#x27;,design.scenario===&#x27;offline&#x27;?&#x27;로컬에서 가능한 작업과 교환 대기를 구분합니다.&#x27;:&#x27;현재 예시에 미확인 실행이나 필수 본문 누락이 없습니다.&#x27;)+facts([[&#x27;자료 확인&#x27;,design.scenario===&#x27;offline&#x27;?&#x27;9월 12일 확인한 로컬 범위&#x27;:&#x27;현재 가상 준비 범위&#x27;],[&#x27;공유 경로&#x27;,&#x27;동료 사본·허용된 파일 교환&#x27;],[&#x27;깃허브&#x27;,&#x27;선택 연결 · 자동 접속하지 않음&#x27;]])+&#x27;&lt;div class=&quot;te-bottom&quot;&gt;&#x27;+button(&#x27;준비 화면으로&#x27;,&#x27;prepare&#x27;,true)+&#x27;&lt;/div&gt;&#x27;;
+  }
+  function pendingView(){const request=s.pending;if(!request)return recoveryView();return header(&#x27;기존 실행의 결과 확인&#x27;,&#x27;새 요청을 만들지 않고 같은 실행을 확인합니다.&#x27;)+facts([[&#x27;실행&#x27;,esc(request.id)],[&#x27;당시 위치&#x27;,esc(request.location)],[&#x27;당시 구성&#x27;,esc(configurations[request.draft.configuration].name)],[&#x27;당시 기준&#x27;,esc(environments[request.draft.environment].name)],[&#x27;확인 상태&#x27;,&#x27;응답을 받지 못함 · 성공·실패 미확정&#x27;]])+&#x27;&lt;div class=&quot;te-state&quot;&gt;준비 초안을 바꿔도 이 실행의 대상과 내용은 바뀌지 않습니다.&lt;/div&gt;&lt;div class=&quot;te-bottom&quot;&gt;&#x27;+link(&#x27;준비 화면으로&#x27;,&#x27;prepare&#x27;)+button(&#x27;같은 실행의 결과 확인 · 모의&#x27;,&#x27;resolve-unknown&#x27;,true)+&#x27;&lt;/div&gt;&#x27;;}
+  function resultView(){const result=s.result;if(!result)return prepareView();return phases(2)+header(&#x27;모의 결과를 확인하세요&#x27;,&#x27;실제 호스트·모델은 실행하지 않았습니다.&#x27;)+&#x27;&lt;div class=&quot;te-state&quot;&gt;&#x27;+esc(result.recovered?&#x27;같은 실행의 모의 전달 기록을 확인했습니다.&#x27;:&#x27;이 예시의 모의 전달 기록을 만들었습니다.&#x27;)+&#x27;&lt;/div&gt;&#x27;+facts([[&#x27;실행&#x27;,esc(result.id)],[&#x27;전달 내용&#x27;,esc(environments[result.draft.environment].name)+&#x27; · 지침과 지식·결정 조회 경로&#x27;],[&#x27;예정 대상&#x27;,&#x27;Codex CLI의 새 세션&#x27;],[&#x27;실제 사용&#x27;,&#x27;관측하지 않음 · 모델의 이해·준수도 미확인&#x27;],[&#x27;기존 작업&#x27;,s.active?esc(s.active)+&#x27; · 그대로&#x27;:&#x27;확인된 이전 전달 기록 없음&#x27;]])+&#x27;&lt;div class=&quot;te-bottom&quot;&gt;&#x27;+button(&#x27;현재 준비로 돌아가기&#x27;,&#x27;prepare&#x27;,true)+link(&#x27;홈으로&#x27;,&#x27;home&#x27;)+&#x27;&lt;/div&gt;&#x27;;}
+  function materialsView(){return header(&#x27;환경과 자료 관리&#x27;,&#x27;선택된 원본의 의미와 조회 경로입니다.&#x27;)+&#x27;&lt;p&gt;&#x27;+esc(environment().name)+&#x27; &lt;span class=&quot;te-small&quot;&gt;&#x27;+esc(environment().state)+&#x27;&lt;/span&gt;&lt;/p&gt;&#x27;+sourceRows()+&#x27;&lt;div class=&quot;te-state&quot;&gt;자료 추가·후보 검토·원본 편집은 각 소유자의 별도 작업입니다. 이 진입 예시에서는 원본 조회만 제공합니다.&lt;/div&gt;&lt;div class=&quot;te-bottom&quot;&gt;&#x27;+button(&#x27;작업 준비로&#x27;,&#x27;prepare&#x27;,true)+link(&#x27;홈으로&#x27;,&#x27;home&#x27;)+&#x27;&lt;/div&gt;&#x27;;}
+  function destinationView(kind){const team=kind===&#x27;team-settings&#x27;;return header(team?&#x27;팀과 연결 관리&#x27;:&#x27;변경 검토&#x27;,team?(currentCase().team?&#x27;현재 작업과 팀 운영 설정은 별도입니다.&#x27;:&#x27;개인 작업에는 팀 생성이나 가입이 필요하지 않습니다.&#x27;):&#x27;이 진입 예시에는 검토할 변경 요청을 넣지 않았습니다.&#x27;)+(team?facts([[&#x27;작업 범위&#x27;,scopeName()],[&#x27;참여·권한&#x27;,&#x27;동의·등록·자료 권한을 별도로 확인&#x27;],[&#x27;동기화&#x27;,&#x27;동료 사본이 기본 · 깃허브는 선택&#x27;],[&#x27;현재 효과&#x27;,&#x27;조회 경로만 표시 · 가입·연결·권한 변경 없음&#x27;]]):&#x27;&lt;div class=&quot;te-state&quot;&gt;승인 가능한 요청과 실제 승인 범위를 확인한 뒤 검토합니다. 메뉴를 열었다고 승인·발행되지 않습니다.&lt;/div&gt;&#x27;)+&#x27;&lt;div class=&quot;te-bottom&quot;&gt;&#x27;+button(&#x27;작업 준비로&#x27;,&#x27;prepare&#x27;,true)+link(&#x27;홈으로&#x27;,&#x27;home&#x27;)+&#x27;&lt;/div&gt;&#x27;;}
+  function lockView(){return header(&#x27;작업 공간이 잠겨 있습니다&#x27;,&#x27;보호된 이름·자료·이전 결과를 표시하지 않습니다.&#x27;)+&#x27;&lt;div class=&quot;te-state&quot;&gt;허용된 기기의 재확인 뒤 작업 준비를 다시 확인할 수 있습니다.&lt;/div&gt;&#x27;+button(&#x27;기기 확인·잠금 해제 · 모의&#x27;,&#x27;unlock&#x27;,true,&#x27;&#x27;,&#x27;이미 허용된 기기로 재확인하는 가상 동작입니다. 새 구성원이나 권한은 만들지 않습니다.&#x27;);}
+  function render(){
+    root.dataset.layout=design.layout;root.dataset.entry=design.entry;root.dataset.scenario=design.scenario;root.dataset.screen=locked()?&#x27;locked&#x27;:s.page;root.dataset.revision=String(s.revision);root.dataset.previewRevision=s.preview?String(s.preview.revision):&#x27;&#x27;;root.dataset.requestId=locked()?&#x27;&#x27;:s.pending?s.pending.id:s.result?s.result.id:&#x27;&#x27;;
+    const active=document.activeElement;const keep=root.contains(active)?{field:active.dataset.field,action:active.dataset.action,source:active.dataset.source}:{};
+    const views={home:homeView,prepare:prepareView,&#x27;context-details&#x27;:contextView,&#x27;edit-environment&#x27;:editEnvironment,&#x27;edit-tools&#x27;:editTools,preview:previewView,source:sourceView,recovery:recoveryView,pending:pendingView,result:resultView,materials:materialsView,reviews:()=&gt;destinationView(&#x27;reviews&#x27;),&#x27;team-settings&#x27;:()=&gt;destinationView(&#x27;team-settings&#x27;)};
+    const content=locked()?lockView():(views[s.page]||prepareView)();
+    root.innerHTML=&#x27;&lt;div class=&quot;te-chrome&quot;&gt;&lt;div&gt;&lt;span class=&quot;te-brand&quot;&gt;에이전트바이오스&lt;/span&gt;&lt;span class=&quot;te-small&quot;&gt; · &#x27;+(design.entry===&#x27;host&#x27;?&#x27;Codex CLI에서 시작&#x27;:&#x27;작업 관리&#x27;)+&#x27;&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;te-actions&quot;&gt;&#x27;+(locked()?&#x27;&#x27;:link(&#x27;홈&#x27;,&#x27;home&#x27;,&#x27;갈 곳을 찾는 홈을 엽니다. 현재 선택이나 기존 작업은 바뀌지 않습니다.&#x27;)+link(&#x27;잠금&#x27;,&#x27;lock&#x27;,&#x27;보호된 자료를 가리는 가상 잠금입니다. 이미 전달된 문맥을 지우지는 않습니다.&#x27;))+&#x27;&lt;/div&gt;&lt;/div&gt;&lt;main class=&quot;te-content&quot;&gt;&#x27;+content+(s.error?&#x27;&lt;div class=&quot;te-error&quot; role=&quot;alert&quot;&gt;&#x27;+esc(s.error)+&#x27;&lt;/div&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;/main&gt;&lt;footer class=&quot;te-foot&quot;&gt;&lt;div role=&quot;status&quot; aria-live=&quot;polite&quot;&gt;&#x27;+esc(s.notice)+&#x27;&lt;/div&gt;&lt;div id=&quot;te-focus-hint&quot; class=&quot;te-small&quot;&gt;&#x27;+esc(s.hint)+&#x27;&lt;/div&gt;&lt;div class=&quot;te-small&quot;&gt;가상 설계 · 실제 변경 없음 · 실제 터미널 동작을 재현한 것은 아님&lt;/div&gt;&lt;/footer&gt;&#x27;;
+    let target=keep.field?root.querySelector(&#x27;[data-field=&quot;&#x27;+keep.field+&#x27;&quot;]&#x27;):keep.action?root.querySelector(&#x27;[data-action=&quot;&#x27;+keep.action+&#x27;&quot;]&#x27;+(keep.source?&#x27;[data-source=&quot;&#x27;+keep.source+&#x27;&quot;]&#x27;:&#x27;&#x27;)):null;
+    if(!target&amp;&amp;keep.action)target=root.querySelector(&#x27;main button:not(:disabled),main input,main select&#x27;);
+    if(target)target.focus({preventScroll:true});
+  }
+  function navigate(page){s.page=page;s.error=&#x27;&#x27;;s.notice=&#x27;화면을 열었습니다. 준비 초안과 기존 작업은 그대로입니다.&#x27;;}
+  root.addEventListener(&#x27;focusin&#x27;,event=&gt;{const button=event.target.closest(&#x27;button[data-hint]&#x27;);if(!button)return;s.hint=button.dataset.hint;const hint=root.querySelector(&#x27;#te-focus-hint&#x27;);if(hint)hint.textContent=s.hint;});
+  root.addEventListener(&#x27;change&#x27;,event=&gt;{const key=event.target.dataset.field;if(![&#x27;environment&#x27;,&#x27;configuration&#x27;,&#x27;permission&#x27;].includes(key)||locked())return;const value=event.target.value;const allowed=key===&#x27;environment&#x27;?(currentCase().team?[&#x27;team&#x27;,&#x27;review&#x27;]:[&#x27;personal&#x27;,&#x27;reference&#x27;]):key===&#x27;configuration&#x27;?Object.keys(configurations):[&#x27;confirm&#x27;,&#x27;allowed&#x27;];if(!allowed.includes(value))return;s.draft[key]=value;changed();render();});
+  root.addEventListener(&#x27;click&#x27;,event=&gt;{
+    const b=event.target.closest(&#x27;button[data-action]&#x27;);if(!b||b.disabled)return;const action=b.dataset.action;
+    if(locked()&amp;&amp;action!==&#x27;unlock&#x27;)return;
+    s.error=&#x27;&#x27;;
+    if([&#x27;home&#x27;,&#x27;prepare&#x27;,&#x27;context-details&#x27;,&#x27;edit-environment&#x27;,&#x27;edit-tools&#x27;,&#x27;recovery&#x27;,&#x27;pending&#x27;,&#x27;materials&#x27;,&#x27;reviews&#x27;,&#x27;team-settings&#x27;].includes(action))navigate(action);
+    else if(action===&#x27;source&#x27;){const source=sources().find(row=&gt;row.id===b.dataset.source);if(!source||!source.meta||!source.read){s.error=&#x27;이 자료를 표시할 권한이 없습니다.&#x27;;}else{s.returnPage=s.page;s.source=source.id;navigate(&#x27;source&#x27;);}}
+    else if(action===&#x27;return&#x27;)navigate(s.returnPage||&#x27;prepare&#x27;);
+    else if(action===&#x27;prepare-check&#x27;){s.preview={revision:s.revision,draft:clone(s.draft)};s.page=&#x27;preview&#x27;;s.notice=&#x27;준비 상태와 예상 영향을 확인했습니다. 아직 모의 실행도 하지 않았습니다.&#x27;;}
+    else if(action===&#x27;execute&#x27;){
+      if(s.page!==&#x27;preview&#x27;||!s.preview||s.preview.revision!==s.revision||!assessment().allowed){s.error=&#x27;현재 준비와 권한을 다시 확인해야 합니다. 실행하지 않았습니다.&#x27;;}
+      else{s.requestSequence++;s.result={id:&#x27;모의 실행 &#x27;+String(s.requestSequence).padStart(2,&#x27;0&#x27;),draft:clone(s.preview.draft),recovered:false};s.page=&#x27;result&#x27;;s.notice=&#x27;모의 결과만 표시했습니다. 실제 파일·도구·계정·네트워크는 변경하지 않았습니다.&#x27;;}
+    }
+    else if(action===&#x27;recover-body&#x27;){if(design.scenario===&#x27;missing&#x27;&amp;&amp;!s.recovered&amp;&amp;sources().every(source=&gt;source.read&amp;&amp;source.use)){s.recovered=true;changed(&#x27;필수 본문의 수신·검증을 모의했습니다. 같은 준비를 다시 확인해야 하며 아직 전달하지 않았습니다.&#x27;);s.page=&#x27;prepare&#x27;;}}
+    else if(action===&#x27;resolve-unknown&#x27;){if(s.pending){s.result={id:s.pending.id,draft:clone(s.pending.draft),recovered:true};s.pending=null;s.page=&#x27;result&#x27;;s.notice=&#x27;같은 실행의 모의 결과를 확인했습니다. 새 실행을 만들지 않았습니다.&#x27;;}}
+    else if(action===&#x27;lock&#x27;){s.unlocked=false;s.preview=null;s.error=&#x27;&#x27;;s.notice=&#x27;가상 잠금 상태입니다. 기존 작업에 전달된 문맥은 지우지 않습니다.&#x27;;}
+    else if(action===&#x27;unlock&#x27;){s.unlocked=true;s.preview=null;s.page=design.entry===&#x27;host&#x27;?&#x27;prepare&#x27;:&#x27;home&#x27;;s.notice=&#x27;허용된 기기로 재확인한 경우를 모의했습니다. 준비 상태를 새로 확인하세요.&#x27;;}
+    render();
+  });
+  root.addEventListener(&#x27;keydown&#x27;,event=&gt;{
+    if(event.target.closest(&#x27;input,select,textarea,[contenteditable]&#x27;))return;
+    if(event.key===&#x27;Escape&#x27;&amp;&amp;!locked()&amp;&amp;![&#x27;home&#x27;,&#x27;prepare&#x27;].includes(s.page)){event.preventDefault();navigate(&#x27;prepare&#x27;);render();return;}
+    const menu=event.target.closest(&#x27;[data-menu]&#x27;);
+    if(!menu||![&#x27;ArrowDown&#x27;,&#x27;ArrowUp&#x27;].includes(event.key))return;
+    const buttons=[...menu.querySelectorAll(&#x27;button:not(:disabled)&#x27;)];const index=buttons.indexOf(document.activeElement);if(index&lt;0)return;event.preventDefault();buttons[(index+(event.key===&#x27;ArrowDown&#x27;?1:-1)+buttons.length)%buttons.length].focus();
+  });
+  function applyDesign(){
+    if(!cases[design.scenario])design.scenario=&#x27;personal&#x27;;
+    if(design.scenario!==appliedDesign.scenario)resetCase();
+    else if(design.entry!==appliedDesign.entry)s.page=design.entry===&#x27;host&#x27;?&#x27;prepare&#x27;:&#x27;home&#x27;;
+    appliedDesign={...design};render();
+  }
+  resetCase();render();
+  if(globalThis.Tweak){
+    const tweak=new Tweak({container:root,onChange:applyDesign});
+    tweak.addSelect(design,&#x27;entry&#x27;,{label:&#x27;진입 경로&#x27;,options:[{label:&#x27;도구에서 바로 작업 준비&#x27;,value:&#x27;host&#x27;},{label:&#x27;일반 작업 관리 홈&#x27;,value:&#x27;studio&#x27;}]});
+    tweak.addSelect(design,&#x27;scenario&#x27;,{label:&#x27;가상 사례&#x27;,options:Object.entries(cases).map(([value,c])=&gt;({label:c.label,value}))});
+    tweak.addSelect(design,&#x27;layout&#x27;,{label:&#x27;정보 배치&#x27;,options:[{label:&#x27;두 영역 · 준비와 다음 행동&#x27;,value:&#x27;split&#x27;},{label:&#x27;한 열 · 읽는 순서대로&#x27;,value:&#x27;single&#x27;}]});
+  }
+})();
+&lt;/script&gt;
+
+&lt;script src=&quot;https://unpkg.com/@floating-ui/core@1.7.3/dist/floating-ui.core.umd.min.js&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;https://unpkg.com/@floating-ui/dom@1.7.4/dist/floating-ui.dom.umd.min.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+(() =&gt; {
+  if (window.FloatingUIDOM == null) {
+    return;
+  }
+  const { autoUpdate, computePosition, flip, offset, shift, size } =
+    window.FloatingUIDOM;
+  const tooltipPlacements = new Set([&quot;top&quot;, &quot;right&quot;, &quot;bottom&quot;, &quot;left&quot;]);
+  const tooltipId = `codex-visualization-tooltip-${
+    window.crypto?.randomUUID?.() ?? Date.now().toString(36)
+  }`;
+  const tooltipGap = 5;
+  const hoverDelay = 700;
+  const skipDelay = 300;
+  let activeTrigger = null;
+  let pendingTrigger = null;
+  let tooltip = null;
+  let openTimeout = null;
+  let autoUpdateCleanup = null;
+  let positionRequest = 0;
+  let skipDelayUntil = 0;
+  let lastPointerWasTouch = false;
+  let pinnedByTouch = false;
+
+  const getTrigger = (target) =&gt;
+    target?.nodeType === Node.ELEMENT_NODE
+      ? target.closest(&quot;[data-tooltip]&quot;)
+      : null;
+  const containsTarget = (trigger, target) =&gt;
+    target?.nodeType != null &amp;&amp; trigger.contains(target);
+  const getContent = (trigger) =&gt;
+    trigger.getAttribute(&quot;data-tooltip&quot;)?.trim() ?? &quot;&quot;;
+  const getPlacement = (trigger) =&gt; {
+    const placement = trigger.getAttribute(&quot;data-tooltip-placement&quot;);
+    return tooltipPlacements.has(placement) ? placement : &quot;top&quot;;
+  };
+  const getTooltip = () =&gt; {
+    if (tooltip == null) {
+      tooltip = document.createElement(&quot;div&quot;);
+      tooltip.id = tooltipId;
+      tooltip.className = &quot;tooltip&quot;;
+      tooltip.setAttribute(&quot;role&quot;, &quot;tooltip&quot;);
+    }
+    return tooltip;
+  };
+  const setDescribedBy = (trigger, described) =&gt; {
+    const ids = new Set(
+      (trigger.getAttribute(&quot;aria-describedby&quot;) ?? &quot;&quot;)
+        .split(/\s+/)
+        .filter(Boolean),
+    );
+    if (described) {
+      ids.add(tooltipId);
+    } else {
+      ids.delete(tooltipId);
+    }
+    if (ids.size === 0) {
+      trigger.removeAttribute(&quot;aria-describedby&quot;);
+    } else {
+      trigger.setAttribute(&quot;aria-describedby&quot;, [...ids].join(&quot; &quot;));
+    }
+  };
+  const clearOpenTimeout = () =&gt; {
+    if (openTimeout != null) {
+      window.clearTimeout(openTimeout);
+      openTimeout = null;
+    }
+    pendingTrigger = null;
+  };
+  const closeTooltip = (activateSkipDelay = true) =&gt; {
+    clearOpenTimeout();
+    pinnedByTouch = false;
+    positionRequest += 1;
+    autoUpdateCleanup?.();
+    autoUpdateCleanup = null;
+    if (activeTrigger == null) {
+      return;
+    }
+    setDescribedBy(activeTrigger, false);
+    activeTrigger = null;
+    tooltip?.remove();
+    if (activateSkipDelay) {
+      skipDelayUntil = Date.now() + skipDelay;
+    }
+  };
+  const updatePosition = (trigger, floating) =&gt; {
+    const request = ++positionRequest;
+    void computePosition(trigger, floating, {
+      middleware: [
+        offset(tooltipGap),
+        flip({ padding: tooltipGap }),
+        shift({ padding: tooltipGap }),
+        size({
+          padding: tooltipGap,
+          apply({ availableHeight, availableWidth, elements }) {
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-width&quot;,
+              `${Math.max(0, availableWidth)}px`,
+            );
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-height&quot;,
+              `${Math.max(0, availableHeight)}px`,
+            );
+          },
+        }),
+      ],
+      placement: getPlacement(trigger),
+      strategy: &quot;fixed&quot;,
+    })
+      .then(({ x, y }) =&gt; {
+        if (activeTrigger !== trigger || request !== positionRequest) {
+          return;
+        }
+        const scale = window.devicePixelRatio || 1;
+        floating.style.transform = `translate(${Math.round(x * scale) / scale}px, ${Math.round(y * scale) / scale}px)`;
+        floating.style.visibility = &quot;visible&quot;;
+      })
+      .catch(() =&gt; {
+        if (activeTrigger === trigger &amp;&amp; request === positionRequest) {
+          closeTooltip(false);
+        }
+      });
+  };
+  const openTooltip = (trigger) =&gt; {
+    const content = getContent(trigger);
+    if (!trigger.isConnected || content.length === 0) {
+      return;
+    }
+    clearOpenTimeout();
+    if (activeTrigger === trigger) {
+      return;
+    }
+    closeTooltip();
+    const floating = getTooltip();
+    floating.textContent = content;
+    floating.style.visibility = &quot;hidden&quot;;
+    floating.style.transform = &quot;translate(0, 0)&quot;;
+    document.body.appendChild(floating);
+    activeTrigger = trigger;
+    setDescribedBy(trigger, true);
+    autoUpdateCleanup = autoUpdate(trigger, floating, () =&gt; {
+      updatePosition(trigger, floating);
+    });
+  };
+  const requestOpen = (trigger, immediate = false) =&gt; {
+    if (
+      getContent(trigger).length === 0 ||
+      activeTrigger === trigger ||
+      pendingTrigger === trigger
+    ) {
+      return;
+    }
+    clearOpenTimeout();
+    pendingTrigger = trigger;
+    const delay =
+      immediate || activeTrigger != null || Date.now() &lt; skipDelayUntil
+        ? 0
+        : hoverDelay;
+    if (delay === 0) {
+      openTooltip(trigger);
+      return;
+    }
+    openTimeout = window.setTimeout(() =&gt; {
+      openTimeout = null;
+      pendingTrigger = null;
+      openTooltip(trigger);
+    }, delay);
+  };
+  const handlePointerOpen = (event) =&gt; {
+    if (event.pointerType === &quot;touch&quot;) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    requestOpen(trigger);
+  };
+  const handlePointer = (event) =&gt; {
+    lastPointerWasTouch =
+      event.type === &quot;pointerdown&quot; &amp;&amp; event.pointerType === &quot;touch&quot;;
+  };
+  const handleTouchClick = (event) =&gt; {
+    const isTouch = event.pointerType === &quot;touch&quot; || lastPointerWasTouch;
+    lastPointerWasTouch = false;
+    if (!isTouch || event.detail === 0) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (
+      trigger == null ||
+      !trigger.isConnected ||
+      getContent(trigger).length === 0 ||
+      (pinnedByTouch &amp;&amp; activeTrigger === trigger)
+    ) {
+      if (pinnedByTouch) {
+        closeTooltip();
+      }
+      return;
+    }
+    openTooltip(trigger);
+    pinnedByTouch = activeTrigger === trigger;
+    window.setTimeout(() =&gt; {
+      if (activeTrigger === trigger &amp;&amp; !trigger.isConnected) {
+        closeTooltip(false);
+      }
+    }, 0);
+  };
+  const handleLeave = (event) =&gt; {
+    if (pinnedByTouch) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const handleFocusIn = (event) =&gt; {
+    const trigger = getTrigger(event.target);
+    if (trigger?.matches(&quot;:focus-visible&quot;)) {
+      requestOpen(trigger, true);
+    }
+  };
+  const handleKeyDown = (event) =&gt; {
+    if (event.key === &quot;Escape&quot;) {
+      closeTooltip();
+    }
+  };
+  const handleContextMenu = (event) =&gt; {
+    lastPointerWasTouch = false;
+    const trigger = getTrigger(event.target);
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const destroy = () =&gt; {
+    closeTooltip(false);
+    lastPointerWasTouch = false;
+    document.removeEventListener(&quot;pointerover&quot;, handlePointerOpen);
+    document.removeEventListener(&quot;pointerdown&quot;, handlePointer);
+    document.removeEventListener(&quot;pointercancel&quot;, handlePointer);
+    document.removeEventListener(&quot;click&quot;, handleTouchClick);
+    document.removeEventListener(&quot;pointerout&quot;, handleLeave);
+    document.removeEventListener(&quot;focusin&quot;, handleFocusIn);
+    document.removeEventListener(&quot;focusout&quot;, handleLeave);
+    document.removeEventListener(&quot;keydown&quot;, handleKeyDown);
+    document.removeEventListener(&quot;contextmenu&quot;, handleContextMenu);
+    tooltip = null;
+  };
+
+  document.addEventListener(&quot;pointerover&quot;, handlePointerOpen);
+  document.addEventListener(&quot;pointerdown&quot;, handlePointer);
+  document.addEventListener(&quot;pointercancel&quot;, handlePointer);
+  document.addEventListener(&quot;click&quot;, handleTouchClick);
+  document.addEventListener(&quot;pointerout&quot;, handleLeave);
+  document.addEventListener(&quot;focusin&quot;, handleFocusIn);
+  document.addEventListener(&quot;focusout&quot;, handleLeave);
+  document.addEventListener(&quot;keydown&quot;, handleKeyDown);
+  document.addEventListener(&quot;contextmenu&quot;, handleContextMenu);
+  window.addEventListener(&quot;pagehide&quot;, destroy, { once: true });
+})();
+&lt;/script&gt;
+&lt;script id=&quot;codex-visualization-tabs&quot;&gt;
+(() =&gt; {
+  const selector = &#x27;.nav[role=&quot;tablist&quot;] [role=&quot;tab&quot;]&#x27;;
+  const disabled = &#x27;:disabled,[aria-disabled=&quot;true&quot;]&#x27;;
+  const selectTab = (selected) =&gt; {
+    const panelId = selected.getAttribute(&quot;aria-controls&quot;);
+    for (const tab of selected.closest(&#x27;[role=&quot;tablist&quot;]&#x27;).querySelectorAll(&#x27;[role=&quot;tab&quot;]&#x27;)) {
+      const active = tab === selected;
+      tab.classList.toggle(&quot;active&quot;, active);
+      tab.setAttribute(&quot;aria-selected&quot;, String(active));
+      const id = tab.getAttribute(&quot;aria-controls&quot;);
+      const panel = id &amp;&amp; document.getElementById(id);
+      if (panel != null) {
+        panel.hidden = id !== panelId;
+        if (!panel.hidden &amp;&amp; selected.id) {
+          panel.setAttribute(&quot;aria-labelledby&quot;, selected.id);
+        }
+      }
+    }
+  };
+  const interact = (event) =&gt; {
+    const tab = event.target?.closest?.(selector);
+    if (event.defaultPrevented || tab == null || tab.matches(disabled)) {
+      return;
+    }
+    if (event.type === &quot;click&quot;) {
+      selectTab(tab);
+      return;
+    }
+    const tabs = Array.from(
+      tab.closest(&#x27;[role=&quot;tablist&quot;]&#x27;).querySelectorAll(&#x27;[role=&quot;tab&quot;]&#x27;),
+    ).filter((candidate) =&gt; !candidate.matches(disabled));
+    const current = tabs.indexOf(tab);
+    let next;
+    if (event.key === &quot;ArrowRight&quot; || event.key === &quot;ArrowDown&quot;) {
+      next = (current + 1) % tabs.length;
+    } else if (event.key === &quot;ArrowLeft&quot; || event.key === &quot;ArrowUp&quot;) {
+      next = (current + tabs.length - 1) % tabs.length;
+    } else if (event.key === &quot;Home&quot;) {
+      next = 0;
+    } else if (event.key === &quot;End&quot;) {
+      next = tabs.length - 1;
+    } else {
+      return;
+    }
+    event.preventDefault();
+    tabs[next].focus();
+    selectTab(tabs[next]);
+  };
+
+  for (const list of document.querySelectorAll(&#x27;.nav[role=&quot;tablist&quot;]&#x27;)) {
+    const selected =
+      list.querySelector(&#x27;[role=&quot;tab&quot;][aria-selected=&quot;true&quot;]&#x27;) ??
+      list.querySelector(&#x27;[role=&quot;tab&quot;].active&#x27;) ??
+      list.querySelector(&#x27;[role=&quot;tab&quot;]&#x27;);
+    if (selected != null) {
+      selectTab(selected);
+    }
+  }
+  document.addEventListener(&quot;click&quot;, interact);
+  document.addEventListener(&quot;keydown&quot;, interact);
+  window.addEventListener(&quot;pagehide&quot;, () =&gt; {
+    document.removeEventListener(&quot;click&quot;, interact);
+    document.removeEventListener(&quot;keydown&quot;, interact);
+  }, { once: true });
+})();
+&lt;/script&gt;
+&lt;script id=&quot;codex-visualization-lucide&quot; async src=&quot;https://unpkg.com/lucide@1.17.0/dist/umd/lucide.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+(() =&gt; {
+  const initialize = () =&gt; {
+    globalThis.lucide?.createIcons({ attrs: { width: 16, height: 16 } });
+  };
+  if (globalThis.lucide != null) {
+    initialize();
+    return;
+  }
+  document
+    .getElementById(&quot;codex-visualization-lucide&quot;)
+    ?.addEventListener(&quot;load&quot;, initialize, { once: true });
+})();
+&lt;/script&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;
+"></iframe>
+</body>
+</html>

@@ -1,0 +1,208 @@
+<div id="tui-entry-study" aria-label="작업 진입 화면 설계"></div>
+<style>
+#tui-entry-study{--te-bg:light-dark(#fff,#191919);--te-panel:light-dark(#f4f4f2,#252525);--te-text:light-dark(#262626,#e6e6e3);--te-muted:light-dark(#61615d,#b9b9b3);--te-line:light-dark(#cececa,#555550);--te-strong:light-dark(#30302e,#e3e3df);--te-on:light-dark(#fff,#20201e);font:14px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,"Apple SD Gothic Neo","Malgun Gothic",monospace;color:var(--te-text);background:var(--te-bg);width:100%;border:1px solid var(--te-line);isolation:isolate;box-sizing:border-box;overflow-wrap:anywhere}
+#tui-entry-study *{box-sizing:border-box}
+#tui-entry-study h1,#tui-entry-study h2,#tui-entry-study h3,#tui-entry-study p{margin:0;color:inherit}
+#tui-entry-study h1{font-size:18px;line-height:1.4;font-weight:500}
+#tui-entry-study h2{font-size:15px;font-weight:500}
+#tui-entry-study h3{font-size:14px;font-weight:500}
+#tui-entry-study button,#tui-entry-study input,#tui-entry-study select{font:inherit;color:inherit}
+#tui-entry-study button{min-height:34px;cursor:pointer}
+#tui-entry-study button:disabled{opacity:.5;cursor:default}
+#tui-entry-study .te-chrome{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:5px 14px;border-bottom:1px solid var(--te-line);background:var(--te-panel)}
+#tui-entry-study .te-brand{font-weight:500}
+#tui-entry-study .te-small{font-size:12px;color:var(--te-muted)}
+#tui-entry-study .te-content{padding:14px 16px}
+#tui-entry-study .te-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:12px}
+#tui-entry-study .te-head p{margin-top:5px;color:var(--te-muted)}
+#tui-entry-study .te-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#tui-entry-study .te-button{border:1px solid var(--te-line);background:var(--te-bg);padding:6px 11px;border-radius:2px;text-align:left;font-weight:500}
+#tui-entry-study .te-primary{background:var(--te-strong);color:var(--te-on);border-color:var(--te-strong)}
+#tui-entry-study .te-link{padding:3px 0;background:transparent;border:0;text-decoration:underline;text-underline-offset:3px;text-align:left}
+#tui-entry-study .te-grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(225px,1fr);gap:24px}
+#tui-entry-study[data-layout="single"] .te-grid{grid-template-columns:1fr}
+#tui-entry-study .te-section+.te-section{margin-top:10px;padding-top:8px;border-top:1px solid var(--te-line)}
+#tui-entry-study .te-sectionhead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:5px}
+#tui-entry-study .te-facts{display:grid;grid-template-columns:78px minmax(0,1fr);gap:4px 12px;margin:0}
+#tui-entry-study .te-source-summary{display:grid;grid-template-columns:68px minmax(0,1fr);gap:4px 10px;margin:8px 0 0}
+#tui-entry-study .te-source-summary dt{color:var(--te-muted)}
+#tui-entry-study dt{color:var(--te-muted)}
+#tui-entry-study dd{margin:0;min-width:0}
+#tui-entry-study .te-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--te-line)}
+#tui-entry-study .te-row:last-child{border-bottom:0}
+#tui-entry-study .te-row strong{font-weight:500}
+#tui-entry-study .te-row small{display:block;color:var(--te-muted);font-size:12px;margin-top:3px}
+#tui-entry-study .te-summary{border-left:1px solid var(--te-line);padding-left:22px;min-width:0}
+#tui-entry-study[data-layout="single"] .te-summary{border-left:0;padding-left:0;border-top:1px solid var(--te-line);padding-top:18px}
+#tui-entry-study .te-summary h2{margin-bottom:12px}
+#tui-entry-study .te-summary p+p{margin-top:10px}
+#tui-entry-study .te-summary .te-actions{margin-top:16px}
+#tui-entry-study .te-state{border-left:3px solid var(--te-strong);padding:10px 12px;background:var(--te-panel);margin:14px 0}
+#tui-entry-study .te-state strong{font-weight:500}
+#tui-entry-study .te-steps{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px;padding:0;list-style:none;color:var(--te-muted);font-size:12px}
+#tui-entry-study .te-steps li[aria-current="step"]{color:var(--te-text);font-weight:500}
+#tui-entry-study .te-form{display:grid;gap:14px}
+#tui-entry-study .te-field{display:grid;gap:5px;min-width:0}
+#tui-entry-study .te-field input,#tui-entry-study .te-field select{width:100%;max-width:100%;min-width:0;background:var(--te-bg);border:1px solid var(--te-line);border-radius:2px;padding:8px 9px}
+#tui-entry-study .te-choices{display:grid;gap:10px}
+#tui-entry-study .te-choice{display:flex;align-items:flex-start;gap:9px;border:1px solid var(--te-line);padding:12px;cursor:pointer}
+#tui-entry-study .te-choice input{margin:3px 0 0;accent-color:var(--te-strong);flex:none}
+#tui-entry-study .te-choice:has(input:checked){background:var(--te-panel);border-color:var(--te-strong)}
+#tui-entry-study .te-choice small{display:block;color:var(--te-muted);margin-top:3px}
+#tui-entry-study .te-bottom{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:1px solid var(--te-line);padding-top:16px;margin-top:20px}
+#tui-entry-study .te-hub{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#tui-entry-study .te-intent{border:1px solid var(--te-line);padding:14px;background:var(--te-bg);text-align:left;border-radius:2px}
+#tui-entry-study .te-intent strong{display:block;font-weight:500}
+#tui-entry-study .te-intent span{display:block;font-size:12px;color:var(--te-muted);margin-top:5px}
+#tui-entry-study .te-hub .te-intent:first-child{grid-column:1/-1;background:var(--te-panel)}
+#tui-entry-study .te-foot{padding:10px 18px;border-top:1px solid var(--te-line);background:var(--te-panel);display:grid;gap:4px;font-size:12px}
+#tui-entry-study .te-error{margin-top:14px;border:1px solid var(--te-strong);padding:10px 12px}
+#tui-entry-study .te-quote{white-space:pre-wrap;margin:14px 0;padding:12px;border-left:2px solid var(--te-line);background:var(--te-panel)}
+@media(max-width:650px){#tui-entry-study .te-grid{grid-template-columns:1fr}#tui-entry-study .te-summary{border-left:0;padding-left:0;border-top:1px solid var(--te-line);padding-top:18px}#tui-entry-study .te-content{padding:16px}#tui-entry-study .te-chrome{padding:10px 14px}#tui-entry-study .te-hub{grid-template-columns:1fr}#tui-entry-study .te-facts{grid-template-columns:65px minmax(0,1fr);gap:8px 10px}#tui-entry-study .te-field input,#tui-entry-study .te-field select{font-size:16px}}
+@media(pointer:coarse){#tui-entry-study button,#tui-entry-study select,#tui-entry-study input{min-height:44px}}
+</style>
+<script>
+(function(){
+  'use strict';
+  const root=document.getElementById('tui-entry-study');
+  const design={entry:'host',scenario:'personal',layout:'split'};
+  let appliedDesign={...design};
+  const clone=value=>JSON.parse(JSON.stringify(value));
+  const esc=value=>String(value==null?'':value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const cases={
+    personal:{label:'첫 개인 시작',team:false,location:'payments · 로컬 레포',checkpoint:'이 범위의 진행 기록 없음',environment:'personal',prior:null},
+    team:{label:'팀 환경 선택',team:true,location:'payments · 로컬 레포',checkpoint:'9월 14일 14:20 · 검토 메모 저장',environment:'team',prior:'이전 세션 04 · 환경 2판 전달 기록'},
+    empty:{label:'레포 없는 시작',team:false,location:'연결된 레포 없음',checkpoint:'확인된 진행 기록 없음',environment:'personal',prior:null},
+    missing:{label:'필수 초기 자료 없음',team:true,location:'payments · 로컬 레포',checkpoint:'9월 14일 14:20 · 검토 메모 저장',environment:'team',prior:'이전 세션 04 · 환경 2판 전달 기록'},
+    offline:{label:'오프라인',team:true,location:'payments · 로컬 레포',checkpoint:'9월 12일 · 마지막 로컬 기록',environment:'team',prior:'이전 세션 04 · 환경 2판 전달 기록'},
+    unknown:{label:'이전 실행 결과 미확인',team:true,location:'payments · 로컬 레포',checkpoint:'모의 실행 07 · 응답 미확인',environment:'team',prior:'이전 세션 04 · 환경 2판 전달 기록'},
+    locked:{label:'잠긴 범위',team:true,location:'payments · 로컬 레포',checkpoint:'보호된 기록',environment:'team',prior:'이전 세션 04 · 환경 2판 전달 기록'},
+    denied:{label:'필수 자료 접근 불가',team:true,location:'payments · 로컬 레포',checkpoint:'9월 14일 14:20 · 검토 메모 저장',environment:'team',prior:'이전 세션 04 · 환경 2판 전달 기록'}
+  };
+  const environments={personal:{name:'개인 기본 자료',state:'개인용 · 조사와 초안에 사용'},reference:{name:'공통 기초 자료',state:'제공된 참고 자료 · 개인 사용'},team:{name:'변경 점검 · 3판',state:'업무팀에서 채택한 기준'},review:{name:'문서 점검 · 1판',state:'업무팀에서 채택한 기준'}};
+  const configurations={standard:{name:'기본 실행',model:'도구의 기본 모델',delegation:'추가 작업자 없음',review:'필요할 때 직접 요청'},careful:{name:'검토 강화',model:'설정된 검토 모델',delegation:'추가 검토자 1명',review:'별도 검토 요청 포함'},fast:{name:'반복 작업용',model:'설정된 실행 모델',delegation:'추가 작업자 없음',review:'필요할 때 직접 요청'}};
+  let s;
+  function resetCase(){
+    const example=cases[design.scenario]||cases.personal;
+    s={page:design.entry==='host'?'prepare':'home',revision:0,preview:null,result:null,error:'',notice:'선택은 이번 준비에만 반영 · 아직 실행 전',hint:'Tab 이동 · Enter 표시된 동작 · 입력 중 단축키 실행 안 함',recovered:false,unlocked:design.scenario!=='locked',requestSequence:0,source:null,returnPage:'prepare',draft:{environment:example.environment,configuration:'standard',permission:'confirm'},active:example.prior,pending:null};
+    if(design.scenario==='unknown')s.pending={id:'모의 실행 07',draft:clone(s.draft),location:example.location,revision:0};
+  }
+  const currentCase=()=>cases[design.scenario]||cases.personal;
+  const locked=()=>!s.unlocked;
+  const environment=()=>environments[s.draft.environment];
+  const configuration=()=>configurations[s.draft.configuration];
+  const scopeName=()=>currentCase().team?'업무팀':'개인 작업';
+  function button(label,action,primary=false,extra='',hint=''){
+    return '<button type="button" class="te-button'+(primary?' te-primary':'')+'" data-action="'+action+'" '+extra+' data-hint="'+esc(hint||label)+'">'+label+'</button>';
+  }
+  const link=(label,action,hint='')=>'<button type="button" class="te-link" data-action="'+action+'" data-hint="'+esc(hint||label)+'">'+label+'</button>';
+  const header=(title,sub='')=>'<div class="te-head"><div><h1>'+title+'</h1>'+(sub?'<p>'+sub+'</p>':'')+'</div></div>';
+  const facts=rows=>'<dl class="te-facts">'+rows.map(row=>'<dt>'+row[0]+'</dt><dd>'+row[1]+'</dd>').join('')+'</dl>';
+  const phases=active=>'<ol class="te-steps" aria-label="현재 단계">'+['작업 준비','예상 결과 확인','모의 결과'].map((label,i)=>'<li'+(i===active?' aria-current="step"':'')+'>'+(i+1)+'. '+label+'</li>').join('<li aria-hidden="true">→</li>')+'</ol>';
+  function sources(){
+    if(locked())return [];
+    const team=currentCase().team;
+    const alternate=['reference','review'].includes(s.draft.environment);
+    return [
+      {id:'instructions',role:'지침',name:team?(alternate?'문서 점검 지침 · 1판':'변경 점검 지침 · 5판'):(alternate?'자료 읽기 지침 · 1판':'기본 작업 지침 · 1판'),owner:team?'업무팀':'제공 자료의 원소유자',status:'본문 준비됨',meta:true,read:true,use:true,body:'확인한 내용과 아직 확인하지 못한 내용을 구분합니다. 참고 자료의 조건을 함께 읽습니다.'},
+      {id:'knowledge',role:'지식',name:team?'업무 확인 기준 · 7판':(alternate?'자료 해석 원칙 · 1판':'기초 검토 원칙 · 1판'),owner:team?'업무팀':'제공 자료의 원소유자',status:design.scenario==='denied'?'접근 확인 필요':design.scenario==='missing'&&!s.recovered?'필수 초기 본문 받기 필요':'연결됨 · 업무별 조회 전',meta:design.scenario!=='denied',read:design.scenario!=='denied',use:design.scenario!=='denied',available:design.scenario!=='missing'||s.recovered,body:'근거가 확인된 내용과 해석을 분리합니다. 확인하지 못한 결과를 확정된 사실로 표시하지 않습니다.'},
+      {id:'memory',role:'결정 기록',name:team?'팀·레포 결정 자료':'연결한 결정 자료 없음',owner:team?'업무팀':'개인 작업',status:team?'업무별 조회 전':'과거 기록 전체를 확인한 것은 아님',meta:true,read:true,use:true,body:team?'확인된 사실과 미확인 항목을 구분해 남기기로 했습니다. 안내 주기는 아직 정하지 않았습니다.':'이번 환경에 연결한 결정 자료가 없습니다. 과거의 전체 기록이 없다는 뜻은 아닙니다.'}
+    ];
+  }
+  function assessment(){
+    if(locked())return {allowed:false,title:'잠금 해제가 필요합니다',reason:'보호된 자료와 이전 결과를 표시하지 않습니다.',action:'unlock'};
+    if(s.pending)return {allowed:false,title:'이전 실행의 결과부터 확인하세요',reason:'같은 실행의 결과를 확인한 뒤 새로 준비합니다.',action:'pending'};
+    const unavailable=sources().find(source=>!source.meta||!source.read||!source.use);
+    if(unavailable)return {allowed:false,title:'필요한 자료를 확인할 권한이 없습니다',reason:'자료의 제목·내용을 대신 표시하지 않습니다.',action:'recovery'};
+    const missing=sources().find(source=>source.available===false);
+    if(missing)return {allowed:false,title:'필수 초기 자료 확인이 필요합니다',reason:'복구 화면을 여는 것만으로 준비되지는 않습니다.',action:'recovery'};
+    return {allowed:true,title:'이 환경으로 시작할 조건을 확인했습니다',reason:(design.scenario==='offline'?'마지막 로컬 기준입니다. ':'')+'구체 업무와 필요한 지식·결정은 시작 후 실제 요청에 따라 확인합니다.'};
+  }
+  function changed(message){s.revision++;s.preview=null;s.result=null;s.error='';s.notice=message||'준비 초안만 바뀌었습니다. 이전 미리보기는 무효이며 기존 작업은 그대로입니다.';}
+  function sourceRows(){return sources().map(source=>'<div class="te-row"><div><strong>'+source.role+'</strong><div>'+esc(source.meta?source.name:'필요한 자료 확인 불가')+'</div><small>'+esc(source.status)+'</small></div>'+(source.meta?button('내용 보기','source',false,'data-source="'+source.id+'"','허용된 본문을 읽습니다. 선택·채택·전달을 수행하지 않습니다.'):button('접근 확인','recovery',false,'','허가된 접근 경로만 확인합니다.'))+'</div>').join('');}
+  function activeLine(){return s.active?'기존 작업: '+esc(s.active)+' · 이 화면의 선택으로 바뀌지 않음':'현재 이 예시에서 시작한 실제 작업 없음';}
+  function primaryPreparation(){
+    if(s.pending)return button('이전 실행 결과 확인','pending',true,'','기존 실행의 식별자를 유지해 결과를 확인합니다. 새 실행이 아닙니다.');
+    return button('준비 상태 확인','prepare-check',true,'','환경의 필수 초기 자료·접근·시작 조건을 확인합니다. 현재 업무는 추정하지 않습니다.');
+  }
+  function prepareView(){
+    const status=design.scenario==='offline'?'오프라인 · 9월 12일 로컬 기준 / 이후 변경 미확인':s.pending?'이전 실행 결과 미확인':design.scenario==='empty'?'레포 없이 환경 선택 가능':'아직 실행 전';
+    const rows=sources().map(item=>'<dt>'+esc(item.role)+'</dt><dd>'+esc(item.meta?item.name:'필요한 자료 확인 불가')+' · '+esc(item.status)+'</dd>').join('');
+    return header('어떤 환경으로 시작할까요?',scopeName()+' · '+status)+'<div class="te-grid"><div><section class="te-section"><div class="te-sectionhead"><h2>현재 확인되는 맥락</h2>'+link('기록 자세히','context-details')+'</div>'+facts([['현재 위치',esc(currentCase().location)],['최근 기록',esc(currentCase().checkpoint)]])+'<p class="te-small">현재 할 일이나 업무 완료를 뜻하지 않습니다.</p>'+'</section><section class="te-section"><div class="te-sectionhead"><h2>업무환경</h2>'+link('환경 선택','edit-environment')+'</div><p>'+esc(environment().name)+' <span class="te-small">· '+esc(environment().state)+'</span></p><dl class="te-source-summary">'+rows+'</dl>'+link('자료 자세히 보기','materials','선택한 자료의 본문과 출처를 엽니다. 선택이나 전달은 하지 않습니다.')+'</section><section class="te-section"><div class="te-sectionhead"><h2>실행 방법</h2>'+link('구성 변경','edit-tools')+'</div>'+facts([['도구 / 대상','Codex CLI / 새 세션 예정'],['구성',esc(configuration().name)+' · '+esc(configuration().delegation)],['파일 변경',s.draft.permission==='confirm'?'변경 전에 사용자 확인':'세션의 명시적 허용 범위만 변경']])+'</section></div><aside class="te-summary"><h2>다음 행동의 결과</h2><p>선택한 환경·접근 조건·실행 설정을 확인합니다.</p><p class="te-small">구체적인 할 일은 세션을 시작한 뒤 정합니다. 업무별 지식·결정 조회도 그 요청에 따릅니다.</p>'+(s.pending?'<div class="te-state">'+esc(s.pending.id)+' · 같은 요청의 결과 확인 필요</div>':'')+'<div class="te-actions">'+primaryPreparation()+'</div>'+(s.active?'<p class="te-small" style="margin-top:14px">'+activeLine()+'</p>':'')+'</aside></div>';
+  }
+  function homeView(){return header('agent-bios에서 할 수 있는 일',scopeName()+' · 메뉴를 열어도 선택이나 실행 상태는 바뀌지 않습니다.')+'<div class="te-hub" data-menu>'+[
+    ['환경 준비·시작','업무환경과 세션 시작 조건 확인','prepare'],
+    ['환경과 자료 관리','지침·지식·결정의 원본과 후보 확인','materials'],
+    ['변경 검토','정확한 요청과 승인 이후의 할 일','reviews'],
+    ['팀과 연결 관리','참여·권한·기기·공유 경로','team-settings'],
+    ['교환·문제 해결','누락 자료와 미확인 실행 결과','recovery']
+  ].map(row=>'<button type="button" class="te-intent" data-action="'+row[2]+'" data-hint="이 화면을 열기만 합니다. 아직 변경이나 실행은 하지 않습니다."><strong>'+row[0]+'</strong><span>'+row[1]+'</span></button>').join('')+'</div>'+(currentCase().team?'':'<p class="te-small" style="margin-top:18px">개인 작업에는 제품 계정이나 팀 생성이 필요하지 않습니다.</p>');}
+  function contextView(){return header('관찰된 위치와 최근 기록','업무 의도나 다음 할 일을 추정하지 않습니다.')+facts([['현재 위치',esc(currentCase().location)],['최근 기록',esc(currentCase().checkpoint)],['알 수 있는 범위','이 위치와 연결해 확인한 마지막 기록'],['아직 모르는 것','현재 하고 싶은 일 · 전체 업무의 완료 여부']])+'<div class="te-state">기록을 보는 것은 이전 업무를 재개하거나 새 요청을 만드는 동작이 아닙니다.</div><div class="te-bottom">'+button('환경 선택으로','prepare',true)+'</div>';}
+  function editEnvironment(){const ids=currentCase().team?['team','review']:['personal','reference'];return header('업무에 쓸 환경','자료의 기준을 고르는 일입니다. 도구 실행 구성과는 별개입니다.')+'<div class="te-choices">'+ids.map(id=>'<label class="te-choice"><input type="radio" name="te-environment" data-field="environment" value="'+id+'" '+(s.draft.environment===id?'checked':'')+'><span>'+esc(environments[id].name)+'<small>'+esc(environments[id].state)+'</small></span></label>').join('')+'</div><div class="te-state">환경 선택은 원본 편집·팀 채택·기존 작업 전환이 아닙니다.</div><div class="te-bottom">'+button('준비 화면으로','prepare',true)+'</div>';}
+  function editTools(){return header('도구의 실행 구성','업무 기준이나 자료 접근 권한을 바꾸지 않습니다.')+'<div class="te-form"><label class="te-field"><span>이번 실행 구성</span><select data-field="configuration">'+Object.entries(configurations).map(([id,c])=>'<option value="'+id+'" '+(s.draft.configuration===id?'selected':'')+'>'+c.name+'</option>').join('')+'</select></label><label class="te-field"><span>파일 변경 방식</span><select data-field="permission"><option value="confirm" '+(s.draft.permission==='confirm'?'selected':'')+'>변경 전에 사용자 확인</option><option value="allowed" '+(s.draft.permission==='allowed'?'selected':'')+'>세션에서 명시적으로 허용한 범위만 변경</option></select></label>'+facts([['모델',esc(configuration().model)],['리뷰',esc(configuration().review)],['추가 작업',esc(configuration().delegation)]])+'<p class="te-small">검토 강화는 추가 호출·대기·사용량을 늘릴 수 있습니다. 실제 금액은 이 예시에서 측정하지 않습니다.</p></div><div class="te-bottom">'+button('준비 화면으로','prepare',true)+'</div>';}
+  function previewView(){const a=assessment();const valid=s.preview&&s.preview.revision===s.revision;return phases(1)+header('이렇게 시작할 예정입니다','선택한 기준·대상·영향을 확인한 뒤 결정하세요.')+(valid?'<div class="te-state"><strong>'+esc(a.title)+'</strong><br><span class="te-small">'+esc(a.reason)+'</span></div>':'<div class="te-state">선택이 바뀌어 이전 확인은 무효입니다. 준비 상태를 다시 확인해 주세요.</div>')+facts([['현재 위치',esc(currentCase().location)],['시작 방식','Codex CLI의 새 세션 · 예정된 수신자'],['업무 기준',esc(environment().name)+'<br><span class="te-small">'+esc(environment().state)+'</span>'],['도구 구성',esc(configuration().name)+' · '+esc(configuration().delegation)],['파일 변경',s.draft.permission==='confirm'?'변경 전에 사용자 확인':'세션에서 명시적으로 허용한 범위만 변경'],['모의 효과','선택한 지침과 지식·결정 조회 경로를 새 세션에 제공'],['업무별 준비','현재 요청 없음 · 구체 업무의 자료 충분성은 아직 평가하지 않음'],['기존 상태','원본·저장된 기본값·팀 채택·기존 작업은 그대로']])+'<div class="te-bottom">'+link('준비 내용 수정','prepare')+'<div class="te-actions">'+(!a.allowed?button(a.action==='pending'?'같은 실행 결과 확인':'문제 해결 경로',a.action||'recovery',true):button('이 내용으로 모의 실행','execute',true,valid?'':'disabled','이 예시의 결과만 만듭니다. 실제 도구·계정·파일·네트워크는 변경하지 않습니다.'))+'</div></div>';}
+  function sourceView(){const source=sources().find(row=>row.id===s.source);if(!source||!source.meta||!source.read)return header('자료를 표시할 수 없습니다','필요한 권한을 확인해야 합니다.')+button('접근 문제 확인','recovery',true);return header(source.name,source.role+' · '+source.owner)+facts([['읽기',source.available===false?'권한 있음 · 본문은 아직 없음':'이 예시에서 허용된 본문'],['현재 효과','조회만 · 원본 편집이나 전달 없음']])+(source.available===false?'<div class="te-state">필수 본문이 로컬에 없습니다. 목록은 본문의 대체물이 아닙니다.</div>'+button('필수 자료 복구로','recovery',true):'<div class="te-quote">'+esc(source.body)+'</div>')+'<div class="te-bottom">'+button('원래 화면으로','return',true)+'</div>';}
+  function recoveryView(){
+    if(s.pending)return pendingView();
+    if(design.scenario==='denied')return header('필요한 자료의 접근 확인','권한이 없는 제목·본문·소유 정보는 표시하지 않습니다.')+'<div class="te-state">허용된 계정·기기와 자료 접근 범위를 확인해야 합니다. 이번 선택만으로 권한을 늘릴 수 없습니다.</div>'+button('준비 화면으로','prepare',true);
+    if(design.scenario==='missing'&&!s.recovered)return header('선택 환경의 필수 초기 자료 받기','준비 초안과 누락 상태를 그대로 가져왔습니다.')+facts([['선택 환경',esc(environment().name)],['누락','업무 확인 기준 · 7판 본문'],['받을 범위','환경이 초기 필수로 지정한 본문·조건·정정']])+'<div class="te-state">아직 받거나 검증하지 않았습니다. 화면 이동으로 준비 상태가 바뀌지 않습니다.</div><div class="te-bottom">'+link('받지 않고 돌아가기','prepare')+button('본문 수신·검증을 모의','recover-body',true,'','허용된 본문을 받은 가상 조건만 반영합니다. 전달·시작은 별도입니다.')+'</div>';
+    return header('교환·문제 해결',design.scenario==='offline'?'로컬에서 가능한 작업과 교환 대기를 구분합니다.':'현재 예시에 미확인 실행이나 필수 본문 누락이 없습니다.')+facts([['자료 확인',design.scenario==='offline'?'9월 12일 확인한 로컬 범위':'현재 가상 준비 범위'],['공유 경로','동료 사본·허용된 파일 교환'],['깃허브','선택 연결 · 자동 접속하지 않음']])+'<div class="te-bottom">'+button('준비 화면으로','prepare',true)+'</div>';
+  }
+  function pendingView(){const request=s.pending;if(!request)return recoveryView();return header('기존 실행의 결과 확인','새 요청을 만들지 않고 같은 실행을 확인합니다.')+facts([['실행',esc(request.id)],['당시 위치',esc(request.location)],['당시 구성',esc(configurations[request.draft.configuration].name)],['당시 기준',esc(environments[request.draft.environment].name)],['확인 상태','응답을 받지 못함 · 성공·실패 미확정']])+'<div class="te-state">준비 초안을 바꿔도 이 실행의 대상과 내용은 바뀌지 않습니다.</div><div class="te-bottom">'+link('준비 화면으로','prepare')+button('같은 실행의 결과 확인 · 모의','resolve-unknown',true)+'</div>';}
+  function resultView(){const result=s.result;if(!result)return prepareView();return phases(2)+header('모의 결과를 확인하세요','실제 호스트·모델은 실행하지 않았습니다.')+'<div class="te-state">'+esc(result.recovered?'같은 실행의 모의 전달 기록을 확인했습니다.':'이 예시의 모의 전달 기록을 만들었습니다.')+'</div>'+facts([['실행',esc(result.id)],['전달 내용',esc(environments[result.draft.environment].name)+' · 지침과 지식·결정 조회 경로'],['예정 대상','Codex CLI의 새 세션'],['실제 사용','관측하지 않음 · 모델의 이해·준수도 미확인'],['기존 작업',s.active?esc(s.active)+' · 그대로':'확인된 이전 전달 기록 없음']])+'<div class="te-bottom">'+button('현재 준비로 돌아가기','prepare',true)+link('홈으로','home')+'</div>';}
+  function materialsView(){return header('환경과 자료 관리','선택된 원본의 의미와 조회 경로입니다.')+'<p>'+esc(environment().name)+' <span class="te-small">'+esc(environment().state)+'</span></p>'+sourceRows()+'<div class="te-state">자료 추가·후보 검토·원본 편집은 각 소유자의 별도 작업입니다. 이 진입 예시에서는 원본 조회만 제공합니다.</div><div class="te-bottom">'+button('작업 준비로','prepare',true)+link('홈으로','home')+'</div>';}
+  function destinationView(kind){const team=kind==='team-settings';return header(team?'팀과 연결 관리':'변경 검토',team?(currentCase().team?'현재 작업과 팀 운영 설정은 별도입니다.':'개인 작업에는 팀 생성이나 가입이 필요하지 않습니다.'):'이 진입 예시에는 검토할 변경 요청을 넣지 않았습니다.')+(team?facts([['작업 범위',scopeName()],['참여·권한','동의·등록·자료 권한을 별도로 확인'],['동기화','동료 사본이 기본 · 깃허브는 선택'],['현재 효과','조회 경로만 표시 · 가입·연결·권한 변경 없음']]):'<div class="te-state">승인 가능한 요청과 실제 승인 범위를 확인한 뒤 검토합니다. 메뉴를 열었다고 승인·발행되지 않습니다.</div>')+'<div class="te-bottom">'+button('작업 준비로','prepare',true)+link('홈으로','home')+'</div>';}
+  function lockView(){return header('작업 공간이 잠겨 있습니다','보호된 이름·자료·이전 결과를 표시하지 않습니다.')+'<div class="te-state">허용된 기기의 재확인 뒤 작업 준비를 다시 확인할 수 있습니다.</div>'+button('기기 확인·잠금 해제 · 모의','unlock',true,'','이미 허용된 기기로 재확인하는 가상 동작입니다. 새 구성원이나 권한은 만들지 않습니다.');}
+  function render(){
+    root.dataset.layout=design.layout;root.dataset.entry=design.entry;root.dataset.scenario=design.scenario;root.dataset.screen=locked()?'locked':s.page;root.dataset.revision=String(s.revision);root.dataset.previewRevision=s.preview?String(s.preview.revision):'';root.dataset.requestId=locked()?'':s.pending?s.pending.id:s.result?s.result.id:'';
+    const active=document.activeElement;const keep=root.contains(active)?{field:active.dataset.field,action:active.dataset.action,source:active.dataset.source}:{};
+    const views={home:homeView,prepare:prepareView,'context-details':contextView,'edit-environment':editEnvironment,'edit-tools':editTools,preview:previewView,source:sourceView,recovery:recoveryView,pending:pendingView,result:resultView,materials:materialsView,reviews:()=>destinationView('reviews'),'team-settings':()=>destinationView('team-settings')};
+    const content=locked()?lockView():(views[s.page]||prepareView)();
+    root.innerHTML='<div class="te-chrome"><div><span class="te-brand">에이전트바이오스</span><span class="te-small"> · '+(design.entry==='host'?'Codex CLI에서 시작':'작업 관리')+'</span></div><div class="te-actions">'+(locked()?'':link('홈','home','갈 곳을 찾는 홈을 엽니다. 현재 선택이나 기존 작업은 바뀌지 않습니다.')+link('잠금','lock','보호된 자료를 가리는 가상 잠금입니다. 이미 전달된 문맥을 지우지는 않습니다.'))+'</div></div><main class="te-content">'+content+(s.error?'<div class="te-error" role="alert">'+esc(s.error)+'</div>':'')+'</main><footer class="te-foot"><div role="status" aria-live="polite">'+esc(s.notice)+'</div><div id="te-focus-hint" class="te-small">'+esc(s.hint)+'</div><div class="te-small">가상 설계 · 실제 변경 없음 · 실제 터미널 동작을 재현한 것은 아님</div></footer>';
+    let target=keep.field?root.querySelector('[data-field="'+keep.field+'"]'):keep.action?root.querySelector('[data-action="'+keep.action+'"]'+(keep.source?'[data-source="'+keep.source+'"]':'')):null;
+    if(!target&&keep.action)target=root.querySelector('main button:not(:disabled),main input,main select');
+    if(target)target.focus({preventScroll:true});
+  }
+  function navigate(page){s.page=page;s.error='';s.notice='화면을 열었습니다. 준비 초안과 기존 작업은 그대로입니다.';}
+  root.addEventListener('focusin',event=>{const button=event.target.closest('button[data-hint]');if(!button)return;s.hint=button.dataset.hint;const hint=root.querySelector('#te-focus-hint');if(hint)hint.textContent=s.hint;});
+  root.addEventListener('change',event=>{const key=event.target.dataset.field;if(!['environment','configuration','permission'].includes(key)||locked())return;const value=event.target.value;const allowed=key==='environment'?(currentCase().team?['team','review']:['personal','reference']):key==='configuration'?Object.keys(configurations):['confirm','allowed'];if(!allowed.includes(value))return;s.draft[key]=value;changed();render();});
+  root.addEventListener('click',event=>{
+    const b=event.target.closest('button[data-action]');if(!b||b.disabled)return;const action=b.dataset.action;
+    if(locked()&&action!=='unlock')return;
+    s.error='';
+    if(['home','prepare','context-details','edit-environment','edit-tools','recovery','pending','materials','reviews','team-settings'].includes(action))navigate(action);
+    else if(action==='source'){const source=sources().find(row=>row.id===b.dataset.source);if(!source||!source.meta||!source.read){s.error='이 자료를 표시할 권한이 없습니다.';}else{s.returnPage=s.page;s.source=source.id;navigate('source');}}
+    else if(action==='return')navigate(s.returnPage||'prepare');
+    else if(action==='prepare-check'){s.preview={revision:s.revision,draft:clone(s.draft)};s.page='preview';s.notice='준비 상태와 예상 영향을 확인했습니다. 아직 모의 실행도 하지 않았습니다.';}
+    else if(action==='execute'){
+      if(s.page!=='preview'||!s.preview||s.preview.revision!==s.revision||!assessment().allowed){s.error='현재 준비와 권한을 다시 확인해야 합니다. 실행하지 않았습니다.';}
+      else{s.requestSequence++;s.result={id:'모의 실행 '+String(s.requestSequence).padStart(2,'0'),draft:clone(s.preview.draft),recovered:false};s.page='result';s.notice='모의 결과만 표시했습니다. 실제 파일·도구·계정·네트워크는 변경하지 않았습니다.';}
+    }
+    else if(action==='recover-body'){if(design.scenario==='missing'&&!s.recovered&&sources().every(source=>source.read&&source.use)){s.recovered=true;changed('필수 본문의 수신·검증을 모의했습니다. 같은 준비를 다시 확인해야 하며 아직 전달하지 않았습니다.');s.page='prepare';}}
+    else if(action==='resolve-unknown'){if(s.pending){s.result={id:s.pending.id,draft:clone(s.pending.draft),recovered:true};s.pending=null;s.page='result';s.notice='같은 실행의 모의 결과를 확인했습니다. 새 실행을 만들지 않았습니다.';}}
+    else if(action==='lock'){s.unlocked=false;s.preview=null;s.error='';s.notice='가상 잠금 상태입니다. 기존 작업에 전달된 문맥은 지우지 않습니다.';}
+    else if(action==='unlock'){s.unlocked=true;s.preview=null;s.page=design.entry==='host'?'prepare':'home';s.notice='허용된 기기로 재확인한 경우를 모의했습니다. 준비 상태를 새로 확인하세요.';}
+    render();
+  });
+  root.addEventListener('keydown',event=>{
+    if(event.target.closest('input,select,textarea,[contenteditable]'))return;
+    if(event.key==='Escape'&&!locked()&&!['home','prepare'].includes(s.page)){event.preventDefault();navigate('prepare');render();return;}
+    const menu=event.target.closest('[data-menu]');
+    if(!menu||!['ArrowDown','ArrowUp'].includes(event.key))return;
+    const buttons=[...menu.querySelectorAll('button:not(:disabled)')];const index=buttons.indexOf(document.activeElement);if(index<0)return;event.preventDefault();buttons[(index+(event.key==='ArrowDown'?1:-1)+buttons.length)%buttons.length].focus();
+  });
+  function applyDesign(){
+    if(!cases[design.scenario])design.scenario='personal';
+    if(design.scenario!==appliedDesign.scenario)resetCase();
+    else if(design.entry!==appliedDesign.entry)s.page=design.entry==='host'?'prepare':'home';
+    appliedDesign={...design};render();
+  }
+  resetCase();render();
+  if(globalThis.Tweak){
+    const tweak=new Tweak({container:root,onChange:applyDesign});
+    tweak.addSelect(design,'entry',{label:'진입 경로',options:[{label:'도구에서 바로 작업 준비',value:'host'},{label:'일반 작업 관리 홈',value:'studio'}]});
+    tweak.addSelect(design,'scenario',{label:'가상 사례',options:Object.entries(cases).map(([value,c])=>({label:c.label,value}))});
+    tweak.addSelect(design,'layout',{label:'정보 배치',options:[{label:'두 영역 · 준비와 다음 행동',value:'split'},{label:'한 열 · 읽는 순서대로',value:'single'}]});
+  }
+})();
+</script>

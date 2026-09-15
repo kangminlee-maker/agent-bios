@@ -1,0 +1,104 @@
+<div id="bios-entry-demo">
+  <div class="demo-caption">인터랙션 시안 · 가상 데이터 · 실제 실행 없음</div>
+  <div id="bios-app" aria-label="agent-bios Studio"></div>
+</div>
+<style>
+#bios-entry-demo{color-scheme:light dark;--bg:light-dark(#fff,#1c1c1c);--fg:light-dark(#242424,#ededeb);--soft:light-dark(#f5f5f2,#272727);--muted:light-dark(#64645d,#b2b2ac);--line:light-dark(#d7d7cf,#51514b);--sel:light-dark(#242424,#ecece5);--on:light-dark(#fff,#232323);font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,"Apple SD Gothic Neo",monospace;color:var(--fg)}
+#bios-entry-demo *{box-sizing:border-box}
+#bios-entry-demo .demo-caption{font-size:12px;color:var(--muted);margin-bottom:8px}
+#bios-app{background:var(--bg);border:1px solid var(--line);overflow-wrap:anywhere}
+#bios-app header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 16px;border-bottom:1px solid var(--line);background:var(--soft);flex-wrap:wrap}
+#bios-app h1,#bios-app h2,#bios-app p{margin:0}
+#bios-app h1{font-size:18px;font-weight:500}
+#bios-app h2{font-size:14px;font-weight:500}
+#bios-app button,#bios-app select{font:inherit;color:inherit}
+#bios-app button{background:var(--bg);border:1px solid var(--line);padding:6px 10px;border-radius:2px;cursor:pointer;min-height:34px}
+#bios-app button:disabled{opacity:.5;cursor:default}
+#bios-app .primary{background:var(--sel);color:var(--on);border-color:var(--sel)}
+#bios-app .link{border:0;background:transparent;text-decoration:underline;text-underline-offset:3px;padding:3px 0}
+#bios-app .actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+#bios-app main{padding:16px}
+#bios-app .project{margin-bottom:16px}
+#bios-app .project-top,.section-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+#bios-app .small{color:var(--muted);font-size:12px}
+#bios-app .record{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:4px}
+#bios-app .columns{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+#bios-app[data-layout="stack"] .columns{grid-template-columns:1fr;gap:16px}
+#bios-app section{min-width:0;border-top:1px solid var(--line);padding-top:8px}
+#bios-app .name{margin:7px 0 10px}
+#bios-app dl{display:grid;grid-template-columns:70px minmax(0,1fr);gap:8px 12px;margin:10px 0}
+#bios-app dt{color:var(--muted)}
+#bios-app dd{margin:0;min-width:0}
+#bios-app .bottom{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:1px solid var(--line);margin-top:18px;padding-top:14px}
+#bios-app .alert{padding:10px 12px;border-left:3px solid var(--fg);background:var(--soft);margin:12px 0}
+#bios-app .alert .actions{margin-top:6px}
+#bios-app .list{display:grid;gap:0;margin:10px 0}
+#bios-app .row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 0;border-bottom:1px solid var(--line);min-width:0}
+#bios-app .row:last-child{border-bottom:0}
+#bios-app .choice{display:flex;justify-content:space-between;gap:12px;text-align:left;margin:4px 0;width:100%}
+#bios-app .choice[aria-pressed="true"]{background:var(--soft);border-color:var(--fg)}
+#bios-app label{display:grid;gap:6px;margin:14px 0}
+#bios-app select{background:var(--bg);border:1px solid var(--line);padding:8px;max-width:100%;min-width:0}
+#bios-app .body-text{white-space:pre-wrap;margin:16px 0;padding-left:12px;border-left:2px solid var(--line)}
+#bios-app footer{padding:8px 16px;border-top:1px solid var(--line);color:var(--muted);font-size:12px;background:var(--soft)}
+#bios-app .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+@media(max-width:620px){#bios-app .columns{grid-template-columns:1fr;gap:16px}#bios-app main{padding:12px}#bios-app select{font-size:16px}#bios-app dl{grid-template-columns:58px minmax(0,1fr);gap:7px 10px}}
+@media(pointer:coarse){#bios-app button,#bios-app select{min-height:44px}}
+</style>
+<script>
+(()=>{
+  'use strict';
+  const app=document.getElementById('bios-app'),root=document.getElementById('bios-entry-demo');
+  const design={entry:'host',scenario:'personal',layout:'columns'};
+  let applied={...design},s;
+  const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const copy=x=>JSON.parse(JSON.stringify(x));
+  const cases={
+    personal:{label:'개인',team:false,repo:'payments',record:null},
+    team:{label:'팀',team:true,repo:'payments',record:'9/14 14:20 · 검토 메모 저장'},
+    empty:{label:'레포 없음',team:false,repo:null,record:null},
+    offline:{label:'오프라인',team:true,repo:'payments',record:'9/12 · 검토 메모 저장'},
+    missing:{label:'필수 자료 누락',team:true,repo:'payments',record:'9/14 14:20 · 검토 메모 저장'},
+    denied:{label:'접근 제한',team:true,repo:'payments',record:'9/14 14:20 · 검토 메모 저장'},
+    unknown:{label:'응답 미확인',team:true,repo:'payments',record:'9/14 14:20 · 검토 메모 저장'},
+    locked:{label:'잠김',team:true,repo:'payments',record:'9/14 14:20 · 검토 메모 저장'}
+  };
+  const envs={personal:{name:'개인 기본',owner:'개인',instruction:'기본 작업 지침 · 1판',knowledge:'기초 검토 원칙 · 1판'},reference:{name:'자료 검토',owner:'개인',instruction:'자료 읽기 지침 · 1판',knowledge:'자료 해석 원칙 · 1판'},team:{name:'변경 점검 · 3판',owner:'제품팀',instruction:'변경 점검 지침 · 5판',knowledge:'업무 확인 기준 · 7판'},review:{name:'문서 점검 · 1판',owner:'제품팀',instruction:'문서 점검 지침 · 1판',knowledge:'업무 확인 기준 · 7판'}};
+  const modes={solo:'단독',review:'검토자 1명 추가'};
+  const c=()=>cases[design.scenario],env=()=>envs[s.draft.environment];
+  function reset(){s={page:design.entry==='host'?'start':'home',draft:{environment:c().team?'team':'personal',mode:'solo',permission:'confirm'},revision:0,assessment:null,result:null,pending:null,recovered:false,locked:design.scenario==='locked',returnPage:'start',source:null,sequence:0,announcement:'',error:''};if(design.scenario==='unknown')s.pending={id:'07',location:c().repo,draft:copy(s.draft)};}
+  const btn=(text,action,primary=false,extra='')=>'<button type="button" data-action="'+action+'" class="'+(primary?'primary':'')+'" '+extra+'>'+text+'</button>';
+  const link=(text,action)=>'<button type="button" class="link" data-action="'+action+'">'+text+'</button>';
+  const facts=rows=>'<dl>'+rows.map(([k,v])=>'<dt>'+k+'</dt><dd>'+v+'</dd>').join('')+'</dl>';
+  function sources(){if(s.locked)return [];return [
+    {id:'instructions',label:'지침',name:env().instruction,body:'확인한 사실과 해석을 구분한다. 변경 전 근거와 영향을 확인한다.',available:true,access:true},
+    {id:'knowledge',label:'지식 자료',name:env().knowledge,body:'주장에는 출처와 적용 조건을 남긴다. 조건이 달라지면 같은 결론을 재사용하지 않는다.',available:design.scenario!=='missing'||s.recovered,access:design.scenario!=='denied'},
+    {id:'memory',label:'결정 자료',name:c().team?'팀·레포 기록':'연결 안 함',body:c().team?'검토 메모 · 9/14\n확인한 근거를 함께 기록하기로 결정.':null,available:true,access:true}
+  ];}
+  function assess(){if(s.locked)return 'locked';if(s.pending)return 'unknown';if(sources().some(x=>!x.access))return 'denied';if(sources().some(x=>!x.available))return 'missing';return 'ready';}
+  function change(){s.revision++;s.assessment=null;s.result=null;s.error='';s.announcement='설정 변경';}
+  function status(){const issue=assess();if(issue==='missing')return '<div class="alert">'+esc(env().knowledge)+' · 본문 없음<div class="actions">'+link('자료 받기','recovery')+'</div></div>';if(issue==='denied')return '<div class="alert">필수 자료에 접근할 수 없습니다.<div class="actions">'+link('접근 방법','recovery')+'</div></div>';if(issue==='unknown')return '<div class="alert">실행 '+esc(s.pending.id)+' · 응답 미확인<div class="actions">'+link('결과 확인','pending')+'</div></div>';return '';}
+  function startView(){const issue=assess();return '<div class="project"><div class="project-top"><h1>'+esc(c().repo||'레포 없음')+'</h1>'+link('기록','records')+'</div>'+(c().repo?'<p class="small">로컬 레포 · main</p>':'')+'<p class="small record">'+esc(c().record||'진행 기록 없음')+'</p></div><div class="columns"><section><div class="section-top"><h2>환경</h2>'+link('변경','environment')+'</div><p class="name">'+esc(env().name)+' <span class="small">· '+esc(env().owner)+'</span></p>'+facts(sources().map(x=>[x.label,esc(x.access?x.name:'접근 제한')]))+link('자료 열기','materials')+'</section><section><div class="section-top"><h2>실행</h2>'+link('설정','settings')+'</div>'+facts([['도구','Codex CLI'],['세션','새 세션'],['구성',esc(modes[s.draft.mode])],['파일 변경',s.draft.permission==='confirm'?'변경 전 확인':'세션의 허용 범위']])+(s.draft.mode==='review'?'<p class="small">검토 모델 호출이 추가됩니다.</p>':'')+'</section></div>'+status()+'<div class="bottom"><span class="small">'+(design.scenario==='offline'?'오프라인 · 마지막 확인 9/12':'')+'</span>'+btn('새 세션 시작','start-session',true,issue==='ready'?'':'disabled')+'</div>';}
+  function homeView(){return '<h1>Studio</h1><p class="small">'+(c().team?'제품팀':'개인')+'</p><div class="list" data-menu>'+[
+    ['시작','start'],['환경·자료','materials'],['기록','records'],['변경 검토','reviews'],['팀','team'],['동기화·복구','recovery']
+  ].map(([label,action])=>'<div class="row">'+link(label,action)+'</div>').join('')+'</div>';}
+  function environmentsView(){return '<h1>환경</h1><div class="list">'+(c().team?['team','review']:['personal','reference']).map(id=>'<button type="button" class="choice" data-action="choose-environment" data-environment="'+id+'" aria-pressed="'+(id===s.draft.environment)+'"><span>'+(id===s.draft.environment?'● ':'○ ')+esc(envs[id].name)+'</span><span class="small">'+esc(envs[id].owner)+'</span></button>').join('')+'</div><div class="bottom">'+link('돌아가기','start')+'</div>';}
+  function settingsView(){return '<h1>Codex CLI</h1><label>구성<select data-field="mode">'+Object.entries(modes).map(([id,label])=>'<option value="'+id+'" '+(id===s.draft.mode?'selected':'')+'>'+label+'</option>').join('')+'</select></label>'+(s.draft.mode==='review'?'<p class="small">추가 검토자 1명 · 모델 호출 추가</p>':'')+'<label>파일 변경<select data-field="permission"><option value="confirm" '+(s.draft.permission==='confirm'?'selected':'')+'>변경 전 확인</option><option value="scoped" '+(s.draft.permission==='scoped'?'selected':'')+'>세션에서 명시적으로 허용한 범위</option></select></label><div class="bottom">'+link('돌아가기','start')+'</div>';}
+  function materialsView(){return '<h1>'+esc(env().name)+'</h1><p class="small">'+esc(env().owner)+'</p><div class="list">'+sources().map(x=>'<div class="row"><div><p class="small">'+x.label+'</p><p>'+esc(x.access?x.name:'접근 제한')+'</p>'+(!x.available?'<p class="small">본문 없음</p>':'')+'</div>'+(x.access&&x.body?btn('열기','source',false,'data-source="'+x.id+'"'):!x.access?link('접근 방법','recovery'):'')+'</div>').join('')+'</div><div class="bottom">'+link('돌아가기','start')+'</div>';}
+  function sourceView(){const x=sources().find(x=>x.id===s.source);if(!x||!x.access)return recoveryView();return '<h1>'+esc(x.name)+'</h1><p class="small">'+x.label+' · '+esc(env().owner)+'</p>'+(x.available?'<div class="body-text">'+esc(x.body)+'</div>':'<div class="alert">본문 없음</div>'+btn('자료 받기','recovery',true))+'<div class="bottom">'+link('돌아가기','materials')+'</div>';}
+  function recordsView(){return '<h1>'+esc(c().repo?'payments · 기록':'기록')+'</h1>'+(c().record?'<div class="list"><div class="row">'+esc(c().record)+'</div></div>'+facts([['출처','이 레포에 연결된 로컬 기록'],['범위','저장된 메모와 전달 기록']]):'<p class="name">연결된 진행 기록이 없습니다.</p>')+'<div class="bottom">'+link('돌아가기','start')+'</div>';}
+  function recoveryView(){if(s.pending)return pendingView();const issue=assess();return '<h1>'+(issue==='denied'?'자료 접근':'동기화·복구')+'</h1>'+(issue==='missing'?'<p class="name">'+esc(env().knowledge)+' · 본문 없음</p>'+btn('자료 받기','receive',true):issue==='denied'?'<p class="name">자료 소유자에게 접근 권한을 요청하세요.</p>':facts([['연결','동료 사본 · 파일 교환'],['GitHub','연결 안 함'],['마지막 확인',design.scenario==='offline'?'9/12':'9/14']]))+'<div class="bottom">'+link('돌아가기','start')+'</div>';}
+  function pendingView(){if(!s.pending)return recoveryView();return '<h1>실행 '+esc(s.pending.id)+'</h1><p class="name">응답 미확인</p>'+facts([['레포',esc(s.pending.location||'없음')],['환경',esc(envs[s.pending.draft.environment].name)],['구성',esc(modes[s.pending.draft.mode])]])+'<div class="bottom">'+link('돌아가기','start')+btn('결과 확인','check-request',true)+'</div>';}
+  function resultView(){const r=s.result;return '<h1>Codex CLI</h1><p class="name">'+(r.reconciled?'실행 '+esc(r.id)+' · 전달 기록 확인':'새 세션 · 시작 요청 전송됨')+'</p>'+facts([['환경',esc(envs[r.draft.environment].name)],['구성',esc(modes[r.draft.mode])],['요청 내용','지침 · 지식·결정 조회 경로'],['실행 번호',esc(r.id)]])+'<div class="bottom">'+link('시작 화면','start')+link('기록','records')+'</div>';}
+  function lockView(){return '<h1>잠김</h1><div class="bottom">'+btn('잠금 해제','unlock',true)+'</div>';}
+  const views={start:startView,home:homeView,environment:environmentsView,settings:settingsView,materials:materialsView,source:sourceView,records:recordsView,recovery:recoveryView,pending:pendingView,result:resultView,reviews:()=>'<h1>변경 검토</h1><p class="name">검토 요청 없음</p><div class="bottom">'+link('돌아가기','home')+'</div>',team:()=>'<h1>팀</h1><p class="name">'+(c().team?'제품팀':'참여한 팀 없음')+'</p><div class="bottom">'+link('돌아가기','home')+'</div>'};
+  function render(){const active=document.activeElement,keep=app.contains(active)?{action:active.dataset.action,field:active.dataset.field,environment:active.dataset.environment}:{};app.dataset.screen=s.locked?'locked':s.page;app.dataset.layout=design.layout;app.dataset.revision=String(s.revision);app.dataset.requestId=s.locked?'':s.pending?.id||s.result?.id||'';app.dataset.assessedRevision=s.assessment?String(s.assessment.revision):'';app.innerHTML='<header><span>agent-bios <span class="small">/ Studio</span></span><nav class="actions">'+(s.locked?'':link('메뉴','home')+link('잠금','lock'))+'</nav></header><main>'+(s.locked?lockView():(views[s.page]||startView)())+(s.error?'<div class="alert" role="alert">'+esc(s.error)+'</div>':'')+'</main><footer>Tab 이동 · Enter 선택 · Esc 뒤로<span class="sr" role="status" aria-live="polite">'+esc(s.announcement)+'</span></footer>';let target=keep.field?app.querySelector('[data-field="'+keep.field+'"]'):keep.action?app.querySelector('[data-action="'+keep.action+'"]'+(keep.environment?'[data-environment="'+keep.environment+'"]':'')):null;if(!target&&keep.action)target=app.querySelector('main button:not(:disabled),main select');if(target)target.focus({preventScroll:true});}
+  function navigate(page){s.page=page;s.error='';s.announcement='';}
+  app.addEventListener('click',event=>{const button=event.target.closest('[data-action]');if(!button||button.disabled)return;const action=button.dataset.action;if(s.locked&&action!=='unlock')return;s.error='';if(action==='choose-environment'){const id=button.dataset.environment;if((c().team?['team','review']:['personal','reference']).includes(id)){s.draft.environment=id;change();}}else if(action==='source'){const x=sources().find(x=>x.id===button.dataset.source);if(x?.access){s.source=x.id;navigate('source');}}else if(action==='start-session'){if(s.page!=='start')return;const issue=assess();s.assessment={revision:s.revision,issue,taskSupport:'not-assessed'};if(issue==='ready'){s.sequence++;s.result={id:String(s.sequence).padStart(2,'0'),draft:copy(s.draft),reconciled:false};navigate('result');}else navigate(issue==='unknown'?'pending':'recovery');}else if(action==='receive'){if(assess()==='missing'&&sources().every(x=>x.access)){s.recovered=true;change();navigate('start');}}else if(action==='check-request'){if(s.pending){s.result={id:s.pending.id,draft:copy(s.pending.draft),reconciled:true};s.pending=null;navigate('result');}}else if(action==='lock'){s.locked=true;s.assessment=null;}else if(action==='unlock'){s.locked=false;s.assessment=null;navigate(design.entry==='host'?'start':'home');}else if(views[action])navigate(action);render();});
+  app.addEventListener('change',event=>{if(s.locked)return;const key=event.target.dataset.field,value=event.target.value;if(key==='mode'&&Object.hasOwn(modes,value)||key==='permission'&&['confirm','scoped'].includes(value)){s.draft[key]=value;change();render();}});
+  app.addEventListener('keydown',event=>{if(event.target.closest('input,select,textarea,[contenteditable]'))return;if(event.key==='Escape'&&!s.locked&&!['start','home'].includes(s.page)){event.preventDefault();navigate('start');render();return;}const menu=event.target.closest('[data-menu]');if(menu&&['ArrowDown','ArrowUp'].includes(event.key)){const buttons=[...menu.querySelectorAll('button')],i=buttons.indexOf(document.activeElement);if(i>=0){event.preventDefault();buttons[(i+(event.key==='ArrowDown'?1:-1)+buttons.length)%buttons.length].focus();}}});
+  function applyDesign(){if(design.scenario!==applied.scenario)reset();else if(design.entry!==applied.entry)navigate(design.entry==='host'?'start':'home');applied={...design};render();}
+  reset();render();
+  if(globalThis.Tweak){const tweak=new Tweak({container:root,onChange:applyDesign});tweak.addSelect(design,'entry',{label:'진입',options:[{label:'런처',value:'host'},{label:'Studio',value:'studio'}]});tweak.addSelect(design,'scenario',{label:'사례',options:Object.entries(cases).map(([value,c])=>({label:c.label,value}))});tweak.addSelect(design,'layout',{label:'배치',options:[{label:'두 열',value:'columns'},{label:'한 열',value:'stack'}]});}
+})();
+</script>

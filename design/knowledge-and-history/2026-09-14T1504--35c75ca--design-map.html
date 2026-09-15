@@ -1,0 +1,1657 @@
+<!doctype html>
+<html lang="ko" data-visualize-standalone>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src 'unsafe-inline' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>agent-bios 팀 업무환경 통합 설계</title>
+<style>:root{color-scheme:light dark;background:light-dark(rgb(255 255 255), rgb(24 24 24))}html,body{margin:0}body{box-sizing:border-box;padding:1rem;background:inherit}iframe{display:block;width:100%;height:calc(100vh - 2rem);margin:0 auto;border:0}</style>
+</head>
+<body>
+<p><a href="2026-09-14T1504--35c75ca--consolidated-design-ssot.md">이 시각화의 설계 기준 문서</a> · <a href="CURRENT.md">최신본 안내</a></p>
+<iframe sandbox="allow-scripts" referrerpolicy="no-referrer" title="agent-bios 팀 업무환경 통합 설계" srcdoc="&lt;!doctype html&gt;
+&lt;html lang=&quot;ko&quot; data-visualize-standalone&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+&lt;meta name=&quot;referrer&quot; content=&quot;no-referrer&quot;&gt;
+&lt;meta http-equiv=&quot;Content-Security-Policy&quot; content=&quot;default-src &#x27;none&#x27;; script-src &#x27;unsafe-inline&#x27; &#x27;unsafe-eval&#x27; &#x27;wasm-unsafe-eval&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src &#x27;unsafe-inline&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src &#x27;none&#x27;; object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;&quot;&gt;
+&lt;title&gt;agent-bios 팀 업무환경 통합 설계&lt;/title&gt;
+&lt;style&gt;:root {
+  color-scheme: light dark;
+  background-color: var(
+    --background,
+    var(--color-background-primary, light-dark(rgb(255 255 255), rgb(24 24 24)))
+  ) !important;
+
+  /* Agent-facing contract; keep in sync with SKILL.md. */
+  --background: var(
+    --color-background-primary,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --card: color-mix(in oklab, var(--foreground) 5%, var(--background));
+  --card-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --popover: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255), rgb(45 45 45))
+  );
+  --popover-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --primary: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --primary-foreground: var(
+    --color-text-inverse,
+    light-dark(rgb(255 255 255), rgb(13 13 13))
+  );
+  --secondary: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255 / 96%), rgb(54 54 54 / 96%))
+  );
+  --secondary-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --muted: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --muted-foreground: var(
+    --color-text-secondary,
+    light-dark(rgb(26 28 31 / 49.4%), rgb(255 255 255 / 49.8%))
+  );
+  --accent: var(
+    --color-background-info,
+    light-dark(rgb(229 242 255), rgb(13 39 63))
+  );
+  --accent-foreground: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --destructive: var(
+    --color-text-warning,
+    light-dark(rgb(226 85 7), rgb(255 133 73))
+  );
+  --border: var(
+    --color-border-secondary,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+  --input: var(
+    --color-border-primary,
+    light-dark(
+      rgb(26 28 31 / 11.8%),
+      color-mix(in oklab, rgb(0 0 0) 10%, transparent)
+    )
+  );
+  --ring: var(
+    --color-ring-primary,
+    light-dark(rgb(51 156 255), rgb(131 195 255 / 76%))
+  );
+  --font-size-base: var(--font-text-md-size, 14px);
+  --blue: light-dark(rgb(51 156 255), rgb(51 156 255));
+  --orange: light-dark(rgb(226 85 7), rgb(251 106 34));
+  --green: light-dark(rgb(0 162 64), rgb(64 201 119));
+  --red: light-dark(rgb(224 46 42), rgb(255 103 100));
+  --purple: light-dark(rgb(146 79 247), rgb(173 123 249));
+  --yellow: light-dark(rgb(255 195 0), rgb(255 210 64));
+  --viz-series-1: var(--primary);
+  --viz-series-2: light-dark(rgb(243 136 59), rgb(245 154 86));
+  --viz-series-3: light-dark(rgb(93 201 119), rgb(116 213 139));
+  --viz-series-4: light-dark(rgb(235 119 177), rgb(240 143 192));
+  --viz-series-5: light-dark(rgb(155 121 236), rgb(170 145 239));
+  --viz-series-6: light-dark(rgb(58 185 177), rgb(90 203 194));
+
+  /* Internal implementation variables; not part of the agent contract. */
+  --font-sans: -apple-system, system-ui, &quot;Segoe UI&quot;, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, &quot;SF Mono&quot;, Menlo, Consolas, &quot;Liberation Mono&quot;,
+    monospace;
+  --font-size-normal: max(11px, var(--font-size-base));
+  --font-size-tooltip: calc(var(--font-size-base) - 1px);
+  --font-size-small: max(11px, calc(var(--font-size-base) - 2px));
+  --font-size-h1: calc(var(--font-size-normal) * 1.7142857143);
+  --font-size-h2: calc(var(--font-size-normal) * 1.4285714286);
+  --font-size-h3: calc(var(--font-size-normal) * 1.2857142857);
+  --font-weight-normal: 430;
+  --font-weight-medium: 500;
+  --icon-size: 16px;
+  --line-height-normal: calc(var(--font-size-normal) * 1.5);
+  --line-height-tooltip: calc(var(--font-size-tooltip) * 1.4285714286);
+  --line-height-small: calc(var(--font-size-small) + 4px);
+  --corner-shape: round;
+  --radius: var(--border-radius-lg, 10px);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-2xl: calc(var(--radius) * 1.6);
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px -1px rgb(0 0 0 / 8%);
+  --checkmark-image: url(&quot;data:image/svg+xml,%3Csvg xmlns=&#x27;http://www.w3.org/2000/svg&#x27; viewBox=&#x27;0 0 17 17&#x27;%3E%3Cpath d=&#x27;M12.8961 3.64101C13.1297 3.41418 13.4984 3.37523 13.7779 3.56581C14.0571 3.75635 14.1554 4.11331 14.0299 4.41347L13.9615 4.53847L7.71151 13.7045C7.59411 13.8767 7.4063 13.9877 7.19881 14.0072C6.99136 14.0267 6.78564 13.9533 6.63826 13.806L2.88826 10.056L2.79842 9.9457C2.6192 9.67407 2.64927 9.30496 2.88826 9.06581C3.12738 8.82669 3.49647 8.79676 3.76815 8.97597L3.8785 9.06581L7.03084 12.2182L12.8053 3.74941L12.8961 3.64101Z&#x27;/%3E%3C/svg%3E&quot;);
+
+  /* Legacy aliases; not part of the current agent contract. */
+  --viz-bg: transparent;
+  --viz-panel: var(--card);
+  --viz-border: var(--border);
+  --viz-text: var(--foreground);
+  --viz-muted: var(--muted-foreground);
+  --viz-accent: var(--primary);
+  --viz-accent-text: var(--primary-foreground);
+  --viz-accent-bg: var(--accent);
+  --viz-font-size: var(--font-size-base);
+  --viz-warning: var(--destructive);
+}
+
+:root[data-theme=&quot;light&quot;] {
+  color-scheme: light;
+}
+
+:root[data-theme=&quot;dark&quot;] {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html &gt; body {
+  /* Preserve MCP aliases for older inline renderers without creating :root cycles. */
+  --color-background-primary: var(
+    --background,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --color-text-primary: var(
+    --foreground,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --color-border-secondary: var(
+    --border,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+
+  margin: 0;
+  padding: var(--visualize-paint-gutter, 0px);
+  color: var(--foreground);
+  background: transparent !important;
+  font-family: var(--font-sans) !important;
+  font-size: var(--font-size-normal);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+
+a {
+  color: color-mix(in srgb, var(--viz-accent) 80%, var(--viz-text) 20%);
+  cursor: pointer;
+  font-weight: var(--font-weight-medium, 500);
+  text-decoration: none;
+  text-underline-offset: 2px;
+}
+
+a:is(:hover, :focus-visible) {
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-thickness: 0.5px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin-block: 0;
+}
+
+h1 {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h3,
+h4,
+h5,
+h6 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+}
+
+b,
+strong,
+th {
+  font-weight: var(--font-weight-medium);
+}
+
+code:not(pre code) {
+  display: inline;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  corner-shape: var(--corner-shape);
+  background: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  word-break: break-word;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--foreground);
+  font: inherit;
+  text-align: start;
+}
+
+.table :is(th, td) {
+  padding-block: 10px;
+  padding-inline: 0 24px;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.table-responsive &gt; .table :is(th, td) {
+  overflow-wrap: break-word;
+}
+
+.table :is(th, td):last-child {
+  padding-inline-end: 0;
+}
+
+.table :is(caption, thead th) {
+  font-weight: 600;
+}
+
+.table thead th {
+  padding-block: 8px;
+  border-bottom-color: color-mix(in srgb, var(--foreground) 16%, transparent);
+}
+
+.table tbody tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+
+.table.table-sm :is(th, td) {
+  padding-block: 6px;
+}
+
+.table.table-sm :is(th, td):not(:last-child) {
+  padding-inline-end: 16px;
+}
+
+.table :is(.text-end, [align=&quot;right&quot;]) {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.table :is(.text-center, [align=&quot;center&quot;]) {
+  text-align: center;
+}
+
+.table .text-nowrap {
+  white-space: nowrap;
+}
+
+#widget {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  background: transparent !important;
+}
+
+.card {
+  min-width: 0;
+  padding: 12px;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  border-radius: var(--radius-2xl);
+  corner-shape: var(--corner-shape);
+  color: var(--card-foreground);
+  background: var(--card);
+}
+
+#widget &gt; :not(.card, .progress) {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 50;
+  top: 0;
+  left: 0;
+  width: max-content;
+  max-width: min(
+    20rem,
+    var(--tooltip-available-width, calc(100vw - 10px)),
+    calc(100vw - 10px)
+  );
+  max-height: min(
+    var(--tooltip-available-height, calc(100vh - 10px)),
+    calc(100vh - 10px)
+  );
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--popover-foreground);
+  background: var(--popover);
+  box-shadow: none;
+  font-size: var(--font-size-tooltip);
+  line-height: var(--line-height-tooltip);
+  overflow-wrap: break-word;
+  white-space: normal;
+  pointer-events: none;
+  user-select: none;
+}
+
+.viz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(max(180px, 24%), 1fr));
+  gap: 10px;
+}
+
+.viz-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.viz-stat-value {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+.viz-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+hr {
+  width: 100%;
+  height: 1px;
+  margin-block: 6px;
+  border: 0;
+  background: var(--border);
+}
+
+.nav {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+}
+
+.progress {
+  display: flex;
+  height: 8px;
+  margin-block: calc((var(--line-height-normal, 1.5em) - 8px) / 2);
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+}
+
+.progress-bar:only-child {
+  border-radius: var(--radius-full);
+}
+
+.progress-bar {
+  height: 100%;
+  flex-shrink: 0;
+  border: 0;
+  background: var(--viz-series-1);
+}
+
+.viz-badge {
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  color: var(--accent-foreground);
+  background: var(--accent);
+  font-weight: var(--font-weight-medium);
+}
+
+small,
+.text-small,
+.viz-badge {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.text-muted {
+  color: var(--muted-foreground);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.viz-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.viz-controls &gt; .form-label {
+  display: grid;
+  min-width: min(100%, 260px);
+  flex: 1 1 280px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 12px;
+  margin-bottom: 0;
+}
+
+.viz-controls &gt; .form-label &gt; :is(.form-control, .form-range, .form-select) {
+  grid-column: 1 / -1;
+}
+
+.btn,
+.nav-link,
+.form-check-input,
+.form-control,
+.form-range,
+.form-select {
+  font: inherit;
+}
+
+.btn,
+.nav-link {
+  appearance: button;
+  display: inline-flex;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0 8px;
+  -webkit-app-region: no-drag;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: var(--cursor-interaction, pointer);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn:is(.btn-block, .viz-tile) {
+  inline-size: 100%;
+}
+
+.btn.viz-tile {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+a.btn {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn:not(:disabled):hover,
+.nav-link:not(:disabled):not([aria-disabled=&quot;true&quot;]):hover {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn-primary {
+  border-color: transparent;
+  color: var(--primary-foreground);
+  background: var(--foreground);
+  background-clip: padding-box;
+}
+
+.btn-primary .text-muted {
+  color: color-mix(in srgb, var(--primary-foreground) 50%, transparent);
+}
+
+.btn-primary:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 80%, transparent);
+  background-clip: padding-box;
+}
+
+.btn-ghost {
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.btn-ghost:not(:disabled):hover {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.nav-pills .nav-link {
+  min-width: 0;
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.nav-justified .nav-link {
+  flex: 1 1 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.nav-pills .nav-link.active {
+  color: var(--foreground);
+  background: var(--muted);
+}
+
+.btn:disabled,
+.nav-link:disabled,
+.nav-link[aria-disabled=&quot;true&quot;] {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+[data-lucide] {
+  stroke-width: 1.6;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--foreground);
+}
+
+.form-control {
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  padding: 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--foreground);
+  background: var(--secondary);
+}
+
+.form-control::placeholder {
+  color: var(--muted-foreground);
+}
+
+.form-control[type=&quot;file&quot;] {
+  padding: 0;
+  overflow: hidden;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control[type=&quot;file&quot;]::file-selector-button {
+  min-height: 26px;
+  margin-right: 8px;
+  padding: 0 8px;
+  border: 0;
+  border-right: 1px solid var(--input);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: inherit;
+  font: inherit;
+}
+
+.form-control[type=&quot;file&quot;]:not(:disabled):hover::file-selector-button {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-control-color[type=&quot;color&quot;] {
+  width: 40px;
+  height: 28px;
+  padding: 3px;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch {
+  border: 0;
+  border-radius: calc(var(--radius-lg) - 4px);
+  corner-shape: var(--corner-shape);
+}
+
+textarea.form-control {
+  height: auto;
+  min-height: 72px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.form-control:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-control:disabled,
+.form-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.form-select {
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  margin: 0;
+  padding: 0 32px 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--foreground);
+  background-color: var(--secondary);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%),
+    linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 10px) 50%;
+  background-repeat: no-repeat;
+  background-size: 4px 4px;
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-select:not(:disabled):hover {
+  background-color: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-select:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-check {
+  display: flex;
+  min-height: 20px;
+  align-items: center;
+  gap: 6px;
+}
+
+.form-check-input {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  margin: 0;
+  border: 1px solid var(--input);
+  color: var(--primary-foreground);
+  background-color: transparent;
+  cursor: var(--cursor-interaction, default);
+  transition:
+    background-color 150ms,
+    border-color 150ms,
+    box-shadow 150ms;
+}
+
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;] {
+  border-color: var(--input);
+  border-radius: var(--radius-sm);
+  corner-shape: var(--corner-shape);
+  background-color: var(--secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input:not(:disabled):not(:checked):hover {
+  background-color: var(--card);
+}
+
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;]:checked {
+  border-color: var(--primary);
+  background-color: var(--primary);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input[type=&quot;checkbox&quot;]:checked::before {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--primary-foreground);
+  content: &quot;&quot;;
+  mask: var(--checkmark-image) center / 12px 12px no-repeat;
+}
+
+.form-check-input[type=&quot;radio&quot;] {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+}
+
+.form-check-input[type=&quot;radio&quot;]:checked {
+  border: 2px solid var(--primary);
+  background:
+    radial-gradient(circle, var(--primary-foreground) 0 2.5px, transparent 3px),
+    var(--primary);
+}
+
+.form-check:not(.form-switch) .form-check-input:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled {
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+}
+
+.form-switch .form-check-input:disabled,
+.form-switch .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.form-check-label {
+  color: var(--foreground);
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-switch .form-check-input {
+  position: relative;
+  width: 32px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+  box-shadow: none;
+  transition: background-color 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 1px solid light-dark(var(--primary-foreground), var(--foreground));
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+  box-shadow: var(--shadow-sm);
+  content: &quot;&quot;;
+  transform: translate(2px, -50%);
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input:checked {
+  background: var(--primary);
+}
+
+.form-switch .form-check-input:checked::before {
+  transform: translate(14px, -50%);
+}
+
+.form-switch .form-check-input:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.form-range {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 28px;
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  outline: none;
+  border: 0;
+  accent-color: var(--primary);
+  background: linear-gradient(
+      color-mix(in srgb, var(--foreground) 7%, transparent),
+      color-mix(in srgb, var(--foreground) 7%, transparent)
+    )
+    center / 100% 2px no-repeat;
+}
+
+.form-range::-webkit-slider-runnable-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-webkit-slider-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range::-moz-range-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-moz-range-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.btn:not(.btn-primary, .viz-tile):is(
+  [aria-pressed=&quot;true&quot;],
+  [aria-selected=&quot;true&quot;],
+  .is-selected
+) {
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.btn.viz-tile:is([aria-pressed=&quot;true&quot;], [aria-selected=&quot;true&quot;], .is-selected) {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.btn:focus-visible,
+.nav-link:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+  .btn,
+  .nav-link,
+  .form-control,
+  .form-select {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Keep small-screen WebKit from zooming when a text field receives focus. */
+  .form-control,
+  .form-select {
+    font-size: max(16px, var(--font-size-normal));
+  }
+
+  .form-control[type=&quot;file&quot;]::file-selector-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .form-control-color[type=&quot;color&quot;] {
+    width: 44px;
+    height: 44px;
+  }
+
+  .form-control:is(
+    [type=&quot;date&quot;],
+    [type=&quot;datetime-local&quot;],
+    [type=&quot;month&quot;],
+    [type=&quot;time&quot;],
+    [type=&quot;week&quot;]
+  ) {
+    min-width: 0;
+    max-width: 100%;
+    padding-block: 8px;
+  }
+
+  .form-check {
+    min-height: 44px;
+    padding-inline: 15px;
+  }
+
+  .form-check-input {
+    position: relative;
+  }
+
+  .form-check-input::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    content: &quot;&quot;;
+    transform: translate(-50%, -50%);
+  }
+
+  .form-check-label {
+    display: inline-flex;
+    min-width: 44px;
+    min-height: 44px;
+    align-items: center;
+  }
+
+  .form-range {
+    height: 44px;
+    touch-action: pan-y;
+  }
+
+  .form-range::-webkit-slider-runnable-track {
+    height: 44px;
+  }
+
+  .form-range::-moz-range-track {
+    height: 44px;
+  }
+
+  .form-range::-webkit-slider-thumb {
+    margin-top: 12px;
+  }
+}
+
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+#widget &gt; svg {
+  width: 100%;
+}
+
+/* Model-authored chart rules can otherwise stretch icons after these styles load. */
+svg.lucide {
+  display: block;
+  width: var(--icon-size) !important;
+  height: var(--icon-size) !important;
+  flex: none;
+  margin: 0 !important;
+  stroke-width: 1.6;
+}
+
+.text-warning,
+.text-destructive {
+  color: var(--destructive);
+}
+
+html&gt;body{padding:0}&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;div id=&quot;team-environment-design&quot; data-design-reference=&quot;2026-09-14T1504--35c75ca--consolidated-design-ssot.md&quot;&gt;
+  &lt;div class=&quot;ted-heading&quot;&gt;
+    &lt;h2&gt;팀의 기준을 함께 쓰고 이어갑니다&lt;/h2&gt;
+    &lt;span class=&quot;text-small&quot;&gt;통합 설계문서의 요약 · 가상 사례 · 실제 실행 없음&lt;/span&gt;
+  &lt;/div&gt;
+  &lt;div class=&quot;nav nav-pills&quot; role=&quot;tablist&quot; aria-label=&quot;설계 탐색&quot;&gt;
+    &lt;button class=&quot;nav-link active&quot; id=&quot;ted-tab-structure&quot; role=&quot;tab&quot; aria-controls=&quot;ted-panel-structure&quot; aria-selected=&quot;true&quot; type=&quot;button&quot;&gt;전체 구조&lt;/button&gt;
+    &lt;button class=&quot;nav-link&quot; id=&quot;ted-tab-start&quot; role=&quot;tab&quot; aria-controls=&quot;ted-panel-start&quot; aria-selected=&quot;false&quot; type=&quot;button&quot;&gt;시작·전달&lt;/button&gt;
+    &lt;button class=&quot;nav-link&quot; id=&quot;ted-tab-authority&quot; role=&quot;tab&quot; aria-controls=&quot;ted-panel-authority&quot; aria-selected=&quot;false&quot; type=&quot;button&quot;&gt;권한·팀·교환&lt;/button&gt;
+    &lt;button class=&quot;nav-link&quot; id=&quot;ted-tab-studio&quot; role=&quot;tab&quot; aria-controls=&quot;ted-panel-studio&quot; aria-selected=&quot;false&quot; type=&quot;button&quot;&gt;Studio 경로&lt;/button&gt;
+  &lt;/div&gt;
+  &lt;section id=&quot;ted-panel-structure&quot; role=&quot;tabpanel&quot; aria-labelledby=&quot;ted-tab-structure&quot;&gt;
+    &lt;div class=&quot;ted-caption&quot;&gt;&lt;span&gt;작업자는 사람 또는 AI · 역할과 권한은 별개&lt;/span&gt;&lt;/div&gt;
+    &lt;div class=&quot;ted-map&quot; id=&quot;ted-structure-map&quot; aria-label=&quot;세 원본 자료, 팀 환경, 작업 준비와 실제 수신자의 관계&quot;&gt;&lt;/div&gt;
+    &lt;p class=&quot;ted-detail&quot; id=&quot;ted-structure-detail&quot; aria-live=&quot;polite&quot;&gt;&lt;/p&gt;
+    &lt;div class=&quot;ted-trace text-small&quot; id=&quot;ted-structure-trace&quot;&gt;&lt;/div&gt;
+  &lt;/section&gt;
+  &lt;section id=&quot;ted-panel-start&quot; role=&quot;tabpanel&quot; aria-labelledby=&quot;ted-tab-start&quot; hidden&gt;
+    &lt;div class=&quot;ted-controls&quot;&gt;&lt;div class=&quot;viz-controls&quot;&gt;
+      &lt;label class=&quot;form-label&quot; for=&quot;ted-start-case&quot;&gt;작업의 출발점
+        &lt;select class=&quot;form-select&quot; id=&quot;ted-start-case&quot;&gt;&lt;/select&gt;
+      &lt;/label&gt;
+    &lt;/div&gt;&lt;/div&gt;
+    &lt;div class=&quot;ted-map&quot; id=&quot;ted-start-map&quot; aria-label=&quot;선택한 작업 상황의 준비와 전달 흐름&quot;&gt;&lt;/div&gt;
+    &lt;p class=&quot;ted-detail&quot; id=&quot;ted-start-detail&quot; aria-live=&quot;polite&quot;&gt;&lt;/p&gt;
+    &lt;div class=&quot;ted-trace text-small&quot; id=&quot;ted-start-trace&quot;&gt;&lt;/div&gt;
+  &lt;/section&gt;
+  &lt;section id=&quot;ted-panel-authority&quot; role=&quot;tabpanel&quot; aria-labelledby=&quot;ted-tab-authority&quot; hidden&gt;
+    &lt;div class=&quot;ted-controls&quot;&gt;&lt;div class=&quot;viz-controls&quot;&gt;
+      &lt;label class=&quot;form-label&quot; for=&quot;ted-authority-case&quot;&gt;확인할 경계
+        &lt;select class=&quot;form-select&quot; id=&quot;ted-authority-case&quot;&gt;&lt;/select&gt;
+      &lt;/label&gt;
+    &lt;/div&gt;&lt;/div&gt;
+    &lt;div class=&quot;ted-map&quot; id=&quot;ted-authority-map&quot; aria-label=&quot;선택한 권한, 팀 상태 또는 교환 상황의 관계&quot;&gt;&lt;/div&gt;
+    &lt;p class=&quot;ted-detail&quot; id=&quot;ted-authority-detail&quot; aria-live=&quot;polite&quot;&gt;&lt;/p&gt;
+    &lt;div class=&quot;ted-trace text-small&quot; id=&quot;ted-authority-trace&quot;&gt;&lt;/div&gt;
+  &lt;/section&gt;
+  &lt;section id=&quot;ted-panel-studio&quot; role=&quot;tabpanel&quot; aria-labelledby=&quot;ted-tab-studio&quot; hidden&gt;
+    &lt;div class=&quot;ted-controls&quot;&gt;&lt;div class=&quot;viz-controls&quot;&gt;
+      &lt;label class=&quot;form-label&quot; for=&quot;ted-studio-case&quot;&gt;진입·이동 상황
+        &lt;select class=&quot;form-select&quot; id=&quot;ted-studio-case&quot;&gt;&lt;/select&gt;
+      &lt;/label&gt;
+    &lt;/div&gt;&lt;/div&gt;
+    &lt;div class=&quot;ted-map&quot; id=&quot;ted-studio-map&quot; aria-label=&quot;Studio 홈과 다섯 업무 갈래의 선택 가능한 이동 관계&quot;&gt;&lt;/div&gt;
+    &lt;p class=&quot;ted-detail&quot; id=&quot;ted-studio-detail&quot; aria-live=&quot;polite&quot;&gt;&lt;/p&gt;
+    &lt;div class=&quot;ted-trace text-small&quot; id=&quot;ted-studio-trace&quot;&gt;&lt;/div&gt;
+  &lt;/section&gt;
+  &lt;hr&gt;
+  &lt;div class=&quot;ted-footer text-small&quot;&gt;
+    &lt;span&gt;현재 구현: Instructions 일부 · 통합 환경·권한·P2P는 설계 범위&lt;/span&gt;
+    &lt;span id=&quot;ted-global-trace&quot;&gt;&lt;/span&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+&lt;style&gt;
+#team-environment-design { width:100%; color:var(--foreground); }
+#team-environment-design .ted-heading { display:grid; gap:8px; margin-bottom:16px; }
+#team-environment-design .ted-caption { display:flex; flex-wrap:wrap; gap:8px; margin-top:18px; }
+#team-environment-design .ted-controls { margin-top:18px; }
+#team-environment-design .ted-map { position:relative; width:100%; margin-top:12px; }
+#team-environment-design .ted-map-lines { position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; }
+#team-environment-design .ted-map-node { position:absolute; transform:translate(-50%,-50%); }
+#team-environment-design .ted-detail { margin:10px 0 6px; }
+#team-environment-design .ted-trace { display:flex; align-items:center; flex-wrap:wrap; gap:5px 10px; }
+#team-environment-design .ted-footer { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px 16px; }
+#team-environment-design .ted-stage-label { position:absolute; transform:translate(-50%,-50%); text-align:center; pointer-events:none; }
+#team-environment-design .ted-edge { fill:none; stroke:var(--border); stroke-width:1.5; }
+#team-environment-design .ted-edge.is-related { stroke:var(--viz-series-1); stroke-width:2; }
+#team-environment-design .ted-edge.is-conditional { stroke-dasharray:5 5; }
+#team-environment-design .ted-path-label { fill:var(--foreground); }
+&lt;/style&gt;
+&lt;script&gt;
+(function () {
+  &#x27;use strict&#x27;;
+  const root = document.getElementById(&#x27;team-environment-design&#x27;);
+  const doc = root.dataset.designReference;
+  const sectionNames = {S01:&#x27;목적&#x27;,S02:&#x27;개념&#x27;,S03:&#x27;지식&#x27;,S04:&#x27;결정 기억&#x27;,S05:&#x27;환경·준비&#x27;,S06:&#x27;소비·전달&#x27;,S07:&#x27;권한&#x27;,S08:&#x27;보관·교환&#x27;,S09:&#x27;팀 수명주기&#x27;,S10:&#x27;첫 작업&#x27;,S11:&#x27;Studio&#x27;,S12:&#x27;검증&#x27;,S13:&#x27;범위&#x27;,S14:&#x27;증거·상태&#x27;};
+  const esc = value =&gt; String(value == null ? &#x27;&#x27; : value).replace(/[&amp;&lt;&gt;&quot;&#x27;]/g, c =&gt; ({&#x27;&amp;&#x27;:&#x27;&amp;amp;&#x27;,&#x27;&lt;&#x27;:&#x27;&amp;lt;&#x27;,&#x27;&gt;&#x27;:&#x27;&amp;gt;&#x27;,&#x27;&quot;&#x27;:&#x27;&amp;quot;&#x27;,&quot;&#x27;&quot;:&#x27;&amp;#39;&#x27;}[c]));
+  const refs = (ids) =&gt; ids.map(id =&gt; &#x27;&lt;a href=&quot;&#x27; + esc(doc + &#x27;#&#x27; + id.toLowerCase()) + &#x27;&quot; data-section=&quot;&#x27; + id + &#x27;&quot;&gt;&#x27; + id + &#x27; &#x27; + sectionNames[id] + &#x27;&lt;/a&gt;&#x27;).join(&#x27; · &#x27;);
+  const state = {structure:&#x27;environment&#x27;, start:&#x27;brownfield&#x27;, authority:&#x27;effects&#x27;, studio:&#x27;known&#x27;, selected:{start:null,authority:null,studio:&#x27;hub&#x27;}};
+  const structureNodes = [
+    {id:&#x27;instructions&#x27;, label:&#x27;지침\nInstructions&#x27;, detail:&#x27;Instructions → 환경: 일하는 방식과 절차 · 원본 소유권 유지&#x27;, refs:[&#x27;S02&#x27;,&#x27;S05&#x27;]},
+    {id:&#x27;knowledge&#x27;, label:&#x27;도메인\n지식&#x27;, detail:&#x27;지식 → 환경: 원칙·변하는 조건·근거 · 온톨로지·문항·8+1 렌즈&#x27;, refs:[&#x27;S03&#x27;,&#x27;S05&#x27;]},
+    {id:&#x27;memory&#x27;, label:&#x27;결정\n기억&#x27;, detail:&#x27;환경은 기억의 선택 규칙을 고정 · 매 작업은 현재 선택·이유·정정과 조회 범위를 확인&#x27;, refs:[&#x27;S04&#x27;,&#x27;S05&#x27;]},
+    {id:&#x27;team&#x27;, label:&#x27;팀\n선택·채택&#x27;, detail:&#x27;팀 → 환경: 공유의 기본 단위 · 한 팀에 여러 환경 · 역할 선택은 권한 부여가 아님&#x27;, refs:[&#x27;S01&#x27;,&#x27;S02&#x27;,&#x27;S07&#x27;,&#x27;S09&#x27;]},
+    {id:&#x27;environment&#x27;, label:&#x27;팀 환경\n정확한 판·범위&#x27;, detail:&#x27;환경은 원본을 참조 · 환경 구성 변경과 원본 편집은 별도&#x27;, refs:[&#x27;S02&#x27;,&#x27;S05&#x27;]},
+    {id:&#x27;artifacts&#x27;, label:&#x27;현재 요청\n선택 자료&#x27;, detail:&#x27;작업 자료 → 준비: 실제 확인한 범위만 · 저장소 URL만으로 내용·과거 이유를 알 수 없음&#x27;, refs:[&#x27;S10&#x27;,&#x27;S05&#x27;]},
+    {id:&#x27;preparation&#x27;, label:&#x27;작업 준비\n기준·근거·가능 동작&#x27;, detail:&#x27;준비의 세 질문: 선택한 기준 / 충분한 근거 / 지금 허용된 동작&#x27;, refs:[&#x27;S05&#x27;,&#x27;S06&#x27;,&#x27;S07&#x27;]},
+    {id:&#x27;recipient&#x27;, label:&#x27;실제 수신자\n사람·AI·호스트&#x27;, detail:&#x27;준비 → 수신자: 필요한 본문과 조건 전달 · 전달·실제 사용·이해는 별도 증거&#x27;, refs:[&#x27;S01&#x27;,&#x27;S06&#x27;]}
+  ];
+  const structureEdges = [
+    [&#x27;instructions&#x27;,&#x27;environment&#x27;],[&#x27;knowledge&#x27;,&#x27;environment&#x27;],[&#x27;memory&#x27;,&#x27;environment&#x27;],[&#x27;team&#x27;,&#x27;environment&#x27;],[&#x27;environment&#x27;,&#x27;preparation&#x27;],[&#x27;artifacts&#x27;,&#x27;preparation&#x27;],[&#x27;preparation&#x27;,&#x27;recipient&#x27;]
+  ];
+  const startCases = {
+    brownfield:{label:&#x27;기존 프로젝트 · 연결된 기억 없음&#x27;,refs:[&#x27;S10&#x27;,&#x27;S03&#x27;,&#x27;S04&#x27;,&#x27;S05&#x27;],detail:&#x27;관찰한 상태 / 기록된 결정 / 확인할 해석을 구분 · 과거 이유를 만들지 않음&#x27;,nodes:[[&#x27;scope&#x27;,&#x27;팀 환경\n요청·자료 선택&#x27;,&#x27;로컬 폴더·문서·원격 자료 중 허용된 범위만 선택&#x27;],[&#x27;inspect&#x27;,&#x27;범위 한정\n자료 확인&#x27;,&#x27;커밋·작업 사본·선택한 바이트와 관찰 시점을 구분&#x27;],[&#x27;distinguish&#x27;,&#x27;현재 상태\n기록·미확인&#x27;,&#x27;코드에서 확인한 구현이 과거 결정의 이유나 실제 배포 동작을 증명하지 않음&#x27;],[&#x27;prepare&#x27;,&#x27;필수 조건 확인\n작업 준비&#x27;,&#x27;중요한 판단을 바꾸는 부족한 조건만 확인&#x27;]]},
+    greenfield:{label:&#x27;새 작업 · 아직 프로젝트 없음&#x27;,refs:[&#x27;S10&#x27;,&#x27;S05&#x27;,&#x27;S06&#x27;],detail:&#x27;저장소·작업 카드 없이 준비 가능 · 관련 팀 결정은 여전히 확인&#x27;,nodes:[[&#x27;scope&#x27;,&#x27;팀 환경\n현재 요청&#x27;,&#x27;기존 호스트의 확인된 맥락은 재입력하지 않음&#x27;],[&#x27;support&#x27;,&#x27;적용할 지침\n지식·팀 결정&#x27;,&#x27;새 프로젝트라고 팀의 모든 결정 기억이 빈 것은 아님&#x27;],[&#x27;gap&#x27;,&#x27;필요한 조건만\n추가 확인&#x27;,&#x27;답에 따라 필요한 근거·권한·동작이 달라질 때만 확인&#x27;],[&#x27;prepare&#x27;,&#x27;새 작업 준비\n가짜 이전 기록 없음&#x27;,&#x27;기록 없는 새 작업에 이전 전달 기록을 만들지 않음&#x27;]]},
+    unadopted:{label:&#x27;조사·초안 · 팀에서 아직 미채택&#x27;,refs:[&#x27;S05&#x27;,&#x27;S07&#x27;,&#x27;S10&#x27;,&#x27;S12&#x27;],detail:&#x27;명시한 조사·초안 범위에서만 진행 · 자료·권한 조건은 그대로 적용&#x27;,nodes:[[&#x27;basis&#x27;,&#x27;선택한 자료\n팀 미채택&#x27;,&#x27;유용하거나 로컬에 있다는 이유로 팀 채택을 만들지 않음&#x27;],[&#x27;check&#x27;,&#x27;필수 근거\n동작 권한 확인&#x27;,&#x27;미채택 모드도 원본 권한과 필요한 조건을 생략하지 않음&#x27;],[&#x27;draft&#x27;,&#x27;허가된 조사\n초안 작성&#x27;,&#x27;허가된 조사·초안만 준비됨 · 팀 기준으로 표시하지 않음&#x27;],[&#x27;adopt&#x27;,&#x27;팀 기준 변경\n별도 검토·채택&#x27;,&#x27;조사 허가는 발행·채택 권한을 주지 않음&#x27;]],conditional:[2]},
+    missing:{label:&#x27;필수 본문 없음 · 복구 전&#x27;,refs:[&#x27;S05&#x27;,&#x27;S08&#x27;,&#x27;S11&#x27;,&#x27;S12&#x27;],detail:&#x27;같은 준비·누락 목록을 유지 · W08을 열어도 해당 작업은 준비되지 않음&#x27;,nodes:[[&#x27;prepare&#x27;,&#x27;작업 준비 A\n필수 본문 없음&#x27;,&#x27;이 작업에 필요한 본문과 관련 조건이 부족함&#x27;],[&#x27;recovery&#x27;,&#x27;W08 열기\n누락 그대로&#x27;,&#x27;화면 이동은 수신이나 검증이 아님&#x27;],[&#x27;receive&#x27;,&#x27;허가된 사본\n수신·검증 필요&#x27;,&#x27;출처·권한·제어 기록과 필요한 본문을 확인해야 함&#x27;],[&#x27;recheck&#x27;,&#x27;같은 준비 A\n검증 뒤 재평가&#x27;,&#x27;다른 조사 동작의 허용 여부는 별도 평가&#x27;]],conditional:[1,2]},
+    recovered:{label:&#x27;필수 본문 수신·검증 후의 가상 사례&#x27;,refs:[&#x27;S05&#x27;,&#x27;S08&#x27;,&#x27;S06&#x27;,&#x27;S12&#x27;],detail:&#x27;수신·검증 증거가 생긴 경우만 재평가 · 사용 대상 전달은 아직 별도&#x27;,nodes:[[&#x27;receive&#x27;,&#x27;정확한 본문\n허가·검증 확인&#x27;,&#x27;화면 이동이 아니라 충분한 검증 결과가 생긴 가상 조건&#x27;],[&#x27;recheck&#x27;,&#x27;같은 준비 A\n근거 다시 평가&#x27;,&#x27;기존 누락 목록과 현재 근거를 비교&#x27;],[&#x27;permission&#x27;,&#x27;현재 동작\n권한 재확인&#x27;,&#x27;준비됨 표시가 실행 권한을 고정하지 않음&#x27;],[&#x27;delivery&#x27;,&#x27;W09 대상 확인\n전달은 별도&#x27;,&#x27;복구 결과만으로 세션 시작이나 실제 사용을 표시하지 않음&#x27;]],conditional:[2]},
+    restricted:{label:&#x27;오프라인 · 정정 원문은 비공개&#x27;,refs:[&#x27;S04&#x27;,&#x27;S06&#x27;,&#x27;S07&#x27;,&#x27;S08&#x27;,&#x27;S12&#x27;],detail:&#x27;검증된 허용 상태 결과 또는 충분한 사건 묶음 · 둘 다 없으면 현재 상태 미확정&#x27;,nodes:[[&#x27;memory&#x27;,&#x27;기존 선택\n관련 정정 있음&#x27;,&#x27;비공개 정정의 원문·식별자·개수는 허용 없이 드러내지 않음&#x27;],[&#x27;state&#x27;,&#x27;허용된 상태 결과\n권한자 근거&#x27;,&#x27;범위·대상·시점·해석·유효 조건이 검증되는 결과만 사용&#x27;],[&#x27;interpret&#x27;,&#x27;철회 등 상태 반영\n비공개 이유 제외&#x27;,&#x27;허용된 결과를 쓴 것이 숨겨진 원문을 전달했다는 뜻은 아님&#x27;],[&#x27;prepare&#x27;,&#x27;조건부 준비\n전역 최신 보장 없음&#x27;,&#x27;위조·만료·다른 범위의 결과나 임의 요약으로 옛 선택을 되살리지 않음&#x27;]]},
+    delivery:{label:&#x27;준비 → 전달 → 실제 사용&#x27;,refs:[&#x27;S06&#x27;,&#x27;S10&#x27;,&#x27;S12&#x27;],detail:&#x27;전달 결과는 호스트별 관측 수준대로 표시 · 모델의 이해·준수는 입증하지 않음&#x27;,nodes:[[&#x27;planned&#x27;,&#x27;사용 대상\n선택·확인&#x27;,&#x27;새 수신자라면 실제 지원 경로로 대상을 확인한 뒤 전달&#x27;],[&#x27;prepared&#x27;,&#x27;필요한 본문\n준비됨&#x27;,&#x27;미리보기나 원문 위치만으로 전달됐다고 표시하지 않음&#x27;],[&#x27;requested&#x27;,&#x27;같은 요청으로\n전달 요청&#x27;,&#x27;수신자·내용·범위와 요청 식별자를 고정&#x27;],[&#x27;observed&#x27;,&#x27;관측된 결과\n전달·활성화 구분&#x27;,&#x27;수동 내보내기·본문 반환·네이티브 활성화를 같은 결과로 표시하지 않음&#x27;]],conditional:[1,2]},
+    unknown:{label:&#x27;전달 응답을 받지 못함&#x27;,refs:[&#x27;S06&#x27;,&#x27;S08&#x27;,&#x27;S12&#x27;],detail:&#x27;결과 미확인은 실패·성공 어느 쪽도 아님 · 같은 요청으로 확인·복구&#x27;,nodes:[[&#x27;request&#x27;,&#x27;전달 요청 R\n응답 없음&#x27;,&#x27;새 요청을 만들기 전에 원래 요청의 상태를 확인&#x27;],[&#x27;unknown&#x27;,&#x27;결과 미확인\n본문·초안 보존&#x27;,&#x27;새 수신자를 만들어 성공한 것처럼 대체하지 않음&#x27;],[&#x27;query&#x27;,&#x27;같은 요청 R\n결과 확인&#x27;,&#x27;지원되는 어댑터나 허용 경로의 결과를 조회&#x27;],[&#x27;result&#x27;,&#x27;확인된 결과\n또는 미확인 유지&#x27;,&#x27;부모의 전달 기록은 자식 수신자의 증거가 아님&#x27;]],conditional:[2]}
+  };
+  const authorityCases = {
+    effects:{label:&#x27;제안·승인·발행·채택의 차이&#x27;,refs:[&#x27;S02&#x27;,&#x27;S05&#x27;,&#x27;S07&#x27;,&#x27;S12&#x27;],detail:&#x27;각 화살표는 별도 권한·결과 · 승인이나 채택이 진행 중인 작업을 자동 변경하지 않음&#x27;,nodes:[[&#x27;proposal&#x27;,&#x27;원본·구성\n정확한 변경 제안&#x27;,&#x27;다른 소유자의 원본에는 허가된 제안·파생 경로를 사용&#x27;],[&#x27;review&#x27;,&#x27;정확한 변경\n검토·승인&#x27;,&#x27;내용·대상·정책이 바뀌면 이전 승인만으로 실행하지 않음&#x27;],[&#x27;publish&#x27;,&#x27;권한자의\n원본·환경 발행&#x27;,&#x27;승인자에게 실행 권한이 없으면 담당자의 실행이 남음&#x27;],[&#x27;adopt&#x27;,&#x27;대상 팀의\n정확한 환경 채택&#x27;,&#x27;발행된 환경이 모든 팀에 자동 채택되는 것은 아님&#x27;],[&#x27;use&#x27;,&#x27;해당 수신자\n사용 기준 적용&#x27;,&#x27;기존 업무의 적용 판은 자동 전환되지 않음&#x27;]],conditional:[0,1,2,3]},
+    reviewer:{label:&#x27;검토 전용 계정이 자료 관리로 이동&#x27;,refs:[&#x27;S07&#x27;,&#x27;S11&#x27;,&#x27;S12&#x27;],detail:&#x27;별도 기여 권한이 없으면 제안 저장 불가 · 버튼과 제출 처리의 평가 기준은 같음&#x27;,nodes:[[&#x27;actor&#x27;,&#x27;검토 전용\n현재 계정&#x27;,&#x27;이 요청의 검토 권한만 있는 가상 계정&#x27;],[&#x27;navigate&#x27;,&#x27;자료 관리\n화면 이동&#x27;,&#x27;자료 관리 화면을 열었다고 새 권한을 얻지 않음&#x27;],[&#x27;evaluate&#x27;,&#x27;기여 권한\n별도로 평가&#x27;,&#x27;실제 적용 가능한 기여 권한이 있는지 확인&#x27;],[&#x27;deny&#x27;,&#x27;기여 권한 없음\n제안 저장 불가&#x27;,&#x27;검토는 계속 가능 · 기여 권한은 별도 절차&#x27;]]},
+    group:{label:&#x27;권한이 있는 그룹에 사람을 추가&#x27;,refs:[&#x27;S07&#x27;,&#x27;S12&#x27;],detail:&#x27;구성원 추가만으로 권한 확대 없음 · 명시된 제한 위임이 있다면 그 범위에서 평가&#x27;,nodes:[[&#x27;membership&#x27;,&#x27;그룹 구성원\n추가·변경&#x27;,&#x27;그룹 관리 권한과 해당 자원에 대한 권한 부여는 별개&#x27;],[&#x27;basis&#x27;,&#x27;승인된 구성원\n현재 구성 증거&#x27;,&#x27;기본은 승인된 구성원과 유효한 구성원 증거의 조합&#x27;],[&#x27;grant&#x27;,&#x27;확대 승인 또는\n명시된 제한 위임&#x27;,&#x27;동적 권한 확대는 이름 붙은 구성원 관리 주체의 제한 위임이 필요&#x27;],[&#x27;effect&#x27;,&#x27;허용된 범위만\n유효 권한&#x27;,&#x27;확인된 제거·만료는 오래된 승인 목록보다 우선&#x27;]]},
+    previewrace:{label:&#x27;미리보기 뒤 권한·대상이 달라짐&#x27;,refs:[&#x27;S05&#x27;,&#x27;S07&#x27;,&#x27;S12&#x27;],detail:&#x27;과거 미리보기·승인은 현재 실행 허가증이 아님 · 실행 시 같은 규칙으로 다시 평가&#x27;,nodes:[[&#x27;preview&#x27;,&#x27;허용된 미리보기\n당시 증거&#x27;,&#x27;과거에 가능했던 결과는 그 시점의 기록으로 보존&#x27;],[&#x27;change&#x27;,&#x27;권한·정책·대상\n관련 상태 변경&#x27;,&#x27;권한 회수·만료·대상 변경이 생긴 가상 상황&#x27;],[&#x27;execute&#x27;,&#x27;실행 직전\n현재 조건 재검사&#x27;,&#x27;원본 조건·정책·권한·기준 판과 정확한 요청을 확인&#x27;],[&#x27;refuse&#x27;,&#x27;오래된 조건 거부\n후보·기록 보존&#x27;,&#x27;정의한 입력이 바뀌면 새로운 요청·승인 기준이 필요&#x27;]]},
+    p2p:{label:&#x27;로컬 사본과 P2P · GitHub는 선택&#x27;,refs:[&#x27;S08&#x27;,&#x27;S07&#x27;,&#x27;S09&#x27;],detail:&#x27;허가된 로컬 사본이 기본 · 내부망·직접 교환·파일 묶음 · GitHub는 허용 시 추천&#x27;,network:true},
+    disconnected:{label:&#x27;일주일 단절 · 확정 담당에 연결 불가&#x27;,refs:[&#x27;S08&#x27;,&#x27;S05&#x27;,&#x27;S07&#x27;],detail:&#x27;허용된 로컬 작업·초안 보존은 가능 · 새 공유 확정은 해당 권한·증거가 필요&#x27;,nodes:[[&#x27;local&#x27;,&#x27;검증된 로컬\n자료·제어 기록&#x27;,&#x27;오프라인 범위와 원본의 유효·권한 조건을 적용&#x27;],[&#x27;work&#x27;,&#x27;허가된 작업\n초안·대기함 보존&#x27;,&#x27;GitHub 연결 없음만으로 모든 작업을 막지 않음&#x27;],[&#x27;pending&#x27;,&#x27;새 공유 확정\n권한·증거 대기&#x27;,&#x27;사본 보유와 확정 권한은 다름 · 임의 정족수로 확정하지 않음&#x27;],[&#x27;exchange&#x27;,&#x27;다음 허용 교환\n충돌·결과 확인&#x27;,&#x27;날짜·보유 범위·미확인 변경을 구분&#x27;]],conditional:[1,2]},
+    archived:{label:&#x27;보관된 팀 · 같은 업무의 수신자 교체&#x27;,refs:[&#x27;S09&#x27;,&#x27;S06&#x27;,&#x27;S07&#x27;,&#x27;S12&#x27;],detail:&#x27;같은 업무·범위와 계속하기 정책을 확인 · 새 세션이라는 이유만으로 신규 업무로 보지 않음&#x27;,nodes:[[&#x27;work&#x27;,&#x27;보관 전 업무\n기존 작업 근거&#x27;,&#x27;단순히 계속하기라고 이름 붙인 새 업무는 제외&#x27;],[&#x27;scope&#x27;,&#x27;같은 업무·범위\n계속하기 정책&#x27;,&#x27;현재 권한·원본 조건·허용된 계속하기 범위를 평가&#x27;],[&#x27;recipient&#x27;,&#x27;교체 기기·수신자\n자체 권한·본문&#x27;,&#x27;새 호스트 세션에도 해당 수신자의 실제 전달 증거 필요&#x27;],[&#x27;continue&#x27;,&#x27;허가된 계속하기\n새 업무·범위 확대 불가&#x27;,&#x27;보관과 영구 종료는 다른 상태&#x27;]]},
+    closed:{label:&#x27;영구 종료된 팀의 증거 복구·정리&#x27;,refs:[&#x27;S09&#x27;,&#x27;S07&#x27;,&#x27;S08&#x27;,&#x27;S12&#x27;],detail:&#x27;남은 보존 책임과 권한으로 증거 접근·복구·보존·정리 · 팀은 계속 종료 상태&#x27;,nodes:[[&#x27;closed&#x27;,&#x27;팀 ID 종료\n작업 재개 불가&#x27;,&#x27;같은 이름·옛 사본으로 팀을 재활성화하지 않음&#x27;],[&#x27;authority&#x27;,&#x27;남은 보존 책임\n자료별 권한&#x27;,&#x27;구성원 자격이 남았다는 이유만으로 증거 권한을 주지 않음&#x27;],[&#x27;evidence&#x27;,&#x27;허가된 증거\n읽기·복구·보존·정리&#x27;,&#x27;팀 운영 복원과 구분되는 좁은 효과만 수행&#x27;],[&#x27;marker&#x27;,&#x27;종료 기록 유지\n사본별 결과&#x27;,&#x27;종료는 되돌리지 않음 · 전 기기 즉시 삭제도 주장하지 않음&#x27;]]},
+    lifecycle:{label:&#x27;팀 상태·탈퇴·로컬 제거의 차이&#x27;,refs:[&#x27;S09&#x27;,&#x27;S07&#x27;,&#x27;S08&#x27;],detail:&#x27;팀 생성·참여·조회·변경·소유권 인계 포함 · 각 동작의 대상과 책임을 별도로 확인&#x27;,nodes:[[&#x27;archive&#x27;,&#x27;팀 보관·복원\n팀 운영 상태&#x27;,&#x27;보관 중 허가된 계속하기·권한 복구는 별도 평가&#x27;],[&#x27;leave&#x27;,&#x27;팀 탈퇴\n내 구성원 자격&#x27;,&#x27;유일한 소유·확정·보존 책임은 적절한 인계 필요&#x27;],[&#x27;forget&#x27;,&#x27;이 기기 제거\n로컬 자료·뷰&#x27;,&#x27;고유 초안·대기함·권한 상태는 인계나 허용된 처분 없이 버리지 않음&#x27;],[&#x27;close&#x27;,&#x27;팀 영구 종료\n팀 식별자&#x27;,&#x27;사본 정리·원격 저장소 삭제는 별도 권한과 결과&#x27;]],parallel:true}
+  };
+  const studioNodes = [
+    {id:&#x27;hub&#x27;,label:&#x27;팀·환경 맥락\nStudio 홈&#x27;,detail:&#x27;홈은 선택 가능한 길찾기 · 중앙 저장소나 필수 관문이 아님&#x27;},
+    {id:&#x27;work&#x27;,label:&#x27;작업 준비·전달\nW01 · W09&#x27;,detail:&#x27;자료 없는 시작과 기존 업무를 구분 · 실제 수신자에게 필요한 맥락 전달&#x27;},
+    {id:&#x27;materials&#x27;,label:&#x27;환경·자료\nW02 · W03 · W04 · W10&#x27;,detail:&#x27;환경 구성·Instructions 원본·지식·결정·관계·문항·검색·파생·일괄 작업&#x27;},
+    {id:&#x27;review&#x27;,label:&#x27;정확한 변경 검토\nW05&#x27;,detail:&#x27;요청·대상·효과를 유지 · 승인과 후속 실행을 구별&#x27;},
+    {id:&#x27;team&#x27;,label:&#x27;팀 생성·관리\nW06 · W07&#x27;,detail:&#x27;생성·참여·조회·설정·권한·기기·소유권·보관·복원·종료&#x27;},
+    {id:&#x27;sync&#x27;,label:&#x27;교환·복구\nW08&#x27;,detail:&#x27;기존 준비와 누락 목록 유지 · 수신·검증 뒤 같은 작업을 재평가&#x27;}
+  ];
+  const studioCases = {
+    known:{label:&#x27;알려진 팀·환경에서 홈 열기&#x27;,focus:[&#x27;hub&#x27;],detail:&#x27;현재 팀·환경을 명시 · 여러 환경 선택 가능 · 진행 중인 작업은 자동 변경 안 함&#x27;,refs:[&#x27;S11&#x27;,&#x27;S05&#x27;]},
+    none:{label:&#x27;팀도 초대도 없는 첫 방문&#x27;,focus:[&#x27;team&#x27;,&#x27;materials&#x27;,&#x27;work&#x27;],detail:&#x27;팀 생성·참여 → 첫 환경 또는 허가된 미채택 준비 · 숨겨진 팀·환경 없음&#x27;,refs:[&#x27;S09&#x27;,&#x27;S10&#x27;,&#x27;S11&#x27;]},
+    noEnvironment:{label:&#x27;알려진 팀 · 아직 환경 없음&#x27;,focus:[&#x27;materials&#x27;],detail:&#x27;첫 환경 구성 W02 · 허가된 자료로 미채택 조사·초안을 준비하는 경로도 유지&#x27;,refs:[&#x27;S05&#x27;,&#x27;S10&#x27;,&#x27;S11&#x27;]},
+    invitation:{label:&#x27;팀 초대를 받음&#x27;,focus:[&#x27;team&#x27;],detail:&#x27;허가된 초대 내용 → 본인 동의 → 권한자의 등록 · 화면 이동은 가입이 아님&#x27;,refs:[&#x27;S07&#x27;,&#x27;S09&#x27;,&#x27;S11&#x27;]},
+    direct:{label:&#x27;정확한 검토 요청 링크&#x27;,focus:[&#x27;review&#x27;],detail:&#x27;권한 확인 후 해당 요청으로 직접 진입 · 링크만으로 권한이 생기지 않음&#x27;,refs:[&#x27;S07&#x27;,&#x27;S11&#x27;]},
+    host:{label:&#x27;기존 호스트에서 시작·계속&#x27;,focus:[&#x27;work&#x27;],detail:&#x27;호스트·CLI·MCP에서 바로 사용 가능 · Studio 방문·새 작업 카드 불필요&#x27;,refs:[&#x27;S06&#x27;,&#x27;S10&#x27;,&#x27;S11&#x27;]},
+    evidence:{label:&#x27;작업 → 근거 → 원래 작업&#x27;,focus:[&#x27;work&#x27;,&#x27;materials&#x27;],direct:[[&#x27;work&#x27;,&#x27;materials&#x27;]],detail:&#x27;같은 팀·판·작업과 읽던 위치로 복귀 · 원본 소유권·접근 권한 유지&#x27;,refs:[&#x27;S05&#x27;,&#x27;S07&#x27;,&#x27;S11&#x27;]},
+    authoring:{label:&#x27;저작 → 검토 → 원래 후보&#x27;,focus:[&#x27;materials&#x27;,&#x27;review&#x27;],direct:[[&#x27;materials&#x27;,&#x27;review&#x27;]],detail:&#x27;출발점·초안·정확한 요청 보존 · 돌아와도 승인 대상을 몰래 변경하지 않음&#x27;,refs:[&#x27;S07&#x27;,&#x27;S11&#x27;]},
+    recovery:{label:&#x27;수신자 → 복구 → 준비 재평가&#x27;,focus:[&#x27;work&#x27;,&#x27;sync&#x27;],direct:[[&#x27;work&#x27;,&#x27;sync&#x27;]],detail:&#x27;같은 준비·실제 수신자 유지 · 복구 화면 방문만으로 전달·사용 완료 안 됨&#x27;,refs:[&#x27;S06&#x27;,&#x27;S08&#x27;,&#x27;S11&#x27;,&#x27;S12&#x27;]}
+  };
+  function addOptions(selectId, cases) {
+    root.querySelector(&#x27;#&#x27; + selectId).innerHTML = Object.keys(cases).map(id =&gt; &#x27;&lt;option value=&quot;&#x27; + id + &#x27;&quot;&gt;&#x27; + cases[id].label + &#x27;&lt;/option&gt;&#x27;).join(&#x27;&#x27;);
+  }
+  addOptions(&#x27;ted-start-case&#x27;,startCases);
+  addOptions(&#x27;ted-authority-case&#x27;,authorityCases);
+  addOptions(&#x27;ted-studio-case&#x27;,studioCases);
+  root.querySelector(&#x27;#ted-global-trace&#x27;).innerHTML = refs([&#x27;S13&#x27;,&#x27;S14&#x27;]);
+
+  function draw(mapId, graph, selectedIds, onSelect) {
+    const map = root.querySelector(&#x27;#&#x27; + mapId);
+    if (!map || map.closest(&#x27;[hidden]&#x27;)) return;
+    const width = map.clientWidth;
+    if (width &lt; 1) return;
+    const layout = graph.positions(width);
+    map.style.height = layout.height + &#x27;px&#x27;;
+    const focused = document.activeElement &amp;&amp; map.contains(document.activeElement) ? document.activeElement.dataset.node : null;
+    map.innerHTML = &#x27;&lt;svg class=&quot;ted-map-lines&quot; aria-hidden=&quot;true&quot; viewBox=&quot;0 0 &#x27; + width + &#x27; &#x27; + layout.height + &#x27;&quot;&gt;&lt;/svg&gt;&#x27; + graph.nodes.map(node =&gt; {
+      const p = layout.nodes[node.id];
+      return &#x27;&lt;div class=&quot;ted-map-node&quot; style=&quot;left:&#x27; + p.x + &#x27;px;top:&#x27; + p.y + &#x27;px;width:&#x27; + p.width + &#x27;px&quot;&gt;&lt;button class=&quot;btn viz-tile btn-block&quot; type=&quot;button&quot; data-node=&quot;&#x27; + node.id + &#x27;&quot; aria-pressed=&quot;&#x27; + selectedIds.includes(node.id) + &#x27;&quot;&gt;&#x27; + esc(node.label).replace(/\n/g,&#x27;&lt;br&gt;&#x27;) + &#x27;&lt;/button&gt;&lt;/div&gt;&#x27;;
+    }).join(&#x27;&#x27;);
+    const svg = map.querySelector(&#x27;.ted-map-lines&#x27;);
+    const markerId = mapId + &#x27;-arrow&#x27;;
+    svg.innerHTML = &#x27;&lt;defs&gt;&lt;marker id=&quot;&#x27; + markerId + &#x27;&quot; viewBox=&quot;0 0 8 8&quot; refX=&quot;7&quot; refY=&quot;4&quot; markerWidth=&quot;5&quot; markerHeight=&quot;5&quot; orient=&quot;auto-start-reverse&quot;&gt;&lt;path d=&quot;M0 0 L8 4 L0 8 Z&quot; fill=&quot;context-stroke&quot;&gt;&lt;/path&gt;&lt;/marker&gt;&lt;/defs&gt;&#x27;;
+    const origin = map.getBoundingClientRect();
+    const boxes = {};
+    map.querySelectorAll(&#x27;[data-node]&#x27;).forEach(button =&gt; {
+      const r = button.getBoundingClientRect();
+      boxes[button.dataset.node] = {x:r.left-origin.left+r.width/2,y:r.top-origin.top+r.height/2,w:r.width,h:r.height};
+      button.addEventListener(&#x27;click&#x27;,() =&gt; onSelect(button.dataset.node));
+    });
+    graph.edges.forEach(edge =&gt; {
+      const from = boxes[edge[0]], to = boxes[edge[1]];
+      if (!from || !to) return;
+      const dx=to.x-from.x,dy=to.y-from.y;
+      let x1=from.x,y1=from.y,x2=to.x,y2=to.y,d;
+      if (Math.abs(dx)&gt;Math.abs(dy)*1.3) {
+        x1 += Math.sign(dx)*(from.w/2+3);x2 -= Math.sign(dx)*(to.w/2+5);
+        d=&#x27;M &#x27;+x1+&#x27; &#x27;+y1+&#x27; C &#x27;+(x1+dx*.4)+&#x27; &#x27;+y1+&#x27;, &#x27;+(x2-dx*.4)+&#x27; &#x27;+y2+&#x27;, &#x27;+x2+&#x27; &#x27;+y2;
+      } else {
+        y1 += Math.sign(dy)*(from.h/2+3);y2 -= Math.sign(dy)*(to.h/2+5);
+        const middle=(y1+y2)/2;
+        d=&#x27;M &#x27;+x1+&#x27; &#x27;+y1+&#x27; C &#x27;+x1+&#x27; &#x27;+middle+&#x27;, &#x27;+x2+&#x27; &#x27;+middle+&#x27;, &#x27;+x2+&#x27; &#x27;+y2;
+      }
+      const related = graph.highlightAll || selectedIds.includes(edge[0]) &amp;&amp; selectedIds.includes(edge[1]) || graph.adjacent &amp;&amp; (selectedIds.includes(edge[0]) || selectedIds.includes(edge[1]));
+      const path=document.createElementNS(&#x27;http://www.w3.org/2000/svg&#x27;,&#x27;path&#x27;);
+      path.setAttribute(&#x27;d&#x27;,d);path.setAttribute(&#x27;class&#x27;,&#x27;ted-edge&#x27;+(related?&#x27; is-related&#x27;:&#x27;&#x27;)+(edge[2]?&#x27; is-conditional&#x27;:&#x27;&#x27;));
+      path.setAttribute(&#x27;marker-end&#x27;,&#x27;url(#&#x27;+markerId+&#x27;)&#x27;);
+      if(edge[3])path.setAttribute(&#x27;marker-start&#x27;,&#x27;url(#&#x27;+markerId+&#x27;)&#x27;);
+      svg.appendChild(path);
+    });
+    if (layout.labels) layout.labels.forEach(label =&gt; {
+      const item=document.createElement(&#x27;span&#x27;);item.className=&#x27;ted-stage-label text-small&#x27;;item.style.left=label.x+&#x27;px&#x27;;item.style.top=label.y+&#x27;px&#x27;;item.style.width=label.width+&#x27;px&#x27;;item.textContent=label.text;map.appendChild(item);
+    });
+    if (focused) map.querySelector(&#x27;[data-node=&quot;&#x27;+focused+&#x27;&quot;]&#x27;)?.focus({preventScroll:true});
+  }
+  function structureLayout(w) {
+    const narrow=w&lt;580, sourceW=(w-36)/3, firstW=narrow?Math.max(108,(w-24)/3):sourceW, otherW=narrow?(w-24-firstW)/2:sourceW, mainX=narrow?w*.68:w*.5, sideX=narrow?w*.17:w/6, mainW=narrow?w*.58:Math.min(200,w*.28), sideW=narrow?w*.28:Math.min(174,w*.25);
+    return {height:425,nodes:{
+      instructions:{x:narrow?firstW/2:w/6,y:40,width:firstW},knowledge:{x:narrow?firstW+12+otherW/2:w/2,y:40,width:otherW},memory:{x:narrow?w-otherW/2:w*5/6,y:40,width:otherW},
+      environment:{x:mainX,y:156,width:mainW},team:{x:narrow?sideX:w*5/6,y:156,width:sideW},
+      artifacts:{x:sideX,y:270,width:sideW},preparation:{x:mainX,y:270,width:mainW},recipient:{x:mainX,y:382,width:mainW}
+    }};
+  }
+  function showStructure() {
+    const node=structureNodes.find(n=&gt;n.id===state.structure);
+    draw(&#x27;ted-structure-map&#x27;,{nodes:structureNodes,edges:structureEdges,positions:structureLayout,adjacent:true},[state.structure],id=&gt;{state.structure=id;showStructure();});
+    root.querySelector(&#x27;#ted-structure-detail&#x27;).textContent=node.detail;
+    root.querySelector(&#x27;#ted-structure-trace&#x27;).innerHTML=refs(node.refs);
+  }
+  function flowLayout(nodes, parallel) {
+    return function(w) {
+      const narrow=w&lt;620;
+      const positions={};
+      if(parallel) {
+        const cols=narrow?2:4, rows=Math.ceil(nodes.length/cols), cell=w/cols;
+        nodes.forEach((n,i)=&gt;{positions[n.id]={x:cell*(i%cols+.5),y:48+Math.floor(i/cols)*118,width:cell-16};});
+        return {nodes:positions,height:rows*118};
+      }
+      if(narrow) {
+        nodes.forEach((n,i)=&gt;{positions[n.id]={x:w/2,y:38+i*108,width:Math.min(250,w-28)};});
+        return {nodes:positions,height:Math.max(150,nodes.length*108-28)};
+      }
+      const cell=w/nodes.length;
+      nodes.forEach((n,i)=&gt;{positions[n.id]={x:cell*(i+.5),y:68,width:cell-17};});
+      return {nodes:positions,height:145};
+    };
+  }
+  function p2pGraph() {
+    return {nodes:[
+      {id:&#x27;local&#x27;,label:&#x27;내 로컬 사본\n초안·대기함·허용 자료&#x27;,detail:&#x27;고유한 로컬 기록은 단순 캐시가 아님 · 재생성 가능한 검색 색인과 구분&#x27;},
+      {id:&#x27;peer&#x27;,label:&#x27;허가된 동료 사본\n보유 범위·확인 시점&#x27;,detail:&#x27;연결·사본 수만으로 완전 보유나 복구를 보장하지 못함 · 사람 수·승인표도 별개&#x27;},
+      {id:&#x27;check&#x27;,label:&#x27;각 기기에서 검증\n같은 평가 규칙&#x27;,detail:&#x27;평가 규칙 공유는 온라인 중앙 서버 요구가 아님 · 교환 성공은 채택·사용이 아님&#x27;},
+      {id:&#x27;github&#x27;,label:&#x27;GitHub\n허용 시 추천·선택&#x27;,detail:&#x27;허용된 팀 공유 상태의 선택 경로 · 작업 프로젝트 저장소와 별개&#x27;},
+      {id:&#x27;authority&#x27;,label:&#x27;해당 변경의 권한자\n확정·수용 기록&#x27;,detail:&#x27;필요한 권한·승인은 별도 · P2P 복제만으로 새 공유 변경을 확정하지 않음&#x27;}
+    ],edges:[[&#x27;local&#x27;,&#x27;check&#x27;,false,true],[&#x27;peer&#x27;,&#x27;check&#x27;,false,true],[&#x27;github&#x27;,&#x27;check&#x27;,true,true],[&#x27;authority&#x27;,&#x27;check&#x27;]],positions:function(w){const narrow=w&lt;620,cell=w/2;return {height:narrow?388:310,nodes:{local:{x:narrow?cell/2:w/6,y:42,width:narrow?cell-14:w*.27},peer:{x:narrow?cell*1.5:w*5/6,y:42,width:narrow?cell-14:w*.27},check:{x:w/2,y:158,width:Math.min(w-32,270)},github:{x:narrow?cell/2:w/6,y:narrow?308:265,width:narrow?cell-14:w*.27},authority:{x:narrow?cell*1.5:w*5/6,y:narrow?308:265,width:narrow?cell-14:w*.27}}};},adjacent:true};
+  }
+  function showCase(kind) {
+    const cases=kind===&#x27;start&#x27;?startCases:authorityCases, item=cases[state[kind]];
+    const graph=item.network?p2pGraph():{nodes:item.nodes.map(n=&gt;({id:n[0],label:n[1],detail:n[2]})),edges:item.parallel?[]:item.nodes.slice(0,-1).map((n,i)=&gt;[n[0],item.nodes[i+1][0],(item.conditional||[]).includes(i)]),positions:flowLayout(item.nodes.map(n=&gt;({id:n[0]})),item.parallel),adjacent:true};
+    const current=graph.nodes.find(n=&gt;n.id===state.selected[kind]);
+    draw(&#x27;ted-&#x27;+kind+&#x27;-map&#x27;,graph,current?[current.id]:[],id=&gt;{state.selected[kind]=id;showCase(kind);});
+    root.querySelector(&#x27;#ted-&#x27;+kind+&#x27;-detail&#x27;).textContent=current?current.detail:item.detail;
+    root.querySelector(&#x27;#ted-&#x27;+kind+&#x27;-trace&#x27;).innerHTML=refs(item.refs);
+  }
+  function studioLayout(w) {
+    const narrow=w&lt;580;
+    if(narrow) return {height:480,nodes:{hub:{x:w/2,y:40,width:w*.7},work:{x:w*.25,y:157,width:w*.44},materials:{x:w*.75,y:157,width:w*.44},review:{x:w*.25,y:286,width:w*.44},team:{x:w*.75,y:286,width:w*.44},sync:{x:w/2,y:424,width:w*.65}}};
+    return {height:490,nodes:{hub:{x:w/2,y:222,width:w*.29},work:{x:w/6,y:62,width:w*.28},materials:{x:w*5/6,y:62,width:w*.28},review:{x:w/6,y:340,width:w*.28},team:{x:w*5/6,y:340,width:w*.28},sync:{x:w/2,y:442,width:w*.29}}};
+  }
+  function showStudio() {
+    const item=studioCases[state.studio];
+    const nodes=studioNodes;
+    const extra=(item.direct||[]).map(e=&gt;[e[0],e[1],false,true]);
+    const selected=state.selected.studio===&#x27;hub&#x27;&amp;&amp;state.studio!==&#x27;known&#x27;?item.focus:state.selected.studio?[state.selected.studio]:item.focus;
+    const edges=nodes.filter(n=&gt;n.id!==&#x27;hub&#x27;).map(n=&gt;[&#x27;hub&#x27;,n.id,false,true]).concat(extra);
+    draw(&#x27;ted-studio-map&#x27;,{nodes,edges,positions:studioLayout,adjacent:false},extra.length?item.focus:selected,id=&gt;{state.selected.studio=id;showStudio();});
+    const chosen=state.selected.studio&amp;&amp;state.selected.studio!==&#x27;hub&#x27;?nodes.find(n=&gt;n.id===state.selected.studio):null;
+    root.querySelector(&#x27;#ted-studio-detail&#x27;).textContent=chosen?chosen.detail:item.detail;
+    root.querySelector(&#x27;#ted-studio-trace&#x27;).innerHTML=refs(item.refs);
+  }
+  root.querySelector(&#x27;#ted-start-case&#x27;).addEventListener(&#x27;change&#x27;,event=&gt;{state.start=event.target.value;state.selected.start=null;showCase(&#x27;start&#x27;);});
+  root.querySelector(&#x27;#ted-authority-case&#x27;).addEventListener(&#x27;change&#x27;,event=&gt;{state.authority=event.target.value;state.selected.authority=null;showCase(&#x27;authority&#x27;);});
+  root.querySelector(&#x27;#ted-studio-case&#x27;).addEventListener(&#x27;change&#x27;,event=&gt;{state.studio=event.target.value;state.selected.studio=null;showStudio();});
+  const redraw=()=&gt;{showStructure();showCase(&#x27;start&#x27;);showCase(&#x27;authority&#x27;);showStudio();};
+  let scheduled=false;
+  const schedule=()=&gt;{if(scheduled)return;scheduled=true;requestAnimationFrame(()=&gt;{scheduled=false;redraw();});};
+  new ResizeObserver(schedule).observe(root);
+  root.querySelectorAll(&#x27;[role=&quot;tabpanel&quot;]&#x27;).forEach(panel=&gt;new MutationObserver(schedule).observe(panel,{attributes:true,attributeFilter:[&#x27;hidden&#x27;]}));
+  redraw();
+})();
+&lt;/script&gt;
+
+
+
+&lt;script&gt;
+(() =&gt; {
+  if (window.FloatingUIDOM == null) {
+    return;
+  }
+  const { autoUpdate, computePosition, flip, offset, shift, size } =
+    window.FloatingUIDOM;
+  const tooltipPlacements = new Set([&quot;top&quot;, &quot;right&quot;, &quot;bottom&quot;, &quot;left&quot;]);
+  const tooltipId = `codex-visualization-tooltip-${
+    window.crypto?.randomUUID?.() ?? Date.now().toString(36)
+  }`;
+  const tooltipGap = 5;
+  const hoverDelay = 700;
+  const skipDelay = 300;
+  let activeTrigger = null;
+  let pendingTrigger = null;
+  let tooltip = null;
+  let openTimeout = null;
+  let autoUpdateCleanup = null;
+  let positionRequest = 0;
+  let skipDelayUntil = 0;
+  let lastPointerWasTouch = false;
+  let pinnedByTouch = false;
+
+  const getTrigger = (target) =&gt;
+    target?.nodeType === Node.ELEMENT_NODE
+      ? target.closest(&quot;[data-tooltip]&quot;)
+      : null;
+  const containsTarget = (trigger, target) =&gt;
+    target?.nodeType != null &amp;&amp; trigger.contains(target);
+  const getContent = (trigger) =&gt;
+    trigger.getAttribute(&quot;data-tooltip&quot;)?.trim() ?? &quot;&quot;;
+  const getPlacement = (trigger) =&gt; {
+    const placement = trigger.getAttribute(&quot;data-tooltip-placement&quot;);
+    return tooltipPlacements.has(placement) ? placement : &quot;top&quot;;
+  };
+  const getTooltip = () =&gt; {
+    if (tooltip == null) {
+      tooltip = document.createElement(&quot;div&quot;);
+      tooltip.id = tooltipId;
+      tooltip.className = &quot;tooltip&quot;;
+      tooltip.setAttribute(&quot;role&quot;, &quot;tooltip&quot;);
+    }
+    return tooltip;
+  };
+  const setDescribedBy = (trigger, described) =&gt; {
+    const ids = new Set(
+      (trigger.getAttribute(&quot;aria-describedby&quot;) ?? &quot;&quot;)
+        .split(/\s+/)
+        .filter(Boolean),
+    );
+    if (described) {
+      ids.add(tooltipId);
+    } else {
+      ids.delete(tooltipId);
+    }
+    if (ids.size === 0) {
+      trigger.removeAttribute(&quot;aria-describedby&quot;);
+    } else {
+      trigger.setAttribute(&quot;aria-describedby&quot;, [...ids].join(&quot; &quot;));
+    }
+  };
+  const clearOpenTimeout = () =&gt; {
+    if (openTimeout != null) {
+      window.clearTimeout(openTimeout);
+      openTimeout = null;
+    }
+    pendingTrigger = null;
+  };
+  const closeTooltip = (activateSkipDelay = true) =&gt; {
+    clearOpenTimeout();
+    pinnedByTouch = false;
+    positionRequest += 1;
+    autoUpdateCleanup?.();
+    autoUpdateCleanup = null;
+    if (activeTrigger == null) {
+      return;
+    }
+    setDescribedBy(activeTrigger, false);
+    activeTrigger = null;
+    tooltip?.remove();
+    if (activateSkipDelay) {
+      skipDelayUntil = Date.now() + skipDelay;
+    }
+  };
+  const updatePosition = (trigger, floating) =&gt; {
+    const request = ++positionRequest;
+    void computePosition(trigger, floating, {
+      middleware: [
+        offset(tooltipGap),
+        flip({ padding: tooltipGap }),
+        shift({ padding: tooltipGap }),
+        size({
+          padding: tooltipGap,
+          apply({ availableHeight, availableWidth, elements }) {
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-width&quot;,
+              `${Math.max(0, availableWidth)}px`,
+            );
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-height&quot;,
+              `${Math.max(0, availableHeight)}px`,
+            );
+          },
+        }),
+      ],
+      placement: getPlacement(trigger),
+      strategy: &quot;fixed&quot;,
+    })
+      .then(({ x, y }) =&gt; {
+        if (activeTrigger !== trigger || request !== positionRequest) {
+          return;
+        }
+        const scale = window.devicePixelRatio || 1;
+        floating.style.transform = `translate(${Math.round(x * scale) / scale}px, ${Math.round(y * scale) / scale}px)`;
+        floating.style.visibility = &quot;visible&quot;;
+      })
+      .catch(() =&gt; {
+        if (activeTrigger === trigger &amp;&amp; request === positionRequest) {
+          closeTooltip(false);
+        }
+      });
+  };
+  const openTooltip = (trigger) =&gt; {
+    const content = getContent(trigger);
+    if (!trigger.isConnected || content.length === 0) {
+      return;
+    }
+    clearOpenTimeout();
+    if (activeTrigger === trigger) {
+      return;
+    }
+    closeTooltip();
+    const floating = getTooltip();
+    floating.textContent = content;
+    floating.style.visibility = &quot;hidden&quot;;
+    floating.style.transform = &quot;translate(0, 0)&quot;;
+    document.body.appendChild(floating);
+    activeTrigger = trigger;
+    setDescribedBy(trigger, true);
+    autoUpdateCleanup = autoUpdate(trigger, floating, () =&gt; {
+      updatePosition(trigger, floating);
+    });
+  };
+  const requestOpen = (trigger, immediate = false) =&gt; {
+    if (
+      getContent(trigger).length === 0 ||
+      activeTrigger === trigger ||
+      pendingTrigger === trigger
+    ) {
+      return;
+    }
+    clearOpenTimeout();
+    pendingTrigger = trigger;
+    const delay =
+      immediate || activeTrigger != null || Date.now() &lt; skipDelayUntil
+        ? 0
+        : hoverDelay;
+    if (delay === 0) {
+      openTooltip(trigger);
+      return;
+    }
+    openTimeout = window.setTimeout(() =&gt; {
+      openTimeout = null;
+      pendingTrigger = null;
+      openTooltip(trigger);
+    }, delay);
+  };
+  const handlePointerOpen = (event) =&gt; {
+    if (event.pointerType === &quot;touch&quot;) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    requestOpen(trigger);
+  };
+  const handlePointer = (event) =&gt; {
+    lastPointerWasTouch =
+      event.type === &quot;pointerdown&quot; &amp;&amp; event.pointerType === &quot;touch&quot;;
+  };
+  const handleTouchClick = (event) =&gt; {
+    const isTouch = event.pointerType === &quot;touch&quot; || lastPointerWasTouch;
+    lastPointerWasTouch = false;
+    if (!isTouch || event.detail === 0) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (
+      trigger == null ||
+      !trigger.isConnected ||
+      getContent(trigger).length === 0 ||
+      (pinnedByTouch &amp;&amp; activeTrigger === trigger)
+    ) {
+      if (pinnedByTouch) {
+        closeTooltip();
+      }
+      return;
+    }
+    openTooltip(trigger);
+    pinnedByTouch = activeTrigger === trigger;
+    window.setTimeout(() =&gt; {
+      if (activeTrigger === trigger &amp;&amp; !trigger.isConnected) {
+        closeTooltip(false);
+      }
+    }, 0);
+  };
+  const handleLeave = (event) =&gt; {
+    if (pinnedByTouch) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const handleFocusIn = (event) =&gt; {
+    const trigger = getTrigger(event.target);
+    if (trigger?.matches(&quot;:focus-visible&quot;)) {
+      requestOpen(trigger, true);
+    }
+  };
+  const handleKeyDown = (event) =&gt; {
+    if (event.key === &quot;Escape&quot;) {
+      closeTooltip();
+    }
+  };
+  const handleContextMenu = (event) =&gt; {
+    lastPointerWasTouch = false;
+    const trigger = getTrigger(event.target);
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const destroy = () =&gt; {
+    closeTooltip(false);
+    lastPointerWasTouch = false;
+    document.removeEventListener(&quot;pointerover&quot;, handlePointerOpen);
+    document.removeEventListener(&quot;pointerdown&quot;, handlePointer);
+    document.removeEventListener(&quot;pointercancel&quot;, handlePointer);
+    document.removeEventListener(&quot;click&quot;, handleTouchClick);
+    document.removeEventListener(&quot;pointerout&quot;, handleLeave);
+    document.removeEventListener(&quot;focusin&quot;, handleFocusIn);
+    document.removeEventListener(&quot;focusout&quot;, handleLeave);
+    document.removeEventListener(&quot;keydown&quot;, handleKeyDown);
+    document.removeEventListener(&quot;contextmenu&quot;, handleContextMenu);
+    tooltip = null;
+  };
+
+  document.addEventListener(&quot;pointerover&quot;, handlePointerOpen);
+  document.addEventListener(&quot;pointerdown&quot;, handlePointer);
+  document.addEventListener(&quot;pointercancel&quot;, handlePointer);
+  document.addEventListener(&quot;click&quot;, handleTouchClick);
+  document.addEventListener(&quot;pointerout&quot;, handleLeave);
+  document.addEventListener(&quot;focusin&quot;, handleFocusIn);
+  document.addEventListener(&quot;focusout&quot;, handleLeave);
+  document.addEventListener(&quot;keydown&quot;, handleKeyDown);
+  document.addEventListener(&quot;contextmenu&quot;, handleContextMenu);
+  window.addEventListener(&quot;pagehide&quot;, destroy, { once: true });
+})();
+&lt;/script&gt;
+&lt;script id=&quot;codex-visualization-tabs&quot;&gt;
+(() =&gt; {
+  const selector = &#x27;.nav[role=&quot;tablist&quot;] [role=&quot;tab&quot;]&#x27;;
+  const disabled = &#x27;:disabled,[aria-disabled=&quot;true&quot;]&#x27;;
+  const selectTab = (selected) =&gt; {
+    const panelId = selected.getAttribute(&quot;aria-controls&quot;);
+    for (const tab of selected.closest(&#x27;[role=&quot;tablist&quot;]&#x27;).querySelectorAll(&#x27;[role=&quot;tab&quot;]&#x27;)) {
+      const active = tab === selected;
+      tab.classList.toggle(&quot;active&quot;, active);
+      tab.setAttribute(&quot;aria-selected&quot;, String(active));
+      const id = tab.getAttribute(&quot;aria-controls&quot;);
+      const panel = id &amp;&amp; document.getElementById(id);
+      if (panel != null) {
+        panel.hidden = id !== panelId;
+        if (!panel.hidden &amp;&amp; selected.id) {
+          panel.setAttribute(&quot;aria-labelledby&quot;, selected.id);
+        }
+      }
+    }
+  };
+  const interact = (event) =&gt; {
+    const tab = event.target?.closest?.(selector);
+    if (event.defaultPrevented || tab == null || tab.matches(disabled)) {
+      return;
+    }
+    if (event.type === &quot;click&quot;) {
+      selectTab(tab);
+      return;
+    }
+    const tabs = Array.from(
+      tab.closest(&#x27;[role=&quot;tablist&quot;]&#x27;).querySelectorAll(&#x27;[role=&quot;tab&quot;]&#x27;),
+    ).filter((candidate) =&gt; !candidate.matches(disabled));
+    const current = tabs.indexOf(tab);
+    let next;
+    if (event.key === &quot;ArrowRight&quot; || event.key === &quot;ArrowDown&quot;) {
+      next = (current + 1) % tabs.length;
+    } else if (event.key === &quot;ArrowLeft&quot; || event.key === &quot;ArrowUp&quot;) {
+      next = (current + tabs.length - 1) % tabs.length;
+    } else if (event.key === &quot;Home&quot;) {
+      next = 0;
+    } else if (event.key === &quot;End&quot;) {
+      next = tabs.length - 1;
+    } else {
+      return;
+    }
+    event.preventDefault();
+    tabs[next].focus();
+    selectTab(tabs[next]);
+  };
+
+  for (const list of document.querySelectorAll(&#x27;.nav[role=&quot;tablist&quot;]&#x27;)) {
+    const selected =
+      list.querySelector(&#x27;[role=&quot;tab&quot;][aria-selected=&quot;true&quot;]&#x27;) ??
+      list.querySelector(&#x27;[role=&quot;tab&quot;].active&#x27;) ??
+      list.querySelector(&#x27;[role=&quot;tab&quot;]&#x27;);
+    if (selected != null) {
+      selectTab(selected);
+    }
+  }
+  document.addEventListener(&quot;click&quot;, interact);
+  document.addEventListener(&quot;keydown&quot;, interact);
+  window.addEventListener(&quot;pagehide&quot;, () =&gt; {
+    document.removeEventListener(&quot;click&quot;, interact);
+    document.removeEventListener(&quot;keydown&quot;, interact);
+  }, { once: true });
+})();
+&lt;/script&gt;
+
+&lt;script&gt;
+(() =&gt; {
+  const initialize = () =&gt; {
+    globalThis.lucide?.createIcons({ attrs: { width: 16, height: 16 } });
+  };
+  if (globalThis.lucide != null) {
+    initialize();
+    return;
+  }
+  document
+    .getElementById(&quot;codex-visualization-lucide&quot;)
+    ?.addEventListener(&quot;load&quot;, initialize, { once: true });
+})();
+&lt;/script&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;
+"></iframe>
+</body>
+</html>
