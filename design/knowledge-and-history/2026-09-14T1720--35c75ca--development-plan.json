@@ -1,0 +1,1291 @@
+{
+  "schema_version": 1,
+  "kind": "development_task_graph",
+  "status": "planning-only-no-product-tasks-executed",
+  "ssot": "2026-09-14T1720--35c75ca--consolidated-design-ssot.md",
+  "spec": "2026-09-14T1720--35c75ca--development-spec.md",
+  "test_catalog": "2026-09-14T1720--35c75ca--test-catalog.json",
+  "baseline_manifest": "2026-09-14T1720--35c75ca--brownfield-evidence.json",
+  "required_requirement_ids": [
+    "U01",
+    "U02",
+    "U03",
+    "U04",
+    "U05",
+    "U06",
+    "U07",
+    "U08",
+    "U09",
+    "U10",
+    "U11",
+    "U12",
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U18",
+    "U19"
+  ],
+  "required_wireframe_ids": [
+    "W01",
+    "W02",
+    "W03",
+    "W04",
+    "W05",
+    "W06",
+    "W07",
+    "W08",
+    "W09",
+    "W10"
+  ],
+  "required_contract_ids": [
+    "C01",
+    "C02",
+    "C03",
+    "C04",
+    "C05",
+    "C06",
+    "C07",
+    "C08",
+    "C09",
+    "C10",
+    "C11",
+    "C12"
+  ],
+  "shared_integrator_paths": [
+    "install.sh",
+    "package.json",
+    "compose/instructions_store.py",
+    "compose/instructions_session.py",
+    "compose/instructions_app.py",
+    "compose/app_bridge/",
+    "launch/agent-launch.py",
+    "gates/check-parity.sh",
+    "gates/check-package.sh",
+    "gates/check-endpoints.py",
+    "gates/check-surfaces.py",
+    "ontology/instances/graph.json",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "compose/instructions_catalog.py",
+    "compose/instructions_install.py",
+    "compose/instructions_setup.py",
+    "compose/instructions_setup_cli.py",
+    "compose/instructions_import.py",
+    "workenv/__init__.py",
+    "workenv/contracts/",
+    "gates/workenv/conformance/",
+    "gates/workenv/fixtures/",
+    "gates/workenv/case-index.json",
+    "gates/workenv/test_contracts.py",
+    "gates/workenv/test_identity.py",
+    "gates/workenv/test_access.py",
+    "gates/workenv/test_instruction_admission.py",
+    "gates/workenv/test_storage.py",
+    "gates/workenv/test_knowledge.py",
+    "gates/workenv/test_memory.py",
+    "gates/workenv/test_readers.py",
+    "gates/workenv/test_preparation.py",
+    "gates/workenv/test_enrollment.py",
+    "gates/workenv/test_governance.py",
+    "gates/workenv/test_environments.py",
+    "gates/workenv/test_exchange.py",
+    "gates/workenv/test_peer_recovery.py",
+    "gates/workenv/test_delivery.py",
+    "gates/workenv/test_studio.py",
+    "gates/workenv/test_github_transport.py",
+    "gates/workenv/test_oidc.py",
+    "gates/workenv/test_team_lifecycle.py",
+    "gates/workenv/test_authoring.py",
+    "gates/workenv/test_bulk_retention.py",
+    "gates/workenv/test_disconnected_e2e.py",
+    "gates/workenv/test_adapter_qualification.py",
+    "gates/workenv/test_cutover.py",
+    "gates/workenv/test_runner_contract.py",
+    "gates/workenv/manual_usability_cases.md"
+  ],
+  "concurrency_ceiling": 3,
+  "concurrency_meaning": "At most three active delegated workers plus the coordinator; further constrain by ownership and available host slots. No model is selected by this plan.",
+  "tasks": [
+    {
+      "id": "P00",
+      "title": "Capture the brownfield input and regression baseline",
+      "status": "planned",
+      "kind": "baseline",
+      "depends_on": [],
+      "owned_paths": [],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "B01",
+        "B02",
+        "B03",
+        "B04",
+        "B05"
+      ],
+      "contracts": [],
+      "requirements": [
+        "U03",
+        "U04"
+      ],
+      "wireframes": [],
+      "done_when": [
+        "Capture tracked modifications/deletions and needed untracked files without touching the main index; create an isolated reproducible source baseline",
+        "Run and classify present-state tests and environment skips; freeze the new target acceptance separately instead of promising old behavior forever"
+      ],
+      "required_evidence": [
+        "input baseline and contract digests",
+        "owned-file delta and exact output tree",
+        "test command/exit/output/subject identity with explicit skips",
+        "material findings and actual disposition",
+        "accepted predecessor result references"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P00",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task."
+    },
+    {
+      "id": "P01",
+      "title": "Freeze implementation contracts and blocking platform choices",
+      "status": "planned",
+      "kind": "contract-freeze",
+      "depends_on": [
+        "P00"
+      ],
+      "owned_paths": [
+        "workenv/contracts/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N01"
+      ],
+      "contracts": [
+        "C01",
+        "C02",
+        "C03",
+        "C04",
+        "C05",
+        "C06",
+        "C07",
+        "C08",
+        "C09",
+        "C10",
+        "C11",
+        "C12"
+      ],
+      "requirements": [
+        "U04",
+        "U12",
+        "U17",
+        "U19"
+      ],
+      "wireframes": [],
+      "done_when": [
+        "Freeze target API/schema/storage, codec/signature, secret/unlock and bridge bindings through bounded spikes; select reused/retired entrypoints and one controlled data cutover",
+        "Version request/result examples, errors and fixture identities; record unavailable adapters before dependent implementation"
+      ],
+      "required_evidence": [
+        "input baseline and contract digests",
+        "owned-file delta and exact output tree",
+        "test command/exit/output/subject identity with explicit skips",
+        "material findings and actual disposition",
+        "accepted predecessor result references"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P01",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task."
+    },
+    {
+      "id": "P02",
+      "title": "Implement local identity and access lifecycle",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P01"
+      ],
+      "owned_paths": [
+        "workenv/identity.py",
+        "workenv/access.py",
+        "workenv/credentials/",
+        "gates/workenv/units/p02/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N02",
+        "N03"
+      ],
+      "contracts": [
+        "C01",
+        "C02"
+      ],
+      "requirements": [
+        "U01",
+        "U19"
+      ],
+      "wireframes": [],
+      "done_when": [
+        "Account-free local profile and explicit lock/signout/unlock have durable session-generation barriers",
+        "All access-owner entrypoints reject stale handles; secrets remain protected and valid offline reentry is explicit"
+      ],
+      "required_evidence": [
+        "input baseline and contract digests",
+        "owned-file delta and exact output tree",
+        "test command/exit/output/subject identity with explicit skips",
+        "material findings and actual disposition",
+        "accepted predecessor result references"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P02",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task."
+    },
+    {
+      "id": "P03",
+      "title": "Implement immutable storage, scoped journal and trust primitives",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P01"
+      ],
+      "owned_paths": [
+        "workenv/storage.py",
+        "workenv/journal.py",
+        "workenv/trust.py",
+        "gates/workenv/units/p03/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N01",
+        "N05"
+      ],
+      "contracts": [
+        "C01",
+        "C03",
+        "C09"
+      ],
+      "requirements": [
+        "U04",
+        "U14",
+        "U15",
+        "U17"
+      ],
+      "wireframes": [],
+      "done_when": [
+        "Exact portable objects and scoped mutable authority transactions have request-bound receipts",
+        "Kill/restart at durable boundaries, verify lineage/forks and distinguish local availability from shared acceptance"
+      ],
+      "required_evidence": [
+        "input baseline and contract digests",
+        "owned-file delta and exact output tree",
+        "test command/exit/output/subject identity with explicit skips",
+        "material findings and actual disposition",
+        "accepted predecessor result references"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P03",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task."
+    },
+    {
+      "id": "P04",
+      "title": "Implement the knowledge provider and coherent support reader",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P03"
+      ],
+      "owned_paths": [
+        "workenv/knowledge.py",
+        "gates/workenv/units/p04/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N06",
+        "N08"
+      ],
+      "contracts": [
+        "C04",
+        "C06"
+      ],
+      "requirements": [
+        "U05",
+        "U06",
+        "U09"
+      ],
+      "wireframes": [],
+      "done_when": [
+        "Immutable scoped knowledge with applicability/evidence/companions supports map/support/evidence",
+        "Future and late corrections retain past references; bounded processing reports missing or uncertain requirements"
+      ],
+      "required_evidence": [
+        "input baseline and contract digests",
+        "owned-file delta and exact output tree",
+        "test command/exit/output/subject identity with explicit skips",
+        "material findings and actual disposition",
+        "accepted predecessor result references"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P04",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task."
+    },
+    {
+      "id": "P05",
+      "title": "Implement decision/workstream/event state and history",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P03"
+      ],
+      "owned_paths": [
+        "workenv/memory.py",
+        "gates/workenv/units/p05/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N07",
+        "N08"
+      ],
+      "contracts": [
+        "C05",
+        "C06"
+      ],
+      "requirements": [
+        "U07",
+        "U08",
+        "U09"
+      ],
+      "wireframes": [],
+      "done_when": [
+        "Record actual choices/events and reduce qualified state across workstreams before ranking",
+        "Conflicting/missing lifecycle closure and restricted-state proof are handled without invented resolution"
+      ],
+      "required_evidence": [
+        "input baseline and contract digests",
+        "owned-file delta and exact output tree",
+        "test command/exit/output/subject identity with explicit skips",
+        "material findings and actual disposition",
+        "accepted predecessor result references"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P05",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task."
+    },
+    {
+      "id": "P06",
+      "title": "Implement personal preparation and role-specific Instructions projection",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P02",
+        "P04",
+        "P05"
+      ],
+      "owned_paths": [
+        "workenv/preparation.py",
+        "workenv/reading.py",
+        "workenv/instructions_adapter.py",
+        "workenv/admission.py",
+        "gates/workenv/units/p06/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N04",
+        "N08",
+        "N09"
+      ],
+      "contracts": [
+        "C04",
+        "C05",
+        "C06",
+        "C07"
+      ],
+      "requirements": [
+        "U01",
+        "U03",
+        "U09",
+        "U11",
+        "U19"
+      ],
+      "wireframes": [
+        "W01",
+        "W02"
+      ],
+      "done_when": [
+        "Prepare personal/projectless/brownfield/unadopted work without synthetic Team or host IDs",
+        "Keep knowledge/history separate from instruction authority; new protected namespaces cannot be exposed by any retained supported entrypoint, including repo/root overrides"
+      ],
+      "required_evidence": [
+        "input baseline and contract digests",
+        "owned-file delta and exact output tree",
+        "test command/exit/output/subject identity with explicit skips",
+        "material findings and actual disposition",
+        "accepted predecessor result references"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P06",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task."
+    },
+    {
+      "id": "P07",
+      "title": "Implement manual Team governance and scoped finalization",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P02",
+        "P03"
+      ],
+      "owned_paths": [
+        "workenv/authority.py",
+        "workenv/team.py",
+        "gates/workenv/units/p07/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N10",
+        "N11",
+        "N05"
+      ],
+      "contracts": [
+        "C02",
+        "C03",
+        "C08"
+      ],
+      "requirements": [
+        "U02",
+        "U12",
+        "U13",
+        "U19"
+      ],
+      "wireframes": [
+        "W05",
+        "W06",
+        "W07"
+      ],
+      "done_when": [
+        "Exact manual founding/join, membership/grants/group modes and independent-review eligibility work without SSO",
+        "Conditional finalization and request/cancellation recovery preserve source ceilings and actual outcomes"
+      ],
+      "required_evidence": [
+        "input baseline and contract digests",
+        "owned-file delta and exact output tree",
+        "test command/exit/output/subject identity with explicit skips",
+        "material findings and actual disposition",
+        "accepted predecessor result references"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P07",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task."
+    },
+    {
+      "id": "P08",
+      "title": "Implement environment editions, publication/adoption and Team preparation",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P06",
+        "P07"
+      ],
+      "owned_paths": [
+        "workenv/environments.py",
+        "gates/workenv/units/p08/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N12",
+        "N09",
+        "N11"
+      ],
+      "contracts": [
+        "C07",
+        "C08"
+      ],
+      "requirements": [
+        "U01",
+        "U02",
+        "U10",
+        "U12"
+      ],
+      "wireframes": [
+        "W01",
+        "W02",
+        "W05"
+      ],
+      "done_when": [
+        "Immutable flattened editions and permitted derivatives preserve exact static pins and memory policy",
+        "Team adoption, local readiness and active recipient remain separate; new Team follows continuous first-use identity"
+      ],
+      "required_evidence": [
+        "input baseline and contract digests",
+        "owned-file delta and exact output tree",
+        "test command/exit/output/subject identity with explicit skips",
+        "material findings and actual disposition",
+        "accepted predecessor result references"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P08",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task."
+    },
+    {
+      "id": "P09",
+      "title": "Implement full P2P/package exchange and custody recovery",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P03",
+        "P07",
+        "P08"
+      ],
+      "owned_paths": [
+        "workenv/exchange.py",
+        "workenv/custody.py",
+        "workenv/transports/package.py",
+        "workenv/transports/peer.py",
+        "gates/workenv/units/p09/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N13",
+        "N14",
+        "N22"
+      ],
+      "contracts": [
+        "C03",
+        "C09",
+        "C10"
+      ],
+      "requirements": [
+        "U14",
+        "U15",
+        "U17",
+        "U18"
+      ],
+      "wireframes": [
+        "W08"
+      ],
+      "done_when": [
+        "Real isolated peer stores exchange full/delta/return objects with control-first verification and durable outboxes",
+        "Missing baseline, duplicate/interrupted transfer, device loss and unavailable finalizer have truthful recovery"
+      ],
+      "required_evidence": [
+        "input baseline and contract digests",
+        "owned-file delta and exact output tree",
+        "test command/exit/output/subject identity with explicit skips",
+        "material findings and actual disposition",
+        "accepted predecessor result references"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P09",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task."
+    },
+    {
+      "id": "P10",
+      "title": "Implement personal recipient delivery and reusable guarded host interface",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P06"
+      ],
+      "owned_paths": [
+        "workenv/delivery.py",
+        "workenv/hosts/",
+        "gates/workenv/units/p10/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N04",
+        "N15",
+        "N23"
+      ],
+      "contracts": [
+        "C02",
+        "C07",
+        "C11"
+      ],
+      "requirements": [
+        "U01",
+        "U08",
+        "U09",
+        "U11"
+      ],
+      "wireframes": [
+        "W09"
+      ],
+      "done_when": [
+        "Deliver actual personal new/current/child/rehydrated role bodies with exact result evidence before any Team dependency",
+        "Define guarded host capability and access-generation handling; Team-specific runtime proof is the M2/P17 integration profile, not this task prerequisite"
+      ],
+      "required_evidence": [
+        "input baseline and contract digests",
+        "owned-file delta and exact output tree",
+        "test command/exit/output/subject identity with explicit skips",
+        "material findings and actual disposition",
+        "accepted predecessor result references"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P10",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task."
+    },
+    {
+      "id": "P11",
+      "title": "Implement personal client flow and extensible Studio/TUI operation shell",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P06",
+        "P10"
+      ],
+      "owned_paths": [
+        "workenv/cli.py",
+        "workenv/studio/bridge.py",
+        "workenv/studio/assets/",
+        "workenv/tui.py",
+        "gates/workenv/units/p11/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N16",
+        "N03",
+        "N09",
+        "N15"
+      ],
+      "contracts": [
+        "C02",
+        "C07",
+        "C11",
+        "C12"
+      ],
+      "requirements": [
+        "U01",
+        "U04",
+        "U10",
+        "U11",
+        "U19"
+      ],
+      "wireframes": [
+        "W01",
+        "W02",
+        "W03",
+        "W04",
+        "W09"
+      ],
+      "done_when": [
+        "Account-free personal entry/source/preparation/actual recipient uses real local operations and survives lock/signout/reentry",
+        "Typed capability-driven client shell supports later Team/advanced views; absent operations are explicitly unsupported and not counted complete"
+      ],
+      "required_evidence": [
+        "input baseline and contract digests",
+        "owned-file delta and exact output tree",
+        "test command/exit/output/subject identity with explicit skips",
+        "material findings and actual disposition",
+        "accepted predecessor result references"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P11",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task."
+    },
+    {
+      "id": "P12",
+      "title": "Implement optional GitHub carrier and durable provisioning",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P09"
+      ],
+      "owned_paths": [
+        "workenv/transports/github.py",
+        "gates/workenv/units/p12/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N17",
+        "N13",
+        "N14"
+      ],
+      "contracts": [
+        "C09",
+        "C10"
+      ],
+      "requirements": [
+        "U15",
+        "U16",
+        "U17",
+        "U18"
+      ],
+      "wireframes": [
+        "W06",
+        "W07",
+        "W08"
+      ],
+      "done_when": [
+        "Recommended option is explicit connection with permitted real shared state and verified repository identity",
+        "P2P works without credentials/GitHub; interrupted setup/disconnect has scoped durable outcomes"
+      ],
+      "required_evidence": [
+        "input baseline and contract digests",
+        "owned-file delta and exact output tree",
+        "test command/exit/output/subject identity with explicit skips",
+        "material findings and actual disposition",
+        "accepted predecessor result references"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P12",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task."
+    },
+    {
+      "id": "P13",
+      "title": "Implement optional Google/Slack/OIDC authentication adapters",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P02",
+        "P07"
+      ],
+      "owned_paths": [
+        "workenv/auth/",
+        "gates/workenv/units/p13/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N18",
+        "N03",
+        "N10",
+        "N23"
+      ],
+      "contracts": [
+        "C01",
+        "C02",
+        "C08",
+        "C12"
+      ],
+      "requirements": [
+        "U12",
+        "U13",
+        "U19"
+      ],
+      "wireframes": [
+        "W06",
+        "W07"
+      ],
+      "done_when": [
+        "Configured supported provider callbacks verify identity and guarded linking with protected confidential exchange",
+        "No auto-email merge/login-implies-grant, silent post-logout reentry or offline-provider requirement for independent permitted paths"
+      ],
+      "required_evidence": [
+        "input baseline and contract digests",
+        "owned-file delta and exact output tree",
+        "test command/exit/output/subject identity with explicit skips",
+        "material findings and actual disposition",
+        "accepted predecessor result references"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P13",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task."
+    },
+    {
+      "id": "P14",
+      "title": "Complete Team/device/authority lifecycle operations",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P08",
+        "P09",
+        "P10",
+        "P11"
+      ],
+      "owned_paths": [
+        "workenv/lifecycle.py",
+        "workenv/studio/team_views/",
+        "gates/workenv/units/p14/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N19",
+        "N14",
+        "N03"
+      ],
+      "contracts": [
+        "C02",
+        "C08",
+        "C09",
+        "C10"
+      ],
+      "requirements": [
+        "U02",
+        "U12",
+        "U13",
+        "U14",
+        "U18"
+      ],
+      "wireframes": [
+        "W06",
+        "W07",
+        "W08",
+        "W09"
+      ],
+      "done_when": [
+        "Typed full CRUD, copy, device/ownership transfer, archive continuation, leave/forget/close and evidence recovery operate with real prerequisites",
+        "Final closure follows required stewardship disposition; no lost outbox, bootstrap reuse or evidence-induced revival"
+      ],
+      "required_evidence": [
+        "input baseline and contract digests",
+        "owned-file delta and exact output tree",
+        "test command/exit/output/subject identity with explicit skips",
+        "material findings and actual disposition",
+        "accepted predecessor result references"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P14",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task."
+    },
+    {
+      "id": "P15",
+      "title": "Complete role authoring, ontology/forms/questions and validation",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P04",
+        "P05",
+        "P08",
+        "P11"
+      ],
+      "owned_paths": [
+        "workenv/authoring/",
+        "workenv/studio/source_views/",
+        "workenv/validation/",
+        "gates/workenv/units/p15/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N20",
+        "N06",
+        "N07",
+        "N16",
+        "N23"
+      ],
+      "contracts": [
+        "C04",
+        "C05",
+        "C06",
+        "C08",
+        "C12"
+      ],
+      "requirements": [
+        "U03",
+        "U05",
+        "U06",
+        "U07",
+        "U08",
+        "U10"
+      ],
+      "wireframes": [
+        "W02",
+        "W03",
+        "W04",
+        "W05"
+      ],
+      "done_when": [
+        "Complete Instructions source, knowledge table/model/form/question and memory event authoring with exact owned effects",
+        "Run pinned validation through a real supported adapter; partial/empty/unsupported results stay unverified; structured graph alternatives remain"
+      ],
+      "required_evidence": [
+        "input baseline and contract digests",
+        "owned-file delta and exact output tree",
+        "test command/exit/output/subject identity with explicit skips",
+        "material findings and actual disposition",
+        "accepted predecessor result references"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P15",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task."
+    },
+    {
+      "id": "P16",
+      "title": "Complete scoped search, derivatives, bulk, retention and operations views",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P09",
+        "P11",
+        "P14"
+      ],
+      "owned_paths": [
+        "workenv/operations.py",
+        "workenv/search.py",
+        "workenv/retention.py",
+        "workenv/studio/operation_views/",
+        "gates/workenv/units/p16/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N21",
+        "N13",
+        "N19",
+        "N16"
+      ],
+      "contracts": [
+        "C03",
+        "C04",
+        "C05",
+        "C06",
+        "C08",
+        "C09",
+        "C10",
+        "C12"
+      ],
+      "requirements": [
+        "U06",
+        "U09",
+        "U10",
+        "U14",
+        "U17",
+        "U18"
+      ],
+      "wireframes": [
+        "W08",
+        "W10"
+      ],
+      "done_when": [
+        "Current/history scoped search, source derivatives, mixed bulk/import/export and copy-specific cleanup produce exact outcomes",
+        "Dashboard signals preserve authorized partial coverage and route to the same failed/unknown work"
+      ],
+      "required_evidence": [
+        "input baseline and contract digests",
+        "owned-file delta and exact output tree",
+        "test command/exit/output/subject identity with explicit skips",
+        "material findings and actual disposition",
+        "accepted predecessor result references"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P16",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task."
+    },
+    {
+      "id": "P17",
+      "title": "Run joined workflows, adversarial failures and actual adapter qualification",
+      "status": "planned",
+      "kind": "validation",
+      "depends_on": [
+        "P10",
+        "P11",
+        "P12",
+        "P13",
+        "P14",
+        "P15",
+        "P16"
+      ],
+      "owned_paths": [],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N03",
+        "N04",
+        "N11",
+        "N14",
+        "N16",
+        "N18",
+        "N22",
+        "N23",
+        "N25",
+        "N26"
+      ],
+      "contracts": [
+        "C01",
+        "C02",
+        "C03",
+        "C04",
+        "C05",
+        "C06",
+        "C07",
+        "C08",
+        "C09",
+        "C10",
+        "C11",
+        "C12"
+      ],
+      "requirements": [
+        "U01",
+        "U02",
+        "U03",
+        "U04",
+        "U05",
+        "U06",
+        "U07",
+        "U08",
+        "U09",
+        "U10",
+        "U11",
+        "U12",
+        "U13",
+        "U14",
+        "U15",
+        "U16",
+        "U17",
+        "U18",
+        "U19"
+      ],
+      "wireframes": [
+        "W01",
+        "W02",
+        "W03",
+        "W04",
+        "W05",
+        "W06",
+        "W07",
+        "W08",
+        "W09",
+        "W10"
+      ],
+      "done_when": [
+        "Demonstrate complete personal and Team paths on integrated code with weekly/offline/lock/loss/concurrency scenarios",
+        "Collect actual supported adapter/user evidence or retain qualified pending outcomes; no mock/skip is a release claim"
+      ],
+      "required_evidence": [
+        "input baseline and contract digests",
+        "owned-file delta and exact output tree",
+        "test command/exit/output/subject identity with explicit skips",
+        "material findings and actual disposition",
+        "accepted predecessor result references"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P17",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task."
+    },
+    {
+      "id": "P18",
+      "title": "Verify controlled cutover, target package and recovery readiness",
+      "status": "planned",
+      "kind": "validation",
+      "depends_on": [
+        "P17"
+      ],
+      "owned_paths": [],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N24"
+      ],
+      "contracts": [
+        "C01",
+        "C02",
+        "C03",
+        "C07",
+        "C09",
+        "C11",
+        "C12"
+      ],
+      "requirements": [
+        "U01",
+        "U02",
+        "U03",
+        "U04",
+        "U05",
+        "U06",
+        "U07",
+        "U08",
+        "U09",
+        "U10",
+        "U11",
+        "U12",
+        "U13",
+        "U14",
+        "U15",
+        "U16",
+        "U17",
+        "U18",
+        "U19"
+      ],
+      "wireframes": [
+        "W01",
+        "W02",
+        "W03",
+        "W04",
+        "W05",
+        "W06",
+        "W07",
+        "W08",
+        "W09",
+        "W10"
+      ],
+      "done_when": [
+        "Package the target runtime and prove fresh install or explicitly selected one-time data transfer into an isolated target store",
+        "Quiesce old writers, verify source/data disposition and target recovery, then run exact integrated gates; no old CLI/schema/resume support or automatic publication is promised",
+        "After writer quiescence, compare selected-data revisions to the export baseline and incorporate/validate all remaining changes before ownership switches"
+      ],
+      "required_evidence": [
+        "input baseline and contract digests",
+        "owned-file delta and exact output tree",
+        "test command/exit/output/subject identity with explicit skips",
+        "material findings and actual disposition",
+        "accepted predecessor result references"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P18",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task."
+    }
+  ],
+  "compatibility_policy": "User explicitly waives backward compatibility. Old commands, schema readers, native resume and mixed-version operation may be removed. Preserve scoped source work and explicitly selected migration data; quiesce old writers before cutover.",
+  "baseline_evidence_policy": "B01-B05 describe current behavior and test assets, not permanent target acceptance contracts. P00 classifies them; target cases are owned by N profiles.",
+  "milestones": [
+    {
+      "id": "M1",
+      "requires": [
+        "P02",
+        "P03",
+        "P04",
+        "P05",
+        "P06",
+        "P10",
+        "P11"
+      ],
+      "test_profile": "M1",
+      "claim": "Actual personal first work and explicit reentry without Team, SSO or GitHub"
+    },
+    {
+      "id": "M2",
+      "requires": [
+        "P07",
+        "P08",
+        "P09",
+        "P10",
+        "P11"
+      ],
+      "test_profile": "M2",
+      "claim": "Actual manual-Team adoption, guarded host use and peer recovery without external SSO/GitHub"
+    },
+    {
+      "id": "M3",
+      "requires": [
+        "P11",
+        "P12",
+        "P13",
+        "P14",
+        "P15",
+        "P16"
+      ],
+      "test_profile": "M3",
+      "claim": "Full required operational clients and optional integrations"
+    },
+    {
+      "id": "M4",
+      "requires": [
+        "P17",
+        "P18"
+      ],
+      "test_profile": "M4",
+      "claim": "Qualified integrated target and controlled cutover readiness; not publication"
+    }
+  ],
+  "document_bindings": [
+    {
+      "path": "2026-09-14T1720--35c75ca--consolidated-design-ssot.md",
+      "sha256": "0c4a5897b51cf1ccf1417f3fbb7b2f751a36691d8ed78c87ca7a7ad0c3728cc0"
+    },
+    {
+      "path": "2026-09-14T1720--35c75ca--development-spec.md",
+      "sha256": "ebce4a06ad098d151a2ae35238138bde90bf68096c2b4805edb5da8dc069fad4"
+    },
+    {
+      "path": "2026-09-14T1720--35c75ca--test-catalog.json",
+      "sha256": "c9cbecd2f41ee9345dec494ac891983c3bf1d26749d324a6fa7404a3beeb4da5"
+    },
+    {
+      "path": "2026-09-14T1720--35c75ca--brownfield-evidence.json",
+      "sha256": "b5ae76d56d0c4ac7a8ff158e87c649a14147bd1494dac2ae0d8954e87f8942e7"
+    },
+    {
+      "path": "check-development-plan.py",
+      "sha256": "896370783221134e67a2e39d8e49562d71847157953e3608c6e66396e2a34036"
+    }
+  ]
+}

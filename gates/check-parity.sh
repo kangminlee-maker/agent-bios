@@ -16,6 +16,13 @@ SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"   # resolved BEFORE the c
 cd "$(dirname "$0")/.."
 fail=0
 
+# The selected development contract is an author-side live subject. The gateway
+# checks its exact dated members and runs both validation and acceptance controls.
+python3 gates/check-development-plan.py \
+  || { echo "FAIL: current development evidence graph"; fail=1; }
+python3 gates/check-development-plan.py --self-test \
+  || { echo "FAIL: development gate negative controls"; fail=1; }
+
 # Project purpose reaches the repository entrypoints and public README coherently.
 if [ -f gates/check-product-purpose.py ]; then
   python3 gates/check-product-purpose.py --self-test \

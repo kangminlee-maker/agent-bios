@@ -1,0 +1,449 @@
+<div id="bios-entry-demo">
+  <div class="demo-caption">인터랙션 시안 · 가상 데이터 · 실제 실행 없음</div>
+  <div id="bios-app" aria-label="agent-bios Studio"></div>
+</div>
+<style>
+#bios-entry-demo{color-scheme:light dark;--bg:light-dark(#fff,#1c1c1c);--fg:light-dark(#242424,#ededeb);--soft:light-dark(#f5f5f2,#272727);--muted:light-dark(#64645d,#b2b2ac);--line:light-dark(#d7d7cf,#51514b);--sel:light-dark(#242424,#ecece5);--on:light-dark(#fff,#232323);font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,"Apple SD Gothic Neo",monospace;color:var(--fg)}
+#bios-entry-demo *{box-sizing:border-box}
+#bios-entry-demo .demo-caption{font-size:12px;color:var(--muted);margin-bottom:8px}
+#bios-app{background:var(--bg);border:1px solid var(--line);overflow-wrap:anywhere}
+#bios-app header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 16px;border-bottom:1px solid var(--line);background:var(--soft);flex-wrap:wrap}
+#bios-app h1,#bios-app h2,#bios-app h3,#bios-app p{margin:0}
+#bios-app h1{font-size:18px;font-weight:500}
+#bios-app h2,#bios-app h3{font-size:14px;font-weight:500}
+#bios-app button,#bios-app select,#bios-app input{font:inherit;color:inherit}
+#bios-app button{background:var(--bg);border:1px solid var(--line);padding:6px 10px;border-radius:2px;cursor:pointer;min-height:34px}
+#bios-app button:disabled{opacity:.5;cursor:default}
+#bios-app .primary{background:var(--sel);color:var(--on);border-color:var(--sel)}
+#bios-app .link{border:0;background:transparent;text-decoration:underline;text-underline-offset:3px;padding:3px 0;text-align:left}
+#bios-app .actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+#bios-app main{padding:16px}
+#bios-app .project{margin-bottom:12px}
+#bios-app .project-top,#bios-app .section-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+#bios-app .small{color:var(--muted);font-size:12px}
+#bios-app .record{margin-top:3px}
+#bios-app .columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(210px,.55fr);gap:24px}
+#bios-app[data-layout="stack"] .columns{grid-template-columns:1fr;gap:14px}
+#bios-app section{min-width:0;border-top:1px solid var(--line);padding-top:8px}
+#bios-app .name{margin:7px 0 10px}
+#bios-app dl{display:grid;grid-template-columns:75px minmax(0,1fr);gap:7px 12px;margin:10px 0}
+#bios-app dt{color:var(--muted)}
+#bios-app dd{margin:0;min-width:0}
+#bios-app .bottom{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:1px solid var(--line);margin-top:16px;padding-top:12px}
+#bios-app .alert{padding:9px 11px;border-left:3px solid var(--fg);background:var(--soft);margin:12px 0}
+#bios-app .alert .actions{margin-top:5px}
+#bios-app .list{display:grid;gap:0;margin:10px 0}
+#bios-app .row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);min-width:0}
+#bios-app .row:last-child{border-bottom:0}
+#bios-app .scope-table{width:100%;table-layout:fixed;border-collapse:collapse;margin:8px 0 4px}
+#bios-app .scope-table th,#bios-app .scope-table td{padding:7px 5px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+#bios-app .scope-table th{font-weight:500}
+#bios-app .scope-table th:first-child{width:50px;padding-left:0}
+#bios-app .source-cell{display:flex;align-items:center;gap:6px;min-width:0}
+#bios-app .source-cell button{min-width:0;white-space:normal;overflow-wrap:anywhere}
+#bios-app .source-cell button span{display:block;font-size:12px;color:var(--muted)}
+#bios-app .source-cell label{display:flex;align-items:center;justify-content:center;min-height:32px;margin:0;flex:none}
+#bios-app input[type="checkbox"]{width:15px;height:15px;margin:0;accent-color:var(--sel)}
+#bios-app .off-label{display:block;font-size:12px;color:var(--muted)}
+#bios-app .scope-title{display:block}
+#bios-app .execution{margin-top:14px}
+#bios-app .execution-summary{display:flex;align-items:center;gap:8px 20px;flex-wrap:wrap;margin-top:7px}
+#bios-app .unit{padding:12px 0;border-bottom:1px solid var(--line)}
+#bios-app .unit:last-child{border-bottom:0}
+#bios-app .unit-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap}
+#bios-app .unit-value{margin:6px 0}
+#bios-app .unit-originals{display:grid;gap:5px;margin-top:8px}
+#bios-app .unit-originals .original{display:flex;align-items:center;gap:6px 12px;flex-wrap:wrap}
+#bios-app .memory-choice{display:flex;align-items:flex-start;gap:9px;padding:11px;border:1px solid var(--line);margin:8px 0;cursor:pointer}
+#bios-app .memory-choice input{margin:4px 0 0;flex:none;accent-color:var(--sel)}
+#bios-app .memory-choice:has(input:checked){background:var(--soft);border-color:var(--fg)}
+#bios-app .memory-choice small{display:block;color:var(--muted);margin-top:4px}
+#bios-app .memory-modes{display:flex;gap:8px;flex-wrap:wrap}
+#bios-app .memory-text{width:100%;min-width:0;background:var(--bg);border:1px solid var(--line);padding:8px;font:inherit;color:inherit}
+#bios-app fieldset{border:0;padding:0;margin:16px 0}
+#bios-app legend{font-weight:500;margin-bottom:5px}
+#bios-app .role-heading{margin-top:16px;border-bottom:1px solid var(--line);padding-bottom:5px}
+#bios-app label.field{display:grid;gap:6px;margin:14px 0}
+#bios-app select{background:var(--bg);border:1px solid var(--line);padding:8px;max-width:100%;min-width:0}
+#bios-app .body-text{white-space:pre-wrap;margin:10px 0;padding-left:10px;border-left:2px solid var(--line)}
+#bios-app details{margin:12px 0}
+#bios-app summary{cursor:pointer}
+#bios-app footer{padding:8px 16px;border-top:1px solid var(--line);color:var(--muted);font-size:12px;background:var(--soft)}
+#bios-app .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+@media(max-width:750px){#bios-app .columns{grid-template-columns:1fr;gap:14px}}
+@media(max-width:620px){#bios-app main{padding:12px}#bios-app select{font-size:16px}#bios-app .scope-table th:first-child{width:35px}#bios-app .scope-table th,#bios-app .scope-table td{padding:6px 3px}#bios-app .source-cell{align-items:flex-start;gap:4px}#bios-app .source-cell input{width:13px;height:13px}#bios-app dl{grid-template-columns:62px minmax(0,1fr);gap:7px 10px}}
+@media(pointer:coarse){#bios-app button,#bios-app select,#bios-app .source-cell label{min-height:44px}#bios-app .source-cell label{min-width:44px}}
+@media(max-width:480px){
+  #bios-app .scope-table,#bios-app .scope-table tbody{display:block}
+  #bios-app .scope-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+  #bios-app .scope-table tr{display:block;margin:10px 0;border-bottom:1px solid var(--line);padding-bottom:6px}
+  #bios-app .scope-table th[scope="row"]{display:block;width:auto;border-bottom:0;padding:4px 0}
+  #bios-app .scope-table td{display:grid;grid-template-columns:64px minmax(0,1fr);align-items:center;gap:6px;border-bottom:0;padding:4px 0}
+  #bios-app .scope-table td::before{content:attr(data-role-label);color:var(--muted)}
+  #bios-app .source-cell{align-items:center}
+}
+</style>
+<script>
+(()=>{
+  'use strict';
+  const app=document.getElementById('bios-app'),root=document.getElementById('bios-entry-demo');
+  const design={entry:'decision',scenario:'all',layout:'columns',teamDecision:'base',personalRecord:'base'};
+  let applied={...design},s;
+  const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const copy=x=>JSON.parse(JSON.stringify(x));
+  function freeze(value){if(value&&typeof value==='object'){Object.values(value).forEach(freeze);Object.freeze(value);}return value;}
+  const scopes=[{id:'repo',label:'레포'},{id:'personal',label:'개인'},{id:'team',label:'팀'}];
+  const roles=[{id:'instructions',label:'지침'},{id:'knowledge',label:'지식 자료'},{id:'memory',label:'결정 자료'}];
+  const rank={repo:0,personal:1,team:2};
+  const cases={
+    all:{label:'레포·개인·팀 자료',repo:'payments',team:true,record:'9/14 14:20 · 검토 메모'},
+    noRepo:{label:'레포 없음 · 개인과 팀',repo:null,team:true,record:null},
+    personal:{label:'개인 자료만',repo:null,team:false,record:null},
+    missingTop:{label:'상위 필수 지침 본문 없음',repo:'payments',team:true,record:null},
+    deniedTop:{label:'상위 지침 열람 제한',repo:'payments',team:true,record:null},
+    sendDenied:{label:'상위 지침 도구 제공 제한',repo:'payments',team:true,record:null},
+    deniedLower:{label:'대체된 팀 지침 접근 제한',repo:'payments',team:true,record:null},
+    missingLower:{label:'대체된 팀 필수 본문 없음',repo:'payments',team:true,record:null},
+    conflict:{label:'레포의 같은 항목 충돌',repo:'payments',team:true,record:null},
+    offline:{label:'오프라인',repo:'payments',team:true,record:'9/12 · 검토 메모'},
+    unknown:{label:'이전 시작 응답 미확인',repo:'payments',team:true,record:'9/14 14:20 · 검토 메모'},
+    locked:{label:'잠김',repo:'payments',team:true,record:'9/14 14:20 · 검토 메모'}
+  };
+  const modes={solo:'단독',review:'검토자 1명 추가'};
+  const c=()=>cases[design.scenario];
+  const roleName=id=>roles.find(x=>x.id===id)?.label||id;
+  const scopeName=id=>id==='team'?'팀 · 제품팀':id==='repo'?'레포 · payments':'개인';
+  const btn=(text,action,primary=false,extra='')=>'<button type="button" data-action="'+action+'" class="'+(primary?'primary':'')+'" '+extra+'>'+text+'</button>';
+  const link=(text,action,extra='')=>'<button type="button" class="link" data-action="'+action+'" '+extra+'>'+text+'</button>';
+  const facts=rows=>'<dl>'+rows.map(([k,v])=>'<dt>'+k+'</dt><dd>'+v+'</dd>').join('')+'</dl>';
+
+  // Keys are declared application units. Their labels/body text are never used
+  // to infer equivalence. The ordinary-request key fixes the K/M query condition.
+  function unit(id,key,title,value,body,extra={}){return {id,key,title,value,body,metadata:true,read:true,use:true,send:true,available:true,startupRequired:false,...extra};}
+  function source(scope,role,name,version,items){return {id:scope+'-'+role,scope,role,name,version,items};}
+  function fixtureSources(){
+    const result=[
+      source('repo','instructions','응답 지침',4,[unit('ri-language','response-language','응답 언어','한국어','응답은 한국어로 작성한다.',{startupRequired:true})]),
+      source('repo','knowledge','재시도 기준',7,[unit('rk-retry','retry-limit/ordinary-request','재시도 상한 · 일반 요청','2회','이 레포의 일반 요청은 재시도 상한 2회를 기준으로 둔다.')]),
+      source('repo','memory','재시도 결정',3,[unit('rm-retry','retry-choice/ordinary-request','재시도 선택 · 일반 요청','2회','레포 기록: 일반 요청의 재시도를 2회로 선택했다.',{recordStatus:'기록됨'})]),
+      source('personal','instructions','개인 지침',2,[unit('pi-language','response-language','응답 언어','영어','개인 지침의 응답 언어는 영어다.',{startupRequired:true})]),
+      source('personal','knowledge','검토 원칙',1,[unit('pk-evidence','evidence-link','검토 근거','출처 연결','검토한 주장에 출처를 연결한다.')]),
+      source('personal','memory','검토 기록',1,[unit('pm-review','review-record','검토 기록 방식','주요 이유 기록','개인 기록: 중요한 검토의 이유를 남기기로 했다.',{recordStatus:'기록됨'})]),
+      source('team','instructions','팀 지침',5,[
+        unit('ti-language','response-language','응답 언어','영어','팀 지침의 응답 언어는 영어다.',{startupRequired:true}),
+        unit('ti-evidence','show-evidence','근거 표시','근거 함께 표시','결론에 확인한 근거를 함께 표시한다.',{startupRequired:true})
+      ]),
+      source('team','knowledge','팀 업무 기준',6,[
+        unit('tk-retry','retry-limit/ordinary-request','재시도 상한 · 일반 요청','3회','팀 업무 기준은 일반 요청의 재시도 상한을 3회로 둔다.'),
+        unit('tk-timeout','timeout-limit/ordinary-request','대기 상한 · 일반 요청','30초','일반 요청의 대기 상한은 30초다.')
+      ]),
+      source('team','memory','팀 결정 기록',2,[
+        unit('tm-retry','retry-choice/ordinary-request','재시도 선택 · 일반 요청','3회','팀 기록: 일반 요청의 재시도를 3회로 선택했다.',{recordStatus:'기록됨'}),
+        unit('tm-release','release-choice/check-complete','배포 시점 · 점검 완료','점검 후 배포','팀 기록: 점검이 끝난 뒤 배포하기로 했다.',{recordStatus:'기록됨'})
+      ])
+    ];
+    if(design.scenario==='missingTop')result[0].items[0].available=false;
+    if(design.scenario==='deniedTop')result[0].items[0].read=false;
+    if(design.scenario==='sendDenied')result[0].items[0].send=false;
+    if(design.scenario==='deniedLower'){result[6].items[0].metadata=false;result[6].items[0].read=false;result[6].items[0].use=false;}
+    if(design.scenario==='missingLower')result[6].items[0].available=false;
+    if(design.scenario==='conflict')result[0].items.push(unit('ri-conflict','response-language','응답 언어','일본어','이 레포의 다른 항목은 일본어 응답을 지정한다.',{startupRequired:true}));
+    const reasons={
+      'rm-retry':'불필요한 반복 요청을 줄이기 위해',
+      'tm-retry':'일시적 오류가 풀릴 기회를 더 두기 위해',
+      'pm-review':'검토 결과를 다시 확인할 수 있도록',
+      'tm-release':'점검 결과를 확인한 뒤 배포하기 위해'
+    };
+    for(const origin of result){if(origin.role==='memory')for(const item of origin.items){
+      item.recordRevision=origin.version;item.lifecycle='recorded';item.changeEpoch=0;
+      item.choiceId=item.id==='rm-retry'?'retry:2':item.id==='tm-retry'?'retry:3':item.id+':base';
+      item.reason=reasons[item.id]||null;
+    }}
+    if(design.teamDecision==='revised'){
+      const origin=result.find(x=>x.id==='team-memory'),item=origin.items.find(x=>x.id==='tm-retry');
+      origin.version=3;Object.assign(item,{value:'4회',body:'팀 기록: 일반 요청의 재시도를 4회로 변경했다.',choiceId:'retry:4',recordRevision:3,reason:'관찰한 연속 오류에 대응하기 위해'});
+    }
+    if(design.personalRecord==='revised'){
+      const origin=result.find(x=>x.id==='personal-memory'),item=origin.items[0];
+      origin.version=2;Object.assign(item,{value:'이유와 결과 기록',body:'개인 기록: 검토의 이유와 결과를 함께 남기기로 했다.',choiceId:'review:detailed',recordRevision:2});
+    }
+    return freeze(result.filter(x=>(x.scope!=='repo'||c().repo)&&(x.scope!=='team'||c().team)));
+  }
+  function reset(){
+    const originals=fixtureSources();
+    s={page:design.entry==='host'?'start':'home',originals,originalSignature:JSON.stringify(originals),enabled:Object.fromEntries(originals.map(x=>[x.id,true])),resolution:{},recovered:[],draft:{mode:'solo',permission:'confirm'},revision:0,assessment:null,result:null,pending:null,history:[],locked:design.scenario==='locked',returnPage:'start',source:null,sequence:0,announcement:'',error:'',memoryUses:{},memoryUseSequence:0,memoryUseId:null,memoryPending:{},memoryPreferences:{},memoryGroupEpochs:{},memoryChangeSequence:0,memoryQuestions:0,sourceArchive:[originals]};
+    if(design.scenario==='unknown')s.pending={id:'07',location:c().repo,selection:captureSelection(),draft:copy(s.draft)};
+  }
+  const sourceById=id=>s.originals.find(x=>x.id===id);
+  const isEnabled=source=>s.enabled[source.id]===true;
+  const bodyAvailable=item=>item.available||s.recovered.includes(item.id);
+  const groupId=(source,item)=>source.role+'|'+item.key;
+
+  function effective(){
+    const grouped=new Map();
+    for(const origin of s.originals){for(const item of origin.items){const id=groupId(origin,item);if(!grouped.has(id))grouped.set(id,[]);grouped.get(id).push({origin,item});}}
+    return [...grouped].map(([id,originals])=>{
+      const candidates=originals.filter(x=>isEnabled(x.origin));
+      const firstRank=candidates.length?Math.min(...candidates.map(x=>rank[x.origin.scope])):null;
+      const top=candidates.filter(x=>rank[x.origin.scope]===firstRank);
+      const role=originals[0].origin.role;
+      if(role==='memory'){
+        const memoryConflict=new Set(candidates.map(x=>x.item.choiceId||x.item.id)).size>1;
+        return {id,role,key:originals[0].item.key,originals,candidates,top:candidates,winner:candidates.length===1?candidates[0]:null,conflict:false,memoryConflict};
+      }
+      const chosen=top.length===1?top[0]:top.find(x=>x.item.id===s.resolution[id])||null;
+      return {id,role,key:originals[0].item.key,originals,candidates,top,winner:chosen,conflict:top.length>1&&!chosen,memoryConflict:false};
+    });
+  }
+  function captureSelection(){return {enabled:copy(s.enabled),resolution:copy(s.resolution),groups:effective().map(g=>({id:g.id,role:g.role,winner:g.winner?g.winner.item.id:null,source:g.winner?g.winner.origin.id:null,conflict:g.conflict,memoryConflict:g.memoryConflict,refs:g.candidates.map(x=>({source:x.origin.id,scope:x.origin.scope,sourceName:x.origin.name,sourceVersion:x.origin.version,id:x.item.id,revision:x.item.recordRevision||x.origin.version,title:x.item.metadata?x.item.title:'접근 제한'}))}))};}
+
+  function memoryContext(group){return JSON.stringify({question:group.key,principal:'local-person',repo:c().repo?{id:'repo:payments'}:null,team:c().team?{id:'team:product'}:null});}
+  function memoryBinding(group){
+    return JSON.stringify({context:memoryContext(group),participationEpoch:s.memoryGroupEpochs[group.id]||0,participants:group.candidates.map(x=>({source:x.origin.id,scope:x.origin.scope,id:x.item.id,revision:x.item.recordRevision,lifecycle:x.item.lifecycle,changeEpoch:x.item.changeEpoch})).sort((a,b)=>(a.source+'|'+a.id).localeCompare(b.source+'|'+b.id))});
+  }
+  function referenceAllowed(group){return !s.locked&&group.candidates.length>0&&group.candidates.every(x=>x.item.metadata&&x.item.read&&x.item.use&&x.item.send&&bodyAvailable(x.item));}
+  function memoryEntry(entry){return {id:entry.item.id,source:entry.origin.id,scope:entry.origin.scope,sourceName:entry.origin.name,sourceVersion:entry.origin.version,recordRevision:entry.item.recordRevision,title:entry.item.title,value:entry.item.value,body:entry.item.body,reason:entry.item.reason||null};}
+  function invalidateMemoryState(){
+    const groups=effective().filter(x=>x.role==='memory');
+    for(const key of Object.keys(s.memoryPreferences)){
+      const preference=s.memoryPreferences[key],group=groups.find(x=>memoryContext(x)===key);
+      if(!group||preference.binding!==memoryBinding(group))preference.status='stale';
+    }
+    for(const use of Object.values(s.memoryUses)){
+      const group=groups.find(x=>x.id===use.groupId);
+      if(!group||use.binding!==memoryBinding(group)){if(use.status==='resolved')use.laterChange=true;else use.status='stale';}
+    }
+  }
+  function prepareMemoryUse(use,allowSaved){
+    const group=effective().find(x=>x.id===use.groupId&&x.role==='memory');
+    if(use.binding)use.previousAttempts.push({attempt:use.attempt,binding:use.binding,result:use.result?copy(use.result):null});
+    use.attempt++;use.binding=group?memoryBinding(group):null;use.context=group?memoryContext(group):null;
+    use.candidate=null;use.mode=null;use.customText='';use.result=null;use.reused=false;
+    if(!group||!referenceAllowed(group)){use.status='unavailable';return;}
+    use.participants=group.candidates.map(memoryEntry);use.questionTitle=group.candidates[0].item.title;use.contextLabel=(c().repo||'개인')+(c().team?' · 제품팀':'');
+    if(!group.memoryConflict){use.status='resolved';use.result=freeze({kind:'references',entries:copy(use.participants)});delete s.memoryPending[group.id];return;}
+    const preference=s.memoryPreferences[use.context];use.changeNotice=preference?.status==='stale'||use.attempt>1;
+    if(allowSaved&&preference?.status==='active'&&preference.mode==='keep'&&preference.binding===use.binding){
+      use.status='resolved';use.mode='keep';use.result=freeze(copy(preference.choice));use.reused=true;delete s.memoryPending[group.id];return;
+    }
+    if(allowSaved&&preference?.status==='active'&&preference.mode==='ask'&&preference.binding===use.binding){use.mode='ask';}
+    use.status='pending_user';s.memoryPending[group.id]=use.id;s.memoryQuestions++;
+  }
+  function currentMemoryUse(){
+    const use=s.memoryUses[s.memoryUseId];if(!use)return null;
+    if(use.status==='resolved')return use;
+    const group=effective().find(x=>x.id===use.groupId&&x.role==='memory');
+    if(use.status==='stale'||!group||use.binding!==memoryBinding(group)||(use.status==='unavailable'&&referenceAllowed(group))){prepareMemoryUse(use,false);}
+    else if(!referenceAllowed(group))use.status='unavailable';
+    return use;
+  }
+  function beginMemoryUse(groupId,forceNew=false,allowSaved=true){
+    const group=effective().find(x=>x.id===groupId&&x.role==='memory');
+    if(!group||!group.candidates.length){s.error='참고할 결정 자료가 없습니다.';return;}
+    invalidateMemoryState();
+    const pending=s.memoryUses[s.memoryPending[groupId]];
+    if(!forceNew&&pending&&['pending_user','stale','unavailable'].includes(pending.status)){s.memoryUseId=pending.id;currentMemoryUse();navigate('memory-use');return;}
+    const use={id:'M'+String(++s.memoryUseSequence).padStart(2,'0'),groupId,attempt:0,binding:null,context:null,participants:[],status:'new',candidate:null,mode:null,customText:'',result:null,reused:false,previousAttempts:[]};
+    s.memoryUses[use.id]=use;s.memoryUseId=use.id;prepareMemoryUse(use,allowSaved);navigate('memory-use');
+  }
+  function canApplyMemory(use){
+    const group=effective().find(x=>x.id===use?.groupId);
+    return Boolean(use&&group&&use.status==='pending_user'&&use.binding===memoryBinding(group)&&referenceAllowed(group)&&['keep','ask'].includes(use.mode)&&(use.candidate==='custom'?use.customText.trim():group.candidates.some(x=>x.item.id===use.candidate)));
+  }
+  function applyMemory(useId,attempt){
+    const use=s.memoryUses[useId];
+    if(!use||s.memoryUseId!==useId||use.attempt!==Number(attempt)){s.error='현재 선택을 다시 확인하세요.';return;}
+    if(use.status==='resolved'){navigate('memory-use');return;}
+    const group=effective().find(x=>x.id===use.groupId);
+    if(!group||use.status==='stale'||use.binding!==memoryBinding(group)){prepareMemoryUse(use,false);s.error='결정 자료가 바뀌었습니다. 다시 선택하세요.';return;}
+    if(!canApplyMemory(use)){s.error='참고할 결정과 다음 사용 방식을 선택하세요.';return;}
+    const selected=group.candidates.find(x=>x.item.id===use.candidate);
+    const choice=use.candidate==='custom'?{kind:'custom',text:use.customText.trim()}:{kind:'selected',entry:memoryEntry(selected)};
+    use.result=freeze(copy(choice));use.status='resolved';use.reused=false;
+    s.memoryPreferences[use.context]={status:'active',binding:use.binding,groupId:use.groupId,mode:use.mode,choice:copy(choice),createdBy:use.id};
+    delete s.memoryPending[use.groupId];s.announcement='참고 결정 선택';navigate('memory-use');
+  }
+  function updateMemorySource(sourceId,itemId,revised){
+    const prior=sourceById(sourceId);if(!prior)return;
+    const replacement=copy(prior),item=replacement.items.find(x=>x.id===itemId);if(!item)return;
+    replacement.version=prior.version+1;item.recordRevision++;item.changeEpoch=++s.memoryChangeSequence;
+    if(itemId==='tm-retry')Object.assign(item,revised?{value:'4회',body:'팀 기록: 일반 요청의 재시도를 4회로 변경했다.',choiceId:'retry:4',reason:'관찰한 연속 오류에 대응하기 위해'}:{value:'3회',body:'팀 기록: 일반 요청의 재시도를 3회로 선택했다.',choiceId:'retry:3',reason:'일시적 오류가 풀릴 기회를 더 두기 위해'});
+    else Object.assign(item,revised?{value:'이유와 결과 기록',body:'개인 기록: 검토의 이유와 결과를 함께 남기기로 했다.',choiceId:'review:detailed'}:{value:'주요 이유 기록',body:'개인 기록: 중요한 검토의 이유를 남기기로 했다.',choiceId:'review:base'});
+    s.originals=freeze(s.originals.map(x=>x.id===sourceId?replacement:x));s.sourceArchive.push(s.originals);s.originalSignature=JSON.stringify(s.originals);
+    if(isEnabled(replacement)){const id=groupId(replacement,item);s.memoryGroupEpochs[id]=(s.memoryGroupEpochs[id]||0)+1;}
+    invalidateMemoryState();change('결정 자료 갱신');
+  }
+  function issue(){
+    if(s.locked)return {kind:'locked'};
+    if(s.pending)return {kind:'unknown'};
+    for(const group of effective()){
+      if(group.conflict&&group.top.some(x=>x.item.startupRequired))return {kind:'conflict',group};
+      const winner=group.winner;if(!winner)continue;
+      const item=winner.item;
+      if(!item.metadata||!item.use||!item.send)return {kind:'denied',group,winner};
+      if(item.startupRequired&&!item.read)return {kind:'denied',group,winner};
+      if(item.startupRequired&&!bodyAvailable(item))return {kind:'missing',group,winner};
+    }
+    return {kind:'ready'};
+  }
+  function change(message='자료 선택 변경'){s.revision++;s.assessment=null;s.result=null;s.error='';s.announcement=message;}
+  function visibleTitle(entry){return entry.item.metadata?entry.item.title:'접근 제한';}
+  function visibleValue(entry){return !entry.item.metadata||!entry.item.read?'열람 제한':!bodyAvailable(entry.item)?'본문 없음':entry.item.value;}
+  function entryLink(entry,label){return link(esc(label||entry.origin.name+' · '+entry.origin.version+'판'),'source','data-source="'+entry.origin.id+'"');}
+
+  function sourceCell(scope,role){
+    const origin=s.originals.find(x=>x.scope===scope&&x.role===role);
+    if(!origin)return '<span class="small">'+(scope==='repo'?'연결 안 함':'참여 팀 없음')+'</span>';
+    return '<div class="source-cell"><label><input type="checkbox" data-toggle-source="'+origin.id+'" aria-label="'+esc(scopes.find(x=>x.id===scope).label+' '+roleName(role)+' 사용')+'" '+(isEnabled(origin)?'checked':'')+'></label>'+link(esc(origin.name)+'<span>'+origin.version+'판'+(isEnabled(origin)?'':' · 사용 안 함')+'</span>','source','data-source="'+origin.id+'"')+'</div>';
+  }
+  function sourceMatrix(){return '<table class="scope-table" aria-label="범위별 지침 지식 결정 자료"><thead><tr><th scope="col">범위</th>'+roles.map(r=>'<th scope="col">'+r.label+'</th>').join('')+'</tr></thead><tbody>'+scopes.map(scope=>'<tr><th scope="row">'+scope.label+'</th>'+roles.map(role=>'<td data-cell="'+scope.id+'-'+role.id+'" data-role-label="'+esc(role.label)+'">'+sourceCell(scope.id,role.id)+'</td>').join('')+'</tr>').join('')+'</tbody></table>';}
+  function status(){
+    const state=issue();
+    if(state.kind==='missing')return '<div class="alert">'+esc(state.winner.origin.name)+' · '+esc(visibleTitle(state.winner))+' 본문 없음<div class="actions">'+link('자료 받기','recovery')+'</div></div>';
+    if(state.kind==='denied')return '<div class="alert">선택한 자료를 Codex CLI에 제공할 수 없습니다.<div class="actions">'+link('접근 방법','recovery')+'</div></div>';
+    if(state.kind==='conflict')return '<div class="alert">'+esc(visibleTitle(state.group.top[0]))+' · 같은 범위의 선택 충돌<div class="actions">'+link('항목 선택','effective')+'</div></div>';
+    if(state.kind==='unknown')return '<div class="alert">실행 '+esc(s.pending.id)+' · 응답 미확인<div class="actions">'+link('결과 확인','pending')+'</div></div>';
+    return '';
+  }
+  function startView(){return '<div class="project"><div class="project-top"><h1>'+esc(c().repo||'레포 없음')+'</h1>'+link('기록','records')+'</div>'+(c().repo?'<p class="small">로컬 레포 · main</p>':'')+'<p class="small record">'+esc(c().record||'연결된 진행 기록 없음')+'</p></div><div class="columns"><section><div class="section-top"><h2>환경·자료</h2>'+link('적용 자료 보기','effective')+'</div><p class="small name">지침·지식: 레포 → 개인 → 팀<br>결정 자료: 충돌 시 사용자 선택'+(c().team?' · 제품팀':'')+'</p>'+sourceMatrix()+'</section><section><div class="section-top"><h2>실행</h2>'+link('설정','settings')+'</div>'+facts([['도구','Codex CLI · 새 세션'],['구성',esc(modes[s.draft.mode])],['파일 변경',s.draft.permission==='confirm'?'변경 전 확인':'세션의 허용 범위']])+(s.draft.mode==='review'?'<p class="small">검토 모델 호출 추가</p>':'')+'</section></div>'+status()+'<div class="bottom"><span class="small">'+(design.scenario==='offline'?'오프라인 · 9/12 확인 · 이후 변경 미확인':'')+'</span>'+btn('새 세션 시작','start-session',true,issue().kind==='ready'?'':'disabled')+'</div>';}
+  function homeView(){return '<h1>Studio</h1><p class="small">'+(c().team?'제품팀':'개인')+'</p><div class="list" data-menu>'+[
+    ['시작','start'],['환경·자료','materials'],['기록','records'],['변경 검토','reviews'],['팀','team'],['동기화·복구','recovery']
+  ].map(([label,action])=>'<div class="row">'+link(label,action)+'</div>').join('')+'</div>';}
+  function materialsView(){return '<h1>환경·자료</h1><p class="small name">지침·지식: 레포 → 개인 → 팀<br>결정 자료: 충돌 시 사용자 선택</p>'+sourceMatrix()+'<div class="bottom">'+link('돌아가기','start')+btn('적용 자료 보기','effective',true)+'</div>';}
+  function originalsList(group){return '<details><summary>다른 원본</summary><div class="unit-originals">'+group.originals.filter(x=>!group.winner||x.item.id!==group.winner.item.id).map(entry=>'<div class="original">'+entryLink(entry,scopeName(entry.origin.scope)+' · '+entry.origin.name+' '+entry.origin.version+'판')+'<span class="small">'+esc(visibleValue(entry))+' · '+(!isEnabled(entry.origin)?'사용 안 함':group.role==='memory'?'연결된 자료':group.winner&&rank[entry.origin.scope]>rank[group.winner.origin.scope]?'후순위':'같은 범위')+'</span></div>').join('')+'</div></details>';}
+  function effectiveView(){
+    let html='<h1>적용 자료</h1><p class="small name">지침·지식: 레포 → 개인 → 팀</p>';
+    for(const role of roles){const groups=effective().filter(x=>x.role===role.id);html+='<h2 class="role-heading">'+(role.id==='instructions'?'지침':role.id==='knowledge'?'참고 지식':'참고할 결정 자료')+'</h2>';
+      if(!groups.length)html+='<p class="name">선택한 자료 없음</p>';
+      for(const group of groups){const title=group.winner?visibleTitle(group.winner):group.top[0]?visibleTitle(group.top[0]):visibleTitle(group.originals[0]);html+='<div class="unit" data-effective-group="'+esc(group.id)+'" data-memory-conflict="'+Boolean(group.memoryConflict)+'"><h3>'+esc(title)+'</h3>';
+        if(group.role==='memory'){
+          if(group.memoryConflict)html+='<p class="small">서로 다른 결정 · 참고할 때 선택</p>';
+          else if(group.winner)html+='<p class="unit-value">'+esc(visibleValue(group.winner))+'</p>';
+          else if(!group.candidates.length)html+='<p class="small">사용 안 함</p>';
+          if(group.candidates.length){const pending=s.memoryUses[s.memoryPending[group.id]];html+='<div class="actions">'+btn(pending?'선택 이어가기':'참고하기','memory-reference',false,'data-group="'+esc(group.id)+'"')+'</div>';}
+        }
+        else if(group.conflict){html+='<p class="small">'+esc(scopeName(group.top[0].origin.scope))+' · 항목 선택 필요</p><div class="actions">'+group.top.map(entry=>btn(esc(visibleValue(entry))+' 항목 선택','resolve',false,'data-group="'+esc(group.id)+'" data-unit="'+entry.item.id+'" '+(!entry.item.metadata||!entry.item.read?'disabled':''))).join('')+'</div>';}
+        else if(group.winner){html+='<div class="unit-value" data-winner="'+group.winner.item.id+'">'+esc(visibleValue(group.winner))+'</div><div class="small">'+entryLink(group.winner,scopeName(group.winner.origin.scope)+' · '+group.winner.origin.name+' '+group.winner.origin.version+'판')+'</div>';}
+        else html+='<p class="small">사용 안 함</p>';
+        if(group.originals.length>1||!group.winner)html+=originalsList(group);
+        html+='</div>';
+      }
+    }
+    return html+'<div class="bottom">'+link('돌아가기','start')+'</div>';
+  }
+  function memoryUseView(){
+    const use=currentMemoryUse();if(!use)return effectiveView();
+    const group=effective().find(x=>x.id===use.groupId),title=use.questionTitle||(group?.candidates[0]?visibleTitle(group.candidates[0]):'결정 자료');
+    const heading='<h1>'+esc(title)+'</h1><p class="small name">'+esc(use.contextLabel||c().repo||'개인')+'</p>';
+    if(use.status==='unavailable')return heading+'<p class="name">결정 자료의 접근과 본문을 확인하세요.</p><div class="bottom">'+link('돌아가기','effective')+'</div>';
+    if(use.status==='resolved'){
+      const result=use.result;
+      const selected=result.kind==='selected'?result.entry:null;
+      const body=result.kind==='custom'?facts([['직접 결정',esc(result.text)]]):selected?facts([['선택',esc(selected.value)],['출처',esc(scopeName(selected.scope)+' · '+selected.sourceName+' '+selected.sourceVersion+'판')],['이유',esc(selected.reason||'기록 없음')]]):result.entries.map(entry=>'<div class="unit"><p>'+esc(scopeName(entry.scope)+' · '+entry.sourceName+' '+entry.sourceVersion+'판')+'</p><div class="body-text">'+esc(entry.body)+'</div></div>').join('');
+      return heading+body+(use.mode?facts([['선택한 방식',use.mode==='keep'?'관련 결정 변경 전까지 유지':'사용할 때마다 묻기']]):'')+(use.laterChange?'<p class="small">이 참고 이후 결정 자료가 변경됨</p>':use.reused?'<p class="small">유지한 선택</p>':'')+'<div class="bottom">'+link('돌아가기','effective')+(use.mode?link('선택 바꾸기','memory-rechoose'):'')+btn('다시 참고하기','memory-new',false,'data-group="'+esc(use.groupId)+'"')+'</div>';
+    }
+    const common=' data-use="'+use.id+'" data-attempt="'+use.attempt+'"';
+    return heading+(use.changeNotice?'<p class="small">관련 결정이 바뀌었습니다.</p>':'')+'<p class="name">어느 결정을 참고할까요?</p><fieldset><legend>참고할 결정</legend>'+use.participants.map(entry=>'<label class="memory-choice"><input type="radio" name="memory-candidate" data-field="memory-choice"'+common+' value="'+entry.id+'" '+(use.candidate===entry.id?'checked':'')+'><span>'+esc(scopeName(entry.scope)+' · '+entry.sourceName+' '+entry.sourceVersion+'판')+'<br>'+esc(entry.value)+'<small>이유: '+esc(entry.reason||'기록 없음')+'</small></span></label>').join('')+'<label class="memory-choice"><input type="radio" name="memory-candidate" data-field="memory-choice"'+common+' value="custom" '+(use.candidate==='custom'?'checked':'')+'><span>직접 결정</span></label>'+(use.candidate==='custom'?'<label class="field">결정 내용<input type="text" class="memory-text" data-field="memory-text"'+common+' value="'+esc(use.customText)+'" autocomplete="off"></label>':'')+'</fieldset><fieldset><legend>다음에 참고할 때</legend><div class="memory-modes"><label class="memory-choice"><input type="radio" name="memory-mode" data-field="memory-mode"'+common+' value="keep" '+(use.mode==='keep'?'checked':'')+'><span>관련 결정 변경 전까지 유지</span></label><label class="memory-choice"><input type="radio" name="memory-mode" data-field="memory-mode"'+common+' value="ask" '+(use.mode==='ask'?'checked':'')+'><span>사용할 때마다 묻기</span></label></div></fieldset><div class="bottom">'+link('돌아가기','effective')+btn('적용','memory-apply',true,common+(canApplyMemory(use)?'':' disabled'))+'</div>';
+  }
+  function sourceView(){
+    const origin=sourceById(s.source);if(!origin)return recoveryView();
+    const groups=effective();
+    return '<h1>'+esc(origin.name)+' · '+origin.version+'판</h1><p class="small name">'+esc(scopeName(origin.scope))+' · '+roleName(origin.role)+'</p><div class="actions"><label><input type="checkbox" data-toggle-source="'+origin.id+'" aria-label="이 자료 사용" '+(isEnabled(origin)?'checked':'')+'> 이 자료 사용</label></div>'+origin.items.map(item=>{
+      const entry={origin,item},group=groups.find(x=>x.id===groupId(origin,item));
+      const choice=!isEnabled(origin)?'사용 안 함':origin.role==='memory'?'연결된 결정 자료':group.winner?.item.id===item.id?'선택된 자료':group.conflict?'선택 충돌':'후순위 자료';
+      return '<div class="unit"'+(item.metadata?' data-original-unit="'+item.id+'"':'')+'><div class="unit-head"><h2>'+esc(visibleTitle(entry))+'</h2><span class="small">'+choice+'</span></div>'+(item.metadata&&item.startupRequired?'<p class="small">초기 필수</p>':'')+(!item.metadata||!item.read?'<p class="name">본문 열람 제한</p>':!bodyAvailable(item)?'<p class="name">본문 없음</p>':'<div class="body-text">'+esc(item.body)+'</div>')+(item.metadata&&item.recordStatus?'<p class="small">'+esc(item.recordStatus)+'</p>':'')+(item.metadata&&!item.send?'<p class="small">도구 제공 제한</p>':'')+(item.metadata?'<details><summary>식별 정보</summary>'+facts([['항목',esc(item.id)],['자료 키',esc(item.key)]])+'</details>':'')+'</div>';
+    }).join('')+'<div class="bottom">'+link('돌아가기','return')+link('적용 자료 보기','effective')+'</div>';
+  }
+  function settingsView(){return '<h1>Codex CLI</h1><label class="field">구성<select data-field="mode">'+Object.entries(modes).map(([id,label])=>'<option value="'+id+'" '+(id===s.draft.mode?'selected':'')+'>'+label+'</option>').join('')+'</select></label>'+(s.draft.mode==='review'?'<p class="small">추가 검토자 1명 · 모델 호출 추가</p>':'')+'<label class="field">파일 변경<select data-field="permission"><option value="confirm" '+(s.draft.permission==='confirm'?'selected':'')+'>변경 전 확인</option><option value="scoped" '+(s.draft.permission==='scoped'?'selected':'')+'>세션에서 명시적으로 허용한 범위</option></select></label><div class="bottom">'+link('돌아가기','start')+'</div>';}
+  function recordsView(){return '<h1>'+esc(c().repo?c().repo+' · 기록':'기록')+'</h1>'+(c().record?'<div class="list"><div class="row">'+esc(c().record)+'</div></div>':'<p class="name">연결된 진행 기록 없음</p>')+s.history.map(result=>'<div class="row">실행 '+esc(result.id)+' · '+(result.reconciled?'전달 기록 확인':'시작 요청 전송됨')+'</div>').join('')+'<div class="bottom">'+link('돌아가기','start')+'</div>';}
+  function recoveryView(){
+    if(s.pending)return pendingView();const state=issue();
+    if(state.kind==='conflict')return effectiveView();
+    return '<h1>'+(state.kind==='denied'?'자료 접근':'동기화·복구')+'</h1>'+(state.kind==='missing'?'<p class="name">'+esc(state.winner.origin.name)+' · '+esc(visibleTitle(state.winner))+' 본문 없음</p>'+btn('자료 받기','receive',true,'data-unit="'+state.winner.item.id+'"'):state.kind==='denied'?'<p class="name">선택한 자료의 열람·도구 제공 권한을 확인하세요.</p>':facts([['연결','동료 사본 · 파일 교환'],['GitHub','연결 안 함'],['마지막 확인',design.scenario==='offline'?'9/12 · 이후 변경 미확인':'9/14']]))+'<div class="bottom">'+link('돌아가기','start')+'</div>';
+  }
+  function selectionSummary(selection){return selection.groups.map(group=>{
+    if(group.role==='memory'&&group.refs?.length)return '결정 자료 · '+group.refs.map(x=>scopeName(x.scope)+' / '+x.sourceName+' '+x.sourceVersion+'판').join(', ')+' · '+(group.memoryConflict?'참고 시 사용자 선택':'조회 경로');
+    const reference=group.refs?.find(x=>x.id===group.winner);
+    return reference?roleName(group.role)+' · '+scopeName(reference.scope)+' · '+reference.sourceName+' '+reference.sourceVersion+'판':'';
+  }).filter(Boolean).map(x=>'<div>'+esc(x)+'</div>').join('');}
+  function pendingView(){if(!s.pending)return recoveryView();return '<h1>실행 '+esc(s.pending.id)+'</h1><p class="name">응답 미확인</p>'+facts([['레포',esc(s.pending.location||'없음')],['당시 자료',selectionSummary(s.pending.selection)],['구성',esc(modes[s.pending.draft.mode])]])+'<div class="bottom">'+link('돌아가기','start')+btn('결과 확인','check-request',true)+'</div>';}
+  function resultView(){const result=s.result;if(!result)return startView();return '<h1>Codex CLI</h1><p class="name">'+(result.reconciled?'실행 '+esc(result.id)+' · 전달 기록 확인':'새 세션 · 시작 요청 전송됨')+'</p>'+facts([['구성',esc(modes[result.draft.mode])],['선택 자료',selectionSummary(result.selection)],['요청 내용','선택된 지침 · 지식·결정 조회 규칙'],['실행 번호',esc(result.id)]])+'<div class="bottom">'+link('시작 화면','start')+link('기록','records')+'</div>';}
+  function lockView(){return '<h1>잠김</h1><div class="bottom">'+btn('잠금 해제','unlock',true)+'</div>';}
+  const views={start:startView,home:homeView,materials:materialsView,effective:effectiveView,'memory-use':memoryUseView,settings:settingsView,source:sourceView,records:recordsView,recovery:recoveryView,pending:pendingView,result:resultView,reviews:()=>'<h1>변경 검토</h1><p class="name">검토 요청 없음</p><div class="bottom">'+link('돌아가기','home')+'</div>',team:()=>'<h1>팀</h1><p class="name">'+(c().team?'제품팀':'참여한 팀 없음')+'</p><div class="bottom">'+link('돌아가기','home')+'</div>'};
+  function render(){
+    if(JSON.stringify(s.originals)!==s.originalSignature)throw new Error('원본 배열 변경');
+    const active=document.activeElement,keep=app.contains(active)?{action:active.dataset.action,field:active.dataset.field,source:active.dataset.source,toggle:active.dataset.toggleSource,unit:active.dataset.unit,radio:active.type==='radio'?active.value:null}:{};
+    app.dataset.screen=s.locked?'locked':s.page;app.dataset.layout=design.layout;app.dataset.revision=String(s.revision);app.dataset.requestId=s.locked?'':s.pending?.id||s.result?.id||'';app.dataset.assessedRevision=s.assessment?String(s.assessment.revision):'';app.dataset.issue=s.locked?'locked':issue().kind;
+    app.innerHTML='<header><span>agent-bios <span class="small">/ Studio</span></span><nav class="actions">'+(s.locked?'':link('메뉴','home')+link('잠금','lock'))+'</nav></header><main>'+(s.locked?lockView():(views[s.page]||startView)())+(s.error?'<div class="alert" role="alert">'+esc(s.error)+'</div>':'')+'</main><footer>Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로<span class="sr" role="status" aria-live="polite">'+esc(s.announcement)+'</span></footer>';
+    const memoryUse=s.memoryUses[s.memoryUseId];app.dataset.memoryUseId=s.locked?'':memoryUse?.id||'';app.dataset.memoryUseStatus=s.locked?'':memoryUse?.status||'';app.dataset.memoryAttempt=s.locked?'':memoryUse?String(memoryUse.attempt):'';
+    let target=keep.toggle?app.querySelector('[data-toggle-source="'+keep.toggle+'"]'):keep.field?app.querySelector('[data-field="'+keep.field+'"]'+(keep.radio?'[value="'+keep.radio+'"]':'')):keep.action?app.querySelector('[data-action="'+keep.action+'"]'+(keep.source?'[data-source="'+keep.source+'"]':'')+(keep.unit?'[data-unit="'+keep.unit+'"]':'')):null;
+    if(!target&&(keep.action||keep.toggle))target=app.querySelector('main button:not(:disabled),main input,main select');if(target)target.focus({preventScroll:true});
+  }
+  function navigate(page){s.page=page;s.error='';s.announcement='';}
+  app.addEventListener('click',event=>{
+    const button=event.target.closest('button[data-action]');if(!button||button.disabled)return;const action=button.dataset.action;if(s.locked&&action!=='unlock')return;s.error='';
+    if(action==='source'){const origin=sourceById(button.dataset.source);if(origin){s.source=origin.id;s.returnPage=s.page==='source'?s.returnPage:s.page;navigate('source');}}
+    else if(action==='return')navigate(s.returnPage||'start');
+    else if(action==='memory-reference'){if(s.page==='effective')beginMemoryUse(button.dataset.group);}
+    else if(action==='memory-rechoose'){const use=currentMemoryUse();if(s.page==='memory-use'&&use)beginMemoryUse(use.groupId,true,false);}
+    else if(action==='memory-new'){if(s.page==='memory-use')beginMemoryUse(button.dataset.group,true);}
+    else if(action==='memory-apply'){if(s.page==='memory-use')applyMemory(button.dataset.use,button.dataset.attempt);}
+    else if(action==='resolve'){const group=effective().find(x=>x.id===button.dataset.group),entry=group?.top.find(x=>x.item.id===button.dataset.unit);if(group?.role!=='memory'&&entry&&entry.item.metadata&&entry.item.read){s.resolution[group.id]=entry.item.id;change('이번 시작의 항목 선택 변경');}}
+    else if(action==='start-session'){
+      if(s.page!=='start')return;const state=issue();s.assessment={revision:s.revision,issue:state.kind,taskSupport:'not-assessed'};
+      if(state.kind==='ready'){s.sequence++;s.result=freeze({id:String(s.sequence).padStart(2,'0'),draft:copy(s.draft),selection:captureSelection(),reconciled:false});s.history.push(s.result);navigate('result');}
+      else navigate(state.kind==='unknown'?'pending':state.kind==='conflict'?'effective':'recovery');
+    }
+    else if(action==='receive'){const state=issue();if(state.kind==='missing'&&state.winner.item.id===button.dataset.unit&&state.winner.item.read&&state.winner.item.use&&state.winner.item.send){s.recovered.push(state.winner.item.id);change('본문 수신 확인');navigate('start');}}
+    else if(action==='check-request'){if(s.pending){s.result=freeze({id:s.pending.id,draft:copy(s.pending.draft),selection:copy(s.pending.selection),reconciled:true});s.history.push(s.result);s.pending=null;navigate('result');}}
+    else if(action==='lock'){s.locked=true;s.assessment=null;}
+    else if(action==='unlock'){s.locked=false;s.assessment=null;navigate(design.entry==='host'?'start':'home');}
+    else if(views[action])navigate(action);
+    render();
+  });
+  app.addEventListener('change',event=>{
+    if(s.locked)return;const sourceId=event.target.dataset.toggleSource;
+    if(sourceId&&sourceById(sourceId)){
+      const origin=sourceById(sourceId),enabled=event.target.checked===true;
+      if(s.enabled[sourceId]!==enabled){s.enabled[sourceId]=enabled;if(origin.role==='memory')for(const item of origin.items){const id=groupId(origin,item);s.memoryGroupEpochs[id]=(s.memoryGroupEpochs[id]||0)+1;}invalidateMemoryState();change();}
+      render();return;
+    }
+    const key=event.target.dataset.field,value=event.target.value;
+    if(['memory-choice','memory-mode'].includes(key)){
+      const use=s.memoryUses[event.target.dataset.use];
+      if(s.page!=='memory-use'||!use||use.id!==s.memoryUseId||use.attempt!==Number(event.target.dataset.attempt)||use.status!=='pending_user')return;
+      if(key==='memory-choice'&&(value==='custom'||use.participants.some(x=>x.id===value)))use.candidate=value;
+      if(key==='memory-mode'&&['keep','ask'].includes(value))use.mode=value;
+      render();return;
+    }
+    if(key==='mode'&&Object.hasOwn(modes,value)||key==='permission'&&['confirm','scoped'].includes(value)){s.draft[key]=value;change('실행 설정 변경');render();}
+  });
+  app.addEventListener('input',event=>{
+    if(s.locked||event.target.dataset.field!=='memory-text')return;
+    const use=s.memoryUses[event.target.dataset.use];
+    if(s.page!=='memory-use'||!use||use.id!==s.memoryUseId||use.attempt!==Number(event.target.dataset.attempt)||use.status!=='pending_user')return;
+    use.customText=event.target.value;const button=app.querySelector('[data-action="memory-apply"]');if(button)button.disabled=!canApplyMemory(use);
+  });
+  app.addEventListener('keydown',event=>{
+    if(event.target.closest('input,select,textarea,[contenteditable]'))return;
+    if(event.key==='Escape'&&!s.locked&&!['start','home'].includes(s.page)){event.preventDefault();navigate(s.page==='source'?s.returnPage:s.page==='memory-use'?'effective':'start');render();return;}
+    const menu=event.target.closest('[data-menu]');if(menu&&['ArrowDown','ArrowUp'].includes(event.key)){const buttons=[...menu.querySelectorAll('button')],i=buttons.indexOf(document.activeElement);if(i>=0){event.preventDefault();buttons[(i+(event.key==='ArrowDown'?1:-1)+buttons.length)%buttons.length].focus();}}
+  });
+  function openDesignEntry(){
+    if(design.entry==='decision'){navigate('effective');if(!s.locked)beginMemoryUse('memory|retry-choice/ordinary-request');}
+    else navigate(design.entry==='host'?'start':'home');
+  }
+  function applyDesign(){
+    if(!cases[design.scenario])design.scenario='all';
+    if(design.scenario!==applied.scenario){reset();openDesignEntry();}
+    else{
+      if(design.teamDecision!==applied.teamDecision)updateMemorySource('team-memory','tm-retry',design.teamDecision==='revised');
+      if(design.personalRecord!==applied.personalRecord)updateMemorySource('personal-memory','pm-review',design.personalRecord==='revised');
+      if(design.entry!==applied.entry)openDesignEntry();
+    }
+    applied={...design};render();
+  }
+  reset();openDesignEntry();render();
+  if(globalThis.Tweak){const tweak=new Tweak({container:root,onChange:applyDesign});tweak.addSelect(design,'entry',{label:'진입',options:[{label:'결정 자료 사용',value:'decision'},{label:'런처',value:'host'},{label:'Studio',value:'studio'}]});tweak.addSelect(design,'scenario',{label:'사례',options:Object.entries(cases).map(([value,valueCase])=>({label:valueCase.label,value}))});tweak.addSelect(design,'layout',{label:'배치',options:[{label:'표와 실행',value:'columns'},{label:'한 열',value:'stack'}]});tweak.addSelect(design,'teamDecision',{label:'팀 재시도 결정',options:[{label:'3회 내용',value:'base'},{label:'4회로 변경',value:'revised'}]});tweak.addSelect(design,'personalRecord',{label:'무관한 개인 검토 기록',options:[{label:'기존 내용',value:'base'},{label:'내용 갱신',value:'revised'}]});}
+})();
+</script>

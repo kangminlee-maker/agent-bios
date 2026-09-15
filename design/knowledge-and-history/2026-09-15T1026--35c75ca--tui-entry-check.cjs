@@ -1,0 +1,33 @@
+// Dated author-side fictional projection check. No product/runtime/human qualification.
+const fs=require('fs');
+const vm=require('vm');
+const assert=require('assert/strict');
+const path=require('path').join(__dirname,'2026-09-15T1026--35c75ca--tui-entry-prototype.html');
+const html=fs.readFileSync(path,'utf8');
+let js=html.match(/<script>([\s\S]*?)<\/script>/)[1];
+js=js.replace(/\}\)\(\);\s*$/, 'globalThis.fixture={get state(){return s},design,reset,render,effective,issue,captureSelection,selectionSummary,navigate,sourceById};})();');
+const handlers={};
+const app={dataset:{},innerHTML:'',contains:()=>false,querySelector:()=>null,addEventListener:(name,cb)=>{handlers[name]=cb}};
+const context={document:{getElementById:id=>id==='bios-app'?app:{},activeElement:null}};
+vm.createContext(context);vm.runInContext(js,context);
+const f=context.fixture,checks=[];
+function check(name,test){test();checks.push(name)}
+check('host-default-preparation',()=>assert.equal(f.state.page,'start'));
+check('nine-independent-source-controls',()=>assert.equal((app.innerHTML.match(/data-toggle-source=/g)||[]).length,9));
+check('instructions-knowledge-only-order-label',()=>assert.ok(app.innerHTML.includes('지침·지식: 레포 → 개인 → 팀')));
+check('memory-conflict-does-not-block-start',()=>assert.equal(f.issue().kind,'ready'));
+check('no-memory-group-winner',()=>assert.ok(f.effective().filter(g=>g.role==='memory').every(g=>g.winner===null)));
+check('conflicting-memory-records-retained',()=>assert.equal(f.effective().find(g=>g.memoryConflict).candidates.length,2));
+check('inspect-conflict-has-no-application-actions',()=>{f.navigate('effective');f.render();assert.ok(app.innerHTML.includes('서로 다른 결정 기록'));assert.ok(!app.innerHTML.includes('참고하기'));assert.ok(!app.innerHTML.includes('data-action="resolve"'));});
+check('memory-source-shows-recorded-reason',()=>{f.state.source='repo-memory';f.navigate('source');f.render();assert.ok(app.innerHTML.includes('불필요한 반복 요청을 줄이기 위해'));assert.ok(app.innerHTML.includes('조회에 포함'));});
+check('snapshot-keeps-all-memory-references',()=>{const g=f.captureSelection().groups.find(g=>g.memoryConflict);assert.equal(g.refs.length,2);assert.equal(g.winner,null);assert.ok(f.selectionSummary(f.captureSelection()).includes('서로 다른 기록'));});
+check('disabled-source-stays-excluded',()=>{f.state.enabled['repo-memory']=false;f.render();assert.equal(f.effective().find(g=>g.id==='memory|retry-choice/ordinary-request').candidates.length,1);assert.equal(f.state.enabled['repo-memory'],false);});
+check('original-record-array-unchanged',()=>assert.equal(JSON.stringify(f.state.originals),f.state.originalSignature));
+check('empty-repo-inherits-personal-instructions',()=>{f.design.scenario='noRepo';f.reset();assert.equal(f.effective().find(g=>g.id==='instructions|response-language').winner.origin.scope,'personal');});
+check('missing-selected-top-instructions-block',()=>{f.design.scenario='missingTop';f.reset();assert.equal(f.issue().kind,'missing');});
+check('shadowed-team-body-does-not-block',()=>{f.design.scenario='missingLower';f.reset();assert.equal(f.issue().kind,'ready');});
+check('unknown-preserves-old-lookup-reference',()=>{f.design.scenario='unknown';f.reset();assert.equal(f.issue().kind,'unknown');assert.ok(f.selectionSummary(f.state.pending.selection).includes('결정 자료 조회'));});
+check('locked-remains-locked',()=>{f.design.scenario='locked';f.reset();assert.equal(f.issue().kind,'locked');});
+check('generic-studio-opens-hub',()=>{f.design.scenario='all';f.design.entry='studio';f.reset();f.render();assert.equal(f.state.page,'home');assert.ok(app.innerHTML.includes('변경 검토'));});
+const result={status:'passed',checks,scope:'Node VM with minimal DOM stubs; no real browser, terminal, host, or human validation'};
+console.log(JSON.stringify(result,null,2));
