@@ -27,15 +27,20 @@ Name: "{group}\Instructions Studio"; Filename: "{app}\agent-bios.exe"; Parameter
 [Run]
 Filename: "{app}\agent-bios.exe"; Parameters: "install"; Description: "Open agent-bios setup"; Flags: postinstall skipifsilent nowait
 [Code]
+var OwnedPathToRemove: String;
 function InitializeUninstall(): Boolean;
-var ExitCode: Integer;
+var ExitCode: Integer; Owned: String;
 begin
-  Result := Exec(ExpandConstant('{app}\agent-bios.exe'), 'uninstall', '', SW_HIDE, ewWaitUntilTerminated, ExitCode);
+  OwnedPathToRemove := '';
+  if RegQueryStringValue(HKCU, 'Software\agent-bios', 'OwnedPath', Owned) then
+    if CompareText(GetShortName(Owned), GetShortName(ExpandConstant('{app}'))) = 0 then
+      OwnedPathToRemove := Owned;
+  Log('Owned PATH entry selected before removal: ' + OwnedPathToRemove);
+  Result := Exec(ExpandConstant('{app}\agent-bios.exe'), 'uninstall --dry-run', '', SW_HIDE, ewWaitUntilTerminated, ExitCode);
   if Result then Result := ExitCode = 0;
   if not Result then
     SuppressibleMsgBox('agent-bios could not safely detach its private runtime. Run agent-bios uninstall in a terminal, resolve the reported issue, then retry.', mbError, MB_OK, IDOK);
 end;
-
 procedure CurStepChanged(CurStep: TSetupStep);
 var P, Entry: String;
 begin
@@ -50,11 +55,17 @@ begin
   end;
 end;
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
-var P, Owned, Entry, Updated: String; I: Integer;
+var P, Owned, Entry, Updated: String; I, ExitCode: Integer;
 begin
+  if CurUninstallStep = usUninstall then begin
+    if not Exec(ExpandConstant('{app}\agent-bios.exe'), 'uninstall', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
+      RaiseException('Could not start private runtime removal; program files were not removed.');
+    if ExitCode <> 0 then
+      RaiseException('Private runtime removal failed; program files were not removed.');
+  end;
   if CurUninstallStep = usPostUninstall then begin
     if RegQueryStringValue(HKCU, 'Software\agent-bios', 'OwnedPath', Owned) and
-       (CompareText(Owned, ExpandConstant('{app}')) = 0) then begin
+       (OwnedPathToRemove <> '') and (CompareText(Owned, OwnedPathToRemove) = 0) then begin
       RegQueryStringValue(HKCU, 'Environment', 'Path', P);
       Updated := '';
       while P <> '' do begin
@@ -68,6 +79,7 @@ begin
       end;
       RegWriteExpandStringValue(HKCU, 'Environment', 'Path', Updated);
       RegDeleteValue(HKCU, 'Software\agent-bios', 'OwnedPath');
+      Log('Removed owned PATH entry: ' + Owned);
     end;
   end;
 end;

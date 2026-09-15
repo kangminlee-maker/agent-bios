@@ -75,13 +75,24 @@ with tempfile.TemporaryDirectory(prefix='agent-bios 한글 공백 ') as temp:
     assert (home/'.codex/AGENTS.md').read_text()=='NATIVE KEEP'
     assert (home/'.claude/CLAUDE.md').read_text()=='NATIVE KEEP'
     checks.append('reinstall preserves private and native files')
-    cli('uninstall')
-    run([app/'unins000.exe','/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART'])
+    record_path=home/'state/runtime/private-install.json'
+    original=record_path.read_bytes()
+    bad=json.loads(original); bad['launcher']['sha256']='0'*64
+    record_path.write_text(json.dumps(bad),encoding='utf-8')
+    refused=subprocess.run([str(app/'unins000.exe'),'/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',f'/LOG={out / "uninstall-refused.log"}'],env=env,capture_output=True,timeout=90)
+    assert refused.returncode != 0 and exe.exists()
+    assert sentinel.read_text()=='KEEP'
+    record_path.write_bytes(original)
+    checks.append('invalid ownership blocks uninstallation before program removal')
+    run([app/'unins000.exe','/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',f'/LOG={out / "uninstall.log"}'],env=env)
     deadline=time.monotonic()+20
-    while exe.exists() and time.monotonic()<deadline: time.sleep(.1)
-    assert not exe.exists() and sentinel.read_text()=='KEEP'
-    with winreg.OpenKey(winreg.HKEY_CURRENT_USER,'Environment') as key:path=winreg.QueryValueEx(key,'Path')[0]
-    assert str(app).casefold() not in [p.casefold() for p in path.split(';')]
+    while True:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,'Environment') as key:path=winreg.QueryValueEx(key,'Path')[0]
+        path_removed=str(app).casefold() not in [p.casefold() for p in path.split(';')]
+        if not exe.exists() and path_removed:break
+        if time.monotonic()>=deadline:raise AssertionError('uninstaller did not complete file and PATH removal')
+        time.sleep(.1)
+    assert sentinel.read_text()=='KEEP'
     checks.append('uninstaller removes owned PATH and preserves private data')
 (out/'smoke-result.json').write_text(json.dumps({'platform':sys.platform,'checks':checks,'passed':True},indent=2),encoding='utf-8')
 print(json.dumps(checks,indent=2))
