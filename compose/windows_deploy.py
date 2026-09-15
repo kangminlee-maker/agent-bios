@@ -161,20 +161,66 @@ class WindowsIntegration:
         result = ctypes.c_size_t()
         ctypes.windll.user32.SendMessageTimeoutW(0xFFFF, 0x1A, 0, "Environment", 2, 2000, ctypes.byref(result))
 
+    # Static C# source, ASCII only: it is delivered on stdin and compiled by the
+    # shell, so no path or user value is ever interpolated into program text.
+    SHORTCUT_SOURCE = """
+using System;
+using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
+using System.Text;
+namespace AgentBiosShortcut {
+  [ComImport, Guid("00021401-0000-0000-C000-000000000046")]
+  public class ShellLink {}
+  [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown), Guid("000214F9-0000-0000-C000-000000000046")]
+  public interface IShellLinkW {
+    void GetPath([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszFile, int cchMaxPath, IntPtr pfd, int fFlags);
+    void GetIDList(out IntPtr ppidl);
+    void SetIDList(IntPtr pidl);
+    void GetDescription([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszName, int cchMaxName);
+    void SetDescription([MarshalAs(UnmanagedType.LPWStr)] string pszName);
+    void GetWorkingDirectory([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszDir, int cchMaxPath);
+    void SetWorkingDirectory([MarshalAs(UnmanagedType.LPWStr)] string pszDir);
+    void GetArguments([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszArgs, int cchMaxPath);
+    void SetArguments([MarshalAs(UnmanagedType.LPWStr)] string pszArgs);
+    void GetHotkey(out short pwHotkey);
+    void SetHotkey(short wHotkey);
+    void GetShowCmd(out int piShowCmd);
+    void SetShowCmd(int iShowCmd);
+    void GetIconLocation([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszIconPath, int cchIconPath, out int piIcon);
+    void SetIconLocation([MarshalAs(UnmanagedType.LPWStr)] string pszIconPath, int iIcon);
+    void SetRelativePath([MarshalAs(UnmanagedType.LPWStr)] string pszPathRel, int dwReserved);
+    void Resolve(IntPtr hwnd, int fFlags);
+    void SetPath([MarshalAs(UnmanagedType.LPWStr)] string pszFile);
+  }
+  public static class Writer {
+    public static void Save(string path, string target, string arguments, string workingDirectory) {
+      IShellLinkW link = (IShellLinkW)new ShellLink();
+      link.SetPath(target);
+      link.SetArguments(arguments);
+      link.SetWorkingDirectory(workingDirectory);
+      ((IPersistFile)link).Save(path, false);
+    }
+  }
+}
+"""
+
     def _shortcut(self, target: Path, destination: Path, command: str) -> None:
         # The executed PowerShell program is static; paths are data environment
         # values, never interpolated into its source or encoded as a workaround.
-        script = ("$ErrorActionPreference='Stop'; $w=New-Object -ComObject WScript.Shell; "
-                  "$s=$w.CreateShortcut($env:AGENT_BIOS_SHORTCUT_DESTINATION); "
-                  "$s.TargetPath=$env:AGENT_BIOS_SHORTCUT_SHELL; "
-                  "$s.Arguments='-NoProfile -File '+[char]34+$env:AGENT_BIOS_SHORTCUT_TARGET+[char]34+' '+$env:AGENT_BIOS_SHORTCUT_COMMAND; "
-                  "$s.WorkingDirectory=$env:USERPROFILE; $s.Save()")
+        # IShellLinkW is used directly: the WScript.Shell shortcut object cannot
+        # save to paths with characters outside the system ANSI code page.
+        script = ("$ErrorActionPreference='Stop'; $source=[Console]::In.ReadToEnd(); "
+                  "Add-Type -TypeDefinition $source -Language CSharp; "
+                  "[AgentBiosShortcut.Writer]::Save($env:AGENT_BIOS_SHORTCUT_DESTINATION, $env:AGENT_BIOS_SHORTCUT_SHELL, "
+                  "('-NoProfile -File '+[char]34+$env:AGENT_BIOS_SHORTCUT_TARGET+[char]34+' '+$env:AGENT_BIOS_SHORTCUT_COMMAND), "
+                  "$env:USERPROFILE)")
         powershell = Path(os.environ["SystemRoot"]) / "System32/WindowsPowerShell/v1.0/powershell.exe"
         env = dict(os.environ, AGENT_BIOS_SHORTCUT_DESTINATION=str(destination),
                    AGENT_BIOS_SHORTCUT_SHELL=str(powershell), AGENT_BIOS_SHORTCUT_TARGET=str(target),
                    AGENT_BIOS_SHORTCUT_COMMAND=command)
         result = subprocess.run([str(powershell), "-NoProfile", "-NonInteractive", "-Command", script], env=env,
-                                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
+                                input=self.SHORTCUT_SOURCE, capture_output=True, text=True, encoding="utf-8",
+                                errors="replace", timeout=180)
         if result.returncode:
             detail = (result.stderr or result.stdout).strip().replace("\r\n", " ")[:600]
             raise DeploymentError(f"Start menu shortcut creation failed (exit {result.returncode}): {detail}")
