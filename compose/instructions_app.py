@@ -83,10 +83,6 @@ def _roots(environ: dict[str, str] | None) -> tuple[dict[str, str], Path, Path, 
     home = Path(env.get("HOME", str(Path.home()))).expanduser().absolute()
     state = Path(env.get("AGENT_BIOS_STATE_DIR", str(home / ".local/share/agent-bios"))).expanduser().absolute()
     user = Path(environment_value(env, "AGENT_BIOS_INSTRUCTIONS_DIR", "AGENT_BIOS_CORPUS_DIR", str(home / ".config/agent-bios/corpus"))).expanduser().absolute()
-    if os.name == "nt":
-        for path in (home, state, user):
-            reject_symlink_ancestors(path)
-        home, state, user = (path.resolve() for path in (home, state, user))
     return env, home, state, user
 
 
@@ -150,8 +146,14 @@ class AppBridge:
         if not (self.target.is_symlink() or (os.name == "nt" and self.target.is_junction())):
             raise AppError(f"preserving unowned app skill: {self.target}")
         raw = self.target.resolve() if os.name == "nt" else Path(os.readlink(self.target))
-        if not raw.is_absolute() or raw.parent != self.generations or not re.fullmatch(r"[a-f0-9]{64}", raw.name):
+        reject_symlink_ancestors(self.generations)
+        same_parent = raw.parent.resolve() == self.generations.resolve() if os.name == "nt" else raw.parent == self.generations
+        if not raw.is_absolute() or not same_parent or not re.fullmatch(r"[a-f0-9]{64}", raw.name):
             raise AppError(f"preserving unowned app skill link: {self.target}")
+        if os.name == "nt":
+            # Keep the saved root spelling: canonicalizing the record itself would
+            # invalidate its exact ownership/context checks. Only compare locations.
+            raw = self.generations / raw.name
         reject_symlink_ancestors(raw)
         if not raw.is_dir():
             raise AppError(f"owned app skill generation is unavailable: {raw}")
@@ -187,7 +189,9 @@ class AppBridge:
             if not (self.target.is_symlink() or (os.name == "nt" and self.target.is_junction())):
                 return False
             target = self.target.resolve() if os.name == "nt" else Path(os.readlink(self.target))
-            return target.is_absolute() and target.parent == self.generations
+            reject_symlink_ancestors(self.generations)
+            same_parent = target.parent.resolve() == self.generations.resolve() if os.name == "nt" else target.parent == self.generations
+            return target.is_absolute() and same_parent
         except (OSError, TransactionError):
             return False
 
