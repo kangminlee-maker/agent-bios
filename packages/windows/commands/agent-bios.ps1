@@ -62,7 +62,9 @@ try {
         [Environment]::SetEnvironmentVariable($name, $selectedEnvironment[$name], 'Process')
     }
     [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
-    $OutputEncoding = [Console]::OutputEncoding
+    # Read back from the Console, 5.1 hands out a BOM-emitting UTF-8; pipe bytes to
+    # the application without a preamble.
+    $OutputEncoding = [Text.UTF8Encoding]::new($false)
     $pythonArguments = @('-I', '-X', 'utf8', (Join-Path $binding.application_root 'compose/runtime_entry.py'),
         '--dependencies', $binding.dependencies_root, '--script')
     if ($args.Count -gt 0 -and $args[0] -ceq 'uninstall') {

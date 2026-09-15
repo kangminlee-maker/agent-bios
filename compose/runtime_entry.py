@@ -10,9 +10,10 @@ import sys
 
 
 def main(argv=None):
-    for stream in (sys.stdin, sys.stdout, sys.stderr):
+    # A Windows PowerShell 5.1 caller may prefix piped input with a UTF-8 BOM.
+    for stream, encoding in ((sys.stdin, "utf-8-sig"), (sys.stdout, "utf-8"), (sys.stderr, "utf-8")):
         if hasattr(stream, "reconfigure"):
-            stream.reconfigure(encoding="utf-8", errors="strict")
+            stream.reconfigure(encoding=encoding, errors="strict")
     argv = list(sys.argv[1:] if argv is None else argv)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dependencies', required=True, type=Path)

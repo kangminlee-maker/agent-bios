@@ -199,7 +199,9 @@ try {
     [void][IO.Directory]::CreateDirectory($temporaryRoot)
     [Net.ServicePointManager]::SecurityProtocol = $previousTls -bor [Net.SecurityProtocolType]::Tls12
     [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
-    $OutputEncoding = [Console]::OutputEncoding
+    # Read back from the Console, 5.1 hands out a BOM-emitting UTF-8; pipe bytes to
+    # the application without a preamble.
+    $OutputEncoding = [Text.UTF8Encoding]::new($false)
     $stage = 'release metadata'
     $manifestFile = Join-Path $temporaryRoot 'release.json'
     $localBase = ''

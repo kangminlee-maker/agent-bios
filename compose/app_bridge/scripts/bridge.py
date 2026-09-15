@@ -10,9 +10,10 @@ import sys
 
 
 def main() -> int:
-    for stream in (sys.stdin, sys.stdout, sys.stderr):
+    # A Windows PowerShell 5.1 caller may prefix piped input with a UTF-8 BOM.
+    for stream, encoding in ((sys.stdin, "utf-8-sig"), (sys.stdout, "utf-8"), (sys.stderr, "utf-8")):
         if hasattr(stream, "reconfigure"):
-            stream.reconfigure(encoding="utf-8", errors="strict")
+            stream.reconfigure(encoding=encoding, errors="strict")
     root = Path(__file__).resolve().parents[1]
     expected = {"SKILL.md", "agents/openai.yaml", "scripts/bridge.py",
                 "scripts/instructions_transaction.py", "scripts/host_platform.py", "bridge.json"}

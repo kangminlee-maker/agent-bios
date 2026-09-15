@@ -89,7 +89,7 @@ class Driver:
            expect_failure: bool = False, timeout: int = 240) -> subprocess.CompletedProcess[str]:
         prelude = ("$ErrorActionPreference = 'Stop'; "
                    "[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false); "
-                   "$OutputEncoding = [Console]::OutputEncoding; ")
+                   "$OutputEncoding = New-Object System.Text.UTF8Encoding($false); ")
         result = subprocess.run([str(shell), "-NoLogo", "-NoProfile", "-NonInteractive", "-Command",
                                  prelude + source], env=env, capture_output=True, text=True,
                                 encoding="utf-8", errors="replace", timeout=timeout)
