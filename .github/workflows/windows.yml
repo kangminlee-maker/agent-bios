@@ -54,10 +54,17 @@ jobs:
         run: |
           python packages/windows/build-script-bundle.py --signer-thumbprint $env:AGENT_BIOS_TEST_SIGNER
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build the unsigned preview bundle the release workflow would publish
+        # The pinned base URL names no published release; the smoke suite serves
+        # these assets locally and only qualifies the explicit-acceptance path.
+        shell: pwsh
+        run: |
+          python packages/windows/build-script-bundle.py --channel preview --output dist/windows-script-preview --public-base-url "https://github.com/${env:GITHUB_REPOSITORY}/releases/download/unpublished-ci-build/"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Qualify bootstrap, wrappers and lifecycle in PowerShell 5.1 and 7
         shell: pwsh
         run: |
-          python packages/windows/script-smoke.py --assets dist/windows-script
+          python packages/windows/script-smoke.py --assets dist/windows-script --preview-assets dist/windows-script-preview
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         if: always()
@@ -69,3 +76,7 @@ jobs:
             dist/windows-script/checksums.json
             dist/windows-script/application.zip
             dist/windows-script/script-smoke-result.json
+            dist/windows-script-preview/install.ps1
+            dist/windows-script-preview/release.json
+            dist/windows-script-preview/checksums.json
+            dist/windows-script-preview/release-notes.md

@@ -42,14 +42,28 @@ def inventory(root: Path) -> dict[str, str]:
 
 
 class Driver:
-    def __init__(self, assets: Path, scratch: Path, existing_python: Path):
+    def __init__(self, assets: Path, scratch: Path, existing_python: Path, *, unsigned_preview: bool = False):
         self.assets = assets
         self.scratch = scratch
+        self.unsigned_preview = unsigned_preview
         self.existing_python = existing_python.resolve(strict=True)
         self.checks: list[dict[str, object]] = []
+        self.scratch.mkdir(parents=True, exist_ok=True)
         self.bootstrap = assets / "install.ps1"
         self.manifest = assets / "release.json"
         self.release = json.loads(self.manifest.read_text(encoding="utf-8-sig"))
+        self.localized = self.release["archive"]["url"].lower().startswith("https://")
+        if self.localized:
+            # A release bundle names assets by their public URL, which is not published
+            # while it is being qualified. The same bytes are served from a local copy;
+            # the pinned digests are unchanged, so the bootstrap judges the same content.
+            local = self.scratch / "release-assets-served-locally"
+            local.mkdir()
+            manifest = dict(self.release)
+            for key, filename in (("archive", "application.zip"), ("runtime", "runtime.zip")):
+                shutil.copy2(assets / filename, local / filename)
+                manifest[key] = {**manifest[key], "url": filename}
+            self.manifest = self.write_manifest(local, manifest)
         self.shells = [Path(os.environ["WINDIR"]) / "System32/WindowsPowerShell/v1.0/powershell.exe",
                        Path(shutil.which("pwsh") or "")]
         if any(not shell.is_file() for shell in self.shells):
@@ -110,10 +124,13 @@ class Driver:
         return f"[Console]::WriteLine({quote(MARKER)} + (ConvertTo-Json -Depth 30 -Compress ({expression})))"
 
     def install_command(self, root: Path, *, python: Path | None = None,
-                        manifest: Path | None = None, bootstrap: Path | None = None) -> str:
+                        manifest: Path | None = None, bootstrap: Path | None = None,
+                        accept_unsigned: bool | None = None) -> str:
         selected = manifest or self.manifest
         command = (f"& {quote(bootstrap or self.bootstrap)} -ManifestPath {quote(selected)} "
                    f"-ManifestSha256 {quote(digest(selected))} -InstallRoot {quote(root)} -NoLaunch")
+        if self.unsigned_preview if accept_unsigned is None else accept_unsigned:
+            command += " -AcceptUnsignedPreview"
         return command + (f" -PythonPath {quote(python)} -NoRuntimeDownload" if python else " -PrivateRuntime")
 
     def install(self, shell: Path, root: Path, env: dict[str, str], *, python: Path | None = None,
@@ -471,6 +488,55 @@ class Driver:
         self.cli(shell, root, env, "uninstall")
         self.checked("real HTTPS official runtime acquisition verifies hashes and publishers before deployment")
 
+    def preview(self, signed: "Driver") -> None:
+        """The unsigned preview channel: explicit acceptance, same hash policy, no silent path."""
+        assert self.release["channel"] == "preview" and self.release["script_signer_thumbprints"] == []
+        assert signed.release["script_signer_thumbprints"], "the signed bundle must carry a signer"
+        assert self.localized, "preview assets carry release-pinned public URLs"
+        scope = self.scratch / "unsigned preview route"
+        scope.mkdir()
+        env = self.env(scope)
+        for index, shell in enumerate(self.shells):
+            silent = scope / f"silent {index}"
+            self.rejected(shell, self.install_command(silent, python=self.existing_python,
+                                                      accept_unsigned=False), env, "unsigned preview")
+            assert not (silent / "deployment.json").exists()
+        self.checked("unsigned preview bootstrap refuses to run without explicit acceptance")
+        for index, shell in enumerate(self.shells):
+            root = scope / f"accepted {index}"
+            result = self.ps(shell, self.install_command(root, python=self.existing_python), env)
+            assert "unsigned preview build" in (result.stdout + result.stderr).casefold(), result.stdout[-3000:]
+            binding = json.loads((root / "deployment.json").read_text(encoding="utf-8"))
+            assert Path(binding["python"]["path"]).resolve() == self.existing_python
+            assert self.cli(shell, root, env, "verify")["stored"]
+            self.cli(shell, root, env, "uninstall")
+        self.checked("accepted unsigned preview installs, verifies and uninstalls in PowerShell 5.1 and 7 with a visible warning")
+
+        shell = self.shells[0]
+        folder, manifest = self.fixture("preview-with-signer")
+        manifest["script_signer_thumbprints"] = ["0" * 40]
+        path = self.write_manifest(folder, manifest)
+        self.rejected(shell, self.install_command(scope / "signer in preview", manifest=path,
+                                                  python=self.existing_python), env, "trust policy does not match")
+        folder, manifest = self.fixture("preview-as-stable")
+        manifest["channel"] = "stable"
+        path = self.write_manifest(folder, manifest)
+        self.rejected(shell, self.install_command(scope / "stable without signer", manifest=path,
+                                                  python=self.existing_python), env, "trust policy does not match")
+        self.checked("unsigned preview bootstrap accepts only a preview manifest with no signer")
+
+        signed_scope = signed.scratch / "signed bundle refuses preview flag"
+        signed_scope.mkdir()
+        signed_env = signed.env(signed_scope)
+        self.rejected(shell, signed.install_command(signed_scope / "flagged", python=self.existing_python,
+                                                    accept_unsigned=True), signed_env, "applies only to unsigned preview")
+        folder, manifest = signed.fixture("signed-without-signer")
+        manifest["script_signer_thumbprints"] = []
+        path = signed.write_manifest(folder, manifest)
+        self.rejected(shell, signed.install_command(signed_scope / "unsigned manifest", manifest=path,
+                                                    python=self.existing_python), signed_env, "trust policy does not match")
+        self.checked("signed bootstrap rejects the preview flag and a manifest without signers")
+
     def run(self) -> None:
         with zipfile.ZipFile(self.assets / "application.zip") as bundle:
             assert not any(name.lower().endswith(".exe") for name in bundle.namelist())
@@ -491,11 +557,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--assets", type=Path, default=SOURCE / "dist/windows-script")
     parser.add_argument("--python-existing", type=Path, default=Path(sys.executable))
+    parser.add_argument("--preview-assets", type=Path,
+                        help="unsigned preview bundle; qualifies the explicit-acceptance path against --assets")
     args = parser.parse_args()
     if os.name != "nt" or os.environ.get("GITHUB_ACTIONS") != "true":
         raise SystemExit("Run on an ephemeral Windows GitHub Actions runner; this suite owns persistent test PATH entries.")
     import winreg
     assets = args.assets.resolve(strict=True)
+    preview_assets = args.preview_assets.resolve(strict=True) if args.preview_assets else None
     with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment", 0, winreg.KEY_READ) as key:
         try:
             original_path, original_type = winreg.QueryValueEx(key, "Path")
@@ -507,9 +576,15 @@ def main() -> int:
         with tempfile.TemporaryDirectory(prefix="agent-bios 스크립트 검증 ") as temporary:
             # Resolve the scratch root once: the runner's TEMP may be an 8.3 short
             # path, and the deployment owner records resolved long paths.
-            driver = Driver(assets, Path(temporary).resolve(), args.python_existing)
+            scratch = Path(temporary).resolve()
+            driver = Driver(assets, scratch / "signed", args.python_existing)
             report["checks"] = driver.checks
+            report["assets_served_locally"] = driver.localized
             driver.run()
+            if preview_assets:
+                preview = Driver(preview_assets, scratch / "preview", args.python_existing, unsigned_preview=True)
+                preview.checks = driver.checks
+                preview.preview(driver)
             report["passed"] = True
     except BaseException:
         report["failure"] = traceback.format_exc()

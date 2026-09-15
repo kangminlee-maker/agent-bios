@@ -11,14 +11,19 @@ param(
     [string]$PythonPath,
     [switch]$PrivateRuntime,
     [switch]$NoRuntimeDownload,
-    [switch]$NoLaunch
+    [switch]$NoLaunch,
+    [switch]$AcceptUnsignedPreview
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-# Windows PowerShell 5.1 returns a top-level JSON array as one object; the cast
-# yields the same string array in 5.1 and 7.
-$approvedScriptSigners = [string[]](ConvertFrom-Json -InputObject '__AGENT_BIOS_SCRIPT_SIGNERS__')
+# Windows PowerShell 5.1 returns a top-level JSON array as one object, and
+# PowerShell 7 enumerates it, so an empty list arrives as $null there. The cast and
+# the filter yield the same string array, possibly empty, in both.
+$approvedScriptSigners = [string[]]@([string[]](ConvertFrom-Json -InputObject '__AGENT_BIOS_SCRIPT_SIGNERS__') | Where-Object { $_ })
+# A preview build carries no signer: the release had no signing identity yet. It
+# never runs silently; the caller must accept it, and stable builds refuse the flag.
+$unsignedPreview = (@($approvedScriptSigners).Count -eq 0)
 $stage = 'preflight'
 $temporaryRoot = $null
 $previousTls = [Net.ServicePointManager]::SecurityProtocol
@@ -188,7 +193,15 @@ try {
     if ($ExecutionContext.SessionState.LanguageMode -ne 'FullLanguage') {
         throw 'This installation requires an approved PowerShell FullLanguage session. Ask your administrator for an approved deployment; execution policy will not be changed.'
     }
-    Assert-Signature $PSCommandPath $approvedScriptSigners
+    if ($unsignedPreview) {
+        if (-not $AcceptUnsignedPreview) {
+            throw 'This is an unsigned preview build. Re-run with -AcceptUnsignedPreview only if your organization accepts unsigned scripts from this source; signed stable releases need no flag.'
+        }
+        Write-Warning 'Unsigned preview build: script signatures are not verified. The manifest and asset hashes pinned in this script are still enforced.'
+    } else {
+        if ($AcceptUnsignedPreview) { throw '-AcceptUnsignedPreview applies only to unsigned preview builds; this build is signed.' }
+        Assert-Signature $PSCommandPath $approvedScriptSigners
+    }
     if ($PrivateRuntime -and ($PythonPath -or $NoRuntimeDownload)) {
         throw '-PrivateRuntime cannot be combined with -PythonPath or -NoRuntimeDownload.'
     }
@@ -215,8 +228,12 @@ try {
     if ($manifest.schema_version -ne 1 -or $manifest.platform -cne 'windows-x64' -or
         $manifest.version -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$' -or
         $manifest.runtime.version -notmatch '^3\.13\.\d+$' -or $manifest.runtime.architecture -cne 'x64' -or
-        @($manifest.script_signer_thumbprints).Count -eq 0 -or @($manifest.runtime.publisher_thumbprints).Count -eq 0) {
+        @($manifest.runtime.publisher_thumbprints).Count -eq 0) {
         throw 'Release metadata has an unsupported schema, version, platform or trust policy.'
+    }
+    if ((@($manifest.script_signer_thumbprints).Count -eq 0) -ne $unsignedPreview -or
+        ($unsignedPreview -and $manifest.channel -cne 'preview')) {
+        throw 'Release metadata trust policy does not match this bootstrap.'
     }
     foreach ($signer in @($manifest.script_signer_thumbprints)) {
         if ($approvedScriptSigners -inotcontains $signer) { throw 'Release metadata requests an unapproved script signer.' }
@@ -236,8 +253,10 @@ try {
     if (@(Get-ChildItem -LiteralPath $source -Filter '*.exe' -Recurse -File).Count -ne 0) {
         throw 'The script application archive must not contain custom executable launchers.'
     }
-    foreach ($command in @('agent-bios.ps1', 'agent-launch.ps1')) {
-        Assert-Signature (Join-Path $source "commands/$command") @($manifest.script_signer_thumbprints)
+    if (-not $unsignedPreview) {
+        foreach ($command in @('agent-bios.ps1', 'agent-launch.ps1')) {
+            Assert-Signature (Join-Path $source "commands/$command") @($manifest.script_signer_thumbprints)
+        }
     }
     $package = Join-Path $source 'package'
     $dependencies = Join-Path $source 'dependencies'
@@ -280,7 +299,7 @@ try {
     $deployment = ($deploymentOutput -join "`n") | ConvertFrom-Json
     $commandPath = Join-Path ([string]$deployment.commands_root) 'agent-bios.ps1'
     if (-not (Test-Path -LiteralPath $commandPath -PathType Leaf)) { throw 'Deployment did not return an installed command path.' }
-    Assert-Signature $commandPath @($manifest.script_signer_thumbprints)
+    if (-not $unsignedPreview) { Assert-Signature $commandPath @($manifest.script_signer_thumbprints) }
     $stage = 'current PowerShell command registration'
     $commandsRoot = [IO.Path]::GetFullPath([string]$deployment.commands_root).TrimEnd('\')
     $present = @($env:Path -split ';' | Where-Object { $_.TrimEnd('\') -ieq $commandsRoot }).Count -gt 0

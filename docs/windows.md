@@ -27,7 +27,26 @@ power-loss durability on Windows.
 A second Windows route installs agent-bios as scripts and data without a custom
 EXE launcher or an EXE installer. It targets organizations whose application
 control permits PowerShell and CPython but blocks unrecognized executables. The
-Windows workflow builds and exercises this route; it is not published yet.
+Windows workflow builds and exercises this route on every change; the Windows
+script release workflow publishes it as a GitHub release whose page carries the
+one-line PowerShell command for that exact release.
+
+Releases come in two channels. A stable release is Authenticode-signed with the
+project's release signing identity and installs with the line below. Until a
+stable release exists, this line downloads nothing, because GitHub resolves the
+latest release only among stable releases.
+
+```text
+$d = Join-Path $env:TEMP ('agent-bios-' + [guid]::NewGuid().ToString('N')); New-Item -ItemType Directory -Path $d | Out-Null; curl.exe -fsSL --proto '=https' --proto-redir '=https' -o "$d\install.ps1" "https://github.com/kangminlee-maker/agent-bios/releases/latest/download/install.ps1"; if ($LASTEXITCODE -ne 0) { throw 'download failed' }; & "$d\install.ps1"
+```
+
+A preview release is published as a prerelease without a signing identity. Its
+bootstrap refuses to run unless the caller adds `-AcceptUnsignedPreview`, and
+it prints a warning when accepted; the manifest and asset hashes pinned inside
+the script are still enforced. Each preview release page carries its own
+tag-pinned command with that flag. Both channels require an execution policy
+that permits scripts, such as RemoteSigned; neither the bootstrap nor the
+installed commands change the policy.
 
 A signed PowerShell bootstrap verifies a pinned release manifest, the application
 archive and its hashes before any downloaded code runs. It reuses an approved
@@ -44,8 +63,10 @@ commands, shortcuts and the owned PATH entry; private instructions, session
 records and any preexisting Python are retained.
 
 This route is qualified on the Windows workflow runner in PowerShell 5.1 and 7
-with runner-only test signing. A public one-line installation command, a release
-signing identity and validation on a policy-managed machine are separate steps
-that the workflow does not establish. Executable code still runs: PowerShell,
-curl and Python, plus native modules inside the dependency bundle. Migration of
-an existing EXE installation into this route is refused rather than attempted.
+with runner-only test signing, and the release workflow re-runs that
+qualification on the exact assets before it publishes them and then verifies
+the published command anonymously. Validation on a policy-managed machine is a
+separate step that no workflow establishes. Executable code still runs:
+PowerShell, curl and Python, plus native modules inside the dependency bundle.
+Migration of an existing EXE installation into this route is refused rather
+than attempted.

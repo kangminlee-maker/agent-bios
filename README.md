@@ -60,7 +60,8 @@ A Windows x64 installer with a bundled Python runtime is built by the Windows
 workflow. It provides `agent-bios.exe` and `agent-launch.exe` without npm or WSL.
 The same workflow also qualifies a script distribution that uses an approved or
 provisioned CPython 3.13 with signed PowerShell commands and no custom EXE.
-See [Windows installation and validation limits](docs/windows.md).
+Each Windows script release page carries the one-line PowerShell command for
+that release. See [Windows installation and validation limits](docs/windows.md).
 
 ## Quick start
 

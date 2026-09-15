@@ -234,4 +234,5 @@ Windows 워크플로에서 Python을 포함한 x64 설치 파일을 만듭니다
 `agent-bios.exe`와 `agent-launch.exe`를 실행합니다.
 같은 워크플로에서 자체 EXE 없이 승인된 CPython 3.13 또는 자동 준비한 런타임과
 서명된 PowerShell 명령으로 설치하는 스크립트 배포 경로도 검증합니다.
+Windows 스크립트 릴리즈 페이지마다 해당 릴리즈의 PowerShell 한 줄 설치 명령이 있습니다.
 [설치 방법과 검증 범위](../docs/windows.md)를 확인하세요.
