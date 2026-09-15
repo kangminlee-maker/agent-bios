@@ -22,15 +22,22 @@ def ps_quote(value):
     return "'" + str(value).replace("'", "''") + "'"
 
 
+def shell_environment():
+    # A pwsh 7 parent exports its own PSModulePath; Windows PowerShell 5.1 then cannot
+    # auto-load Microsoft.PowerShell.Security (Cert: drive, Authenticode cmdlets).
+    return {key: value for key, value in os.environ.items() if key.upper() != 'PSMODULEPATH'}
+
+
 def powershell(script):
-    p = subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', script], capture_output=True, text=True, encoding='utf-8')
+    p = subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', "$ErrorActionPreference='Stop';" + script],
+                       capture_output=True, text=True, encoding='utf-8', env=shell_environment())
     if p.returncode:
         raise RuntimeError(p.stderr or p.stdout)
     return p.stdout.strip()
 
 
 def sign(path, thumbprint):
-    code = "$ErrorActionPreference='Stop';[Console]::OutputEncoding=[Text.UTF8Encoding]::new();"
+    code = "[Console]::OutputEncoding=[Text.UTF8Encoding]::new();"
     code += '$cert=Get-Item ' + ps_quote('Cert:\\CurrentUser\\My\\'+thumbprint) + ';'
     code += '$r=Set-AuthenticodeSignature -FilePath '+ps_quote(path)+' -Certificate $cert -HashAlgorithm SHA256;'
     code += "if($r.Status -ne 'Valid'){throw ('Signing failed: '+$r.Status)}"

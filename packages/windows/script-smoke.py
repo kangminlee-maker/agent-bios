@@ -64,8 +64,10 @@ class Driver:
         home.mkdir(parents=True, exist_ok=True)
         env = dict(os.environ)
         for name in list(env):
-            if name.startswith(("AGENT_BIOS_", "AGENT_LAUNCH_")) or name in {
-                    "PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV", "CONDA_PREFIX", "ZDOTDIR"}:
+            # PSModulePath: a pwsh 7 parent's value leaves Windows PowerShell 5.1 unable to
+            # auto-load its Security module (Cert: drive, Get-AuthenticodeSignature).
+            if name.startswith(("AGENT_BIOS_", "AGENT_LAUNCH_")) or name.upper() in {
+                    "PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV", "CONDA_PREFIX", "ZDOTDIR", "PSMODULEPATH"}:
                 env.pop(name, None)
         env.update(HOME=str(home), USERPROFILE=str(home),
                    APPDATA=str(home / "AppData/Roaming"), LOCALAPPDATA=str(home / "AppData/Local"),
@@ -475,7 +477,8 @@ class Driver:
             assert "commands/agent-bios.ps1" in bundle.namelist()
         self.checked("application ZIP contains scripts and dependencies without custom EXEs")
         for index, shell in enumerate(self.shells):
-            actual = self.ps_json(shell, self.emit("$PSVersionTable.PSVersion.Major"), dict(os.environ))
+            actual = self.ps_json(shell, self.emit("$PSVersionTable.PSVersion.Major"),
+                                  {key: value for key, value in os.environ.items() if key.upper() != "PSMODULEPATH"})
             assert actual == (5 if index == 0 else 7), actual
             self.lifecycle(shell, index)
         self.existing(self.shells[1])
