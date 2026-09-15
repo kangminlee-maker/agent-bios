@@ -504,7 +504,9 @@ def main() -> int:
     started = time.monotonic()
     try:
         with tempfile.TemporaryDirectory(prefix="agent-bios 스크립트 검증 ") as temporary:
-            driver = Driver(assets, Path(temporary), args.python_existing)
+            # Resolve the scratch root once: the runner's TEMP may be an 8.3 short
+            # path, and the deployment owner records resolved long paths.
+            driver = Driver(assets, Path(temporary).resolve(), args.python_existing)
             report["checks"] = driver.checks
             driver.run()
             report["passed"] = True

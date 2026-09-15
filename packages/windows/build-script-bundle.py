@@ -81,6 +81,10 @@ def main():
         if source.is_dir():shutil.copytree(source,target,ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
         else:target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(source,target)
     subprocess.run([sys.executable,'-m','pip','install','--disable-pip-version-check','--no-compile','--target',str(deps),'jsonschema==4.25.1','colorama==0.4.6'],check=True)
+    # pip --target also emits console-script launchers (jsonschema.exe); the
+    # application imports these packages and never runs their commands.
+    for launchers in (deps/'bin',deps/'Scripts'):
+        if launchers.is_dir():shutil.rmtree(launchers)
     for source in (ROOT/'packages/windows/commands').glob('*.ps1'):
         target=commands/source.name;shutil.copy2(source,target);sign(target,args.signer_thumbprint)
     # Application payload must carry no custom or interpreter EXE.
