@@ -173,8 +173,11 @@ class WindowsIntegration:
         env = dict(os.environ, AGENT_BIOS_SHORTCUT_DESTINATION=str(destination),
                    AGENT_BIOS_SHORTCUT_SHELL=str(powershell), AGENT_BIOS_SHORTCUT_TARGET=str(target),
                    AGENT_BIOS_SHORTCUT_COMMAND=command)
-        subprocess.run([str(powershell), "-NoProfile", "-NonInteractive", "-Command", script], env=env, check=True,
-                       capture_output=True, text=True)
+        result = subprocess.run([str(powershell), "-NoProfile", "-NonInteractive", "-Command", script], env=env,
+                                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
+        if result.returncode:
+            detail = (result.stderr or result.stdout).strip().replace("\r\n", " ")[:600]
+            raise DeploymentError(f"Start menu shortcut creation failed (exit {result.returncode}): {detail}")
 
     def _group(self, root: Path) -> Path:
         token = hashlib.sha256(os.path.normcase(str(root)).encode()).hexdigest()[:12]
