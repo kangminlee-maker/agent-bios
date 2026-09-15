@@ -6,6 +6,11 @@ import json
 import os
 from pathlib import Path
 import platform
+
+try:
+    from host_platform import runtime_environment
+except ImportError:
+    from .host_platform import runtime_environment
 import re
 import shlex
 import shutil
@@ -139,6 +144,10 @@ def dependency_inventory(repo: Path, environ: dict[str, str] | None = None, *,
             code += "; from jsonschema import Draft202012Validator"
         if managed and name in pins:
             code += f"; import sys; raise SystemExit(sys.version_info < (3, 11) or actual != {pins[name]!r})"
+        binding = runtime_environment(env)
+        if binding and name == "jsonschema" and not managed:
+            return [interpreter, "-I", "-X", "utf8", binding['AGENT_BIOS_PYTHON_ENTRY'],
+                    '--dependencies', binding['AGENT_BIOS_PYTHON_DEPS'], '--probe', name]
         return [interpreter, "-c", code]
 
     bootstrap = add("python-venv", "Python venv / pip bootstrap", "managed dependency prerequisite", "Creates the managed environment using AGENT_LAUNCH_PYTHON when set, otherwise python3.", path=bootstrap_python,
@@ -182,7 +191,7 @@ def dependency_inventory(repo: Path, environ: dict[str, str] | None = None, *,
                   reason="Configure this only for a workflow that requires it; setup cannot choose your job environment or account.")
         row["status"] = "not assessed"
     if system == "Windows":
-        rows = [row for row in rows if row["id"] not in {"homebrew", "bash", "zsh", "cp", "mktemp", "python-bootstrap"}]
+        rows = [row for row in rows if row["id"] not in {"homebrew", "bash", "zsh", "cp", "mktemp", "python-bootstrap", "python-venv"}]
     return rows
 
 

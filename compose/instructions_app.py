@@ -2,9 +2,9 @@
 """Explicit Codex app discovery and per-task instructions context delivery."""
 from __future__ import annotations
 try:
-    from host_platform import cli_argv, create_junction
+    from host_platform import cli_argv, create_junction, python_argv, runtime_environment
 except ImportError:
-    from .host_platform import cli_argv, create_junction
+    from .host_platform import cli_argv, create_junction, python_argv, runtime_environment
 
 import argparse
 from datetime import datetime, timezone
@@ -111,6 +111,11 @@ class AppBridge:
                 saved = _read_json(current / "bridge.json")
                 if "launch_venv" in saved:
                     config["launch_venv"] = saved["launch_venv"]
+                if "python_binding" in saved:
+                    config["python_binding"] = saved["python_binding"]
+        binding = runtime_environment(self.env)
+        if binding:
+            config["python_binding"] = binding
         return config
 
     def _source_members(self) -> dict[str, bytes]:
@@ -134,7 +139,9 @@ class AppBridge:
             members[name] = path.read_bytes()
             if os.name == "nt" and name == "SKILL.md":
                 interpreter = sys.executable.replace("'", "''")
-                text = members[name].decode("utf-8").replace('python3 "$BRIDGE"', f"& '{interpreter}' \"$BRIDGE\"")
+                command = python_argv(Path('$BRIDGE'))
+                prefix = '& ' + ' '.join(('"$BRIDGE"' if word == '$BRIDGE' else "'" + word.replace("'", "''") + "'") for word in command)
+                text = members[name].decode("utf-8").replace('python3 "$BRIDGE"', prefix)
                 text += "\nOn Windows use PowerShell and the bundled interpreter shown above. Set $BRIDGE to the absolute scripts/bridge.py path beside this skill. Follow returned command argument arrays for setup; do not translate them into Bash commands.\n"
                 members[name] = text.encode("utf-8")
         return members
@@ -166,7 +173,7 @@ class AppBridge:
         config = _read_json(raw / "bridge.json")
         base = self._base_config()
         if (any(config.get(key) != value for key, value in base.items())
-                or set(config) - set(base) - {"launch_venv"}
+                or set(config) - set(base) - {"launch_venv", "python_binding"}
                 or ("launch_venv" in config and (not isinstance(config["launch_venv"], str)
                     or (config["launch_venv"] and not Path(config["launch_venv"]).is_absolute())))):
             raise AppError(f"app skill belongs to different private root settings: {self.target}")
@@ -365,13 +372,14 @@ class AppSessions:
                                   "AGENT_BIOS_CORPUS_DIR": str(self.user_root),
                                   "AGENT_BIOS_PRIVATE_CORPUS": "1",
                                   "AGENT_BIOS_PRIVATE_INSTRUCTIONS": "1", "AGENT_BIOS_LEGACY_INSTALL": "0"}}
+        result["environment"].update(runtime_environment())
         registered = bridge.managed_status().get("registered")
         if "AGENT_LAUNCH_VENV" in self.env or registered:
             config = bridge._config()
             if "launch_venv" in config:
                 result["environment"]["AGENT_LAUNCH_VENV"] = config["launch_venv"]
         if registered:
-            result["bridge_learn_argv"] = [sys.executable, str(bridge.target / "scripts/bridge.py"), "learn"]
+            result["bridge_learn_argv"] = python_argv(bridge.target / "scripts/bridge.py", "learn")
         return result
 
     def preview(self, session: str | None = None, *, selection: list[str] | None = None,

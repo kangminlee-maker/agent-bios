@@ -4215,7 +4215,8 @@ def _snapshot_from_config(store, config_path, generation, host, selected, *, dry
 
 def open_instructions_studio() -> None:
     root = instructions_package_root()
-    result = subprocess.run([sys.executable, str(root / "compose/instructions.py"), "--repo", str(root)])
+    from host_platform import python_argv
+    result = subprocess.run(python_argv(root / "compose/instructions.py", "--repo", str(root)))
     if result.returncode:
         print(f"agent-launch: Instructions Studio exited {result.returncode}", file=sys.stderr)
 

@@ -10,6 +10,9 @@ import sys
 
 
 def main() -> int:
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="strict")
     root = Path(__file__).resolve().parents[1]
     expected = {"SKILL.md", "agents/openai.yaml", "scripts/bridge.py",
                 "scripts/instructions_transaction.py", "scripts/host_platform.py", "bridge.json"}
@@ -32,7 +35,8 @@ def main() -> int:
             if not isinstance(config.get(key), str) or not Path(config[key]).is_absolute():
                 raise RuntimeError("registered bridge needs absolute private roots")
         sys.dont_write_bytecode = True
-        from host_platform import cli_argv
+        sys.path.insert(0, str(root / "scripts"))
+        from host_platform import cli_argv, python_argv, runtime_environment
         from instructions_transaction import confirmed_release, guard_pending, reject_symlink_ancestors
         state = Path(config["state_root"])
         reject_symlink_ancestors(state)
@@ -53,6 +57,11 @@ def main() -> int:
             if not isinstance(value, str) or (value and not Path(value).is_absolute()):
                 raise RuntimeError("registered bridge has an invalid managed runtime path")
             env["AGENT_LAUNCH_VENV"] = value
+        if "python_binding" in config:
+            bound = config["python_binding"]
+            if not isinstance(bound, dict):
+                raise RuntimeError('registered Python binding must be an object')
+            env.update(runtime_environment(bound))
         args = sys.argv[1:]
         command = args[0] if args else "session"
         tail = args[1:] if args else ["status", "--json"]
@@ -65,17 +74,16 @@ def main() -> int:
             return 0
         if command == "tui":
             operation = "instructions" if (release / "compose/instructions.py").is_file() else "corpus"
-            argv = cli_argv(release, operation, *tail)
+            argv = python_argv(release / 'compose/native_cli.py', operation, *tail, environ=env) if os.name == 'nt' else cli_argv(release, operation, *tail)
         elif command in {"setup", "instructions", "corpus", "import", "learn"}:
             if command == "instructions" and not (release / "compose/instructions.py").is_file():
                 command = "corpus"
-            argv = cli_argv(release, command, *tail)
+            argv = python_argv(release / 'compose/native_cli.py', command, *tail, environ=env) if os.name == 'nt' else cli_argv(release, command, *tail)
         elif command == "session":
             manager = release / "compose/instructions_app.py"
             if not manager.is_file():
                 manager = release / "compose/corpus_app.py"
-            argv = [sys.executable, str(manager), "--repo", str(release),
-                    "--state-dir", config["state_root"], "--user-dir", config["user_root"], "session", *tail]
+            argv = python_argv(manager, "--repo", str(release), "--state-dir", config["state_root"], "--user-dir", config["user_root"], "session", *tail, environ=env)
         else:
             raise RuntimeError("bridge supports setup, session, instructions, import, learn, bootstrap and tui")
         if os.name == "nt":

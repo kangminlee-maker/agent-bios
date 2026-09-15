@@ -21,9 +21,9 @@ if __name__ == "__main__":
     sys.dont_write_bytecode = True
 
 try:
-    from host_platform import sync_directory, cli_argv
+    from host_platform import sync_directory, cli_argv, python_argv, runtime_environment
 except ImportError:
-    from .host_platform import sync_directory, cli_argv
+    from .host_platform import sync_directory, cli_argv, python_argv, runtime_environment
 
 try:
     from instructions_install import InstructionsInstaller
@@ -321,6 +321,7 @@ class SetupService:
                                   "AGENT_BIOS_INSTRUCTIONS_DIR": context["user_dir"], "CODEX_HOME": context["codex_dir"],
                                   "AGENT_BIOS_CORPUS_DIR": context["user_dir"],
                                   "CLAUDE_CONFIG_DIR": context["claude_dir"]}, "needs_action": []}
+        result["environment"].update(runtime_environment())
         try:
             with try_transaction_lock(Path(context["state_dir"])) as acquired:
                 if not acquired:
@@ -331,7 +332,8 @@ class SetupService:
                 return self._verified_handoff(context, result)
         except (OSError, RuntimeError, ValueError) as exc:
             result["needs_action"].append(str(exc))
-            return result
+            result["environment"].update(runtime_environment())
+        return result
 
     def _verified_handoff(self, context: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
         record = Path(context["state_dir"]) / "runtime/private-install.json"
@@ -367,7 +369,7 @@ class SetupService:
             result["needs_action"].extend(bridge.get("needs_action", []))
             if bridge.get("registered") and not bridge.get("needs_action"):
                 helper = manager.target / "scripts/bridge.py"
-                result.update(helper_verified=True, helper_argv=[sys.executable, str(helper)])
+                result.update(helper_verified=True, helper_argv=python_argv(helper))
             if "AGENT_LAUNCH_VENV" in self.installer.env:
                 result["environment"]["AGENT_LAUNCH_VENV"] = self.installer.env["AGENT_LAUNCH_VENV"]
         except (OSError, RuntimeError, ValueError) as exc:

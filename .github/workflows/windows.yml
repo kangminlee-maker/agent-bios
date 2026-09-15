@@ -33,3 +33,39 @@ jobs:
             dist/windows/build-manifest.json
             dist/windows/smoke-result.json
             dist/windows/*.log
+  windows-script:
+    # Script distribution: signed PowerShell bootstrap + wrappers, approved or
+    # provisioned CPython 3.13 x64, no custom EXE. Test-signed on this runner only.
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          architecture: x64
+      - name: Create the runner-only test signing identity
+        shell: powershell
+        run: |
+          & .\packages\windows\test-signing.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build test-signed script-distribution assets
+        shell: pwsh
+        run: |
+          python packages/windows/build-script-bundle.py --signer-thumbprint $env:AGENT_BIOS_TEST_SIGNER
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Qualify bootstrap, wrappers and lifecycle in PowerShell 5.1 and 7
+        shell: pwsh
+        run: |
+          python packages/windows/script-smoke.py --assets dist/windows-script
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: agent-bios-windows-x64-script-test-signed
+          path: |
+            dist/windows-script/install.ps1
+            dist/windows-script/release.json
+            dist/windows-script/checksums.json
+            dist/windows-script/application.zip
+            dist/windows-script/script-smoke-result.json

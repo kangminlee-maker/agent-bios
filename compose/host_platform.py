@@ -39,8 +39,32 @@ else:
 
 def cli_argv(root: Path, *args: str) -> list[str]:
     if WINDOWS:
-        return [sys.executable, str(root / 'compose/native_cli.py'), *args]
+        return python_argv(root / 'compose/native_cli.py', *args)
     return ['/bin/bash', str(root / 'install.sh'), *args]
+
+
+def runtime_environment(environ=None) -> dict[str, str]:
+    env = os.environ if environ is None else environ
+    entry, deps = env.get('AGENT_BIOS_PYTHON_ENTRY'), env.get('AGENT_BIOS_PYTHON_DEPS')
+    if bool(entry) != bool(deps):
+        raise RuntimeError('application Python entry and dependencies must be bound together')
+    if not entry:
+        return {}
+    if not Path(entry).is_absolute() or not Path(entry).is_file() or not Path(deps).is_absolute() or not Path(deps).is_dir():
+        raise RuntimeError('application Python binding is unavailable; repair the script installation')
+    executable = env.get('AGENT_BIOS_PYTHON_EXECUTABLE', sys.executable)
+    if not Path(executable).is_absolute() or not Path(executable).is_file():
+        raise RuntimeError('bound Python interpreter is unavailable')
+    return {'AGENT_BIOS_PYTHON_ENTRY': str(entry), 'AGENT_BIOS_PYTHON_DEPS': str(deps), 'AGENT_BIOS_PYTHON_EXECUTABLE': str(executable)}
+
+
+def python_argv(script: Path, *args: str, interpreter=None, environ=None) -> list[str]:
+    binding = runtime_environment(environ)
+    executable = str(interpreter or binding.get("AGENT_BIOS_PYTHON_EXECUTABLE") or sys.executable)
+    if binding:
+        return [executable, '-I', '-X', 'utf8', binding['AGENT_BIOS_PYTHON_ENTRY'],
+                '--dependencies', binding['AGENT_BIOS_PYTHON_DEPS'], '--script', str(script), *args]
+    return [executable, str(script), *args]
 
 
 def sync_directory(path: Path) -> None:
