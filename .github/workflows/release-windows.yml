@@ -167,12 +167,15 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "The published command failed (exit $LASTEXITCODE)." }
           $resolved = Get-Command agent-bios -ErrorAction Stop
           if ($resolved.Source -ine (Join-Path $root 'bin\agent-bios.ps1')) { throw "agent-bios resolved to $($resolved.Source)" }
+          # -NoLaunch leaves configuration pending; the private install record comes from install.
           $ErrorActionPreference = 'Continue'
+          $configured = & $resolved.Source install --non-interactive
+          if ($LASTEXITCODE -ne 0) { throw "agent-bios install failed (exit $LASTEXITCODE): $configured" }
           $verify = & $resolved.Source verify
           if ($LASTEXITCODE -ne 0) { throw "agent-bios verify failed (exit $LASTEXITCODE): $verify" }
           & $resolved.Source uninstall
           if ($LASTEXITCODE -ne 0) { throw "agent-bios uninstall failed (exit $LASTEXITCODE)." }
-          Write-Host 'The published one-line command installed, verified and uninstalled.'
+          Write-Host 'The published one-line command installed, configured, verified and uninstalled.'
       - name: Verify the documented stable command resolves to this release
         if: inputs.channel == 'stable'
         shell: pwsh

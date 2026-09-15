@@ -508,9 +508,11 @@ class Driver:
             assert "unsigned preview build" in (result.stdout + result.stderr).casefold(), result.stdout[-3000:]
             binding = json.loads((root / "deployment.json").read_text(encoding="utf-8"))
             assert Path(binding["python"]["path"]).resolve() == self.existing_python
+            # -NoLaunch leaves configuration pending; verify needs the private install record.
+            assert self.cli(shell, root, env, "install", "--non-interactive")["stored"]
             assert self.cli(shell, root, env, "verify")["stored"]
             self.cli(shell, root, env, "uninstall")
-        self.checked("accepted unsigned preview installs, verifies and uninstalls in PowerShell 5.1 and 7 with a visible warning")
+        self.checked("accepted unsigned preview installs, configures, verifies and uninstalls in PowerShell 5.1 and 7 with a visible warning")
 
         shell = self.shells[0]
         folder, manifest = self.fixture("preview-with-signer")
