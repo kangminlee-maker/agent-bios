@@ -66,8 +66,12 @@ try {
     $pythonArguments = @('-I', '-X', 'utf8', (Join-Path $binding.application_root 'compose/runtime_entry.py'),
         '--dependencies', $binding.dependencies_root, '--script')
     $pythonArguments += @((Join-Path $binding.application_root 'compose/native_cli.py'), 'launch') + @($args)
+    # Windows PowerShell 5.1 turns native stderr lines into terminating errors under
+    # Stop when its stderr is redirected; the application's exit code is the verdict.
+    $ErrorActionPreference = 'Continue'
     if ($MyInvocation.ExpectingInput) { $input | & $python @pythonArguments }
     else { & $python @pythonArguments }
+    $ErrorActionPreference = 'Stop'
     $global:LASTEXITCODE = $LASTEXITCODE
 } finally {
     [Environment]::SetEnvironmentVariable('AGENT_BIOS_WINDOWS_BINDING', $previousBinding, 'Process')

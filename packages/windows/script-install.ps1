@@ -269,7 +269,11 @@ try {
         '--script', (Join-Path $package 'compose/windows_deploy.py'), 'install', '--source', $source,
         '--root', $InstallRoot, '--python', $python)
     if ($managedRuntime) { $deployArguments += @('--managed-runtime', $managedRuntime) }
+    # Windows PowerShell 5.1 turns native stderr lines into terminating errors under
+    # Stop when its stderr is redirected; the application's exit code is the verdict.
+    $ErrorActionPreference = 'Continue'
     $deploymentOutput = & $python @deployArguments
+    $ErrorActionPreference = 'Stop'
     if ($LASTEXITCODE -ne 0) { throw "Application deployment failed (exit $LASTEXITCODE)." }
     $deployment = ($deploymentOutput -join "`n") | ConvertFrom-Json
     $commandPath = Join-Path ([string]$deployment.commands_root) 'agent-bios.ps1'
@@ -290,7 +294,9 @@ try {
         else { Write-Host 'The saved environment has been retained and updated.' }
     } elseif ($deployment.configuration_pending) {
         $stage = 'first-time configuration'
+        $ErrorActionPreference = 'Continue'
         & $commandPath install
+        $ErrorActionPreference = 'Stop'
         if ($LASTEXITCODE -ne 0) {
             Write-Warning "Application remains installed; configuration did not complete (exit $LASTEXITCODE). Run agent-bios install to resume."
         }
