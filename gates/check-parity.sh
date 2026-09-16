@@ -456,7 +456,7 @@ fi
 # program this size eventually trips its quote scanner. The scan prints its own
 # failure, so there is nothing to capture.
 python3 - <<'REACH' || fail=1
-import hashlib, json, pathlib, posixpath, re, subprocess, sys, tempfile
+import hashlib, importlib.util, json, pathlib, posixpath, re, subprocess, sys, tempfile
 
 HOOK = '.githooks/pre-commit'
 # \Z rather than $: inside $( ... ) the shell reads `$"` and `$'` as its own quoting forms,
@@ -1023,23 +1023,26 @@ HISTORICAL_CHECKS = {
 }
 
 
-def current_selector_prose(text):
-    """Examples and comments cannot select the current checker."""
-    text = re.sub(r'<!--.*?(?:-->|\Z)', '', text, flags=re.DOTALL)
-    lines, fence = [], None
-    for line in text.splitlines():
-        marker = re.match(r'^ {0,3}(`{3,}|~{3,})(.*)$', line)
-        if fence:
-            if marker and marker[1][0] == fence[0] and len(marker[1]) >= len(fence) and not marker[2].strip():
-                fence = None
-            continue
-        if marker:
-            fence = marker[1]
-            continue
-        if not re.match(r'^(?: {4}|\t)', line):
-            lines.append(line)
-    return re.sub(r'(?<!`)(`+)(?!`)(.*?)(?<!`)\1(?!`)', '',
-                  '\n'.join(lines), flags=re.DOTALL)
+# The entry point is read by the shared module, not by a second copy of its rules.
+# This inventory and gates/check-development-plan.py ask the same file the same
+# question, and the two copies had already drifted: one destination pattern admitted
+# an empty link target and the other did not, so they disagreed about whether a
+# pointer with no target is a bad name or no pointer at all.
+SELECTOR_READER = 'gates/current_selector.py'
+sys.dont_write_bytecode = True   # a gate leaves no bytecode in the checkout it judges
+if not pathlib.Path(SELECTOR_READER).is_file():
+    # spec_from_file_location happily describes a file that is not there, and the
+    # loader then fails several lines later with the wrong subject.
+    print(f"FAIL: {SELECTOR_READER} is missing, so the entry-point reader has no source")
+    sys.exit(1)
+_spec = importlib.util.spec_from_file_location('current_selector', SELECTOR_READER)
+_reader = importlib.util.module_from_spec(_spec)
+# Registered before execution: a module that runs unregistered cannot resolve its own
+# name, which is how a frozen dataclass in a shared module fails (gates/fixture_support.py).
+sys.modules['current_selector'] = _reader
+_spec.loader.exec_module(_reader)
+current_selector_prose = _reader.current_selector_prose
+CHECKER_SELECTOR = _reader.CHECKER_SELECTOR
 
 
 def historical_checks(declarations, root, live):
@@ -1073,8 +1076,10 @@ def historical_checks(declarations, root, live):
         if bindings[0].get('sha256') != hashlib.sha256(source.read_bytes()).hexdigest():
             raise ValueError(f"historical checker: frozen digest mismatch for {name}")
         entry = current_selector_prose(regular(declaration['entrypoint']).read_text())
-        selected = re.findall(r'\[Static plan checker\]\(([^)]+)\)', entry)
-        if len(selected) != 1:
+        selected = re.findall(CHECKER_SELECTOR, entry)
+        # An empty destination matches the shared pattern and selects nothing, so it is
+        # refused here rather than resolved into the initiative directory itself.
+        if len(selected) != 1 or not selected[0]:
             raise ValueError(f"historical checker: expected one current selector for {name}")
         current = posixpath.normpath(str(pathlib.PurePosixPath(declaration['entrypoint']).parent
                                         / selected[0]))
@@ -1157,6 +1162,8 @@ with tempfile.TemporaryDirectory(prefix='historical-check-controls-') as tmp:
         '~~~md\n[Static plan checker](current.py)\n~~~'), 'current selector')
     reject_history('inline-code selector', lambda: (root / entry).write_text(
         '``[Static plan checker](current.py)``'), 'current selector')
+    reject_history('empty selector destination', lambda: (root / entry).write_text(
+        '[Static plan checker]()\n'), 'current selector')
     reject_history('missing successor', lambda: (root / successor).unlink(), 'missing file')
     reject_history('selected as current', lambda: (root / entry).write_text(
         '[Static plan checker](check-old.py)'), 'now current or live')
@@ -1175,6 +1182,23 @@ with tempfile.TemporaryDirectory(prefix='historical-check-controls-') as tmp:
                              '```md\n[Static plan checker](check-old.py)\n```\n')
     if historical_checks(declaration, root, set()) != {old}:
         raise SystemExit('FAIL: a comment or example changes the actual current selector')
+
+    # The other direction, and the one that fails silently: prose the reader must NOT
+    # lose. A stray backtick paired with the next one anywhere in the file, a literal
+    # comment opener inside a fence ran to end of file, and a nested bullet was read as
+    # indented code -- each deleted the live selector and reported it as missing.
+    reset_history()
+    (root / entry).write_text('a ` stray backtick\n\n'
+                             '```\n<!-- an opener that is really code\n```\n\n'
+                             '- parent bullet\n\n    - [Static plan checker](current.py)\n\n'
+                             'a real `span` and one more ` stray\n')
+    try:
+        readable = historical_checks(declaration, root, set())
+    except ValueError as exc:
+        readable = f'unreadable: {exc}'
+    if readable != {old}:
+        raise SystemExit('FAIL: a stray backtick, a fenced comment opener or a nested '
+                         f'bullet hides the live selector from the entry-point reader ({readable})')
 
 orphans = unreached(subjects, reach, LIFECYCLE_GATED, historical)
 if orphans:

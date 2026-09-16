@@ -12,18 +12,33 @@ import argparse
 from dataclasses import dataclass
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
 import sys
 import tempfile
 
+sys.dont_write_bytecode = True   # this gate leaves no bytecode in the checkout it judges
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from current_selector import (  # noqa: E402  (path is set one line above)
+    CATALOG_SELECTOR, CHECKER_SELECTOR, PLAN_SELECTOR, REGRESSION_SELECTOR,
+    SSOT_SELECTOR, current_selector_prose)
+
 
 ROOT = Path(__file__).resolve().parents[1]
 INITIATIVE = ("design", "knowledge-and-history")
 MEMBERS = ("ssot", "spec", "test_catalog", "baseline_manifest", "validator", "regression_tests")
-BASENAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*\Z")
-DIGEST = re.compile(r"[a-f0-9]{64}\Z")
+# Every pointer the entry point publishes, held against the plan field it must name.
+# Checking only the plan and its checker left the SSOT, the test catalog and the
+# bound regressions free to go on pointing at a superseded revision.
+POINTERS = (("Design SSOT", SSOT_SELECTOR, "ssot"),
+            ("Static plan checker", CHECKER_SELECTOR, "validator"),
+            ("Test families and phase scopes", CATALOG_SELECTOR, "test_catalog"),
+            ("bound acceptance regressions", REGRESSION_SELECTOR, "regression_tests"))
+BASENAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
+DIGEST = re.compile(r"[a-f0-9]{64}")
 VALIDATOR_STATUS = "plan-valid-not-runtime-qualified"
 
 
@@ -41,38 +56,35 @@ class Bundle:
     snapshots: dict[str, str]
 
 
-def current_selector_prose(text: str) -> str:
-    """Match the existing historical-checker contract: code is not a selector."""
-    text = re.sub(r"<!--.*?(?:-->|\Z)", "", text, flags=re.DOTALL)
-    lines, fence = [], None
-    for line in text.splitlines():
-        marker = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
-        if fence:
-            if marker and marker[1][0] == fence[0] and len(marker[1]) >= len(fence) and not marker[2].strip():
-                fence = None
-            continue
-        if marker:
-            fence = marker[1]
-            continue
-        if not re.match(r"^(?: {4}|\t)", line):
-            lines.append(line)
-    return re.sub(r"(?<!`)(`+)(?!`)(.*?)(?<!`)\1(?!`)", "",
-                  "\n".join(lines), flags=re.DOTALL)
-
-
 def basename(value: object, label: str) -> str:
-    if not isinstance(value, str) or not BASENAME.fullmatch(value) or value in {".", ".."}:
+    # BASENAME already requires a leading alphanumeric, so "." and ".." cannot reach
+    # here and the separate test for them only read as though they could.
+    if not isinstance(value, str) or not BASENAME.fullmatch(value):
         raise GateError(f"{label}: expected one regular basename inside the initiative")
     return value
 
 
 def regular(directory: Path, name: object, label: str) -> Path:
-    path = directory / basename(name, label)
+    spelling = basename(name, label)
+    path = directory / spelling
     if path.is_symlink():
         raise GateError(f"{label}: symlink is not an admitted bundle member")
-    if not path.is_file():
+    # The committed spelling is required, not merely a name that opens. A
+    # case-insensitive filesystem resolves a misspelled case and Linux does not,
+    # so without this the same bundle is admitted here and rejected there.
+    try:
+        spelled = spelling in os.listdir(directory)
+    except OSError:
+        spelled = False
+    if not spelled or not path.is_file():
         raise GateError(f"{label}: missing regular file {path.name}")
     return path
+
+
+def identity(path: Path) -> tuple[int, int]:
+    """Which file this is, rather than how it was spelled."""
+    info = path.stat()
+    return info.st_dev, info.st_ino
 
 
 def digest(path: Path) -> str:
@@ -117,34 +129,37 @@ def load_bundle(root: Path) -> Bundle:
     entry = regular(directory, "CURRENT.md", "CURRENT")
     entry_bytes = entry.read_bytes()
     prose = current_selector_prose(entry_bytes.decode("utf-8"))
-    plan_name = one_selector(
-        prose, r"\*\*Implementation task graph:\*\*[ \t]*\[[^\]\n]+\]\(([^)\n]*)\)",
-        "Implementation task graph")
-    checker_name = one_selector(prose, r"\[Static plan checker\]\(([^)\n]*)\)", "Static plan checker")
+    plan_name = one_selector(prose, PLAN_SELECTOR, "Implementation task graph")
     plan_path = regular(directory, plan_name, "selected plan")
     plan_bytes = plan_path.read_bytes()
     plan = json_object(plan_bytes.decode("utf-8"), "selected plan")
     if type(plan.get("schema_version")) is not int or plan["schema_version"] != 2:
         raise GateError("selected plan: expected schema_version 2")
     paths = {field: regular(directory, plan.get(field), field) for field in MEMBERS}
-    if len(set(paths.values())) != len(MEMBERS) or plan_path in paths.values():
+    # Identity, not spelling: two names for one file are one member, and a set of
+    # path objects counts them as two.
+    members = {field: identity(path) for field, path in paths.items()}
+    if len(set(members.values())) != len(MEMBERS) or identity(plan_path) in members.values():
         raise GateError("selected plan: duplicate required bundle member")
-    if paths["validator"].name != checker_name:
-        raise GateError("Static plan checker: selected path differs from plan.validator")
+    for label, pattern, field in POINTERS:
+        selected = regular(directory, one_selector(prose, pattern, label), label)
+        if identity(selected) != members[field]:
+            raise GateError(f"{label}: selected path differs from plan.{field}")
     bindings = plan.get("document_bindings")
     if not isinstance(bindings, list) or not bindings:
         raise GateError("document_bindings: missing nonempty binding list")
-    bound = {}
+    bound, aliases = {}, set()
     for row in bindings:
         if not isinstance(row, dict):
             raise GateError("document_bindings: malformed binding row")
         name = basename(row.get("path"), "document binding path")
-        if name in bound:
-            raise GateError(f"document_bindings: duplicate binding {name}")
         expected = row.get("sha256")
         if not isinstance(expected, str) or not DIGEST.fullmatch(expected):
             raise GateError(f"document_bindings: invalid sha256 for {name}")
         path = regular(directory, name, "document binding")
+        if identity(path) in aliases:
+            raise GateError(f"document_bindings: duplicate binding {name}")
+        aliases.add(identity(path))
         if digest(path) != expected:
             raise GateError(f"document_bindings: digest mismatch for {name}")
         bound[name] = expected
@@ -164,20 +179,46 @@ def verify_unchanged(bundle: Bundle) -> None:
             raise GateError(f"bundle changed during validation: {name}")
 
 
+def diagnostics(completed: subprocess.CompletedProcess) -> str:
+    """Name the check the child actually failed on.
+
+    Both bound programs report that only as JSON on stdout, several kilobytes
+    past the summary they lead with, so a truncated tail of the output never
+    reaches it and an exit status alone says nothing about which check broke.
+    """
+    try:
+        payload = json.loads(completed.stdout or "")
+    except (json.JSONDecodeError, TypeError, ValueError):
+        payload = None
+    if isinstance(payload, dict):
+        for key in ("failures", "errors"):
+            value = payload.get(key)
+            if isinstance(value, str) and value.strip():
+                return f"{key}: {value.strip()[:400]}"
+            if isinstance(value, list) and value:
+                return f"{key}: " + "; ".join(str(item) for item in value[:5])[:400]
+    tail = (completed.stderr or "").strip() or (completed.stdout or "").strip()
+    return tail[-400:] if tail else "no diagnostic output"
+
+
 def execute(bundle: Bundle, path: Path, label: str, runner) -> dict:
     # -B prevents an imported dated helper from leaving bytecode in the checkout.
+    # PYTHONUTF8 because both bound programs read the plan with read_text() and no
+    # encoding, and the plan carries U+2019: on a cp949 host they would fail to read
+    # the very document they validate.
     regular(bundle.directory, path.name, label)
     if digest(path) != bundle.snapshots[path.name]:
         raise GateError(f"{label}: executable changed before invocation")
     try:
         completed = runner([sys.executable, "-B", str(path), str(bundle.plan)],
                            cwd=str(bundle.root), stdin=subprocess.DEVNULL,
+                           env={**os.environ, "PYTHONUTF8": "1"},
                            capture_output=True, text=True, encoding="utf-8",
                            check=False, timeout=60)
     except (OSError, subprocess.TimeoutExpired, UnicodeError) as exc:
         raise GateError(f"{label}: invocation failed ({type(exc).__name__})") from exc
     if completed.returncode != 0:
-        raise GateError(f"{label}: exit {completed.returncode}")
+        raise GateError(f"{label}: exit {completed.returncode} ({diagnostics(completed)})")
     return json_object(completed.stdout, label)
 
 
@@ -231,19 +272,32 @@ def self_test() -> dict:
     positives, negatives = [], []
     good_helper = {"status": "passed", "positive_controls": 1, "negative_controls": 2,
                    "checks": ["positive bundle", "missing evidence", "stale evidence"]}
+    stem = "2026-01-01--fixture--"
+    older = "2025-12-31--fixture--"
+
+    def member(field):
+        return stem + field + (".py" if field in {"validator", "regression_tests"} else ".json")
 
     def fixture(root):
         directory = root.joinpath(*INITIATIVE)
         directory.mkdir(parents=True)
-        names = {field: "2026-01-01--fixture--" + field + (".py" if field in {"validator", "regression_tests"} else ".json")
-                 for field in MEMBERS}
+        names = {field: member(field) for field in MEMBERS}
         for field, name in names.items():
             (directory / name).write_text("bound fixture for " + field + "\n", encoding="utf-8")
+        # A superseded sibling of every cross-checked pointer. A stale pointer has to
+        # fail as a disagreement, which needs a file that exists and is the wrong one.
+        for field in ("ssot", "test_catalog", "regression_tests"):
+            (directory / member(field).replace(stem, older)).write_text("superseded " + field + "\n",
+                                                                       encoding="utf-8")
         plan = {"schema_version": 2, **names,
                 "document_bindings": [{"path": name, "sha256": digest(directory / name)} for name in names.values()]}
-        plan_name = "2026-01-01--fixture--development-plan.json"
-        entry = ("- **Implementation task graph:** [Current plan](" + plan_name + ")\n"
-                 "- [Static plan checker](" + names["validator"] + ")\n")
+        plan_name = stem + "development-plan.json"
+        entry = ("- **Design SSOT:** [Consolidated target design](" + names["ssot"] + ")\n"
+                 "- **Implementation task graph:** [Current plan](" + plan_name + ")\n"
+                 "- **Intermediate tests:** [Test families and phase scopes](" + names["test_catalog"] + ")"
+                 " [Static plan checker](" + names["validator"] + ")\n"
+                 "- **Live author gate:** [Current bundle gateway](../../gates/check-development-plan.py)"
+                 " runs the selected validator and [bound acceptance regressions](" + names["regression_tests"] + ")\n")
         (directory / "CURRENT.md").write_text(entry, encoding="utf-8")
         (directory / plan_name).write_text(json.dumps(plan), encoding="utf-8")
         return directory, plan_name, plan, entry
@@ -261,8 +315,9 @@ def self_test() -> dict:
                 if argv != [sys.executable, "-B", str(directory / plan["validator"]), str(directory / plan_name)] \
                         and argv != [sys.executable, "-B", str(directory / plan["regression_tests"]), str(directory / plan_name)]:
                     raise AssertionError("wrong executable, plan argument or added flags")
-                if kwargs["cwd"] != str(root) or kwargs["stdin"] != subprocess.DEVNULL:
-                    raise AssertionError("wrong execution context")
+                if kwargs["cwd"] != str(root) or kwargs["stdin"] != subprocess.DEVNULL \
+                        or kwargs.get("env", {}).get("PYTHONUTF8") != "1":
+                    raise AssertionError("wrong execution context: cwd, stdin or PYTHONUTF8")
                 helper = argv[2] == str(directory / plan["regression_tests"])
                 reply = helper_reply if helper else validator_reply
                 if during:
@@ -271,7 +326,8 @@ def self_test() -> dict:
                     raise reply
                 if reply is None:
                     reply = (0, json.dumps(good_helper if helper else {"status": VALIDATOR_STATUS}))
-                return subprocess.CompletedProcess(argv, reply[0], stdout=reply[1], stderr="")
+                return subprocess.CompletedProcess(argv, reply[0], stdout=reply[1],
+                                                   stderr=reply[2] if len(reply) > 2 else "")
 
             try:
                 result = check(root, runner)
@@ -298,11 +354,22 @@ def self_test() -> dict:
     def replace_entry(text):
         return lambda directory, _name, _plan, entry: (directory / "CURRENT.md").write_text(text(entry), encoding="utf-8")
 
+    def line_with(entry, marker):
+        return next(line for line in entry.splitlines() if marker in line)
+
     run_case("default invokes exact validator and helper without brownfield replay")
     run_case("comments and examples cannot add a selector", replace_entry(lambda entry: entry
              + "<!-- " + entry + " -->\n```md\n" + entry + "```\n~~~md\n" + entry + "~~~\n`" + entry.replace("\n", " ") + "`\n"))
     run_case("unrelated source state does not gate the historical baseline",
              lambda d, n, p, e: (d.parent.parent / "unrelated-runtime.py").write_text("new implementation\n"))
+    # Block structure is read before inline structure, and a code span is scoped to one
+    # paragraph. Each of these used to lose the whole document or the selector in it.
+    run_case("a stray backtick in another paragraph is literal text", replace_entry(
+        lambda e: "opening ` backtick\n\n" + e + "\nclosing ` backtick\n\nand a real `span` here\n"))
+    run_case("a literal comment opener inside a fence stays inside it", replace_entry(
+        lambda e: "```\n<!-- an opener that is code\n```\n\n" + e))
+    run_case("an indented bullet under a parent bullet is a nested item", replace_entry(
+        lambda e: "- parent bullet\n\n" + "".join("    " + line + "\n" for line in e.splitlines())))
     for kind, wrap in (("comment", lambda s: "<!-- " + s + " -->"),
                        ("backtick fence", lambda s: "```md\n" + s + "```\n"),
                        ("tilde fence", lambda s: "~~~md\n" + s + "~~~\n"),
@@ -310,9 +377,16 @@ def self_test() -> dict:
                        ("indented code", lambda s: "\n".join("    " + line for line in s.splitlines()))):
         run_case("selectors only in " + kind, replace_entry(wrap), "expected exactly one live selector")
     run_case("missing CURRENT", lambda d,n,p,e: (d / "CURRENT.md").unlink(), "CURRENT: missing regular file")
-    run_case("duplicate plan selectors", replace_entry(lambda e: e + e.splitlines()[0] + "\n"), "Implementation task graph: expected exactly one")
-    run_case("duplicate checker selectors", replace_entry(lambda e: e + e.splitlines()[1] + "\n"), "Static plan checker: expected exactly one")
-    run_case("missing checker selector", replace_entry(lambda e: e.splitlines()[0]), "Static plan checker: expected exactly one")
+    run_case("symlinked initiative directory", lambda d,n,p,e: (
+        d.rename(d.parent / "real-initiative"), d.symlink_to(d.parent / "real-initiative", target_is_directory=True)),
+        "initiative: missing directory or symlink")
+    run_case("duplicate plan selectors", replace_entry(lambda e: e + line_with(e, "Implementation task graph") + "\n"),
+             "Implementation task graph: expected exactly one")
+    run_case("duplicate checker selectors", replace_entry(lambda e: e + line_with(e, "Static plan checker") + "\n"),
+             "Static plan checker: expected exactly one")
+    run_case("missing checker selector",
+             replace_entry(lambda e: re.sub(r" \[Static plan checker\]\([^)\n]*\)", "", e)),
+             "Static plan checker: expected exactly one")
     for value in ("../outside.json", "/outside.json", "nested/plan.json", "plan.json?version=2", "", ".."):
         run_case("invalid selected plan " + repr(value),
                  replace_entry(lambda e, value=value: re.sub(r"\[Current plan\]\([^)]*\)", "[Current plan](" + value + ")", e)),
@@ -320,12 +394,52 @@ def self_test() -> dict:
     run_case("missing selected plan", lambda d,n,p,e: (d / n).unlink(), "selected plan: missing regular file")
     run_case("malformed plan", lambda d,n,p,e: (d / n).write_text("{"), "selected plan: malformed JSON")
     run_case("duplicate JSON keys", lambda d,n,p,e: (d / n).write_text('{"schema_version":2,"schema_version":2}'), "duplicate JSON key")
+    run_case("non-finite JSON constant", edit_plan(lambda p: p.update(note=float("nan"))), "invalid JSON constant")
     run_case("unsupported schema", edit_plan(lambda p: p.update(schema_version=1)), "schema_version 2")
-    run_case("checker selection mismatch", replace_entry(lambda e: e.replace("--validator.py", "--other.py")), "differs from plan.validator")
+    run_case("checker selection mismatch",
+             replace_entry(lambda e: e.replace("--validator.py", "--regression_tests.py")),
+             "Static plan checker: selected path differs from plan.validator")
+    # Every other published pointer, each in both directions: superseded and absent.
+    for label, field in (("Design SSOT", "ssot"),
+                         ("Test families and phase scopes", "test_catalog"),
+                         ("bound acceptance regressions", "regression_tests")):
+        run_case("superseded " + label + " pointer",
+                 replace_entry(lambda e, field=field: e.replace(member(field), member(field).replace(stem, older))),
+                 label + ": selected path differs from plan." + field)
+        run_case("absent " + label + " pointer",
+                 replace_entry(lambda e, field=field: e.replace(member(field), stem + "absent-" + field + ".json")),
+                 label + ": missing regular file")
     run_case("duplicate required member", edit_plan(lambda p: p.update(spec=p["ssot"])), "duplicate required bundle member")
+    # One file reached under two spellings. The casing arm is the one a
+    # case-insensitive filesystem used to admit and Linux refused; the hardlink arm
+    # aliases everywhere, and neither is visible to a comparison of path strings.
+    alias = stem + "aliased.json"
+
+    def bound_sha(plan, name):
+        return next(row["sha256"] for row in plan["document_bindings"] if row["path"] == name)
+
+    def two_casings(d, n, p, e):
+        edit_plan(lambda plan: (plan.update(spec=plan["ssot"].upper()),
+                                plan["document_bindings"].append(
+                                    {"path": plan["ssot"].upper(), "sha256": bound_sha(plan, plan["ssot"])})))(d, n, p, e)
+
+    def hardlink_member(d, n, p, e):
+        os.link(d / p["ssot"], d / alias)
+        edit_plan(lambda plan: plan.update(spec=alias))(d, n, p, e)
+
+    def hardlink_binding(d, n, p, e):
+        os.link(d / p["ssot"], d / alias)
+        edit_plan(lambda plan: plan["document_bindings"].append(
+            {"path": alias, "sha256": bound_sha(plan, plan["ssot"])}))(d, n, p, e)
+
+    run_case("one file under two casings", two_casings, "spec: missing regular file")
+    run_case("one file under two names", hardlink_member, "duplicate required bundle member")
+    run_case("one bound document under two names", hardlink_binding, "duplicate binding")
     run_case("missing role", edit_plan(lambda p: p.pop("regression_tests")), "regression_tests: expected one regular basename")
     run_case("invalid role path", edit_plan(lambda p: p.update(validator="../validator.py")), "validator: expected one regular basename")
     run_case("empty bindings", edit_plan(lambda p: p.update(document_bindings=[])), "missing nonempty binding list")
+    run_case("string binding row", edit_plan(lambda p: p["document_bindings"].append("not a mapping")),
+             "document_bindings: malformed binding row")
     run_case("duplicate binding", edit_plan(lambda p: p["document_bindings"].append(dict(p["document_bindings"][0]))), "duplicate binding")
     run_case("missing helper binding", edit_plan(lambda p: p.update(document_bindings=p["document_bindings"][:-1])), "missing required binding for regression_tests")
     run_case("invalid binding path", edit_plan(lambda p: p["document_bindings"][0].update(path="../source.json")), "document binding path")
@@ -340,6 +454,12 @@ def self_test() -> dict:
             target.symlink_to(d / n)
         run_case("symlink " + field, symlink_member, field + ": symlink")
     run_case("validator nonzero still invokes helper", expected="dated validator: exit 7", validator_reply=(7,""))
+    run_case("validator names the check it failed", expected="errors: S05 scope binding",
+             validator_reply=(1, json.dumps({"status":"failed", "errors":["S05 scope binding"]})))
+    run_case("helper names the check it failed", expected="failures: N07 evidence contract",
+             helper_reply=(1, json.dumps(dict(good_helper, status="failed", failures=["N07 evidence contract"]))))
+    run_case("stderr carries the diagnosis when stdout does not", expected="ZeroDivisionError",
+             validator_reply=(3, "", "Traceback (most recent call last)\nZeroDivisionError: division by zero"))
     run_case("validator malformed output", expected="dated validator: malformed JSON", validator_reply=(0,"not json"))
     run_case("validator wrong status", expected="dated validator: unexpected result status", validator_reply=(0,'{"status":"passed"}'))
     run_case("helper nonzero", expected="regression helper: exit 4", helper_reply=(4,""))
@@ -361,9 +481,27 @@ def self_test() -> dict:
     run_case("subprocess timeout", expected="invocation failed (TimeoutExpired)", helper_reply=subprocess.TimeoutExpired("fixture",60))
     run_case("bundle changes while programs run", expected="bundle changed during validation",
              during=lambda d,p,helper: (d / p["ssot"]).write_text("changed during run") if helper else None)
+    run_case("helper swapped while the validator ran",
+             expected="regression helper: executable changed before invocation",
+             during=lambda d,p,helper: None if helper else (d / p["regression_tests"]).write_text("swapped"))
+
+    # The mocked runner above asserts the flag is passed; this asserts the flag is
+    # what decides, in a real interpreter, so neither half can be true alone.
+    def utf8_mode(setting):
+        child = {key: value for key, value in os.environ.items() if key != "PYTHONUTF8"}
+        child["PYTHONUTF8"] = setting
+        return subprocess.run([sys.executable, "-B", "-c", "import sys; print(sys.flags.utf8_mode)"],
+                              env=child, capture_output=True, text=True, timeout=60,
+                              check=False).stdout.strip()
+
+    if (utf8_mode("1"), utf8_mode("0")) != ("1", "0"):
+        raise AssertionError("PYTHONUTF8 does not decide the child interpreter's text mode")
+    positives.append("PYTHONUTF8 decides the child interpreter's text mode")
+    # No "checks" list: main() only deleted it again, and nothing else read it. The
+    # bound helper still owes one -- regression_counts requires it -- but this result
+    # is the gateway's own, not a reply standing in for the helper's.
     return {"status":"passed", "subject":"development-plan gateway self-test",
-            "positive_controls":len(positives), "negative_controls":len(negatives),
-            "checks":positives + negatives}
+            "positive_controls":len(positives), "negative_controls":len(negatives)}
 
 
 def main() -> int:
@@ -375,8 +513,6 @@ def main() -> int:
     except (GateError, OSError, UnicodeError, AssertionError) as exc:
         print(json.dumps({"status":"failed", "error":str(exc)}, ensure_ascii=False))
         return 1
-    if args.self_test:
-        result = {key:value for key,value in result.items() if key != "checks"}
     print(json.dumps(result, ensure_ascii=False))
     return 0
 
