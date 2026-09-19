@@ -2239,7 +2239,8 @@ def launcher_shell_reassert(fx):
     replaced and bare `claude` skips the preflight in silence. The interception in
     launch/agent-launch.zsh answers at preexec: if the function about to run is not
     byte-identical to ours (or an alias has appeared), redefine it. Every case below runs
-    in a temp HOME + ZDOTDIR, never the author's rc files, feeds an interactive shell on
+    in a temp HOME + ZDOTDIR with the hosting terminal's identity removed (`shell_env`),
+    never the author's rc files or terminal, feeds an interactive shell on
     stdin (`zsh -ilc` runs no precmd and produced a false PASS during the diagnosis), and
     asserts BOTH that our dispatch ran with a per-run nonce AND that the shadower did not
     — a marker alone is satisfied by a mutant that prints it from the hook. The negative
@@ -2253,6 +2254,16 @@ def launcher_shell_reassert(fx):
     repo = pathlib.Path(__file__).resolve().parents[1]
     nonce = uuid.uuid4().hex[:8]
     direct = '_agent_launch_direct() { print "AGENT_LAUNCH_DIRECT host=$1 args=${*:2}" }'
+    # What a system-wide rc reads to recognise the hosting terminal. /etc/zshrc sources
+    # /etc/zshrc_$TERM_PROGRAM ahead of every ZDOTDIR file, so a temp ZDOTDIR does not
+    # shield a case from it, and Apple Terminal's prints an OSC 7 cwd report at each
+    # prompt — on the very line a case asserts.
+    host_terminal = ("TERM_PROGRAM", "TERM_PROGRAM_VERSION", "TERM_SESSION_ID")
+
+    def shell_env(home, zdot, **extra):
+        env = {k: v for k, v in os.environ.items() if k not in host_terminal}
+        env.update({"HOME": str(home), "ZDOTDIR": str(zdot), **extra})
+        return env
 
     def shadower(host="claude", body="print SHADOW-RAN \\$*", every=False):
         drop = "" if every else f"add-zsh-hook -d precmd _shadow_{host};"
@@ -2275,7 +2286,7 @@ def launcher_shell_reassert(fx):
                 state_dir.chmod(state_mode)
         (zdot / ".zshenv").write_text(f'{zshenv_before}\nsource "{script}"\n{zshenv_after}\n')
         (zdot / ".zshrc").write_text(f"{'' if real_direct else direct}\n{zshrc_extra}\n")
-        env = {**os.environ, "HOME": str(home), "ZDOTDIR": str(zdot)}
+        env = shell_env(home, zdot)
         if real_direct:
             # The true direct path, with a fake `claude` binary first in PATH so the
             # `builtin command claude …` line is exercised without launching anything.
@@ -2420,7 +2431,7 @@ def launcher_shell_reassert(fx):
     stub.chmod(0o755)
     (zdot / ".zshenv").write_text(f'source "{script}"\n{shadower()}\n')
     (zdot / ".zshrc").write_text("PS1='%% '\n")
-    env = {**os.environ, "HOME": str(home), "ZDOTDIR": str(zdot), "AGENT_LAUNCH_BIN": str(stub), "TERM": "dumb"}
+    env = shell_env(home, zdot, AGENT_LAUNCH_BIN=str(stub), TERM="dumb")
     master, slave = os.openpty()
     proc = subprocess.Popen(["zsh", "-il"], stdin=slave, stdout=slave, stderr=slave, env=env, close_fds=True)
     os.close(slave)
@@ -2471,7 +2482,7 @@ def launcher_shell_reassert(fx):
         (state_dir / "shell-shadow.log").write_text(""); (state_dir / "shell-shadow.log").chmod(0o400)
         (zdot / ".zshenv").write_text(f'source "{script}"\n{shadower()}\n')
         (zdot / ".zshrc").write_text(f"{direct}\n")
-        env = {**os.environ, "HOME": str(home), "ZDOTDIR": str(zdot)}
+        env = shell_env(home, zdot)
         out = invoke(["zsh", "-il"], input_text=f"claude probe-{nonce}\n", env=env).stdout
         expect_ours("read-only log file", out)
         status = invoke(["bash", str(repo / "install.sh"), "status"], env={**os.environ, "HOME": str(home)})
@@ -2486,7 +2497,7 @@ def launcher_shell_reassert(fx):
     (state_dir / "shell-shadow.log").symlink_to("/dev/null")
     (zdot / ".zshenv").write_text(f'source "{script}"\n{shadower()}\n')
     (zdot / ".zshrc").write_text(f"{direct}\n")
-    env = {**os.environ, "HOME": str(home), "ZDOTDIR": str(zdot)}
+    env = shell_env(home, zdot)
     out = invoke(["zsh", "-il"], input_text=f"claude probe-{nonce}\n", env=env).stdout
     expect_ours("log symlinked to /dev/null", out)
     status = invoke(["bash", str(repo / "install.sh"), "status"], env={**os.environ, "HOME": str(home)})
@@ -2497,6 +2508,20 @@ def launcher_shell_reassert(fx):
     control, _, _ = run(shadower(), zshrc_extra="add-zsh-hook -d preexec _agent_launch_reassert")
     if f"SHADOW-RAN probe-{nonce}" not in control:
         mark_fail(f"reassert gate cannot distinguish: with the preexec hook removed the shadower still lost ({control.strip()[:160]!r})")
+    # 11. The hosting terminal must not reach a case. Planted into this process rather than
+    #     read from it, so the control judges the same thing in every terminal and in none.
+    held = {k: os.environ.get(k) for k in host_terminal}
+    os.environ.update({k: f"planted-{nonce}" for k in host_terminal})
+    try:
+        out, _, _ = run("", commands=["print -r -- HOST-TERMINAL=${TERM_PROGRAM-unset}/${TERM_PROGRAM_VERSION-unset}/${TERM_SESSION_ID-unset}"])
+    finally:
+        for key, value in held.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+    if "HOST-TERMINAL=unset/unset/unset" not in out:
+        mark_fail(f"shell reassert [hosting terminal]: the cases inherit the terminal that runs the gate: {out.strip()[:160]!r}")
 
 
 @launcher_check
