@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -539,6 +540,57 @@ class Driver:
                                                     python=self.existing_python), signed_env, "trust policy does not match")
         self.checked("signed bootstrap rejects the preview flag and a manifest without signers")
 
+    def caller_guards(self, shell: Path, index: int) -> None:
+        """Execute the generated guard unchanged; replace only its download transport.
+
+        The small fixture contains no self-verification. A changed download must
+        therefore be refused by the caller before its marker can be written.
+        """
+        spec = importlib.util.spec_from_file_location("windows_release_builder", SOURCE / "packages/windows/build-script-bundle.py")
+        builder = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(builder)
+        scope = self.scratch / f"caller verification {index}"
+        scope.mkdir()
+        env = self.env(scope)
+        marker = scope / "bootstrap-executed.txt"
+        body = "param([switch]$AcceptUnsignedPreview)\n[IO.File]::WriteAllText(" + quote(marker) + ", 'executed')\n"
+        approved = scope / "approved.ps1"
+        approved.write_text(body, encoding="utf-8-sig")
+        signers = self.release["script_signer_thumbprints"]
+        assert signers
+        self.ps(shell,
+                "$c=Get-Item " + quote("Cert:\\CurrentUser\\My\\" + signers[0]) + "; "
+                "$s=Set-AuthenticodeSignature -FilePath " + quote(approved) + " -Certificate $c -HashAlgorithm SHA256; "
+                "if($s.Status -ne 'Valid'){throw 'fixture signing failed'}", env)
+        replacement = scope / "replacement.ps1"
+        replacement.write_text(body + "# replacement without verification\n", encoding="utf-8-sig")
+
+        def execute(download, unsigned, expected, pins, *, failure=None):
+            marker.unlink(missing_ok=True)
+            line = builder.one_line_command("https://release.invalid/version", unsigned,
+                                             bootstrap_sha256=expected, signer_thumbprints=pins)
+            transport = ("function curl.exe { $position=[array]::IndexOf($args,'-o'); "
+                         "if($position -lt 0){throw 'fixture output argument missing'}; "
+                         "Copy-Item -LiteralPath " + quote(download) + " -Destination $args[$position+1]; "
+                         "$global:LASTEXITCODE=0 }; ")
+            # The generated command's scratch files are confined to this test.
+            run_env = dict(env, TEMP=str(scope), TMP=str(scope))
+            result = self.ps(shell, transport + line, run_env, expect_failure=failure is not None)
+            if failure:
+                assert failure in (result.stdout + result.stderr), result.stderr
+                assert not marker.exists(), 'rejected bootstrap was executed'
+            else:
+                assert marker.read_text() == 'executed'
+
+        execute(approved, False, digest(approved), signers)
+        execute(replacement, False, digest(approved), signers, failure='bootstrap SHA256 mismatch')
+        execute(approved, False, digest(approved), ['0' * 40], failure='bootstrap signer approval failed')
+        execute(replacement, False, digest(replacement), signers, failure='bootstrap signer approval failed')
+        execute(replacement, True, digest(replacement), [])
+        execute(approved, True, digest(replacement), [], failure='bootstrap SHA256 mismatch')
+        self.checked('generated one-line caller verifies digest and approved signer before any bootstrap code executes',
+                     shell=str(shell), transport='fixture copy; generated validation and execution unchanged')
+
     def run(self) -> None:
         with zipfile.ZipFile(self.assets / "application.zip") as bundle:
             assert not any(name.lower().endswith(".exe") for name in bundle.namelist())
@@ -549,6 +601,7 @@ class Driver:
             actual = self.ps_json(shell, self.emit("$PSVersionTable.PSVersion.Major"),
                                   {key: value for key, value in os.environ.items() if key.upper() != "PSMODULEPATH"})
             assert actual == (5 if index == 0 else 7), actual
+            self.caller_guards(shell, index)
             self.lifecycle(shell, index)
         self.existing(self.shells[1])
         self.negatives(self.shells[0])

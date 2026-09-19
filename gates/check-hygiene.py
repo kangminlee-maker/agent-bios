@@ -101,11 +101,7 @@ EXEMPT = {
 PUBLIC_INSTALL_REQUESTS = {
     "README.md": ("Install ", "", "the public installation request names the package's declared source"),
     "ko/README.md": ("", " 설치해줘", "the Korean installation request names the same declared source"),
-    # The Windows one-line command downloads the stable bootstrap from the declared
-    # repository's latest release. Its shape is owned by one_line_command() in
-    # packages/windows/build-script-bundle.py; the release notes carry the same line.
-    "docs/windows.md": ('$d = Join-Path $env:TEMP (\'agent-bios-\' + [guid]::NewGuid().ToString(\'N\')); New-Item -ItemType Directory -Path $d | Out-Null; curl.exe -fsSL --proto \'=https\' --proto-redir \'=https\' -o "$d\\install.ps1" "', '/releases/latest/download/install.ps1"; if ($LASTEXITCODE -ne 0) { throw \'download failed\' }; & "$d\\install.ps1"',
-                        "the Windows one-line command fetches the bootstrap from the declared source's releases"),
+
 }
 
 

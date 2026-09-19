@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -132,38 +133,60 @@ def main():
     checksums={p.name:digest(p) for p in [appzip,runtimezip,manifestpath,install]}
     (out/'checksums.json').write_text(json.dumps(checksums,indent=2),encoding='utf-8')
     if args.public_base_url:
-        (out/'release-notes.md').write_text(release_notes(args.channel,meta['version'],manifest['source_commit'],args.command_base_url or args.public_base_url,checksums,runtime),encoding='utf-8')
+        (out/'release-notes.md').write_text(release_notes(args.channel,meta['version'],manifest['source_commit'],args.command_base_url or args.public_base_url,checksums,runtime,manifest['script_signer_thumbprints']),encoding='utf-8')
     print(json.dumps({'channel':args.channel,'manifest':str(manifestpath),'manifest_sha256':digest(manifestpath),'script':str(install)}))
 
 
-def one_line_command(base,unsigned):
+def one_line_command(base,unsigned,*,bootstrap_sha256,signer_thumbprints=()):
+    # These pins come from the builder after the bootstrap's final signing pass.
+    # They must be checked by the caller, before any downloaded script can run.
+    if not isinstance(bootstrap_sha256,str) or not re.fullmatch(r'[a-fA-F0-9]{64}',bootstrap_sha256):
+        raise ValueError('the public command requires the final bootstrap SHA256')
+    signers=tuple(signer_thumbprints)
+    if any(not isinstance(signer,str) or not re.fullmatch(r'[a-fA-F0-9]{40}',signer) for signer in signers):
+        raise ValueError('the public command requires valid signer thumbprints')
+    if unsigned and signers:
+        raise ValueError('an unsigned preview command cannot carry signing identities')
+    if not unsigned and not signers:
+        raise ValueError('a signed command requires pinned signing identities')
     flag=' -AcceptUnsignedPreview' if unsigned else ''
     script=base.rstrip('/')+'/install.ps1'
-    return ("$d = Join-Path $env:TEMP ('agent-bios-' + [guid]::NewGuid().ToString('N')); "
+    command=("$d = Join-Path $env:TEMP ('agent-bios-' + [guid]::NewGuid().ToString('N')); "
             "New-Item -ItemType Directory -Path $d | Out-Null; "
             "curl.exe -fsSL --proto '=https' --proto-redir '=https' -o \"$d\\install.ps1\" \""+script+"\"; "
-            "if ($LASTEXITCODE -ne 0) { throw 'download failed' }; & \"$d\\install.ps1\""+flag)
+            "if ($LASTEXITCODE -ne 0) { throw 'download failed' }; "
+            "if ((Get-FileHash -LiteralPath \"$d\\install.ps1\" -Algorithm SHA256 -ErrorAction Stop).Hash -ine "+ps_quote(bootstrap_sha256.lower())+") { throw 'bootstrap SHA256 mismatch' }; ")
+    if not unsigned:
+        approved='@('+', '.join(ps_quote(signer.upper()) for signer in sorted(set(signers)))+')'
+        command+=("$s = Get-AuthenticodeSignature -LiteralPath \"$d\\install.ps1\" -ErrorAction Stop; "
+                  "if ($s.Status -ne 'Valid' -or $null -eq $s.SignerCertificate -or "+approved+
+                  " -inotcontains $s.SignerCertificate.Thumbprint) { throw 'bootstrap signer approval failed' }; ")
+    return command+"& \"$d\\install.ps1\""+flag
 
 
-def release_notes(channel,version,commit,command_base,checksums,runtime):
+def release_notes(channel,version,commit,command_base,checksums,runtime,signer_thumbprints=()):
     unsigned=channel=='preview'
     lines=['# agent-bios '+version+' for Windows ('+channel+' script distribution)','',
            'Source commit `'+commit+'`. Windows 10/11 x64, Windows PowerShell 5.1 or PowerShell 7.',
            'No custom EXE, npm, WSL or manual Python installation is required: the bootstrap reuses an',
            'approved CPython 3.13 x64 when one is installed and otherwise provisions the pinned official',
            'embeddable runtime '+runtime['version']+' into an application-private folder.','',
-           '## Install (one line, PowerShell)','','```powershell',one_line_command(command_base,unsigned),'```','']
+           '## Install (one line, PowerShell)','','```powershell',
+           one_line_command(command_base,unsigned,bootstrap_sha256=checksums['install.ps1'],signer_thumbprints=signer_thumbprints),'```','',
+           'The command verifies the bootstrap SHA256 printed in this release before invoking the saved script.',
+           'Trust in this initial pin comes from the release page and command you choose to use.','']
     if unsigned:
         lines+=['**This preview is unsigned.** The release had no code-signing identity, so the bootstrap runs',
                 'only with `-AcceptUnsignedPreview`. Use it where your organization accepts unsigned scripts from',
                 'this source; the stable channel will be signed and needs no flag. Hashes pinned inside the',
                 'script still guard the manifest, the application archive and the runtime archive.','']
     else:
-        lines+=['The bootstrap and the installed commands are Authenticode-signed; the bootstrap verifies its own',
-                'signature, the pinned manifest hash and every asset hash before executing anything.','']
+        lines+=['The bootstrap and the installed commands are Authenticode-signed. Before invoking the bootstrap,',
+                'the command also requires a valid signature from the pinned release signing identity.',
+                'The bootstrap then verifies the pinned manifest and asset hashes before running the application.','']
     lines+=['## Verify','','| File | SHA256 |','|---|---|']
     lines+=['| `'+name+'` | `'+value+'` |' for name,value in checksums.items()]
-    lines+=['','Compare `install.ps1` after downloading it; the manifest hash is pinned inside the script.','',
+    lines+=['','The command checks `install.ps1` against its pinned digest; the manifest hash is pinned inside the script.','',
             '## Not established by this release','',
             '- Approval by an organization policy or endpoint-protection product; a green workflow proves the',
             '  route on a hosted runner where PowerShell and Python are permitted.',

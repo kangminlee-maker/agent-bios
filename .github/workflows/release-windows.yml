@@ -196,14 +196,14 @@ jobs:
           & $resolved.Source uninstall
           if ($LASTEXITCODE -ne 0) { throw "agent-bios uninstall failed (exit $LASTEXITCODE)." }
           Write-Host 'The published one-line command installed, configured, verified and uninstalled.'
-      - name: Verify the documented stable command resolves to this release
+      - name: Verify stable asset discovery resolves to this release
         if: env.RELEASE_CHANNEL == 'stable'
         shell: pwsh
         run: |
           $documented = "https://github.com/$env:GITHUB_REPOSITORY/releases/latest/download/install.ps1"
           $path = Join-Path $env:RUNNER_TEMP 'latest-install.ps1'
           curl.exe -fsSL --proto '=https' --proto-redir '=https' --retry 3 -o $path $documented
-          if ($LASTEXITCODE -ne 0) { throw "The documented latest-release command cannot download $documented." }
+          if ($LASTEXITCODE -ne 0) { throw "Stable asset discovery cannot download $documented." }
           $expected = (Get-Content dist/windows-script-release/checksums.json | ConvertFrom-Json).'install.ps1'
           $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $path).Hash.ToLowerInvariant()
           if ($actual -ne $expected) { throw 'The latest-release bootstrap is not the one this run published.' }
