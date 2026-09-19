@@ -5,6 +5,7 @@ import hashlib
 import importlib.util
 from pathlib import Path
 import re
+import tempfile
 import unittest
 
 
@@ -12,6 +13,11 @@ BUILDER_PATH = Path(__file__).resolve().parents[1] / "packages/windows/build-scr
 SPEC = importlib.util.spec_from_file_location("windows_script_release_builder", BUILDER_PATH)
 builder = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(builder)
+
+SITE_SPEC = importlib.util.spec_from_file_location(
+    "windows_install_site", BUILDER_PATH.with_name("build-install-site.py"))
+site = importlib.util.module_from_spec(SITE_SPEC)
+SITE_SPEC.loader.exec_module(site)
 
 
 class WindowsReleaseCommandTests(unittest.TestCase):
@@ -104,6 +110,49 @@ class WindowsReleaseCommandTests(unittest.TestCase):
         self.assertIn("Trust in this initial pin comes from the release page and command", notes)
         self.assertIn("**This preview is unsigned.**", notes)
         self.assertIn("-AcceptUnsignedPreview", notes)
+
+
+class WindowsInstallSiteTests(unittest.TestCase):
+    repository = "https://github.com/example/project"
+    site_url = "https://example.github.io/project"
+    bootstrap = b"# signature-sensitive fixture\r\nWrite-Output 'approved'\r\n"
+
+    def config(self, preview=True):
+        return {"tag": "windows-script-v1.2.3" + ("-preview.1" if preview else ""),
+                "bootstrap_sha256": hashlib.sha256(self.bootstrap).hexdigest()}
+
+    def test_corrupt_public_download_cannot_produce_a_site(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "site"
+            with self.assertRaisesRegex(ValueError, "SHA256 mismatch"):
+                site.build(self.config(), self.repository, self.site_url, b"replacement", output)
+            self.assertFalse(output.exists())
+
+    def test_promotion_preserves_exact_script_bytes_and_explicit_channel(self):
+        for preview in (True, False):
+            with self.subTest(preview=preview), tempfile.TemporaryDirectory() as directory:
+                output = Path(directory)
+                config = self.config(preview)
+                metadata = site.build(config, self.repository, self.site_url, self.bootstrap, output)
+                self.assertEqual((output / "install.ps1").read_bytes(), self.bootstrap)
+                self.assertEqual(metadata["bootstrap_sha256"], config["bootstrap_sha256"])
+                self.assertIn("/releases/download/" + config["tag"] + "/", metadata["asset_url"])
+                command = site.install_command(self.site_url, metadata["channel"])
+                self.assertEqual("-AcceptUnsignedPreview" in command, preview)
+                self.assertIn("-ErrorAction Stop; & $p", command)
+                self.assertIn("[guid]::NewGuid()", command)
+                self.assertNotIn("Invoke-Expression", command)
+                self.assertEqual({p.name for p in output.iterdir()},
+                                 {"install.ps1", "bootstrap.json", "index.html", ".nojekyll"})
+
+    def test_mutable_or_injected_source_and_install_urls_are_refused(self):
+        for tag in ("latest", "windows-script-v1.2.3/../../main", "windows-script-v1.2.3';exit"):
+            with self.subTest(tag=tag), self.assertRaises(ValueError):
+                site.release_identity({**self.config(), "tag": tag}, self.repository)
+        for url in ("http://example.test", "https://example.test/';exit", "https://u:p@example.test",
+                    "https://example.test/?q=1"):
+            with self.subTest(url=url), self.assertRaises(ValueError):
+                site.install_command(url, "preview")
 
 
 if __name__ == "__main__":

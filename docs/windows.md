@@ -31,6 +31,14 @@ Windows workflow builds and exercises this route on every change; the Windows
 script release workflow publishes it as a GitHub release whose page carries the
 one-line PowerShell command for that exact release.
 
+The repository's GitHub Pages installation page also provides a shorter command
+at a fixed address. It saves the script to a unique temporary path and executes
+it in the current PowerShell session. This convenience command trusts the HTTPS
+site for the initial script; it does not check that script's hash before execution.
+Dependent downloads still undergo the installer's checks. The fixed address
+serves an explicitly promoted release, so publishing another release does not
+silently change it. Preview commands retain `-AcceptUnsignedPreview`.
+
 Releases come in two channels. A stable release is Authenticode-signed with the
 project's release signing identity. Copy the version-specific command from its
 release page: the command carries the SHA-256 of that final bootstrap and the
