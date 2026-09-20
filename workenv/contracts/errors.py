@@ -22,12 +22,13 @@ import sys
 from typing import Iterable
 
 from . import (
-    c01, c02, c03, c04, c05, c06, c07, c08, c09, c10, c11, c12, canonical, records, schema,
+    b01, b02, b03, b04, b05, c01, c02, c03, c04, c05, c06, c07, c08, c09, c10, c11, c12,
+    canonical, records, schema,
 )
 
 TABLE_SCHEMA = 1
-OWNERS = (canonical, schema, records, c01, c02, c03, c04, c05, c06, c07, c08, c09, c10,
-          c11, c12)
+OWNERS = (canonical, schema, records, b01, b02, b03, b04, b05, c01, c02, c03, c04, c05,
+          c06, c07, c08, c09, c10, c11, c12)
 TABLE_PATH = pathlib.Path(__file__).with_name("errors.json")
 
 

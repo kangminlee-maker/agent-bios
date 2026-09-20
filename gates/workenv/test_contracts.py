@@ -11,8 +11,8 @@ from unittest import mock
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 
 from workenv.contracts import (  # noqa: E402
-    c01, c02, c03, c04, c05, c06, c07, c08, c09, c10, c11, c12, canonical, errors,
-    examples, records, schema,
+    b01, b02, b03, b04, b05, c01, c02, c03, c04, c05, c06, c07, c08, c09, c10, c11, c12,
+    canonical, errors, examples, records, schema,
 )
 
 
@@ -390,7 +390,7 @@ class ErrorTable(unittest.TestCase):
         # documents name, so a module without schemas and a schema without a module both fail.
         self.assertEqual(names, sorted(names))
         self.assertEqual(set(names), set(described))
-        self.assertTrue(all(re.fullmatch(r"c[0-9]{2}", name) for name in names), names)
+        self.assertTrue(all(re.fullmatch(r"[bc][0-9]{2}", name) for name in names), names)
         for module, name in zip(modules, names, strict=True):
             with self.subTest(module=name):
                 self.assertEqual(module.CONTRACT, name.upper())
@@ -417,8 +417,9 @@ class ErrorTable(unittest.TestCase):
 
     def test_coverage_is_checked_both_ways(self):
         results = errors.in_results()
-        self.assertEqual(results, {code for module in (c01, c02, c03, c04, c05, c06, c07,
-                                                  c08, c09, c10, c11, c12)
+        self.assertEqual(results, {code for module in (b01, b02, b03, b04, b05, c01, c02,
+                                                  c03, c04, c05, c06, c07, c08, c09, c10,
+                                                  c11, c12)
                                    for code in module.ERRORS})
         readers = set(errors.table()) - results - set(errors.not_from_bytes())
         self.assertEqual(errors.coverage(readers, results), [])
@@ -661,10 +662,15 @@ class ContractRecordExamples(PlantedCopies):
         self.assertEqual(examples.without_indices("/files/12/sha256"), "/files/sha256")
 
     def test_a_definition_name_with_two_meanings(self):
+        # The document named first is whichever defines `digest` earliest in sorted order, so
+        # derive it rather than naming one that a later contract can displace.
+        schemas = examples.load_schemas()
+        first = min(i for i, loaded in schemas.items() if "digest" in loaded.defs)
+        self.assertNotEqual(first, "c01_source_ref")
         self.one_problem(self.rewrite("schemas/c01_source_ref.schema.json",
                                       b'\n    "digest": {\n',
                                       b'\n    "digest": {\n      "title": "another digest",\n'),
-                         "$defs/digest differs between schemas c01_principal_binding and "
+                         f"$defs/digest differs between schemas {first} and "
                          "c01_source_ref; one name has one meaning")
 
     def test_two_documents_describing_one_record_kind(self):
@@ -730,7 +736,8 @@ class Records(unittest.TestCase):
         # Derived rather than counted: every contract document describes one kind, and the
         # documents that belong to no contract - the expectation, the index, the table -
         # describe none, so neither set can drift without the other.
-        self.assertEqual(describing, {i for i in self.schemas if re.fullmatch(r"c[0-9]{2}_.+", i)})
+        self.assertEqual(describing,
+                         {i for i in self.schemas if re.fullmatch(r"[bc][0-9]{2}_.+", i)})
         self.assertEqual(len(describing), len(self.kinds))
         self.assertTrue(self.kinds)
 

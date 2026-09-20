@@ -1,0 +1,183 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "B02 unlock binding",
+  "description": "The person unlocks at OpenSSH's own prompt into an agent this runtime owns, and agent-bios never holds the passphrase. Two consts carry what the spike cost: the public half is stored apart from the private key, because a signing call falls back to a private key sitting beside the public one and prompts the person again outside the unlock; and `-U` is not relied on, because two of the five observed OpenSSH versions ignore it for signing. With no terminal the result is the access gap, not an error and not a pass.",
+  "required": [
+    "kind",
+    "schema",
+    "binding_id",
+    "choice",
+    "observed_on",
+    "evidence_digests",
+    "limits",
+    "qualification",
+    "decided_at"
+  ],
+  "properties": {
+    "kind": {
+      "const": "unlock_binding"
+    },
+    "schema": {
+      "const": 1
+    },
+    "binding_id": {
+      "type": "string",
+      "pattern": "^pbd_[0-9a-f]{32}$",
+      "x-runtime-owned": true
+    },
+    "choice": {
+      "$ref": "#/$defs/unlock_choice"
+    },
+    "observed_on": {
+      "$ref": "#/$defs/platforms"
+    },
+    "evidence_digests": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/digest"
+      }
+    },
+    "limits": {
+      "$ref": "#/$defs/binding_limits"
+    },
+    "qualification": {
+      "$ref": "#/$defs/qualification"
+    },
+    "decided_at": {
+      "$ref": "#/$defs/instant",
+      "x-runtime-owned": true
+    }
+  },
+  "$defs": {
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "qualification": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/observed_qualification"
+        },
+        {
+          "$ref": "#/$defs/pending_qualification"
+        }
+      ]
+    },
+    "pending_qualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "needs"
+      ],
+      "properties": {
+        "state": {
+          "const": "pending"
+        },
+        "needs": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400
+        }
+      }
+    },
+    "observed_qualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state"
+      ],
+      "properties": {
+        "state": {
+          "const": "observed"
+        }
+      }
+    },
+    "binding_limits": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 400
+      }
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "platforms": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/platform"
+      }
+    },
+    "platform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "arch"
+      ],
+      "properties": {
+        "os": {
+          "enum": [
+            "macos",
+            "linux",
+            "windows"
+          ]
+        },
+        "arch": {
+          "enum": [
+            "arm64",
+            "x86_64"
+          ]
+        },
+        "tool_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400
+        }
+      }
+    },
+    "unlock_choice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key_form",
+        "public_half",
+        "agent",
+        "relies_on_dash_u",
+        "without_a_terminal"
+      ],
+      "properties": {
+        "key_form": {
+          "const": "passphrase_encrypted_openssh"
+        },
+        "public_half": {
+          "const": "stored_apart_from_the_private_key"
+        },
+        "agent": {
+          "const": "owned_by_this_runtime"
+        },
+        "relies_on_dash_u": {
+          "const": false
+        },
+        "without_a_terminal": {
+          "const": "access_locked"
+        }
+      }
+    }
+  }
+}
