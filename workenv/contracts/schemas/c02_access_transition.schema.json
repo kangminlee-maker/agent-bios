@@ -1,0 +1,81 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C02 access transition",
+  "description": "The payload of a request to lock, sign out, unlock or sign in. Reentry names the method a person uses; nothing reopens access silently.",
+  "required": [
+    "kind",
+    "schema",
+    "profile_id",
+    "expected_generation",
+    "change"
+  ],
+  "properties": {
+    "kind": {
+      "const": "access_transition"
+    },
+    "schema": {
+      "const": 1
+    },
+    "profile_id": {
+      "$ref": "#/$defs/profile_id"
+    },
+    "expected_generation": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "change": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/restrict"
+        },
+        {
+          "$ref": "#/$defs/reenter"
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "profile_id": {
+      "type": "string",
+      "pattern": "^prf_[0-9a-f]{32}$"
+    },
+    "restrict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transition"
+      ],
+      "properties": {
+        "transition": {
+          "enum": [
+            "lock",
+            "sign_out"
+          ]
+        }
+      }
+    },
+    "reenter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transition",
+        "method"
+      ],
+      "properties": {
+        "transition": {
+          "enum": [
+            "unlock",
+            "sign_in"
+          ]
+        },
+        "method": {
+          "enum": [
+            "device_key_at_terminal",
+            "external_sign_in"
+          ]
+        }
+      }
+    }
+  }
+}

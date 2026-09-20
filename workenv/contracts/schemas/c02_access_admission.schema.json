@@ -1,0 +1,103 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C02 access admission",
+  "description": "What the access owner answered for one request, under the generation it read: allowed, or every gap that applies, each by its own name.",
+  "required": [
+    "kind",
+    "schema",
+    "request_id",
+    "profile_id",
+    "access_generation",
+    "outcome"
+  ],
+  "properties": {
+    "kind": {
+      "const": "access_admission"
+    },
+    "schema": {
+      "const": 1
+    },
+    "request_id": {
+      "$ref": "#/$defs/request_id"
+    },
+    "profile_id": {
+      "$ref": "#/$defs/profile_id"
+    },
+    "access_generation": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "outcome": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/allowed"
+        },
+        {
+          "$ref": "#/$defs/not_admitted"
+        }
+      ]
+    }
+  },
+  "x-runtime-owned": true,
+  "$defs": {
+    "gap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        "pointer": {
+          "type": "string",
+          "pattern": "^(?:/[^/]*)*$"
+        }
+      }
+    },
+    "profile_id": {
+      "type": "string",
+      "pattern": "^prf_[0-9a-f]{32}$"
+    },
+    "request_id": {
+      "type": "string",
+      "pattern": "^req_[0-9a-f]{32}$"
+    },
+    "allowed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "admission"
+      ],
+      "properties": {
+        "admission": {
+          "const": "allowed"
+        }
+      }
+    },
+    "not_admitted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "admission",
+        "material_gaps"
+      ],
+      "properties": {
+        "admission": {
+          "const": "not_admitted"
+        },
+        "material_gaps": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/gap"
+          }
+        }
+      }
+    }
+  }
+}

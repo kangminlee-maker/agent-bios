@@ -9,6 +9,11 @@ reader that does not run Python. That file is a projection: edit a module's `ERR
 The table is checked against the contract examples both ways by `coverage`: a code no
 negative example exercises is a refusal nothing demonstrates, and an example that names a
 code outside the table expects a refusal nothing produces.
+
+Two kinds of module own rows. A reader module refuses bytes, so a refused example exercises
+its codes. A contract module (`IN_RESULTS = True`) names the gaps an operation answers with;
+no reader produces those from bytes, so an accepted result example states them instead, and an
+expectation that asks the reader for one is refused.
 """
 from __future__ import annotations
 
@@ -16,10 +21,10 @@ import pathlib
 import sys
 from typing import Iterable
 
-from . import canonical, schema
+from . import c01, c02, c03, canonical, records, schema
 
 TABLE_SCHEMA = 1
-OWNERS = (canonical, schema)
+OWNERS = (canonical, schema, records, c01, c02, c03)
 TABLE_PATH = pathlib.Path(__file__).with_name("errors.json")
 
 
@@ -50,17 +55,31 @@ def not_from_bytes() -> dict[str, str]:
     return joined
 
 
-def coverage(exercised: Iterable[str]) -> list[str]:
-    """Disagreements between the table and the codes the negative examples exercise."""
-    known, seen, exempt = set(table()), set(exercised), not_from_bytes()
+def in_results() -> set[str]:
+    """The codes contract modules own: stated inside a result, never raised by a reader."""
+    return {code for module in OWNERS if getattr(module, "IN_RESULTS", False)
+            for code in module.ERRORS}
+
+
+def coverage(exercised: Iterable[str], stated: Iterable[str] = ()) -> list[str]:
+    """Disagreements between the table and the examples: `exercised` are the codes refused
+    examples expect of the reader, `stated` the gap codes accepted examples carry."""
+    known, seen, told = set(table()), set(exercised), set(stated)
+    exempt, results = not_from_bytes(), in_results()
     problems = [f"error code {code!r} is exercised by no negative example"
-                for code in sorted(known - seen - set(exempt))]
+                for code in sorted(known - results - seen - set(exempt))]
+    problems += [f"gap code {code!r} is stated by no accepted result example"
+                 for code in sorted(results - told)]
+    problems += [f"an expectation asks the reader for {code!r}, which only a result states"
+                 for code in sorted(seen & results)]
     problems += [f"error code {code!r} is declared unreachable from bytes and an example "
                  f"exercises it; the declaration is stale" for code in sorted(seen & set(exempt))]
     problems += [f"{code!r} is declared unreachable from bytes and is not in the table"
                  for code in sorted(set(exempt) - known)]
     problems += [f"an example names error code {code!r}, which the table does not hold"
                  for code in sorted(seen - known)]
+    problems += [f"an example states gap code {code!r}, which the table does not hold"
+                 for code in sorted(told - known)]
     return problems
 
 

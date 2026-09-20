@@ -18,7 +18,8 @@ pattern and then ends in one newline. This reader refuses that string, as ECMASc
 
 `x-runtime-owned: true` marks a property the runtime writes. Stored records carry it like
 any other property. In submit mode its presence is refused by name and its absence is not
-a missing field: one authored schema serves both directions.
+a missing field: one authored schema serves both directions. On a document's root it marks a
+record the runtime writes whole, such as a result or a receipt, which no submission may be.
 """
 from __future__ import annotations
 
@@ -56,7 +57,8 @@ ERRORS = {
     TYPE_MISMATCH: "a value of another JSON type than the schema states",
     MISSING_FIELD: "a required property that is absent",
     UNKNOWN_FIELD: "a property the record's schema does not define",
-    RUNTIME_OWNED_FIELD: "a submission that carries a property the runtime writes",
+    RUNTIME_OWNED_FIELD: "a submission that carries a property, or is a record, the runtime "
+                         "writes",
     VALUE_NOT_ALLOWED: "a value that differs from the constant or is not among the listed values",
     PATTERN_MISMATCH: "a string that does not match its pattern",
     LENGTH_OUT_OF_RANGE: "a string shorter or longer than its bounds, in code points",
@@ -341,6 +343,9 @@ class Schema:
         if mode not in (STORED, SUBMIT):
             raise ValueError(f"mode is {STORED!r} or {SUBMIT!r}")
         found: list[Violation] = []
+        if mode == SUBMIT and self._runtime_owned(self.document):
+            return [Violation(RUNTIME_OWNED_FIELD, "",
+                              "the runtime writes this record; it is never a submission")]
         self._check(self.document, "", value, "", mode, found)
         return found
 

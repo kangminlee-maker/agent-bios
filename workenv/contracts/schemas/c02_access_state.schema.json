@@ -1,0 +1,61 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C02 access state",
+  "description": "The local access state of one profile on one installation. The runtime writes it whole. These three states are not Team membership and not an `enabled` flag.",
+  "required": [
+    "kind",
+    "schema",
+    "profile_id",
+    "state",
+    "access_generation",
+    "cause",
+    "changed_at"
+  ],
+  "properties": {
+    "kind": {
+      "const": "access_state"
+    },
+    "schema": {
+      "const": 1
+    },
+    "profile_id": {
+      "$ref": "#/$defs/profile_id"
+    },
+    "state": {
+      "enum": [
+        "active",
+        "locked",
+        "signed_out"
+      ]
+    },
+    "access_generation": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "cause": {
+      "enum": [
+        "first_use",
+        "lock",
+        "sign_out",
+        "unlock",
+        "sign_in",
+        "incomplete_transition_recovered"
+      ]
+    },
+    "changed_at": {
+      "$ref": "#/$defs/instant"
+    }
+  },
+  "x-runtime-owned": true,
+  "$defs": {
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "profile_id": {
+      "type": "string",
+      "pattern": "^prf_[0-9a-f]{32}$"
+    }
+  }
+}

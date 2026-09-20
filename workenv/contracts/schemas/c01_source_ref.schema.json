@@ -1,0 +1,149 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C01 source reference",
+  "description": "An exact reference: one source, one immutable revision, optionally one member. A branch, a tag or `latest` is not a revision.",
+  "required": [
+    "kind",
+    "schema",
+    "source_id",
+    "role",
+    "scope",
+    "revision_digest"
+  ],
+  "properties": {
+    "kind": {
+      "const": "source_ref"
+    },
+    "schema": {
+      "const": 1
+    },
+    "source_id": {
+      "$ref": "#/$defs/source_id"
+    },
+    "role": {
+      "$ref": "#/$defs/role"
+    },
+    "scope": {
+      "$ref": "#/$defs/scope"
+    },
+    "revision_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "member": {
+      "$ref": "#/$defs/member"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "scope": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/repository_scope"
+        },
+        {
+          "$ref": "#/$defs/personal_scope"
+        },
+        {
+          "$ref": "#/$defs/team_scope"
+        }
+      ]
+    },
+    "team_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "team_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "team"
+        },
+        "team_id": {
+          "$ref": "#/$defs/team_id"
+        }
+      }
+    },
+    "team_id": {
+      "type": "string",
+      "pattern": "^tem_[0-9a-f]{32}$"
+    },
+    "personal_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "principal_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "personal"
+        },
+        "principal_id": {
+          "$ref": "#/$defs/principal_id"
+        }
+      }
+    },
+    "principal_id": {
+      "type": "string",
+      "pattern": "^prn_[0-9a-f]{32}$"
+    },
+    "repository_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "repository_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "repository"
+        },
+        "repository_id": {
+          "$ref": "#/$defs/repository_id"
+        }
+      }
+    },
+    "repository_id": {
+      "type": "string",
+      "pattern": "^rep_[0-9a-f]{32}$"
+    },
+    "role": {
+      "enum": [
+        "instructions",
+        "knowledge",
+        "memory"
+      ]
+    },
+    "source_id": {
+      "type": "string",
+      "pattern": "^src_[0-9a-f]{32}$"
+    },
+    "member": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "digest",
+        "size"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]*(?:/[A-Za-z0-9_][A-Za-z0-9_.-]*)*$"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

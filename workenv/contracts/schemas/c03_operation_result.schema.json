@@ -1,0 +1,153 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C03 operation result",
+  "description": "What one request actually did, written whole by the runtime. `request_digest` is absent only when the owner holds no request under this id. A stored result cannot show that a model read, kept or obeyed a returned body.",
+  "required": [
+    "kind",
+    "schema",
+    "request_id",
+    "local_effect",
+    "provider_effect",
+    "actual_stage",
+    "outputs",
+    "material_gaps",
+    "supported_recovery"
+  ],
+  "properties": {
+    "kind": {
+      "const": "operation_result"
+    },
+    "schema": {
+      "const": 1
+    },
+    "request_id": {
+      "$ref": "#/$defs/request_id"
+    },
+    "request_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "local_effect": {
+      "enum": [
+        "none",
+        "private_state_written",
+        "candidate_stored",
+        "objects_staged",
+        "committed"
+      ]
+    },
+    "provider_effect": {
+      "enum": [
+        "not_applicable",
+        "none",
+        "queued",
+        "dispatched",
+        "committed",
+        "unknown"
+      ]
+    },
+    "actual_stage": {
+      "enum": [
+        "refused",
+        "previewed",
+        "draft",
+        "in_review",
+        "approved",
+        "executing",
+        "committed",
+        "changes_requested",
+        "rejected",
+        "withdrawn",
+        "expired",
+        "stale",
+        "blocked",
+        "conflict",
+        "partial",
+        "unknown"
+      ]
+    },
+    "outputs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/output"
+      }
+    },
+    "receipt_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "material_gaps": {
+      "$ref": "#/$defs/gaps"
+    },
+    "supported_recovery": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "retry_same_request",
+          "query_same_request",
+          "reseal_on_current_head",
+          "unlock",
+          "sign_in",
+          "fresh_authentication",
+          "enroll_credential",
+          "refresh_control_evidence",
+          "open_a_terminal",
+          "new_governed_request"
+        ]
+      }
+    }
+  },
+  "x-runtime-owned": true,
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "gaps": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/gap"
+      }
+    },
+    "gap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        "pointer": {
+          "type": "string",
+          "pattern": "^(?:/[^/]*)*$"
+        }
+      }
+    },
+    "request_id": {
+      "type": "string",
+      "pattern": "^req_[0-9a-f]{32}$"
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "digest"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    }
+  }
+}

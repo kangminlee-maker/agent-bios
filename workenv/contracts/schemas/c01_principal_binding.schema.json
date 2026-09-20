@@ -1,0 +1,148 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C01 principal binding",
+  "description": "One credential bound to one principal. The principal id is opaque and stable; the credential is what changes. A display name, an e-mail address or a key fingerprint has no field here, because none of them is an identity.",
+  "required": [
+    "kind",
+    "schema",
+    "binding_id",
+    "principal_id",
+    "credential",
+    "established_by",
+    "evidence_digests",
+    "created_at"
+  ],
+  "properties": {
+    "kind": {
+      "const": "principal_binding"
+    },
+    "schema": {
+      "const": 1
+    },
+    "binding_id": {
+      "$ref": "#/$defs/binding_id",
+      "x-runtime-owned": true
+    },
+    "principal_id": {
+      "$ref": "#/$defs/principal_id"
+    },
+    "credential": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/device_key_credential"
+        },
+        {
+          "$ref": "#/$defs/external_identity_credential"
+        }
+      ]
+    },
+    "established_by": {
+      "enum": [
+        "local_creation",
+        "enrollment",
+        "governed_link",
+        "governed_recovery"
+      ]
+    },
+    "evidence_digests": {
+      "$ref": "#/$defs/digests"
+    },
+    "created_at": {
+      "$ref": "#/$defs/instant",
+      "x-runtime-owned": true
+    }
+  },
+  "$defs": {
+    "connection_id": {
+      "type": "string",
+      "pattern": "^con_[0-9a-f]{32}$"
+    },
+    "device_id": {
+      "type": "string",
+      "pattern": "^dev_[0-9a-f]{32}$"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "digests": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/digest"
+      }
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "principal_id": {
+      "type": "string",
+      "pattern": "^prn_[0-9a-f]{32}$"
+    },
+    "binding_id": {
+      "type": "string",
+      "pattern": "^bnd_[0-9a-f]{32}$"
+    },
+    "device_key_credential": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "credential",
+        "device_id",
+        "key_generation",
+        "public_key"
+      ],
+      "properties": {
+        "credential": {
+          "const": "device_key"
+        },
+        "device_id": {
+          "$ref": "#/$defs/device_id"
+        },
+        "key_generation": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "public_key": {
+          "type": "string",
+          "pattern": "^ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI[A-Za-z0-9+/]{43}$"
+        }
+      }
+    },
+    "external_identity_credential": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "credential",
+        "connection_id",
+        "issuer",
+        "subject"
+      ],
+      "properties": {
+        "credential": {
+          "const": "external_identity"
+        },
+        "connection_id": {
+          "$ref": "#/$defs/connection_id"
+        },
+        "issuer": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "tenant": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        }
+      }
+    }
+  }
+}

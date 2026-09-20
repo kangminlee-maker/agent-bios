@@ -1,0 +1,113 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C01 repository binding",
+  "description": "A checkout bound to a stable repository id. The id is held apart from what was observed of the checkout: a clone or a worktree shares its origin's id, and a fork has its own id and names the original it reads or derives authority from.",
+  "required": [
+    "kind",
+    "schema",
+    "repository_id",
+    "relation",
+    "observed"
+  ],
+  "properties": {
+    "kind": {
+      "const": "repository_binding"
+    },
+    "schema": {
+      "const": 1
+    },
+    "repository_id": {
+      "$ref": "#/$defs/repository_id"
+    },
+    "relation": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/shares_identity"
+        },
+        {
+          "$ref": "#/$defs/fork"
+        }
+      ]
+    },
+    "observed": {
+      "$ref": "#/$defs/observed_checkout",
+      "x-runtime-owned": true
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "repository_id": {
+      "type": "string",
+      "pattern": "^rep_[0-9a-f]{32}$"
+    },
+    "shares_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "how"
+      ],
+      "properties": {
+        "how": {
+          "enum": [
+            "origin",
+            "clone",
+            "worktree"
+          ]
+        }
+      }
+    },
+    "fork": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "how",
+        "original_repository_id",
+        "authority_evidence_digest"
+      ],
+      "properties": {
+        "how": {
+          "enum": [
+            "fork_original_read",
+            "fork_derived_authority"
+          ]
+        },
+        "original_repository_id": {
+          "$ref": "#/$defs/repository_id"
+        },
+        "authority_evidence_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "observed_checkout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "locator"
+      ],
+      "properties": {
+        "locator": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "branch": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}(?:[0-9a-f]{24})?$"
+        },
+        "working_bytes_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    }
+  }
+}

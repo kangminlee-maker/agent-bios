@@ -8,11 +8,20 @@ example is and what must happen to it:
   subject `bytes`   the example goes to `canonical.load` alone
   subject `schema`  the example is a schema document: `canonical.parse`, then `load_schema`
   subject `record`  `canonical.load`, then validation against the named schema in a mode
+  subject `dispatched`  `records.load`: the schema is the one the record's own kind and
+                    version select, which is how a reader meets a contract record
 
 `check` runs every example and compares. It fails by name on an example without an expectation
 or the reverse, on an empty example set, on a schema no accepted example and no refused example
-exercises, and — through `errors.coverage` — on an error code no example exercises and on an
-expectation naming a code the table does not hold.
+exercises, and — through `errors.coverage` — on an error code no example exercises, on a gap
+code no accepted result states, and on an example naming a code the table does not hold.
+
+Three more rules hold the contract records together. Every place a schema marks as written by
+the runtime has a submission that is refused for carrying it. A definition name means one thing:
+two documents that both define `$defs/<name>` define it identically, because `$ref` cannot
+cross documents and a copy that drifts would be a second vocabulary. And an `operation_result`
+example answers an `operation_request` example that exists: its `request_digest` is the
+sha256 of that example's bytes.
 
 Fixture identity is measured, never declared: `index.json` lists every schema, example and
 expectation with the sha256 and size this module read, and a test fails a stale one.
@@ -23,12 +32,13 @@ expectation with the sha256 and size this module read, and a test fails a stale 
 from __future__ import annotations
 
 import hashlib
+import json
 import pathlib
 import sys
 from typing import Any
 
-from . import canonical, errors
-from .schema import Schema, SchemaError, load_schema
+from . import c03, canonical, errors, records
+from .schema import RUNTIME_OWNED, RUNTIME_OWNED_FIELD, Schema, SchemaError, load_schema
 
 ROOT = pathlib.Path(__file__).parent
 SCHEMAS = ROOT / "schemas"
@@ -70,25 +80,80 @@ def expectation_path(example: pathlib.Path) -> pathlib.Path:
     return example.with_name(example.name[:-len(".json")] + EXPECT_SUFFIX)
 
 
-def outcome(example: bytes, expectation: dict[str, Any],
-            schemas: dict[str, Schema]) -> list[dict[str, str]]:
-    """What actually happens to the example: [] when accepted, else the refusals as
-    code-and-pointer rows, in the shape an expectation states them."""
+def outcome(example: bytes, expectation: dict[str, Any], schemas: dict[str, Schema],
+            ) -> tuple[list[dict[str, str]], str | None, Any]:
+    """What actually happens to the example: (refusals, schema id, value). Refusals are []
+    when accepted, else code-and-pointer rows in the shape an expectation states them. The
+    schema id is None when the example never reached a schema, the value None when the bytes
+    never became one."""
     subject = expectation["subject"]
+    identifier = expectation.get("schema")
     try:
         if subject == "bytes":
             canonical.load(example)
-            return []
+            return [], None, None
         if subject == "schema":
             load_schema(canonical.parse(example))
-            return []
+            return [], None, None
         value = canonical.load(example)
+        if subject == "dispatched":
+            identifier = records.resolve(value, records.registry(schemas))
     except canonical.CanonicalError as error:
-        return [{"code": error.code, "pointer": ""}]
-    except SchemaError as error:
-        return [{"code": error.code, "pointer": error.pointer}]
-    found = schemas[expectation["schema"]].validate(value, expectation["mode"])
-    return [{"code": v.code, "pointer": v.pointer} for v in found]
+        return [{"code": error.code, "pointer": ""}], None, None
+    except (SchemaError, records.RecordError) as error:
+        return [{"code": error.code, "pointer": error.pointer}], None, None
+    found = schemas[identifier].validate(value, expectation["mode"])
+    return [{"code": v.code, "pointer": v.pointer} for v in found], identifier, value
+
+
+def owned_places(loaded: Schema) -> set[str]:
+    """Where a schema says the runtime writes: property paths without array indices, and ""
+    for a record the runtime writes whole."""
+    places: set[str] = set()
+
+    def walk(node: dict[str, Any], path: str, through: tuple[str, ...]) -> None:
+        if "$ref" in node:
+            name = node["$ref"].rsplit("/", 1)[-1]
+            if name not in through:
+                walk(loaded.defs[name], path, through + (name,))
+            return
+        for variant in node.get("oneOf", []):
+            walk(variant, path, through)
+        if node.get("type") == "array":
+            walk(node["items"], path, through)
+        for name, child in node.get("properties", {}).items():
+            if child.get(RUNTIME_OWNED) is True:
+                places.add(f"{path}/{name}")
+            else:
+                walk(child, f"{path}/{name}", through)
+
+    if loaded.document.get(RUNTIME_OWNED) is True:
+        return {""}
+    walk(loaded.document, "", ())
+    return places
+
+
+def without_indices(pointer: str) -> str:
+    return "/".join(token for token in pointer.split("/") if not token.isdigit())
+
+
+def shared_definitions(schemas: dict[str, Schema]) -> list[str]:
+    """Problems about a definition name two documents give different meanings."""
+    first: dict[str, tuple[str, Any]] = {}
+    problems = []
+    for identifier, loaded in sorted(schemas.items()):
+        for name, node in loaded.defs.items():
+            if name not in first:
+                first[name] = (identifier, node)
+            elif canonical_form(first[name][1]) != canonical_form(node):
+                problems.append(f"$defs/{name} differs between schemas {first[name][0]} and "
+                                f"{identifier}; one name has one meaning")
+    return problems
+
+
+def canonical_form(node: Any) -> str:
+    # Schema keys such as $ref are outside the record key domain, so compare as sorted JSON.
+    return json.dumps(node, sort_keys=True)
 
 
 def check(schemas_dir: pathlib.Path = SCHEMAS,
@@ -109,9 +174,19 @@ def check(schemas_dir: pathlib.Path = SCHEMAS,
     if not paired:
         problems.append("empty subject set: no example with an expectation")
 
+    try:
+        records.registry(schemas)
+    except ValueError as error:
+        return problems + [str(error)], report
+    problems += shared_definitions(schemas)
+
     exercised: set[str] = set()
+    stated: set[str] = set()
     accepted: dict[str, int] = dict.fromkeys(schemas, 0)
     refused: dict[str, int] = dict.fromkeys(schemas, 0)
+    submit_refused: dict[str, set[str]] = {identifier: set() for identifier in schemas}
+    requests: dict[str, str] = {}
+    answers: list[tuple[str, Any]] = []
     for example in paired:
         name = str(example.relative_to(examples_dir))
         try:
@@ -129,12 +204,23 @@ def check(schemas_dir: pathlib.Path = SCHEMAS,
             problems.append(f"{name}: expects schema {expectation['schema']!r}, which is absent")
             continue
         want = expectation.get("refusals", [])
-        got = outcome(example.read_bytes(), expectation, schemas)
+        data = example.read_bytes()
+        got, identifier, value = outcome(data, expectation, schemas)
         exercised.update(row["code"] for row in want)
         if got != want:
             problems.append(f"{name}: expected {want or 'acceptance'}, got {got or 'acceptance'}")
-        if expectation["subject"] == "record":
-            (refused if want else accepted)[expectation["schema"]] += 1
+        if identifier is None:
+            continue
+        (refused if want else accepted)[identifier] += 1
+        # Only a submission is refused with this code, so the mode needs no second test.
+        submit_refused[identifier].update(without_indices(row["pointer"]) for row in got
+                                          if row["code"] == RUNTIME_OWNED_FIELD)
+        if not want:
+            stated |= records.stated(value)
+            if value.get("kind") == "operation_request":
+                requests[hashlib.sha256(data).hexdigest()] = value["request_id"]
+            elif value.get("kind") == "operation_result":
+                answers.append((name, value))
     for identifier in schemas:
         report.append(f"schema {identifier}: {accepted[identifier]} accepted, "
                       f"{refused[identifier]} refused")
@@ -142,7 +228,19 @@ def check(schemas_dir: pathlib.Path = SCHEMAS,
             problems.append(f"schema {identifier}: no example it accepts")
         if not refused[identifier]:
             problems.append(f"schema {identifier}: no example it refuses")
-    problems += errors.coverage(exercised)
+        for place in sorted(owned_places(schemas[identifier]) - submit_refused[identifier]):
+            problems.append(f"schema {identifier}: the runtime writes {place or 'the whole record'}"
+                            f" and no submission is refused for carrying it")
+    for name, value in answers:
+        digest = value.get("request_digest")
+        if digest is None:
+            if c03.REQUEST_UNKNOWN not in records.stated(value):
+                problems.append(f"{name}: names no request digest and does not state "
+                                f"{c03.REQUEST_UNKNOWN}")
+        elif requests.get(digest) != value["request_id"]:
+            problems.append(f"{name}: answers request {value['request_id']} with digest "
+                            f"{digest[:12]}, and no request example has both")
+    problems += errors.coverage(exercised, stated)
     return problems, report
 
 

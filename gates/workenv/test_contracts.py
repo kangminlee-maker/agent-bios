@@ -9,7 +9,9 @@ from unittest import mock
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 
-from workenv.contracts import canonical, errors, examples, schema  # noqa: E402
+from workenv.contracts import (  # noqa: E402
+    c01, c02, c03, canonical, errors, examples, records, schema,
+)
 
 
 class CanonicalVectors(unittest.TestCase):
@@ -365,12 +367,30 @@ class ErrorTable(unittest.TestCase):
 
     def test_every_code_has_one_owner_and_a_meaning(self):
         joined = errors.table()
-        self.assertEqual(set(joined), set(canonical.ERRORS) | set(schema.ERRORS))
-        self.assertEqual(len(joined), len(canonical.ERRORS) + len(schema.ERRORS))
+        self.assertEqual(errors.OWNERS, (canonical, schema, records, c01, c02, c03))
+        self.assertEqual(set(joined), {code for module in errors.OWNERS for code in module.ERRORS})
+        self.assertEqual(len(joined), sum(len(module.ERRORS) for module in errors.OWNERS))
         for code, entry in joined.items():
             with self.subTest(code=code):
                 self.assertRegex(code, r"^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$")
                 self.assertTrue(entry["meaning"].strip())
+
+    def test_a_contract_module_names_its_contract_and_its_record_kinds(self):
+        described: dict[str, set[str]] = {}
+        for kind, versions in records.registry(examples.load_schemas()).items():
+            for identifier in versions.values():
+                contract, _, rest = identifier.partition("_")
+                self.assertEqual(rest, kind, f"schema {identifier} describes kind {kind}")
+                described.setdefault(contract, set()).add(kind)
+        modules = [m for m in errors.OWNERS if getattr(m, "IN_RESULTS", False)]
+        self.assertEqual([m.__name__.rsplit(".", 1)[-1] for m in modules], ["c01", "c02", "c03"])
+        for module in modules:
+            name = module.__name__.rsplit(".", 1)[-1]
+            with self.subTest(module=name):
+                self.assertEqual(module.CONTRACT, name.upper())
+                self.assertEqual(len(module.RECORD_KINDS), len(set(module.RECORD_KINDS)))
+                self.assertEqual(set(module.RECORD_KINDS), described.pop(name))
+        self.assertEqual(described, {}, "a record schema no contract module lists")
 
     def test_a_code_two_modules_claim_is_refused(self):
         taken = next(iter(canonical.ERRORS))
@@ -391,20 +411,39 @@ class ErrorTable(unittest.TestCase):
             schema.Violation("not_in_the_table", "", "x")
 
     def test_coverage_is_checked_both_ways(self):
-        every = set(errors.table()) - set(errors.not_from_bytes())
-        self.assertEqual(errors.coverage(every), [])
-        missing = errors.coverage(every - {canonical.DUPLICATE_KEY})
+        results = errors.in_results()
+        self.assertEqual(results, set(c01.ERRORS) | set(c02.ERRORS) | set(c03.ERRORS))
+        readers = set(errors.table()) - results - set(errors.not_from_bytes())
+        self.assertEqual(errors.coverage(readers, results), [])
+        missing = errors.coverage(readers - {canonical.DUPLICATE_KEY}, results)
         self.assertEqual(len(missing), 1)
         self.assertIn(canonical.DUPLICATE_KEY, missing[0])
         self.assertIn("no negative example", missing[0])
-        unknown = errors.coverage(every | {"not_in_the_table"})
+        unknown = errors.coverage(readers | {"not_in_the_table"}, results)
         self.assertEqual(len(unknown), 1)
         self.assertIn("not_in_the_table", unknown[0])
 
+    def test_a_gap_code_is_stated_by_a_result_and_never_asked_of_the_reader(self):
+        results = errors.in_results()
+        readers = set(errors.table()) - results - set(errors.not_from_bytes())
+        self.assertEqual(errors.coverage(readers, results - {c03.STALE_BASE}),
+                         ["gap code 'stale_base' is stated by no accepted result example"])
+        self.assertEqual(errors.coverage(readers | {c03.STALE_BASE}, results),
+                         ["an expectation asks the reader for 'stale_base', which only a result "
+                          "states"])
+        self.assertEqual(errors.coverage(readers, results | {"not_in_the_table"}),
+                         ["an example states gap code 'not_in_the_table', which the table does "
+                          "not hold"])
+        # A result may repeat a reader's code, for a submission it refused. That shows nothing
+        # about the reader, so the reader's code still needs its own refused example.
+        self.assertEqual(errors.coverage(readers - {schema.MISSING_FIELD},
+                                         results | {schema.MISSING_FIELD}),
+                         ["error code 'missing_field' is exercised by no negative example"])
 
-class ContractExamples(unittest.TestCase):
-    """The real examples pass; each rule of the checker fails by name on a copy with one
-    thing planted. A copy per case, so no case depends on what another left behind."""
+
+class PlantedCopies(unittest.TestCase):
+    """A copy of the schemas and examples per case, with one thing planted, so no case depends
+    on what another left behind."""
 
     def planted(self, plant):
         with tempfile.TemporaryDirectory(prefix="workenv-examples-") as scratch:
@@ -418,6 +457,10 @@ class ContractExamples(unittest.TestCase):
         problems = self.planted(plant)
         self.assertEqual(len(problems), 1, problems)
         self.assertIn(fragment, problems[0])
+
+
+class ContractExamples(PlantedCopies):
+    """The real examples pass; each rule of the checker fails by name on a planted copy."""
 
     def test_the_real_examples_pass_and_the_copy_is_faithful(self):
         self.assertEqual(examples.check()[0], [])
@@ -521,17 +564,214 @@ class ContractExamples(unittest.TestCase):
                          "schemas/expectation.schema.json is absent")
 
     def test_a_code_declared_unreachable_from_bytes(self):
-        every = set(errors.table())
+        results = errors.in_results()
+        every = set(errors.table()) - results
         exempt = set(errors.not_from_bytes())
         self.assertEqual(exempt, {canonical.UNSUPPORTED_TYPE})
-        self.assertEqual(errors.coverage(every - exempt), [])
-        stale = errors.coverage(every)
+        self.assertEqual(errors.coverage(every - exempt, results), [])
+        stale = errors.coverage(every, results)
         self.assertEqual(len(stale), 1)
         self.assertIn("the declaration is stale", stale[0])
         with mock.patch.dict(canonical.NOT_FROM_BYTES, {"not_in_the_table": "x"}):
-            dangling = errors.coverage(every - exempt)
+            dangling = errors.coverage(every - exempt, results)
         self.assertEqual(len(dangling), 1)
         self.assertIn("is not in the table", dangling[0])
+
+
+class ContractRecordExamples(PlantedCopies):
+    """The rules that hold contract records together, each planted on its own copy."""
+
+    @staticmethod
+    def remove(name):
+        def plant(root):
+            (root / "examples" / f"{name}.json").unlink()
+            (root / "examples" / f"{name}.expect.json").unlink()
+        return plant
+
+    def rewrite(self, relative, old, new):
+        def plant(root):
+            path = root / relative
+            data = path.read_bytes()
+            self.assertEqual(data.count(old), 1, f"{old!r} in {relative}")
+            path.write_bytes(data.replace(old, new))
+        return plant
+
+    def test_a_dispatched_example_is_read_by_its_own_kind(self):
+        self.one_problem(self.rewrite("examples/dispatch/known_kind_and_version.json",
+                                      b'"operation_query"', b'"operation_wish"'),
+                         "dispatch/known_kind_and_version.json: expected acceptance, got "
+                         "[{'code': 'unknown_record_kind', 'pointer': '/kind'}]")
+
+    def test_a_place_the_runtime_writes_with_no_refused_submission(self):
+        self.one_problem(self.remove("c01/submission_dates_itself"),
+                         "schema c01_principal_binding: the runtime writes /created_at and no "
+                         "submission is refused for carrying it")
+        self.one_problem(self.remove("fixture_index/authored_entry_declares_its_size"),
+                         "schema fixture_index: the runtime writes /files/size and no")
+        self.one_problem(self.remove("c03/receipt_is_never_submitted"),
+                         "schema c03_operation_receipt: the runtime writes the whole record and")
+
+    def test_a_refusal_when_stored_is_not_a_refused_submission(self):
+        # Stored, the same receipt is accepted, so the expectation is wrong as well.
+        problems = self.planted(self.rewrite(
+            "examples/c03/receipt_is_never_submitted.expect.json", b'"submit"', b'"stored"'))
+        self.assertEqual(len(problems), 2, problems)
+        self.assertIn("c03_operation_receipt: the runtime writes the whole record", problems[1])
+
+    def test_another_refusal_at_the_same_place_is_not_a_refused_submission(self):
+        def plant(root):
+            self.remove("c01/submission_dates_itself")(root)
+            stored = (root / "examples/c01/device_key_binding.json").read_bytes()
+            self.assertEqual(stored.count(b'"created_at":"2026-09-20T09:00:00Z"'), 1)
+            (root / "examples/c01/dated_in_words.json").write_bytes(
+                stored.replace(b'"created_at":"2026-09-20T09:00:00Z"', b'"created_at":"today"'))
+            (root / "examples/c01/dated_in_words.expect.json").write_bytes(canonical.encode({
+                "subject": "dispatched", "mode": "stored",
+                "refusals": [{"code": "pattern_mismatch", "pointer": "/created_at"}]}))
+        self.one_problem(plant, "c01_principal_binding: the runtime writes /created_at and no")
+
+    def test_the_places_a_schema_marks(self):
+        schemas = examples.load_schemas()
+        self.assertEqual(examples.owned_places(schemas["fixture_index"]),
+                         {"/files/sha256", "/files/size"})
+        self.assertEqual(examples.owned_places(schemas["c01_repository_binding"]), {"/observed"})
+        self.assertEqual(examples.owned_places(schemas["c03_operation_result"]), {""})
+        # The digest of a sealed request is its identity, so the runtime adds nothing to it.
+        self.assertEqual(examples.owned_places(schemas["c03_operation_request"]), set())
+        closed = {"type": "object", "additionalProperties": False}
+        recursive = schema.load_schema({
+            "$ref": "#/$defs/node",
+            "$defs": {"node": {**closed, "properties": {
+                "stamp": {"type": "string", "x-runtime-owned": True},
+                # A submission is refused at the marked property and never read below it.
+                "sealed": {**closed, "x-runtime-owned": True, "properties": {
+                    "inner": {"type": "string", "x-runtime-owned": True}}},
+                "either": {"oneOf": [{"type": "null"}, {**closed, "properties": {
+                    "seen": {"type": "string", "x-runtime-owned": True}}}]},
+                "children": {"type": "array", "items": {"$ref": "#/$defs/node"}}}}}})
+        self.assertEqual(examples.owned_places(recursive),
+                         {"/stamp", "/sealed", "/either/seen"})
+        self.assertEqual(examples.without_indices("/files/12/sha256"), "/files/sha256")
+
+    def test_a_definition_name_with_two_meanings(self):
+        self.one_problem(self.rewrite("schemas/c01_source_ref.schema.json",
+                                      b'\n    "digest": {\n',
+                                      b'\n    "digest": {\n      "title": "another digest",\n'),
+                         "$defs/digest differs between schemas c01_principal_binding and "
+                         "c01_source_ref; one name has one meaning")
+
+    def test_two_documents_describing_one_record_kind(self):
+        def plant(root):
+            shutil.copy(root / "schemas/c03_operation_query.schema.json",
+                        root / "schemas/c03_operation_query_again.schema.json")
+        self.one_problem(plant, "record kind 'operation_query' version 1 is described by "
+                                "c03_operation_query and c03_operation_query_again")
+
+    def test_a_result_answers_a_request_example_that_exists(self):
+        request = (examples.EXAMPLES / "c03/commit_request.json").read_bytes()
+        digest = hashlib.sha256(request).hexdigest().encode()
+        stale = (examples.EXAMPLES / "c03/stale_base.json").read_bytes()
+        self.assertIn(b'"request_digest":"' + digest + b'"', stale)
+        self.one_problem(self.rewrite("examples/c03/stale_base.json", digest, b"0" * 64),
+                         "c03/stale_base.json: answers request req_")
+        # The digest of another request example is not enough; the id has to be that one's.
+        other = (examples.EXAMPLES / "c03/preview_request.json").read_bytes()
+        self.one_problem(self.rewrite("examples/c03/stale_base.json", digest,
+                                      hashlib.sha256(other).hexdigest().encode()),
+                         "and no request example has both")
+
+    def test_a_result_naming_no_request_states_that_none_is_known(self):
+        name = "examples/c03/query_for_a_request_never_received.json"
+        problems = self.planted(self.rewrite(name, b"request_unknown", b"stale_base"))
+        self.assertIn("c03/query_for_a_request_never_received.json: names no request digest and "
+                      "does not state request_unknown", problems)
+
+    def test_a_gap_code_no_result_states(self):
+        self.one_problem(self.remove("c03/stale_base"),
+                         "gap code 'stale_base' is stated by no accepted result example")
+
+    def test_a_gap_stated_by_a_refused_example_does_not_count(self):
+        def plant(root):
+            path = root / "examples/c03/stale_base.json"
+            path.write_bytes(path.read_bytes().replace(b'"actual_stage":"stale"',
+                                                       b'"actual_stage":"stalled"'))
+            (root / "examples/c03/stale_base.expect.json").write_bytes(canonical.encode({
+                "subject": "dispatched", "mode": "stored",
+                "refusals": [{"code": "value_not_allowed", "pointer": "/actual_stage"}]}))
+        self.one_problem(plant, "gap code 'stale_base' is stated by no accepted result example")
+
+    def test_a_stated_code_outside_the_table(self):
+        problems = self.planted(self.rewrite("examples/c03/stale_base.json",
+                                             b'"code":"stale_base"', b'"code":"stale_bass"'))
+        self.assertIn("an example states gap code 'stale_bass', which the table does not hold",
+                      problems)
+
+
+class Records(unittest.TestCase):
+    def setUp(self):
+        self.schemas = examples.load_schemas()
+        self.kinds = records.registry(self.schemas)
+
+    def refused(self, code, pointer, value):
+        with self.assertRaises(records.RecordError) as caught:
+            records.resolve(value, self.kinds)
+        self.assertEqual((caught.exception.code, caught.exception.pointer), (code, pointer))
+
+    def test_the_registry_is_read_from_the_documents(self):
+        self.assertEqual(self.kinds["operation_query"], {1: "c03_operation_query"})
+        self.assertNotIn("expectation", {i for v in self.kinds.values() for i in v.values()})
+        self.assertEqual(len(self.kinds), 10)
+
+    def test_a_document_describes_a_kind_only_when_it_fixes_and_requires_both(self):
+        closed = {"type": "object", "additionalProperties": False}
+        fixed = {"kind": {"const": "note"}, "schema": {"const": 1}}
+        good = schema.load_schema({**closed, "required": ["kind", "schema"], "properties": fixed})
+        self.assertEqual(records.describes(good), ("note", 1))
+        for label, document in (
+            ("kind not required", {**closed, "required": ["schema"], "properties": fixed}),
+            ("version not an integer", {**closed, "required": ["kind", "schema"], "properties": {
+                **fixed, "schema": {"const": "1"}}}),
+            ("version is a boolean", {**closed, "required": ["kind", "schema"], "properties": {
+                **fixed, "schema": {"const": True}}}),
+            ("kind is open", {**closed, "required": ["kind", "schema"], "properties": {
+                **fixed, "kind": {"type": "string"}}}),
+            ("not an object", {"type": "string"}),
+        ):
+            with self.subTest(label):
+                self.assertIsNone(records.describes(schema.load_schema(document)))
+
+    def test_what_is_not_a_record_is_refused_by_name(self):
+        good = {"kind": "operation_query", "schema": 1}
+        self.assertEqual(records.resolve(good, self.kinds), "c03_operation_query")
+        self.refused(records.NOT_A_RECORD, "", [good])
+        self.refused(records.NOT_A_RECORD, "/kind", {"schema": 1})
+        self.refused(records.NOT_A_RECORD, "/kind", {**good, "kind": 3})
+        self.refused(records.NOT_A_RECORD, "/schema", {"kind": "operation_query"})
+        self.refused(records.NOT_A_RECORD, "/schema", {**good, "schema": True})
+        self.refused(records.UNKNOWN_RECORD_KIND, "/kind", {**good, "kind": "operation_wish"})
+        self.refused(records.UNSUPPORTED_SCHEMA_VERSION, "/schema", {**good, "schema": 2})
+
+    def test_load_goes_from_bytes_to_the_kinds_own_schema(self):
+        data = (examples.EXAMPLES / "c03/commit_receipt.json").read_bytes()
+        value, identifier, found = records.load(data, self.schemas)
+        self.assertEqual((value["kind"], identifier, found), ("operation_receipt",
+                                                              "c03_operation_receipt", []))
+        found = records.load(data, self.schemas, schema.SUBMIT)[2]
+        self.assertEqual([(v.code, v.pointer) for v in found], [("runtime_owned_field", "")])
+        with self.assertRaises(canonical.CanonicalError):
+            records.load(data + b"\n", self.schemas)
+
+    def test_a_record_error_outside_the_module_rows_cannot_be_raised(self):
+        with self.assertRaises(LookupError):
+            records.RecordError("not_in_the_table", "", "x")
+
+    def test_stated_gaps_are_collected_at_any_depth_and_nothing_else_is(self):
+        value = {"code": "not_a_gap", "material_gaps": [{"code": "stale_base"}],
+                 "outcome": {"material_gaps": [{"code": "access_locked", "pointer": "/x"}, 7,
+                                               {"code": 9}]},
+                 "list": [{"material_gaps": [{"code": "ref_unavailable"}]}],
+                 "gaps": [{"code": "not_collected"}]}
+        self.assertEqual(records.stated(value), {"stale_base", "access_locked", "ref_unavailable"})
 
 
 if __name__ == "__main__":

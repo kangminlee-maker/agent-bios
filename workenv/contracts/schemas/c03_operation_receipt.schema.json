@@ -1,0 +1,210 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C03 operation receipt",
+  "description": "The owner's atomic record that one request moved one head. An object without a receipt is unaccepted, whatever is on disk.",
+  "required": [
+    "kind",
+    "schema",
+    "request_id",
+    "request_digest",
+    "owner",
+    "target",
+    "base",
+    "head_digest",
+    "sequence",
+    "committed_at"
+  ],
+  "properties": {
+    "kind": {
+      "const": "operation_receipt"
+    },
+    "schema": {
+      "const": 1
+    },
+    "request_id": {
+      "$ref": "#/$defs/request_id"
+    },
+    "request_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "owner": {
+      "$ref": "#/$defs/scope"
+    },
+    "target": {
+      "$ref": "#/$defs/target"
+    },
+    "base": {
+      "$ref": "#/$defs/base"
+    },
+    "head_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "committed_at": {
+      "$ref": "#/$defs/instant"
+    }
+  },
+  "x-runtime-owned": true,
+  "$defs": {
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "base": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/unversioned_base"
+        },
+        {
+          "$ref": "#/$defs/absent_base"
+        },
+        {
+          "$ref": "#/$defs/head_base"
+        }
+      ]
+    },
+    "head_base": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expects",
+        "head_digest"
+      ],
+      "properties": {
+        "expects": {
+          "const": "head"
+        },
+        "head_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "absent_base": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expects"
+      ],
+      "properties": {
+        "expects": {
+          "const": "absent"
+        }
+      }
+    },
+    "unversioned_base": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expects"
+      ],
+      "properties": {
+        "expects": {
+          "const": "unversioned"
+        }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resource_kind",
+        "resource_id"
+      ],
+      "properties": {
+        "resource_kind": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        "resource_id": {
+          "type": "string",
+          "pattern": "^[a-z]{3}_[0-9a-f]{32}$"
+        }
+      }
+    },
+    "scope": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/repository_scope"
+        },
+        {
+          "$ref": "#/$defs/personal_scope"
+        },
+        {
+          "$ref": "#/$defs/team_scope"
+        }
+      ]
+    },
+    "team_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "team_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "team"
+        },
+        "team_id": {
+          "$ref": "#/$defs/team_id"
+        }
+      }
+    },
+    "team_id": {
+      "type": "string",
+      "pattern": "^tem_[0-9a-f]{32}$"
+    },
+    "personal_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "principal_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "personal"
+        },
+        "principal_id": {
+          "$ref": "#/$defs/principal_id"
+        }
+      }
+    },
+    "principal_id": {
+      "type": "string",
+      "pattern": "^prn_[0-9a-f]{32}$"
+    },
+    "repository_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "repository_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "repository"
+        },
+        "repository_id": {
+          "$ref": "#/$defs/repository_id"
+        }
+      }
+    },
+    "repository_id": {
+      "type": "string",
+      "pattern": "^rep_[0-9a-f]{32}$"
+    },
+    "request_id": {
+      "type": "string",
+      "pattern": "^req_[0-9a-f]{32}$"
+    }
+  }
+}

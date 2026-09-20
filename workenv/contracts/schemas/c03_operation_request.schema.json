@@ -1,0 +1,302 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C03 sealed operation request",
+  "description": "One protected operation, sealed. The digest of these stored bytes is the request's identity, so the runtime adds no field to it. The payload travels beside it and is named by digest. No secret, token or private key has a field here.",
+  "required": [
+    "kind",
+    "schema",
+    "request_id",
+    "operation",
+    "effect_class",
+    "actor",
+    "local_access_generation",
+    "action",
+    "owner",
+    "target",
+    "base",
+    "policy_digests",
+    "control_digests",
+    "proof_digests",
+    "payload_kind",
+    "payload_digest"
+  ],
+  "properties": {
+    "kind": {
+      "const": "operation_request"
+    },
+    "schema": {
+      "const": 1
+    },
+    "request_id": {
+      "$ref": "#/$defs/request_id"
+    },
+    "operation": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)+$"
+    },
+    "effect_class": {
+      "enum": [
+        "pure_preview",
+        "durable_candidate",
+        "owner_commit"
+      ]
+    },
+    "actor": {
+      "$ref": "#/$defs/actor"
+    },
+    "local_access_generation": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "action": {
+      "$ref": "#/$defs/action"
+    },
+    "owner": {
+      "$ref": "#/$defs/scope"
+    },
+    "target": {
+      "$ref": "#/$defs/target"
+    },
+    "base": {
+      "$ref": "#/$defs/base"
+    },
+    "recipient_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "work_scope": {
+      "$ref": "#/$defs/scope"
+    },
+    "policy_digests": {
+      "$ref": "#/$defs/digests"
+    },
+    "control_digests": {
+      "$ref": "#/$defs/digests"
+    },
+    "proof_digests": {
+      "$ref": "#/$defs/digests"
+    },
+    "payload_kind": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+    },
+    "payload_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    }
+  },
+  "$defs": {
+    "principal_id": {
+      "type": "string",
+      "pattern": "^prn_[0-9a-f]{32}$"
+    },
+    "profile_id": {
+      "type": "string",
+      "pattern": "^prf_[0-9a-f]{32}$"
+    },
+    "device_id": {
+      "type": "string",
+      "pattern": "^dev_[0-9a-f]{32}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "digests": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/digest"
+      }
+    },
+    "scope": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/repository_scope"
+        },
+        {
+          "$ref": "#/$defs/personal_scope"
+        },
+        {
+          "$ref": "#/$defs/team_scope"
+        }
+      ]
+    },
+    "team_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "team_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "team"
+        },
+        "team_id": {
+          "$ref": "#/$defs/team_id"
+        }
+      }
+    },
+    "team_id": {
+      "type": "string",
+      "pattern": "^tem_[0-9a-f]{32}$"
+    },
+    "personal_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "principal_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "personal"
+        },
+        "principal_id": {
+          "$ref": "#/$defs/principal_id"
+        }
+      }
+    },
+    "repository_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "repository_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "repository"
+        },
+        "repository_id": {
+          "$ref": "#/$defs/repository_id"
+        }
+      }
+    },
+    "repository_id": {
+      "type": "string",
+      "pattern": "^rep_[0-9a-f]{32}$"
+    },
+    "base": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/unversioned_base"
+        },
+        {
+          "$ref": "#/$defs/absent_base"
+        },
+        {
+          "$ref": "#/$defs/head_base"
+        }
+      ]
+    },
+    "head_base": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expects",
+        "head_digest"
+      ],
+      "properties": {
+        "expects": {
+          "const": "head"
+        },
+        "head_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "absent_base": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expects"
+      ],
+      "properties": {
+        "expects": {
+          "const": "absent"
+        }
+      }
+    },
+    "unversioned_base": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expects"
+      ],
+      "properties": {
+        "expects": {
+          "const": "unversioned"
+        }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resource_kind",
+        "resource_id"
+      ],
+      "properties": {
+        "resource_kind": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        "resource_id": {
+          "type": "string",
+          "pattern": "^[a-z]{3}_[0-9a-f]{32}$"
+        }
+      }
+    },
+    "action": {
+      "enum": [
+        "local_profile",
+        "read",
+        "use",
+        "contribute",
+        "review",
+        "publish",
+        "adopt",
+        "decide",
+        "grant",
+        "policy",
+        "transfer",
+        "suspend",
+        "retain_delete",
+        "export"
+      ]
+    },
+    "request_id": {
+      "type": "string",
+      "pattern": "^req_[0-9a-f]{32}$"
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "principal_id",
+        "device_id",
+        "profile_id"
+      ],
+      "properties": {
+        "principal_id": {
+          "$ref": "#/$defs/principal_id"
+        },
+        "device_id": {
+          "$ref": "#/$defs/device_id"
+        },
+        "profile_id": {
+          "$ref": "#/$defs/profile_id"
+        },
+        "sponsor_principal_id": {
+          "$ref": "#/$defs/principal_id"
+        }
+      }
+    }
+  }
+}

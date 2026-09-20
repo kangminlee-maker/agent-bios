@@ -1,0 +1,28 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C03 operation query",
+  "description": "Ask what a request did, by its id. The answer is the original result.",
+  "required": [
+    "kind",
+    "schema",
+    "request_id"
+  ],
+  "properties": {
+    "kind": {
+      "const": "operation_query"
+    },
+    "schema": {
+      "const": 1
+    },
+    "request_id": {
+      "$ref": "#/$defs/request_id"
+    }
+  },
+  "$defs": {
+    "request_id": {
+      "type": "string",
+      "pattern": "^req_[0-9a-f]{32}$"
+    }
+  }
+}

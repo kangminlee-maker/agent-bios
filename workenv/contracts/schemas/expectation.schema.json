@@ -1,6 +1,6 @@
 {
   "title": "Expectation beside a contract example",
-  "description": "What a byte example is and what must happen to it. `refusals` absent means the example is accepted.",
+  "description": "What a byte example is and what must happen to it. `refusals` absent means the example is accepted. A `dispatched` example is read the way a contract record is met: its own kind and version select the schema.",
   "oneOf": [
     {
       "$ref": "#/$defs/bytes_expectation"
@@ -10,6 +10,9 @@
     },
     {
       "$ref": "#/$defs/record_expectation"
+    },
+    {
+      "$ref": "#/$defs/dispatched_expectation"
     }
   ],
   "$defs": {
@@ -86,6 +89,33 @@
         "schema": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        "mode": {
+          "enum": [
+            "stored",
+            "submit"
+          ]
+        },
+        "refusals": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/refusal"
+          }
+        }
+      }
+    },
+    "dispatched_expectation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject",
+        "mode"
+      ],
+      "properties": {
+        "subject": {
+          "const": "dispatched"
         },
         "mode": {
           "enum": [
