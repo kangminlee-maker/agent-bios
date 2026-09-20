@@ -26,7 +26,7 @@ from __future__ import annotations
 import hashlib
 import pathlib
 import sys
-from typing import Any
+from typing import Any, Iterable
 
 from . import c01, canonical
 
@@ -39,9 +39,10 @@ class InventoryError(ValueError):
     """A directory this module will not inventory, or a manifest it cannot read."""
 
 
-def members(directory: pathlib.Path) -> list[dict[str, Any]]:
-    """Every file under the directory, by path relative to it, with its digest and size."""
-    rows = []
+def files(directory: pathlib.Path) -> list[pathlib.Path]:
+    """Every regular file under the directory, sorted. Two shapes are refused rather than
+    walked past, because an inventory of either would state something untrue."""
+    found = []
     for path in sorted(directory.rglob("*")):
         if path.is_symlink():
             raise InventoryError(f"{path.relative_to(directory).as_posix()} is a symbolic link; "
@@ -51,20 +52,30 @@ def members(directory: pathlib.Path) -> list[dict[str, Any]]:
         if not path.is_file():
             raise InventoryError(f"{path.relative_to(directory).as_posix()} is not a regular "
                                  f"file")
+        found.append(path)
+    return found
+
+
+def members(root: pathlib.Path, paths: Iterable[pathlib.Path]) -> list[dict[str, Any]]:
+    """Each path by its position under `root`, with its digest and size. One walk answers for
+    a source revision and for this package's own fixtures, in one vocabulary."""
+    rows = []
+    for path in paths:
         data = path.read_bytes()
-        rows.append({"path": path.relative_to(directory).as_posix(),
+        rows.append({"path": path.relative_to(root).as_posix(),
                      "digest": hashlib.sha256(data).hexdigest(), "size": len(data)})
-    if not rows:
-        raise InventoryError(f"{directory} holds no member; a revision of nothing has no digest "
-                             f"to bind")
     return rows
 
 
 def manifest(directory: pathlib.Path, source_id: str, produced_at: str,
              format_version: int = FORMAT_VERSION) -> dict[str, Any]:
     """The `source_manifest` record for what the directory holds."""
+    rows = members(directory, files(directory))
+    if not rows:
+        raise InventoryError(f"{directory} holds no member; a revision of nothing has no digest "
+                             f"to bind")
     return {"kind": KIND, "schema": SCHEMA, "source_id": source_id,
-            "format_version": format_version, "members": members(directory),
+            "format_version": format_version, "members": rows,
             "produced_at": produced_at}
 
 
@@ -83,7 +94,8 @@ def differences(stated: dict[str, Any], directory: pathlib.Path) -> list[tuple[s
         if path in listed and listed[path] != member:
             found.append((c01.ID_BOUND_TO_OTHER_BYTES, path))
         listed.setdefault(path, member)
-    on_disk = {member["path"]: member for member in members(directory)}
+    on_disk = {member["path"]: member
+               for member in members(directory, files(directory))}
     for path, member in sorted(listed.items()):
         held = on_disk.get(path)
         if held is None:

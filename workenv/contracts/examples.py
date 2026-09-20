@@ -24,20 +24,19 @@ example answers an `operation_request` example that exists: its `request_digest`
 sha256 of that example's bytes.
 
 Fixture identity is measured, never declared: `index.json` lists every schema, example and
-expectation with the sha256 and size this module read, and a test fails a stale one.
+expectation with the digest and size this module read, and a test fails a stale one.
 
   python3 -m workenv.contracts.examples --emit     # rewrite examples/index.json
   python3 -m workenv.contracts.examples            # run every example
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import pathlib
 import sys
 from typing import Any
 
-from . import c03, canonical, errors, records
+from . import c03, canonical, errors, inventory, records
 from .schema import RUNTIME_OWNED, RUNTIME_OWNED_FIELD, Schema, SchemaError, load_schema
 
 ROOT = pathlib.Path(__file__).parent
@@ -218,7 +217,7 @@ def check(schemas_dir: pathlib.Path = SCHEMAS,
         if not want:
             stated |= records.stated(value)
             if value.get("kind") == "operation_request":
-                requests[hashlib.sha256(data).hexdigest()] = value["request_id"]
+                requests[canonical.digest(data)] = value["request_id"]
             elif value.get("kind") == "operation_result":
                 answers.append((name, value))
     for identifier in schemas:
@@ -245,15 +244,12 @@ def check(schemas_dir: pathlib.Path = SCHEMAS,
 
 
 def index(schemas_dir: pathlib.Path = SCHEMAS, examples_dir: pathlib.Path = EXAMPLES) -> bytes:
-    """The fixture identities as canonical bytes: every schema, example and expectation, by
-    path relative to this package, with the sha256 and size read from disk."""
+    """The fixture identities as canonical bytes. It is an inventory of this package's own
+    files, so it is built by the same walk and in the same vocabulary as a source revision's:
+    `inventory.members`, by path relative to this package, with the digest and size on disk."""
     files = sorted(schemas_dir.glob(f"*{SCHEMA_SUFFIX}"))
     files += sorted(p for p in examples_dir.rglob("*.json") if p != examples_dir / INDEX.name)
-    rows = []
-    for path in files:
-        data = path.read_bytes()
-        rows.append({"path": path.relative_to(schemas_dir.parent).as_posix(),
-                     "sha256": hashlib.sha256(data).hexdigest(), "size": len(data)})
+    rows = inventory.members(schemas_dir.parent, files)
     return canonical.encode({"schema": INDEX_SCHEMA, "files": rows})
 
 

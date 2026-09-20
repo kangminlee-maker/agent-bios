@@ -642,7 +642,7 @@ class ContractRecordExamples(PlantedCopies):
     def test_the_places_a_schema_marks(self):
         schemas = examples.load_schemas()
         self.assertEqual(examples.owned_places(schemas["fixture_index"]),
-                         {"/files/sha256", "/files/size"})
+                         {"/files/digest", "/files/size"})
         self.assertEqual(examples.owned_places(schemas["c01_repository_binding"]), {"/observed"})
         self.assertEqual(examples.owned_places(schemas["c03_operation_result"]), {""})
         # The digest of a sealed request is its identity, so the runtime adds nothing to it.

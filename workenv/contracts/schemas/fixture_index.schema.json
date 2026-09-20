@@ -21,12 +21,16 @@
     }
   },
   "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
     "entry": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "path",
-        "sha256",
+        "digest",
         "size"
       ],
       "properties": {
@@ -34,9 +38,8 @@
           "type": "string",
           "pattern": "^(?:schemas|examples)(?:/[a-z0-9_]+(?:[.-][a-z0-9_]+)*)+$"
         },
-        "sha256": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{64}$",
+        "digest": {
+          "$ref": "#/$defs/digest",
           "x-runtime-owned": true
         },
         "size": {
