@@ -26,6 +26,7 @@ agent-bios checkout이 필요하다. 작업 규칙의 기준은 [AGENTS.md](../A
 | `learn/` | collection loop — capture, record schema와 validator, curation intake, promotion manifest, 재배포, secret-redaction floor |
 | `session-distill/` | 여러 세션을 지침 등급 항목으로 정제하는 heavy curator 파이프라인 |
 | `wrappers/` | private 릴리즈의 내부 실행·리뷰 어댑터. 기본 설치는 호스트 bin에 배치하지 않음 |
+| `workenv/` | Team 작업 환경 runtime. 현재는 계약 동결 단계로, `contracts/`가 계약 레코드의 정규 바이트 형식과 digest, 계약 스키마를 읽는 닫힌 JSON Schema 부분집합, 계약 오류 표를 소유한다(`errors.json`은 `python3 -m workenv.contracts.errors --emit`으로 모듈에서 생성한다). 설치된 명령은 이 트리에 도달하지 않으며 `package.json` `files[]`에도 없다. `gates/workenv/check-workenv.py`가 umbrella에서 단위 테스트와 버전이 고정된 정적 분석을 실행한다 |
 | `gates/` | author-side 검증 (미러 생성, parity, lexicon, payload, assembler 시나리오) — repo 체크아웃에서만 닿을 수 있고, npm payload에 들어가면 `check-package.sh`가 실패시킨다 |
 | `ontology/` | 어떤 변경이 다른 무엇을 의무로 만드는지 — 엔티티, 의무 엣지, 서비스 라우트를 `check-ontology.py`가 실제 소스에 대조해 지킨다. `instances/graph.json`이 정본이고 `LEXICON.md`·RDF 뷰·HTML 맵·competency/extension 문서가 거기서 생성된다 |
 | `install.sh`, `session-cost.py` | CLI와 비용 측정기 — 직접 실행하는 두 가지(설치 후에는 `agent-bios`와 `agent-bios cost`) |

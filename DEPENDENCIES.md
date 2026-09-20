@@ -239,6 +239,19 @@ python3 gates/build-ui-runtime.py --check
 python3 gates/build-ui-runtime.py --self-test
 ```
 
+The author umbrella also tests and lints the work-environment runtime.
+`gates/workenv/check-workenv.py` runs every `gates/workenv/test_*.py` in its own process
+and runs `ruff` at the exact version its `RUFF_PIN` names over `workenv/` and
+`gates/workenv/`. It installs and fetches nothing: an absent `ruff`, or one at any other
+version, fails the umbrella by name, so an author installs that version before committing.
+`AGENT_BIOS_RUFF` names a binary outside `PATH`; the version rule applies to it unchanged.
+Observed: `ruff 0.14.3` · version report, live leg and leg self-test · 2026-09-20.
+
+```bash
+python3 gates/workenv/check-workenv.py
+python3 gates/workenv/check-workenv.py --self-test
+```
+
 Only the builder's explicit `--build` path fetches packages; do not hand-edit wheel
 archives or their manifest. The full author umbrella also exercises compatibility
 clients and can provision its managed test environment, so it is not a read-only
@@ -263,6 +276,7 @@ zsh -n launch/agent-launch.zsh
 | `DEPENDENCIES.md` | required capability inventory and scoped local version observations |
 | `launch/provision-venv.sh` | Textual root pin, `JSONSCHEMA_PIN` and explicit managed package installation |
 | `gates/build-ui-runtime.py` | author-side bundle generation and offline check/self-test |
+| `gates/workenv/check-workenv.py` | `RUFF_PIN`, the exact author-side static-analysis version and rule set, and the interpreter floor its unit-test leg enforces |
 | `compose/ui_runtime/manifest.json` | generated exact UI wheel inventory, versions, hashes and licenses |
 | `compose/instructions_ui_runtime.py` | offline verification, process-lifetime extraction and release |
 | `compose/instructions_setup.py` | shared SetupController, local inventory and reviewed dependency recipes |

@@ -204,6 +204,7 @@ Wheel과 manifest는 직접 편집하지 않고 builder로 생성한다.
 | 영문 `DEPENDENCIES.md` | 요구 기능과 범위가 명시된 버전 관측의 정본 |
 | `launch/provision-venv.sh` | Textual root pin, validator pin, 명시적 managed 설치 |
 | `gates/build-ui-runtime.py` | 저작용 번들 생성과 오프라인 검사·대조군 |
+| `gates/workenv/check-workenv.py` | `RUFF_PIN`(저작용 정적 분석 도구의 정확한 버전과 규칙 집합), 단위 테스트 leg가 요구하는 Python 최소 버전. `ruff`가 없거나 버전이 다르면 umbrella가 이름을 밝혀 실패하며, 아무것도 설치하지 않는다 |
 | `compose/ui_runtime/manifest.json` | 생성된 wheel 목록, 버전, hash와 license |
 | `compose/instructions_ui_runtime.py` | 오프라인 검증, 임시 추출, 프로세스 종료·인계 전 정리 |
 | `compose/instructions_setup.py` | 공통 SetupController, 로컬 inventory, 검토한 설치 recipe |

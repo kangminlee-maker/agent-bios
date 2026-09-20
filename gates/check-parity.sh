@@ -885,7 +885,11 @@ def edges(text):
                     break
                 masked.append(seg)
             body = "\n".join(masked)
-        hits = list(re.finditer(r'([a-z]+/[a-z_.-]+\.(?:py|sh))\b', s))
+        # Any depth, under the full name. One directory level was all this admitted while
+        # the subject set below takes a checker at any depth, so a checker in a
+        # subdirectory read as unreached however it was wired: the prefix test saw
+        # `python3 gates/` before a match that began at the second segment.
+        hits = list(re.finditer(r'((?:[a-z][a-z0-9_-]*/)+[a-z_.-]+\.(?:py|sh))\b', s))
         _, hmask = unquoted_anchors(s)
         # A path inside quotes is an argument or a diagnostic, not an invocation:
         # `echo "; ./gates/a.sh"` carried its own separator and exec shape, all quoted.
@@ -1242,6 +1246,12 @@ probes = [
     ("./gates/a.sh --self-test >/dev/null", set(), "a self-test run is not default-mode coverage"),
     ("# gates/a.sh", set(), "a comment executes nothing"),
     ("./gates/a.sh && python3 gates/b.py", {"gates/a.sh", "gates/b.py"}, "chained invocations"),
+    ("python3 gates/sub/b.py", {"gates/sub/b.py"},
+     "a checker in a subdirectory is one edge under its full name"),
+    ("./gates/sub/deeper/a.sh && python3 gates/b.py", {"gates/sub/deeper/a.sh", "gates/b.py"},
+     "depth does not hide the invocation beside it"),
+    ("python3 gates/sub/b.py --self-test >/dev/null", set(),
+     "a nested self-test run is still not default-mode coverage"),
     ("false && python3 gates/dead.py", set(), "a constant-false guard never executes"),
     ("if false; then\n  python3 gates/dead.py\nfi", set(),
      "a constant-false block never executes"),
@@ -1373,6 +1383,18 @@ if [ -f compose/ui_runtime/manifest.json ]; then
     || { echo "FAIL: bundled Textual runtime is incomplete or incompatible"; fail=1; }
   python3 gates/build-ui-runtime.py --self-test >/dev/null \
     || { echo "FAIL: UI runtime bundle gate missed a negative control"; fail=1; }
+fi
+
+# Work-environment runtime: every gates/workenv/test_*.py in its own process, and ruff at
+# its exact pin over workenv/ and gates/workenv/. Each leg fails by name on an empty subject
+# set and on an absent or mismatched tool, and nothing is installed here — a missing ruff
+# is a failure, not a skip. The self-test runs first so a miss reads as the machine's and
+# not the tree's: its positive controls need the same pinned tool the live run does.
+if [ -f gates/workenv/check-workenv.py ]; then
+  python3 gates/workenv/check-workenv.py --self-test >/dev/null \
+    || { echo "FAIL: workenv gate self-test missed a negative control (run python3 gates/workenv/check-workenv.py --self-test)"; fail=1; }
+  python3 gates/workenv/check-workenv.py >/dev/null \
+    || { echo "FAIL: workenv unit tests or static analysis (run python3 gates/workenv/check-workenv.py)"; fail=1; }
 fi
 
 # The launcher's Textual preflight UI tests need the managed venv (textual).

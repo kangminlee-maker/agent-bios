@@ -56,6 +56,9 @@ SUBJECTS = [
     # Its self-test runs on temporary fixtures with mocked subprocesses, so the whole
     # audit costs about as much as one run of the umbrella's cheapest leg.
     "gates/check-development-plan.py",
+    # Both of its legs take their root and tool as arguments, so the self-test builds every
+    # input in a temporary directory and one mutation costs about two seconds.
+    "gates/workenv/check-workenv.py",
 ]
 # The not-audited disclosure is DERIVED, not typed. The first version typed two shell
 # gates here while the tracked tree held five shell checkers — the audit tool carrying
@@ -109,6 +112,8 @@ DATA_SINKS = {
     "gates/check-surfaces.py": {"out": "deploy-path builder; returned as data, never printed"},
     "gates/check-receipt-chain.py": {"planless": "disclosure list; reaches the summary, "
                                                  "not the failure report"},
+    "gates/workenv/check-workenv.py": {"report": "per-leg subject and tool counts; printed as "
+                                                 "the run's report, never as a failure"},
 }
 
 

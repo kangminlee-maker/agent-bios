@@ -1,0 +1,72 @@
+"""The one contract error table.
+
+Each contract module owns its codes and their meanings in an `ERRORS` mapping. This module
+joins them, refuses a code two modules claim, and emits `errors.json` beside itself for a
+reader that does not run Python. That file is a projection: edit a module's `ERRORS`, then
+
+  python3 -m workenv.contracts.errors --emit
+
+The table is checked against the contract examples both ways by `coverage`: a code no
+negative example exercises is a refusal nothing demonstrates, and an example that names a
+code outside the table expects a refusal nothing produces.
+"""
+from __future__ import annotations
+
+import pathlib
+import sys
+from typing import Iterable
+
+from . import canonical, schema
+
+TABLE_SCHEMA = 1
+OWNERS = (canonical, schema)
+TABLE_PATH = pathlib.Path(__file__).with_name("errors.json")
+
+
+def table() -> dict[str, dict[str, str]]:
+    """code -> {owner, meaning}, or ValueError when two modules claim one code."""
+    joined: dict[str, dict[str, str]] = {}
+    for module in OWNERS:
+        owner = module.__name__.rsplit(".", 1)[-1]
+        for code, meaning in module.ERRORS.items():
+            if code in joined:
+                raise ValueError(f"error code {code!r} is claimed by {joined[code]['owner']} "
+                                 f"and {owner}")
+            joined[code] = {"owner": owner, "meaning": meaning}
+    return joined
+
+
+def emit() -> bytes:
+    rows = [{"code": code, **entry} for code, entry in sorted(table().items())]
+    # Exactly the canonical bytes, with no final newline, so the file loads as it is stored.
+    return canonical.encode({"schema": TABLE_SCHEMA, "errors": rows})
+
+
+def coverage(exercised: Iterable[str]) -> list[str]:
+    """Disagreements between the table and the codes the negative examples exercise."""
+    known, seen = set(table()), set(exercised)
+    problems = [f"error code {code!r} is exercised by no negative example"
+                for code in sorted(known - seen)]
+    problems += [f"an example names error code {code!r}, which the table does not hold"
+                 for code in sorted(seen - known)]
+    return problems
+
+
+def main(argv: list[str]) -> int:
+    if argv == ["--emit"]:
+        TABLE_PATH.write_bytes(emit())
+        print(f"wrote {TABLE_PATH.name}: {len(table())} codes")
+        return 0
+    if argv == ["--check"]:
+        if not TABLE_PATH.is_file() or TABLE_PATH.read_bytes() != emit():
+            print(f"FAIL: {TABLE_PATH.name} is not what the contract modules emit; "
+                  f"run python3 -m workenv.contracts.errors --emit")
+            return 1
+        print(f"{TABLE_PATH.name} is current: {len(table())} codes")
+        return 0
+    print("usage: python3 -m workenv.contracts.errors --emit | --check")
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
