@@ -1,0 +1,46 @@
+"""C06 The reader envelope: the gaps its operations answer with.
+
+Record kinds: `reader_envelope`, `reader_result`, `pending_question`, `resume_request`.
+
+One envelope serves all three roles, and one result comes back with a standing that says which
+kind of answer it is. Seven standings stay apart because they lead different places: a source
+with nothing to say is `empty` and is a valid answer, while `denied`, `unavailable`,
+`unsupported`, `unresolved` and `truncated` each name something else that happened.
+
+Access is resolved before any candidate or metadata is shown, so a reader that cannot establish
+it returns `access_not_established` rather than a list of what it would have returned. A cursor
+carries the basis it was taken at, so a later page cannot quietly follow a newer head.
+
+Reading is not applying. An inspection returns history and alternatives and admits no use of
+them; when an actual use needs a person's answer, the question is sealed and stored first and
+the use waits as `pending_user`, which is never a first option chosen on their behalf.
+"""
+CONTRACT = "C06"
+RECORD_KINDS = ("reader_envelope", "reader_result", "pending_question", "resume_request")
+IN_RESULTS = True
+
+ACCESS_NOT_ESTABLISHED = "access_not_established"
+CURSOR_BASIS_MOVED = "cursor_basis_moved"
+CURSOR_REVOKED = "cursor_revoked"
+BUDGET_EXHAUSTED = "budget_exhausted"
+BASELINE_NOT_RETAINED = "baseline_not_retained"
+CHILD_ROUTE_UNSUPPORTED = "child_route_unsupported"
+PENDING_USER = "pending_user"
+USE_NOT_ADMITTED = "use_not_admitted"
+
+# This module's rows of the contract error table (workenv.contracts.errors joins them).
+ERRORS = {
+    ACCESS_NOT_ESTABLISHED: "access that could not be resolved before candidates or metadata "
+                            "would have been exposed",
+    CURSOR_BASIS_MOVED: "a continuation whose basis is no longer the one it was taken at",
+    CURSOR_REVOKED: "a continuation a revocation has invalidated",
+    BUDGET_EXHAUSTED: "required material that did not fit the budget; the answer is incomplete "
+                      "and carries its continuation",
+    BASELINE_NOT_RETAINED: "a delta asked for against a baseline the caller has not declared it "
+                           "still holds",
+    CHILD_ROUTE_UNSUPPORTED: "a child reader this route cannot deliver to; the parent's delivery "
+                             "does not cover it",
+    PENDING_USER: "a use that needs this person's answer and has no qualified channel to ask on; "
+                  "it waits, and independent work continues",
+    USE_NOT_ADMITTED: "an inspection or a retained body offered as an admitted use",
+}

@@ -1,0 +1,138 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C07 delivery observation",
+  "description": "Requested delivery and observed delivery are different facts, and observed use is a third this record does not claim. A parent session's receipt says nothing about a child, and a replica that holds the bytes is not a recipient that received them.",
+  "required": [
+    "kind",
+    "schema",
+    "preparation_id",
+    "requested",
+    "observed",
+    "material_gaps",
+    "recorded_at"
+  ],
+  "properties": {
+    "kind": {
+      "const": "delivery_observation"
+    },
+    "schema": {
+      "const": 1
+    },
+    "preparation_id": {
+      "type": "string",
+      "pattern": "^prp_[0-9a-f]{32}$"
+    },
+    "requested": {
+      "$ref": "#/$defs/requested_delivery"
+    },
+    "observed": {
+      "$ref": "#/$defs/observed_delivery"
+    },
+    "material_gaps": {
+      "$ref": "#/$defs/gaps"
+    },
+    "recorded_at": {
+      "$ref": "#/$defs/instant"
+    }
+  },
+  "x-runtime-owned": true,
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "gaps": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/gap"
+      }
+    },
+    "gap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        "pointer": {
+          "type": "string",
+          "pattern": "^(?:/[^/]*)*$"
+        }
+      }
+    },
+    "requested_delivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recipient_kind"
+      ],
+      "properties": {
+        "recipient_kind": {
+          "enum": [
+            "host_session",
+            "child_session",
+            "replica"
+          ]
+        },
+        "recipient_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "seen": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "saw",
+        "at",
+        "evidence_digest"
+      ],
+      "properties": {
+        "saw": {
+          "enum": [
+            "delivered",
+            "activated"
+          ]
+        },
+        "at": {
+          "$ref": "#/$defs/instant"
+        },
+        "evidence_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "unseen": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "saw"
+      ],
+      "properties": {
+        "saw": {
+          "const": "not_observed"
+        }
+      }
+    },
+    "observed_delivery": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/seen"
+        },
+        {
+          "$ref": "#/$defs/unseen"
+        }
+      ]
+    }
+  }
+}

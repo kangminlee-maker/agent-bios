@@ -21,10 +21,10 @@ import pathlib
 import sys
 from typing import Iterable
 
-from . import c01, c02, c03, c04, c05, canonical, records, schema
+from . import c01, c02, c03, c04, c05, c06, c07, canonical, records, schema
 
 TABLE_SCHEMA = 1
-OWNERS = (canonical, schema, records, c01, c02, c03, c04, c05)
+OWNERS = (canonical, schema, records, c01, c02, c03, c04, c05, c06, c07)
 TABLE_PATH = pathlib.Path(__file__).with_name("errors.json")
 
 

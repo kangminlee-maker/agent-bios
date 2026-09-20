@@ -1,0 +1,296 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C06 reader result",
+  "description": "What the reader actually returned. Seven standings stay apart on purpose: an empty answer from a source with nothing to say is not a denial, and neither is an answer this installation could not reach. `ended` says the pagination finished, which is not a claim that nothing else was relevant. A result that waits on a person carries the question and use it waits on, never a first option chosen on their behalf.",
+  "required": [
+    "kind",
+    "schema",
+    "envelope_digest",
+    "standing",
+    "frontiers",
+    "units",
+    "qualifications",
+    "omissions",
+    "ended",
+    "material_gaps",
+    "prepared_at"
+  ],
+  "properties": {
+    "kind": {
+      "const": "reader_result"
+    },
+    "schema": {
+      "const": 1
+    },
+    "envelope_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "standing": {
+      "enum": [
+        "delivered",
+        "empty",
+        "denied",
+        "unavailable",
+        "unsupported",
+        "unresolved",
+        "truncated"
+      ]
+    },
+    "frontiers": {
+      "$ref": "#/$defs/frontiers"
+    },
+    "units": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/composed_unit"
+      }
+    },
+    "qualifications": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      }
+    },
+    "expansions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/expansion"
+      }
+    },
+    "omissions": {
+      "$ref": "#/$defs/omissions"
+    },
+    "ended": {
+      "type": "boolean"
+    },
+    "continuation": {
+      "$ref": "#/$defs/continuation"
+    },
+    "pending": {
+      "$ref": "#/$defs/pending_reference"
+    },
+    "material_gaps": {
+      "$ref": "#/$defs/gaps"
+    },
+    "prepared_at": {
+      "$ref": "#/$defs/instant"
+    }
+  },
+  "x-runtime-owned": true,
+  "$defs": {
+    "question_id": {
+      "type": "string",
+      "pattern": "^qst_[0-9a-f]{32}$"
+    },
+    "use_id": {
+      "type": "string",
+      "pattern": "^use_[0-9a-f]{32}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "gaps": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/gap"
+      }
+    },
+    "gap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        "pointer": {
+          "type": "string",
+          "pattern": "^(?:/[^/]*)*$"
+        }
+      }
+    },
+    "continuation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cursor_digest",
+        "frontiers"
+      ],
+      "properties": {
+        "cursor_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "frontiers": {
+          "$ref": "#/$defs/frontiers"
+        }
+      }
+    },
+    "frontiers": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/source_frontier"
+      }
+    },
+    "source_frontier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "checkpoint_digest"
+      ],
+      "properties": {
+        "source_id": {
+          "$ref": "#/$defs/source_id"
+        },
+        "checkpoint_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "source_id": {
+      "type": "string",
+      "pattern": "^src_[0-9a-f]{32}$"
+    },
+    "omissions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/omission"
+      }
+    },
+    "omission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "what",
+        "why"
+      ],
+      "properties": {
+        "what": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "why": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400
+        }
+      }
+    },
+    "composed_unit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit_id",
+        "source_id",
+        "revision_digest",
+        "role",
+        "layer",
+        "standing"
+      ],
+      "properties": {
+        "unit_id": {
+          "$ref": "#/$defs/unit_id"
+        },
+        "source_id": {
+          "$ref": "#/$defs/source_id"
+        },
+        "revision_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "role": {
+          "$ref": "#/$defs/role"
+        },
+        "layer": {
+          "enum": [
+            "repository",
+            "personal",
+            "team"
+          ]
+        },
+        "standing": {
+          "enum": [
+            "winning",
+            "shadowed",
+            "disabled",
+            "unresolved"
+          ]
+        },
+        "body_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "shadowed_by": {
+          "$ref": "#/$defs/unit_id"
+        }
+      }
+    },
+    "unit_id": {
+      "type": "string",
+      "pattern": "^unt_[0-9a-f]{32}$"
+    },
+    "role": {
+      "enum": [
+        "instructions",
+        "knowledge",
+        "memory"
+      ]
+    },
+    "expansion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "what",
+        "selector_digest"
+      ],
+      "properties": {
+        "what": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "selector_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "pending_reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "use_id",
+        "question_id",
+        "question_version"
+      ],
+      "properties": {
+        "use_id": {
+          "$ref": "#/$defs/use_id"
+        },
+        "question_id": {
+          "$ref": "#/$defs/question_id"
+        },
+        "question_version": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}
