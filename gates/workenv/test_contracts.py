@@ -1,6 +1,7 @@
 """Contract representation tests. Run by gates/workenv/check-workenv.py, one process per file."""
 import hashlib
 import pathlib
+import re
 import shutil
 import sys
 import tempfile
@@ -10,7 +11,7 @@ from unittest import mock
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 
 from workenv.contracts import (  # noqa: E402
-    c01, c02, c03, canonical, errors, examples, records, schema,
+    c01, c02, c03, c04, c05, canonical, errors, examples, records, schema,
 )
 
 
@@ -367,7 +368,7 @@ class ErrorTable(unittest.TestCase):
 
     def test_every_code_has_one_owner_and_a_meaning(self):
         joined = errors.table()
-        self.assertEqual(errors.OWNERS, (canonical, schema, records, c01, c02, c03))
+        self.assertEqual(errors.OWNERS[:3], (canonical, schema, records))
         self.assertEqual(set(joined), {code for module in errors.OWNERS for code in module.ERRORS})
         self.assertEqual(len(joined), sum(len(module.ERRORS) for module in errors.OWNERS))
         for code, entry in joined.items():
@@ -383,14 +384,17 @@ class ErrorTable(unittest.TestCase):
                 self.assertEqual(rest, kind, f"schema {identifier} describes kind {kind}")
                 described.setdefault(contract, set()).add(kind)
         modules = [m for m in errors.OWNERS if getattr(m, "IN_RESULTS", False)]
-        self.assertEqual([m.__name__.rsplit(".", 1)[-1] for m in modules], ["c01", "c02", "c03"])
-        for module in modules:
-            name = module.__name__.rsplit(".", 1)[-1]
+        names = [m.__name__.rsplit(".", 1)[-1] for m in modules]
+        # Derived, not listed: the contract modules are exactly the contracts the schema
+        # documents name, so a module without schemas and a schema without a module both fail.
+        self.assertEqual(names, sorted(names))
+        self.assertEqual(set(names), set(described))
+        self.assertTrue(all(re.fullmatch(r"c[0-9]{2}", name) for name in names), names)
+        for module, name in zip(modules, names, strict=True):
             with self.subTest(module=name):
                 self.assertEqual(module.CONTRACT, name.upper())
                 self.assertEqual(len(module.RECORD_KINDS), len(set(module.RECORD_KINDS)))
-                self.assertEqual(set(module.RECORD_KINDS), described.pop(name))
-        self.assertEqual(described, {}, "a record schema no contract module lists")
+                self.assertEqual(set(module.RECORD_KINDS), described[name])
 
     def test_a_code_two_modules_claim_is_refused(self):
         taken = next(iter(canonical.ERRORS))
@@ -412,7 +416,8 @@ class ErrorTable(unittest.TestCase):
 
     def test_coverage_is_checked_both_ways(self):
         results = errors.in_results()
-        self.assertEqual(results, set(c01.ERRORS) | set(c02.ERRORS) | set(c03.ERRORS))
+        self.assertEqual(results, {code for module in (c01, c02, c03, c04, c05)
+                                   for code in module.ERRORS})
         readers = set(errors.table()) - results - set(errors.not_from_bytes())
         self.assertEqual(errors.coverage(readers, results), [])
         missing = errors.coverage(readers - {canonical.DUPLICATE_KEY}, results)
@@ -719,8 +724,13 @@ class Records(unittest.TestCase):
 
     def test_the_registry_is_read_from_the_documents(self):
         self.assertEqual(self.kinds["operation_query"], {1: "c03_operation_query"})
-        self.assertNotIn("expectation", {i for v in self.kinds.values() for i in v.values()})
-        self.assertEqual(len(self.kinds), 10)
+        describing = {i for versions in self.kinds.values() for i in versions.values()}
+        # Derived rather than counted: every contract document describes one kind, and the
+        # documents that belong to no contract - the expectation, the index, the table -
+        # describe none, so neither set can drift without the other.
+        self.assertEqual(describing, {i for i in self.schemas if re.fullmatch(r"c[0-9]{2}_.+", i)})
+        self.assertEqual(len(describing), len(self.kinds))
+        self.assertTrue(self.kinds)
 
     def test_a_document_describes_a_kind_only_when_it_fixes_and_requires_both(self):
         closed = {"type": "object", "additionalProperties": False}

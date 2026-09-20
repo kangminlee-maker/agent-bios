@@ -1,0 +1,118 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C04 knowledge question",
+  "description": "A question with the conditions that can change its answer, against exact source revisions. A condition the sources do not cover yields a scoped unknown, never an answer with the condition dropped.",
+  "required": [
+    "kind",
+    "schema",
+    "concern",
+    "source_pins",
+    "want"
+  ],
+  "properties": {
+    "kind": {
+      "const": "knowledge_question"
+    },
+    "schema": {
+      "const": 1
+    },
+    "concern": {
+      "$ref": "#/$defs/concern"
+    },
+    "source_pins": {
+      "$ref": "#/$defs/source_pins"
+    },
+    "want": {
+      "enum": [
+        "body",
+        "evidence",
+        "both"
+      ]
+    },
+    "companions": {
+      "enum": [
+        "required",
+        "optional"
+      ]
+    }
+  },
+  "$defs": {
+    "source_pins": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/source_pin"
+      }
+    },
+    "source_pin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "revision_digest"
+      ],
+      "properties": {
+        "source_id": {
+          "$ref": "#/$defs/source_id"
+        },
+        "revision_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "source_id": {
+      "type": "string",
+      "pattern": "^src_[0-9a-f]{32}$"
+    },
+    "concern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "question"
+      ],
+      "properties": {
+        "question": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "conditions": {
+          "$ref": "#/$defs/conditions"
+        }
+      }
+    },
+    "conditions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/condition"
+      }
+    },
+    "condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dimension",
+        "value"
+      ],
+      "properties": {
+        "dimension": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      }
+    }
+  }
+}

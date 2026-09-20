@@ -1,0 +1,146 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C04 role projection",
+  "description": "The guarded projection the runtime writes. Every reference stays attributable: a shadowed or disabled unit is still named, with the layer it came from. A unit carries `source_role` fixed to the behavioural role, so a knowledge or memory source cannot enter a projection by being listed in one.",
+  "required": [
+    "kind",
+    "schema",
+    "projection_id",
+    "plan_digest",
+    "role",
+    "recipient_view",
+    "units",
+    "material_gaps",
+    "prepared_at"
+  ],
+  "properties": {
+    "kind": {
+      "const": "role_projection"
+    },
+    "schema": {
+      "const": 1
+    },
+    "projection_id": {
+      "type": "string",
+      "pattern": "^prj_[0-9a-f]{32}$"
+    },
+    "plan_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "role": {
+      "const": "instructions"
+    },
+    "recipient_view": {
+      "enum": [
+        "consumer",
+        "contributor",
+        "reviewer",
+        "executor"
+      ]
+    },
+    "units": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/projected_unit"
+      }
+    },
+    "material_gaps": {
+      "$ref": "#/$defs/gaps"
+    },
+    "prepared_at": {
+      "$ref": "#/$defs/instant"
+    }
+  },
+  "x-runtime-owned": true,
+  "$defs": {
+    "unit_id": {
+      "type": "string",
+      "pattern": "^unt_[0-9a-f]{32}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "source_id": {
+      "type": "string",
+      "pattern": "^src_[0-9a-f]{32}$"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "gaps": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/gap"
+      }
+    },
+    "gap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        "pointer": {
+          "type": "string",
+          "pattern": "^(?:/[^/]*)*$"
+        }
+      }
+    },
+    "projected_unit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit_id",
+        "source_id",
+        "revision_digest",
+        "source_role",
+        "layer",
+        "standing"
+      ],
+      "properties": {
+        "unit_id": {
+          "$ref": "#/$defs/unit_id"
+        },
+        "source_id": {
+          "$ref": "#/$defs/source_id"
+        },
+        "revision_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "source_role": {
+          "const": "instructions"
+        },
+        "layer": {
+          "enum": [
+            "repository",
+            "personal",
+            "team"
+          ]
+        },
+        "standing": {
+          "enum": [
+            "winning",
+            "shadowed",
+            "disabled",
+            "unresolved"
+          ]
+        },
+        "body_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "shadowed_by": {
+          "$ref": "#/$defs/unit_id"
+        }
+      }
+    }
+  }
+}

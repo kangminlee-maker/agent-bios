@@ -1,0 +1,337 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C05 application preference",
+  "description": "One person's application of conflicting choices, private to this installation. It is keyed by the concern and the whole relevant participant set, never by a session or by the chosen body alone, and it carries the lineage of that set so that a record changed away and back does not revive it. The answer it rests on is named by digest; this record is not itself evidence that a person answered.",
+  "required": [
+    "kind",
+    "schema",
+    "preference_id",
+    "principal_id",
+    "concern",
+    "scopes",
+    "participants",
+    "lineage_digest",
+    "selected",
+    "mode",
+    "answer_evidence_digest",
+    "standing",
+    "created_at"
+  ],
+  "properties": {
+    "kind": {
+      "const": "application_preference"
+    },
+    "schema": {
+      "const": 1
+    },
+    "preference_id": {
+      "type": "string",
+      "pattern": "^pre_[0-9a-f]{32}$"
+    },
+    "principal_id": {
+      "$ref": "#/$defs/principal_id"
+    },
+    "concern": {
+      "$ref": "#/$defs/concern"
+    },
+    "scopes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/scope"
+      }
+    },
+    "participants": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/participant"
+      }
+    },
+    "lineage_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "selected": {
+      "$ref": "#/$defs/selection"
+    },
+    "mode": {
+      "enum": [
+        "keep_until_change",
+        "ask_each_use"
+      ]
+    },
+    "answer_evidence_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "standing": {
+      "$ref": "#/$defs/preference_standing"
+    },
+    "created_at": {
+      "$ref": "#/$defs/instant"
+    }
+  },
+  "x-runtime-owned": true,
+  "$defs": {
+    "record_id": {
+      "type": "string",
+      "pattern": "^rec_[0-9a-f]{32}$"
+    },
+    "lifecycle": {
+      "enum": [
+        "proposed",
+        "accepted",
+        "corrected",
+        "withdrawn",
+        "replaced"
+      ]
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "source_id": {
+      "type": "string",
+      "pattern": "^src_[0-9a-f]{32}$"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "scope": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/repository_scope"
+        },
+        {
+          "$ref": "#/$defs/personal_scope"
+        },
+        {
+          "$ref": "#/$defs/team_scope"
+        }
+      ]
+    },
+    "team_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "team_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "team"
+        },
+        "team_id": {
+          "$ref": "#/$defs/team_id"
+        }
+      }
+    },
+    "team_id": {
+      "type": "string",
+      "pattern": "^tem_[0-9a-f]{32}$"
+    },
+    "personal_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "principal_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "personal"
+        },
+        "principal_id": {
+          "$ref": "#/$defs/principal_id"
+        }
+      }
+    },
+    "principal_id": {
+      "type": "string",
+      "pattern": "^prn_[0-9a-f]{32}$"
+    },
+    "repository_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "repository_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "repository"
+        },
+        "repository_id": {
+          "$ref": "#/$defs/repository_id"
+        }
+      }
+    },
+    "repository_id": {
+      "type": "string",
+      "pattern": "^rep_[0-9a-f]{32}$"
+    },
+    "concern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "question"
+      ],
+      "properties": {
+        "question": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "conditions": {
+          "$ref": "#/$defs/conditions"
+        }
+      }
+    },
+    "conditions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/condition"
+      }
+    },
+    "condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dimension",
+        "value"
+      ],
+      "properties": {
+        "dimension": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      }
+    },
+    "participant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "record_id",
+        "revision_digest",
+        "lifecycle",
+        "applicable"
+      ],
+      "properties": {
+        "source_id": {
+          "$ref": "#/$defs/source_id"
+        },
+        "record_id": {
+          "$ref": "#/$defs/record_id"
+        },
+        "revision_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "lifecycle": {
+          "$ref": "#/$defs/lifecycle"
+        },
+        "applicable": {
+          "type": "boolean"
+        }
+      }
+    },
+    "record_selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selects",
+        "record_id"
+      ],
+      "properties": {
+        "selects": {
+          "const": "record"
+        },
+        "record_id": {
+          "$ref": "#/$defs/record_id"
+        }
+      }
+    },
+    "bounded_resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selects",
+        "resolution"
+      ],
+      "properties": {
+        "selects": {
+          "const": "resolution"
+        },
+        "resolution": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        }
+      }
+    },
+    "selection": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/record_selection"
+        },
+        {
+          "$ref": "#/$defs/bounded_resolution"
+        }
+      ]
+    },
+    "active_standing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "holds"
+      ],
+      "properties": {
+        "holds": {
+          "const": "active"
+        }
+      }
+    },
+    "invalidated_standing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "holds",
+        "because"
+      ],
+      "properties": {
+        "holds": {
+          "const": "invalidated"
+        },
+        "because": {
+          "enum": [
+            "participant_changed",
+            "participant_added",
+            "participant_removed",
+            "basis_unverifiable",
+            "conflict_gone"
+          ]
+        }
+      }
+    },
+    "preference_standing": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/active_standing"
+        },
+        {
+          "$ref": "#/$defs/invalidated_standing"
+        }
+      ]
+    }
+  }
+}
