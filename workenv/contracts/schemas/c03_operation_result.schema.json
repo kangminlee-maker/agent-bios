@@ -80,22 +80,7 @@
       "$ref": "#/$defs/gaps"
     },
     "supported_recovery": {
-      "type": "array",
-      "uniqueItems": true,
-      "items": {
-        "enum": [
-          "retry_same_request",
-          "query_same_request",
-          "reseal_on_current_head",
-          "unlock",
-          "sign_in",
-          "fresh_authentication",
-          "enroll_credential",
-          "refresh_control_evidence",
-          "open_a_terminal",
-          "new_governed_request"
-        ]
-      }
+      "$ref": "#/$defs/recovery"
     }
   },
   "x-runtime-owned": true,
@@ -103,13 +88,6 @@
     "digest": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}$"
-    },
-    "gaps": {
-      "type": "array",
-      "uniqueItems": true,
-      "items": {
-        "$ref": "#/$defs/gap"
-      }
     },
     "gap": {
       "type": "object",
@@ -128,9 +106,12 @@
         }
       }
     },
-    "request_id": {
-      "type": "string",
-      "pattern": "^req_[0-9a-f]{32}$"
+    "gaps": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/gap"
+      }
     },
     "output": {
       "type": "object",
@@ -148,6 +129,28 @@
           "$ref": "#/$defs/digest"
         }
       }
+    },
+    "recovery": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "retry_same_request",
+          "query_same_request",
+          "reseal_on_current_head",
+          "unlock",
+          "sign_in",
+          "fresh_authentication",
+          "enroll_credential",
+          "refresh_control_evidence",
+          "open_a_terminal",
+          "new_governed_request"
+        ]
+      }
+    },
+    "request_id": {
+      "type": "string",
+      "pattern": "^req_[0-9a-f]{32}$"
     }
   }
 }

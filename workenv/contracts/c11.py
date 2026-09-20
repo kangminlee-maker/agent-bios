@@ -1,6 +1,7 @@
 """C11 The recipient: the gaps its operations answer with.
 
-Record kinds: `recipient_link`, `answer_evidence`, `delivery_attempt`.
+Record kinds: `recipient_link`, `answer_evidence`, `delivery_attempt`,
+`surface_observation`.
 
 `answer_evidence` is the record every other contract points at by digest when it says a person
 answered. It carries the host's effective configuration as measured at the time of the question,
@@ -17,7 +18,8 @@ A destination says where to ask and nothing more: no preference, use or choice i
 A retry of a use keeps its use id and question version — a new id is a different question.
 """
 CONTRACT = "C11"
-RECORD_KINDS = ("recipient_link", "answer_evidence", "delivery_attempt")
+RECORD_KINDS = ("recipient_link", "answer_evidence", "delivery_attempt",
+                "surface_observation")
 IN_RESULTS = True
 
 RECIPIENT_LINK_UNKNOWN = "recipient_link_unknown"

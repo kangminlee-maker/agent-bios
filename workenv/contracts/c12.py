@@ -1,6 +1,7 @@
 """C12 Client and provider capabilities: the gaps its operations answer with.
 
-Record kinds: `capability_profile`, `capability_probe`, `route_outcome`.
+Record kinds: `capability_profile`, `capability_probe`, `route_outcome`,
+`route_offer`, `route_selection`.
 
 Read, question, user event and resume are qualified one at a time, against the installed client
 and the wire version it actually negotiated. A capability is qualified only by naming the probe
@@ -13,7 +14,8 @@ fixture standing in for a real result cannot be written down; an unsupported rou
 its reason instead of returning an empty success.
 """
 CONTRACT = "C12"
-RECORD_KINDS = ("capability_profile", "capability_probe", "route_outcome")
+RECORD_KINDS = ("capability_profile", "capability_probe", "route_outcome",
+                "route_offer", "route_selection")
 IN_RESULTS = True
 
 CAPABILITY_NOT_QUALIFIED = "capability_not_qualified"

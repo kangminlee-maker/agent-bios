@@ -935,5 +935,82 @@ class Inventory(unittest.TestCase):
         self.assertEqual(named - set(errors.table()), set())
 
 
+class RouteAndExposure(unittest.TestCase):
+    """U15's rules read back off the committed documents, so a rule moved out of a shape is
+    caught here even when no example happens to exercise it."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.schemas = examples.load_schemas()
+        cls.registry = records.registry(cls.schemas)
+
+    def document(self, kind):
+        return self.schemas[self.registry[kind][1]].document
+
+    def defs(self, kind):
+        return self.schemas[self.registry[kind][1]].defs
+
+    def test_an_observation_is_observed_and_has_no_other_class(self):
+        held = self.document("surface_observation")["properties"]["evidence_class"]
+        self.assertEqual(held, {"const": "observed"})
+        self.assertIn("evidence_class", self.document("surface_observation")["required"])
+
+    def test_only_the_qualifying_evidence_carries_a_separated_origin(self):
+        defs = self.defs("surface_observation")
+        variants = [v["$ref"].rsplit("/", 1)[-1] for v in defs["exposure_evidence"]["oneOf"]]
+        self.assertEqual(len(variants), 2, variants)
+        origins = {name: defs[name]["properties"]["origin"]["$ref"].rsplit("/", 1)[-1]
+                   for name in variants}
+        self.assertEqual(sorted(origins.values()), ["not_an_answer", "verified_origin"])
+        separated = [name for name, origin in origins.items() if origin == "verified_origin"]
+        self.assertEqual(defs[separated[0]]["properties"]["qualifies"], {"const": "yes"})
+        self.assertIn("separation_evidence_digest", defs["verified_origin"]["required"])
+
+    def test_any_terminal_is_recordable_and_only_a_listed_one_is_claimable(self):
+        document = self.document("surface_observation")
+        defs = self.defs("surface_observation")
+        self.assertEqual(defs["observed_terminal"]["properties"]["reported_as"]["type"],
+                         "string")
+        listed = defs["supported_terminal"]["enum"]
+        self.assertTrue(listed, "a claim may name nothing, so no claim could ever be written")
+        self.assertEqual(defs["support_claim"]["properties"]["terminal"]["$ref"],
+                         "#/$defs/supported_terminal")
+        # A claim is an optional field rather than a variant of nothing, which is what lets the
+        # refusal name the terminal instead of the branch.
+        self.assertIn("claim", document["properties"])
+        self.assertNotIn("claim", document["required"])
+
+    def test_a_prototype_states_what_it_does_not_establish(self):
+        defs = self.defs("surface_observation")
+        variants = [v["$ref"].rsplit("/", 1)[-1] for v in defs["observation_subject"]["oneOf"]]
+        prototype = [name for name in variants
+                     if defs[name]["properties"]["is"] == {"const": "prototype"}]
+        self.assertEqual(len(prototype), 1, variants)
+        self.assertEqual(defs[prototype[0]]["properties"]["establishes"],
+                         {"const": "neither_product_nor_human_evidence"})
+        self.assertIn("establishes", defs[prototype[0]]["required"])
+
+    def test_focus_is_optional_and_a_selection_is_not(self):
+        document = self.document("route_selection")
+        self.assertIn("focused", document["properties"])
+        self.assertNotIn("focused", document["required"])
+        for name in ("selected", "expected", "request_id"):
+            self.assertIn(name, document["required"])
+
+    def test_installed_and_delivered_are_different_stages(self):
+        stages = self.defs("route_selection")["expected_effect"]["properties"]["stage"]["enum"]
+        self.assertEqual(sorted(stages), ["configured", "delivered", "installed", "prepared"])
+
+    def test_the_ways_back_are_one_list_named_once(self):
+        """c03's result and an offered route point at one definition, not two copies."""
+        naming = {identifier for identifier, loaded in self.schemas.items()
+                  if "recovery" in loaded.defs}
+        self.assertGreater(len(naming), 1, naming)
+        bodies = {examples.canonical_form(self.schemas[i].defs["recovery"]) for i in naming}
+        self.assertEqual(len(bodies), 1, naming)
+        self.assertEqual(self.document("operation_result")["properties"]["supported_recovery"],
+                         {"$ref": "#/$defs/recovery"})
+
+
 if __name__ == "__main__":
     unittest.main()

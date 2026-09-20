@@ -1,0 +1,254 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C12 route offer",
+  "description": "What one entrance offered, route by route. An offer grants nothing and chooses nothing; it records what was on the screen, including the routes this client cannot carry, because a route that was never offered and a route that was offered and refused are different answers.",
+  "required": [
+    "kind",
+    "schema",
+    "entrance",
+    "offered",
+    "offered_at"
+  ],
+  "properties": {
+    "kind": {
+      "const": "route_offer"
+    },
+    "schema": {
+      "const": 1
+    },
+    "entrance": {
+      "$ref": "#/$defs/entrance"
+    },
+    "offered": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/offered_route"
+      }
+    },
+    "offered_at": {
+      "$ref": "#/$defs/instant",
+      "x-runtime-owned": true
+    }
+  },
+  "$defs": {
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "offered_route": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One route an entrance offered: where it would act, what it supports, whether a probe qualified it, and the ways back when the answer is stale or unknown.",
+      "required": [
+        "route_id",
+        "scope",
+        "supported_action",
+        "support",
+        "recovery"
+      ],
+      "properties": {
+        "route_id": {
+          "$ref": "#/$defs/route_id"
+        },
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "supported_action": {
+          "$ref": "#/$defs/action"
+        },
+        "support": {
+          "$ref": "#/$defs/route_support"
+        },
+        "recovery": {
+          "$ref": "#/$defs/recovery"
+        }
+      }
+    },
+    "recovery": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "retry_same_request",
+          "query_same_request",
+          "reseal_on_current_head",
+          "unlock",
+          "sign_in",
+          "fresh_authentication",
+          "enroll_credential",
+          "refresh_control_evidence",
+          "open_a_terminal",
+          "new_governed_request"
+        ]
+      }
+    },
+    "route_support": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/qualified_by_probe"
+        },
+        {
+          "$ref": "#/$defs/not_qualified"
+        }
+      ]
+    },
+    "not_qualified": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "qualified",
+        "because"
+      ],
+      "properties": {
+        "qualified": {
+          "const": "no"
+        },
+        "because": {
+          "enum": [
+            "not_offered",
+            "offered_but_unproven",
+            "probe_failed"
+          ]
+        }
+      }
+    },
+    "qualified_by_probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "qualified",
+        "probe_digest"
+      ],
+      "properties": {
+        "qualified": {
+          "const": "yes"
+        },
+        "probe_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "action": {
+      "enum": [
+        "local_profile",
+        "read",
+        "use",
+        "contribute",
+        "review",
+        "publish",
+        "adopt",
+        "decide",
+        "grant",
+        "policy",
+        "transfer",
+        "suspend",
+        "retain_delete",
+        "export"
+      ]
+    },
+    "scope": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/repository_scope"
+        },
+        {
+          "$ref": "#/$defs/personal_scope"
+        },
+        {
+          "$ref": "#/$defs/team_scope"
+        }
+      ]
+    },
+    "team_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "team_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "team"
+        },
+        "team_id": {
+          "$ref": "#/$defs/team_id"
+        }
+      }
+    },
+    "team_id": {
+      "type": "string",
+      "pattern": "^tem_[0-9a-f]{32}$"
+    },
+    "personal_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "principal_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "personal"
+        },
+        "principal_id": {
+          "$ref": "#/$defs/principal_id"
+        }
+      }
+    },
+    "principal_id": {
+      "type": "string",
+      "pattern": "^prn_[0-9a-f]{32}$"
+    },
+    "repository_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "repository_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "repository"
+        },
+        "repository_id": {
+          "$ref": "#/$defs/repository_id"
+        }
+      }
+    },
+    "repository_id": {
+      "type": "string",
+      "pattern": "^rep_[0-9a-f]{32}$"
+    },
+    "route_id": {
+      "type": "string",
+      "pattern": "^rte_[0-9a-f]{32}$"
+    },
+    "entrance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "root_origin"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        "root_origin": {
+          "enum": [
+            "owner",
+            "caller"
+          ]
+        }
+      }
+    }
+  }
+}
