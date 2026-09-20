@@ -1,0 +1,50 @@
+{
+  "title": "Fixture identities",
+  "description": "Every schema, example and expectation with the digest and size read from disk. The digest and size are measured by the emitter; an authored entry names a path only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "files"
+  ],
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/entry"
+      }
+    }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "size"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^(?:schemas|examples)(?:/[a-z0-9_]+(?:[.-][a-z0-9_]+)*)+$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "x-runtime-owned": true
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0,
+          "x-runtime-owned": true
+        }
+      }
+    }
+  }
+}

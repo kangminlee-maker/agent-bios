@@ -42,11 +42,23 @@ def emit() -> bytes:
     return canonical.encode({"schema": TABLE_SCHEMA, "errors": rows})
 
 
+def not_from_bytes() -> dict[str, str]:
+    """code -> reason, for the codes their owning module declares unreachable from bytes."""
+    joined: dict[str, str] = {}
+    for module in OWNERS:
+        joined.update(getattr(module, "NOT_FROM_BYTES", {}))
+    return joined
+
+
 def coverage(exercised: Iterable[str]) -> list[str]:
     """Disagreements between the table and the codes the negative examples exercise."""
-    known, seen = set(table()), set(exercised)
+    known, seen, exempt = set(table()), set(exercised), not_from_bytes()
     problems = [f"error code {code!r} is exercised by no negative example"
-                for code in sorted(known - seen)]
+                for code in sorted(known - seen - set(exempt))]
+    problems += [f"error code {code!r} is declared unreachable from bytes and an example "
+                 f"exercises it; the declaration is stale" for code in sorted(seen & set(exempt))]
+    problems += [f"{code!r} is declared unreachable from bytes and is not in the table"
+                 for code in sorted(set(exempt) - known)]
     problems += [f"an example names error code {code!r}, which the table does not hold"
                  for code in sorted(seen - known)]
     return problems

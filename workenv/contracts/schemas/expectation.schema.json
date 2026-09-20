@@ -1,0 +1,107 @@
+{
+  "title": "Expectation beside a contract example",
+  "description": "What a byte example is and what must happen to it. `refusals` absent means the example is accepted.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/bytes_expectation"
+    },
+    {
+      "$ref": "#/$defs/schema_expectation"
+    },
+    {
+      "$ref": "#/$defs/record_expectation"
+    }
+  ],
+  "$defs": {
+    "refusal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "pointer"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        "pointer": {
+          "type": "string",
+          "pattern": "^(?:/[^/]*)*$"
+        }
+      }
+    },
+    "bytes_expectation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject"
+      ],
+      "properties": {
+        "subject": {
+          "const": "bytes"
+        },
+        "refusals": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "$ref": "#/$defs/refusal"
+          }
+        }
+      }
+    },
+    "schema_expectation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject"
+      ],
+      "properties": {
+        "subject": {
+          "const": "schema"
+        },
+        "refusals": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "$ref": "#/$defs/refusal"
+          }
+        }
+      }
+    },
+    "record_expectation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject",
+        "schema",
+        "mode"
+      ],
+      "properties": {
+        "subject": {
+          "const": "record"
+        },
+        "schema": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        "mode": {
+          "enum": [
+            "stored",
+            "submit"
+          ]
+        },
+        "refusals": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/refusal"
+          }
+        }
+      }
+    }
+  }
+}

@@ -35,13 +35,24 @@ ERRORS = {
     UNSUPPORTED_NUMBER: "a number that is not an integer a double holds exactly",
     UNSUPPORTED_TYPE: "a value that is not null, a boolean, an integer, a string, an array "
                       "or an object",
-    NESTING_TOO_DEEP: "a value nested deeper than the reader walks",
+    NESTING_TOO_DEEP: "containers nested more than 64 deep",
     NON_CANONICAL_BYTES: "bytes that are valid but are not the canonical form of their value",
+}
+
+# Codes no byte example can reach, each with its reason. `errors.coverage` exempts exactly
+# these from the rule that a negative example exercises every code, and fails an exemption an
+# example does exercise. Their control is a unit test.
+NOT_FROM_BYTES = {
+    UNSUPPORTED_TYPE: "JSON text has no other type; only a Python value handed to encode does",
 }
 
 KEY = re.compile(r"[a-z][a-z0-9]*(?:_[a-z0-9]+)*\Z")
 # Integers beyond this are not exact in an IEEE 754 double, which is what RFC 8785 serializes.
 MAX_SAFE_INTEGER = 2**53 - 1
+# Containers inside containers, the outermost counting as 1. A stated number, so that a reader
+# in another language refuses the same records; an interpreter's own recursion limit would
+# make the answer depend on the host.
+MAX_DEPTH = 64
 
 
 class CanonicalError(ValueError):
@@ -55,7 +66,7 @@ class CanonicalError(ValueError):
         self.detail = detail
 
 
-def _check(value: Any, where: str) -> None:
+def _check(value: Any, where: str, depth: int = 0) -> None:
     if value is None:
         return
     if isinstance(value, int):
@@ -72,15 +83,17 @@ def _check(value: Any, where: str) -> None:
         except UnicodeEncodeError:
             raise CanonicalError(INVALID_UTF8, f"{where}: lone surrogate in a string") from None
         return
+    if isinstance(value, (list, dict)) and depth >= MAX_DEPTH:
+        raise CanonicalError(NESTING_TOO_DEEP, f"{where}: more than {MAX_DEPTH} containers deep")
     if isinstance(value, list):
         for index, item in enumerate(value):
-            _check(item, f"{where}[{index}]")
+            _check(item, f"{where}[{index}]", depth + 1)
         return
     if isinstance(value, dict):
         for key, item in value.items():
             if not isinstance(key, str) or not KEY.match(key):
                 raise CanonicalError(INVALID_KEY, f"{where}: key {key!r} is not ASCII snake_case")
-            _check(item, f"{where}.{key}")
+            _check(item, f"{where}.{key}", depth + 1)
         return
     raise CanonicalError(UNSUPPORTED_TYPE, f"{where}: {type(value).__name__}")
 
@@ -111,15 +124,19 @@ def _not_json(text: str) -> Any:
     raise CanonicalError(INVALID_JSON, f"{text} is not a JSON value")
 
 
-def load(data: bytes) -> Any:
-    """Parse stored bytes, refusing anything that is not the canonical form of its value."""
+def parse(data: bytes) -> Any:
+    """One JSON value from UTF-8 bytes, with no key stated twice and no NaN or Infinity.
+
+    For authored documents such as schemas, whose keys (`$ref`, `additionalProperties`) are
+    outside the canonical domain. A record is read with `load`, which also requires the
+    canonical form."""
     try:
         text = data.decode("utf-8")
     except UnicodeDecodeError:
         raise CanonicalError(INVALID_UTF8, "stored bytes are not UTF-8") from None
     try:
-        # A float literal parses and is refused below with every other float.
-        value = json.loads(text, object_pairs_hook=_pairs, parse_constant=_not_json)
+        # A float literal parses here; `encode` refuses it with every other float.
+        return json.loads(text, object_pairs_hook=_pairs, parse_constant=_not_json)
     except RecursionError:
         raise CanonicalError(NESTING_TOO_DEEP, "bytes nest deeper than the parser walks") from None
     except json.JSONDecodeError as error:
@@ -129,6 +146,11 @@ def load(data: bytes) -> Any:
     except ValueError:
         # The interpreter's own limit on integer literal length; no such integer is exact.
         raise CanonicalError(UNSUPPORTED_NUMBER, "integer literal too long to parse") from None
+
+
+def load(data: bytes) -> Any:
+    """Parse stored bytes, refusing anything that is not the canonical form of its value."""
+    value = parse(data)
     if encode(value) != data:
         raise CanonicalError(NON_CANONICAL_BYTES,
                              "bytes differ from the canonical form of their value")

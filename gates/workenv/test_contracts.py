@@ -1,13 +1,15 @@
 """Contract representation tests. Run by gates/workenv/check-workenv.py, one process per file."""
 import hashlib
 import pathlib
+import shutil
 import sys
+import tempfile
 import unittest
 from unittest import mock
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 
-from workenv.contracts import canonical, errors, schema  # noqa: E402
+from workenv.contracts import canonical, errors, examples, schema  # noqa: E402
 
 
 class CanonicalVectors(unittest.TestCase):
@@ -110,6 +112,14 @@ class CanonicalRefusals(unittest.TestCase):
         # Interpreters differ on whether the parser or the walk after it runs out first.
         with mock.patch.object(canonical.json, "loads", side_effect=RecursionError):
             self.refused(canonical.NESTING_TOO_DEEP, canonical.load, b"[]")
+
+    def test_the_depth_limit_is_a_stated_number(self):
+        deepest = b"[" * canonical.MAX_DEPTH + b"]" * canonical.MAX_DEPTH
+        self.assertEqual(canonical.encode(canonical.load(deepest)), deepest)
+        self.refused(canonical.NESTING_TOO_DEEP, canonical.load, b"[" + deepest + b"]")
+        mixed = b'{"a":' * canonical.MAX_DEPTH + b"[]" + b"}" * canonical.MAX_DEPTH
+        self.refused(canonical.NESTING_TOO_DEEP, canonical.load, mixed)
+        self.assertIn(str(canonical.MAX_DEPTH), canonical.ERRORS[canonical.NESTING_TOO_DEEP])
 
     def test_encode_refuses_a_value_too_deep_to_walk(self):
         value = []
@@ -381,7 +391,7 @@ class ErrorTable(unittest.TestCase):
             schema.Violation("not_in_the_table", "", "x")
 
     def test_coverage_is_checked_both_ways(self):
-        every = set(errors.table())
+        every = set(errors.table()) - set(errors.not_from_bytes())
         self.assertEqual(errors.coverage(every), [])
         missing = errors.coverage(every - {canonical.DUPLICATE_KEY})
         self.assertEqual(len(missing), 1)
@@ -390,6 +400,138 @@ class ErrorTable(unittest.TestCase):
         unknown = errors.coverage(every | {"not_in_the_table"})
         self.assertEqual(len(unknown), 1)
         self.assertIn("not_in_the_table", unknown[0])
+
+
+class ContractExamples(unittest.TestCase):
+    """The real examples pass; each rule of the checker fails by name on a copy with one
+    thing planted. A copy per case, so no case depends on what another left behind."""
+
+    def planted(self, plant):
+        with tempfile.TemporaryDirectory(prefix="workenv-examples-") as scratch:
+            root = pathlib.Path(scratch)
+            shutil.copytree(examples.SCHEMAS, root / "schemas")
+            shutil.copytree(examples.EXAMPLES, root / "examples")
+            plant(root)
+            return examples.check(root / "schemas", root / "examples")[0]
+
+    def one_problem(self, plant, fragment):
+        problems = self.planted(plant)
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn(fragment, problems[0])
+
+    def test_the_real_examples_pass_and_the_copy_is_faithful(self):
+        self.assertEqual(examples.check()[0], [])
+        self.assertEqual(self.planted(lambda root: None), [])
+
+    def test_the_stored_index_is_what_is_on_disk(self):
+        self.assertEqual(examples.INDEX.read_bytes(), examples.index())
+
+    def test_the_generated_files_satisfy_the_schemas_written_about_them(self):
+        schemas = examples.load_schemas()
+        index = canonical.load(examples.INDEX.read_bytes())
+        self.assertEqual(schemas["fixture_index"].validate(index), [])
+        table = canonical.load(errors.TABLE_PATH.read_bytes())
+        self.assertEqual(schemas["error_table"].validate(table), [])
+
+    def test_an_example_without_an_expectation(self):
+        self.one_problem(lambda root: (root / "examples/encoding/float.expect.json").unlink(),
+                         "encoding/float.json has no expectation beside it")
+
+    def test_an_expectation_without_its_example(self):
+        self.one_problem(lambda root: (root / "examples/encoding/float.json").unlink(),
+                         "encoding/float.expect.json expects something of an example that is "
+                         "absent")
+
+    def test_an_empty_example_set(self):
+        def plant(root):
+            shutil.rmtree(root / "examples")
+            (root / "examples").mkdir()
+        problems = self.planted(plant)
+        self.assertIn("empty subject set: no example with an expectation", problems)
+
+    def test_an_example_that_does_not_do_what_its_expectation_says(self):
+        def plant(root):
+            (root / "examples/encoding/float.json").write_bytes(b'{"size":1}')
+        self.one_problem(plant, "encoding/float.json: expected [{'code': 'unsupported_number'")
+
+    def test_a_refusal_at_another_pointer_is_a_mismatch(self):
+        def plant(root):
+            path = root / "examples/fixture_index/negative_size.expect.json"
+            path.write_bytes(path.read_bytes().replace(b"/files/0/size", b"/files/0/path"))
+        self.one_problem(plant, "fixture_index/negative_size.json: expected")
+
+    def test_a_code_only_one_example_exercised(self):
+        def plant(root):
+            for name in ("nested_65_deep.json", "nested_65_deep.expect.json"):
+                (root / "examples/encoding" / name).unlink()
+        self.one_problem(plant, "'nesting_too_deep' is exercised by no negative example")
+
+    def test_an_expectation_naming_a_code_outside_the_table(self):
+        def plant(root):
+            path = root / "examples/encoding/float.expect.json"
+            path.write_bytes(path.read_bytes().replace(b"unsupported_number",
+                                                       b"unsupported_digits"))
+        problems = self.planted(plant)
+        self.assertTrue(any("'unsupported_digits', which the table does not hold" in p
+                            for p in problems), problems)
+
+    def test_a_malformed_expectation(self):
+        def plant(root):
+            (root / "examples/encoding/float.expect.json").write_bytes(
+                b'{"subject":"bytes","why":1}')
+        problems = self.planted(plant)
+        self.assertTrue(any("encoding/float.json: its expectation is malformed" in p
+                            for p in problems), problems)
+
+    def test_an_expectation_that_is_not_canonical(self):
+        def plant(root):
+            (root / "examples/encoding/float.expect.json").write_bytes(b'{"subject": "bytes"}')
+        problems = self.planted(plant)
+        self.assertTrue(any("its expectation is not a canonical record" in p for p in problems),
+                        problems)
+
+    def test_a_schema_with_no_accepted_or_no_refused_example(self):
+        def no_accepted(root):
+            for name in ("one_row.json", "one_row.expect.json"):
+                (root / "examples/error_table" / name).unlink()
+        self.one_problem(no_accepted, "schema error_table: no example it accepts")
+
+        def unexercised(root):
+            shutil.copy(root / "schemas/error_table.schema.json",
+                        root / "schemas/second_table.schema.json")
+        problems = self.planted(unexercised)
+        self.assertEqual(problems, ["schema second_table: no example it accepts",
+                                    "schema second_table: no example it refuses"])
+
+    def test_an_expectation_naming_an_absent_schema(self):
+        def plant(root):
+            path = root / "examples/error_table/empty_meaning.expect.json"
+            path.write_bytes(path.read_bytes().replace(b'"error_table"', b'"absent_table"'))
+        problems = self.planted(plant)
+        self.assertTrue(any("expects schema 'absent_table', which is absent" in p
+                            for p in problems), problems)
+
+    def test_a_schema_that_does_not_load(self):
+        def plant(root):
+            (root / "schemas/broken.schema.json").write_bytes(b'{"type":"object"}')
+        self.one_problem(plant, "a contract schema does not load: open_object")
+
+    def test_without_the_expectation_schema_nothing_is_read(self):
+        self.one_problem(lambda root: (root / "schemas/expectation.schema.json").unlink(),
+                         "schemas/expectation.schema.json is absent")
+
+    def test_a_code_declared_unreachable_from_bytes(self):
+        every = set(errors.table())
+        exempt = set(errors.not_from_bytes())
+        self.assertEqual(exempt, {canonical.UNSUPPORTED_TYPE})
+        self.assertEqual(errors.coverage(every - exempt), [])
+        stale = errors.coverage(every)
+        self.assertEqual(len(stale), 1)
+        self.assertIn("the declaration is stale", stale[0])
+        with mock.patch.dict(canonical.NOT_FROM_BYTES, {"not_in_the_table": "x"}):
+            dangling = errors.coverage(every - exempt)
+        self.assertEqual(len(dangling), 1)
+        self.assertIn("is not in the table", dangling[0])
 
 
 if __name__ == "__main__":

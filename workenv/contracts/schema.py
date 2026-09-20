@@ -5,11 +5,15 @@ check a record with a stock validator. This module reads only the keywords liste
 KEYWORDS and refuses a document that uses any other, at load, by name. A keyword this code
 silently ignored would be a rule the document states and nothing here enforces.
 
-Three load rules keep this reader and a stock validator in agreement:
+Three load rules keep this reader and a stock validator in agreement. The agreement meant is
+with a validator that reads `pattern` as ECMAScript does, which is what JSON Schema specifies.
+A validator that hands `pattern` to Python's `re.search` differs in one way no schema rule can
+close: its `$` also matches before a final newline, so it accepts a string that matches its
+pattern and then ends in one newline. This reader refuses that string, as ECMAScript does.
 
   every object schema states `additionalProperties: false`, so a record is closed under both;
-  `pattern` is anchored and drawn from the constructs PATTERN admits, where Python's and
-  ECMAScript's regular expressions mean the same thing;
+  `pattern` is anchored and drawn from the constructs `compile_pattern` admits, where
+  Python's and ECMAScript's regular expressions mean the same thing;
   `$ref` points at `#/$defs/<name>` in the same document and stands alone.
 
 `x-runtime-owned: true` marks a property the runtime writes. Stored records carry it like
