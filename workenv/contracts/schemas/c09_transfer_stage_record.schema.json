@@ -1,0 +1,78 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C09 transfer stage record",
+  "description": "Exported, received, verified, accepted and committed are five different outcomes and each is recorded when it happens. A package that arrived is not a package that verified, and neither is a package whose contributions an owning authority has accepted. Re-importing the same envelope reaches the same stage rather than a second one.",
+  "required": [
+    "kind",
+    "schema",
+    "envelope_digest",
+    "stage",
+    "material_gaps",
+    "at"
+  ],
+  "properties": {
+    "kind": {
+      "const": "transfer_stage_record"
+    },
+    "schema": {
+      "const": 1
+    },
+    "envelope_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "stage": {
+      "enum": [
+        "exported",
+        "received",
+        "verified",
+        "accepted",
+        "committed"
+      ]
+    },
+    "receipt_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "material_gaps": {
+      "$ref": "#/$defs/gaps"
+    },
+    "at": {
+      "$ref": "#/$defs/instant"
+    }
+  },
+  "x-runtime-owned": true,
+  "$defs": {
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "gaps": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/gap"
+      }
+    },
+    "gap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        "pointer": {
+          "type": "string",
+          "pattern": "^(?:/[^/]*)*$"
+        }
+      }
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

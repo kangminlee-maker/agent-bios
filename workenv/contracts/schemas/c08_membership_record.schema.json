@@ -1,0 +1,123 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C08 membership record",
+  "description": "Consent, an invitation receipt and an active membership are three standings, not one. A provider claim admits only where the Team's own delegation policy says it may, and the policy is named here; a verified login or a matching e-mail domain admits nobody by itself.",
+  "required": [
+    "kind",
+    "schema",
+    "membership_id",
+    "team_id",
+    "principal_id",
+    "admitted_by",
+    "standing",
+    "created_at"
+  ],
+  "properties": {
+    "kind": {
+      "const": "membership_record"
+    },
+    "schema": {
+      "const": 1
+    },
+    "membership_id": {
+      "type": "string",
+      "pattern": "^mbr_[0-9a-f]{32}$"
+    },
+    "team_id": {
+      "$ref": "#/$defs/team_id"
+    },
+    "principal_id": {
+      "$ref": "#/$defs/principal_id"
+    },
+    "admitted_by": {
+      "$ref": "#/$defs/admission"
+    },
+    "standing": {
+      "enum": [
+        "invited",
+        "consented",
+        "registered",
+        "active",
+        "left",
+        "removed"
+      ]
+    },
+    "created_at": {
+      "$ref": "#/$defs/instant"
+    }
+  },
+  "x-runtime-owned": true,
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "connection_id": {
+      "type": "string",
+      "pattern": "^con_[0-9a-f]{32}$"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "principal_id": {
+      "type": "string",
+      "pattern": "^prn_[0-9a-f]{32}$"
+    },
+    "team_id": {
+      "type": "string",
+      "pattern": "^tem_[0-9a-f]{32}$"
+    },
+    "invited_admission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "how",
+        "invitation_digest",
+        "consent_digest"
+      ],
+      "properties": {
+        "how": {
+          "const": "invitation"
+        },
+        "invitation_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "consent_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "delegated_admission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "how",
+        "connection_id",
+        "policy_digest"
+      ],
+      "properties": {
+        "how": {
+          "const": "provider_claim"
+        },
+        "connection_id": {
+          "$ref": "#/$defs/connection_id"
+        },
+        "policy_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "admission": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/invited_admission"
+        },
+        {
+          "$ref": "#/$defs/delegated_admission"
+        }
+      ]
+    }
+  }
+}

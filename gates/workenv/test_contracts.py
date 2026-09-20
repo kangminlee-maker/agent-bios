@@ -11,7 +11,8 @@ from unittest import mock
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 
 from workenv.contracts import (  # noqa: E402
-    c01, c02, c03, c04, c05, c06, c07, canonical, errors, examples, records, schema,
+    c01, c02, c03, c04, c05, c06, c07, c08, c09, canonical, errors, examples, records,
+    schema,
 )
 
 
@@ -416,7 +417,8 @@ class ErrorTable(unittest.TestCase):
 
     def test_coverage_is_checked_both_ways(self):
         results = errors.in_results()
-        self.assertEqual(results, {code for module in (c01, c02, c03, c04, c05, c06, c07)
+        self.assertEqual(results, {code for module in (c01, c02, c03, c04, c05, c06, c07,
+                                                  c08, c09)
                                    for code in module.ERRORS})
         readers = set(errors.table()) - results - set(errors.not_from_bytes())
         self.assertEqual(errors.coverage(readers, results), [])

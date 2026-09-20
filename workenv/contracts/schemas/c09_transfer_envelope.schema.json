@@ -1,0 +1,299 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C09 transfer envelope",
+  "description": "What a package binds: whose authority it comes from, which namespace, which recipient may open it, exactly what is inside with sizes and digests, and what it needs to already be there. Trust comes from enrolment or verified authority continuity, named here by digest \u2014 never from a key the package carries about itself, which is why there is no field for one. Signing is not encryption, so confidentiality is stated separately.",
+  "required": [
+    "kind",
+    "schema",
+    "authority",
+    "namespace",
+    "recipient",
+    "completeness",
+    "inventory",
+    "prerequisites",
+    "semantics",
+    "continuity_evidence_digests",
+    "confidentiality"
+  ],
+  "properties": {
+    "kind": {
+      "const": "transfer_envelope"
+    },
+    "schema": {
+      "const": 1
+    },
+    "authority": {
+      "$ref": "#/$defs/scope"
+    },
+    "namespace": {
+      "$ref": "#/$defs/scope"
+    },
+    "recipient": {
+      "$ref": "#/$defs/transfer_recipient"
+    },
+    "completeness": {
+      "$ref": "#/$defs/completeness"
+    },
+    "inventory": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/inventory_entry"
+      }
+    },
+    "prerequisites": {
+      "$ref": "#/$defs/digests"
+    },
+    "semantics": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/semantic"
+      }
+    },
+    "continuity_evidence_digests": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/digest"
+      }
+    },
+    "confidentiality": {
+      "enum": [
+        "none",
+        "in_transport",
+        "at_rest"
+      ]
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "request_id": {
+      "type": "string",
+      "pattern": "^req_[0-9a-f]{32}$"
+    },
+    "source_frontier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "checkpoint_digest"
+      ],
+      "properties": {
+        "source_id": {
+          "$ref": "#/$defs/source_id"
+        },
+        "checkpoint_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "source_id": {
+      "type": "string",
+      "pattern": "^src_[0-9a-f]{32}$"
+    },
+    "principal_id": {
+      "type": "string",
+      "pattern": "^prn_[0-9a-f]{32}$"
+    },
+    "scope": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/repository_scope"
+        },
+        {
+          "$ref": "#/$defs/personal_scope"
+        },
+        {
+          "$ref": "#/$defs/team_scope"
+        }
+      ]
+    },
+    "team_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "team_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "team"
+        },
+        "team_id": {
+          "$ref": "#/$defs/team_id"
+        }
+      }
+    },
+    "team_id": {
+      "type": "string",
+      "pattern": "^tem_[0-9a-f]{32}$"
+    },
+    "personal_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "principal_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "personal"
+        },
+        "principal_id": {
+          "$ref": "#/$defs/principal_id"
+        }
+      }
+    },
+    "repository_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "repository_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "repository"
+        },
+        "repository_id": {
+          "$ref": "#/$defs/repository_id"
+        }
+      }
+    },
+    "repository_id": {
+      "type": "string",
+      "pattern": "^rep_[0-9a-f]{32}$"
+    },
+    "digests": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/digest"
+      }
+    },
+    "transfer_recipient": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "permitted_scope"
+      ],
+      "properties": {
+        "permitted_scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "principal_id": {
+          "$ref": "#/$defs/principal_id"
+        }
+      }
+    },
+    "complete_transfer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "carries"
+      ],
+      "properties": {
+        "carries": {
+          "const": "complete"
+        }
+      }
+    },
+    "incremental_transfer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "carries",
+        "baseline",
+        "acknowledged_inventory_digest"
+      ],
+      "properties": {
+        "carries": {
+          "const": "incremental"
+        },
+        "baseline": {
+          "$ref": "#/$defs/source_frontier"
+        },
+        "acknowledged_inventory_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "return_transfer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "carries",
+        "for_request_id"
+      ],
+      "properties": {
+        "carries": {
+          "const": "return"
+        },
+        "for_request_id": {
+          "$ref": "#/$defs/request_id"
+        }
+      }
+    },
+    "completeness": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/complete_transfer"
+        },
+        {
+          "$ref": "#/$defs/incremental_transfer"
+        },
+        {
+          "$ref": "#/$defs/return_transfer"
+        }
+      ]
+    },
+    "inventory_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "digest",
+        "size",
+        "object_kind"
+      ],
+      "properties": {
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "object_kind": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        }
+      }
+    },
+    "semantic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}

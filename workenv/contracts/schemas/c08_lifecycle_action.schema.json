@@ -1,0 +1,289 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C08 lifecycle action",
+  "description": "Archive, continue, restore, leave, forget here, close and purge are seven different effects, and each carries the disposition its own effect requires. Closure names the surviving stewardship rather than an intended successor, because naming one is what the design says is insufficient. Forgetting a Team on this device is not closure, and closure is not physical deletion.",
+  "required": [
+    "kind",
+    "schema",
+    "team_id",
+    "action"
+  ],
+  "properties": {
+    "kind": {
+      "const": "lifecycle_action"
+    },
+    "schema": {
+      "const": 1
+    },
+    "team_id": {
+      "$ref": "#/$defs/team_id"
+    },
+    "action": {
+      "$ref": "#/$defs/team_action"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "responsibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "principal_id",
+        "duty"
+      ],
+      "properties": {
+        "principal_id": {
+          "$ref": "#/$defs/principal_id"
+        },
+        "duty": {
+          "enum": [
+            "owner",
+            "reviewer",
+            "recovery",
+            "finalizer"
+          ]
+        }
+      }
+    },
+    "principal_id": {
+      "type": "string",
+      "pattern": "^prn_[0-9a-f]{32}$"
+    },
+    "device_id": {
+      "type": "string",
+      "pattern": "^dev_[0-9a-f]{32}$"
+    },
+    "scope": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/repository_scope"
+        },
+        {
+          "$ref": "#/$defs/personal_scope"
+        },
+        {
+          "$ref": "#/$defs/team_scope"
+        }
+      ]
+    },
+    "team_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "team_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "team"
+        },
+        "team_id": {
+          "$ref": "#/$defs/team_id"
+        }
+      }
+    },
+    "team_id": {
+      "type": "string",
+      "pattern": "^tem_[0-9a-f]{32}$"
+    },
+    "personal_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "principal_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "personal"
+        },
+        "principal_id": {
+          "$ref": "#/$defs/principal_id"
+        }
+      }
+    },
+    "repository_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "repository_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "repository"
+        },
+        "repository_id": {
+          "$ref": "#/$defs/repository_id"
+        }
+      }
+    },
+    "repository_id": {
+      "type": "string",
+      "pattern": "^rep_[0-9a-f]{32}$"
+    },
+    "archive_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "does"
+      ],
+      "properties": {
+        "does": {
+          "const": "archive"
+        }
+      }
+    },
+    "continue_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "does",
+        "work_scope"
+      ],
+      "properties": {
+        "does": {
+          "const": "continue_archived"
+        },
+        "work_scope": {
+          "$ref": "#/$defs/scope"
+        }
+      }
+    },
+    "restore_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "does"
+      ],
+      "properties": {
+        "does": {
+          "const": "restore"
+        }
+      }
+    },
+    "leave_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "does",
+        "principal_id",
+        "continuity_disposition_digest"
+      ],
+      "properties": {
+        "does": {
+          "const": "leave"
+        },
+        "principal_id": {
+          "$ref": "#/$defs/principal_id"
+        },
+        "continuity_disposition_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "forget_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "does",
+        "device_id",
+        "drafts_disposition_digest"
+      ],
+      "properties": {
+        "does": {
+          "const": "forget_here"
+        },
+        "device_id": {
+          "$ref": "#/$defs/device_id"
+        },
+        "drafts_disposition_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "close_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "does",
+        "plan_digest",
+        "surviving_stewardship",
+        "outbox_disposition_digest"
+      ],
+      "properties": {
+        "does": {
+          "const": "close"
+        },
+        "plan_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "surviving_stewardship": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/responsibility"
+          }
+        },
+        "outbox_disposition_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "purge_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "does",
+        "object_digests",
+        "per_owner_outcomes"
+      ],
+      "properties": {
+        "does": {
+          "const": "purge"
+        },
+        "object_digests": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/digest"
+          }
+        },
+        "per_owner_outcomes": {
+          "const": true
+        }
+      }
+    },
+    "team_action": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/archive_action"
+        },
+        {
+          "$ref": "#/$defs/continue_action"
+        },
+        {
+          "$ref": "#/$defs/restore_action"
+        },
+        {
+          "$ref": "#/$defs/leave_action"
+        },
+        {
+          "$ref": "#/$defs/forget_action"
+        },
+        {
+          "$ref": "#/$defs/close_action"
+        },
+        {
+          "$ref": "#/$defs/purge_action"
+        }
+      ]
+    }
+  }
+}
