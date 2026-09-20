@@ -1,6 +1,7 @@
 """C04 Behavioural sources and domain knowledge: the gaps its operations answer with.
 
-Record kinds: `projection_plan`, `role_projection`, `knowledge_question`, `knowledge_view`.
+Record kinds: `projection_plan`, `role_projection`, `knowledge_question`, `knowledge_view`,
+`session_routing`.
 
 Two operations share this contract because they share one rule: what reaches a role is decided
 by the one admission owner, from exact source revisions, and nothing else is promoted into it.
@@ -13,7 +14,8 @@ root the caller chose reaches protected bytes only through the admission owner, 
 would not is refused here rather than at whichever command happened to offer it.
 """
 CONTRACT = "C04"
-RECORD_KINDS = ("projection_plan", "role_projection", "knowledge_question", "knowledge_view")
+RECORD_KINDS = ("projection_plan", "role_projection", "knowledge_question",
+                "knowledge_view", "session_routing")
 IN_RESULTS = True
 
 SOURCE_NOT_AUTHORIZED = "source_not_authorized"

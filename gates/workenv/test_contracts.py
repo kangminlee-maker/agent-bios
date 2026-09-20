@@ -1012,5 +1012,52 @@ class RouteAndExposure(unittest.TestCase):
                          {"$ref": "#/$defs/recovery"})
 
 
+class SessionRouting(unittest.TestCase):
+    """U16's rules read off the committed document: what an activated session receives, and the
+    two things a route has no way to change."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.schemas = examples.load_schemas()
+        identifier = records.registry(cls.schemas)["session_routing"][1]
+        cls.document = cls.schemas[identifier].document
+        cls.defs = cls.schemas[identifier].defs
+
+    def variants(self):
+        return {name.rsplit("/", 1)[-1] for name in
+                (v["$ref"] for v in self.defs["session_delivery"]["oneOf"])}
+
+    def test_an_activated_session_always_carries_the_usage_contract(self):
+        activated = self.defs["activated_delivery"]
+        self.assertIn("memory_usage", activated["required"])
+        # Zero selected Instructions is a real delivery, so the projections may be empty.
+        self.assertEqual(activated["properties"]["projections"]["$ref"], "#/$defs/digests")
+        self.assertNotIn("minItems", self.defs["digests"])
+
+    def test_a_session_that_was_only_selected_has_nowhere_to_put_a_delivery(self):
+        only = self.defs["selected_only_delivery"]
+        self.assertEqual(set(only["properties"]), {"state"})
+        self.assertIs(only["additionalProperties"], False)
+        self.assertEqual(len(self.variants()), 2, self.variants())
+
+    def test_the_always_surface_has_no_value_for_an_addition(self):
+        self.assertEqual(sorted(self.document["properties"]["always_surface"]["enum"]),
+                         ["reduced", "unchanged"])
+        self.assertIn("always_surface", self.document["required"])
+
+    def test_a_native_instruction_file_is_preserved_and_has_no_other_value(self):
+        self.assertEqual(self.document["properties"]["native_files"], {"const": "preserved"})
+        self.assertIn("native_files", self.document["required"])
+
+    def test_a_guide_is_named_and_held(self):
+        self.assertEqual(sorted(self.defs["guide_pointer"]["required"]), ["digest", "path"])
+        self.assertIn("guide", self.defs["usage_contract"]["required"])
+
+    def test_the_record_is_the_runtimes_own_and_never_a_submission(self):
+        self.assertIs(self.document[schema.RUNTIME_OWNED], True)
+        self.assertEqual(examples.owned_places(
+            self.schemas[records.registry(self.schemas)["session_routing"][1]]), {""})
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -17,7 +17,10 @@ exercises, and — through `errors.coverage` — on an error code no example exe
 code no accepted result states, and on an example naming a code the table does not hold.
 
 Three more rules hold the contract records together. Every place a schema marks as written by
-the runtime has a submission that is refused for carrying it. A definition name means one thing:
+the runtime has a submission that is refused for carrying it. Mark the record root, not a
+property inside a `oneOf` variant: a variant that refuses is a variant that did not match, so
+the branch is reported and the field can never name itself, and no example could satisfy this
+rule for it. A definition name means one thing:
 two documents that both define `$defs/<name>` define it identically, because `$ref` cannot
 cross documents and a copy that drifts would be a second vocabulary. And an `operation_result`
 example answers an `operation_request` example that exists: its `request_digest` is the
