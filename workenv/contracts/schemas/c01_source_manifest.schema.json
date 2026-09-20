@@ -1,0 +1,80 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C01 source revision manifest",
+  "description": "One immutable revision, by member and hash. The revision digest other records reference is the sha256 of these bytes, so there is no field for it here: a manifest that stated its own digest could not be the bytes that digest was taken over.",
+  "required": [
+    "kind",
+    "schema",
+    "source_id",
+    "format_version",
+    "members",
+    "produced_at"
+  ],
+  "properties": {
+    "kind": {
+      "const": "source_manifest"
+    },
+    "schema": {
+      "const": 1
+    },
+    "source_id": {
+      "$ref": "#/$defs/source_id"
+    },
+    "format_version": {
+      "$ref": "#/$defs/format_version"
+    },
+    "members": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/member"
+      }
+    },
+    "produced_at": {
+      "$ref": "#/$defs/instant",
+      "x-runtime-owned": true
+    }
+  },
+  "$defs": {
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "member": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "digest",
+        "size"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]*(?:/[A-Za-z0-9_][A-Za-z0-9_.-]*)*$"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "format_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "source_id": {
+      "type": "string",
+      "pattern": "^src_[0-9a-f]{32}$"
+    }
+  }
+}

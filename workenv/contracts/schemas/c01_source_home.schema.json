@@ -1,0 +1,439 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C01 source home",
+  "description": "One source, one authoring home. The namespace scope the source sits in and the authority that accepts its revisions are separate fields, because a source kept in a team's namespace is not thereby accepted by that team. Applicability is a required choice between stated conditions and none, so a source that states none says so instead of reading as applying everywhere.",
+  "required": [
+    "kind",
+    "schema",
+    "source_id",
+    "role",
+    "scope",
+    "home",
+    "acceptance_authority",
+    "format_version",
+    "applicability",
+    "disclosure",
+    "retention",
+    "publication_evidence_digests",
+    "registered_at"
+  ],
+  "properties": {
+    "kind": {
+      "const": "source_home"
+    },
+    "schema": {
+      "const": 1
+    },
+    "source_id": {
+      "$ref": "#/$defs/source_id"
+    },
+    "role": {
+      "$ref": "#/$defs/role"
+    },
+    "scope": {
+      "$ref": "#/$defs/scope"
+    },
+    "home": {
+      "$ref": "#/$defs/home"
+    },
+    "acceptance_authority": {
+      "$ref": "#/$defs/scope"
+    },
+    "format_version": {
+      "$ref": "#/$defs/format_version"
+    },
+    "applicability": {
+      "$ref": "#/$defs/applicability"
+    },
+    "disclosure": {
+      "enum": [
+        "private",
+        "team",
+        "published"
+      ]
+    },
+    "retention": {
+      "$ref": "#/$defs/retention"
+    },
+    "publication_evidence_digests": {
+      "$ref": "#/$defs/digests"
+    },
+    "registered_at": {
+      "$ref": "#/$defs/instant",
+      "x-runtime-owned": true
+    }
+  },
+  "$defs": {
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "digests": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/digest"
+      }
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "retention": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/kept_until_withdrawn"
+        },
+        {
+          "$ref": "#/$defs/kept_until_a_date"
+        }
+      ]
+    },
+    "kept_until_a_date": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "keep",
+        "until"
+      ],
+      "properties": {
+        "keep": {
+          "const": "until"
+        },
+        "until": {
+          "$ref": "#/$defs/instant"
+        }
+      }
+    },
+    "kept_until_withdrawn": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "keep"
+      ],
+      "properties": {
+        "keep": {
+          "const": "until_withdrawn"
+        }
+      }
+    },
+    "applicability": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/stated_applicability"
+        },
+        {
+          "$ref": "#/$defs/unstated_applicability"
+        }
+      ]
+    },
+    "unstated_applicability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "states"
+      ],
+      "properties": {
+        "states": {
+          "const": "unstated"
+        }
+      }
+    },
+    "stated_applicability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "states"
+      ],
+      "properties": {
+        "states": {
+          "const": "stated"
+        },
+        "period": {
+          "$ref": "#/$defs/period"
+        },
+        "conditions": {
+          "$ref": "#/$defs/conditions"
+        },
+        "exceptions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400
+          }
+        }
+      }
+    },
+    "conditions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/condition"
+      }
+    },
+    "condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dimension",
+        "value"
+      ],
+      "properties": {
+        "dimension": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      }
+    },
+    "period": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "effective_from"
+      ],
+      "properties": {
+        "effective_from": {
+          "$ref": "#/$defs/date"
+        },
+        "effective_to": {
+          "$ref": "#/$defs/date"
+        }
+      }
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "format_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "scope": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/repository_scope"
+        },
+        {
+          "$ref": "#/$defs/personal_scope"
+        },
+        {
+          "$ref": "#/$defs/team_scope"
+        }
+      ]
+    },
+    "team_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "team_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "team"
+        },
+        "team_id": {
+          "$ref": "#/$defs/team_id"
+        }
+      }
+    },
+    "team_id": {
+      "type": "string",
+      "pattern": "^tem_[0-9a-f]{32}$"
+    },
+    "personal_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "principal_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "personal"
+        },
+        "principal_id": {
+          "$ref": "#/$defs/principal_id"
+        }
+      }
+    },
+    "principal_id": {
+      "type": "string",
+      "pattern": "^prn_[0-9a-f]{32}$"
+    },
+    "repository_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "repository_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "repository"
+        },
+        "repository_id": {
+          "$ref": "#/$defs/repository_id"
+        }
+      }
+    },
+    "repository_id": {
+      "type": "string",
+      "pattern": "^rep_[0-9a-f]{32}$"
+    },
+    "home": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/published_home"
+        },
+        {
+          "$ref": "#/$defs/repository_home"
+        },
+        {
+          "$ref": "#/$defs/managed_home"
+        }
+      ]
+    },
+    "managed_home": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A managed collection. The Markdown it can produce is a derived view and has no acceptance field, so it cannot become a second owner of the state a repository document already owns.",
+      "required": [
+        "mode",
+        "collection_id",
+        "markdown_view"
+      ],
+      "properties": {
+        "mode": {
+          "const": "managed"
+        },
+        "collection_id": {
+          "$ref": "#/$defs/collection_id"
+        },
+        "markdown_view": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/no_view"
+            },
+            {
+              "$ref": "#/$defs/derived_view"
+            }
+          ]
+        }
+      }
+    },
+    "derived_view": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "view",
+        "path"
+      ],
+      "properties": {
+        "view": {
+          "const": "derived"
+        },
+        "path": {
+          "$ref": "#/$defs/source_path"
+        }
+      }
+    },
+    "source_path": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]*(?:/[A-Za-z0-9_][A-Za-z0-9_.-]*)*$"
+    },
+    "no_view": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "view"
+      ],
+      "properties": {
+        "view": {
+          "const": "none"
+        }
+      }
+    },
+    "collection_id": {
+      "type": "string",
+      "pattern": "^col_[0-9a-f]{32}$"
+    },
+    "repository_home": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A repository document, which is a source home only where a binding says so. The document owns its accepted state.",
+      "required": [
+        "mode",
+        "repository_id",
+        "document_root",
+        "binding_evidence_digest"
+      ],
+      "properties": {
+        "mode": {
+          "const": "repository_authored"
+        },
+        "repository_id": {
+          "$ref": "#/$defs/repository_id"
+        },
+        "document_root": {
+          "$ref": "#/$defs/source_path"
+        },
+        "binding_evidence_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "published_home": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Publisher-owned installed bytes. There is no field for a local edit of them, because an addition is a derived source with a home of its own.",
+      "required": [
+        "mode",
+        "package_id",
+        "publisher_evidence_digest",
+        "license_conditions"
+      ],
+      "properties": {
+        "mode": {
+          "const": "package_published"
+        },
+        "package_id": {
+          "$ref": "#/$defs/package_id"
+        },
+        "publisher_evidence_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "license_conditions": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        }
+      }
+    },
+    "package_id": {
+      "type": "string",
+      "pattern": "^pkg_[0-9a-f]{32}$"
+    },
+    "role": {
+      "enum": [
+        "instructions",
+        "knowledge",
+        "memory"
+      ]
+    },
+    "source_id": {
+      "type": "string",
+      "pattern": "^src_[0-9a-f]{32}$"
+    }
+  }
+}

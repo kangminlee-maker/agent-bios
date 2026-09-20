@@ -1,5 +1,6 @@
 """Contract representation tests. Run by gates/workenv/check-workenv.py, one process per file."""
 import hashlib
+import os
 import pathlib
 import re
 import shutil
@@ -12,7 +13,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 
 from workenv.contracts import (  # noqa: E402
     b01, b02, b03, b04, b05, c01, c02, c03, c04, c05, c06, c07, c08, c09, c10, c11, c12,
-    canonical, errors, examples, records, schema,
+    canonical, errors, examples, inventory, records, schema,
 )
 
 
@@ -791,6 +792,147 @@ class Records(unittest.TestCase):
                  "list": [{"material_gaps": [{"code": "ref_unavailable"}]}],
                  "gaps": [{"code": "not_collected"}]}
         self.assertEqual(records.stated(value), {"stale_base", "access_locked", "ref_unavailable"})
+class SourceRoleExamples(unittest.TestCase):
+    """The nine role examples, and the rule that a role cannot be promoted by relabelling the
+    record that carries it. Families are the three named in the unit; every other subject here
+    is derived, because a count written down is a count that stops matching quietly."""
+
+    FAMILIES = ("capture", "provenance", "request")
+
+    @classmethod
+    def setUpClass(cls):
+        cls.schemas = examples.load_schemas()
+        cls.registry = records.registry(cls.schemas)
+        cls.group = examples.EXAMPLES / "sources"
+
+    def family(self, kind):
+        named = [family for family in self.FAMILIES if kind.endswith(family)]
+        return named[0] if named else None
+
+    def read(self):
+        """(name, value, expectation) for every example in the sources group."""
+        paths = [p for p in sorted(self.group.glob("*.json"))
+                 if not p.name.endswith(examples.EXPECT_SUFFIX)]
+        self.assertTrue(paths, self.group)
+        for path in paths:
+            yield (path.stem, canonical.load(path.read_bytes()),
+                   canonical.load(examples.expectation_path(path).read_bytes()))
+
+    def test_each_family_is_carried_by_a_record_kind_of_its_own(self):
+        carried = {kind: self.family(kind) for kind in c01.RECORD_KINDS
+                   if self.family(kind) is not None}
+        self.assertEqual(set(carried.values()), set(self.FAMILIES), carried)
+        for kind in carried:
+            self.assertIn(kind, self.registry, f"{kind} is described by no schema document")
+
+    def test_three_roles_and_three_families_make_nine_accepted_examples(self):
+        roles = self.schemas["c01_source_ref"].defs["role"]["enum"]
+        self.assertTrue(roles)
+        grid = {}
+        for name, value, expectation in self.read():
+            family = self.family(value.get("kind", ""))
+            if family is None or expectation.get("refusals") or expectation["mode"] != "stored":
+                continue
+            grid.setdefault((family, value["role"]), []).append(name)
+        self.assertEqual(set(grid), {(family, role)
+                                     for family in self.FAMILIES for role in roles})
+        self.assertEqual(sorted(map(len, grid.values())), [1] * (len(self.FAMILIES) * len(roles)))
+
+    def test_every_kind_in_the_grid_has_a_refused_example_too(self):
+        refused = {value.get("kind") for _, value, expectation in self.read()
+                   if expectation.get("refusals")}
+        wanted = {kind for kind in c01.RECORD_KINDS if self.family(kind) is not None}
+        self.assertEqual(wanted - refused, set())
+
+    def test_a_capture_of_another_role_cannot_carry_a_behavioural_unit(self):
+        captures = {kind for kind in c01.RECORD_KINDS if self.family(kind) == "capture"}
+        self.assertTrue(captures)
+        carrying = {kind for kind in captures
+                    if "units" in self.schemas[self.registry[kind][1]].document["properties"]}
+        self.assertEqual(len(carrying), 1, carrying)
+        refusing = {value["kind"] for _, value, expectation in self.read()
+                    if any(refusal["pointer"] == "/units"
+                           for refusal in expectation.get("refusals", []))}
+        self.assertEqual(refusing, captures - carrying)
+
+
+class Inventory(unittest.TestCase):
+    """The emitter builds its own input: a fixture committed beside it could not be planted
+    into without changing what the other tests read."""
+
+    INSTANT = "2026-09-20T09:00:00Z"
+    SOURCE = "src_" + "0" * 32
+
+    def setUp(self):
+        scratch = tempfile.TemporaryDirectory(prefix="workenv-inventory-")
+        self.addCleanup(scratch.cleanup)
+        self.package = pathlib.Path(scratch.name) / "package"
+        (self.package / "tables").mkdir(parents=True)
+        (self.package / "concepts.md").write_bytes(b"a concept\n")
+        (self.package / "tables" / "rates.csv").write_bytes(b"year,rate\n2026,0.1\n")
+        self.stated = inventory.manifest(self.package, self.SOURCE, self.INSTANT)
+
+    def test_what_it_emits_is_a_record_the_committed_schema_accepts(self):
+        schemas = examples.load_schemas()
+        identifier = records.registry(schemas)[inventory.KIND][inventory.SCHEMA]
+        self.assertEqual(schemas[identifier].validate(self.stated), [])
+        self.assertEqual([member["path"] for member in self.stated["members"]],
+                         ["concepts.md", "tables/rates.csv"])
+
+    def test_two_runs_over_one_directory_give_one_digest(self):
+        first = inventory.emit(self.package, self.SOURCE, self.INSTANT)
+        self.assertEqual(first, inventory.emit(self.package, self.SOURCE, self.INSTANT))
+        (self.package / "concepts.md").write_bytes(b"another concept\n")
+        self.assertNotEqual(first, inventory.emit(self.package, self.SOURCE, self.INSTANT))
+
+    def test_a_member_the_inventory_does_not_list(self):
+        (self.package / "tables" / "relief.csv").write_bytes(b"case,relief\n")
+        self.assertEqual(inventory.differences(self.stated, self.package),
+                         [(c01.MANIFEST_MEMBER_UNLISTED, "tables/relief.csv")])
+
+    def test_a_listed_member_this_installation_does_not_hold(self):
+        (self.package / "concepts.md").unlink()
+        self.assertEqual(inventory.differences(self.stated, self.package),
+                         [(c01.REF_UNAVAILABLE, "concepts.md")])
+
+    def test_a_listed_member_whose_bytes_differ(self):
+        (self.package / "concepts.md").write_bytes(b"a different concept\n")
+        self.assertEqual(inventory.differences(self.stated, self.package),
+                         [(c01.ID_BOUND_TO_OTHER_BYTES, "concepts.md")])
+
+    def test_one_path_listed_twice(self):
+        first = self.stated["members"][0]
+        twice = {**self.stated, "members": [first, {**first, "digest": "0" * 64},
+                                            self.stated["members"][1]]}
+        self.assertEqual(inventory.differences(twice, self.package),
+                         [(c01.ID_BOUND_TO_OTHER_BYTES, first["path"])])
+
+    def test_a_symbolic_link_is_not_inventoried(self):
+        # The link points at a real file outside the package, which is the hazard: following it
+        # would bind bytes this revision does not hold.
+        elsewhere = self.package.parent / "elsewhere.md"
+        elsewhere.write_bytes(b"somebody else's bytes\n")
+        (self.package / "outside.md").symlink_to(elsewhere)
+        with self.assertRaises(inventory.InventoryError) as raised:
+            inventory.manifest(self.package, self.SOURCE, self.INSTANT)
+        self.assertIn("outside.md", str(raised.exception))
+
+    def test_a_member_that_is_not_a_regular_file(self):
+        os.mkfifo(self.package / "pipe")
+        with self.assertRaises(inventory.InventoryError) as raised:
+            inventory.manifest(self.package, self.SOURCE, self.INSTANT)
+        self.assertIn("pipe", str(raised.exception))
+
+    def test_a_directory_with_no_member(self):
+        empty = self.package.parent / "empty"
+        empty.mkdir()
+        with self.assertRaises(inventory.InventoryError) as raised:
+            inventory.manifest(empty, self.SOURCE, self.INSTANT)
+        self.assertIn("no member", str(raised.exception))
+
+    def test_every_code_it_names_is_in_the_one_table(self):
+        named = {c01.MANIFEST_MEMBER_UNLISTED, c01.REF_UNAVAILABLE, c01.ID_BOUND_TO_OTHER_BYTES}
+        self.assertEqual(named - set(errors.table()), set())
 
 
 if __name__ == "__main__":

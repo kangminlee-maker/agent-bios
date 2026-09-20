@@ -1,0 +1,246 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C01 source request",
+  "description": "What was asked for: this role, in this home, by one of four routes. It carries no id and no time because it is the payload of a C03 operation request, which owns both.",
+  "required": [
+    "kind",
+    "schema",
+    "role",
+    "destination",
+    "route"
+  ],
+  "properties": {
+    "kind": {
+      "const": "source_request"
+    },
+    "schema": {
+      "const": 1
+    },
+    "role": {
+      "$ref": "#/$defs/role"
+    },
+    "destination": {
+      "$ref": "#/$defs/source_destination"
+    },
+    "route": {
+      "$ref": "#/$defs/route"
+    }
+  },
+  "$defs": {
+    "route": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/add_published_route"
+        },
+        {
+          "$ref": "#/$defs/import_external_route"
+        },
+        {
+          "$ref": "#/$defs/author_here_route"
+        },
+        {
+          "$ref": "#/$defs/extend_supplied_route"
+        }
+      ]
+    },
+    "extend_supplied_route": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "An extension names its base exactly and has one value to state about the installed bytes, so editing them in place cannot be requested.",
+      "required": [
+        "route",
+        "base_source_id",
+        "base_revision_digest",
+        "base_bytes"
+      ],
+      "properties": {
+        "route": {
+          "const": "extend_supplied"
+        },
+        "base_source_id": {
+          "$ref": "#/$defs/source_id"
+        },
+        "base_revision_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "base_bytes": {
+          "const": "unmodified"
+        }
+      }
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "source_id": {
+      "type": "string",
+      "pattern": "^src_[0-9a-f]{32}$"
+    },
+    "author_here_route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "route"
+      ],
+      "properties": {
+        "route": {
+          "const": "author_here"
+        }
+      }
+    },
+    "import_external_route": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "An external package states its origin and its conditions, because nothing else in this installation knows them.",
+      "required": [
+        "route",
+        "declared_origin",
+        "license_conditions",
+        "revision_digest"
+      ],
+      "properties": {
+        "route": {
+          "const": "import_external_package"
+        },
+        "declared_origin": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400
+        },
+        "license_conditions": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "revision_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "add_published_route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "route",
+        "package_id",
+        "revision_digest"
+      ],
+      "properties": {
+        "route": {
+          "const": "add_published_package"
+        },
+        "package_id": {
+          "$ref": "#/$defs/package_id"
+        },
+        "revision_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "package_id": {
+      "type": "string",
+      "pattern": "^pkg_[0-9a-f]{32}$"
+    },
+    "source_destination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "home_mode"
+      ],
+      "properties": {
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "home_mode": {
+          "enum": [
+            "package_published",
+            "repository_authored",
+            "managed"
+          ]
+        }
+      }
+    },
+    "scope": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/repository_scope"
+        },
+        {
+          "$ref": "#/$defs/personal_scope"
+        },
+        {
+          "$ref": "#/$defs/team_scope"
+        }
+      ]
+    },
+    "team_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "team_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "team"
+        },
+        "team_id": {
+          "$ref": "#/$defs/team_id"
+        }
+      }
+    },
+    "team_id": {
+      "type": "string",
+      "pattern": "^tem_[0-9a-f]{32}$"
+    },
+    "personal_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "principal_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "personal"
+        },
+        "principal_id": {
+          "$ref": "#/$defs/principal_id"
+        }
+      }
+    },
+    "principal_id": {
+      "type": "string",
+      "pattern": "^prn_[0-9a-f]{32}$"
+    },
+    "repository_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "repository_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "repository"
+        },
+        "repository_id": {
+          "$ref": "#/$defs/repository_id"
+        }
+      }
+    },
+    "repository_id": {
+      "type": "string",
+      "pattern": "^rep_[0-9a-f]{32}$"
+    },
+    "role": {
+      "enum": [
+        "instructions",
+        "knowledge",
+        "memory"
+      ]
+    }
+  }
+}
