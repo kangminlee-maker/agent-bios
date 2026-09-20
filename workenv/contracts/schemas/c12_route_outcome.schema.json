@@ -1,0 +1,195 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C12 route outcome",
+  "description": "What a route actually produced, and under which mode. A fixture result names its fixture, and a real one has nowhere to put a fixture digest, so a fixture standing in for a real run cannot be written down. An unsupported route says so with its reason rather than returning an empty success.",
+  "required": [
+    "kind",
+    "schema",
+    "for_request_id",
+    "client",
+    "capability",
+    "mode",
+    "result",
+    "material_gaps",
+    "at"
+  ],
+  "properties": {
+    "kind": {
+      "const": "route_outcome"
+    },
+    "schema": {
+      "const": 1
+    },
+    "for_request_id": {
+      "$ref": "#/$defs/request_id"
+    },
+    "client": {
+      "$ref": "#/$defs/client_binding"
+    },
+    "capability": {
+      "enum": [
+        "read",
+        "question",
+        "user_event",
+        "resume"
+      ]
+    },
+    "mode": {
+      "$ref": "#/$defs/run_mode"
+    },
+    "result": {
+      "$ref": "#/$defs/route_result"
+    },
+    "material_gaps": {
+      "$ref": "#/$defs/gaps"
+    },
+    "at": {
+      "$ref": "#/$defs/instant"
+    }
+  },
+  "x-runtime-owned": true,
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "gaps": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/gap"
+      }
+    },
+    "gap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        "pointer": {
+          "type": "string",
+          "pattern": "^(?:/[^/]*)*$"
+        }
+      }
+    },
+    "client_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        }
+      }
+    },
+    "request_id": {
+      "type": "string",
+      "pattern": "^req_[0-9a-f]{32}$"
+    },
+    "real_run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runs"
+      ],
+      "properties": {
+        "runs": {
+          "const": "real"
+        }
+      }
+    },
+    "fixture_run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runs",
+        "fixture_digest"
+      ],
+      "properties": {
+        "runs": {
+          "const": "fixture"
+        },
+        "fixture_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "run_mode": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/real_run"
+        },
+        {
+          "$ref": "#/$defs/fixture_run"
+        }
+      ]
+    },
+    "produced": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "got",
+        "output_digest"
+      ],
+      "properties": {
+        "got": {
+          "const": "result"
+        },
+        "output_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "unsupported_route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "got",
+        "because"
+      ],
+      "properties": {
+        "got": {
+          "const": "unsupported"
+        },
+        "because": {
+          "enum": [
+            "capability_absent",
+            "wire_version",
+            "origin_not_permitted",
+            "state_change_refused"
+          ]
+        }
+      }
+    },
+    "route_result": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/produced"
+        },
+        {
+          "$ref": "#/$defs/unsupported_route"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C12 capability probe",
+  "description": "What the installed client did when it was asked, kept apart from what it declared it could do. `offered` is the declaration and `outcome` is the behaviour; a client that offers a capability and refuses it is the case this record exists to make visible.",
+  "required": [
+    "kind",
+    "schema",
+    "probe_id",
+    "client",
+    "wire",
+    "capability",
+    "offered",
+    "outcome",
+    "observed",
+    "at"
+  ],
+  "properties": {
+    "kind": {
+      "const": "capability_probe"
+    },
+    "schema": {
+      "const": 1
+    },
+    "probe_id": {
+      "type": "string",
+      "pattern": "^prb_[0-9a-f]{32}$"
+    },
+    "client": {
+      "$ref": "#/$defs/client_binding"
+    },
+    "wire": {
+      "$ref": "#/$defs/wire"
+    },
+    "capability": {
+      "enum": [
+        "read",
+        "question",
+        "user_event",
+        "resume"
+      ]
+    },
+    "offered": {
+      "type": "boolean"
+    },
+    "outcome": {
+      "enum": [
+        "worked",
+        "refused",
+        "no_response",
+        "unsupported"
+      ]
+    },
+    "observed": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "at": {
+      "$ref": "#/$defs/instant"
+    }
+  },
+  "x-runtime-owned": true,
+  "$defs": {
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "client_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        }
+      }
+    },
+    "wire": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol",
+        "version"
+      ],
+      "properties": {
+        "protocol": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,161 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C10 removal outcome",
+  "description": "One row per copy, because removal happens to copies and not to an idea. Confirmed, denied, unreachable and unknown stay apart, and a confirmed removal names the tombstone that keeps returning offline data from putting the object back. There is no field for a global erasure, because a copy already delivered or outside this Team's control cannot be promised gone.",
+  "required": [
+    "kind",
+    "schema",
+    "for_request_id",
+    "object_digest",
+    "per_copy",
+    "material_gaps",
+    "at"
+  ],
+  "properties": {
+    "kind": {
+      "const": "removal_outcome"
+    },
+    "schema": {
+      "const": 1
+    },
+    "for_request_id": {
+      "$ref": "#/$defs/request_id"
+    },
+    "object_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "per_copy": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/copy_outcome"
+      }
+    },
+    "material_gaps": {
+      "$ref": "#/$defs/gaps"
+    },
+    "at": {
+      "$ref": "#/$defs/instant"
+    }
+  },
+  "x-runtime-owned": true,
+  "$defs": {
+    "custody_holder": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "holds_on"
+      ],
+      "properties": {
+        "holds_on": {
+          "enum": [
+            "device",
+            "peer"
+          ]
+        },
+        "device_id": {
+          "$ref": "#/$defs/device_id"
+        },
+        "peer_id": {
+          "$ref": "#/$defs/peer_id"
+        }
+      }
+    },
+    "peer_id": {
+      "type": "string",
+      "pattern": "^per_[0-9a-f]{32}$"
+    },
+    "device_id": {
+      "type": "string",
+      "pattern": "^dev_[0-9a-f]{32}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "gaps": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/gap"
+      }
+    },
+    "gap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        "pointer": {
+          "type": "string",
+          "pattern": "^(?:/[^/]*)*$"
+        }
+      }
+    },
+    "request_id": {
+      "type": "string",
+      "pattern": "^req_[0-9a-f]{32}$"
+    },
+    "confirmed_removal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outcome",
+        "holder",
+        "tombstone_digest"
+      ],
+      "properties": {
+        "outcome": {
+          "const": "confirmed"
+        },
+        "holder": {
+          "$ref": "#/$defs/custody_holder"
+        },
+        "tombstone_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "unconfirmed_removal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outcome",
+        "holder"
+      ],
+      "properties": {
+        "outcome": {
+          "enum": [
+            "denied",
+            "unreachable",
+            "unknown"
+          ]
+        },
+        "holder": {
+          "$ref": "#/$defs/custody_holder"
+        }
+      }
+    },
+    "copy_outcome": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/confirmed_removal"
+        },
+        {
+          "$ref": "#/$defs/unconfirmed_removal"
+        }
+      ]
+    }
+  }
+}

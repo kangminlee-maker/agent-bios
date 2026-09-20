@@ -1,0 +1,132 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C11 delivery attempt",
+  "description": "One attempt on one use. A retry of the same use carries the same use id and the same question version: a new id is a different question, not a second try, and it is refused rather than counted. What the route supports and what was observed are separate fields, because a supported route that nobody answered on is not a missing route.",
+  "required": [
+    "kind",
+    "schema",
+    "use_id",
+    "link_id",
+    "requested",
+    "supported",
+    "observed",
+    "material_gaps",
+    "at"
+  ],
+  "properties": {
+    "kind": {
+      "const": "delivery_attempt"
+    },
+    "schema": {
+      "const": 1
+    },
+    "use_id": {
+      "$ref": "#/$defs/use_id"
+    },
+    "link_id": {
+      "type": "string",
+      "pattern": "^lnk_[0-9a-f]{32}$"
+    },
+    "requested": {
+      "enum": [
+        "question",
+        "body",
+        "resume"
+      ]
+    },
+    "supported": {
+      "type": "boolean"
+    },
+    "observed": {
+      "$ref": "#/$defs/attempt_outcome"
+    },
+    "material_gaps": {
+      "$ref": "#/$defs/gaps"
+    },
+    "at": {
+      "$ref": "#/$defs/instant"
+    }
+  },
+  "x-runtime-owned": true,
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "gaps": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/gap"
+      }
+    },
+    "gap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        "pointer": {
+          "type": "string",
+          "pattern": "^(?:/[^/]*)*$"
+        }
+      }
+    },
+    "use_id": {
+      "type": "string",
+      "pattern": "^use_[0-9a-f]{32}$"
+    },
+    "answered_outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "saw",
+        "evidence_digest"
+      ],
+      "properties": {
+        "saw": {
+          "const": "answered"
+        },
+        "evidence_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "unanswered_outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "saw"
+      ],
+      "properties": {
+        "saw": {
+          "enum": [
+            "no_channel",
+            "lost",
+            "still_waiting"
+          ]
+        }
+      }
+    },
+    "attempt_outcome": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/answered_outcome"
+        },
+        {
+          "$ref": "#/$defs/unanswered_outcome"
+        }
+      ]
+    }
+  }
+}
