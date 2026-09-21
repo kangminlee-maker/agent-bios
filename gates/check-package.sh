@@ -142,6 +142,10 @@ PY
   case_is "a bin entry packs an author-side file whatever files[] says" \
           "packed as a package.json bin or main"
 
+  fresh; printf 'c01_source_ref.schema.json\n' > "$W/workenv/contracts/schemas/.npmignore"
+  case_is "an ignore file inside a shipped directory drops a file npm would otherwise pack" \
+          "ignore file inside a shipped directory"
+
   fresh; printf '\npython3 "$REPO/compose/NO-SUCH-PROBE.py"\n' >> "$W/install.sh"
   case_is "a runtime reference to a path that does not exist" "no such path in this repo"
 
@@ -723,6 +727,13 @@ leaked = sorted(e for e in files if author_side(rel_key(e)))
 author_paths = sorted(set(AUTHOR_SIDE_FILES) | {
     str(p.relative_to(REPO)) for d in AUTHOR_SIDE_DIRS
     for p in (REPO / d).rglob("*") if p.is_file()})
+# npm reads an ignore file inside a packed directory and drops what it names, so a directory
+# entry would no longer ship its whole subtree and every "shipped" answer above would be wrong.
+# There is none today; one appearing fails here rather than being modelled.
+ignore_bad = sorted({str(p.relative_to(REPO)) for entry in files
+                     if (REPO / rel_key(entry)).is_dir()
+                     for p in (REPO / rel_key(entry)).rglob("*")
+                     if p.name in (".npmignore", ".gitignore")})
 leaked += [f"{rel} (packed as a package.json bin or main)"
            for rel in author_paths if rel in NAMED_PACKED]
 leaked += [f"{rel} (packed by a directory entry in files[])"
@@ -796,7 +807,7 @@ leg("publication provenance",
      "postpack cleans it"])
 
 checked = sum(1 for r in found if r not in EXEMPT and not author_side(r) and (REPO / r).exists())
-if missing or leaked or prose_bad or unguarded or prov_bad:
+if missing or leaked or prose_bad or unguarded or prov_bad or ignore_bad:
     if missing:
         print(f"check-package: FAILED — {len(missing)} runtime path(s) not in package.json files[]:")
         for rel, srcs in missing:
@@ -809,6 +820,9 @@ if missing or leaked or prose_bad or unguarded or prov_bad:
             print(f"  {rel}   (referenced by {', '.join(srcs)}) — {why}")
     for entry in leaked:
         print(f"check-package: FAILED — author-side path in files[]: {entry}")
+    for rel in ignore_bad:
+        print(f"check-package: FAILED — ignore file inside a shipped directory, which npm obeys: "
+              f"{rel}")
     for msg in prov_bad:
         print(f"check-package: FAILED — {msg}")
     if prose_bad:

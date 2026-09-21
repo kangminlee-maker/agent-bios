@@ -62,6 +62,11 @@ class Manifests(unittest.TestCase):
         self.assertTrue(kinds)
         self.assertEqual(set(kinds.values()) - held, set())
 
+    def test_a_recorded_identity_that_records_nothing_is_refused(self):
+        for recorded in ({}, None, []):
+            with self.subTest(recorded=recorded), self.assertRaises(subjects.SubjectError):
+                subjects.state("component:P02", {"identity": "recorded", "recorded": recorded})
+
     def test_a_subject_nothing_here_measures_names_the_node_that_does(self):
         elsewhere = {name: manifest for name, manifest in subjects.manifests().items()
                      if manifest["identity"] == "measured_elsewhere"}

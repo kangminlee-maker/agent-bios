@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C05 qualified state",
-  "description": "Current state established before anything is ranked or clipped. A withdrawal is an entry like any other, so no filter can drop it and leave the earlier choice reading as current. Whatever could not be resolved is named here rather than settled: an unresolved entry is not a choice with a winner.",
+  "description": "Current state established before anything is ranked or clipped. A withdrawal is an entry like any other, so no filter can drop it and leave the earlier choice reading as current. Whatever could not be resolved is named here rather than settled: an unresolved entry is not a choice with a winner. An entry a gap's pointer names is not current; the runtime owner keeps that rule, which relates one element to another, and P01's cases check it. Each entry's record comes from a source the frontiers name, so a state over no source has no entry; the runtime owner keeps that rule too.",
   "required": [
     "kind",
     "schema",
@@ -24,7 +24,11 @@
       "$ref": "#/$defs/digest"
     },
     "frontiers": {
-      "$ref": "#/$defs/frontiers"
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/source_frontier"
+      }
     },
     "entries": {
       "type": "array",
@@ -96,6 +100,7 @@
             "budget_exhausted",
             "cancel_too_late",
             "capability_not_qualified",
+            "carrier_unreachable",
             "child_route_unsupported",
             "choice_conflict_unresolved",
             "client_token_missing",
@@ -178,6 +183,7 @@
             "state_proof_out_of_scope",
             "state_proof_stale",
             "storage_generation_reset",
+            "storage_not_encrypted",
             "succession_incomplete",
             "tool_absent",
             "trust_continuity_unverified",
@@ -192,14 +198,6 @@
           "type": "string",
           "pattern": "^(?:/[^/]*)*$"
         }
-      }
-    },
-    "frontiers": {
-      "type": "array",
-      "minItems": 1,
-      "uniqueItems": true,
-      "items": {
-        "$ref": "#/$defs/source_frontier"
       }
     },
     "source_frontier": {

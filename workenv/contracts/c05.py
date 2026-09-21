@@ -13,6 +13,10 @@ Nothing here selects a winner between incompatible applicable choices. That is
 answer an `application_preference` then records against the whole relevant participant set.
 A code this module does not own but its results state: C01's `id_bound_to_other_bytes`, for
 two records that share an id and differ in bytes.
+
+Two rules relate one element of a record to another, which a schema cannot state; the runtime
+owner keeps them and P01's cases check them: an active preference selects a participant its list
+marks applicable, and a `qualified_state` entry named by a gap's pointer is not `current`.
 """
 CONTRACT = "C05"
 RECORD_KINDS = ("workstream", "choice_record", "lifecycle_event", "state_question",

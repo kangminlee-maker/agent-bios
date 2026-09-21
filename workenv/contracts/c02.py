@@ -35,6 +35,7 @@ CREDENTIAL_EXPIRED = "credential_expired"
 CONTROL_EVIDENCE_INSUFFICIENT = "control_evidence_insufficient"
 FRESH_AUTH_REQUIRED = "fresh_auth_required"
 UNLOCK_NEEDS_A_TERMINAL = "unlock_needs_a_terminal"
+CARRIER_UNREACHABLE = "carrier_unreachable"
 
 # This module's rows of the contract error table (workenv.contracts.errors joins them).
 ERRORS = {
@@ -49,4 +50,6 @@ ERRORS = {
     CONTROL_EVIDENCE_INSUFFICIENT: "control evidence too old or too incomplete for this use",
     FRESH_AUTH_REQUIRED: "a policy that requires a fresh provider check this session lacks",
     UNLOCK_NEEDS_A_TERMINAL: "an unlock asked for where no person can be prompted",
+    CARRIER_UNREACHABLE: "the carrier an operation needs cannot be reached; access, credentials, "
+                         "controls and bodies were in place, and nothing was dispatched",
 }

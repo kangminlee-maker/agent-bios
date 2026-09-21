@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C03 operation result",
-  "description": "What one request actually did, written whole by the runtime. It always names the digest of the request it answers; a query for an id the owner never received is answered by `request_not_held`, so nothing a result says can sit beside a request nobody holds. A stored result cannot show that a model read, kept or obeyed a returned body.",
+  "description": "What one request actually did, written whole by the runtime. It always names the digest of the request it answers; a query for an id the owner never received is answered by `request_not_held`, so nothing a result says can sit beside a request nobody holds. A stored result cannot show that a model read, kept or obeyed a returned body. A committed outcome names its receipt and states only disclosures; a gap that prevents a commit, such as a stale base, belongs to an outcome that did not commit.",
   "required": [
     "kind",
     "schema",
@@ -10,9 +10,8 @@
     "request_digest",
     "local_effect",
     "provider_effect",
-    "actual_stage",
+    "outcome",
     "outputs",
-    "material_gaps",
     "supported_recovery"
   ],
   "properties": {
@@ -47,24 +46,14 @@
         "unknown"
       ]
     },
-    "actual_stage": {
-      "enum": [
-        "refused",
-        "previewed",
-        "draft",
-        "in_review",
-        "approved",
-        "executing",
-        "committed",
-        "changes_requested",
-        "rejected",
-        "withdrawn",
-        "expired",
-        "stale",
-        "blocked",
-        "conflict",
-        "partial",
-        "unknown"
+    "outcome": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/committed_outcome"
+        },
+        {
+          "$ref": "#/$defs/uncommitted_outcome"
+        }
       ]
     },
     "outputs": {
@@ -73,12 +62,6 @@
       "items": {
         "$ref": "#/$defs/output"
       }
-    },
-    "receipt_digest": {
-      "$ref": "#/$defs/digest"
-    },
-    "material_gaps": {
-      "$ref": "#/$defs/gaps"
     },
     "supported_recovery": {
       "$ref": "#/$defs/recovery"
@@ -126,6 +109,7 @@
             "budget_exhausted",
             "cancel_too_late",
             "capability_not_qualified",
+            "carrier_unreachable",
             "child_route_unsupported",
             "choice_conflict_unresolved",
             "client_token_missing",
@@ -208,6 +192,7 @@
             "state_proof_out_of_scope",
             "state_proof_stale",
             "storage_generation_reset",
+            "storage_not_encrypted",
             "succession_incomplete",
             "tool_absent",
             "trust_continuity_unverified",
@@ -269,6 +254,84 @@
     "request_id": {
       "type": "string",
       "pattern": "^req_[0-9a-f]{32}$"
+    },
+    "disclosed_gap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code"
+      ],
+      "properties": {
+        "code": {
+          "enum": [
+            "storage_not_encrypted"
+          ]
+        },
+        "pointer": {
+          "type": "string",
+          "pattern": "^(?:/[^/]*)*$"
+        }
+      }
+    },
+    "committed_outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A commit names the receipt that makes it accepted and states only gaps that qualify a commit — never one that would have prevented it.",
+      "required": [
+        "stage",
+        "receipt_digest",
+        "material_gaps"
+      ],
+      "properties": {
+        "stage": {
+          "const": "committed"
+        },
+        "receipt_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "material_gaps": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/disclosed_gap"
+          }
+        }
+      }
+    },
+    "uncommitted_outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stage",
+        "material_gaps"
+      ],
+      "properties": {
+        "stage": {
+          "enum": [
+            "refused",
+            "previewed",
+            "draft",
+            "in_review",
+            "approved",
+            "executing",
+            "changes_requested",
+            "rejected",
+            "withdrawn",
+            "expired",
+            "stale",
+            "blocked",
+            "conflict",
+            "partial",
+            "unknown"
+          ]
+        },
+        "receipt_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "material_gaps": {
+          "$ref": "#/$defs/gaps"
+        }
+      }
     }
   }
 }

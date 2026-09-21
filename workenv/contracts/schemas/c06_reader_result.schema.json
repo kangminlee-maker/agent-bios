@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C06 reader result",
-  "description": "What the reader actually returned. Seven standings stay apart on purpose: an empty answer from a source with nothing to say is not a denial, and neither is an answer this installation could not reach. `ended` says the pagination finished, which is not a claim that nothing else was relevant. A result that waits on a person says so by carrying `pending_user`: the question and use it waits on, never a first option chosen on their behalf. A denied read has nowhere to name a source, a continuation or a waiting use: access is resolved before candidates or metadata are exposed.",
+  "description": "What the reader actually returned. Seven standings stay apart on purpose: an empty answer from a source with nothing to say is not a denial, and neither is an answer this installation could not reach. `ended` says the pagination finished, which is not a claim that nothing else was relevant. A result that waits on a person says so by carrying `pending_user`: the question and use it waits on, never a first option chosen on their behalf. A denied read has nowhere to name a source, a continuation or a waiting use: access is resolved before candidates or metadata are exposed. A frontier an `access_not_established` gap's pointer names is not returned; the runtime owner keeps that rule and P01's cases check it.",
   "required": [
     "kind",
     "schema",
@@ -117,6 +117,7 @@
             "budget_exhausted",
             "cancel_too_late",
             "capability_not_qualified",
+            "carrier_unreachable",
             "child_route_unsupported",
             "choice_conflict_unresolved",
             "client_token_missing",
@@ -199,6 +200,7 @@
             "state_proof_out_of_scope",
             "state_proof_stale",
             "storage_generation_reset",
+            "storage_not_encrypted",
             "succession_incomplete",
             "tool_absent",
             "trust_continuity_unverified",
@@ -390,6 +392,9 @@
         },
         {
           "$ref": "#/$defs/answered_read"
+        },
+        {
+          "$ref": "#/$defs/sourceless_read"
         }
       ]
     },
@@ -440,6 +445,35 @@
         },
         "pending_user": {
           "$ref": "#/$defs/pending_reference"
+        }
+      }
+    },
+    "sourceless_read": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A permitted read over no selected source: empty, and naming no frontier because it read from none. Any unit needs the frontier of the source it came from.",
+      "required": [
+        "standing",
+        "frontiers",
+        "units"
+      ],
+      "properties": {
+        "standing": {
+          "const": "empty"
+        },
+        "frontiers": {
+          "type": "array",
+          "maxItems": 0,
+          "items": {
+            "$ref": "#/$defs/source_frontier"
+          }
+        },
+        "units": {
+          "type": "array",
+          "maxItems": 0,
+          "items": {
+            "$ref": "#/$defs/composed_unit"
+          }
         }
       }
     }

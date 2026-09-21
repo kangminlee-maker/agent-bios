@@ -9,7 +9,9 @@ contract that owns it. The digest of the request's stored bytes is its identity:
 adds no field to it, and the same `request_id` with other bytes is a conflict, never a second
 operation. A receipt is what makes an object accepted; asking again with the same request
 returns the original result and receipt. A result always answers a request its owner holds; an id
-the owner never received is answered by `request_not_held`, which carries nothing else.
+the owner never received is answered by `request_not_held`, which carries nothing else. A committed
+result names its receipt and states only gaps that qualify a commit (`errors.disclosed`); a gap
+that prevents a commit, such as `stale_base`, belongs to a result that did not commit.
 
 A request states its effect class. `pure_preview` writes nothing; a plan that is stored says
 `durable_candidate`; only `owner_commit` moves a head, and it names the base it expects.
@@ -69,7 +71,10 @@ TARGET_ONLY = ("cnd", "cnc")
 
 # Why an entrance reaches no state the target keeps. Each value was found by tracing the
 # shipped tree; a reason no entrance has is not carried here. Only `holds_no_write` holds whoever
-# chose the entrance's root; the others hold only under a root the entrance fixes itself.
+# chose the entrance's root; the others hold only under a root the entrance fixes itself. A root
+# the caller chose is one a caller sets for this route alone — an argument, `--repo`,
+# `AGENT_BIOS_STATE_DIR`. `$HOME` is not one: every owner resolves its own root from it, so
+# moving it moves the kept state with it.
 NO_REACH_REASONS = ("writes_only_under_temp", "writes_only_in_self_test",
                     "writes_outside_kept_state", "holds_no_write")
 

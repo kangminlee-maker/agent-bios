@@ -1395,6 +1395,9 @@ if [ -f gates/workenv/check-workenv.py ]; then
     || { echo "FAIL: workenv gate self-test missed a negative control (run python3 gates/workenv/check-workenv.py --self-test)"; fail=1; }
   python3 gates/workenv/check-workenv.py >/dev/null \
     || { echo "FAIL: workenv unit tests or static analysis (run python3 gates/workenv/check-workenv.py)"; fail=1; }
+else
+  # P01 done_when clause 7 wires both legs in; the checker going missing is a failure, not a skip.
+  echo "FAIL: gates/workenv/check-workenv.py is missing, so no workenv unit test or static analysis ran"; fail=1
 fi
 
 # The launcher's Textual preflight UI tests need the managed venv (textual).

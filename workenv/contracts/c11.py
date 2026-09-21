@@ -1,7 +1,7 @@
 """C11 The recipient: the gaps its operations answer with.
 
 Record kinds: `recipient_link`, `answer_evidence`, `delivery_attempt`,
-`surface_observation`.
+`surface_observation`, `exposure_trial`.
 
 `answer_evidence` is the record every other contract points at by digest when it says a person
 answered. It carries the host's effective configuration as measured at the time of the question,
@@ -16,10 +16,16 @@ that visible instead of letting an `accept` pass for a person.
 
 A destination says where to ask and nothing more: no preference, use or choice is keyed by one.
 A retry of a use keeps its use id and question version — a new id is a different question.
+
+An `exposure_trial` is one participant attempting one task on a surface met for the first time
+(N26): what they said before acting — options, selection, predicted effect and target — kept apart
+from the outcome observed, with help, confusion, the exact UI subject and any critical
+misinterpretation left unresolved. It names the `surface_observation` it happened in and
+qualifies nothing about terminals or answers itself.
 """
 CONTRACT = "C11"
 RECORD_KINDS = ("recipient_link", "answer_evidence", "delivery_attempt",
-                "surface_observation")
+                "surface_observation", "exposure_trial")
 IN_RESULTS = True
 
 # The operations of this contract that travel in a C03 sealed request.

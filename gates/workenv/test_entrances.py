@@ -24,10 +24,10 @@ ENTRY_SUFFIXES = (".py",) + SHELL_SUFFIXES
 
 def commands(text):
     """Every command name install.sh dispatches: its `"$CMD" = "x"` tests and `case` arms."""
-    found = set(re.findall(r'"\$CMD" = "([a-z][a-z-]*)"', text))
+    found = set(re.findall(r'"\$CMD" = "([a-z][a-z0-9-]*)"', text))
     for block in re.findall(r'case "\$CMD" in\n(.*?)\n\s*esac', text, re.S):
-        for arm in re.findall(r"^\s*([a-z][a-z|-]*)\)", block, re.M):
-            found |= {name for name in arm.split("|") if re.match(r"^[a-z]", name)}
+        for arm in re.findall(r"^\s*([a-z][a-z0-9|-]*)\)", block, re.M):
+            found |= {name for name in arm.split("|") if re.match(r"^[a-z][a-z0-9-]*$", name)}
     return found
 
 
@@ -144,10 +144,10 @@ class Derivation(unittest.TestCase):
     """The two derivations, against inputs built here, so an empty or blind scan is seen."""
 
     def test_commands_read_both_dispatch_shapes(self):
-        text = ('if [ "$CMD" = "one" ]; then\nfi\n'
+        text = ('if [ "$CMD" = "one" ]; then\nfi\nif [ "$CMD" = "probe2" ]; then\nfi\n'
                 'case "$CMD" in\n  two|three) x ;;\n  help|-h|--help) usage ;;\n'
-                '  *) no ;;\nesac\n')
-        self.assertEqual(commands(text), {"one", "two", "three", "help"})
+                '  v4) y ;;\n  *) no ;;\nesac\n')
+        self.assertEqual(commands(text), {"one", "probe2", "two", "three", "help", "v4"})
 
     def test_a_sourced_shell_file_is_an_entrance_without_a_shebang(self):
         self.assertIn("launch/agent-launch.zsh", shipped_entry_scripts(ROOT))

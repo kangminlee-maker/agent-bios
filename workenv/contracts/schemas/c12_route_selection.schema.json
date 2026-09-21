@@ -51,7 +51,7 @@
     "expected_effect": {
       "type": "object",
       "additionalProperties": false,
-      "description": "What the selection expects next. The four stages are kept apart because installed and configured material is not prepared or delivered context.",
+      "description": "What the selection expects next. Installed and configured material is not prepared or delivered context, and saving a draft is neither publishing nor adopting; each is its own stage.",
       "required": [
         "stage",
         "material_gaps",
@@ -63,7 +63,10 @@
             "configured",
             "installed",
             "prepared",
-            "delivered"
+            "delivered",
+            "draft_saved",
+            "published",
+            "adopted"
           ]
         },
         "material_gaps": {
@@ -135,6 +138,7 @@
             "budget_exhausted",
             "cancel_too_late",
             "capability_not_qualified",
+            "carrier_unreachable",
             "child_route_unsupported",
             "choice_conflict_unresolved",
             "client_token_missing",
@@ -217,6 +221,7 @@
             "state_proof_out_of_scope",
             "state_proof_stale",
             "storage_generation_reset",
+            "storage_not_encrypted",
             "succession_incomplete",
             "tool_absent",
             "trust_continuity_unverified",

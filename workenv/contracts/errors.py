@@ -65,6 +65,12 @@ def in_results() -> set[str]:
             for code in module.ERRORS}
 
 
+def disclosed() -> set[str]:
+    """Gap codes that qualify a committed result instead of preventing it: a commit may state
+    these and no other. Each owning module lists its own in `DISCLOSED`."""
+    return {code for module in OWNERS for code in getattr(module, "DISCLOSED", ())}
+
+
 def coverage(exercised: Iterable[str], stated: Iterable[str] = ()) -> list[str]:
     """Disagreements between the table and the examples: `exercised` are the codes refused
     examples expect of the reader, `stated` the gap codes accepted examples carry."""

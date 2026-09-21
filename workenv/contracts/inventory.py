@@ -54,6 +54,12 @@ def files(directory: pathlib.Path) -> list[pathlib.Path]:
         # rglob over a path that is not a directory yields nothing, which reads as an empty
         # revision rather than as the wrong path.
         raise InventoryError(f"{directory} is not a directory")
+    own = directory / MANIFEST_NAME
+    if own.exists() and not own.is_file():
+        # The name is the manifest's own place in its revision (SSOT S13); anything else there
+        # would leave the revision unable to hold its manifest.
+        raise InventoryError(f"{MANIFEST_NAME} is not a regular file; the name belongs to the "
+                             f"revision's manifest")
     found = []
     for path in sorted(directory.rglob("*")):
         if path.is_symlink():
@@ -93,8 +99,14 @@ def manifest(directory: pathlib.Path, source_id: str, produced_at: str,
 
 def emit(directory: pathlib.Path, source_id: str, produced_at: str,
          format_version: int = FORMAT_VERSION) -> bytes:
-    """The manifest as canonical bytes. Its sha256 is the revision digest others reference."""
-    return canonical.encode(manifest(directory, source_id, produced_at, format_version))
+    """The manifest as canonical bytes. Its sha256 is the revision digest others reference.
+    What its own schema refuses — a path with a space, say — is refused here, not emitted."""
+    stated = manifest(directory, source_id, produced_at, format_version)
+    refused = stated_manifest_refusals(stated)
+    if refused:
+        raise InventoryError(f"the manifest's schema refuses {refused[0].pointer}: "
+                             f"{refused[0].code}")
+    return canonical.encode(stated)
 
 
 def differences(stated: dict[str, Any], directory: pathlib.Path) -> list[tuple[str, str]]:

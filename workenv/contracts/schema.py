@@ -157,6 +157,9 @@ def compile_pattern(pattern: str, pointer: str) -> re.Pattern[str]:
             following = body[index + 1]
             if following not in _LITERAL_ESCAPES and following not in _CLASS_ESCAPES:
                 raise refuse(f"escape \\{following} is not admitted")
+            if following == "-" and not in_class:
+                # ECMAScript's unicode mode admits \- only inside a character class.
+                raise refuse("escape \\- outside a character class")
             index += 2
             continue
         if in_class:
@@ -192,6 +195,9 @@ def compile_pattern(pattern: str, pointer: str) -> re.Pattern[str]:
             continue
         elif char in ".^$":
             raise refuse(f"unescaped {char} inside the pattern")
+        elif char in "]}":
+            # A literal to Python; a syntax error to ECMAScript's unicode mode.
+            raise refuse(f"a lone {char}; escape it")
         index += 1
     if depth != 0 or in_class:
         raise refuse("unbalanced group or character class")
@@ -207,6 +213,16 @@ def _non_negative(node: dict[str, Any], key: str, pointer: str) -> None:
     value = node[key]
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         raise SchemaError(INVALID_SCHEMA, f"{pointer}/{key}", "a non-negative integer")
+
+
+def _has_float(value: Any) -> bool:
+    if isinstance(value, float):
+        return True
+    if isinstance(value, dict):
+        return any(_has_float(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_has_float(item) for item in value)
+    return False
 
 
 def _integer(node: dict[str, Any], key: str, pointer: str) -> None:
@@ -280,6 +296,10 @@ class Schema:
                     raise SchemaError(INVALID_SCHEMA, pointer, f"{key} stands alone")
                 if key == "enum" and (not isinstance(node[key], list) or not node[key]):
                     raise SchemaError(INVALID_SCHEMA, f"{pointer}/enum", "a non-empty array")
+                if _has_float(node[key]):
+                    # 1 and 1.0 are one number to JSON Schema and two to a Python comparison;
+                    # the canonical encoding carries integers only, so no schema needs either.
+                    raise SchemaError(INVALID_SCHEMA, f"{pointer}/{key}", "integers only")
                 return
 
         kind = node.get("type")
@@ -340,9 +360,21 @@ class Schema:
                     or not isinstance(unique["key"], str) or not isinstance(unique["across"], list)
                     or not unique["across"]
                     or any(properties.get(name, {}).get("type") != "array"
+                           for name in unique["across"])
+                    or any(unique["key"] not in self._item_properties(properties[name])
                            for name in unique["across"])):
                 raise SchemaError(INVALID_SCHEMA, f"{pointer}/{UNIQUE_BY}",
                                   "{key, across} naming this object's own array properties")
+
+    def _item_properties(self, array: dict[str, Any]) -> dict[str, Any]:
+        """The properties an array's items may carry, through one `$ref`; none when unknown,
+        so a key the items cannot hold is refused rather than checked over nothing."""
+        items = array.get("items", {})
+        if isinstance(items, dict) and "$ref" in items:
+            match = REF.match(str(items["$ref"]))
+            items = self.defs.get(match.group(1), {}) if match else {}
+        properties = items.get("properties", {}) if isinstance(items, dict) else {}
+        return properties if isinstance(properties, dict) else {}
 
     def _no_bare_cycle(self) -> None:
         """Refuse a definition that reaches itself without consuming any of the value.

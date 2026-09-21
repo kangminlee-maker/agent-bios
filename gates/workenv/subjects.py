@@ -193,7 +193,11 @@ def state(name: str, manifest: dict, root: pathlib.Path = ROOT,
     if kind == "measured_elsewhere":
         return UNKNOWN, f"measured by {manifest['measured_by']}"
     if kind == "recorded":
-        return manifest["recorded"], ""
+        recorded = manifest.get("recorded")
+        if not isinstance(recorded, dict) or not recorded:
+            # A fingerprint of {} measures nothing and would still read as a real answer.
+            raise SubjectError(f"{name}: a recorded identity records nothing")
+        return recorded, ""
     if kind != "path_closure":
         raise SubjectError(f"{name}: identity {kind!r} is not one this module resolves")
     nodes = nodes if nodes is not None else {n["id"]: n for n in plan(root)["nodes"]}

@@ -9,7 +9,9 @@ with nothing to say is `empty` and is a valid answer, while `denied`, `unavailab
 
 Access is resolved before any candidate or metadata is shown, so a reader that cannot establish
 it returns `access_not_established` rather than a list of what it would have returned. A cursor
-carries the basis it was taken at, so a later page cannot quietly follow a newer head.
+carries the basis it was taken at, so a later page cannot quietly follow a newer head. That a
+frontier named by an `access_not_established` gap's pointer is not returned relates one element to
+another, which a schema cannot state; the runtime owner keeps it and P01's cases check it.
 
 Reading is not applying. An inspection returns history and alternatives and admits no use of
 them; when an actual use needs a person's answer, the question is sealed and stored first and

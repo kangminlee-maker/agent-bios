@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C11 surface observation",
-  "description": "One person meeting a surface for the first time. What it was observed in is whatever the terminal reported, so no real observation is unrecordable; what support may be claimed from it is a closed list, so a claim cannot name a terminal nobody put there. The evidence class has one value, because a family that requires an observation is not answered by a deterministic run. Evidence sits under its subject, so a prototype has no way to offer evidence that qualifies.",
+  "description": "One person meeting a surface for the first time. What it was observed in is whatever the terminal reported, so no real observation is unrecordable; what support may be claimed from it is a closed list, so a claim cannot name a terminal nobody put there. The evidence class has one value, because a family that requires an observation is not answered by a deterministic run. Evidence and any support claim sit under the subject, so a prototype has no way to offer evidence that qualifies or support it would establish.",
   "required": [
     "kind",
     "schema",
@@ -32,9 +32,6 @@
     },
     "locale": {
       "$ref": "#/$defs/locale"
-    },
-    "claim": {
-      "$ref": "#/$defs/support_claim"
     },
     "evidence_class": {
       "const": "observed"
@@ -152,7 +149,7 @@
     "support_claim": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Support claimed for one listed terminal. An observation that claims nothing simply has no claim, which is why this is not a variant of `nothing`: a terminal outside the list is then refused at the terminal rather than at a branch that cannot name it.",
+      "description": "Support claimed for one listed terminal, by a product candidate only. An observation that claims nothing has no claim. Because the claim sits inside the candidate branch, a terminal outside the list is reported at the subject's branch, not at the terminal.",
       "required": [
         "terminal",
         "state"
@@ -300,6 +297,9 @@
         },
         "evidence": {
           "$ref": "#/$defs/exposure_evidence"
+        },
+        "claim": {
+          "$ref": "#/$defs/support_claim"
         }
       }
     },

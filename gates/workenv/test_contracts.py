@@ -295,8 +295,14 @@ class SchemaLoad(unittest.TestCase):
         self.refused(schema.UNRESOLVED_REF, {"$ref": "#/properties/a"})
         self.refused(schema.UNRESOLVED_REF, {"$ref": 1})
 
+    def test_a_number_that_is_not_an_integer_fails_at_load(self):
+        # 1 and 1.0 are one number to JSON Schema and two to the reader's comparison.
+        self.refused(schema.INVALID_SCHEMA, {"oneOf": [{"const": 1}, {"const": 1.0}]},
+                     "/oneOf/1/const")
+        self.refused(schema.INVALID_SCHEMA, {"enum": [1, 2.5]}, "/enum")
+
     def test_a_lazy_quantifier_and_a_quantified_plus_sign_are_both_dialects(self):
-        for pattern in ("^a+?$", "^a{2}?$", "^\\++$", "^[+]+$"):
+        for pattern in ("^a+?$", "^a{2}?$", "^\\++$", "^[+]+$", "^[a\\-z]$", "^\\]$", "^\\}$"):
             with self.subTest(pattern=pattern):
                 schema.load_schema({"type": "string", "pattern": pattern})
 
@@ -322,7 +328,8 @@ class SchemaLoad(unittest.TestCase):
         bad = ("[a-z]+", "^[a-z]+", "[a-z]+$", "^a|b$", "^a.b$", "^a\\sb$", "^\\bword$", "^a\\$",
                "^(?=a)a$", "^(?P<n>a)$", "^(a)\\1$", "^[[:alpha:]]$", "^[]a]$", "^[^]a]$", "^a^b$",
                "^a$b$", "^(a$", "^a)$", "^[a$", "^caf" + chr(0xE9) + "$", "^a\\", "^*$", "",
-               "^a{,2}$", "^x{y}$", "^a{}$", "^a++$", "^a*+$", "^a?+$", "^a{1,2}+$")
+               "^a{,2}$", "^x{y}$", "^a{}$", "^a++$", "^a*+$", "^a?+$", "^a{1,2}+$",
+               "^a}$", "^a]$", "^\\-$")
         for pattern in bad:
             with self.subTest(pattern=pattern):
                 self.refused(schema.UNSUPPORTED_PATTERN, {"type": "string", "pattern": pattern},
@@ -781,11 +788,10 @@ class ContractRecordExamples(PlantedCopies):
     def test_a_gap_stated_by_a_refused_example_does_not_count(self):
         def plant(root):
             path = root / "examples/c03/stale_base.json"
-            path.write_bytes(path.read_bytes().replace(b'"actual_stage":"stale"',
-                                                       b'"actual_stage":"stalled"'))
+            path.write_bytes(path.read_bytes().replace(b'"stage":"stale"', b'"stage":"stalled"'))
             (root / "examples/c03/stale_base.expect.json").write_bytes(canonical.encode({
                 "subject": "dispatched", "mode": "stored",
-                "refusals": [{"code": "value_not_allowed", "pointer": "/actual_stage"}]}))
+                "refusals": [{"code": "variant_mismatch", "pointer": "/outcome"}]}))
         self.one_problem(plant, "gap code 'stale_base' is stated by no accepted result example")
 
     def test_a_stated_code_outside_the_table(self):
@@ -987,6 +993,18 @@ class Inventory(unittest.TestCase):
         self.assertEqual(inventory.differences(self.stated, self.package),
                          [(c01.MANIFEST_MEMBER_UNLISTED, "tables/manifest.json")])
 
+    def test_a_revision_cannot_hold_something_else_where_its_manifest_goes(self):
+        (self.package / inventory.MANIFEST_NAME).mkdir()
+        (self.package / inventory.MANIFEST_NAME / "body.md").write_bytes(b"x")
+        with self.assertRaises(inventory.InventoryError):
+            inventory.files(self.package)
+
+    def test_the_emitter_refuses_what_the_manifest_schema_refuses(self):
+        (self.package / "notes 1.md").write_bytes(b"x")
+        with self.assertRaises(inventory.InventoryError) as raised:
+            inventory.emit(self.package, self.SOURCE, self.INSTANT)
+        self.assertIn("/members/", str(raised.exception))
+
     def test_what_the_command_prints_is_the_manifest_bytes_and_nothing_else(self):
         out = io.TextIOWrapper(io.BytesIO())
         with contextlib.redirect_stdout(out):
@@ -1078,9 +1096,7 @@ class RouteAndExposure(NamedExamples, unittest.TestCase):
         self.assertIn("separation_evidence_digest", defs["verified_origin"]["required"])
 
     def test_any_terminal_is_recordable_and_only_a_listed_one_is_claimable(self):
-        self.assertRefused(
-            "/claim/terminal",
-            "routes/observation_claiming_a_terminal_nobody_listed")
+        self.assertRefused("/subject", "routes/observation_claiming_a_terminal_nobody_listed")
         self.assertRefused("/locale", "routes/observation_in_a_locale_the_product_has_no_text_for")
         document = self.document("surface_observation")
         defs = self.defs("surface_observation")
@@ -1090,10 +1106,12 @@ class RouteAndExposure(NamedExamples, unittest.TestCase):
         self.assertTrue(listed, "a claim may name nothing, so no claim could ever be written")
         self.assertEqual(defs["support_claim"]["properties"]["terminal"]["$ref"],
                          "#/$defs/supported_terminal")
-        # A claim is an optional field rather than a variant of nothing, which is what lets the
-        # refusal name the terminal instead of the branch.
-        self.assertIn("claim", document["properties"])
-        self.assertNotIn("claim", document["required"])
+        # A claim is optional, and only a candidate subject has one (round-3 P4): the refusal of
+        # an unlisted terminal therefore names the subject's branch, not the terminal.
+        self.assertNotIn("claim", document["properties"])
+        self.assertIn("claim", defs["candidate_subject"]["properties"])
+        self.assertNotIn("claim", defs["candidate_subject"]["required"])
+        self.assertNotIn("claim", defs["prototype_subject"]["properties"])
 
     def test_a_prototype_states_what_it_does_not_establish(self):
         self.assertRefused(
@@ -1119,9 +1137,12 @@ class RouteAndExposure(NamedExamples, unittest.TestCase):
             self.assertIn(name, document["required"])
 
     def test_installed_and_delivered_are_different_stages(self):
-        self.assertRefused("/expected/stage", "routes/selection_expecting_a_stage_outside_the_four")
+        self.assertRefused("/expected/stage", "routes/selection_expecting_an_undeclared_effect")
         stages = self.defs("route_selection")["expected_effect"]["properties"]["stage"]["enum"]
-        self.assertEqual(sorted(stages), ["configured", "delivered", "installed", "prepared"])
+        self.assertEqual(sorted(stages), ["adopted", "configured", "delivered", "draft_saved",
+                                          "installed", "prepared", "published"])
+        # SSOT: saving a draft does not publish or adopt, so it is an effect of its own.
+        self.assertAccepted("routes/selection_expecting_a_saved_draft")
 
     def test_the_ways_back_are_one_list_named_once(self):
         """c03's result and an offered route point at one definition, not two copies."""
@@ -1367,7 +1388,7 @@ class UniqueBy(unittest.TestCase):
     def test_a_malformed_declaration_fails_at_load(self):
         for bad in ({"key": "path"}, {"key": "path", "across": []}, {"key": 1, "across": ["kept"]},
                     {"key": "path", "across": ["absent"]}, "path",
-                    {"key": "path", "across": ["label"]}):
+                    {"key": "path", "across": ["label"]}, {"key": "paht", "across": ["kept"]}):
             with self.subTest(bad=bad), self.assertRaises(schema.SchemaError) as caught:
                 schema.load_schema({**self.DOCUMENT, "x-unique-by": bad})
             self.assertEqual(caught.exception.code, schema.INVALID_SCHEMA)
@@ -1479,6 +1500,73 @@ class BoundFieldsRoundTwo(NamedExamples, unittest.TestCase):
     def test_only_what_can_be_rebuilt_is_evictable(self):
         self.assertRefused("/evictable", "c10/an_outbox_row_offered_for_eviction")
         self.assertAccepted("c10/promised_and_evictable_are_two_lists")
+
+
+class BoundFieldsRoundThree(NamedExamples, unittest.TestCase):
+    """Repair round 3, after the third cross-provider review."""
+
+    def test_a_commit_names_its_receipt_and_states_only_disclosures(self):
+        self.assertRefused("/outcome", "c03/committed_beside_a_stale_base",
+                           "c03/committed_without_its_receipt", "c03/stage_outside_the_list")
+        self.assertAccepted("c03/committed", "bindings/committed_on_an_unencrypted_volume")
+        disclosed = committed_schemas()["c03_operation_result"].defs["disclosed_gap"]
+        self.assertEqual(disclosed["properties"]["code"], {"enum": sorted(errors.disclosed())})
+        self.assertEqual(sorted(errors.disclosed()), ["storage_not_encrypted"])
+
+    def test_every_cause_the_source_names_separately_has_a_code(self):
+        # 02:10 design: an unencrypted volume is disclosed; SSOT: an unreachable carrier is
+        # reported apart from missing credentials, controls and bodies.
+        self.assertAccepted("bindings/committed_on_an_unencrypted_volume",
+                            "c02/blocked_on_an_unreachable_carrier")
+
+    def test_only_a_candidate_can_claim_support(self):
+        self.assertRefused("/subject", "routes/prototype_observation_claiming_support")
+
+    def test_a_first_exposure_trial_keeps_what_was_said_apart_from_what_happened(self):
+        self.assertAccepted("routes/a_trial_that_mistook_a_draft_for_publication")
+        self.assertRefused("/stated", "routes/a_trial_without_a_prediction")
+        self.assertRefused("/participant", "routes/a_trial_naming_a_principal")
+        self.assertRefused("/assistance", "routes/help_given_without_saying_what")
+
+    def test_an_answer_over_no_source_is_empty_and_names_no_frontier(self):
+        self.assertAccepted("c06/empty_answer_over_no_source", "c05/state_over_no_source")
+        self.assertRefused("/outcome", "c06/result_without_a_frontier")
+
+    def test_the_founder_seals_the_finalizer(self):
+        self.assertRefused("/finalizer", "c08/founding_proposal_without_its_finalizer")
+
+    def test_every_gap_list_in_every_document_is_the_projection(self):
+        # Found by where material_gaps occurs, not by a definition's name, so a gap list written
+        # without the shared definition is seen.
+        places = []
+
+        def walk(node, where, schema_id, defs):
+            if isinstance(node, dict):
+                for name, child in node.get("properties", {}).items():
+                    if name == "material_gaps":
+                        places.append((schema_id, f"{where}/{name}", child))
+                for key, child in node.items():
+                    if key != "properties":
+                        walk(child, f"{where}/{key}", schema_id, defs)
+                for name, child in node.get("properties", {}).items():
+                    walk(child, f"{where}/properties/{name}", schema_id, defs)
+            elif isinstance(node, list):
+                for index, child in enumerate(node):
+                    walk(child, f"{where}/{index}", schema_id, defs)
+
+        for identifier, loaded in committed_schemas().items():
+            walk(loaded.document, "", identifier, loaded.defs)
+        self.assertGreaterEqual(len(places), 16)
+        lists = {"#/$defs/gap": sorted(errors.in_results()),
+                 "#/$defs/disclosed_gap": sorted(errors.disclosed())}
+        for identifier, where, child in places:
+            with self.subTest(schema=identifier, at=where):
+                defs = committed_schemas()[identifier].defs
+                items = defs["gaps"]["items"] if child == {"$ref": "#/$defs/gaps"} \
+                    else child.get("items", {})
+                self.assertIn(items.get("$ref"), lists)
+                name = items["$ref"].rsplit("/", 1)[-1]
+                self.assertEqual(defs[name]["properties"]["code"], {"enum": lists[items["$ref"]]})
 
 
 class EnvironmentEdition(NamedExamples, unittest.TestCase):
