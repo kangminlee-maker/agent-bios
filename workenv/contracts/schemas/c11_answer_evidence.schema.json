@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C11 answer evidence",
-  "description": "The record every other contract points at by digest when it says a person answered. `measured_configuration_digest` is the host's effective configuration as measured at the time of the question, because the configuration that can answer for a person is the same configuration that would have to prove it did not. Only one origin is an answer, and it must name the evidence that separated a person from the host's own automation; every other origin is a named non-answer. Until a host is qualified, the honest records are the other ones.",
+  "description": "The record every other contract points at by digest when it says a person answered. `measured_configuration_digest` is the host's effective configuration as measured at the time of the question, because the configuration that can answer for a person is the same configuration that would have to prove it did not. Only one origin is an answer, and it must name the evidence that separated a person from the host's own automation; every other origin is a named non-answer. Until a host is qualified, the honest records are the other ones. A verified answer carries what the person chose, so no other record can pair this evidence with a different choice; a non-answer carries none. That choice is one the question version offered, which relates this record to the question, so the runtime owner keeps it and P01's cases check it.",
   "required": [
     "kind",
     "schema",
@@ -100,22 +100,6 @@
       "type": "string",
       "pattern": "^qst_[0-9a-f]{32}$"
     },
-    "verified_origin": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "origin",
-        "separation_evidence_digest"
-      ],
-      "properties": {
-        "origin": {
-          "const": "verified_native_user_event"
-        },
-        "separation_evidence_digest": {
-          "$ref": "#/$defs/digest"
-        }
-      }
-    },
     "not_an_answer": {
       "type": "object",
       "additionalProperties": false,
@@ -139,12 +123,100 @@
     "answer_origin": {
       "oneOf": [
         {
-          "$ref": "#/$defs/verified_origin"
+          "$ref": "#/$defs/verified_answer"
         },
         {
           "$ref": "#/$defs/not_an_answer"
         }
       ]
+    },
+    "selection": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/record_selection"
+        },
+        {
+          "$ref": "#/$defs/bounded_resolution"
+        }
+      ]
+    },
+    "record_selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selects",
+        "record_id"
+      ],
+      "properties": {
+        "selects": {
+          "const": "record"
+        },
+        "record_id": {
+          "$ref": "#/$defs/record_id"
+        }
+      }
+    },
+    "bounded_resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selects",
+        "resolution"
+      ],
+      "properties": {
+        "selects": {
+          "const": "resolution"
+        },
+        "resolution": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        }
+      }
+    },
+    "record_id": {
+      "type": "string",
+      "pattern": "^rec_[0-9a-f]{32}$"
+    },
+    "chosen": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "What the person chose: one of the question version's alternatives or a bounded resolution of their own, and whether the choice is kept until the choices change or asked again at each use.",
+      "required": [
+        "selected",
+        "mode"
+      ],
+      "properties": {
+        "selected": {
+          "$ref": "#/$defs/selection"
+        },
+        "mode": {
+          "enum": [
+            "keep_until_change",
+            "ask_each_use"
+          ]
+        }
+      }
+    },
+    "verified_answer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "origin",
+        "separation_evidence_digest",
+        "answer"
+      ],
+      "properties": {
+        "origin": {
+          "const": "verified_native_user_event"
+        },
+        "separation_evidence_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "answer": {
+          "$ref": "#/$defs/chosen"
+        }
+      }
     }
   }
 }

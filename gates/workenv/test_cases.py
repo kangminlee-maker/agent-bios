@@ -305,6 +305,11 @@ class RuntimeRules(unittest.TestCase):
                          "a rule fixture must load; a record the schema refuses tests the schema")
         return value
 
+    def context(self, row):
+        """A context names the store's records by path, or states a mapping outright."""
+        return {key: self.record(value) if isinstance(value, str) else value
+                for key, value in row.get("context", {}).items()}
+
     def test_every_declared_rule_has_an_oracle_and_a_fixture(self):
         declared = set(cases.runtime_rules())
         self.assertTrue(declared)
@@ -319,11 +324,11 @@ class RuntimeRules(unittest.TestCase):
                 with self.subTest(rule=rule, holds=row.get("what", row["record"])):
                     value = self.record(row["record"])
                     self.assertEqual(value["kind"], kind)
-                    self.assertEqual(oracle(value, row.get("context", {})), [])
+                    self.assertEqual(oracle(value, self.context(row)), [])
             for row in fixture["breaks"]:
                 with self.subTest(rule=rule, breaks=row["what"]):
                     value = self.record(row["record"])
-                    self.assertEqual(oracle(value, row.get("context", {})), row["at"])
+                    self.assertEqual(oracle(value, self.context(row)), row["at"])
 
     def test_every_accepted_example_of_a_rules_kind_holds_it(self):
         # The examples are contract fixtures other cases read; one that broke a rule would teach

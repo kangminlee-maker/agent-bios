@@ -2,16 +2,14 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C06 resume request",
-  "description": "Carry an answer back to the exact use and question version it belongs to. The answer itself is C11's evidence, named here by digest: this record is a reference to an observed event, never the event. A version that has been superseded cannot be resumed, because its basis is not the one in force.",
+  "description": "Carry an answer back to the exact use and question version it belongs to. The answer itself is C11's evidence, named here by digest: this record is a reference to an observed event, never the event, and the evidence carries what was chosen, so this record restates neither the choice nor its mode. A version that has been superseded cannot be resumed, because its basis is not the one in force.",
   "required": [
     "kind",
     "schema",
     "use_id",
     "question_id",
     "question_version",
-    "answer_evidence_digest",
-    "selected",
-    "mode"
+    "answer_evidence_digest"
   ],
   "properties": {
     "kind": {
@@ -32,66 +30,9 @@
     },
     "answer_evidence_digest": {
       "$ref": "#/$defs/digest"
-    },
-    "selected": {
-      "$ref": "#/$defs/selection"
-    },
-    "mode": {
-      "enum": [
-        "keep_until_change",
-        "ask_each_use"
-      ]
     }
   },
   "$defs": {
-    "selection": {
-      "oneOf": [
-        {
-          "$ref": "#/$defs/record_selection"
-        },
-        {
-          "$ref": "#/$defs/bounded_resolution"
-        }
-      ]
-    },
-    "bounded_resolution": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "selects",
-        "resolution"
-      ],
-      "properties": {
-        "selects": {
-          "const": "resolution"
-        },
-        "resolution": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 4000
-        }
-      }
-    },
-    "record_selection": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "selects",
-        "record_id"
-      ],
-      "properties": {
-        "selects": {
-          "const": "record"
-        },
-        "record_id": {
-          "$ref": "#/$defs/record_id"
-        }
-      }
-    },
-    "record_id": {
-      "type": "string",
-      "pattern": "^rec_[0-9a-f]{32}$"
-    },
     "digest": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}$"

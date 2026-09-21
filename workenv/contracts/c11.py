@@ -1,7 +1,7 @@
 """C11 The recipient: the gaps its operations answer with.
 
 Record kinds: `recipient_link`, `answer_evidence`, `delivery_attempt`,
-`surface_observation`, `exposure_trial`.
+`surface_observation`, `exposure_trial`, `host_reply`.
 
 `answer_evidence` is the record every other contract points at by digest when it says a person
 answered. It carries the host's effective configuration as measured at the time of the question,
@@ -22,20 +22,36 @@ An `exposure_trial` is one participant attempting one task on a surface met for 
 from the outcome observed, with help, confusion, the exact UI subject and any critical
 misinterpretation left unresolved. It names the `surface_observation` it happened in and
 qualifies nothing about terminals or answers itself.
+
+What a host delivered is a `host_reply`, which names no origin: the runtime decides that. A
+verified answer carries what the person chose. That the choice is one of the alternatives its
+question version offered relates the evidence to the question, which a schema cannot state; the
+runtime owner keeps it and P01's cases check it.
 """
 CONTRACT = "C11"
 RECORD_KINDS = ("recipient_link", "answer_evidence", "delivery_attempt",
-                "surface_observation", "exposure_trial")
+                "surface_observation", "exposure_trial", "host_reply")
 IN_RESULTS = True
 
-# The operations of this contract that travel in a C03 sealed request.
-# The union across the contract modules is the closed list a request may name.
-OPERATIONS = (
-    "recipient.link.open",
-    "recipient.answer.record",
-    "recipient.delivery.attempt",
-    "surface.observe",
-)
+# The operations of this contract that travel in a C03 sealed request. `takes` is the
+# record kinds its payload may be, and none means the request names no payload;
+# `returns` is the kinds its result may name in `outputs`. The union across the
+# contract modules is the closed list a request may name.
+OPERATIONS = {
+    "recipient.link.open": {"takes": ("recipient_link",), "returns": ("recipient_link",)},
+    "recipient.answer.record": {"takes": ("host_reply",), "returns": ("answer_evidence",)},
+    "recipient.delivery.attempt": {"takes": ("delivery_attempt",),
+                                   "returns": ("delivery_attempt",)},
+    "surface.observe": {"takes": ("surface_observation", "exposure_trial"),
+                        "returns": ("surface_observation", "exposure_trial")},
+}
+
+# Rules that relate one element of a record to another, which a schema cannot state. The
+# runtime owner keeps each; a case in the registry (gates/workenv/case-index.json) checks it.
+RUNTIME_RULES = {
+    "answer_selects_an_offered_alternative": "a verified answer that selects a record selects "
+                                             "one its question version offered",
+}
 
 RECIPIENT_LINK_UNKNOWN = "recipient_link_unknown"
 ANSWER_ORIGIN_UNVERIFIED = "answer_origin_unverified"

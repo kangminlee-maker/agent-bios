@@ -1,7 +1,7 @@
 """C07 Preparation and composition: the gaps its operations answer with.
 
 Record kinds: `preparation_request`, `preparation`, `action_assessment`, `delivery_observation`,
-`environment_edition`.
+`environment_edition`, `environment_adoption`.
 
 Three questions are asked and answered apart. What this is composed from is the preparation;
 whether this actor may act with it is the assessment; and what the task needs is assessed only
@@ -19,22 +19,26 @@ move afterwards invalidate those claims rather than being assumed unchanged.
 An environment edition is what `environment.publish` publishes and `environment.adopt` adopts:
 exact Instructions and knowledge revisions, a memory policy rather than memory records, the
 components and host capabilities it needs, and exact parents with the explicit changes made to
-them. A parent's newer edition is a candidate, never inherited by following its name.
+them. A parent's newer edition is a candidate, never inherited by following its name. What an
+adoption establishes is an `environment_adoption`: one exact edition in one scope.
 """
 CONTRACT = "C07"
 RECORD_KINDS = ("preparation_request", "preparation", "action_assessment",
-                "delivery_observation", "environment_edition")
+                "delivery_observation", "environment_edition",
+                "environment_adoption")
 IN_RESULTS = True
 
-# The operations of this contract that travel in a C03 sealed request.
-# The union across the contract modules is the closed list a request may name.
-OPERATIONS = (
-    "preparation.compose",
-    "preparation.assess",
-    "delivery.observe",
-    "environment.publish",
-    "environment.adopt",
-)
+# The operations of this contract that travel in a C03 sealed request. `takes` is the
+# record kinds its payload may be, and none means the request names no payload;
+# `returns` is the kinds its result may name in `outputs`. The union across the
+# contract modules is the closed list a request may name.
+OPERATIONS = {
+    "preparation.compose": {"takes": ("preparation_request",), "returns": ("preparation",)},
+    "preparation.assess": {"takes": ("operation_request",), "returns": ("action_assessment",)},
+    "delivery.observe": {"takes": (), "returns": ("delivery_observation",)},
+    "environment.publish": {"takes": ("environment_edition",), "returns": ("environment_edition",)},
+    "environment.adopt": {"takes": (), "returns": ("environment_adoption",)},
+}
 
 SELECTION_UNRESOLVED = "selection_unresolved"
 WORKING_BYTES_MOVED = "working_bytes_moved"

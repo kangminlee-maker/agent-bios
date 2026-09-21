@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C08 governing policy",
-  "description": "What a Team requires before a shared change commits. The three exclusions that make a review independent are fixed, not configured: a policy cannot be written that counts the requester, a recorded author, or an agent acting under their sponsorship. The threshold above them is the Team's to set, and zero is a Team that requires no independent review, stated rather than implied.",
+  "description": "What a Team requires before a shared change commits. The three exclusions that make a review independent are fixed, not configured: a policy cannot be written that counts the requester, a recorded author, or an agent acting under their sponsorship. The threshold above them is the Team's to set, and zero is a Team that requires no independent review, stated rather than implied. A Team submits the rules; the runtime assigns the id and the version and stamps the commit.",
   "required": [
     "kind",
     "schema",
@@ -25,14 +25,16 @@
     },
     "policy_id": {
       "type": "string",
-      "pattern": "^pol_[0-9a-f]{32}$"
+      "pattern": "^pol_[0-9a-f]{32}$",
+      "x-runtime-owned": true
     },
     "team_id": {
       "$ref": "#/$defs/team_id"
     },
     "policy_version": {
       "type": "integer",
-      "minimum": 1
+      "minimum": 1,
+      "x-runtime-owned": true
     },
     "operations": {
       "type": "array",
@@ -61,10 +63,10 @@
       "$ref": "#/$defs/responsibility"
     },
     "committed_at": {
-      "$ref": "#/$defs/instant"
+      "$ref": "#/$defs/instant",
+      "x-runtime-owned": true
     }
   },
-  "x-runtime-owned": true,
   "$defs": {
     "instant": {
       "type": "string",

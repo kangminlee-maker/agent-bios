@@ -4,6 +4,7 @@ import contextlib
 import functools
 import io
 import hashlib
+import importlib.util
 import os
 import pathlib
 import re
@@ -1254,6 +1255,49 @@ class ClosedNames(NamedExamples, unittest.TestCase):
             self.assertEqual(document["properties"]["operation"], {"$ref": "#/$defs/operation"})
             self.assertEqual(self.schemas[identifier].defs["operation"], {"enum": union}, kind)
 
+    def test_every_operation_says_what_it_takes_and_returns(self):
+        # A payload is a record a caller may submit; a returned record is one some contract owns.
+        kinds = records.registry(self.schemas)
+        owned = {kind for module in errors.OWNERS for kind in getattr(module, "RECORD_KINDS", ())}
+        for operations in self.contracts.values():
+            for operation, row in operations.items():
+                self.assertEqual(set(row), {"takes", "returns"}, operation)
+                for kind in row["takes"] + row["returns"]:
+                    self.assertIn(kind, owned, f"{operation} names {kind}, which no module owns")
+                for kind in row["takes"]:
+                    document = self.schemas[kinds[kind][1]].document
+                    self.assertNotIn(schema.RUNTIME_OWNED, document,
+                                     f"{operation} takes {kind}, which only the runtime writes")
+
+    def test_a_result_may_name_only_a_kind_some_operation_returns(self):
+        self.assertRefused("/outputs", "c03/result_naming_a_kind_no_operation_returns")
+        union = sorted({kind for operations in self.contracts.values()
+                        for row in operations.values() for kind in row["returns"]})
+        identifier = records.registry(self.schemas)["operation_result"][1]
+        self.assertEqual(self.schemas[identifier].defs["output_kind"], {"enum": union})
+
+    def test_a_request_names_no_payload_kind_of_its_own(self):
+        # The payload's bytes name their kind; a second statement of it could disagree.
+        self.assertRefused("/payload_kind", "c03/request_stating_its_payload_kind")
+        identifier = records.registry(self.schemas)["operation_request"][1]
+        self.assertNotIn("payload_digest", self.schemas[identifier].document["required"])
+
+    def test_every_projected_list_is_what_its_owners_declare(self):
+        # project-names.py is the one writer of these lists; this is its --check.
+        spec = importlib.util.spec_from_file_location(
+            "project_names", pathlib.Path(__file__).with_name("project-names.py"))
+        projector = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(projector)
+        names = projector.lists()
+        self.assertTrue(all(names.values()), names)
+        taken = 0
+        for identifier, loaded in self.schemas.items():
+            if names.keys() & loaded.defs.keys():
+                taken += 1
+                self.assertEqual(projector.projected(loaded.document, names), loaded.document,
+                                 identifier)
+        self.assertGreaterEqual(taken, 17)
+
     def test_a_record_may_state_only_a_gap_a_contract_declares(self):
         # One list in every document that defines a gap, projected from the modules' error rows.
         self.assertRefused("/material_gaps", "c06/a_gap_no_contract_declares")
@@ -1562,8 +1606,10 @@ class BoundFieldsRoundThree(NamedExamples, unittest.TestCase):
         for identifier, where, child in places:
             with self.subTest(schema=identifier, at=where):
                 defs = committed_schemas()[identifier].defs
-                items = defs["gaps"]["items"] if child == {"$ref": "#/$defs/gaps"} \
-                    else child.get("items", {})
+                # A runtime-owned mark says who writes the list, not what it may hold.
+                bare = {k: v for k, v in child.items() if k != schema.RUNTIME_OWNED}
+                items = defs["gaps"]["items"] if bare == {"$ref": "#/$defs/gaps"} \
+                    else bare.get("items", {})
                 self.assertIn(items.get("$ref"), lists)
                 name = items["$ref"].rsplit("/", 1)[-1]
                 self.assertEqual(defs[name]["properties"]["code"], {"enum": lists[items["$ref"]]})

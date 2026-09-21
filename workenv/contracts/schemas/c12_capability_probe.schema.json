@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C12 capability probe",
-  "description": "What the installed client did when it was asked, kept apart from what it declared it could do. `offered` is the declaration and `outcome` is the behaviour; a client that offers a capability and refuses it is the case this record exists to make visible.",
+  "description": "What the installed client did when it was asked, kept apart from what it declared it could do. `offered` is the declaration and `outcome` is the behaviour; a client that offers a capability and refuses it is the case this record exists to make visible. A caller names the client, wire and capability to probe; what the client offered and did is observed by the runtime.",
   "required": [
     "kind",
     "schema",
@@ -24,7 +24,8 @@
     },
     "probe_id": {
       "type": "string",
-      "pattern": "^prb_[0-9a-f]{32}$"
+      "pattern": "^prb_[0-9a-f]{32}$",
+      "x-runtime-owned": true
     },
     "client": {
       "$ref": "#/$defs/client_binding"
@@ -41,7 +42,8 @@
       ]
     },
     "offered": {
-      "type": "boolean"
+      "type": "boolean",
+      "x-runtime-owned": true
     },
     "outcome": {
       "enum": [
@@ -49,18 +51,20 @@
         "refused",
         "no_response",
         "unsupported"
-      ]
+      ],
+      "x-runtime-owned": true
     },
     "observed": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 4000
+      "maxLength": 4000,
+      "x-runtime-owned": true
     },
     "at": {
-      "$ref": "#/$defs/instant"
+      "$ref": "#/$defs/instant",
+      "x-runtime-owned": true
     }
   },
-  "x-runtime-owned": true,
   "$defs": {
     "instant": {
       "type": "string",

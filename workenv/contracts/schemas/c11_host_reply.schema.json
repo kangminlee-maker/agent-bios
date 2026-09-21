@@ -1,0 +1,179 @@
+{
+  "title": "C11 host reply",
+  "description": "What a host delivered for one question version, as its adapter received it. It is not evidence that a person answered: the runtime classifies it against the host's measured configuration and writes `answer_evidence`, where only a reply whose separation from the host's own automation is shown becomes a verified answer carrying this choice. A reply names no origin of its own, because the origin is what the runtime decides.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema",
+    "link_id",
+    "use_id",
+    "question_id",
+    "question_version",
+    "route",
+    "reply"
+  ],
+  "properties": {
+    "kind": {
+      "const": "host_reply"
+    },
+    "schema": {
+      "const": 1
+    },
+    "link_id": {
+      "type": "string",
+      "pattern": "^lnk_[0-9a-f]{32}$"
+    },
+    "use_id": {
+      "$ref": "#/$defs/use_id"
+    },
+    "question_id": {
+      "$ref": "#/$defs/question_id"
+    },
+    "question_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "route": {
+      "enum": [
+        "native_form",
+        "native_question_tool",
+        "conversation"
+      ]
+    },
+    "reply": {
+      "$ref": "#/$defs/reply"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "use_id": {
+      "type": "string",
+      "pattern": "^use_[0-9a-f]{32}$"
+    },
+    "question_id": {
+      "type": "string",
+      "pattern": "^qst_[0-9a-f]{32}$"
+    },
+    "chosen": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "What the person chose: one of the question version's alternatives or a bounded resolution of their own, and whether the choice is kept until the choices change or asked again at each use.",
+      "required": [
+        "selected",
+        "mode"
+      ],
+      "properties": {
+        "selected": {
+          "$ref": "#/$defs/selection"
+        },
+        "mode": {
+          "enum": [
+            "keep_until_change",
+            "ask_each_use"
+          ]
+        }
+      }
+    },
+    "selection": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/record_selection"
+        },
+        {
+          "$ref": "#/$defs/bounded_resolution"
+        }
+      ]
+    },
+    "record_selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selects",
+        "record_id"
+      ],
+      "properties": {
+        "selects": {
+          "const": "record"
+        },
+        "record_id": {
+          "$ref": "#/$defs/record_id"
+        }
+      }
+    },
+    "bounded_resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selects",
+        "resolution"
+      ],
+      "properties": {
+        "selects": {
+          "const": "resolution"
+        },
+        "resolution": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        }
+      }
+    },
+    "record_id": {
+      "type": "string",
+      "pattern": "^rec_[0-9a-f]{32}$"
+    },
+    "reply": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/chosen_reply"
+        },
+        {
+          "$ref": "#/$defs/no_reply"
+        }
+      ]
+    },
+    "chosen_reply": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "given",
+        "answer"
+      ],
+      "properties": {
+        "given": {
+          "const": "choice"
+        },
+        "answer": {
+          "$ref": "#/$defs/chosen"
+        },
+        "separation_evidence_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "no_reply": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "given",
+        "because"
+      ],
+      "properties": {
+        "given": {
+          "const": "none"
+        },
+        "because": {
+          "enum": [
+            "cancelled",
+            "declined",
+            "timed_out"
+          ]
+        }
+      }
+    }
+  }
+}

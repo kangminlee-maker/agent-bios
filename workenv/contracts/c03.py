@@ -1,7 +1,7 @@
 """C03 Owned operations: the gaps its operations answer with.
 
 Record kinds: `operation_request`, `operation_result`, `operation_receipt`, `operation_query`,
-`request_not_held`, `entrance_disposition`, `cutover_plan`, `restore_report`.
+`request_not_held`, `entrance_disposition`, `cutover_plan`, `restore_report`, `backup_set`.
 
 Every protected operation of every contract travels in one sealed request and is answered by
 one result. The request names its payload by digest, so the payload's shape belongs to the
@@ -12,6 +12,11 @@ returns the original result and receipt. A result always answers a request its o
 the owner never received is answered by `request_not_held`, which carries nothing else. A committed
 result names its receipt and states only gaps that qualify a commit (`errors.disclosed`); a gap
 that prevents a commit, such as `stale_base`, belongs to a result that did not commit.
+
+What a request carries is its operation's to say. `OPERATIONS` in each contract module names
+the record kinds an operation takes and the kinds its result may return, so a request states no
+payload kind of its own: the payload's bytes name their kind, and a kind the operation does not
+take — or a payload where it takes none, or none where it takes one — is `payload_not_taken`.
 
 A request states its effect class. `pure_preview` writes nothing; a plan that is stored says
 `durable_candidate`; only `owner_commit` moves a head, and it names the base it expects.
@@ -30,26 +35,33 @@ set by construction rather than by a later count. `cutover_plan` is the single r
 three stages are three named fields, because a stage list can be reordered or shortened and
 three fields cannot, and `commits` is one because the cutover is abortable until it.
 
-A backup is taken and restored through the same owner. What a restore establishes is a
-`restore_report`: the receipt sequence the backup covers and the instant it represents. Work
+A backup is taken and restored through the same owner. `backup_set` is what it took — the
+database snapshot and every other member by digest — and is submitted back whole to restore.
+What a restore establishes is a `restore_report`: the receipt sequence the backup covers and the
+instant it represents. Work
 after that instant is neither recovered nor known to be absent, so the report has one value for
 it, and restored authority is passive until access, clock and keys are established again.
 """
 CONTRACT = "C03"
 RECORD_KINDS = ("operation_request", "operation_result", "operation_receipt", "operation_query",
-                "request_not_held", "entrance_disposition", "cutover_plan", "restore_report")
+                "request_not_held", "entrance_disposition", "cutover_plan", "restore_report",
+                "backup_set")
 IN_RESULTS = True
 
-# The operations of this contract that travel in a C03 sealed request.
-# The union across the contract modules is the closed list a request may name.
-OPERATIONS = (
-    "operation.cancel",
-    "operation.query",
-    "entrance.disposition.record",
-    "entrance.cutover.commit",
-    "store.backup.create",
-    "store.backup.restore",
-)
+# The operations of this contract that travel in a C03 sealed request. `takes` is the
+# record kinds its payload may be, and none means the request names no payload;
+# `returns` is the kinds its result may name in `outputs`. The union across the
+# contract modules is the closed list a request may name.
+OPERATIONS = {
+    "operation.cancel": {"takes": ("operation_query",), "returns": ()},
+    "operation.query": {"takes": ("operation_query",),
+                        "returns": ("operation_result", "operation_receipt", "request_not_held")},
+    "entrance.disposition.record": {"takes": ("entrance_disposition",),
+                                    "returns": ("entrance_disposition",)},
+    "entrance.cutover.commit": {"takes": ("cutover_plan",), "returns": ()},
+    "store.backup.create": {"takes": (), "returns": ("backup_set",)},
+    "store.backup.restore": {"takes": ("backup_set",), "returns": ("restore_report",)},
+}
 
 # Every way a caller starts work with the target. A disposition is recorded for each.
 ENTRANCES = (
@@ -93,6 +105,7 @@ OBJECT_DIGEST_MISMATCH = "object_digest_mismatch"
 OUTCOME_UNKNOWN = "outcome_unknown"
 OUTCOME_PARTIAL = "outcome_partial"
 CANCEL_TOO_LATE = "cancel_too_late"
+PAYLOAD_NOT_TAKEN = "payload_not_taken"
 
 # This module's rows of the contract error table (workenv.contracts.errors joins them).
 ERRORS = {
@@ -104,4 +117,6 @@ ERRORS = {
     OUTCOME_UNKNOWN: "a dispatched effect whose outcome is not known; ask again by the same id",
     OUTCOME_PARTIAL: "an effect some owners committed and others did not",
     CANCEL_TOO_LATE: "a cancellation that reached its owner after the commit",
+    PAYLOAD_NOT_TAKEN: "a payload of a kind the named operation does not take, a payload named "
+                       "where it takes none, or none named where it takes one",
 }

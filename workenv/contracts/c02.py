@@ -17,12 +17,14 @@ CONTRACT = "C02"
 RECORD_KINDS = ("access_state", "access_transition", "access_admission")
 IN_RESULTS = True
 
-# The operations of this contract that travel in a C03 sealed request.
-# The union across the contract modules is the closed list a request may name.
-OPERATIONS = (
-    "access.transition",
-    "access.admission.decide",
-)
+# The operations of this contract that travel in a C03 sealed request. `takes` is the
+# record kinds its payload may be, and none means the request names no payload;
+# `returns` is the kinds its result may name in `outputs`. The union across the
+# contract modules is the closed list a request may name.
+OPERATIONS = {
+    "access.transition": {"takes": ("access_transition",), "returns": ("access_state",)},
+    "access.admission.decide": {"takes": ("operation_request",), "returns": ("access_admission",)},
+}
 
 ACCESS_LOCKED = "access_locked"
 ACCESS_SIGNED_OUT = "access_signed_out"

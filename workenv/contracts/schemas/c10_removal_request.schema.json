@@ -1,0 +1,28 @@
+{
+  "title": "C10 removal request",
+  "description": "Remove one object, named by digest, from every copy this Team's holders keep. What happened to each copy is the `removal_outcome`; this request promises nothing about a copy already delivered or outside the Team's control, which is why it has no field for one.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema",
+    "object_digest"
+  ],
+  "properties": {
+    "kind": {
+      "const": "removal_request"
+    },
+    "schema": {
+      "const": 1
+    },
+    "object_digest": {
+      "$ref": "#/$defs/digest"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

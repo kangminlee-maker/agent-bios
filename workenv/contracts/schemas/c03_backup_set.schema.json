@@ -1,0 +1,125 @@
+{
+  "title": "C03 backup set",
+  "description": "What one backup holds, written by the owner that takes it and submitted back whole to restore it. It names the database snapshot and every other member a restore needs by path, digest and size, so a member that is missing, altered or taken from another backup is found by comparing the set with what is present — `backup_set_incomplete`, `backup_set_damaged` — rather than trusted. It holds the receipts through `covered_through` and the access generation in force at `taken_at`; nothing after that instant is in it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema",
+    "profile_id",
+    "taken_at",
+    "covered_through",
+    "access_generation",
+    "database",
+    "members"
+  ],
+  "x-unique-by": {
+    "key": "path",
+    "across": [
+      "members"
+    ]
+  },
+  "properties": {
+    "kind": {
+      "const": "backup_set"
+    },
+    "schema": {
+      "const": 1
+    },
+    "profile_id": {
+      "$ref": "#/$defs/profile_id"
+    },
+    "taken_at": {
+      "$ref": "#/$defs/instant"
+    },
+    "covered_through": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "The last receipt sequence the backup holds."
+    },
+    "access_generation": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "database": {
+      "$ref": "#/$defs/backup_file"
+    },
+    "members": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/backup_member"
+      }
+    }
+  },
+  "$defs": {
+    "profile_id": {
+      "type": "string",
+      "pattern": "^prf_[0-9a-f]{32}$"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "source_path": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]*(?:/[A-Za-z0-9_][A-Za-z0-9_.-]*)*$"
+    },
+    "backup_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "digest",
+        "size"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/source_path"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "backup_member": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One file beside the database snapshot, and what it holds.",
+      "required": [
+        "path",
+        "digest",
+        "size",
+        "holds"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/source_path"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "holds": {
+          "enum": [
+            "draft",
+            "outbox",
+            "unknown_operation",
+            "control_state",
+            "object"
+          ]
+        }
+      }
+    }
+  }
+}

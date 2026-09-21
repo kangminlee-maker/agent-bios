@@ -3,8 +3,9 @@
 Each rule relates one element of a record to another, which a schema cannot state, so a record
 that breaks it still loads. The owner refuses to write such a record; the case that names the
 rule applies its oracle here to what the owner did write. An oracle returns the pointers at
-which the record breaks the rule, and [] when it holds. One rule needs what the store holds
-besides the record: which source each record belongs to.
+which the record breaks the rule, and [] when it holds. Three rules need what the store holds
+besides the record: which source each record belongs to, the answer evidence a preference names,
+and the question version an answer answers.
 
 Their fixtures are gates/workenv/fixtures/rules/<name>.json, each with records that hold and
 records that break the rule, and the pointers each breaking record is caught at.
@@ -26,12 +27,22 @@ def named_index(pointer: Any, prefix: str) -> int | None:
 
 
 def selected_participant_applicable(record: dict, context: dict) -> list[str]:
-    standing, selected = record["standing"], record["selected"]
-    if standing["holds"] != "active" or selected["selects"] != "record":
+    standing = record["standing"]
+    answer = context["answer"]["origin"].get("answer")
+    if standing["holds"] != "active" or answer is None or answer["selected"]["selects"] != "record":
         return []
     marks = [p["applicable"] for p in standing["participants"]
-             if p["record_id"] == selected["record_id"]]
-    return [] if marks == [True] else ["/selected/record_id"]
+             if p["record_id"] == answer["selected"]["record_id"]]
+    return [] if marks == [True] else ["/answer_evidence_digest"]
+
+
+def answer_selects_an_offered_alternative(record: dict, context: dict) -> list[str]:
+    answer = record["origin"].get("answer")
+    if answer is None or answer["selected"]["selects"] != "record":
+        return []
+    offered = {alternative["record_id"] for alternative in context["question"]["alternatives"]}
+    return [] if answer["selected"]["record_id"] in offered \
+        else ["/origin/answer/selected/record_id"]
 
 
 def gap_named_entry_not_current(record: dict, context: dict) -> list[str]:
@@ -70,9 +81,11 @@ def gap_named_frontier_not_returned(record: dict, context: dict) -> list[str]:
 # `Cxx/<name>` -> (the record kind it reads, whether it needs the store's context, oracle).
 RULES: dict[str, tuple[str, bool, Callable[[dict, dict], list[str]]]] = {
     "C05/selected_participant_applicable":
-        ("application_preference", False, selected_participant_applicable),
+        ("application_preference", True, selected_participant_applicable),
     "C05/gap_named_entry_not_current": ("qualified_state", False, gap_named_entry_not_current),
     "C05/entry_from_named_source": ("qualified_state", True, entry_from_named_source),
     "C06/gap_named_frontier_not_returned":
         ("reader_result", False, gap_named_frontier_not_returned),
+    "C11/answer_selects_an_offered_alternative":
+        ("answer_evidence", True, answer_selects_an_offered_alternative),
 }

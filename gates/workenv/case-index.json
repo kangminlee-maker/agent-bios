@@ -186,7 +186,6 @@
         "workenv/contracts/examples/c11/an_answer_that_names_what_separated_a_person_from_the_automation.json",
         "workenv/contracts/examples/c11/a_tool_permission_is_not_an_answer.json",
         "workenv/contracts/examples/c11/the_person_cancelled.json",
-        "workenv/contracts/examples/c05/a_bounded_resolution_instead_of_one_record.json",
         "workenv/contracts/examples/c07/session_start_without_a_task.json"
       ]
     },
@@ -222,7 +221,6 @@
         "reader.use.resume"
       ],
       "fixtures": [
-        "workenv/contracts/examples/c05/asked_at_each_use.json",
         "workenv/contracts/examples/c06/resume_with_the_answer_named_by_digest.json",
         "workenv/contracts/examples/c06/question_sealed_against_its_basis.json",
         "workenv/contracts/examples/c11/retry_that_minted_a_new_id.json"
@@ -2090,6 +2088,21 @@
       "asserts": "An unsupported resume, an unknown link, a lost response and an access change never claim delivery and never repeat an effect."
     },
     {
+      "id": "N15-ANSWER-NEG",
+      "oracle": 1,
+      "contracts": [
+        "C11"
+      ],
+      "operations": [
+        "recipient.answer.record"
+      ],
+      "fixtures": [
+        "gates/workenv/fixtures/rules/answer_selects_an_offered_alternative.json"
+      ],
+      "asserts": "Every answer_evidence the owner writes satisfies the rule's oracle against the question version it answers; the fixture's breaking record is what it must never write.",
+      "rule": "C11/answer_selects_an_offered_alternative"
+    },
+    {
       "id": "N16-C12-POS",
       "oracle": 0,
       "contracts": [
@@ -2725,7 +2738,8 @@
         "N09-C07-POS",
         "N09-C07-NEG",
         "N15-C11-POS",
-        "N15-C11-NEG"
+        "N15-C11-NEG",
+        "N15-ANSWER-NEG"
       ]
     },
     {

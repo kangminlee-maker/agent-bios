@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C03 sealed operation request",
-  "description": "One protected operation, sealed. The digest of these stored bytes is the request's identity, so the runtime adds no field to it. The payload travels beside it and is named by digest. No secret, token or private key has a field here. The target's id says what it is; a resource whose owner keeps a head carries the base the request expects inside the target, so a head-moving request without one has no spelling.",
+  "description": "One protected operation, sealed. The digest of these stored bytes is the request's identity, so the runtime adds no field to it. The payload travels beside it and is named by digest. No secret, token or private key has a field here. The target's id says what it is; a resource whose owner keeps a head carries the base the request expects inside the target, so a head-moving request without one has no spelling. What the payload is, is the operation's to say: its bytes name their own kind, and an operation that takes no payload names none.",
   "required": [
     "kind",
     "schema",
@@ -16,9 +16,7 @@
     "target",
     "policy_digests",
     "control_digests",
-    "proof_digests",
-    "payload_kind",
-    "payload_digest"
+    "proof_digests"
   ],
   "properties": {
     "kind": {
@@ -70,10 +68,6 @@
     },
     "proof_digests": {
       "$ref": "#/$defs/digests"
-    },
-    "payload_kind": {
-      "type": "string",
-      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
     },
     "payload_digest": {
       "$ref": "#/$defs/digest"

@@ -21,16 +21,19 @@ RECORD_KINDS = ("founding_proposal", "governing_policy", "membership_record", "g
                 "approval", "lifecycle_action")
 IN_RESULTS = True
 
-# The operations of this contract that travel in a C03 sealed request.
-# The union across the contract modules is the closed list a request may name.
-OPERATIONS = (
-    "team.found",
-    "team.policy.set",
-    "team.membership.change",
-    "team.grant.change",
-    "team.approval.record",
-    "team.lifecycle.apply",
-)
+# The operations of this contract that travel in a C03 sealed request. `takes` is the
+# record kinds its payload may be, and none means the request names no payload;
+# `returns` is the kinds its result may name in `outputs`. The union across the
+# contract modules is the closed list a request may name.
+OPERATIONS = {
+    "team.found": {"takes": ("founding_proposal",),
+                   "returns": ("governing_policy", "membership_record", "grant_record")},
+    "team.policy.set": {"takes": ("governing_policy",), "returns": ("governing_policy",)},
+    "team.membership.change": {"takes": ("membership_record",), "returns": ("membership_record",)},
+    "team.grant.change": {"takes": ("grant_record",), "returns": ("grant_record",)},
+    "team.approval.record": {"takes": ("approval",), "returns": ("approval",)},
+    "team.lifecycle.apply": {"takes": ("lifecycle_action",), "returns": ()},
+}
 
 BOOTSTRAP_ALREADY_COMMITTED = "bootstrap_already_committed"
 PROPOSAL_SELF_AUTHORIZED = "proposal_self_authorized"

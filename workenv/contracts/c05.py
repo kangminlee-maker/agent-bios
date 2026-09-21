@@ -14,31 +14,35 @@ answer an `application_preference` then records against the whole relevant parti
 A code this module does not own but its results state: C01's `id_bound_to_other_bytes`, for
 two records that share an id and differ in bytes.
 
-Two rules relate one element of a record to another, which a schema cannot state; the runtime
-owner keeps them and P01's cases check them: an active preference selects a participant its list
-marks applicable, and a `qualified_state` entry named by a gap's pointer is not `current`.
+Three rules relate one element of a record to another, which a schema cannot state; the runtime
+owner keeps them and P01's cases check them: the record an active preference's answer selects is
+a participant its list marks applicable, a `qualified_state` entry named by a gap's pointer is
+not `current`, and every entry's record comes from a source the state's frontiers name.
 """
 CONTRACT = "C05"
 RECORD_KINDS = ("workstream", "choice_record", "lifecycle_event", "state_question",
                 "qualified_state", "application_preference")
 IN_RESULTS = True
 
-# The operations of this contract that travel in a C03 sealed request.
-# The union across the contract modules is the closed list a request may name.
-OPERATIONS = (
-    "workstream.open",
-    "memory.candidate.store",
-    "memory.record.publish",
-    "memory.lifecycle.apply",
-    "memory.state.resolve",
-    "memory.preference.record",
-)
+# The operations of this contract that travel in a C03 sealed request. `takes` is the
+# record kinds its payload may be, and none means the request names no payload;
+# `returns` is the kinds its result may name in `outputs`. The union across the
+# contract modules is the closed list a request may name.
+OPERATIONS = {
+    "workstream.open": {"takes": ("workstream",), "returns": ("workstream",)},
+    "memory.candidate.store": {"takes": ("choice_record", "lifecycle_event"),
+                               "returns": ("choice_record", "lifecycle_event")},
+    "memory.record.publish": {"takes": ("choice_record",), "returns": ("source_manifest",)},
+    "memory.lifecycle.apply": {"takes": ("lifecycle_event",), "returns": ("source_manifest",)},
+    "memory.state.resolve": {"takes": ("state_question",), "returns": ("qualified_state",)},
+    "memory.preference.record": {"takes": (), "returns": ("application_preference",)},
+}
 
 # Rules that relate one element of a record to another, which a schema cannot state. The
 # runtime owner keeps each; a case in the registry (gates/workenv/case-index.json) checks it.
 RUNTIME_RULES = {
-    "selected_participant_applicable": "an active preference selects a record its own "
-                                       "participant list marks applicable",
+    "selected_participant_applicable": "the record an active preference's answer selects "
+                                       "is one its own participant list marks applicable",
     "gap_named_entry_not_current": "a qualified_state entry a gap's pointer names is not current",
     "entry_from_named_source": "every qualified_state entry's record comes from a source its "
                                "frontiers name",

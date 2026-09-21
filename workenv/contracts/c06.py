@@ -22,14 +22,18 @@ CONTRACT = "C06"
 RECORD_KINDS = ("reader_envelope", "reader_result", "pending_question", "resume_request")
 IN_RESULTS = True
 
-# The operations of this contract that travel in a C03 sealed request.
-# The union across the contract modules is the closed list a request may name.
-OPERATIONS = (
-    "memory.use.prepare",
-    "reader.body.read",
-    "reader.question.answer",
-    "reader.use.resume",
-)
+# The operations of this contract that travel in a C03 sealed request. `takes` is the
+# record kinds its payload may be, and none means the request names no payload;
+# `returns` is the kinds its result may name in `outputs`. The union across the
+# contract modules is the closed list a request may name.
+OPERATIONS = {
+    "memory.use.prepare": {"takes": ("reader_envelope",),
+                           "returns": ("reader_result", "pending_question", "qualified_state")},
+    "reader.body.read": {"takes": ("reader_envelope",), "returns": ("reader_result",)},
+    "reader.question.answer": {"takes": ("reader_envelope",),
+                               "returns": ("reader_result", "pending_question")},
+    "reader.use.resume": {"takes": ("resume_request",), "returns": ("reader_result",)},
+}
 
 # Rules that relate one element of a record to another, which a schema cannot state. The
 # runtime owner keeps each; a case in the registry (gates/workenv/case-index.json) checks it.

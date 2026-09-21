@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C10 custody acknowledgment",
-  "description": "What one holder actually observed of what it promised, object by object. A connected peer, a matching checkpoint hash or a number of copies is not this. Reconstructing the bytes from another peer is stronger recovery evidence than any number of old acknowledgments, and this record does not pretend to be it.",
+  "description": "What one holder actually observed of what it promised, object by object. A connected peer, a matching checkpoint hash or a number of copies is not this. Reconstructing the bytes from another peer is stronger recovery evidence than any number of old acknowledgments, and this record does not pretend to be it. The holder submits what it observed; the runtime states what that leaves short of the promise and stamps the time.",
   "required": [
     "kind",
     "schema",
@@ -40,13 +40,14 @@
       }
     },
     "material_gaps": {
-      "$ref": "#/$defs/gaps"
+      "$ref": "#/$defs/gaps",
+      "x-runtime-owned": true
     },
     "at": {
-      "$ref": "#/$defs/instant"
+      "$ref": "#/$defs/instant",
+      "x-runtime-owned": true
     }
   },
-  "x-runtime-owned": true,
   "$defs": {
     "digest": {
       "type": "string",
@@ -146,6 +147,7 @@
             "origin_required",
             "outcome_partial",
             "outcome_unknown",
+            "payload_not_taken",
             "preference_invalidated",
             "preflight_refused",
             "private_key_beside_public",

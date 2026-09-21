@@ -1,7 +1,7 @@
 """C10 Custody and retention: the gaps its operations answer with.
 
 Record kinds: `custody_commitment`, `custody_acknowledgment`, `retention_plan`,
-`removal_outcome`.
+`removal_outcome`, `removal_request`.
 
 Custody is what a named accountable device or peer undertook to keep, object by object, under a
 storage generation. A copy count is not custody and no schema here holds one: more independent
@@ -16,17 +16,20 @@ here promises that a copy already delivered or outside this Team's control is go
 """
 CONTRACT = "C10"
 RECORD_KINDS = ("custody_commitment", "custody_acknowledgment", "retention_plan",
-                "removal_outcome")
+                "removal_outcome", "removal_request")
 IN_RESULTS = True
 
-# The operations of this contract that travel in a C03 sealed request.
-# The union across the contract modules is the closed list a request may name.
-OPERATIONS = (
-    "custody.commit",
-    "custody.acknowledge",
-    "retention.plan.set",
-    "removal.execute",
-)
+# The operations of this contract that travel in a C03 sealed request. `takes` is the
+# record kinds its payload may be, and none means the request names no payload;
+# `returns` is the kinds its result may name in `outputs`. The union across the
+# contract modules is the closed list a request may name.
+OPERATIONS = {
+    "custody.commit": {"takes": ("custody_commitment",), "returns": ("custody_commitment",)},
+    "custody.acknowledge": {"takes": ("custody_acknowledgment",),
+                            "returns": ("custody_acknowledgment",)},
+    "retention.plan.set": {"takes": ("retention_plan",), "returns": ("retention_plan",)},
+    "removal.execute": {"takes": ("removal_request",), "returns": ("removal_outcome",)},
+}
 
 CUSTODY_INCOMPLETE = "custody_incomplete"
 RETENTION_DECLINED = "retention_declined"

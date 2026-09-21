@@ -1,0 +1,169 @@
+"""Scenario generator tests. Run by gates/workenv/check-workenv.py, one process per file.
+
+Each rule the generator enforces is shown firing on a spec built here from a base that generates
+cleanly, so a failure is attributable to the one change made to it."""
+import copy
+import json
+import pathlib
+import sys
+import unittest
+
+HERE = pathlib.Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+sys.path.insert(0, str(HERE.parents[1]))
+
+import scenarios  # noqa: E402
+from workenv.contracts import examples  # noqa: E402
+
+REQUEST = {"name": "bind", "from": "c01/link_request.json",
+           "set": [{"pointer": "/request_id", "value": "@bind_request"},
+                   {"pointer": "/actor/principal_id", "value": "@alice"},
+                   {"pointer": "/actor/device_id", "value": "@laptop"},
+                   {"pointer": "/owner/principal_id", "value": "@alice"},
+                   {"pointer": "/target/resource_id", "value": "@alice"},
+                   {"pointer": "/payload_digest", "value": "#first_key"}]}
+BASE = {
+    "case": "N02-C01-POS",
+    "says": "A local principal binds a device key, and the owner answers with the stored binding.",
+    "ids": [{"name": "alice", "prefix": "prn"}, {"name": "laptop", "prefix": "dev"},
+            {"name": "bind_request", "prefix": "req"}],
+    "records": [
+        {"name": "first_key", "from": "c01/binding_as_submitted.json",
+         "set": [{"pointer": "/principal_id", "value": "@alice"},
+                 {"pointer": "/credential/device_id", "value": "@laptop"}]},
+        REQUEST,
+        {"name": "stored_key", "from": "c01/device_key_binding.json",
+         "set": [{"pointer": "/principal_id", "value": "@alice"},
+                 {"pointer": "/binding_id", "value": "$bnd:first_binding"},
+                 {"pointer": "/created_at", "value": "$instant:bound_at"}]}],
+    "steps": [{"name": "bind_first_key", "request": "bind", "carries": ["first_key"],
+               "answer": {"stage": "committed", "local_effect": "committed",
+                          "provider_effect": "not_applicable", "gaps": [], "recovery": [],
+                          "returns": ["stored_key"]}}],
+}
+
+
+def spec_bytes(spec):
+    return json.dumps(spec).encode()
+
+
+class Generator(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.schemas = examples.load_schemas()
+
+    def generate(self, spec):
+        return scenarios.generate(spec_bytes(spec), self.schemas)
+
+    def refused(self, fragment, change):
+        spec = copy.deepcopy(BASE)
+        change(spec)
+        with self.assertRaises(scenarios.ScenarioError) as caught:
+            self.generate(spec)
+        self.assertIn(fragment, str(caught.exception))
+
+    def record(self, spec, name):
+        return next(r for r in spec["records"] if r["name"] == name)
+
+    def test_the_base_joins_its_request_payload_and_result(self):
+        # Positive control: every refusal below is a change to this spec.
+        built = self.generate(BASE)
+        by_name = {row["name"]: row for row in built["records"]}
+        request = by_name["bind"]["record"]
+        self.assertEqual(request["payload_digest"], by_name["first_key"]["digest"])
+        result = by_name["bind_first_key_result"]["record"]
+        self.assertEqual(result["request_digest"], by_name["bind"]["digest"])
+        self.assertEqual(result["outputs"], [{"kind": "principal_binding",
+                                              "digest": by_name["stored_key"]["digest"]}])
+        self.assertEqual({m["name"] for m in built["minted"]},
+                         {"first_binding", "bound_at", "bind_first_key_receipt"})
+
+    def test_a_payload_its_operation_does_not_take(self):
+        def change(spec):
+            self.record(spec, "first_key")["from"] = "c01/repository_binding_as_submitted.json"
+            self.record(spec, "first_key")["set"] = []
+        self.refused("identity.binding.add takes", change)
+
+    def test_a_returned_record_its_operation_does_not_return(self):
+        def change(spec):
+            spec["records"].append({"name": "stray", "from": "c01/exact_member_of_a_revision.json"})
+            spec["steps"][0]["answer"]["returns"] = ["stray"]
+        self.refused("identity.binding.add returns", change)
+
+    def test_a_digest_the_request_names_and_the_step_does_not_carry(self):
+        def change(spec):
+            spec["steps"][0]["carries"] = []
+        self.refused("does not carry", change)
+
+    def test_a_carried_record_the_request_does_not_name(self):
+        def change(spec):
+            spec["records"].append({"name": "extra", "from": "c01/binding_as_submitted.json"})
+            spec["steps"][0]["carries"].append("extra")
+        self.refused("which the request does not name", change)
+
+    def test_a_minted_value_used_before_any_step_returns_it(self):
+        def change(spec):
+            self.record(spec, "bind")["set"].append(
+                {"pointer": "/rationale", "value": "$bnd:first_binding"})
+        self.refused("before any step returns them", change)
+
+    def test_an_answer_the_result_schema_cannot_give(self):
+        # A commit beside a gap that prevents one has no spelling in operation_result.
+        def change(spec):
+            spec["steps"][0]["answer"]["gaps"] = [{"code": "stale_base"}]
+        self.refused("no result the contract permits", change)
+
+    def test_a_payload_its_schema_refuses_in_an_answered_step(self):
+        def change(spec):
+            self.record(spec, "first_key")["set"].append(
+                {"pointer": "/binding_id", "value": "bnd_" + "0" * 32})
+        self.refused("is refused in submit mode", change)
+
+    def test_a_refused_step_states_exactly_its_refusals(self):
+        spec = copy.deepcopy(BASE)
+        self.record(spec, "first_key")["set"].append(
+            {"pointer": "/binding_id", "value": "bnd_" + "0" * 32})
+        spec["steps"][0] = {"name": "bind_first_key", "request": "bind", "carries": ["first_key"],
+                            "refused": [{"record": "first_key", "code": "runtime_owned_field",
+                                         "pointer": "/binding_id"}]}
+        spec["records"] = [r for r in spec["records"] if r["name"] != "stored_key"]
+        self.generate(spec)
+        spec["steps"][0]["refused"][0]["pointer"] = "/principal_id"
+        with self.assertRaises(scenarios.ScenarioError) as caught:
+            self.generate(spec)
+        self.assertIn("is refused with", str(caught.exception))
+
+    def test_a_record_from_an_example_that_does_not_exist(self):
+        def change(spec):
+            self.record(spec, "first_key")["from"] = "c01/no_such_example.json"
+        self.refused("no example", change)
+
+    def test_an_id_the_spec_never_names(self):
+        def change(spec):
+            spec["ids"] = [i for i in spec["ids"] if i["name"] != "laptop"]
+        self.refused("no id named 'laptop'", change)
+
+    def test_a_record_no_step_uses(self):
+        def change(spec):
+            spec["records"].append({"name": "unused", "from": "c01/binding_as_submitted.json"})
+        self.refused("named by no step", change)
+
+    def test_a_spec_its_own_schema_refuses(self):
+        def change(spec):
+            spec["unexpected"] = True
+        self.refused("unknown_field", change)
+
+
+class Committed(unittest.TestCase):
+    def test_every_generated_scenario_is_what_its_spec_generates(self):
+        schemas = examples.load_schemas()
+        for spec in scenarios.specs():
+            with self.subTest(spec=str(spec.relative_to(HERE))):
+                target = spec.with_name(scenarios.GENERATED)
+                self.assertTrue(target.is_file(), f"{target} is not generated")
+                self.assertEqual(target.read_bytes(),
+                                 scenarios.render(scenarios.generate(spec.read_bytes(), schemas)))
+
+
+if __name__ == "__main__":
+    unittest.main()

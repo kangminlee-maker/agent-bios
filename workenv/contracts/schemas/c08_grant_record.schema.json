@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C08 grant record",
-  "description": "Who may do what, where, under whose issuance. A grant to a group names the provider connection the membership comes from, because a group manager is not implicitly a grant authority; a child grant names its parent and cannot exceed it. Editing a role template does not reach these records, which is why a template has no field here.",
+  "description": "Who may do what, where, under whose issuance. A grant to a group names the provider connection the membership comes from, because a group manager is not implicitly a grant authority; a child grant names its parent and cannot exceed it. Editing a role template does not reach these records, which is why a template has no field here. The issuer is the actor of the request that carries the grant, so the runtime writes it, with the id, the revision and the time; a submission cannot name another issuer.",
   "required": [
     "kind",
     "schema",
@@ -26,13 +26,15 @@
     },
     "grant_id": {
       "type": "string",
-      "pattern": "^gra_[0-9a-f]{32}$"
+      "pattern": "^gra_[0-9a-f]{32}$",
+      "x-runtime-owned": true
     },
     "team_id": {
       "$ref": "#/$defs/team_id"
     },
     "issuer_principal_id": {
-      "$ref": "#/$defs/principal_id"
+      "$ref": "#/$defs/principal_id",
+      "x-runtime-owned": true
     },
     "holder": {
       "$ref": "#/$defs/holder"
@@ -50,7 +52,8 @@
     },
     "grant_revision": {
       "type": "integer",
-      "minimum": 1
+      "minimum": 1,
+      "x-runtime-owned": true
     },
     "parent_grant_id": {
       "type": "string",
@@ -72,10 +75,10 @@
       ]
     },
     "created_at": {
-      "$ref": "#/$defs/instant"
+      "$ref": "#/$defs/instant",
+      "x-runtime-owned": true
     }
   },
-  "x-runtime-owned": true,
   "$defs": {
     "connection_id": {
       "type": "string",

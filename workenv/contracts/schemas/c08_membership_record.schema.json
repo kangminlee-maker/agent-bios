@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C08 membership record",
-  "description": "Consent, an invitation receipt and an active membership are three standings, not one. A provider claim admits only where the Team's own delegation policy says it may, and the policy is named here; a verified login or a matching e-mail domain admits nobody by itself. A standing carries how it was admitted, so invitation, consent and membership stay three stages.",
+  "description": "Consent, an invitation receipt and an active membership are three standings, not one. A provider claim admits only where the Team's own delegation policy says it may, and the policy is named here; a verified login or a matching e-mail domain admits nobody by itself. A standing carries how it was admitted, so invitation, consent and membership stay three stages. The runtime assigns the id and stamps the time.",
   "required": [
     "kind",
     "schema",
@@ -21,7 +21,8 @@
     },
     "membership_id": {
       "type": "string",
-      "pattern": "^mbr_[0-9a-f]{32}$"
+      "pattern": "^mbr_[0-9a-f]{32}$",
+      "x-runtime-owned": true
     },
     "team_id": {
       "$ref": "#/$defs/team_id"
@@ -33,10 +34,10 @@
       "$ref": "#/$defs/membership_standing"
     },
     "created_at": {
-      "$ref": "#/$defs/instant"
+      "$ref": "#/$defs/instant",
+      "x-runtime-owned": true
     }
   },
-  "x-runtime-owned": true,
   "$defs": {
     "digest": {
       "type": "string",

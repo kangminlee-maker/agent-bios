@@ -1,7 +1,7 @@
 """C04 Behavioural sources and domain knowledge: the gaps its operations answer with.
 
 Record kinds: `projection_plan`, `role_projection`, `knowledge_question`, `knowledge_view`,
-`session_routing`.
+`session_routing`, `session_activation`.
 
 Two operations share this contract because they share one rule: what reaches a role is decided
 by the one admission owner, from exact source revisions, and nothing else is promoted into it.
@@ -12,20 +12,25 @@ view carries a body with the evidence behind it and never the authority to act.
 A request arrives through an entrance, and the plan carries that entrance: an entrance whose
 root the caller chose reaches protected bytes only through the admission owner, and one that
 would not is refused here rather than at whichever command happened to offer it.
+
+A session is activated explicitly, by a `session_activation` naming the session and the
+preparation it receives; a session never activated sends nothing and is recorded as selected only.
 """
 CONTRACT = "C04"
 RECORD_KINDS = ("projection_plan", "role_projection", "knowledge_question",
-                "knowledge_view", "session_routing")
+                "knowledge_view", "session_routing", "session_activation")
 IN_RESULTS = True
 
-# The operations of this contract that travel in a C03 sealed request.
-# The union across the contract modules is the closed list a request may name.
-OPERATIONS = (
-    "role.project",
-    "knowledge.question.ask",
-    "knowledge.view.open",
-    "session.routing.activate",
-)
+# The operations of this contract that travel in a C03 sealed request. `takes` is the
+# record kinds its payload may be, and none means the request names no payload;
+# `returns` is the kinds its result may name in `outputs`. The union across the
+# contract modules is the closed list a request may name.
+OPERATIONS = {
+    "role.project": {"takes": ("projection_plan",), "returns": ("role_projection",)},
+    "knowledge.question.ask": {"takes": ("knowledge_question",), "returns": ("knowledge_view",)},
+    "knowledge.view.open": {"takes": (), "returns": ("knowledge_view",)},
+    "session.routing.activate": {"takes": ("session_activation",), "returns": ("session_routing",)},
+}
 
 SOURCE_NOT_AUTHORIZED = "source_not_authorized"
 PROTECTED_ROOT_BYPASS = "protected_root_bypass"

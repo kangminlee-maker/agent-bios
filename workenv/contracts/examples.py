@@ -24,7 +24,8 @@ rule for it. A definition name means one thing:
 two documents that both define `$defs/<name>` define it identically, because `$ref` cannot
 cross documents and a copy that drifts would be a second vocabulary. And an `operation_result`
 example answers an `operation_request` example that exists: its `request_digest` is the
-sha256 of that example's bytes.
+sha256 of that example's bytes, and every record it names in `outputs` is a kind that request's
+operation returns.
 
 Fixture identity is measured, never declared: `index.json` lists every schema, example and
 expectation with the digest and size this module read, and a test fails a stale one.
@@ -187,7 +188,7 @@ def check(schemas_dir: pathlib.Path = SCHEMAS,
     accepted: dict[str, int] = dict.fromkeys(schemas, 0)
     refused: dict[str, int] = dict.fromkeys(schemas, 0)
     submit_refused: dict[str, set[str]] = {identifier: set() for identifier in schemas}
-    requests: dict[str, str] = {}
+    requests: dict[str, tuple[str, str]] = {}
     answers: list[tuple[str, Any]] = []
     for example in paired:
         name = str(example.relative_to(examples_dir))
@@ -220,7 +221,7 @@ def check(schemas_dir: pathlib.Path = SCHEMAS,
         if not want:
             stated |= records.stated(value)
             if value.get("kind") == "operation_request":
-                requests[canonical.digest(data)] = value["request_id"]
+                requests[canonical.digest(data)] = (value["request_id"], value["operation"])
             elif value.get("kind") == "operation_result":
                 answers.append((name, value))
     for identifier in schemas:
@@ -233,11 +234,19 @@ def check(schemas_dir: pathlib.Path = SCHEMAS,
         for place in sorted(owned_places(schemas[identifier]) - submit_refused[identifier]):
             problems.append(f"schema {identifier}: the runtime writes {place or 'the whole record'}"
                             f" and no submission is refused for carrying it")
+    returns = {operation: row["returns"] for module in errors.OWNERS
+               for operation, row in getattr(module, "OPERATIONS", {}).items()}
     for name, value in answers:
         digest = value["request_digest"]
-        if requests.get(digest) != value["request_id"]:
+        request_id, operation = requests.get(digest, (None, None))
+        if request_id != value["request_id"]:
             problems.append(f"{name}: answers request {value['request_id']} with digest "
                             f"{digest[:12]}, and no request example has both")
+            continue
+        for output in value["outputs"]:
+            if output["kind"] not in returns[operation]:
+                problems.append(f"{name}: names a {output['kind']} in its outputs, which "
+                                f"{operation} does not return")
     problems += errors.coverage(exercised, stated)
     return problems, report
 

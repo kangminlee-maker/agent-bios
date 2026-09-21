@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C10 custody commitment",
-  "description": "What one accountable device or peer has undertaken to keep, named object by object, under a storage generation. The generation is required because a reset or a replacement invalidates every assumption resting on the old one; without it an old commitment reads as current. No field holds a copy count, because a count is not custody.",
+  "description": "What one accountable device or peer has undertaken to keep, named object by object, under a storage generation. The generation is required because a reset or a replacement invalidates every assumption resting on the old one; without it an old commitment reads as current. No field holds a copy count, because a count is not custody. The holder submits what it undertakes; the runtime assigns the id and stamps the time.",
   "required": [
     "kind",
     "schema",
@@ -22,7 +22,8 @@
     },
     "commitment_id": {
       "type": "string",
-      "pattern": "^cus_[0-9a-f]{32}$"
+      "pattern": "^cus_[0-9a-f]{32}$",
+      "x-runtime-owned": true
     },
     "scope": {
       "$ref": "#/$defs/scope"
@@ -46,10 +47,10 @@
       "$ref": "#/$defs/limits"
     },
     "committed_at": {
-      "$ref": "#/$defs/instant"
+      "$ref": "#/$defs/instant",
+      "x-runtime-owned": true
     }
   },
-  "x-runtime-owned": true,
   "$defs": {
     "instant": {
       "type": "string",

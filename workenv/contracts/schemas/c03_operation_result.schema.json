@@ -156,6 +156,7 @@
             "origin_required",
             "outcome_partial",
             "outcome_unknown",
+            "payload_not_taken",
             "preference_invalidated",
             "preflight_refused",
             "private_key_beside_public",
@@ -226,8 +227,7 @@
       ],
       "properties": {
         "kind": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+          "$ref": "#/$defs/output_kind"
         },
         "digest": {
           "$ref": "#/$defs/digest"
@@ -333,6 +333,59 @@
           "$ref": "#/$defs/gaps"
         }
       }
+    },
+    "output_kind": {
+      "enum": [
+        "access_admission",
+        "access_state",
+        "action_assessment",
+        "answer_evidence",
+        "application_preference",
+        "approval",
+        "backup_set",
+        "behaviour_capture",
+        "capability_probe",
+        "capability_profile",
+        "choice_record",
+        "contribution_return",
+        "custody_acknowledgment",
+        "custody_commitment",
+        "delivery_attempt",
+        "delivery_observation",
+        "entrance_disposition",
+        "environment_adoption",
+        "environment_edition",
+        "exposure_trial",
+        "governing_policy",
+        "grant_record",
+        "knowledge_capture",
+        "knowledge_view",
+        "lifecycle_event",
+        "membership_record",
+        "memory_capture",
+        "operation_receipt",
+        "operation_result",
+        "pending_question",
+        "preparation",
+        "principal_binding",
+        "qualified_state",
+        "reader_result",
+        "recipient_link",
+        "removal_outcome",
+        "request_not_held",
+        "restore_report",
+        "retention_plan",
+        "role_projection",
+        "route_offer",
+        "route_outcome",
+        "session_routing",
+        "source_home",
+        "source_manifest",
+        "source_provenance",
+        "surface_observation",
+        "transfer_stage_record",
+        "workstream"
+      ]
     }
   }
 }

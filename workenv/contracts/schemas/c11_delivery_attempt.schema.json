@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C11 delivery attempt",
-  "description": "One attempt on one use. A retry of the same use carries the same use id and the same question version: a new id is a different question, not a second try, and it is refused rather than counted. What the route supports and what was observed are separate fields, because a supported route that nobody answered on is not a missing route.",
+  "description": "One attempt on one use. A retry of the same use carries the same use id and the same question version: a new id is a different question, not a second try, and it is refused rather than counted. What the route supports and what was observed are separate fields, because a supported route that nobody answered on is not a missing route. A caller submits what it asks to deliver, on which use and link; what the route supports and what was observed are the runtime's to write.",
   "required": [
     "kind",
     "schema",
@@ -36,19 +36,22 @@
       ]
     },
     "supported": {
-      "type": "boolean"
+      "type": "boolean",
+      "x-runtime-owned": true
     },
     "observed": {
-      "$ref": "#/$defs/attempt_outcome"
+      "$ref": "#/$defs/attempt_outcome",
+      "x-runtime-owned": true
     },
     "material_gaps": {
-      "$ref": "#/$defs/gaps"
+      "$ref": "#/$defs/gaps",
+      "x-runtime-owned": true
     },
     "at": {
-      "$ref": "#/$defs/instant"
+      "$ref": "#/$defs/instant",
+      "x-runtime-owned": true
     }
   },
-  "x-runtime-owned": true,
   "$defs": {
     "digest": {
       "type": "string",
@@ -148,6 +151,7 @@
             "origin_required",
             "outcome_partial",
             "outcome_unknown",
+            "payload_not_taken",
             "preference_invalidated",
             "preflight_refused",
             "private_key_beside_public",

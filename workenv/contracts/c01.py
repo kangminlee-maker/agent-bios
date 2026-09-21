@@ -24,18 +24,25 @@ RECORD_KINDS = ("principal_binding", "repository_binding", "source_ref", "source
                 "memory_capture", "source_provenance")
 IN_RESULTS = True
 
-# The operations of this contract that travel in a C03 sealed request.
-# The union across the contract modules is the closed list a request may name.
-OPERATIONS = (
-    "identity.binding.add",
-    "identity.binding.revoke",
-    "reference.resolve",
-    "source.home.register",
-    "source.capture.record",
-    "source.revision.admit",
-    "source.revision.commit",
-    "source.revision.publish",
-)
+# The operations of this contract that travel in a C03 sealed request. `takes` is the
+# record kinds its payload may be, and none means the request names no payload;
+# `returns` is the kinds its result may name in `outputs`. The union across the
+# contract modules is the closed list a request may name.
+OPERATIONS = {
+    "identity.binding.add": {"takes": ("principal_binding",), "returns": ("principal_binding",)},
+    "identity.binding.revoke": {"takes": (), "returns": ()},
+    "reference.resolve": {"takes": ("source_ref",),
+                          "returns": ("source_manifest", "source_provenance")},
+    "source.home.register": {"takes": ("source_home",), "returns": ("source_home",)},
+    "source.capture.record": {
+        "takes": ("behaviour_capture", "knowledge_capture", "memory_capture"),
+        "returns": ("behaviour_capture", "knowledge_capture", "memory_capture"),
+    },
+    "source.revision.admit": {"takes": ("source_request",),
+                              "returns": ("source_manifest", "source_provenance")},
+    "source.revision.commit": {"takes": ("source_manifest",), "returns": ("source_manifest",)},
+    "source.revision.publish": {"takes": (), "returns": ()},
+}
 
 ID_BOUND_TO_OTHER_BYTES = "id_bound_to_other_bytes"
 BINDING_UNVERIFIED = "binding_unverified"

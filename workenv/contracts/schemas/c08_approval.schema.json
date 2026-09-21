@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C08 approval",
-  "description": "One approval of one exact request. An agent approver names the person accountable for it, so the independent count can see the sponsorship rather than counting two voices for one person. Machine validation is recorded as what it is: evidence, or an explicitly governed automation route, never a human vote. Silence and elapsed time have no record here because they are not approvals.",
+  "description": "One approval of one exact request. An agent approver names the person accountable for it, so the independent count can see the sponsorship rather than counting two voices for one person. Machine validation is recorded as what it is: evidence, or an explicitly governed automation route, never a human vote. Silence and elapsed time have no record here because they are not approvals. The approver is the actor of the request that records the approval: the runtime writes who approved, as what kind of approver, and when, so a submission cannot vote in somebody else's name.",
   "required": [
     "kind",
     "schema",
@@ -23,7 +23,8 @@
     },
     "approval_id": {
       "type": "string",
-      "pattern": "^apr_[0-9a-f]{32}$"
+      "pattern": "^apr_[0-9a-f]{32}$",
+      "x-runtime-owned": true
     },
     "request_digest": {
       "$ref": "#/$defs/digest"
@@ -32,10 +33,12 @@
       "$ref": "#/$defs/digest"
     },
     "approver_principal_id": {
-      "$ref": "#/$defs/principal_id"
+      "$ref": "#/$defs/principal_id",
+      "x-runtime-owned": true
     },
     "approver_kind": {
-      "$ref": "#/$defs/approver_kind"
+      "$ref": "#/$defs/approver_kind",
+      "x-runtime-owned": true
     },
     "verdict": {
       "enum": [
@@ -46,10 +49,10 @@
       ]
     },
     "at": {
-      "$ref": "#/$defs/instant"
+      "$ref": "#/$defs/instant",
+      "x-runtime-owned": true
     }
   },
-  "x-runtime-owned": true,
   "$defs": {
     "principal_id": {
       "type": "string",
