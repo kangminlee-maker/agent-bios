@@ -191,6 +191,95 @@ class Generator(unittest.TestCase):
         self.refused("unknown_field", change)
 
 
+    def test_a_catalog_case_id_names_a_scenario_too(self):
+        self.generate({**copy.deepcopy(BASE), "case": "SRC-10"})
+
+    def test_a_record_the_payload_names_may_ride_with_it(self):
+        # A batch names its item requests inside its plan, not in the request.
+        spec = {"case": "N21-C10-POS", "says": "A batch carries the request it names.", "ids": [],
+                "records": [
+                    {"name": "item", "from": "c03/batch_second_publication_request.json"},
+                    {"name": "plan", "from": "c03/batch_across_three_carriers.json",
+                     "drop": ["/items/4", "/items/3", "/items/2", "/items/1"],
+                     "set": [{"pointer": "/items/0/request_digest", "value": "#item"}]},
+                    {"name": "batch", "from": "c03/batch_request.json",
+                     "set": [{"pointer": "/payload_digest", "value": "#plan"}]}],
+                "steps": [{"name": "submit_batch", "request": "batch", "carries": ["plan", "item"],
+                           "answer": {"stage": "committed", "local_effect": "committed",
+                                      "provider_effect": "not_applicable", "gaps": [],
+                                      "recovery": [], "returns": []}}]}
+        self.generate(spec)
+        spec["records"][1]["set"] = []
+        with self.assertRaises(scenarios.ScenarioError) as caught:
+            self.generate(spec)
+        self.assertIn("which the request does not name", str(caught.exception))
+
+
+class World(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.schemas = examples.load_schemas()
+
+    def spec(self, world, **step):
+        spec = copy.deepcopy(BASE)
+        spec["world"] = world
+        spec["steps"][0].update(step)
+        return spec
+
+    def generate(self, spec):
+        return scenarios.generate(spec_bytes(spec), self.schemas)
+
+    def refused(self, fragment, spec):
+        with self.assertRaises(scenarios.ScenarioError) as caught:
+            self.generate(spec)
+        self.assertIn(fragment, str(caught.exception))
+
+    def test_a_world_states_where_and_when_each_step_runs(self):
+        # Positive control for this class.
+        built = self.generate(self.spec(
+            {"processes": ["laptop", "desktop"], "clock": {"start": "2026-09-21T09:00:00Z"},
+             "partitions": [{"between": ["laptop", "desktop"], "from": "bind_first_key"}],
+             "faults": [{"step": "bind_first_key", "point": "after_commit_before_return"}]},
+            process="laptop", advance_seconds=60))
+        self.assertEqual(built["steps"][0]["process"], "laptop")
+        self.assertEqual(built["steps"][0]["at"], "2026-09-21T09:01:00Z")
+        self.assertEqual(built["world"]["faults"][0]["point"], "after_commit_before_return")
+
+    def test_every_step_names_one_of_the_processes(self):
+        self.refused("runs on no process", self.spec({"processes": ["laptop", "desktop"]}))
+        self.refused("names a process", self.spec({}, process="laptop"))
+
+    def test_a_clock_moves_only_when_the_world_declares_one(self):
+        self.refused("moves a clock", self.spec({}, advance_seconds=5))
+
+    def test_a_partition_names_processes_and_steps_in_order(self):
+        world = {"processes": ["laptop", "desktop"]}
+        self.refused("which is no process", self.spec(
+            {**world, "partitions": [{"between": ["laptop", "phone"], "from": "bind_first_key"}]},
+            process="laptop"))
+        self.refused("which is no step", self.spec(
+            {**world, "partitions": [{"between": ["laptop", "desktop"], "from": "later"}]},
+            process="laptop"))
+        self.refused("before it starts", self.spec(
+            {**world, "partitions": [{"between": ["laptop", "desktop"], "from": "bind_first_key",
+                                      "until": "bind_first_key"}]}, process="laptop"))
+
+    def test_a_fault_names_a_b03_point_on_an_answered_step(self):
+        self.refused("no fault point B03 declares", self.spec(
+            {"faults": [{"step": "bind_first_key", "point": "after_lunch"}]}))
+        self.refused("no answered step", self.spec(
+            {"faults": [{"step": "later", "point": "before_stage"}]}))
+
+    def test_a_runner_step_names_a_situation_of_its_own_case(self):
+        spec = {"case": "RUN-MODE", "says": "A runner refused unattended dispatches nothing.",
+                "ids": [], "records": [],
+                "steps": [{"name": "refused", "runner": "no_qualification"}]}
+        self.assertEqual(self.generate(spec)["steps"], [{"name": "refused",
+                                                         "runner": "no_qualification"}])
+        spec["steps"][0]["runner"] = "stale_base"
+        self.refused("no runner situation", spec)
+
+
 class Committed(unittest.TestCase):
     def test_every_generated_scenario_is_what_its_spec_generates(self):
         schemas = examples.load_schemas()

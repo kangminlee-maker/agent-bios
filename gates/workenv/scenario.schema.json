@@ -1,6 +1,6 @@
 {
   "title": "Scenario spec",
-  "description": "A case's scenario, written short. gates/workenv/scenarios.py generates the joined bytes beside it (scenario.json); the spec, the generator and the generated file are the case's fixture. Every record is a contract example with the leaves this case changes, so the examples are the vocabulary and a spec states only differences. A string value may name instead of state: \"@name\" an id from `ids`, \"#name\" the digest of a record from `records`, \"$shape:name\" a value the owner mints (shape is an id prefix, digest, instant or integer), first placed in a record a step's answer returns.",
+  "description": "A case's scenario, written short. gates/workenv/scenarios.py generates the joined bytes beside it (scenario.json); the spec, the generator and the generated file are the case's fixture. Every record is a contract example with the leaves this case changes, so the examples are the vocabulary and a spec states only differences. A string value may name instead of state: \"@name\" an id from `ids`, \"#name\" the digest of a record from `records`, \"$shape:name\" a value the owner mints (shape is an id prefix, digest, instant or integer), first placed in a record a step's answer returns. `world` states what surrounds the steps: several isolated processes, a controlled clock, network partitions between processes, and a fault that kills a process at a named B03 fault point during a step and restarts it.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -20,7 +20,7 @@
   "properties": {
     "case": {
       "type": "string",
-      "pattern": "^N[0-9]{2}(?:-[A-Z0-9]+)+-(?:POS|NEG)$"
+      "pattern": "^(?:N[0-9]{2}(?:-[A-Z0-9]+)+-(?:POS|NEG)|[A-Z]+(?:-[A-Z0-9]+)+)$"
     },
     "says": {
       "type": "string",
@@ -35,7 +35,6 @@
     },
     "records": {
       "type": "array",
-      "minItems": 1,
       "items": {
         "$ref": "#/$defs/record"
       }
@@ -46,6 +45,9 @@
       "items": {
         "$ref": "#/$defs/step"
       }
+    },
+    "world": {
+      "$ref": "#/$defs/world"
     }
   },
   "$defs": {
@@ -148,6 +150,9 @@
         },
         {
           "$ref": "#/$defs/refused_step"
+        },
+        {
+          "$ref": "#/$defs/runner_step"
         }
       ]
     },
@@ -203,6 +208,13 @@
           "items": {
             "$ref": "#/$defs/refusal"
           }
+        },
+        "process": {
+          "$ref": "#/$defs/name"
+        },
+        "advance_seconds": {
+          "type": "integer",
+          "minimum": 1
         }
       }
     },
@@ -271,7 +283,7 @@
     "answered_step": {
       "type": "object",
       "additionalProperties": false,
-      "description": "One request, admitted, and what its owner answers. `carries` are the records whose digests the request names (payload, policies, controls, proofs, recipient); a digest the request names must be one of them or a value an earlier step minted.",
+      "description": "One request, admitted, and what its owner answers. `carries` are the records whose digests the request names (payload, policies, controls, proofs, recipient) or its payload names (a batch's item requests); a digest the request names must be one of them or a value an earlier step minted.",
       "required": [
         "name",
         "request",
@@ -294,6 +306,116 @@
         },
         "answer": {
           "$ref": "#/$defs/answer"
+        },
+        "process": {
+          "$ref": "#/$defs/name"
+        },
+        "advance_seconds": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "world": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The harness around the steps, not a contract record. With `processes`, every step names the process it runs on, each an isolated runtime with its own state root. With `clock`, the driver controls time: it starts at `start` and a step moves it by `advance_seconds` before it runs.",
+      "properties": {
+        "processes": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/name"
+          }
+        },
+        "clock": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "start"
+          ],
+          "properties": {
+            "start": {
+              "$ref": "#/$defs/instant"
+            }
+          }
+        },
+        "partitions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/partition"
+          }
+        },
+        "faults": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fault"
+          }
+        }
+      }
+    },
+    "partition": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The two processes cannot reach each other from step `from` up to, not including, step `until`; without `until`, to the end.",
+      "required": [
+        "between",
+        "from"
+      ],
+      "properties": {
+        "between": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/name"
+          }
+        },
+        "from": {
+          "$ref": "#/$defs/name"
+        },
+        "until": {
+          "$ref": "#/$defs/name"
+        }
+      }
+    },
+    "fault": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The process running step `step` is killed at `point` (a name B03's FAULT_POINTS declares) and restarted; the step's answer is what the owner returns for the same request after the restart.",
+      "required": [
+        "step",
+        "point"
+      ],
+      "properties": {
+        "step": {
+          "$ref": "#/$defs/name"
+        },
+        "point": {
+          "$ref": "#/$defs/name"
+        }
+      }
+    },
+    "runner_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One situation of this case in gates/workenv/fixtures/runner/preflight.json: the driver builds it, invokes the runner under qualification, and applies the checks the preflight states.",
+      "required": [
+        "name",
+        "runner"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/name"
+        },
+        "runner": {
+          "$ref": "#/$defs/name"
         }
       }
     }

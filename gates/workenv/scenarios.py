@@ -23,18 +23,28 @@ with a new id and payload. A string value may name instead of state:
 owner's real value in each minted place, and recompute every digest over it, before submitting.
 A digest of a record a step returns is likewise the digest of what the owner actually returned.
 
+`world` is the harness around the steps, never a contract record: isolated processes, each step
+naming the one it runs on; a controlled clock that each step may move forward, the generated step
+stating the instant it runs at; partitions between two processes over a run of steps; and faults,
+each killing the process of one answered step at a fault point B03 names and restarting it, so
+that step's answer is what the owner returns for the same request after the restart. A runner
+step names a situation of the same case in the runner's preflight cases instead of a request.
+
 What can be decided from the spec alone is checked here and fails by name:
   - every record resolves, and every name it uses is defined;
   - an answered step's request and payload pass their schemas in submit mode and every other
     record it carries passes in stored mode; a refused step's records fail with exactly the
     refusals it states;
   - the digests a request names are exactly those of the records the step carries, apart from
-    records an earlier step returned and values it minted;
+    records an earlier step returned and values it minted; a carried record the request does not
+    name must be named by its payload (a batch's item requests);
   - the payload is a kind its operation takes (no payload when it takes none), and every record
     the answer returns is a kind the operation returns;
   - the result built from the answer passes the result schema, so an answer the contract cannot
     give — a commit beside a gap that prevents one — cannot be written in a spec either;
-  - a minted value is used only after the step whose answer first returns it.
+  - a minted value is used only after the step whose answer first returns it;
+  - the world's processes, partitions and faults name steps and processes that exist, a fault
+    names a B03 fault point and an answered step, and a runner step a situation of its case.
 
   python3 gates/workenv/scenarios.py [CASE ...]           # write scenario.json from each spec
   python3 gates/workenv/scenarios.py --check [CASE ...]   # fail when one differs from its spec
@@ -48,21 +58,25 @@ import json
 import pathlib
 import re
 import sys
+from datetime import datetime, timedelta
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
-from workenv.contracts import canonical, errors, examples, records  # noqa: E402
+from workenv.contracts import b03, canonical, errors, examples, records  # noqa: E402
 from workenv.contracts.schema import STORED, SUBMIT, load_schema  # noqa: E402
 
 HERE = pathlib.Path(__file__).resolve().parent
 SCENARIOS = HERE / "fixtures" / "scenarios"
 SCHEMA = HERE / "scenario.schema.json"
 SPEC, GENERATED = "spec.json", "scenario.json"
+PREFLIGHT = HERE / "fixtures" / "runner" / "preflight.json"
 STAND_IN_INSTANT = "2000-01-01T00:00:00Z"
+INSTANT = "%Y-%m-%dT%H:%M:%SZ"
 NAMED = re.compile(r"([@#])([a-z][a-z0-9]*(?:_[a-z0-9]+)*)\Z")
 MINTED = re.compile(r"\$(digest|instant|integer|[a-z]{3}):([a-z][a-z0-9]*(?:_[a-z0-9]+)*)\Z")
 # The request fields that name another record by digest.
 NAMING = ("payload_digest", "recipient_digest", "policy_digests", "control_digests",
           "proof_digests")
+DIGEST = re.compile(r"[0-9a-f]{64}\Z")
 
 
 class ScenarioError(ValueError):
@@ -73,6 +87,14 @@ def operations() -> dict[str, dict]:
     """operation -> {"takes": kinds, "returns": kinds}, joined from the contract modules."""
     return {name: row for module in errors.OWNERS
             for name, row in getattr(module, "OPERATIONS", {}).items()}
+
+
+def _digests_in(value) -> set[str]:
+    if isinstance(value, dict):
+        return set().union(*map(_digests_in, value.values()))
+    if isinstance(value, list):
+        return set().union(*map(_digests_in, value))
+    return {value} if isinstance(value, str) and DIGEST.match(value) else set()
 
 
 def _hex(*parts: str) -> str:
@@ -107,6 +129,9 @@ class _Scenario:
         self.joins: list[dict] = []
         self.open: list[str] = []
         self.returned: set[str] = set()          # records an earlier step's answer returned
+        preflight = canonical.parse(PREFLIGHT.read_bytes())
+        self.situations = {s["name"] for row in preflight["cases"] if row["case"] == self.case
+                           for s in row["situations"]}
 
     def fail(self, where: str, detail: str) -> None:
         raise ScenarioError(f"{self.case} {where}: {detail}")
@@ -228,8 +253,16 @@ class _Scenario:
             found.extend(value if isinstance(value, list) else [value])
         return found
 
+    def placed(self, row: dict) -> dict:
+        """The step's name, and where and when it runs when the world says."""
+        return {key: row[key] for key in ("name", "process", "at") if key in row}
+
     def step(self, row: dict, table: dict, defined: set[str], result_schema) -> tuple[dict, list]:
         name = row["name"]
+        if "runner" in row:
+            if row["runner"] not in self.situations:
+                self.fail(name, f"{self.case} has no runner situation {row['runner']!r}")
+            return {**self.placed(row), "runner": row["runner"]}, []
         request = self.record(row["request"])
         carried = {n: self.record(n) for n in row["carries"]}
         if request.get("kind") != "operation_request":
@@ -246,10 +279,12 @@ class _Scenario:
         if loose:
             self.fail(name, f"the request names {loose}, which the step does not carry and no "
                             "earlier step returned or minted")
-        unnamed = sorted(n for n, d in ((n, self.digests[n]) for n in carried) if d not in named)
+        payload = by_digest.get(request.get("payload_digest"))
+        inner = _digests_in(self.built[payload]) if payload else set()
+        unnamed = sorted(n for n, d in ((n, self.digests[n]) for n in carried)
+                         if d not in named and d not in inner)
         if unnamed:
             self.fail(name, f"carries {unnamed}, which the request does not name")
-        payload = by_digest.get(request.get("payload_digest"))
         modes = {row["request"]: SUBMIT, **{n: (SUBMIT if n == payload else STORED)
                                             for n in carried}}
         if "refused" in row:
@@ -265,7 +300,7 @@ class _Scenario:
                 if key != sorted(json.dumps(v, sort_keys=True) for v in stated.get(record, [])):
                     self.fail(name, f"{record} is refused with {found}, "
                                     f"not {stated.get(record, [])}")
-            return {"name": name, "request": row["request"], "carries": row["carries"],
+            return {**self.placed(row), "request": row["request"], "carries": row["carries"],
                     "refused": row["refused"]}, []
         for record, mode in modes.items():
             found = _violations(self.built[record], mode, self.schemas)
@@ -311,7 +346,7 @@ class _Scenario:
         minted_here = set().union(self.uses[result_name],
                                   *(self.uses[r] for r in answer["returns"]))
         self.returned.update([result_name, *answer["returns"]])
-        return ({"name": name, "request": row["request"], "carries": row["carries"],
+        return ({**self.placed(row), "request": row["request"], "carries": row["carries"],
                  "result": result_name, "returns": answer["returns"]}, sorted(minted_here))
 
 
@@ -331,6 +366,8 @@ def generate(spec_bytes: bytes, schemas: dict | None = None) -> dict:
     names = [row["name"] for row in spec["steps"]]
     if len(set(names)) != len(names):
         built.fail("steps", "two steps share a name")
+    world = spec.get("world", {})
+    placed(built, world, spec["steps"], names)
     for row in spec["steps"]:
         step, minted = built.step(row, table, defined, result_schema)
         steps.append(step)
@@ -340,12 +377,51 @@ def generate(spec_bytes: bytes, schemas: dict | None = None) -> dict:
     unused = sorted(set(built.specs) - set(built.built))
     if unused:
         built.fail("records", f"{unused} are named by no step")
-    return {"case": spec["case"], "says": spec["says"],
+    return {"case": spec["case"], "says": spec["says"], **({"world": world} if world else {}),
             "spec_sha256": hashlib.sha256(spec_bytes).hexdigest(),
             "ids": [{"name": n, "id": i} for n, i in built.ids.items()],
             "records": [{"name": n, "record": built.built[n], "digest": built.digests[n]}
                         for n in built.built],
             "steps": steps, "minted": definitions, "joins": built.joins}
+
+
+def placed(built: _Scenario, world: dict, steps: list[dict], names: list[str]) -> None:
+    """Hold the world to the steps, and state on each step where and when it runs."""
+    processes = world.get("processes", [])
+    clock = world.get("clock")
+    if clock:
+        now = datetime.strptime(clock["start"], INSTANT)
+    for row in steps:
+        if "runner" in row:
+            continue
+        if processes and row.get("process") not in processes:
+            built.fail(row["name"], f"runs on no process of {processes}")
+        if not processes and "process" in row:
+            built.fail(row["name"], "names a process, and the world declares none")
+        if "advance_seconds" in row and not clock:
+            built.fail(row["name"], "moves a clock the world does not declare")
+        if clock:
+            now += timedelta(seconds=row.get("advance_seconds", 0))
+            row["at"] = now.strftime(INSTANT)
+    for partition in world.get("partitions", []):
+        for process in partition["between"]:
+            if process not in processes:
+                built.fail("world", f"partitions {process}, which is no process")
+        ends = [partition["from"], *([partition["until"]] if "until" in partition else [])]
+        for end in ends:
+            if end not in names:
+                built.fail("world", f"partitions from or until {end}, which is no step")
+        if len(ends) == 2 and names.index(ends[0]) >= names.index(ends[1]):
+            built.fail("world", f"a partition ends at {ends[1]} before it starts")
+    answered = {row["name"] for row in steps if "answer" in row}
+    faulted = [fault["step"] for fault in world.get("faults", [])]
+    for fault in world.get("faults", []):
+        if fault["step"] not in answered:
+            built.fail("world", f"faults {fault['step']}, which is no answered step")
+        if fault["point"] not in b03.FAULT_POINTS:
+            built.fail("world", f"{fault['point']} is no fault point B03 declares")
+    if len(set(faulted)) != len(faulted):
+        built.fail("world", "two faults kill one step")
 
 
 def render(scenario: dict) -> bytes:

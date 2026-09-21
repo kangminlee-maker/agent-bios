@@ -21,6 +21,13 @@ BACKUP_SET_INCOMPLETE = "backup_set_incomplete"
 BACKUP_SET_DAMAGED = "backup_set_damaged"
 STORAGE_NOT_ENCRYPTED = "storage_not_encrypted"
 
+# The points at which a process is killed while it publishes, in publication order, then the two
+# that fall outside one publication. The crash spike hit all nine; a scenario's fault names one.
+FAULT_POINTS = ("before_stage", "after_member_write_before_sync", "after_stage_before_rename",
+                "after_rename_before_dirsync", "after_dirsync_before_begin",
+                "in_txn_before_commit", "after_commit_before_return", "during_checkpoint",
+                "during_backup")
+
 # Codes that qualify a committed result instead of preventing it (see errors.disclosed).
 DISCLOSED = (STORAGE_NOT_ENCRYPTED,)
 
