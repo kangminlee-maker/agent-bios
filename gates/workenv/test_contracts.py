@@ -1233,6 +1233,16 @@ class ClosedNames(NamedExamples, unittest.TestCase):
             self.assertEqual(document["properties"]["operation"], {"$ref": "#/$defs/operation"})
             self.assertEqual(self.schemas[identifier].defs["operation"], {"enum": union}, kind)
 
+    def test_a_record_may_state_only_a_gap_a_contract_declares(self):
+        # One list in every document that defines a gap, projected from the modules' error rows.
+        self.assertRefused("/material_gaps", "c06/a_gap_no_contract_declares")
+        carrying = {identifier: loaded.defs["gap"] for identifier, loaded in self.schemas.items()
+                    if "gap" in loaded.defs}
+        self.assertEqual(len(carrying), 16, sorted(carrying))
+        for identifier, gap in carrying.items():
+            self.assertEqual(gap["properties"]["code"], {"enum": sorted(errors.in_results())},
+                             identifier)
+
     def test_an_entrance_may_name_only_an_entrance_the_contract_declares(self):
         self.assertRefused(
             "/entrance/name",
