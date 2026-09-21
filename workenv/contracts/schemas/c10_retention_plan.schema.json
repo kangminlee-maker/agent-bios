@@ -33,7 +33,7 @@
       "type": "array",
       "uniqueItems": true,
       "items": {
-        "$ref": "#/$defs/inventory_entry"
+        "$ref": "#/$defs/evictable_entry"
       }
     },
     "cleanup": {
@@ -165,6 +165,33 @@
           "$ref": "#/$defs/digest"
         }
       }
+    },
+    "evictable_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "digest",
+        "size",
+        "object_kind"
+      ],
+      "properties": {
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "object_kind": {
+          "enum": [
+            "source_cache",
+            "derived_index",
+            "excerpt",
+            "export"
+          ]
+        }
+      },
+      "description": "Only what can be rebuilt may be evicted: drafts, outboxes and sequencing state need backup and recovery instead."
     }
   },
   "x-unique-by": {

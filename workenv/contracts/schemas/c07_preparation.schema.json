@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C07 preparation",
-  "description": "An immutable manifest of one composition: the order that was applied, every unit with the source behind it, the frontiers observed, and the bytes of the checkout as they were. It proves assembly and nothing beyond it \u2014 not that anything was delivered, not that a recipient read it, and not that a rendering can be reconstructed from a digest. Working bytes that move afterwards invalidate the claims that rested on them, which is why they are recorded here rather than assumed unchanged.",
+  "description": "An immutable manifest of one composition: the order that was applied, every unit with the source behind it, the frontiers observed, and the bytes of the checkout as they were. It proves assembly and nothing beyond it — not that anything was delivered, not that a recipient read it, and not that a rendering can be reconstructed from a digest. Working bytes that move afterwards invalidate the claims that rested on them, which is why they are recorded here rather than assumed unchanged. A preparation of nothing — a personal session with no environment and nothing selected — has no frontier to name.",
   "required": [
     "kind",
     "schema",
@@ -49,7 +49,11 @@
       }
     },
     "frontiers": {
-      "$ref": "#/$defs/frontiers"
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/source_frontier"
+      }
     },
     "observed": {
       "$ref": "#/$defs/observed_checkout"
@@ -245,14 +249,6 @@
         "working_bytes_digest": {
           "$ref": "#/$defs/digest"
         }
-      }
-    },
-    "frontiers": {
-      "type": "array",
-      "minItems": 1,
-      "uniqueItems": true,
-      "items": {
-        "$ref": "#/$defs/source_frontier"
       }
     },
     "source_frontier": {

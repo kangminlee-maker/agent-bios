@@ -13,7 +13,8 @@ carries the basis it was taken at, so a later page cannot quietly follow a newer
 
 Reading is not applying. An inspection returns history and alternatives and admits no use of
 them; when an actual use needs a person's answer, the question is sealed and stored first and
-the use waits as `pending_user`, which is never a first option chosen on their behalf.
+the result carries it as `pending_user`, the question and use it waits on, which is never a
+first option chosen on their behalf.
 """
 CONTRACT = "C06"
 RECORD_KINDS = ("reader_envelope", "reader_result", "pending_question", "resume_request")
@@ -34,7 +35,6 @@ CURSOR_REVOKED = "cursor_revoked"
 BUDGET_EXHAUSTED = "budget_exhausted"
 BASELINE_NOT_RETAINED = "baseline_not_retained"
 CHILD_ROUTE_UNSUPPORTED = "child_route_unsupported"
-PENDING_USER = "pending_user"
 USE_NOT_ADMITTED = "use_not_admitted"
 
 # This module's rows of the contract error table (workenv.contracts.errors joins them).
@@ -49,7 +49,5 @@ ERRORS = {
                            "still holds",
     CHILD_ROUTE_UNSUPPORTED: "a child reader this route cannot deliver to; the parent's delivery "
                              "does not cover it",
-    PENDING_USER: "a use that needs this person's answer and has no qualified channel to ask on; "
-                  "it waits, and independent work continues",
     USE_NOT_ADMITTED: "an inspection or a retained body offered as an admitted use",
 }

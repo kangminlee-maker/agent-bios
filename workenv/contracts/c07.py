@@ -1,6 +1,7 @@
 """C07 Preparation and composition: the gaps its operations answer with.
 
-Record kinds: `preparation_request`, `preparation`, `action_assessment`, `delivery_observation`.
+Record kinds: `preparation_request`, `preparation`, `action_assessment`, `delivery_observation`,
+`environment_edition`.
 
 Three questions are asked and answered apart. What this is composed from is the preparation;
 whether this actor may act with it is the assessment; and what the task needs is assessed only
@@ -14,10 +15,15 @@ about a child, and a replica holding the bytes is not a recipient that received 
 
 The checkout's bytes are recorded as they were, because the claims rest on them: bytes that
 move afterwards invalidate those claims rather than being assumed unchanged.
+
+An environment edition is what `environment.publish` publishes and `environment.adopt` adopts:
+exact Instructions and knowledge revisions, a memory policy rather than memory records, the
+components and host capabilities it needs, and exact parents with the explicit changes made to
+them. A parent's newer edition is a candidate, never inherited by following its name.
 """
 CONTRACT = "C07"
 RECORD_KINDS = ("preparation_request", "preparation", "action_assessment",
-                "delivery_observation")
+                "delivery_observation", "environment_edition")
 IN_RESULTS = True
 
 # The operations of this contract that travel in a C03 sealed request.

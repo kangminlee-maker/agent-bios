@@ -39,7 +39,7 @@ import pathlib
 import sys
 from typing import Any
 
-from . import c03, canonical, errors, inventory, records
+from . import canonical, errors, inventory, records
 from .schema import RUNTIME_OWNED, RUNTIME_OWNED_FIELD, Schema, SchemaError, load_schema
 
 ROOT = pathlib.Path(__file__).parent
@@ -234,12 +234,8 @@ def check(schemas_dir: pathlib.Path = SCHEMAS,
             problems.append(f"schema {identifier}: the runtime writes {place or 'the whole record'}"
                             f" and no submission is refused for carrying it")
     for name, value in answers:
-        digest = value.get("request_digest")
-        if digest is None:
-            if c03.REQUEST_UNKNOWN not in records.stated(value):
-                problems.append(f"{name}: names no request digest and does not state "
-                                f"{c03.REQUEST_UNKNOWN}")
-        elif requests.get(digest) != value["request_id"]:
+        digest = value["request_digest"]
+        if requests.get(digest) != value["request_id"]:
             problems.append(f"{name}: answers request {value['request_id']} with digest "
                             f"{digest[:12]}, and no request example has both")
     problems += errors.coverage(exercised, stated)

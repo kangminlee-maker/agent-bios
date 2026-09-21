@@ -43,11 +43,18 @@ class NamedExamples:
     rule the schema stops applying (a definition left in place but no longer used) is seen, which
     reading the definition cannot see."""
 
-    def assertRefused(self, *rels):
+    def assertRefused(self, at, *rels):
+        """Each example is refused as its expectation states, and only at `at` or under it: the
+        place its rule refuses. Naming the place is what stops the expectation being moved to
+        another refusal — another mode, another field — while the rule is loosened."""
+        self.assertTrue(rels)
         for rel in rels:
             got, want = reader_says(rel)
             self.assertTrue(want, f"{rel} is not a refused example")
             self.assertEqual(got, want, rel)
+            for _, pointer in got:
+                self.assertTrue(pointer == at or pointer.startswith(f"{at}/"),
+                                f"{rel} is refused at {pointer}, not at {at}")
 
     def assertAccepted(self, *rels):
         for rel in rels:
@@ -288,11 +295,34 @@ class SchemaLoad(unittest.TestCase):
         self.refused(schema.UNRESOLVED_REF, {"$ref": "#/properties/a"})
         self.refused(schema.UNRESOLVED_REF, {"$ref": 1})
 
+    def test_a_lazy_quantifier_and_a_quantified_plus_sign_are_both_dialects(self):
+        for pattern in ("^a+?$", "^a{2}?$", "^\\++$", "^[+]+$"):
+            with self.subTest(pattern=pattern):
+                schema.load_schema({"type": "string", "pattern": pattern})
+
+    def test_a_runtime_owned_mark_the_reader_would_not_read_fails_at_load(self):
+        # Submit mode reads the mark on the root and on a property's own schema only.
+        owned = {"type": "string", "x-runtime-owned": True}
+        for document, where in (
+                ({"type": "object", "additionalProperties": False,
+                  "properties": {"stamp": {"$ref": "#/$defs/owned"}}, "$defs": {"owned": owned}},
+                 "/$defs/owned/x-runtime-owned"),
+                ({"type": "object", "additionalProperties": False,
+                  "properties": {"stamp": {"oneOf": [owned, {"type": "integer"}]}}},
+                 "/properties/stamp/oneOf/0/x-runtime-owned"),
+                ({"type": "array", "items": owned}, "/items/x-runtime-owned")):
+            with self.subTest(where=where):
+                self.refused(schema.INVALID_SCHEMA, document, where)
+        loaded = schema.load_schema({"type": "object", "additionalProperties": False,
+                                     "properties": {"stamp": owned}})
+        self.assertEqual([(v.code, v.pointer) for v in loaded.validate({"stamp": "x"}, "submit")],
+                         [(schema.RUNTIME_OWNED_FIELD, "/stamp")])
+
     def test_patterns_outside_the_shared_dialect_fail_by_name(self):
         bad = ("[a-z]+", "^[a-z]+", "[a-z]+$", "^a|b$", "^a.b$", "^a\\sb$", "^\\bword$", "^a\\$",
                "^(?=a)a$", "^(?P<n>a)$", "^(a)\\1$", "^[[:alpha:]]$", "^[]a]$", "^[^]a]$", "^a^b$",
                "^a$b$", "^(a$", "^a)$", "^[a$", "^caf" + chr(0xE9) + "$", "^a\\", "^*$", "",
-               "^a{,2}$", "^x{y}$", "^a{}$")
+               "^a{,2}$", "^x{y}$", "^a{}$", "^a++$", "^a*+$", "^a?+$", "^a{1,2}+$")
         for pattern in bad:
             with self.subTest(pattern=pattern):
                 self.refused(schema.UNSUPPORTED_PATTERN, {"type": "string", "pattern": pattern},
@@ -744,12 +774,6 @@ class ContractRecordExamples(PlantedCopies):
                                       hashlib.sha256(refused).hexdigest().encode()),
                          "and no request example has both")
 
-    def test_a_result_naming_no_request_states_that_none_is_known(self):
-        name = "examples/c03/query_for_a_request_never_received.json"
-        problems = self.planted(self.rewrite(name, b"request_unknown", b"stale_base"))
-        self.assertIn("c03/query_for_a_request_never_received.json: names no request digest and "
-                      "does not state request_unknown", problems)
-
     def test_a_gap_code_no_result_states(self):
         self.one_problem(self.remove("c03/stale_base"),
                          "gap code 'stale_base' is stated by no accepted result example")
@@ -907,7 +931,7 @@ class SourceRoleExamples(NamedExamples, unittest.TestCase):
 
     def test_a_behaviour_capture_cannot_be_relabelled_another_role(self):
         # The capture that may carry units carries them only under its own role.
-        self.assertRefused("sources/behavioural_units_relabelled_as_knowledge")
+        self.assertRefused("/role", "sources/behavioural_units_relabelled_as_knowledge")
 
 
 class Inventory(unittest.TestCase):
@@ -954,6 +978,22 @@ class Inventory(unittest.TestCase):
         (self.package / "concepts.md").write_bytes(b"b concept\n")
         self.assertEqual(inventory.differences(self.stated, self.package),
                          [(c01.ID_BOUND_TO_OTHER_BYTES, "concepts.md")])
+
+    def test_the_manifest_in_its_own_directory_is_not_a_member_of_itself(self):
+        (self.package / inventory.MANIFEST_NAME).write_bytes(canonical.encode(self.stated))
+        self.assertEqual(inventory.differences(self.stated, self.package), [])
+        nested = self.package / "tables" / inventory.MANIFEST_NAME
+        nested.write_bytes(b"a member that happens to share the name\n")
+        self.assertEqual(inventory.differences(self.stated, self.package),
+                         [(c01.MANIFEST_MEMBER_UNLISTED, "tables/manifest.json")])
+
+    def test_what_the_command_prints_is_the_manifest_bytes_and_nothing_else(self):
+        out = io.TextIOWrapper(io.BytesIO())
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(inventory.main([str(self.package), "--source", self.SOURCE,
+                                             "--at", self.INSTANT]), 0)
+        out.flush()
+        self.assertEqual(out.buffer.getvalue(), canonical.encode(self.stated))
 
     def test_a_path_that_is_not_a_directory_is_refused_not_read_as_empty(self):
         with self.assertRaises(inventory.InventoryError):
@@ -1018,13 +1058,15 @@ class RouteAndExposure(NamedExamples, unittest.TestCase):
         return self.schemas[self.registry[kind][1]].defs
 
     def test_an_observation_is_observed_and_has_no_other_class(self):
-        self.assertRefused("routes/observation_called_deterministic")
+        self.assertRefused("/evidence_class", "routes/observation_called_deterministic")
         held = self.document("surface_observation")["properties"]["evidence_class"]
         self.assertEqual(held, {"const": "observed"})
         self.assertIn("evidence_class", self.document("surface_observation")["required"])
 
     def test_only_the_qualifying_evidence_carries_a_separated_origin(self):
-        self.assertRefused("routes/observation_qualifying_on_an_answer_the_host_generated")
+        self.assertRefused(
+            "/subject",
+            "routes/observation_qualifying_on_an_answer_the_host_generated")
         defs = self.defs("surface_observation")
         variants = [v["$ref"].rsplit("/", 1)[-1] for v in defs["exposure_evidence"]["oneOf"]]
         self.assertEqual(len(variants), 2, variants)
@@ -1036,8 +1078,10 @@ class RouteAndExposure(NamedExamples, unittest.TestCase):
         self.assertIn("separation_evidence_digest", defs["verified_origin"]["required"])
 
     def test_any_terminal_is_recordable_and_only_a_listed_one_is_claimable(self):
-        self.assertRefused("routes/observation_claiming_a_terminal_nobody_listed",
-                           "routes/observation_in_a_locale_the_product_has_no_text_for")
+        self.assertRefused(
+            "/claim/terminal",
+            "routes/observation_claiming_a_terminal_nobody_listed")
+        self.assertRefused("/locale", "routes/observation_in_a_locale_the_product_has_no_text_for")
         document = self.document("surface_observation")
         defs = self.defs("surface_observation")
         self.assertEqual(defs["observed_terminal"]["properties"]["reported_as"]["type"],
@@ -1052,8 +1096,10 @@ class RouteAndExposure(NamedExamples, unittest.TestCase):
         self.assertNotIn("claim", document["required"])
 
     def test_a_prototype_states_what_it_does_not_establish(self):
-        self.assertRefused("routes/observation_of_a_prototype_that_says_nothing_about_what_it_establishes",
-                           "routes/observation_of_a_prototype")
+        self.assertRefused(
+            "/subject",
+            "routes/observation_of_a_prototype_that_says_nothing_about_what_it_establishes",
+            "routes/observation_of_a_prototype")
         self.assertAccepted("routes/prototype_observation_that_qualifies_for_nothing")
         defs = self.defs("surface_observation")
         variants = [v["$ref"].rsplit("/", 1)[-1] for v in defs["observation_subject"]["oneOf"]]
@@ -1065,7 +1111,7 @@ class RouteAndExposure(NamedExamples, unittest.TestCase):
         self.assertIn("establishes", defs[prototype[0]]["required"])
 
     def test_focus_is_optional_and_a_selection_is_not(self):
-        self.assertRefused("routes/selection_that_only_focused")
+        self.assertRefused("/selected", "routes/selection_that_only_focused")
         document = self.document("route_selection")
         self.assertIn("focused", document["properties"])
         self.assertNotIn("focused", document["required"])
@@ -1073,7 +1119,7 @@ class RouteAndExposure(NamedExamples, unittest.TestCase):
             self.assertIn(name, document["required"])
 
     def test_installed_and_delivered_are_different_stages(self):
-        self.assertRefused("routes/selection_expecting_a_stage_outside_the_four")
+        self.assertRefused("/expected/stage", "routes/selection_expecting_a_stage_outside_the_four")
         stages = self.defs("route_selection")["expected_effect"]["properties"]["stage"]["enum"]
         self.assertEqual(sorted(stages), ["configured", "delivered", "installed", "prepared"])
 
@@ -1104,8 +1150,10 @@ class SessionRouting(NamedExamples, unittest.TestCase):
                 (v["$ref"] for v in self.defs["session_delivery"]["oneOf"])}
 
     def test_an_activated_session_always_carries_the_usage_contract(self):
-        self.assertRefused("session/activated_without_the_usage_contract",
-                           "session/activated_with_a_null_usage_contract")
+        self.assertRefused(
+            "/delivery",
+            "session/activated_without_the_usage_contract",
+            "session/activated_with_a_null_usage_contract")
         self.assertAccepted("session/activated_with_nothing_selected_still_carries_the_contract")
         activated = self.defs["activated_delivery"]
         self.assertIn("memory_usage", activated["required"])
@@ -1114,30 +1162,30 @@ class SessionRouting(NamedExamples, unittest.TestCase):
         self.assertNotIn("minItems", self.defs["digests"])
 
     def test_a_session_that_was_only_selected_has_nowhere_to_put_a_delivery(self):
-        self.assertRefused("session/selected_only_that_delivered_anyway")
+        self.assertRefused("/delivery", "session/selected_only_that_delivered_anyway")
         only = self.defs["selected_only_delivery"]
         self.assertEqual(set(only["properties"]), {"state"})
         self.assertIs(only["additionalProperties"], False)
         self.assertEqual(len(self.variants()), 2, self.variants())
 
     def test_the_always_surface_has_no_value_for_an_addition(self):
-        self.assertRefused("session/a_route_that_adds_to_the_always_surface")
+        self.assertRefused("/always_surface", "session/a_route_that_adds_to_the_always_surface")
         self.assertEqual(sorted(self.document["properties"]["always_surface"]["enum"]),
                          ["reduced", "unchanged"])
         self.assertIn("always_surface", self.document["required"])
 
     def test_a_native_instruction_file_is_preserved_and_has_no_other_value(self):
-        self.assertRefused("session/a_route_that_writes_a_native_global_file")
+        self.assertRefused("/native_files", "session/a_route_that_writes_a_native_global_file")
         self.assertEqual(self.document["properties"]["native_files"], {"const": "preserved"})
         self.assertIn("native_files", self.document["required"])
 
     def test_a_guide_is_named_and_held(self):
-        self.assertRefused("session/a_guide_named_but_not_held")
+        self.assertRefused("/delivery", "session/a_guide_named_but_not_held")
         self.assertEqual(sorted(self.defs["guide_pointer"]["required"]), ["digest", "path"])
         self.assertIn("guide", self.defs["usage_contract"]["required"])
 
     def test_the_record_is_the_runtimes_own_and_never_a_submission(self):
-        self.assertRefused("session/routing_is_never_submitted")
+        self.assertRefused("", "session/routing_is_never_submitted")
         self.assertIs(self.document[schema.RUNTIME_OWNED], True)
         self.assertEqual(examples.owned_places(
             self.schemas[records.registry(self.schemas)["session_routing"][1]]), {""})
@@ -1174,8 +1222,10 @@ class ClosedNames(NamedExamples, unittest.TestCase):
                 seen[operation] = name
 
     def test_a_request_may_name_only_an_operation_a_contract_declares(self):
-        self.assertRefused("c03/request_naming_an_undeclared_operation",
-                           "c07/assessment_naming_an_undeclared_operation")
+        self.assertRefused(
+            "/operation",
+            "c03/request_naming_an_undeclared_operation",
+            "c07/assessment_naming_an_undeclared_operation")
         union = sorted({o for ops in self.contracts.values() for o in ops})
         for kind in ("operation_request", "action_assessment"):
             identifier = records.registry(self.schemas)[kind][1]
@@ -1184,8 +1234,10 @@ class ClosedNames(NamedExamples, unittest.TestCase):
             self.assertEqual(self.schemas[identifier].defs["operation"], {"enum": union}, kind)
 
     def test_an_entrance_may_name_only_an_entrance_the_contract_declares(self):
-        self.assertRefused("c04/plan_from_an_undeclared_entrance",
-                           "routes/offer_from_an_undeclared_entrance")
+        self.assertRefused(
+            "/entrance/name",
+            "c04/plan_from_an_undeclared_entrance",
+            "routes/offer_from_an_undeclared_entrance")
         for kind in ("projection_plan", "route_offer"):
             identifier = records.registry(self.schemas)[kind][1]
             name = self.schemas[identifier].defs["entrance"]["properties"]["name"]
@@ -1214,31 +1266,44 @@ class EntranceDisposition(NamedExamples, unittest.TestCase):
                 ["const"] for ref in refs]
 
     def test_the_construction_sites_and_the_guarded_set_are_one_set(self):
-        # Four spellings, compared by the state each fixes: a variant renamed or replaced under
-        # an old name changes this set.
-        self.assertEqual(sorted(self.states()), sorted(self.GUARDED | self.REACHES_NOTHING))
-        self.assertRefused("c03/a_reach_that_names_no_guard", "c03/a_guard_outside_the_three",
-                           "c03/an_unreached_entrance_naming_a_choke_point",
-                           "c03/a_disposition_in_a_fifth_state")
+        # Compared by the state each spelling fixes: a variant renamed or replaced under an old
+        # name changes this set. Two spellings reach nothing: one writes nothing at all, one
+        # writes only under a root the entrance fixes itself.
+        self.assertEqual(set(self.states()), self.GUARDED | self.REACHES_NOTHING)
+        self.assertRefused(
+            "/disposition",
+            "c03/a_reach_that_names_no_guard",
+            "c03/a_guard_outside_the_three",
+            "c03/an_unreached_entrance_naming_a_choke_point",
+            "c03/a_disposition_in_a_fifth_state")
         self.assertAccepted("c03/the_store_admits_what_it_owns",
                             "c03/a_bridge_reaches_only_through_its_owner")
 
+    def test_a_root_the_caller_chose_cannot_claim_to_miss_kept_state(self):
+        # C03's own question includes "through a root the caller chose": such a writer is routed.
+        self.assertRefused("/disposition", "c03/a_caller_rooted_writer_claiming_to_miss_kept_state")
+        self.assertAccepted("c03/a_caller_rooted_writer_routed_through_the_store")
+
     def test_every_disposition_names_the_route_it_disposes_of(self):
-        self.assertRefused("c03/a_disposition_naming_no_route")
+        self.assertRefused("/route", "c03/a_disposition_naming_no_route")
 
     def test_a_compatibility_route_names_the_route_it_forwards_to(self):
         self.assertAccepted("c03/a_compatibility_route_names_its_successor")
-        self.assertRefused("c03/a_retirement_naming_a_category_as_successor")
+        self.assertRefused("/disposition", "c03/a_retirement_naming_a_category_as_successor")
 
     def test_a_choke_point_admits_something_and_only_declared_operations(self):
-        self.assertRefused("c03/a_choke_point_admitting_no_operation",
-                           "c03/a_choke_point_admitting_a_name_no_contract_declares")
+        self.assertRefused(
+            "/disposition",
+            "c03/a_choke_point_admitting_no_operation",
+            "c03/a_choke_point_admitting_a_name_no_contract_declares")
 
     def test_every_reason_for_reaching_nothing_is_one_the_trace_found(self):
-        self.assertEqual(self.disposition.defs["no_reach"]["properties"]["why"],
-                         {"enum": list(c03.NO_REACH_REASONS)})
+        defs = self.disposition.defs
+        whys = defs["no_reach"]["properties"]["why"]["enum"] + [
+            defs["holds_no_write"]["properties"]["why"]["const"]]
+        self.assertEqual(sorted(whys), sorted(c03.NO_REACH_REASONS))
         self.assertAccepted("c03/an_entrance_that_writes_only_under_temp")
-        self.assertRefused("c03/a_reason_the_trace_never_found")
+        self.assertRefused("/disposition", "c03/a_reason_the_trace_never_found")
 
     def test_the_cutover_has_three_stages_that_cannot_be_reordered(self):
         document = self.plan.document
@@ -1246,20 +1311,26 @@ class EntranceDisposition(NamedExamples, unittest.TestCase):
             self.assertIn(stage, document["required"])
             self.assertNotEqual(document["properties"][stage].get("type"), "array")
         self.assertAccepted("c03/one_cutover_sealed_verified_and_committed_once")
-        self.assertRefused("c03/a_cutover_abortable_past_its_commit")
+        self.assertRefused("/abortable_until", "c03/a_cutover_abortable_past_its_commit")
 
     def test_quiescing_seals_every_owner_without_counting_them(self):
-        self.assertRefused("c03/a_cutover_that_sealed_two_of_three",
-                           "c03/a_cutover_sealing_one_owner_twice",
-                           "c03/a_cutover_starting_with_an_operation_in_flight")
+        self.assertRefused(
+            "/quiesce/sealed",
+            "c03/a_cutover_that_sealed_two_of_three",
+            "c03/a_cutover_sealing_one_owner_twice")
+        self.assertRefused(
+            "/quiesce/in_flight",
+            "c03/a_cutover_starting_with_an_operation_in_flight")
 
     def test_the_cutover_does_not_restate_what_retires(self):
         # Each route says so in its own disposition; a second copy is a second thing to keep true.
-        self.assertRefused("c03/a_cutover_restating_what_retires")
+        self.assertRefused("/retires", "c03/a_cutover_restating_what_retires")
 
     def test_one_commit_and_abortable_until_it(self):
-        self.assertRefused("c03/a_cutover_that_would_commit_twice",
-                           "c03/a_cutover_verified_with_a_writer_left_unrouted")
+        self.assertRefused("/commit/commits", "c03/a_cutover_that_would_commit_twice")
+        self.assertRefused(
+            "/verify/unrouted_writers",
+            "c03/a_cutover_verified_with_a_writer_left_unrouted")
 
 
 class UniqueBy(unittest.TestCase):
@@ -1271,7 +1342,7 @@ class UniqueBy(unittest.TestCase):
                 "properties": {name: {"type": "array", "items": {
                     "type": "object", "additionalProperties": False, "required": ["path", "n"],
                     "properties": {"path": {"type": "string"}, "n": {"type": "integer"}}}}
-                    for name in ("kept", "dropped")}}
+                    for name in ("kept", "dropped")} | {"label": {"type": "string"}}}
 
     def test_one_key_twice_within_or_across_the_arrays_is_refused_at_the_later_item(self):
         loaded = schema.load_schema(self.DOCUMENT)
@@ -1285,7 +1356,8 @@ class UniqueBy(unittest.TestCase):
 
     def test_a_malformed_declaration_fails_at_load(self):
         for bad in ({"key": "path"}, {"key": "path", "across": []}, {"key": 1, "across": ["kept"]},
-                    {"key": "path", "across": ["absent"]}, "path"):
+                    {"key": "path", "across": ["absent"]}, "path",
+                    {"key": "path", "across": ["label"]}):
             with self.subTest(bad=bad), self.assertRaises(schema.SchemaError) as caught:
                 schema.load_schema({**self.DOCUMENT, "x-unique-by": bad})
             self.assertEqual(caught.exception.code, schema.INVALID_SCHEMA)
@@ -1297,48 +1369,63 @@ class BoundFields(NamedExamples, unittest.TestCase):
     Each test names the committed example that shows its rule."""
 
     def test_a_sign_out_cannot_leave_access_active(self):
-        self.assertRefused("c02/sign_out_that_leaves_access_active",
-                           "c02/recovery_that_restores_access")
+        self.assertRefused(
+            "/state",
+            "c02/sign_out_that_leaves_access_active",
+            "c02/recovery_that_restores_access")
 
     def test_a_head_moving_request_names_the_base_it_expects(self):
-        self.assertRefused("c03/commit_without_a_base",
-                           "c03/publication_expecting_an_unversioned_source")
+        self.assertRefused(
+            "/target",
+            "c03/commit_without_a_base",
+            "c03/publication_expecting_an_unversioned_source")
         self.assertAccepted("c03/commit_request")
 
     def test_a_withdrawn_participant_is_never_an_applicable_option(self):
-        self.assertRefused("c05/a_withdrawn_participant_still_applicable")
-        self.assertAccepted("c05/a_withdrawn_participant_kept_in_the_set")
+        self.assertRefused("/standing", "c05/a_withdrawn_participant_still_applicable")
+
+    def test_an_active_choice_keeps_no_ended_participant(self):
+        # SSOT S07: a withdrawal invalidates the stored choice, so an ended participant is
+        # history of an invalidated one. Round 1 accepted the first example; that was the defect.
+        self.assertRefused("/standing", "c05/a_withdrawn_participant_kept_in_the_set")
+        self.assertAccepted("c05/a_withdrawn_participant_kept_as_history")
 
     def test_a_denied_read_names_no_source(self):
-        self.assertRefused("c06/denied_that_names_a_source")
+        self.assertRefused("/outcome", "c06/denied_that_names_a_source")
         self.assertAccepted("c06/denied_is_not_empty")
 
     def test_an_invitation_precedes_consent(self):
         self.assertAccepted("c08/invited_before_consent")
-        self.assertRefused("c08/invited_standing_that_names_a_consent",
-                           "c08/invitation_admission_without_consent")
+        self.assertRefused(
+            "/standing",
+            "c08/invited_standing_that_names_a_consent",
+            "c08/invitation_admission_without_consent")
 
     def test_a_settled_transfer_states_no_gap(self):
-        self.assertRefused("c09/committed_with_continuity_unverified")
+        self.assertRefused("/stage", "c09/committed_with_continuity_unverified")
 
     def test_one_object_is_promised_or_evictable_not_both(self):
-        self.assertRefused("c10/one_object_promised_and_evictable")
+        self.assertRefused("/evictable", "c10/one_object_promised_and_evictable")
 
     def test_a_manifest_lists_each_path_once(self):
-        self.assertRefused("sources/one_path_listed_twice_with_two_digests")
+        self.assertRefused("/members", "sources/one_path_listed_twice_with_two_digests")
 
     def test_a_custody_holder_is_named(self):
-        self.assertRefused("c10/peer_holder_with_no_peer")
+        self.assertRefused("/holder", "c10/peer_holder_with_no_peer")
 
     def test_a_replica_is_not_a_recipient(self):
-        self.assertRefused("c07/a_replica_that_holds_the_bytes_is_not_a_recipient")
+        self.assertRefused(
+            "/requested/recipient_kind",
+            "c07/a_replica_that_holds_the_bytes_is_not_a_recipient")
 
     def test_publication_happens_in_one_order(self):
-        self.assertRefused("bindings/storage_committing_before_it_stages",
-                           "bindings/storage_publishing_in_four_steps")
+        self.assertRefused(
+            "/choice/publication_order",
+            "bindings/storage_committing_before_it_stages",
+            "bindings/storage_publishing_in_four_steps")
 
     def test_a_host_is_not_qualified_by_its_own_declaration(self):
-        self.assertRefused("bindings/host_qualified_on_its_own_declaration")
+        self.assertRefused("/qualification", "bindings/host_qualified_on_its_own_declaration")
 
     def test_a_personal_preparation_may_select_nothing(self):
         self.assertAccepted("c07/personal_preparation_with_nothing_selected")
@@ -1346,6 +1433,58 @@ class BoundFields(NamedExamples, unittest.TestCase):
     def test_an_environment_is_published_and_then_adopted_separately(self):
         self.assertIn("environment.publish", c07.OPERATIONS)
         self.assertIn("environment.adopt", c07.OPERATIONS)
+
+
+class BoundFieldsRoundTwo(NamedExamples, unittest.TestCase):
+    """Repair round 2, after the second cross-provider review: the same two failures again —
+    fields that had to agree left apart, and required states with no spelling."""
+
+    def test_every_owner_that_keeps_a_head_is_asked_for_its_base(self):
+        # SSOT: a collection keeps its original head and a Team the head its finalizer orders.
+        self.assertEqual(c03.HEAD_KEEPING, ("src", "col", "env", "tem"))
+        self.assertRefused("/target", "c03/commit_to_a_collection_naming_no_base")
+        self.assertAccepted("c03/commit_to_a_collection_head")
+
+    def test_a_result_answers_a_request_its_owner_holds(self):
+        self.assertRefused("/request_digest", "c03/a_result_answering_no_request")
+        self.assertRefused("/actual_stage", "c03/a_request_not_held_that_reports_a_stage")
+        self.assertRefused("", "c03/request_not_held_is_never_submitted")
+        self.assertAccepted("c03/query_for_a_request_never_received")
+
+    def test_a_denied_read_carries_no_continuation(self):
+        self.assertRefused("/outcome", "c06/denied_with_a_continuation")
+
+    def test_a_waiting_read_names_the_use_and_question_it_waits_on(self):
+        self.assertRefused("/outcome", "c06/waiting_without_the_use_it_waits_on",
+                           "c06/pending_reference_without_its_version")
+        self.assertAccepted("c06/result_waiting_on_the_person")
+
+    def test_a_preparation_of_nothing_names_no_frontier(self):
+        self.assertAccepted("c07/preparation_of_nothing")
+
+    def test_verification_that_found_a_gap_did_not_verify(self):
+        self.assertRefused("/stage", "c09/verified_with_continuity_unverified")
+        self.assertAccepted("c09/inventory_whose_body_is_absent")
+
+    def test_only_what_can_be_rebuilt_is_evictable(self):
+        self.assertRefused("/evictable", "c10/an_outbox_row_offered_for_eviction")
+        self.assertAccepted("c10/promised_and_evictable_are_two_lists")
+
+
+class EnvironmentEdition(NamedExamples, unittest.TestCase):
+    """What `environment.publish` publishes and `environment.adopt` adopts (SSOT S05)."""
+
+    def test_an_edition_is_derived_from_exact_parents_or_from_nothing(self):
+        self.assertAccepted("c07/an_edition_derived_from_its_parent")
+        self.assertRefused("/lineage", "c07/an_edition_following_its_parent_by_name",
+                           "c07/a_first_edition_that_changes_something")
+
+    def test_memory_is_a_policy_not_a_set_of_records(self):
+        self.assertRefused("/memory_policy", "c07/an_edition_pinning_memory_records")
+
+    def test_a_source_is_pinned_once_and_a_component_is_needed_or_optional(self):
+        self.assertRefused("/knowledge", "c07/an_edition_pinning_one_source_twice")
+        self.assertRefused("/components", "c07/a_component_both_needed_and_optional")
 
 
 if __name__ == "__main__":

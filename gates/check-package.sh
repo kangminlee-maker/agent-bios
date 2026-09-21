@@ -81,6 +81,8 @@ p = pathlib.Path(sys.argv[1]); d = json.loads(p.read_text(encoding="utf-8"))
 op, arg = sys.argv[2], sys.argv[3]
 if op == "add":
     d["files"].append(arg)
+elif op == "bin":                         # name a file as an executable npm installs
+    d.setdefault("bin", {})["self-test-probe"] = arg
 elif op == "collapse":                    # replace every entry under arg with arg
     keep = [e for e in d["files"] if not e.startswith(arg)]
     if len(keep) == len(d["files"]):
@@ -135,6 +137,10 @@ PY
   fresh; pkg add '/workenv/contracts/examples/'
   case_is "a files[] entry spelled with a leading / is still that subtree" \
           "author-side path in files[]"
+
+  fresh; pkg bin 'workenv/contracts/examples.py'
+  case_is "a bin entry packs an author-side file whatever files[] says" \
+          "packed as a package.json bin or main"
 
   fresh; printf '\npython3 "$REPO/compose/NO-SUCH-PROBE.py"\n' >> "$W/install.sh"
   case_is "a runtime reference to a path that does not exist" "no such path in this repo"
@@ -280,7 +286,8 @@ if ARGS and not (ARGS[0] == "--explain" and len(ARGS) == 2):
              "and silently ignoring one would report a check that never ran")
 
 REPO = pathlib.Path(".").resolve()
-files = json.loads((REPO / "package.json").read_text(encoding="utf-8"))["files"]
+MANIFEST = json.loads((REPO / "package.json").read_text(encoding="utf-8"))
+files = MANIFEST["files"]
 
 # Author-side by directory: these exist only in a checkout, and their absence
 # from the payload degrades instead of crashing. Stating it as a directory rule
@@ -387,6 +394,15 @@ def rel_key(raw):
     return posixpath.normpath(raw.rstrip("/")).lstrip("/")
 
 
+# npm also packs every file package.json names as a `bin` or as `main`, whatever files[] says,
+# so a file named there ships as surely as one files[] names.
+_bins = MANIFEST.get("bin") or {}
+NAMED_PACKED = {rel_key(target) for target in
+                (_bins.values() if isinstance(_bins, dict) else [_bins])}
+if MANIFEST.get("main"):
+    NAMED_PACKED.add(rel_key(MANIFEST["main"]))
+
+
 found = {}
 for src in SOURCES:
     text = (REPO / src).read_text(encoding="utf-8")
@@ -436,7 +452,7 @@ def shipped(rel):
     # `gates/`. Both spellings are normalized here, through the same rel_key the
     # runtime scan uses: comparing raw entries let `./gates/` satisfy neither this
     # test nor author_side(), so npm packed the tree while the gate reported OK.
-    if always_packed(rel):
+    if always_packed(rel) or rel in NAMED_PACKED:
         return True
     for entry in files:
         e = rel_key(entry)
@@ -707,8 +723,10 @@ leaked = sorted(e for e in files if author_side(rel_key(e)))
 author_paths = sorted(set(AUTHOR_SIDE_FILES) | {
     str(p.relative_to(REPO)) for d in AUTHOR_SIDE_DIRS
     for p in (REPO / d).rglob("*") if p.is_file()})
+leaked += [f"{rel} (packed as a package.json bin or main)"
+           for rel in author_paths if rel in NAMED_PACKED]
 leaked += [f"{rel} (packed by a directory entry in files[])"
-           for rel in author_paths if shipped(rel)]
+           for rel in author_paths if shipped(rel) and rel not in NAMED_PACKED]
 # Non-empty subject, per declared directory: a dir with no files is a stale
 # declaration, and its half of the rule would pass over nothing.
 author_files = {d: sorted(p.name for p in (REPO / d).glob("*") if p.is_file())

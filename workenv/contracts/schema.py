@@ -135,17 +135,19 @@ def compile_pattern(pattern: str, pointer: str) -> re.Pattern[str]:
     Refused because the two dialects disagree: an unanchored pattern (search against
     fullmatch), `.` (line terminators), `\\s` and `\\b` (Unicode), a `$` that Python lets
     match before a final newline, alternation outside a group (binds looser than the
-    anchors), a brace that is not a bounded quantifier, non-ASCII literals, backreferences,
-    lookaround and named groups."""
+    anchors), a brace that is not a bounded quantifier, a possessive quantifier (`a++`, which
+    Python reads and ECMAScript refuses), non-ASCII literals, backreferences, lookaround and
+    named groups."""
     def refuse(detail: str) -> SchemaError:
         return SchemaError(UNSUPPORTED_PATTERN, pointer, f"{pattern!r}: {detail}")
 
     if len(pattern) < 2 or pattern[0] != "^" or pattern[-1] != "$":
         raise refuse("a pattern starts with ^ and ends with $")
     body = pattern[1:-1]
-    depth, in_class, index = 0, False, 0
+    depth, in_class, index, quantified = 0, False, 0, False
     while index < len(body):
         char = body[index]
+        follows_quantifier, quantified = quantified, False
         if ord(char) > 0x7E or ord(char) < 0x20:
             raise refuse("only printable ASCII is admitted")
         if char == "\\":
@@ -162,6 +164,11 @@ def compile_pattern(pattern: str, pointer: str) -> re.Pattern[str]:
                 in_class = False
             elif char == "[":
                 raise refuse("nested or POSIX character class")
+        elif char in "*+?":
+            if follows_quantifier and char == "+":
+                raise refuse("a possessive quantifier, which ECMAScript does not have")
+            # `?` straight after a quantifier makes it lazy, which both dialects read alike.
+            quantified = not (follows_quantifier and char == "?")
         elif char == "[":
             in_class = True
             if body[index + 1:index + 2] == "]" or body[index + 1:index + 3] == "^]":
@@ -176,9 +183,13 @@ def compile_pattern(pattern: str, pointer: str) -> re.Pattern[str]:
                 raise refuse("unbalanced group")
         elif char == "|" and depth == 0:
             raise refuse("alternation outside a group")
-        elif char == "{" and not _QUANTIFIER.match(body, index):
-            # `{,2}` is a quantifier to Python and three literals to ECMAScript.
-            raise refuse("a brace that is not {n}, {n,} or {n,m}")
+        elif char == "{":
+            bounded = _QUANTIFIER.match(body, index)
+            if not bounded:
+                # `{,2}` is a quantifier to Python and three literals to ECMAScript.
+                raise refuse("a brace that is not {n}, {n,} or {n,m}")
+            quantified, index = True, bounded.end()
+            continue
         elif char in ".^$":
             raise refuse(f"unescaped {char} inside the pattern")
         index += 1
@@ -217,7 +228,7 @@ class Schema:
         if not isinstance(defs, dict):
             raise SchemaError(INVALID_SCHEMA, "/$defs", "an object of named schemas")
         self.defs = defs
-        self._node(document, "", root=True)
+        self._node(document, "", root=True, may_own=True)
         for name, node in defs.items():
             if not REF.match(f"#/$defs/{name}"):
                 raise SchemaError(INVALID_SCHEMA, f"/$defs/{_escape(name)}", "not a referable name")
@@ -227,7 +238,7 @@ class Schema:
                 raise SchemaError(UNRESOLVED_REF, pointer, f"#/$defs/{name} is not defined")
         self._no_bare_cycle()
 
-    def _node(self, node: Any, pointer: str, root: bool = False) -> None:
+    def _node(self, node: Any, pointer: str, root: bool = False, may_own: bool = False) -> None:
         if not isinstance(node, dict):
             raise SchemaError(INVALID_SCHEMA, pointer, "a schema is an object")
         for key in node:
@@ -241,6 +252,11 @@ class Schema:
                 raise SchemaError(INVALID_SCHEMA, f"{pointer}/{key}", "a string")
         if RUNTIME_OWNED in node and node[RUNTIME_OWNED] is not True:
             raise SchemaError(INVALID_SCHEMA, f"{pointer}/{RUNTIME_OWNED}", "true or absent")
+        if RUNTIME_OWNED in node and not may_own:
+            # Submit mode reads the mark on the root and on a property's own schema, nowhere
+            # else; a mark it would not read is refused rather than left to look enforced.
+            raise SchemaError(INVALID_SCHEMA, f"{pointer}/{RUNTIME_OWNED}",
+                              "only the root or a property's own schema is runtime-owned")
         asserting = node.keys() - ANNOTATIONS - {"$defs", RUNTIME_OWNED}
 
         if "$ref" in node:
@@ -310,7 +326,7 @@ class Schema:
                 # The canonical encoder refuses such a key, so no record could carry it.
                 raise SchemaError(INVALID_SCHEMA, f"{pointer}/properties/{_escape(name)}",
                                   "a property name is ASCII snake_case")
-            self._node(child, f"{pointer}/properties/{_escape(name)}")
+            self._node(child, f"{pointer}/properties/{_escape(name)}", may_own=True)
         required = node.get("required", [])
         if not isinstance(required, list) or len(set(map(str, required))) != len(required):
             raise SchemaError(INVALID_SCHEMA, f"{pointer}/required", "an array of distinct names")
@@ -323,7 +339,8 @@ class Schema:
             if (not isinstance(unique, dict) or set(unique) != {"key", "across"}
                     or not isinstance(unique["key"], str) or not isinstance(unique["across"], list)
                     or not unique["across"]
-                    or any(name not in properties for name in unique["across"])):
+                    or any(properties.get(name, {}).get("type") != "array"
+                           for name in unique["across"])):
                 raise SchemaError(INVALID_SCHEMA, f"{pointer}/{UNIQUE_BY}",
                                   "{key, across} naming this object's own array properties")
 

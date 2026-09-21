@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C09 transfer stage record",
-  "description": "Exported, received, verified, accepted and committed are five different outcomes and each is recorded when it happens. A package that arrived is not a package that verified, and neither is a package whose contributions an owning authority has accepted. Re-importing the same envelope reaches the same stage rather than a second one.",
+  "description": "Exported, received, verified, accepted and committed are five different outcomes and each is recorded when it happens. A package that arrived is not a package that verified, and neither is a package whose contributions an owning authority has accepted. Re-importing the same envelope reaches the same stage rather than a second one. Verified is settled too: a package whose checks found a gap has been received and has not verified, so its gaps are stated at `received`.",
   "required": [
     "kind",
     "schema",
@@ -85,8 +85,7 @@
         "is": {
           "enum": [
             "exported",
-            "received",
-            "verified"
+            "received"
           ]
         },
         "material_gaps": {
@@ -104,6 +103,7 @@
       "properties": {
         "is": {
           "enum": [
+            "verified",
             "accepted",
             "committed"
           ]

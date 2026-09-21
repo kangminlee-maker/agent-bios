@@ -2,11 +2,12 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C03 operation result",
-  "description": "What one request actually did, written whole by the runtime. `request_digest` is absent only when the owner holds no request under this id. A stored result cannot show that a model read, kept or obeyed a returned body.",
+  "description": "What one request actually did, written whole by the runtime. It always names the digest of the request it answers; a query for an id the owner never received is answered by `request_not_held`, so nothing a result says can sit beside a request nobody holds. A stored result cannot show that a model read, kept or obeyed a returned body.",
   "required": [
     "kind",
     "schema",
     "request_id",
+    "request_digest",
     "local_effect",
     "provider_effect",
     "actual_stage",

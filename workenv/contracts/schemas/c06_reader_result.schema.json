@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C06 reader result",
-  "description": "What the reader actually returned. Seven standings stay apart on purpose: an empty answer from a source with nothing to say is not a denial, and neither is an answer this installation could not reach. `ended` says the pagination finished, which is not a claim that nothing else was relevant. A result that waits on a person carries the question and use it waits on, never a first option chosen on their behalf. A denied read has nowhere to name a source: access is resolved before candidates or metadata are exposed.",
+  "description": "What the reader actually returned. Seven standings stay apart on purpose: an empty answer from a source with nothing to say is not a denial, and neither is an answer this installation could not reach. `ended` says the pagination finished, which is not a claim that nothing else was relevant. A result that waits on a person says so by carrying `pending_user`: the question and use it waits on, never a first option chosen on their behalf. A denied read has nowhere to name a source, a continuation or a waiting use: access is resolved before candidates or metadata are exposed.",
   "required": [
     "kind",
     "schema",
@@ -48,12 +48,6 @@
     },
     "ended": {
       "type": "boolean"
-    },
-    "continuation": {
-      "$ref": "#/$defs/continuation"
-    },
-    "pending": {
-      "$ref": "#/$defs/pending_reference"
     },
     "material_gaps": {
       "$ref": "#/$defs/gaps"
@@ -323,6 +317,12 @@
           "items": {
             "$ref": "#/$defs/composed_unit"
           }
+        },
+        "continuation": {
+          "$ref": "#/$defs/continuation"
+        },
+        "pending_user": {
+          "$ref": "#/$defs/pending_reference"
         }
       }
     }

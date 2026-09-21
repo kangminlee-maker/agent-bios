@@ -18,7 +18,8 @@ sys.path.insert(0, str(ROOT))
 from workenv.contracts import examples, records  # noqa: E402
 
 DATA = pathlib.Path(__file__).with_name("entrances.jsonl")
-ENTRY_SUFFIXES = (".py", ".sh", ".zsh")
+SHELL_SUFFIXES = (".sh", ".zsh")
+ENTRY_SUFFIXES = (".py",) + SHELL_SUFFIXES
 
 
 def commands(text):
@@ -31,7 +32,8 @@ def commands(text):
 
 
 def shipped_entry_scripts(root):
-    """Tracked, shipped files a caller can start: a `__main__` guard or a shebang."""
+    """Tracked, shipped files a caller can start: a `__main__` guard, a shebang, or any shell
+    file — a shell file the user's shell sources defines commands without either."""
     entries = [e.strip("./").rstrip("/") for e in
                json.loads((root / "package.json").read_bytes())["files"]]
     tracked = subprocess.run(["git", "-C", str(root), "ls-files"], capture_output=True,
@@ -43,9 +45,21 @@ def shipped_entry_scripts(root):
         if not any(rel == e or rel.startswith(e + "/") for e in entries):
             continue
         body = (root / rel).read_text(errors="replace")
-        if body.startswith("#!") or re.search(r"__name__ == ['\"]__main__['\"]", body):
+        if (rel.endswith(SHELL_SUFFIXES) or body.startswith("#!")
+                or re.search(r"__name__ == ['\"]__main__['\"]", body)):
             found.add(rel)
     return found
+
+
+def subcommands(root, rel):
+    """The subcommands a Python script dispatches, as its own argparse usage line lists them.
+    A script disposed of command by command that cannot say is a failure, not an empty set."""
+    usage = subprocess.run([sys.executable, str(root / rel), "--help"], capture_output=True,
+                           text=True, timeout=60).stdout.splitlines()[:1]
+    listed = re.search(r"\{([a-z][a-z0-9,-]*)\}", usage[0]) if usage else None
+    if not listed:
+        raise AssertionError(f"{rel} is disposed of by command and its --help lists none")
+    return set(listed.group(1).split(","))
 
 
 def dispositions():
@@ -84,6 +98,16 @@ class Dispositions(unittest.TestCase):
         self.assertGreater(len(tree), 40)
         recorded = {path for path, _ in self.routes if path != "install.sh"}
         self.assertEqual(recorded, tree)
+
+    def test_a_script_disposed_of_by_command_has_one_per_command_it_dispatches(self):
+        split = {}
+        for path, command in self.routes:
+            if command and path != "install.sh":
+                split.setdefault(path, set()).add(command)
+        self.assertTrue(split, "no script is disposed of command by command")
+        for path, recorded in split.items():
+            with self.subTest(path=path):
+                self.assertEqual(recorded, subcommands(ROOT, path))
 
     def test_a_script_is_disposed_of_whole_or_command_by_command(self):
         split = {}
@@ -124,6 +148,9 @@ class Derivation(unittest.TestCase):
                 'case "$CMD" in\n  two|three) x ;;\n  help|-h|--help) usage ;;\n'
                 '  *) no ;;\nesac\n')
         self.assertEqual(commands(text), {"one", "two", "three", "help"})
+
+    def test_a_sourced_shell_file_is_an_entrance_without_a_shebang(self):
+        self.assertIn("launch/agent-launch.zsh", shipped_entry_scripts(ROOT))
 
 
 if __name__ == "__main__":

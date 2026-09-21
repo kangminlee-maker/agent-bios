@@ -1,0 +1,29 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C03 request not held",
+  "description": "What a query for a request id this owner never received returns. It names the id and nothing else — no stage, effect, output or receipt — because nothing happened under it.",
+  "x-runtime-owned": true,
+  "required": [
+    "kind",
+    "schema",
+    "request_id"
+  ],
+  "properties": {
+    "kind": {
+      "const": "request_not_held"
+    },
+    "schema": {
+      "const": 1
+    },
+    "request_id": {
+      "$ref": "#/$defs/request_id"
+    }
+  },
+  "$defs": {
+    "request_id": {
+      "type": "string",
+      "pattern": "^req_[0-9a-f]{32}$"
+    }
+  }
+}

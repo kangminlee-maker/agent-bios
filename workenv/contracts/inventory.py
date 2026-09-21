@@ -18,6 +18,11 @@ something untrue. A symbolic link is not bytes this revision holds — following
 whatever it points at, including a file outside the revision entirely. And an empty directory
 has no members to bind, so a manifest of it would be a digest over nothing.
 
+The manifest itself sits in the directory it describes, as `manifest.json` at its top (SSOT S13:
+`objects/<revision-digest>/manifest.json`), and is not one of its own members: the revision digest
+is taken over the manifest's bytes, so listing them inside it would hash itself. What `emit`
+writes is exactly those bytes, with nothing appended, so they can be saved as that file.
+
   python3 -m workenv.contracts.inventory <directory> --source <src_id> --at <instant>
   python3 -m workenv.contracts.inventory <directory> --against <manifest.json>
 """
@@ -34,6 +39,7 @@ from . import c01, canonical, schema
 KIND = "source_manifest"
 SCHEMA = 1
 FORMAT_VERSION = 1
+MANIFEST_NAME = "manifest.json"
 
 
 class InventoryError(ValueError):
@@ -41,8 +47,9 @@ class InventoryError(ValueError):
 
 
 def files(directory: pathlib.Path) -> list[pathlib.Path]:
-    """Every regular file under the directory, sorted. Two shapes are refused rather than
-    walked past, because an inventory of either would state something untrue."""
+    """Every regular file under the directory but its own manifest, sorted. Two shapes are
+    refused rather than walked past, because an inventory of either would state something
+    untrue."""
     if not directory.is_dir():
         # rglob over a path that is not a directory yields nothing, which reads as an empty
         # revision rather than as the wrong path.
@@ -52,7 +59,7 @@ def files(directory: pathlib.Path) -> list[pathlib.Path]:
         if path.is_symlink():
             raise InventoryError(f"{path.relative_to(directory).as_posix()} is a symbolic link; "
                                  f"a revision holds bytes, not a name for somebody else's")
-        if path.is_dir():
+        if path.is_dir() or path == directory / MANIFEST_NAME:
             continue
         if not path.is_file():
             raise InventoryError(f"{path.relative_to(directory).as_posix()} is not a regular "
@@ -144,7 +151,7 @@ def main(argv: list[str]) -> int:
         return 1 if disagreements else 0
     if len(argv) == 5 and argv[1] == "--source" and argv[3] == "--at":
         try:
-            sys.stdout.buffer.write(emit(pathlib.Path(argv[0]), argv[2], argv[4]) + b"\n")
+            sys.stdout.buffer.write(emit(pathlib.Path(argv[0]), argv[2], argv[4]))
         except (InventoryError, OSError) as error:
             print(f"FAIL: {error}")
             return 1

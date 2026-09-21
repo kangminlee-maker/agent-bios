@@ -1,14 +1,15 @@
 """C03 Owned operations: the gaps its operations answer with.
 
 Record kinds: `operation_request`, `operation_result`, `operation_receipt`, `operation_query`,
-`entrance_disposition`, `cutover_plan`.
+`request_not_held`, `entrance_disposition`, `cutover_plan`.
 
 Every protected operation of every contract travels in one sealed request and is answered by
 one result. The request names its payload by digest, so the payload's shape belongs to the
 contract that owns it. The digest of the request's stored bytes is its identity: the runtime
 adds no field to it, and the same `request_id` with other bytes is a conflict, never a second
 operation. A receipt is what makes an object accepted; asking again with the same request
-returns the original result and receipt.
+returns the original result and receipt. A result always answers a request its owner holds; an id
+the owner never received is answered by `request_not_held`, which carries nothing else.
 
 A request states its effect class. `pure_preview` writes nothing; a plan that is stored says
 `durable_candidate`; only `owner_commit` moves a head, and it names the base it expects.
@@ -29,7 +30,7 @@ three fields cannot, and `commits` is one because the cutover is abortable until
 """
 CONTRACT = "C03"
 RECORD_KINDS = ("operation_request", "operation_result", "operation_receipt", "operation_query",
-                "entrance_disposition", "cutover_plan")
+                "request_not_held", "entrance_disposition", "cutover_plan")
 IN_RESULTS = True
 
 # The operations of this contract that travel in a C03 sealed request.
@@ -57,21 +58,23 @@ CHOKE_POINTS = ("source_store", "projection_owner", "publication_lock")
 
 # The id prefixes whose owner keeps a head. A request targeting one names the base it expects
 # (`absent`, or the exact head); a request targeting anything else has no base to name, so a
-# head-moving request cannot be written without its stale-head precondition.
-HEAD_KEEPING = ("src", "env")
+# head-moving request cannot be written without its stale-head precondition. A source keeps its
+# revision head, a collection its original head (SSOT S13), an environment its edition, and a
+# Team the head its one finalizer sequences (SSOT S11).
+HEAD_KEEPING = ("src", "col", "env", "tem")
 
 # Targets no contract declares an id for, which operations nonetheless address: a stored
 # memory candidate before it is a record, and the concern an application preference answers.
 TARGET_ONLY = ("cnd", "cnc")
 
 # Why an entrance reaches no state the target keeps. Each value was found by tracing the
-# shipped tree; a reason no entrance has is not carried here.
+# shipped tree; a reason no entrance has is not carried here. Only `holds_no_write` holds whoever
+# chose the entrance's root; the others hold only under a root the entrance fixes itself.
 NO_REACH_REASONS = ("writes_only_under_temp", "writes_only_in_self_test",
                     "writes_outside_kept_state", "holds_no_write")
 
 REQUEST_ID_CONFLICT = "request_id_conflict"
 REQUEST_MISMATCH = "request_mismatch"
-REQUEST_UNKNOWN = "request_unknown"
 STALE_BASE = "stale_base"
 EFFECT_CLASS_MISMATCH = "effect_class_mismatch"
 OBJECT_DIGEST_MISMATCH = "object_digest_mismatch"
@@ -83,7 +86,6 @@ CANCEL_TOO_LATE = "cancel_too_late"
 ERRORS = {
     REQUEST_ID_CONFLICT: "a request id already used for a request with other bytes",
     REQUEST_MISMATCH: "an approval, proof or payload bound to another request than this one",
-    REQUEST_UNKNOWN: "a query for a request id this owner never received",
     STALE_BASE: "an owner commit whose expected base is no longer the head",
     EFFECT_CLASS_MISMATCH: "an operation that would write more than its stated effect class",
     OBJECT_DIGEST_MISMATCH: "staged bytes whose digest differs from the one the request names",
