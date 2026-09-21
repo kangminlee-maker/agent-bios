@@ -1,6 +1,6 @@
 {
  "case": "N27-C01-NEG",
- "says": "The repository keeps a repository-authored source at its first revision, and the Team platform has installed a published package source at the publisher's revision. Three requests must each be refused by the owner, with nothing written: registering a second, managed home for the repository source (source_home_conflict: one source keeps one home); committing a revision of the installed package whose member bytes differ from the publisher's (publisher_bytes_modified: an addition is a derived source of its own, never an edit in place); and bob, who holds no grant from the Team, asking for a projection of the Team's package source (source_not_authorized). Unrelated and unaccepted state must be untouched afterwards: the repository source's next revision still commits on the head its first revision left, and resolving the package's member still returns the publisher's revision.",
+ "says": "The repository keeps a repository-authored source at its first revision, and the Team platform has installed a published package source at the publisher's revision. Three requests must each be refused by the owner, with nothing written: registering a second, managed home for the repository source (source_home_conflict: one source keeps one home); committing a revision of the installed package whose member bytes differ from the publisher's (publisher_bytes_modified: an addition is a derived source of its own, never an edit in place); and bob, who holds no grant from the Team, asking for a projection of the Team's package source (source_not_authorized). Unrelated and unaccepted state must be untouched afterwards: the repository source's next revision still commits on the head its first revision left, and resolving the package's member still returns the publisher's revision beside the package's one home.",
  "ids": [
   {
    "name": "alice",
@@ -61,10 +61,6 @@
   {
    "name": "commit_repo_rules_r1_rid",
    "prefix": "req"
-  },
-  {
-   "name": "repo_rules_twin_store",
-   "prefix": "col"
   },
   {
    "name": "register_a_second_home_rid",
@@ -472,19 +468,95 @@
   },
   {
    "name": "team_active",
-   "from": "c08/archived_team.json",
+   "from": "c08/active_team.json",
    "set": [
     {
      "pointer": "/since",
      "value": "$instant:founded_at"
     },
     {
-     "pointer": "/state",
-     "value": "active"
+     "pointer": "/team_id",
+     "value": "@platform"
+    }
+   ]
+  },
+  {
+   "name": "platform_sealed_proposal",
+   "from": "founding",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:platform_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "platform_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:platform_founder"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
     },
     {
      "pointer": "/team_id",
      "value": "@platform"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#platform_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "platform_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:platform_h1"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "platform_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:founded_at"
     }
    ]
   },
@@ -630,7 +702,7 @@
     },
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/owner/layer",
@@ -685,10 +757,6 @@
     {
      "pointer": "/applicability/states",
      "value": "unstated"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@repo_rules_twin_store"
     },
     {
      "pointer": "/home/markdown_view/view",
@@ -898,7 +966,7 @@
     },
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/owner/team_id",
@@ -979,7 +1047,7 @@
     },
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/owner/team_id",
@@ -1038,9 +1106,6 @@
   {
    "name": "bob_projects_the_package",
    "from": "c04/projection_request.json",
-   "drop": [
-    "/target/base"
-   ],
    "set": [
     {
      "pointer": "/request_id",
@@ -1064,7 +1129,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@work_repo"
+     "value": "@bob"
     },
     {
      "pointer": "/payload_digest",
@@ -1122,7 +1187,7 @@
     },
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/owner/layer",
@@ -1302,9 +1367,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "platform_sealed_proposal",
      "team_policy",
+     "platform_founder_membership",
      "alice_team_grant",
-     "team_active"
+     "team_active",
+     "platform_profile",
+     "platform_founding_epoch"
     ],
     "head": "platform_h1"
    },
@@ -1478,7 +1547,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "tax_package_r1_stored"
+     "tax_package_r1_stored",
+     "tax_package_home_stored"
     ]
    }
   }

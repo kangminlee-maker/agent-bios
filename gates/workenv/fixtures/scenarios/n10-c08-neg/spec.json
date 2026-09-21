@@ -1,6 +1,6 @@
 {
  "case": "N10-C08-NEG",
- "says": "Five ways into a Team that must each grant nothing. (1) Ana seals a reviewed founding that nominates Ben as reviewer; Ben records his acceptance of that exact founding request; Ana then revises the proposal to version 2 and submits it offering Ben's acceptance of version 1, and the owner refuses it with acceptances_void_after_revision and commits nothing. (2) A reviewed founding that names no nominee is refused at admission, so a missing independent participant never selects a solo Team. (3) Ana founds the Crew Team, and a second team.found for the same Team id is refused with bootstrap_already_committed. (4) Ana invites Ben to Crew and cancels the invitation; a day later Ben, who has bound his key and kept the Team's verification of it, consents to the cancelled invitation and is refused with invitation_not_open, and a membership change naming the invitation with no consent is refused at admission. (5) Mallory, on her own device, founds a different Team also named Crew and then asks the real Crew for a grant under her own Team's policy; the owner refuses it with grant_not_held. No refused step returns a record or moves a head.",
+ "says": "Five ways into a Team that must each grant nothing. (1) Ana seals a reviewed founding that nominates Ben as reviewer and submits it; the owner holds it in review with the sealed proposal and a founding state, waiting for its nominee. Ben records his acceptance of that exact founding request. Ana then revises the proposal to version 2 and submits it offering Ben's acceptance of version 1, and the owner refuses it with acceptances_void_after_revision and commits nothing. (2) A reviewed founding that names no nominee is refused at admission, so a missing independent participant never selects a solo Team. (3) Ana founds the Crew Team, which returns her membership by founding and the founding epoch, and a second team.found for the same Team id is refused with bootstrap_already_committed. (4) Ana invites Ben to Crew; Ben binds his key and Ana verifies in person that he holds it (team.verification.record); Ana then cancels the invitation. A day later Ben consents to the cancelled invitation, naming the invitation, his key and the verification, and is refused with invitation_not_open, and a membership change naming the invitation with no consent is refused at admission. (5) Mallory, on her own device, founds a different Team also named Crew and then asks the real Crew, at its current head, for a grant under her own Team's policy; the owner refuses it with grant_not_held. No refused step returns a record or moves a head, and a second Team with the same name is a different Team id that confers nothing in the first.",
  "ids": [
   {
    "name": "ana",
@@ -43,6 +43,10 @@
    "prefix": "req"
   },
   {
+   "name": "verify_ben_request",
+   "prefix": "req"
+  },
+  {
    "name": "team",
    "prefix": "tem"
   },
@@ -80,14 +84,6 @@
   },
   {
    "name": "cancel_ben_invitation_request",
-   "prefix": "req"
-  },
-  {
-   "name": "ben_verification",
-   "prefix": "ctl"
-  },
-  {
-   "name": "keep_ben_verification_request",
    "prefix": "req"
   },
   {
@@ -328,6 +324,34 @@
     {
      "pointer": "/payload_digest",
      "value": "#team_proposal_v1"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal_v1",
+   "from": "team_proposal_v1",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_proposed_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_state",
+   "from": "c08/team_still_founding.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/since",
+     "value": "$instant:team_proposed_at"
     }
    ]
   },
@@ -651,6 +675,68 @@
     {
      "pointer": "/recovery/0/principal_id",
      "value": "@ana"
+    }
+   ]
+  },
+  {
+   "name": "crew_sealed_proposal",
+   "from": "crew_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:crew_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:crew_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "crew_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:crew_founder_membership_id"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@crew"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#crew_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:crew_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "crew_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@crew"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:crew_head_1"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@ana_device"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:crew_founded_at"
     }
    ]
   },
@@ -1087,7 +1173,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:crew_head_2"
+     "value": "$digest:crew_head_3"
     },
     {
      "pointer": "/payload_digest",
@@ -1132,119 +1218,82 @@
    ]
   },
   {
-   "name": "ben_verification_permit",
-   "from": "c02/offline_permit_for_one_device.json",
+   "name": "ben_verification_submitted",
+   "from": "c08/verification_as_submitted.json",
    "set": [
     {
-     "pointer": "/evidence_id",
-     "value": "@ben_verification"
-    },
-    {
-     "pointer": "/issuer/team_id",
+     "pointer": "/team_id",
      "value": "@crew"
     },
     {
-     "pointer": "/issuer/authority_principal_id",
-     "value": "@ana"
+     "pointer": "/invitation_digest",
+     "value": "#ben_invitation"
     },
     {
-     "pointer": "/holder/principal_id",
-     "value": "@ben"
+     "pointer": "/binding_digest",
+     "value": "#ben_key"
     },
     {
-     "pointer": "/holder/device_id",
-     "value": "@ben_device"
-    },
-    {
-     "pointer": "/scope/team_id",
-     "value": "@crew"
-    },
-    {
-     "pointer": "/issued_at",
-     "value": "2026-09-21T09:00:00Z"
-    },
-    {
-     "pointer": "/statement/attests",
-     "value": [
-      "#ben_key"
-     ]
-    },
-    {
-     "pointer": "/statement/valid_until",
-     "value": "2026-12-31T09:00:00Z"
-    },
-    {
-     "pointer": "/statement/offline/until",
-     "value": "2026-09-28T09:00:00Z"
+     "pointer": "/procedure",
+     "value": "in_person"
     }
    ]
   },
   {
-   "name": "keep_ben_verification",
-   "from": "c08/governed_change_request.json",
-   "drop": [
-    "/owner/team_id"
-   ],
+   "name": "verify_ben",
+   "from": "c08/verification_request.json",
    "set": [
     {
      "pointer": "/request_id",
-     "value": "@keep_ben_verification_request"
-    },
-    {
-     "pointer": "/operation",
-     "value": "access.control.record"
-    },
-    {
-     "pointer": "/action",
-     "value": "local_profile"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "owner_commit"
-    },
-    {
-     "pointer": "/local_access_generation",
-     "value": 7
+     "value": "@verify_ben_request"
     },
     {
      "pointer": "/actor/principal_id",
-     "value": "@ben"
+     "value": "@ana"
     },
     {
      "pointer": "/actor/device_id",
-     "value": "@ben_device"
+     "value": "@ana_device"
     },
     {
      "pointer": "/actor/profile_id",
-     "value": "@ben_profile"
+     "value": "@ana_profile"
     },
     {
-     "pointer": "/policy_digests",
-     "value": []
-    },
-    {
-     "pointer": "/control_digests",
-     "value": []
-    },
-    {
-     "pointer": "/proof_digests",
-     "value": []
-    },
-    {
-     "pointer": "/owner/layer",
-     "value": "personal"
-    },
-    {
-     "pointer": "/owner/principal_id",
-     "value": "@ben"
+     "pointer": "/owner/team_id",
+     "value": "@crew"
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@ben_profile"
+     "value": "@crew"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:crew_head_2"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#crew_policy"
+     ]
     },
     {
      "pointer": "/payload_digest",
-     "value": "#ben_verification_permit"
+     "value": "#ben_verification_submitted"
+    }
+   ]
+  },
+  {
+   "name": "ben_verification",
+   "from": "ben_verification_submitted",
+   "set": [
+    {
+     "pointer": "/verifier_principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/verified_at",
+     "value": "$instant:ben_verified_at"
     }
    ]
   },
@@ -1262,7 +1311,7 @@
     },
     {
      "pointer": "/verification_digest",
-     "value": "#ben_verification_permit"
+     "value": "#ben_verification"
     }
    ]
   },
@@ -1330,7 +1379,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:crew_head_3"
+     "value": "$digest:crew_head_4"
     },
     {
      "pointer": "/payload_digest",
@@ -1424,7 +1473,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:crew_head_3"
+     "value": "$digest:crew_head_4"
     },
     {
      "pointer": "/payload_digest",
@@ -1498,6 +1547,68 @@
     {
      "pointer": "/recovery/0/principal_id",
      "value": "@mallory"
+    }
+   ]
+  },
+  {
+   "name": "copycat_sealed_proposal",
+   "from": "copycat_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:copycat_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:copycat_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "copycat_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:copycat_founder_membership_id"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@copycat"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@mallory"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#copycat_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:copycat_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "copycat_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@copycat"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:copycat_head_1"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@mallory_device"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:copycat_founded_at"
     }
    ]
   },
@@ -1767,7 +1878,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:crew_head_3"
+     "value": "$digest:crew_head_4"
     },
     {
      "pointer": "/payload_digest",
@@ -1794,6 +1905,35 @@
     ]
    },
    "process": "desktop"
+  },
+  {
+   "name": "propose_v1",
+   "request": "found_team_v1",
+   "carries": [
+    "team_proposal_v1",
+    "team_rules"
+   ],
+   "answer": {
+    "stage": "in_review",
+    "local_effect": "candidate_stored",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "approval_threshold_unmet"
+     }
+    ],
+    "recovery": [
+     "retry_same_request"
+    ],
+    "returns": [
+     "team_sealed_proposal_v1",
+     "team_founding_state"
+    ]
+   },
+   "process": "laptop",
+   "submits": [
+    "team_rules"
+   ]
   },
   {
    "name": "accept_founding_v1",
@@ -1872,10 +2012,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "crew_sealed_proposal",
      "crew_policy",
+     "crew_founder_membership",
      "crew_founder_grant",
      "crew_active",
-     "crew_profile"
+     "crew_profile",
+     "crew_founding_epoch"
     ],
     "head": "crew_head_1"
    },
@@ -1930,6 +2073,25 @@
    "process": "laptop"
   },
   {
+   "name": "verify_ben",
+   "request": "verify_ben",
+   "carries": [
+    "ben_verification_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "ben_verification"
+    ],
+    "head": "crew_head_3"
+   },
+   "process": "laptop"
+  },
+  {
    "name": "cancel_ben_invitation",
    "request": "cancel_ben_invitation",
    "carries": [
@@ -1945,29 +2107,10 @@
      "ben_invitation_cancelled",
      "ben_standing_cancelled"
     ],
-    "head": "crew_head_3"
+    "head": "crew_head_4"
    },
    "process": "laptop",
    "advance_seconds": 3600
-  },
-  {
-   "name": "keep_ben_verification",
-   "request": "keep_ben_verification",
-   "carries": [
-    "ben_verification_permit"
-   ],
-   "answer": {
-    "stage": "committed",
-    "local_effect": "private_state_written",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "ben_verification_permit"
-    ]
-   },
-   "process": "desktop",
-   "advance_seconds": 86400
   },
   {
    "name": "consent_after_cancellation",
@@ -1990,7 +2133,7 @@
     "returns": []
    },
    "process": "desktop",
-   "advance_seconds": 60
+   "advance_seconds": 86400
   },
   {
    "name": "admit_without_consent",
@@ -2021,10 +2164,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "copycat_sealed_proposal",
      "copycat_policy",
+     "copycat_founder_membership",
      "copycat_founder_grant",
      "copycat_active",
-     "copycat_profile"
+     "copycat_profile",
+     "copycat_founding_epoch"
     ],
     "head": "copycat_head_1"
    },

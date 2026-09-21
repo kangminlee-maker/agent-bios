@@ -1,6 +1,6 @@
 {
  "case": "BKP-INTEGRITY",
- "says": "On her laptop Alice commits a revision of her private notes source and takes a backup, then commits a second revision and takes a second backup. Each backup set binds the exact database snapshot and the immutable members a restore needs — the revision object and the control sequence — by path, digest and size. After the live database is lost, on a rebuilt runtime: restoring the first backup's set with a member added that only the second backup holds is refused with backup_set_incomplete, because the backup directory lacks a member its manifest names; restoring the second backup's set with its object member taken from the first backup is refused with backup_set_damaged, because what is present does not hash to what the set names. Neither refusal writes anything: a query for the second commit's request id still answers request_not_held. Restoring the second backup's set exactly as taken is reported, and the second commit's result and receipt are then returned by the same query. What must not happen: a missing, corrupt or mixed member accepted by guess, or a refused restore leaving any part of either backup in place.",
+ "says": "On her laptop Alice registers her private notes source, commits a revision on the head the registration made and takes a backup, then commits a second revision and takes a second backup. Each backup set binds the exact database snapshot and the immutable members a restore needs — the revision object and the control sequence — by path, digest and size. After the live database is lost, on a rebuilt runtime: restoring the first backup's set with a member added that only the second backup holds is refused with backup_set_incomplete, because the backup directory lacks a member its manifest names; restoring the second backup's set with its object member taken from the first backup is refused with backup_set_damaged, because what is present does not hash to what the set names. Neither refusal writes anything: a query for the second commit's request id on the rebuilt runtime, which nothing has yet been restored onto, still answers request_not_held. Restoring the second backup's set exactly as taken is reported, and the second commit's result and receipt are then returned by the same query. What must not happen: a missing, corrupt or mixed member accepted by guess, or a refused restore leaving any part of either backup in place.",
  "ids": [
   {
    "name": "alice",
@@ -17,10 +17,6 @@
   {
    "name": "notes_source",
    "prefix": "src"
-  },
-  {
-   "name": "notes_collection",
-   "prefix": "col"
   },
   {
    "name": "bind_request",
@@ -170,10 +166,6 @@
      "value": "@alice"
     },
     {
-     "pointer": "/home/collection_id",
-     "value": "@notes_collection"
-    },
-    {
      "pointer": "/role",
      "value": "knowledge"
     },
@@ -201,7 +193,7 @@
     },
     {
      "pointer": "/action",
-     "value": "local_profile"
+     "value": "contribute"
     },
     {
      "pointer": "/effect_class",
@@ -315,11 +307,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#revision_1"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:notes_head_0"
     }
    ]
   },
@@ -936,56 +932,6 @@
      "value": "@ask_request_2"
     }
    ]
-  },
-  {
-   "name": "commit_receipt",
-   "from": "c03/commit_receipt.json",
-   "drop": [
-    "/owner/team_id",
-    "/target/base"
-   ],
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@commit_request_2"
-    },
-    {
-     "pointer": "/request_digest",
-     "value": "#commit_2"
-    },
-    {
-     "pointer": "/owner/layer",
-     "value": "personal"
-    },
-    {
-     "pointer": "/owner/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@notes_source"
-    },
-    {
-     "pointer": "/head_digest",
-     "value": "$digest:notes_head_2"
-    },
-    {
-     "pointer": "/sequence",
-     "value": "$integer:sequence_2"
-    },
-    {
-     "pointer": "/committed_at",
-     "value": "$instant:committed_at_2"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "head"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:notes_head_1"
-    }
-   ]
   }
  ],
  "steps": [
@@ -1021,7 +967,8 @@
     "recovery": [],
     "returns": [
      "stored_home"
-    ]
+    ],
+    "head": "notes_head_0"
    },
    "process": "laptop"
   },
@@ -1189,7 +1136,7 @@
     "recovery": [],
     "returns": [
      "commit_second_revision_result",
-     "commit_receipt"
+     "commit_second_revision_receipt"
     ]
    },
    "process": "rebuilt"

@@ -10,7 +10,9 @@ computing a result and writing it refuses the write.
 
 What the bridge received is a `bridge_request` — headers as sent, the client token by digest, the
 operation request by digest — and what it did with the body is a `bridge_response`. C02's
-`access.bridge.serve` carries one to the other.
+`access.bridge.serve` carries one to the other. The token is minted per launch with the page's
+access handle, which names its digest; a token no handle of this launch names is
+`client_token_unknown`.
 """
 CONTRACT = "B04"
 RECORD_KINDS = ("bridge_binding", "bridge_request", "bridge_response")

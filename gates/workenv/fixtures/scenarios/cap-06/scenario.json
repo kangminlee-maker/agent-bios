@@ -45,16 +45,6 @@
    "record": "bind_key_request"
   },
   {
-   "minted": "alice_binding",
-   "pointer": "/binding_id",
-   "record": "alice_key"
-  },
-  {
-   "minted": "alice_bound_at",
-   "pointer": "/created_at",
-   "record": "alice_key"
-  },
-  {
    "digest_of": "bind_key_request",
    "pointer": "/request_digest",
    "record": "bind_device_key_receipt"
@@ -73,6 +63,16 @@
    "minted": "bind_device_key_committed_at",
    "pointer": "/committed_at",
    "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "alice_binding",
+   "pointer": "/binding_id",
+   "record": "alice_key"
+  },
+  {
+   "minted": "alice_bound_at",
+   "pointer": "/created_at",
+   "record": "alice_key"
   },
   {
    "digest_of": "bind_device_key_receipt",
@@ -95,11 +95,6 @@
    "record": "bind_repo_request"
   },
   {
-   "minted": "checkout_bytes",
-   "pointer": "/observed/working_bytes_digest",
-   "record": "repo_binding"
-  },
-  {
    "digest_of": "bind_repo_request",
    "pointer": "/request_digest",
    "record": "bind_repository_receipt"
@@ -118,6 +113,11 @@
    "minted": "bind_repository_committed_at",
    "pointer": "/committed_at",
    "record": "bind_repository_receipt"
+  },
+  {
+   "minted": "checkout_bytes",
+   "pointer": "/observed/working_bytes_digest",
+   "record": "repo_binding"
   },
   {
    "digest_of": "bind_repository_receipt",
@@ -140,26 +140,6 @@
    "record": "import_request"
   },
   {
-   "minted": "adr_revision_at",
-   "pointer": "/produced_at",
-   "record": "adr_revision"
-  },
-  {
-   "minted": "adr_acquired_at",
-   "pointer": "/acquisition/acquired_at",
-   "record": "adr_provenance"
-  },
-  {
-   "minted": "adr_availability",
-   "pointer": "/acquisition/availability_evidence_digest",
-   "record": "adr_provenance"
-  },
-  {
-   "minted": "adr_decision_date_evidence",
-   "pointer": "/claims/1/support/evidence_digest",
-   "record": "adr_provenance"
-  },
-  {
    "digest_of": "import_request",
    "pointer": "/request_digest",
    "record": "import_adr_receipt"
@@ -178,6 +158,26 @@
    "minted": "import_adr_committed_at",
    "pointer": "/committed_at",
    "record": "import_adr_receipt"
+  },
+  {
+   "minted": "adr_revision_at",
+   "pointer": "/produced_at",
+   "record": "adr_revision"
+  },
+  {
+   "minted": "adr_acquired_at",
+   "pointer": "/acquisition/acquired_at",
+   "record": "adr_provenance"
+  },
+  {
+   "minted": "adr_availability",
+   "pointer": "/acquisition/availability_evidence_digest",
+   "record": "adr_provenance"
+  },
+  {
+   "minted": "adr_decision_date_evidence",
+   "pointer": "/claims/1/support/evidence_digest",
+   "record": "adr_provenance"
   },
   {
    "digest_of": "import_adr_receipt",
@@ -360,25 +360,6 @@
    }
   },
   {
-   "digest": "e0f515c7632e4032717f72af98e2ab8b662241f38c8660783da6f1a2e5f0676f",
-   "name": "alice_key",
-   "record": {
-    "binding_id": "bnd_4d6bfdb0f6e9b3dce352c186a6cb7d48",
-    "created_at": "2000-01-01T00:00:00Z",
-    "credential": {
-     "credential": "device_key",
-     "device_id": "dev_06cc9e74f5cd8d26c4890a2500e74983",
-     "key_generation": 1,
-     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
-    },
-    "established_by": "local_creation",
-    "evidence_digests": [],
-    "kind": "principal_binding",
-    "principal_id": "prn_eae2b2b011300dde98a07c3b008e24e1",
-    "schema": 1
-   }
-  },
-  {
    "digest": "8f58532db0667451c4646efd6891a684c300b8cae3bc15edb08a1d6bc5e16103",
    "name": "bind_device_key_receipt",
    "record": {
@@ -396,6 +377,25 @@
     "target": {
      "resource_id": "prn_eae2b2b011300dde98a07c3b008e24e1"
     }
+   }
+  },
+  {
+   "digest": "e0f515c7632e4032717f72af98e2ab8b662241f38c8660783da6f1a2e5f0676f",
+   "name": "alice_key",
+   "record": {
+    "binding_id": "bnd_4d6bfdb0f6e9b3dce352c186a6cb7d48",
+    "created_at": "2000-01-01T00:00:00Z",
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_06cc9e74f5cd8d26c4890a2500e74983",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_eae2b2b011300dde98a07c3b008e24e1",
+    "schema": 1
    }
   },
   {
@@ -464,24 +464,6 @@
    }
   },
   {
-   "digest": "775da2fd34699b84f98781eed58c3e79722d842472039cd04fe425147e68dee7",
-   "name": "repo_binding",
-   "record": {
-    "kind": "repository_binding",
-    "observed": {
-     "branch": "main",
-     "commit": "0123456789abcdef0123456789abcdef01234567",
-     "locator": "git@github.com:example/work.git",
-     "working_bytes_digest": "ae5572322515c5f2f29d89abaa36bcb1f5ad8560eb7f357a206068dc349b0fd6"
-    },
-    "relation": {
-     "how": "clone"
-    },
-    "repository_id": "rep_dff40b8cbcad382da33200fb2bcb8e79",
-    "schema": 1
-   }
-  },
-  {
    "digest": "1c1576e1c97875afc72eaf2001a6cec21a3be6bee5dfecc52e67dd580d00e47e",
    "name": "bind_repository_receipt",
    "record": {
@@ -499,6 +481,24 @@
     "target": {
      "resource_id": "rep_dff40b8cbcad382da33200fb2bcb8e79"
     }
+   }
+  },
+  {
+   "digest": "775da2fd34699b84f98781eed58c3e79722d842472039cd04fe425147e68dee7",
+   "name": "repo_binding",
+   "record": {
+    "kind": "repository_binding",
+    "observed": {
+     "branch": "main",
+     "commit": "0123456789abcdef0123456789abcdef01234567",
+     "locator": "git@github.com:example/work.git",
+     "working_bytes_digest": "ae5572322515c5f2f29d89abaa36bcb1f5ad8560eb7f357a206068dc349b0fd6"
+    },
+    "relation": {
+     "how": "clone"
+    },
+    "repository_id": "rep_dff40b8cbcad382da33200fb2bcb8e79",
+    "schema": 1
    }
   },
   {
@@ -580,6 +580,29 @@
    }
   },
   {
+   "digest": "6e36dc787c3a2da92888008e38bbf1a44eb688dda70aa6b7752789169c4f59dc",
+   "name": "import_adr_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "4dc82d245792cf814d7c6b15a4c7634310f0fc43cc1b5fea3af14c7c1d686350",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_dff40b8cbcad382da33200fb2bcb8e79"
+    },
+    "request_digest": "a59143cd0d4c9998c74ca62e1c432e742e08c046a04a9b8e966e6f0b1497c71c",
+    "request_id": "req_0a2452fbf184bc4b3ed6b4642758fa37",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_bcbba776a21f6388f758514014cc0c85"
+    }
+   }
+  },
+  {
    "digest": "0ae6e038e7ade500a1f2cf5ccb4403b53aa2fe5996685499043c7f962633c0c8",
    "name": "adr_revision",
    "record": {
@@ -648,29 +671,6 @@
     "role": "memory",
     "schema": 1,
     "source_id": "src_bcbba776a21f6388f758514014cc0c85"
-   }
-  },
-  {
-   "digest": "6e36dc787c3a2da92888008e38bbf1a44eb688dda70aa6b7752789169c4f59dc",
-   "name": "import_adr_receipt",
-   "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "4dc82d245792cf814d7c6b15a4c7634310f0fc43cc1b5fea3af14c7c1d686350",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "repository",
-     "repository_id": "rep_dff40b8cbcad382da33200fb2bcb8e79"
-    },
-    "request_digest": "a59143cd0d4c9998c74ca62e1c432e742e08c046a04a9b8e966e6f0b1497c71c",
-    "request_id": "req_0a2452fbf184bc4b3ed6b4642758fa37",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "base": {
-      "expects": "absent"
-     },
-     "resource_id": "src_bcbba776a21f6388f758514014cc0c85"
-    }
    }
   },
   {

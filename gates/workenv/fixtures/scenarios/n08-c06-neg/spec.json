@@ -1,6 +1,6 @@
 {
  "case": "N08-C06-NEG",
- "says": "A repository knowledge source is registered and committed, and a reader's first page stops at a one-unit budget with a continuation taken at the source's head. Sending that continuation under another work scope (personal instead of the repository) is refused with cursor_basis_moved. The profile is then locked: a read while locked is refused and comes back denied with access_not_established, naming no source, unit or continuation. After unlocking, the continuation taken before the lock is refused with cursor_revoked. A fresh first page gives a new continuation; a second revision is committed, and that continuation is refused with cursor_basis_moved while the result names the new head. A concern the source has nothing to say about comes back empty, with its frontier and no gap; a read that requires a source this installation does not hold comes back unavailable and names that source as missing. Empty, denied, unavailable and truncated are four different results and none is reported as another. Finally an envelope that claims to retain a body by its digest alone, without the qualifications it holds with it, is refused at admission (missing qualifications_digest) and nothing is read.",
+ "says": "The reader binds their device key and their checkout of the repository; a repository knowledge source named by that checkout binding is registered, and its first revision is committed at the head the registration moved to. A reader's first page stops at a one-unit budget with a continuation taken at the source's head. Sending that continuation under another work scope (personal instead of the repository) is refused with cursor_basis_moved. The profile is then locked: a read while locked is refused and comes back denied with access_not_established, naming no source, unit or continuation. After unlocking, the continuation taken before the lock is refused with cursor_revoked. A fresh first page gives a new continuation; a second revision is committed, and that continuation is refused with cursor_basis_moved while the result names the new head. A concern the source has nothing to say about comes back empty, with its frontier and no gap; a read that requires a source this installation does not hold comes back unavailable and names that source as missing. Empty, denied, unavailable and truncated are four different results and none is reported as another. Finally an envelope that claims to retain a body by its digest alone, without the qualifications it holds with it, is refused at admission (missing qualifications_digest) and nothing is read.",
  "ids": [
   {
    "name": "rates",
@@ -81,9 +81,140 @@
   {
    "name": "retained_claim_request_id",
    "prefix": "req"
+  },
+  {
+   "name": "bind_my_key_id",
+   "prefix": "req"
+  },
+  {
+   "name": "bind_my_checkout_id",
+   "prefix": "req"
   }
  ],
  "records": [
+  {
+   "name": "my_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "my_key_stored",
+   "from": "my_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:my_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:my_key_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "bind_my_key",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_my_key_id"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#my_key"
+    }
+   ]
+  },
+  {
+   "name": "my_checkout",
+   "from": "c01/repository_binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "my_checkout_bound",
+   "from": "c01/clone_shares_the_repository_id.json",
+   "drop": [
+    "/observed/working_bytes_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "bind_my_checkout",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_my_checkout_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "repository.bind"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#my_checkout"
+    }
+   ]
+  },
   {
    "name": "rates_home",
    "from": "sources/home_submitted.json",
@@ -126,7 +257,7 @@
     },
     {
      "pointer": "/home/binding_evidence_digest",
-     "value": "47a017af61158bae8401475d7156faf45fe1f355b9b2c2f9fc8ebc54de98a9e4"
+     "value": "#my_checkout_bound"
     },
     {
      "pointer": "/acceptance_authority/layer",
@@ -260,9 +391,6 @@
   {
    "name": "commit_rates_rev1",
    "from": "c04/model_check_request.json",
-   "drop": [
-    "/target/base/head_digest"
-   ],
    "set": [
     {
      "pointer": "/request_id",
@@ -298,7 +426,7 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
@@ -307,6 +435,10 @@
     {
      "pointer": "/owner/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:rates_registered"
     }
    ]
   },
@@ -850,7 +982,7 @@
     },
     {
      "pointer": "/access_generation",
-     "value": 9
+     "value": 8
     },
     {
      "pointer": "/state/is",
@@ -1049,7 +1181,7 @@
     },
     {
      "pointer": "/local_access_generation",
-     "value": 9
+     "value": 8
     }
    ]
   },
@@ -1238,7 +1370,7 @@
     },
     {
      "pointer": "/local_access_generation",
-     "value": 9
+     "value": 8
     }
    ]
   },
@@ -1336,7 +1468,7 @@
     },
     {
      "pointer": "/local_access_generation",
-     "value": 9
+     "value": 8
     }
    ]
   },
@@ -1469,7 +1601,7 @@
     },
     {
      "pointer": "/local_access_generation",
-     "value": 9
+     "value": 8
     }
    ]
   },
@@ -1590,7 +1722,7 @@
     },
     {
      "pointer": "/local_access_generation",
-     "value": 9
+     "value": 8
     }
    ]
   },
@@ -1734,7 +1866,7 @@
     },
     {
      "pointer": "/local_access_generation",
-     "value": 9
+     "value": 8
     }
    ]
   },
@@ -1841,12 +1973,46 @@
     },
     {
      "pointer": "/local_access_generation",
-     "value": 9
+     "value": 8
     }
    ]
   }
  ],
  "steps": [
+  {
+   "name": "bind_my_key",
+   "request": "bind_my_key",
+   "carries": [
+    "my_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "my_key_stored"
+    ]
+   }
+  },
+  {
+   "name": "bind_my_checkout",
+   "request": "bind_my_checkout",
+   "carries": [
+    "my_checkout"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "my_checkout_bound"
+    ]
+   }
+  },
   {
    "name": "register_rates_home",
    "request": "register_rates",
@@ -1861,7 +2027,8 @@
     "recovery": [],
     "returns": [
      "rates_home_stored"
-    ]
+    ],
+    "head": "rates_registered"
    }
   },
   {
@@ -1928,7 +2095,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1968,7 +2135,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],

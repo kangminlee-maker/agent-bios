@@ -1,6 +1,6 @@
 {
  "case": "CMP-STORAGE",
- "says": "The repository, alice and the Team platform each keep three separate positions, one for Instructions, one for knowledge and one for decision memory: nine collections, each created by its own owner's change and each with its own head. The repository selects an Instructions source and follows a memory source at the frontier each operation observes; alice selects an Instructions source; the Team selects an Instructions source and a knowledge source; the other positions are created empty. A session start composed over all three scopes must name all nine positions at the heads it read, with the empty ones as empty, name every unit with its source, revision and layer, and name the memory source's observed frontier rather than a pinned revision. The start is derived from those heads and writes none of them: reading the Team's Instructions position afterwards returns the same collection its change stored. Two attempts to make the applied view an original must fail: a collection whose position is the effective environment is refused at admission (variant_mismatch at /position/scope: there is no tenth position), and registering the Team's Instructions source again under alice's personal managed home is refused with source_home_conflict. What must not happen: the flattened start overwriting or re-owning any position, or being taken back in as a second authoritative source.",
+ "says": "The repository, alice and the Team platform each keep three separate positions, one for Instructions, one for knowledge and one for decision memory: nine collections, each created by its own owner's change and each with its own head. The repository selects an Instructions source and follows a memory source at the frontier each operation observes; alice selects an Instructions source; the Team selects an Instructions source and a knowledge source; the other positions are created empty. alice then stages a draft of her Instructions source in her personal Instructions position: the change carries the draft's manifest beside the position and lists it, the owner stages it without accepting it, and the source's own head does not move. A session start composed over all three scopes must name all nine positions at the heads it read, with the empty ones as empty, name every unit with its source, revision and layer (alice's unit at its committed revision, never the staged draft), and name the memory source's observed frontier rather than a pinned revision. The start is derived from those heads and writes none of them: reading the Team's Instructions position afterwards returns the same collection its change stored. Two attempts to make the applied view an original must fail: a collection whose position is the effective environment is refused at admission (variant_mismatch at /position/scope: there is no tenth position), and registering the Team's Instructions source again under alice's personal managed home is refused with source_home_conflict. What must not happen: the flattened start overwriting or re-owning any position, or being taken back in as a second authoritative source.",
  "ids": [
   {
    "name": "alice",
@@ -63,10 +63,6 @@
    "prefix": "src"
   },
   {
-   "name": "my_rules_store",
-   "prefix": "col"
-  },
-  {
    "name": "register_my_rules_rid",
    "prefix": "req"
   },
@@ -79,10 +75,6 @@
    "prefix": "src"
   },
   {
-   "name": "team_rules_store",
-   "prefix": "col"
-  },
-  {
    "name": "register_team_rules_rid",
    "prefix": "req"
   },
@@ -93,10 +85,6 @@
   {
    "name": "team_tables",
    "prefix": "src"
-  },
-  {
-   "name": "team_tables_store",
-   "prefix": "col"
   },
   {
    "name": "register_team_tables_rid",
@@ -195,11 +183,11 @@
    "prefix": "req"
   },
   {
-   "name": "reimport_store",
-   "prefix": "col"
+   "name": "reimport_the_applied_view_rid",
+   "prefix": "req"
   },
   {
-   "name": "reimport_the_applied_view_rid",
+   "name": "stage_my_draft_rid",
    "prefix": "req"
   }
  ],
@@ -506,19 +494,95 @@
   },
   {
    "name": "team_active",
-   "from": "c08/archived_team.json",
+   "from": "c08/active_team.json",
    "set": [
     {
      "pointer": "/since",
      "value": "$instant:founded_at"
     },
     {
-     "pointer": "/state",
-     "value": "active"
+     "pointer": "/team_id",
+     "value": "@platform"
+    }
+   ]
+  },
+  {
+   "name": "platform_sealed_proposal",
+   "from": "founding",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:platform_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "platform_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:platform_founder"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
     },
     {
      "pointer": "/team_id",
      "value": "@platform"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#platform_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "platform_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:platform_h1"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "platform_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:founded_at"
     }
    ]
   },
@@ -664,7 +728,7 @@
     },
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/owner/layer",
@@ -840,7 +904,7 @@
     },
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/owner/layer",
@@ -895,10 +959,6 @@
     {
      "pointer": "/applicability/states",
      "value": "unstated"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@my_rules_store"
     },
     {
      "pointer": "/home/markdown_view/view",
@@ -1032,7 +1092,7 @@
     },
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/owner/layer",
@@ -1097,10 +1157,6 @@
     {
      "pointer": "/disclosure",
      "value": "team"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@team_rules_store"
     },
     {
      "pointer": "/home/markdown_view/view",
@@ -1235,7 +1291,7 @@
     },
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/owner/team_id",
@@ -1296,10 +1352,6 @@
     {
      "pointer": "/disclosure",
      "value": "team"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@team_tables_store"
     },
     {
      "pointer": "/home/markdown_view/view",
@@ -1438,7 +1490,7 @@
     },
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/owner/team_id",
@@ -1820,6 +1872,66 @@
     {
      "pointer": "/changed_at",
      "value": "$instant:my_instr_v1_at"
+    }
+   ]
+  },
+  {
+   "name": "my_rules_draft",
+   "from": "my_rules_r1",
+   "set": [
+    {
+     "pointer": "/members/0/digest",
+     "value": "e1e162011a1c04d5cd66b377862f2c8cc1d4c4133daef30941b7294b8ff93f99"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 452
+    }
+   ]
+  },
+  {
+   "name": "my_instr_v2",
+   "from": "my_instr_v1",
+   "set": [
+    {
+     "pointer": "/drafts/0/source_id",
+     "value": "@my_rules"
+    },
+    {
+     "pointer": "/drafts/0/manifest_digest",
+     "value": "#my_rules_draft"
+    }
+   ]
+  },
+  {
+   "name": "stage_my_draft",
+   "from": "change_my_instr_v1",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@stage_my_draft_rid"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "#my_instr_v1_stored"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#my_instr_v2"
+    }
+   ]
+  },
+  {
+   "name": "my_instr_v2_stored",
+   "from": "my_instr_v2",
+   "set": [
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:my_instr_v2_at"
     }
    ]
   },
@@ -2307,7 +2419,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "pure_preview"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -2331,7 +2443,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@work_repo"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
@@ -2352,7 +2464,7 @@
     },
     {
      "pointer": "/collections/0/head_digest",
-     "value": "$digest:repo_instr_h1"
+     "value": "#repo_instr_v1_stored"
     },
     {
      "pointer": "/collections/1/collection_id",
@@ -2360,7 +2472,7 @@
     },
     {
      "pointer": "/collections/1/head_digest",
-     "value": "$digest:repo_know_h1"
+     "value": "#repo_know_v1_stored"
     },
     {
      "pointer": "/collections/1/state",
@@ -2372,7 +2484,7 @@
     },
     {
      "pointer": "/collections/2/head_digest",
-     "value": "$digest:repo_mem_h1"
+     "value": "#repo_mem_v1_stored"
     },
     {
      "pointer": "/collections/2/state",
@@ -2384,7 +2496,7 @@
     },
     {
      "pointer": "/collections/3/head_digest",
-     "value": "$digest:my_instr_h1"
+     "value": "#my_instr_v2_stored"
     },
     {
      "pointer": "/collections/3/state",
@@ -2396,7 +2508,7 @@
     },
     {
      "pointer": "/collections/4/head_digest",
-     "value": "$digest:my_know_h1"
+     "value": "#my_know_v1_stored"
     },
     {
      "pointer": "/collections/4/state",
@@ -2408,7 +2520,7 @@
     },
     {
      "pointer": "/collections/5/head_digest",
-     "value": "$digest:my_mem_h1"
+     "value": "#my_mem_v1_stored"
     },
     {
      "pointer": "/collections/5/state",
@@ -2420,7 +2532,7 @@
     },
     {
      "pointer": "/collections/6/head_digest",
-     "value": "$digest:team_instr_h1"
+     "value": "#team_instr_v1_stored"
     },
     {
      "pointer": "/collections/6/state",
@@ -2432,7 +2544,7 @@
     },
     {
      "pointer": "/collections/7/head_digest",
-     "value": "$digest:team_know_h1"
+     "value": "#team_know_v1_stored"
     },
     {
      "pointer": "/collections/7/state",
@@ -2444,7 +2556,7 @@
     },
     {
      "pointer": "/collections/8/head_digest",
-     "value": "$digest:team_mem_h1"
+     "value": "#team_mem_v1_stored"
     },
     {
      "pointer": "/collections/8/state",
@@ -2662,7 +2774,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:team_instr_h1"
+     "value": "#team_instr_v1_stored"
     }
    ]
   },
@@ -2749,10 +2861,6 @@
     {
      "pointer": "/applicability/states",
      "value": "unstated"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@reimport_store"
     },
     {
      "pointer": "/home/markdown_view/view",
@@ -2875,9 +2983,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "platform_sealed_proposal",
      "team_policy",
+     "platform_founder_membership",
      "alice_team_grant",
-     "team_active"
+     "team_active",
+     "platform_profile",
+     "platform_founding_epoch"
     ],
     "head": "platform_h1"
    },
@@ -3080,7 +3192,7 @@
     "returns": [
      "repo_instr_v1_stored"
     ],
-    "head": "repo_instr_h1"
+    "head": "repo_instr_v1_stored"
    }
   },
   {
@@ -3098,7 +3210,7 @@
     "returns": [
      "repo_know_v1_stored"
     ],
-    "head": "repo_know_h1"
+    "head": "repo_know_v1_stored"
    }
   },
   {
@@ -3116,7 +3228,7 @@
     "returns": [
      "repo_mem_v1_stored"
     ],
-    "head": "repo_mem_h1"
+    "head": "repo_mem_v1_stored"
    }
   },
   {
@@ -3134,7 +3246,29 @@
     "returns": [
      "my_instr_v1_stored"
     ],
-    "head": "my_instr_h1"
+    "head": "my_instr_v1_stored"
+   }
+  },
+  {
+   "name": "stage_a_personal_draft",
+   "request": "stage_my_draft",
+   "carries": [
+    "my_instr_v2",
+    "my_rules_draft"
+   ],
+   "submits": [
+    "my_rules_draft"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "my_instr_v2_stored"
+    ],
+    "head": "my_instr_v2_stored"
    }
   },
   {
@@ -3152,7 +3286,7 @@
     "returns": [
      "my_know_v1_stored"
     ],
-    "head": "my_know_h1"
+    "head": "my_know_v1_stored"
    }
   },
   {
@@ -3170,7 +3304,7 @@
     "returns": [
      "my_mem_v1_stored"
     ],
-    "head": "my_mem_h1"
+    "head": "my_mem_v1_stored"
    }
   },
   {
@@ -3188,7 +3322,7 @@
     "returns": [
      "team_instr_v1_stored"
     ],
-    "head": "team_instr_h1"
+    "head": "team_instr_v1_stored"
    }
   },
   {
@@ -3206,7 +3340,7 @@
     "returns": [
      "team_know_v1_stored"
     ],
-    "head": "team_know_h1"
+    "head": "team_know_v1_stored"
    }
   },
   {
@@ -3224,7 +3358,7 @@
     "returns": [
      "team_mem_v1_stored"
     ],
-    "head": "team_mem_h1"
+    "head": "team_mem_v1_stored"
    }
   },
   {
@@ -3235,7 +3369,7 @@
    ],
    "answer": {
     "stage": "previewed",
-    "local_effect": "none",
+    "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],

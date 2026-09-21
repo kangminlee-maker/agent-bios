@@ -318,6 +318,68 @@
    ]
   },
   {
+   "name": "team_sealed_proposal",
+   "from": "team_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "alice_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:alice_membership_id"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
    "name": "found_team_request",
    "from": "c03/commit_request.json",
    "drop": [
@@ -1209,7 +1271,7 @@
     },
     {
      "pointer": "/collections/0/head_digest",
-     "value": "$digest:repo_position_head"
+     "value": "#repo_position_head_record"
     },
     {
      "pointer": "/collections/1/collection_id",
@@ -1217,7 +1279,7 @@
     },
     {
      "pointer": "/collections/1/head_digest",
-     "value": "$digest:team_position_head"
+     "value": "#team_position_head_record"
     },
     {
      "pointer": "/frontiers",
@@ -1429,6 +1491,10 @@
     {
      "pointer": "/payload_digest",
      "value": "#layered_selection"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
     }
    ]
   }
@@ -1482,10 +1548,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
+     "alice_membership",
      "alice_founding_grant",
      "team_state",
-     "team_profile"
+     "team_profile",
+     "team_founding_epoch"
     ],
     "head": "team_head"
    },
@@ -1562,7 +1631,7 @@
     "returns": [
      "repo_position_head_record"
     ],
-    "head": "repo_position_head"
+    "head": "repo_position_head_record"
    }
   },
   {
@@ -1580,7 +1649,7 @@
     "returns": [
      "team_position_head_record"
     ],
-    "head": "team_position_head"
+    "head": "team_position_head_record"
    }
   },
   {
@@ -1590,7 +1659,7 @@
     "layered_selection"
    ],
    "answer": {
-    "stage": "committed",
+    "stage": "previewed",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],

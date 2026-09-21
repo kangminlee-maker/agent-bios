@@ -1,6 +1,6 @@
 {
  "case": "N15-C11-NEG",
- "says": "Alice binds her device key, authors and selects a personal Instructions source, opens a link to her working conversation in a Codex host, and composes a preparation bound to it. Four attempts on that preparation must never claim a delivery nor repeat an effect. An attempt naming a link id the runtime never issued is refused as recipient_link_unknown and sees no channel. A resume of that session as a rehydrated recipient, which this host's route cannot carry, is recorded as unsupported, sees no channel, and is refused as route_unsupported. A delivery to the current conversation commits and the process is killed after the commit and before the answer returns; after the restart the same request is answered with its committed attempt; resubmitting the identical request replays that answer and writes nothing new, and a query by that request id returns the original result and its receipt, so one body arrived once. She then locks her profile: the access state moves to a new generation, and a delivery attempted afterwards is refused as access_locked with unlock as its recovery and returns no attempt. Observing the preparation before the lock names one delivery of one body, the one that committed before the restart: neither refused attempt nor the restart added a body or a second delivery.",
+ "says": "Alice binds her device key, authors and selects a personal Instructions source, opens a link to her working conversation in a Codex host, and composes a preparation for delivery on it. Four attempts on that preparation must never claim a delivery nor repeat an effect. An attempt naming a link id the runtime never issued is refused as recipient_link_unknown and sees no channel. A resume of that session as a rehydrated recipient, which this host's route cannot carry, is recorded as unsupported, sees no channel, and is refused as route_unsupported. A delivery to the current conversation commits and the process is killed after the commit and before the answer returns; after the restart the same request is answered with its committed attempt; resubmitting the identical request replays that answer and writes nothing new, and a query by that request id returns the original result and its receipt, so one body arrived once. She then locks her profile: the access state moves to a new generation, and a delivery attempted afterwards still states the generation before the lock and is refused as access_locked and access_generation_moved, with unlock as its recovery, and returns no attempt. Observing the preparation before the lock names one delivery of one body, the one that committed before the restart: neither refused attempt nor the restart added a body or a second delivery.",
  "ids": [
   {
    "name": "alice",
@@ -573,6 +573,10 @@
     {
      "pointer": "/basis/scopes/0/principal_id",
      "value": "@alice"
+    },
+    {
+     "pointer": "/declared_operation/name",
+     "value": "recipient.delivery.attempt"
     }
    ]
   },
@@ -600,7 +604,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -682,7 +686,7 @@
     },
     {
      "pointer": "/collections/0/head_digest",
-     "value": "$digest:collection_head"
+     "value": "#rules_selection"
     },
     {
      "pointer": "/collections/0/state",
@@ -1244,7 +1248,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1514,7 +1518,7 @@
     "returns": [
      "rules_selection"
     ],
-    "head": "collection_head"
+    "head": "rules_selection"
    }
   },
   {
@@ -1525,7 +1529,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1541,7 +1545,7 @@
     "preparation_request"
    ],
    "answer": {
-    "stage": "committed",
+    "stage": "previewed",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
@@ -1601,7 +1605,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1641,7 +1645,7 @@
    "request": "observe_end",
    "carries": [],
    "answer": {
-    "stage": "committed",
+    "stage": "previewed",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
@@ -1681,6 +1685,9 @@
     "gaps": [
      {
       "code": "access_locked"
+     },
+     {
+      "code": "access_generation_moved"
      }
     ],
     "recovery": [

@@ -1,6 +1,6 @@
 {
  "case": "TUI-ENTRY-SHARED-UNKNOWN",
- "says": "One person founds Team A 'Platform' and Team B 'Platform Ops' on the laptop; Team B is then closed for good (team.lifecycle.apply close). While the laptop cannot reach the desktop that carries Team A's peer copy, a Team A profile change (team.profile.set) is answered unknown: staged locally, provider effect unknown, recovery query or retry of the same request. Team A's recent history names that request as unknown, local only. The dashboard (surface.drive from the studio hub) shows partial coverage and a signal for that request; the person browses the closed Team B, which offers no action, while the signal still names the Team A request; back on the dashboard, Enter on the signal opens that same request in Team A's own scope with a check action, and Enter on it dispatches one operation.query for the same request id. Once reach is back, that query returns the request's actual committed result and receipt. Negative: browsing Team B moves the request nowhere; the same profile change submitted again under a new request id is refused (retry_under_a_new_id_refused) with query_same_request as its recovery; and restoring closed Team B is refused (team_terminal).",
+ "says": "One person founds Team A 'Platform' and Team B 'Platform Ops' on the laptop; Team B is then closed for good (team.lifecycle.apply close). While the laptop cannot reach the desktop that carries Team A's peer copy, a Team A profile change (team.profile.set) is answered unknown: staged locally, provider effect unknown, recovery query or retry of the same request. Team A's recent history names that request as unknown, local only. The dashboard (surface.drive from the studio hub) shows partial coverage and a signal for that request; the person browses the closed Team B, which offers no action, while the signal still names the Team A request; back on the dashboard, Enter on the signal opens that same request in Team A's own scope with a check action, and Enter on it dispatches one operation.query for the same request id. While reach is still lost, the same profile change submitted again under a new request id is refused with resubmitted_while_unknown at /request_id and no recovery of its own. Once reach is back, the query returns the first request's actual committed result and receipt. Negative: browsing Team B moves the request nowhere; the resubmission under a new id runs nothing and the only way on is the query of the first request; and restoring closed Team B is refused (team_terminal).",
  "ids": [
   {
    "name": "me",
@@ -264,19 +264,141 @@
   },
   {
    "name": "team_a_active",
-   "from": "c08/archived_team.json",
+   "from": "c08/active_team.json",
    "set": [
     {
      "pointer": "/since",
      "value": "$instant:team_a_founded_at"
     },
     {
-     "pointer": "/state",
-     "value": "active"
+     "pointer": "/team_id",
+     "value": "@team_a"
+    }
+   ]
+  },
+  {
+   "name": "team_a_sealed_proposal",
+   "from": "team_a_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_a_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_a_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_a_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_a_founder"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
     },
     {
      "pointer": "/team_id",
      "value": "@team_a"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_a_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_a_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_a_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_a_head"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_a_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_a_founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "publish",
+      "adopt",
+      "grant",
+      "policy"
+     ]
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_a_founded_at"
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 2
+    },
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:team_a_founder_grant_id"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team_a"
+    }
+   ]
+  },
+  {
+   "name": "team_a_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:team_a_founded_at"
     }
    ]
   },
@@ -422,19 +544,141 @@
   },
   {
    "name": "team_b_active",
-   "from": "c08/archived_team.json",
+   "from": "c08/active_team.json",
    "set": [
     {
      "pointer": "/since",
      "value": "$instant:team_b_founded_at"
     },
     {
-     "pointer": "/state",
-     "value": "active"
+     "pointer": "/team_id",
+     "value": "@team_b"
+    }
+   ]
+  },
+  {
+   "name": "team_b_sealed_proposal",
+   "from": "team_b_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_b_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_b_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_b_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_b_founder"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
     },
     {
      "pointer": "/team_id",
      "value": "@team_b"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_b_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_b_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_b_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_b_head"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_b_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_b_founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "publish",
+      "adopt",
+      "grant",
+      "policy"
+     ]
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_b_founded_at"
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 2
+    },
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:team_b_founder_grant_id"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team_b"
+    }
+   ]
+  },
+  {
+   "name": "team_b_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/name",
+     "value": "Platform Ops"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:team_b_founded_at"
     }
    ]
   },
@@ -835,7 +1079,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@me"
+     "value": "@profile"
     }
    ]
   },
@@ -985,7 +1229,7 @@
     },
     {
      "pointer": "/frames/0/elements/2/state",
-     "value": "blocked"
+     "value": "closed"
     },
     {
      "pointer": "/frames/0/elements/2/refers_to/ref",
@@ -1113,7 +1357,7 @@
     },
     {
      "pointer": "/frames/1/elements/2/state",
-     "value": "blocked"
+     "value": "closed"
     },
     {
      "pointer": "/frames/1/elements/2/refers_to/ref",
@@ -1311,7 +1555,7 @@
     },
     {
      "pointer": "/frames/3/elements/2/state",
-     "value": "blocked"
+     "value": "closed"
     },
     {
      "pointer": "/frames/3/elements/2/refers_to/ref",
@@ -1422,7 +1666,7 @@
     },
     {
      "pointer": "/frames/4/elements/2/state",
-     "value": "blocked"
+     "value": "closed"
     },
     {
      "pointer": "/frames/4/elements/2/refers_to/ref",
@@ -2178,7 +2422,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2205,8 +2449,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_a_sealed_proposal",
      "team_a_policy_stored",
-     "team_a_active"
+     "team_a_founder_membership",
+     "team_a_founder_grant",
+     "team_a_active",
+     "team_a_profile",
+     "team_a_founding_epoch"
     ],
     "head": "team_a_head"
    },
@@ -2229,8 +2478,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_b_sealed_proposal",
      "team_b_policy_stored",
-     "team_b_active"
+     "team_b_founder_membership",
+     "team_b_founder_grant",
+     "team_b_active",
+     "team_b_profile",
+     "team_b_founding_epoch"
     ],
     "head": "team_b_head"
    },
@@ -2315,6 +2569,27 @@
    "process": "laptop"
   },
   {
+   "name": "same_change_under_a_new_id",
+   "request": "duplicate_request",
+   "carries": [
+    "profile_change"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "none",
+    "gaps": [
+     {
+      "code": "resubmitted_while_unknown",
+      "pointer": "/request_id"
+     }
+    ],
+    "recovery": [],
+    "returns": []
+   },
+   "process": "laptop"
+  },
+  {
    "name": "query_after_reconnect",
    "request": "query_op",
    "carries": [
@@ -2330,28 +2605,6 @@
      "profile_reconciled",
      "profile_receipt"
     ]
-   },
-   "process": "laptop"
-  },
-  {
-   "name": "same_change_under_a_new_id",
-   "request": "duplicate_request",
-   "carries": [
-    "profile_change"
-   ],
-   "answer": {
-    "stage": "refused",
-    "local_effect": "none",
-    "provider_effect": "none",
-    "gaps": [
-     {
-      "code": "retry_under_a_new_id_refused"
-     }
-    ],
-    "recovery": [
-     "query_same_request"
-    ],
-    "returns": []
    },
    "process": "laptop"
   },

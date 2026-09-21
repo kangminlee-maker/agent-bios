@@ -1,6 +1,6 @@
 {
  "case": "N05-RESTART-POS",
- "says": "Alice binds her device key and registers a private notes source on her laptop, then commits the source's first revision. The laptop process is killed after the commit is durable but before the answer returns, and restarted; the same commit request is then answered with its committed result, not run again. A query by that request id after the restart returns the original result and the receipt naming the commit request's digest and the revision it made the head. What must not happen: the restart losing the receipt, a second head moving for one request, or the query answering with a result that names another request.",
+ "says": "Alice binds her device key and registers a private notes source on her laptop, which makes the source's first head; she then commits the source's first revision on that head. The laptop process is killed after the commit is durable but before the answer returns, and restarted, so no reply reaches her. A query by that request id after the restart returns the original result and the receipt naming the commit request's digest and the head the revision moved to; resubmitting the same request bytes is then answered with that same result and receipt, not run again. What must not happen: the restart losing the receipt, a second head moving for one request, or the query answering with a result that names another request.",
  "ids": [
   {
    "name": "alice",
@@ -17,10 +17,6 @@
   {
    "name": "notes_source",
    "prefix": "src"
-  },
-  {
-   "name": "notes_collection",
-   "prefix": "col"
   },
   {
    "name": "bind_request",
@@ -142,10 +138,6 @@
      "value": "@alice"
     },
     {
-     "pointer": "/home/collection_id",
-     "value": "@notes_collection"
-    },
-    {
      "pointer": "/role",
      "value": "knowledge"
     },
@@ -173,7 +165,7 @@
     },
     {
      "pointer": "/action",
-     "value": "local_profile"
+     "value": "contribute"
     },
     {
      "pointer": "/effect_class",
@@ -283,11 +275,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#first_revision"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:notes_head_0"
     }
    ]
   },
@@ -364,52 +360,6 @@
      "value": "#commit_query"
     }
    ]
-  },
-  {
-   "name": "first_receipt",
-   "from": "c03/commit_receipt.json",
-   "drop": [
-    "/owner/team_id",
-    "/target/base"
-   ],
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@commit_request"
-    },
-    {
-     "pointer": "/request_digest",
-     "value": "#commit_first"
-    },
-    {
-     "pointer": "/owner/layer",
-     "value": "personal"
-    },
-    {
-     "pointer": "/owner/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@notes_source"
-    },
-    {
-     "pointer": "/head_digest",
-     "value": "$digest:first_head"
-    },
-    {
-     "pointer": "/sequence",
-     "value": "$integer:first_sequence"
-    },
-    {
-     "pointer": "/committed_at",
-     "value": "$instant:first_committed_at"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "absent"
-    }
-   ]
   }
  ],
  "steps": [
@@ -444,7 +394,8 @@
     "recovery": [],
     "returns": [
      "stored_home"
-    ]
+    ],
+    "head": "notes_head_0"
    }
   },
   {
@@ -479,16 +430,25 @@
     "recovery": [],
     "returns": [
      "commit_first_revision_result",
-     "first_receipt"
+     "commit_first_revision_receipt"
     ]
    }
+  },
+  {
+   "name": "resubmit_the_same_commit",
+   "request": "commit_first",
+   "carries": [
+    "first_revision"
+   ],
+   "replays": "commit_first_revision"
   }
  ],
  "world": {
   "faults": [
    {
     "step": "commit_first_revision",
-    "point": "after_commit_before_return"
+    "point": "after_commit_before_return",
+    "observed_by": "query_after_restart"
    }
   ]
  }

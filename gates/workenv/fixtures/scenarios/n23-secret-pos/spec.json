@@ -1,6 +1,6 @@
 {
  "case": "N23-SECRET-POS",
- "says": "On the installed candidate, a person binds this device's key (a passphrase-encrypted OpenSSH key whose public half is stored apart from the private key) and works in their profile at access generation 7. They lock the profile, and the owner stores it locked at generation 8. At a terminal they unlock with the device key: OpenSSH's own prompt takes the passphrase into the agent this runtime owns, and the owner stores the profile active at generation 9 because of that unlock, with no private_key_beside_public and no agent_not_owned_here gap, which is the key protection the unlock binding states. They then commit two revisions of a personal source at generation 9 on a volume whose encryption was observed, so neither commit discloses storage_not_encrypted. The storage binding's publication order is exercised under faults: the process is killed inside the transaction before the first commit and restarted, and the same request then commits once; it is killed after the second commit before returning and restarted, and the same request returns that commit. Each commit moves the source's head exactly once.",
+ "says": "On the installed candidate, the laptop's first step reads Alice's fresh profile: active at access generation 1. She binds this device's key (a passphrase-encrypted OpenSSH key whose public half is stored apart from the private key) and registers a personal notes source, the first commit on its id. She locks the profile, and the owner stores it locked at generation 2. At a terminal she unlocks with the device key: OpenSSH's own prompt takes the passphrase into the agent this runtime owns, and the owner stores the profile active at generation 2 (an unlock moves no generation) because of that unlock, with key_mode real: the device key ran for real, not a fixture the harness supplied. No private_key_beside_public and no agent_not_owned_here gap is answered, which is the key protection the unlock binding states. She then commits two revisions of the notes source at generation 2 on a volume whose encryption was observed, so neither commit discloses storage_not_encrypted. The storage binding's publication order is exercised under faults: the process is killed inside the transaction before the first commit and restarted, and the same request then commits once; it is killed after the second commit before returning and restarted, and the same request returns that commit. Each commit moves the source's head exactly once, from the registration's head.",
  "ids": [
   {
    "name": "alice",
@@ -19,29 +19,107 @@
    "prefix": "src"
   },
   {
-   "name": "bind_key_id",
+   "name": "read_profile_request_id",
    "prefix": "req"
   },
   {
-   "name": "lock_request_id",
+   "name": "bind_device_key_id",
    "prefix": "req"
   },
   {
-   "name": "unlock_request_id",
+   "name": "register_notes_id",
    "prefix": "req"
   },
   {
-   "name": "commit_first_id",
+   "name": "lock_the_profile_id",
    "prefix": "req"
   },
   {
-   "name": "commit_second_id",
+   "name": "unlock_at_a_terminal_id",
+   "prefix": "req"
+  },
+  {
+   "name": "commit_across_a_kill_before_commit_id",
+   "prefix": "req"
+  },
+  {
+   "name": "commit_across_a_kill_after_commit_id",
    "prefix": "req"
   }
  ],
  "records": [
   {
-   "name": "device_key",
+   "name": "read_profile_request",
+   "from": "c02/profile_read_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@read_profile_request_id"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    }
+   ]
+  },
+  {
+   "name": "read_profile_profile",
+   "from": "c02/profile_written_at_first_use.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:read_profile_profile_at"
+    }
+   ]
+  },
+  {
+   "name": "read_profile_state",
+   "from": "c02/active_at_first_use.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:read_profile_state_at"
+    }
+   ]
+  },
+  {
+   "name": "bind_device_key_key",
    "from": "c01/binding_as_submitted.json",
    "set": [
     {
@@ -55,12 +133,26 @@
    ]
   },
   {
-   "name": "bind_key",
-   "from": "c05/memory_use_request.json",
+   "name": "bind_device_key_binding",
+   "from": "bind_device_key_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:bind_device_key_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:bind_device_key_at"
+    }
+   ]
+  },
+  {
+   "name": "bind_device_key_request",
+   "from": "c02/lock_request.json",
    "set": [
     {
      "pointer": "/request_id",
-     "value": "@bind_key_id"
+     "value": "@bind_device_key_id"
     },
     {
      "pointer": "/operation",
@@ -87,160 +179,8 @@
      "value": "@alice_profile"
     },
     {
-     "pointer": "/owner/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#device_key"
-    }
-   ]
-  },
-  {
-   "name": "stored_device_key",
-   "from": "device_key",
-   "set": [
-    {
-     "pointer": "/binding_id",
-     "value": "$bnd:device_key_binding"
-    },
-    {
-     "pointer": "/created_at",
-     "value": "$instant:key_bound_at"
-    }
-   ]
-  },
-  {
-   "name": "lock",
-   "from": "c02/lock.json",
-   "set": [
-    {
-     "pointer": "/profile_id",
-     "value": "@alice_profile"
-    },
-    {
-     "pointer": "/expected_generation",
-     "value": 7
-    }
-   ]
-  },
-  {
-   "name": "lock_request",
-   "from": "c05/memory_use_request.json",
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@lock_request_id"
-    },
-    {
-     "pointer": "/operation",
-     "value": "access.transition"
-    },
-    {
-     "pointer": "/action",
-     "value": "local_profile"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "owner_commit"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@alice_profile"
-    },
-    {
-     "pointer": "/owner/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@alice_profile"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#lock"
-    },
-    {
      "pointer": "/local_access_generation",
-     "value": 7
-    }
-   ]
-  },
-  {
-   "name": "locked",
-   "from": "c02/locked_state.json",
-   "set": [
-    {
-     "pointer": "/profile_id",
-     "value": "@alice_profile"
-    },
-    {
-     "pointer": "/access_generation",
-     "value": 8
-    },
-    {
-     "pointer": "/changed_at",
-     "value": "$instant:locked_at"
-    }
-   ]
-  },
-  {
-   "name": "unlock",
-   "from": "c02/unlock_at_a_terminal.json",
-   "set": [
-    {
-     "pointer": "/profile_id",
-     "value": "@alice_profile"
-    },
-    {
-     "pointer": "/expected_generation",
-     "value": 8
-    }
-   ]
-  },
-  {
-   "name": "unlock_request",
-   "from": "c05/memory_use_request.json",
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@unlock_request_id"
-    },
-    {
-     "pointer": "/operation",
-     "value": "access.transition"
-    },
-    {
-     "pointer": "/action",
-     "value": "local_profile"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "owner_commit"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@alice_profile"
+     "value": 1
     },
     {
      "pointer": "/owner/principal_id",
@@ -248,69 +188,68 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice_profile"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
-     "value": "#unlock"
-    },
-    {
-     "pointer": "/local_access_generation",
-     "value": 8
+     "value": "#bind_device_key_key"
     }
    ]
   },
   {
-   "name": "unlocked",
-   "from": "c02/locked_state.json",
-   "set": [
-    {
-     "pointer": "/profile_id",
-     "value": "@alice_profile"
-    },
-    {
-     "pointer": "/access_generation",
-     "value": 9
-    },
-    {
-     "pointer": "/state/is",
-     "value": "active"
-    },
-    {
-     "pointer": "/state/because",
-     "value": "unlock"
-    },
-    {
-     "pointer": "/changed_at",
-     "value": "$instant:unlocked_at"
-    }
-   ]
-  },
-  {
-   "name": "first_revision",
-   "from": "sources/revision_submitted.json",
+   "name": "register_notes_home",
+   "from": "sources/home_of_a_managed_collection.json",
+   "drop": [
+    "/registered_at"
+   ],
    "set": [
     {
      "pointer": "/source_id",
      "value": "@notes"
+    },
+    {
+     "pointer": "/scope/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/acceptance_authority/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
     }
    ]
   },
   {
-   "name": "commit_first",
-   "from": "c05/memory_use_request.json",
+   "name": "register_notes_stored_home",
+   "from": "register_notes_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:register_notes_at"
+    }
+   ]
+  },
+  {
+   "name": "register_notes_request",
+   "from": "c02/lock_request.json",
    "set": [
     {
      "pointer": "/request_id",
-     "value": "@commit_first_id"
+     "value": "@register_notes_id"
     },
     {
      "pointer": "/operation",
-     "value": "source.revision.commit"
+     "value": "source.home.register"
     },
     {
      "pointer": "/action",
-     "value": "publish"
+     "value": "contribute"
     },
     {
      "pointer": "/effect_class",
@@ -327,6 +266,10 @@
     {
      "pointer": "/actor/profile_id",
      "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
     },
     {
      "pointer": "/owner/principal_id",
@@ -342,45 +285,213 @@
     },
     {
      "pointer": "/payload_digest",
-     "value": "#first_revision"
-    },
-    {
-     "pointer": "/local_access_generation",
-     "value": 9
+     "value": "#register_notes_home"
     }
    ]
   },
   {
-   "name": "stored_first",
-   "from": "first_revision",
+   "name": "lock_the_profile_change",
+   "from": "c02/lock.json",
    "set": [
     {
-     "pointer": "/produced_at",
-     "value": "$instant:first_at"
-    }
-   ]
-  },
-  {
-   "name": "second_revision",
-   "from": "first_revision",
-   "set": [
-    {
-     "pointer": "/members/1/digest",
-     "value": "d7ff6b4a26dcda11d92c0150950c54f43445094afa61f95f4a2be1a3bbd0316b"
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
     },
     {
-     "pointer": "/members/1/size",
-     "value": 1022
+     "pointer": "/expected_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/change/transition",
+     "value": "lock"
     }
    ]
   },
   {
-   "name": "commit_second",
-   "from": "c05/memory_use_request.json",
+   "name": "lock_the_profile_request",
+   "from": "c02/lock_request.json",
    "set": [
     {
      "pointer": "/request_id",
-     "value": "@commit_second_id"
+     "value": "@lock_the_profile_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.transition"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#lock_the_profile_change"
+    }
+   ]
+  },
+  {
+   "name": "lock_the_profile_state",
+   "from": "c02/locked_state.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:lock_the_profile_at"
+    }
+   ]
+  },
+  {
+   "name": "unlock_at_a_terminal_change",
+   "from": "c02/unlock_at_a_terminal.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/expected_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/change/transition",
+     "value": "unlock"
+    },
+    {
+     "pointer": "/change/method",
+     "value": "device_key_at_terminal"
+    }
+   ]
+  },
+  {
+   "name": "unlock_at_a_terminal_request",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@unlock_at_a_terminal_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.transition"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#unlock_at_a_terminal_change"
+    }
+   ]
+  },
+  {
+   "name": "unlock_at_a_terminal_state",
+   "from": "c02/unlocked_with_the_device_key.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:unlock_at_a_terminal_at"
+    }
+   ]
+  },
+  {
+   "name": "commit_across_a_kill_before_commit_manifest",
+   "from": "sources/revision_submitted.json",
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@notes"
+    }
+   ]
+  },
+  {
+   "name": "commit_across_a_kill_before_commit_stored",
+   "from": "commit_across_a_kill_before_commit_manifest",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:commit_across_a_kill_before_commit_at"
+    }
+   ]
+  },
+  {
+   "name": "commit_across_a_kill_before_commit_request",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_across_a_kill_before_commit_id"
     },
     {
      "pointer": "/operation",
@@ -407,6 +518,10 @@
      "value": "@alice_profile"
     },
     {
+     "pointer": "/local_access_generation",
+     "value": 2
+    },
+    {
      "pointer": "/owner/principal_id",
      "value": "@alice"
     },
@@ -420,52 +535,123 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:notes_head"
+     "value": "$digest:notes_h0"
     },
     {
      "pointer": "/payload_digest",
-     "value": "#second_revision"
-    },
-    {
-     "pointer": "/local_access_generation",
-     "value": 9
+     "value": "#commit_across_a_kill_before_commit_manifest"
     }
    ]
   },
   {
-   "name": "stored_second",
-   "from": "second_revision",
+   "name": "commit_across_a_kill_after_commit_manifest",
+   "from": "sources/revision_submitted.json",
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@notes"
+    },
+    {
+     "pointer": "/members/1/digest",
+     "value": "d7ff6b4a26dcda11d92c0150950c54f43445094afa61f95f4a2be1a3bbd0316b"
+    },
+    {
+     "pointer": "/members/1/size",
+     "value": 1022
+    }
+   ]
+  },
+  {
+   "name": "commit_across_a_kill_after_commit_stored",
+   "from": "commit_across_a_kill_after_commit_manifest",
    "set": [
     {
      "pointer": "/produced_at",
-     "value": "$instant:second_at"
+     "value": "$instant:commit_across_a_kill_after_commit_at"
+    }
+   ]
+  },
+  {
+   "name": "commit_across_a_kill_after_commit_request",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_across_a_kill_after_commit_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.revision.commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@notes"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:notes_h1"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#commit_across_a_kill_after_commit_manifest"
     }
    ]
   }
  ],
  "steps": [
   {
-   "name": "bind_device_key",
-   "request": "bind_key",
-   "carries": [
-    "device_key"
-   ],
+   "name": "read_profile",
+   "request": "read_profile_request",
+   "carries": [],
    "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
+    "stage": "previewed",
+    "local_effect": "none",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "stored_device_key"
+     "read_profile_profile",
+     "read_profile_state"
     ]
    }
   },
   {
-   "name": "lock_the_profile",
-   "request": "lock_request",
+   "name": "bind_device_key",
+   "request": "bind_device_key_request",
    "carries": [
-    "lock"
+    "bind_device_key_key"
    ],
    "answer": {
     "stage": "committed",
@@ -474,15 +660,50 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "locked"
+     "bind_device_key_binding"
+    ]
+   }
+  },
+  {
+   "name": "register_notes",
+   "request": "register_notes_request",
+   "carries": [
+    "register_notes_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "register_notes_stored_home"
+    ],
+    "head": "notes_h0"
+   }
+  },
+  {
+   "name": "lock_the_profile",
+   "request": "lock_the_profile_request",
+   "carries": [
+    "lock_the_profile_change"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "lock_the_profile_state"
     ]
    }
   },
   {
    "name": "unlock_at_a_terminal",
-   "request": "unlock_request",
+   "request": "unlock_at_a_terminal_request",
    "carries": [
-    "unlock"
+    "unlock_at_a_terminal_change"
    ],
    "answer": {
     "stage": "committed",
@@ -491,15 +712,15 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "unlocked"
+     "unlock_at_a_terminal_state"
     ]
    }
   },
   {
    "name": "commit_across_a_kill_before_commit",
-   "request": "commit_first",
+   "request": "commit_across_a_kill_before_commit_request",
    "carries": [
-    "first_revision"
+    "commit_across_a_kill_before_commit_manifest"
    ],
    "answer": {
     "stage": "committed",
@@ -508,16 +729,16 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "stored_first"
+     "commit_across_a_kill_before_commit_stored"
     ],
-    "head": "notes_head"
+    "head": "notes_h1"
    }
   },
   {
    "name": "commit_across_a_kill_after_commit",
-   "request": "commit_second",
+   "request": "commit_across_a_kill_after_commit_request",
    "carries": [
-    "second_revision"
+    "commit_across_a_kill_after_commit_manifest"
    ],
    "answer": {
     "stage": "committed",
@@ -526,9 +747,9 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "stored_second"
+     "commit_across_a_kill_after_commit_stored"
     ],
-    "head": "notes_head_v2"
+    "head": "notes_h2"
    }
   }
  ],

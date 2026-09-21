@@ -18,6 +18,10 @@
    "name": "bind_alice_request_req"
   },
   {
+   "id": "req_127086e2dac60d6f1a05d921f5dd36c7",
+   "name": "open_link_request_req"
+  },
+  {
    "id": "req_437953c051a40080faba90b05198f678",
    "name": "compose_nothing_request_req"
   },
@@ -35,16 +39,6 @@
    "digest_of": "alice_key",
    "pointer": "/payload_digest",
    "record": "bind_alice_request"
-  },
-  {
-   "minted": "alice_binding_id",
-   "pointer": "/binding_id",
-   "record": "alice_binding"
-  },
-  {
-   "minted": "alice_bound_at",
-   "pointer": "/created_at",
-   "record": "alice_binding"
   },
   {
    "digest_of": "bind_alice_request",
@@ -67,6 +61,16 @@
    "record": "bind_alice_receipt"
   },
   {
+   "minted": "alice_binding_id",
+   "pointer": "/binding_id",
+   "record": "alice_binding"
+  },
+  {
+   "minted": "alice_bound_at",
+   "pointer": "/created_at",
+   "record": "alice_binding"
+  },
+  {
    "digest_of": "bind_alice_receipt",
    "pointer": "/outcome/receipt_digest",
    "record": "bind_alice_result"
@@ -82,8 +86,63 @@
    "record": "bind_alice_result"
   },
   {
+   "digest_of": "work_link_submitted",
+   "pointer": "/payload_digest",
+   "record": "open_work_link_request"
+  },
+  {
+   "digest_of": "open_work_link_request",
+   "pointer": "/request_digest",
+   "record": "open_work_link_receipt"
+  },
+  {
+   "minted": "open_work_link_head",
+   "pointer": "/head_digest",
+   "record": "open_work_link_receipt"
+  },
+  {
+   "minted": "open_work_link_sequence",
+   "pointer": "/sequence",
+   "record": "open_work_link_receipt"
+  },
+  {
+   "minted": "open_work_link_committed_at",
+   "pointer": "/committed_at",
+   "record": "open_work_link_receipt"
+  },
+  {
+   "minted": "work_link_id",
+   "pointer": "/link_id",
+   "record": "work_link"
+  },
+  {
+   "minted": "work_link_at",
+   "pointer": "/created_at",
+   "record": "work_link"
+  },
+  {
+   "digest_of": "open_work_link_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "open_work_link_result"
+  },
+  {
+   "digest_of": "open_work_link_request",
+   "pointer": "/request_digest",
+   "record": "open_work_link_result"
+  },
+  {
+   "digest_of": "work_link",
+   "pointer": "/outputs/0/digest",
+   "record": "open_work_link_result"
+  },
+  {
    "digest_of": "nothing_selected",
    "pointer": "/payload_digest",
+   "record": "compose_nothing_request"
+  },
+  {
+   "digest_of": "work_link",
+   "pointer": "/recipient_digest",
    "record": "compose_nothing_request"
   },
   {
@@ -102,29 +161,14 @@
    "record": "empty_preparation"
   },
   {
-   "digest_of": "compose_nothing_request",
-   "pointer": "/request_digest",
-   "record": "compose_nothing_receipt"
+   "digest_of": "work_link",
+   "pointer": "/recipient/recipient_digest",
+   "record": "empty_preparation"
   },
   {
-   "minted": "compose_nothing_head",
-   "pointer": "/head_digest",
-   "record": "compose_nothing_receipt"
-  },
-  {
-   "minted": "compose_nothing_sequence",
-   "pointer": "/sequence",
-   "record": "compose_nothing_receipt"
-  },
-  {
-   "minted": "compose_nothing_committed_at",
-   "pointer": "/committed_at",
-   "record": "compose_nothing_receipt"
-  },
-  {
-   "digest_of": "compose_nothing_receipt",
-   "pointer": "/outcome/receipt_digest",
-   "record": "compose_nothing_result"
+   "minted": "empty_preparation_at",
+   "pointer": "/routed_at",
+   "record": "session_selected_only"
   },
   {
    "digest_of": "compose_nothing_request",
@@ -137,6 +181,11 @@
    "record": "compose_nothing_result"
   },
   {
+   "digest_of": "session_selected_only",
+   "pointer": "/outputs/1/digest",
+   "record": "compose_nothing_result"
+  },
+  {
    "digest_of": "empty_preparation",
    "pointer": "/preparation_digest",
    "record": "activate_session_activation"
@@ -145,16 +194,6 @@
    "digest_of": "activate_session_activation",
    "pointer": "/payload_digest",
    "record": "activate_session_request"
-  },
-  {
-   "minted": "memory_use_guide",
-   "pointer": "/delivery/memory_usage/guide/digest",
-   "record": "empty_routing"
-  },
-  {
-   "minted": "empty_routing_at",
-   "pointer": "/routed_at",
-   "record": "empty_routing"
   },
   {
    "digest_of": "activate_session_request",
@@ -175,6 +214,11 @@
    "minted": "activate_session_committed_at",
    "pointer": "/committed_at",
    "record": "activate_session_receipt"
+  },
+  {
+   "minted": "empty_routing_at",
+   "pointer": "/routed_at",
+   "record": "empty_routing"
   },
   {
    "digest_of": "activate_session_receipt",
@@ -217,39 +261,9 @@
    "record": "activation_seen"
   },
   {
-   "digest_of": "activate_session_activation",
+   "digest_of": "work_link",
    "pointer": "/requested/recipient_digest",
    "record": "activation_seen"
-  },
-  {
-   "digest_of": "observe_session_request",
-   "pointer": "/request_digest",
-   "record": "observe_session_receipt"
-  },
-  {
-   "minted": "observe_session_head",
-   "pointer": "/head_digest",
-   "record": "observe_session_receipt"
-  },
-  {
-   "minted": "observe_session_sequence",
-   "pointer": "/sequence",
-   "record": "observe_session_receipt"
-  },
-  {
-   "minted": "observe_session_committed_at",
-   "pointer": "/committed_at",
-   "record": "observe_session_receipt"
-  },
-  {
-   "minted": "empty_preparation_id",
-   "pointer": "/target/resource_id",
-   "record": "observe_session_receipt"
-  },
-  {
-   "digest_of": "observe_session_receipt",
-   "pointer": "/outcome/receipt_digest",
-   "record": "observe_session_result"
   },
   {
    "digest_of": "observe_session_request",
@@ -289,19 +303,29 @@
    "step": "bind_alice"
   },
   {
-   "name": "compose_nothing_committed_at",
+   "name": "open_work_link_committed_at",
    "shape": "instant",
-   "step": "compose_nothing"
+   "step": "open_work_link"
   },
   {
-   "name": "compose_nothing_head",
+   "name": "open_work_link_head",
    "shape": "digest",
-   "step": "compose_nothing"
+   "step": "open_work_link"
   },
   {
-   "name": "compose_nothing_sequence",
+   "name": "open_work_link_sequence",
    "shape": "integer",
-   "step": "compose_nothing"
+   "step": "open_work_link"
+  },
+  {
+   "name": "work_link_at",
+   "shape": "instant",
+   "step": "open_work_link"
+  },
+  {
+   "name": "work_link_id",
+   "shape": "lnk",
+   "step": "open_work_link"
   },
   {
    "name": "empty_preparation_at",
@@ -334,11 +358,6 @@
    "step": "activate_session"
   },
   {
-   "name": "memory_use_guide",
-   "shape": "digest",
-   "step": "activate_session"
-  },
-  {
    "name": "activation_seen_at",
    "shape": "instant",
    "step": "observe_session"
@@ -346,21 +365,6 @@
   {
    "name": "activation_seen_evidence",
    "shape": "digest",
-   "step": "observe_session"
-  },
-  {
-   "name": "observe_session_committed_at",
-   "shape": "instant",
-   "step": "observe_session"
-  },
-  {
-   "name": "observe_session_head",
-   "shape": "digest",
-   "step": "observe_session"
-  },
-  {
-   "name": "observe_session_sequence",
-   "shape": "integer",
    "step": "observe_session"
   }
  ],
@@ -412,25 +416,6 @@
    }
   },
   {
-   "digest": "211285ad3527d17692f4dd997f515c052fa5a1a2ab632d5bda273990a7b32ef8",
-   "name": "alice_binding",
-   "record": {
-    "binding_id": "bnd_e8297b69ef5a871bd5ba93d61bac669f",
-    "created_at": "2000-01-01T00:00:00Z",
-    "credential": {
-     "credential": "device_key",
-     "device_id": "dev_a3a03e9df7de11b8bb6f47026ad59059",
-     "key_generation": 1,
-     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
-    },
-    "established_by": "local_creation",
-    "evidence_digests": [],
-    "kind": "principal_binding",
-    "principal_id": "prn_e8d30f9fd71eef71baa27d29d808eb36",
-    "schema": 1
-   }
-  },
-  {
    "digest": "b32c5d3af8496b12971a3e98dc3ffcb50d5f8a8165a7262a525920fcfee8f1d0",
    "name": "bind_alice_receipt",
    "record": {
@@ -448,6 +433,25 @@
     "target": {
      "resource_id": "prn_e8d30f9fd71eef71baa27d29d808eb36"
     }
+   }
+  },
+  {
+   "digest": "211285ad3527d17692f4dd997f515c052fa5a1a2ab632d5bda273990a7b32ef8",
+   "name": "alice_binding",
+   "record": {
+    "binding_id": "bnd_e8297b69ef5a871bd5ba93d61bac669f",
+    "created_at": "2000-01-01T00:00:00Z",
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_a3a03e9df7de11b8bb6f47026ad59059",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_e8d30f9fd71eef71baa27d29d808eb36",
+    "schema": 1
    }
   },
   {
@@ -475,6 +479,125 @@
    }
   },
   {
+   "digest": "270baf948d003bb69d677b338fef74c146eca320e552f0127b4576952d0ee2ca",
+   "name": "work_link_submitted",
+   "record": {
+    "destination": {
+     "destination_digest": "df52341b0001922b045d89c33f28412fba55ecf56259939b0b0ae8b30635f4e5",
+     "destination_kind": "conversation"
+    },
+    "host": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "isolation": "proven_fresh",
+    "kind": "recipient_link",
+    "principal_id": "prn_e8d30f9fd71eef71baa27d29d808eb36",
+    "schema": 1,
+    "work_scope": {
+     "layer": "personal",
+     "principal_id": "prn_e8d30f9fd71eef71baa27d29d808eb36"
+    }
+   }
+  },
+  {
+   "digest": "af73dff552263002fe4938e0872a9467500a32013d3d87d93a5c835f2ab805dd",
+   "name": "open_work_link_request",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_a3a03e9df7de11b8bb6f47026ad59059",
+     "principal_id": "prn_e8d30f9fd71eef71baa27d29d808eb36",
+     "profile_id": "prf_aac62a6c0c737a98e2d8de0b4d707c60"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "recipient.link.open",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_e8d30f9fd71eef71baa27d29d808eb36"
+    },
+    "payload_digest": "270baf948d003bb69d677b338fef74c146eca320e552f0127b4576952d0ee2ca",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_127086e2dac60d6f1a05d921f5dd36c7",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_e8d30f9fd71eef71baa27d29d808eb36"
+    }
+   }
+  },
+  {
+   "digest": "eab1b499c30fff7be3a440bda179f55f3caec7f85eaa89e84fbeaac61a5c8e48",
+   "name": "open_work_link_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "ac168748182c7cf297aebe715e4dfe527f083803cf8e7617bbcf99b406d0d832",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_e8d30f9fd71eef71baa27d29d808eb36"
+    },
+    "request_digest": "af73dff552263002fe4938e0872a9467500a32013d3d87d93a5c835f2ab805dd",
+    "request_id": "req_127086e2dac60d6f1a05d921f5dd36c7",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prn_e8d30f9fd71eef71baa27d29d808eb36"
+    }
+   }
+  },
+  {
+   "digest": "bc99f7a11cbebd10432b2dcf87c9354727a8fe2b3989ce5125b7b3f7a0fb8630",
+   "name": "work_link",
+   "record": {
+    "created_at": "2000-01-01T00:00:00Z",
+    "destination": {
+     "destination_digest": "df52341b0001922b045d89c33f28412fba55ecf56259939b0b0ae8b30635f4e5",
+     "destination_kind": "conversation"
+    },
+    "host": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "isolation": "proven_fresh",
+    "kind": "recipient_link",
+    "link_id": "lnk_f023794ef018b57054df23e88decb481",
+    "principal_id": "prn_e8d30f9fd71eef71baa27d29d808eb36",
+    "schema": 1,
+    "work_scope": {
+     "layer": "personal",
+     "principal_id": "prn_e8d30f9fd71eef71baa27d29d808eb36"
+    }
+   }
+  },
+  {
+   "digest": "0bf0e573962d85efef8e1f7cce5a0395b7adff82ea00c97402f1e2444c6e47ee",
+   "name": "open_work_link_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "eab1b499c30fff7be3a440bda179f55f3caec7f85eaa89e84fbeaac61a5c8e48",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "bc99f7a11cbebd10432b2dcf87c9354727a8fe2b3989ce5125b7b3f7a0fb8630",
+      "kind": "recipient_link"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "af73dff552263002fe4938e0872a9467500a32013d3d87d93a5c835f2ab805dd",
+    "request_id": "req_127086e2dac60d6f1a05d921f5dd36c7",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
    "digest": "a2c89d56691e6b8ee4db2945fd1a559cc3afbde219dbe3b3f1bb93d67c22f6d5",
    "name": "nothing_selected",
    "record": {
@@ -497,7 +620,7 @@
    }
   },
   {
-   "digest": "b6ebb217dcf700cc04da15a3e32b35cf665d26da8ccb51fd658f6ad9ded05b00",
+   "digest": "8c836e18bee4f5b3108056bbc6d765788313c267766a75919642413f07f26397",
    "name": "compose_nothing_request",
    "record": {
     "action": "use",
@@ -507,7 +630,7 @@
      "profile_id": "prf_aac62a6c0c737a98e2d8de0b4d707c60"
     },
     "control_digests": [],
-    "effect_class": "owner_commit",
+    "effect_class": "durable_candidate",
     "kind": "operation_request",
     "local_access_generation": 7,
     "operation": "preparation.compose",
@@ -518,6 +641,7 @@
     "payload_digest": "a2c89d56691e6b8ee4db2945fd1a559cc3afbde219dbe3b3f1bb93d67c22f6d5",
     "policy_digests": [],
     "proof_digests": [],
+    "recipient_digest": "bc99f7a11cbebd10432b2dcf87c9354727a8fe2b3989ce5125b7b3f7a0fb8630",
     "request_id": "req_437953c051a40080faba90b05198f678",
     "schema": 1,
     "target": {
@@ -526,7 +650,7 @@
    }
   },
   {
-   "digest": "3660c25417c729bd4aaa030ecbe8262355e24991cad0eae75f531d25b96fbf62",
+   "digest": "ea73a02b8ec3dddf9acd0a8378f7379b896fece13c4e7cdef1007e02bcf07ebe",
    "name": "empty_preparation",
    "record": {
     "adapter": {
@@ -551,6 +675,7 @@
     "prepared_at": "2000-01-01T00:00:00Z",
     "recipient": {
      "isolation": "proven_fresh",
+     "recipient_digest": "bc99f7a11cbebd10432b2dcf87c9354727a8fe2b3989ce5125b7b3f7a0fb8630",
      "work_scope": {
       "layer": "personal",
       "principal_id": "prn_e8d30f9fd71eef71baa27d29d808eb36"
@@ -565,55 +690,16 @@
    }
   },
   {
-   "digest": "2155235b606ba62bc98c6fb75476eecb03403be0826a10c06360a94581504d0b",
-   "name": "compose_nothing_receipt",
+   "digest": "25971fe5c8902d9bfd05393f5b2a9805b8ecbaa4b0fff2f7f913742bf9c33761",
+   "name": "session_selected_only",
    "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "76bd7c1fced9150586ca4c81b92ab8e4680033ae6c0bd8cb919b5a2ebbc4b0ea",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "personal",
-     "principal_id": "prn_e8d30f9fd71eef71baa27d29d808eb36"
+    "always_surface": "unchanged",
+    "delivery": {
+     "state": "selected_only"
     },
-    "request_digest": "b6ebb217dcf700cc04da15a3e32b35cf665d26da8ccb51fd658f6ad9ded05b00",
-    "request_id": "req_437953c051a40080faba90b05198f678",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "resource_id": "prn_e8d30f9fd71eef71baa27d29d808eb36"
-    }
-   }
-  },
-  {
-   "digest": "af132859a55d8efdeeccf51361635bdd8d41c73ef13eed52674c3803ea97a314",
-   "name": "compose_nothing_result",
-   "record": {
-    "kind": "operation_result",
-    "local_effect": "private_state_written",
-    "outcome": {
-     "material_gaps": [],
-     "receipt_digest": "2155235b606ba62bc98c6fb75476eecb03403be0826a10c06360a94581504d0b",
-     "stage": "committed"
-    },
-    "outputs": [
-     {
-      "digest": "3660c25417c729bd4aaa030ecbe8262355e24991cad0eae75f531d25b96fbf62",
-      "kind": "preparation"
-     }
-    ],
-    "provider_effect": "not_applicable",
-    "request_digest": "b6ebb217dcf700cc04da15a3e32b35cf665d26da8ccb51fd658f6ad9ded05b00",
-    "request_id": "req_437953c051a40080faba90b05198f678",
-    "schema": 1,
-    "supported_recovery": []
-   }
-  },
-  {
-   "digest": "40779be4fdcb5de6ecf0fd7efa7e9c541c03db54d904039b98d0b0d09fc2c26d",
-   "name": "activate_session_activation",
-   "record": {
-    "kind": "session_activation",
-    "preparation_digest": "3660c25417c729bd4aaa030ecbe8262355e24991cad0eae75f531d25b96fbf62",
+    "kind": "session_routing",
+    "native_files": "preserved",
+    "routed_at": "2000-01-01T00:00:00Z",
     "schema": 1,
     "session": {
      "host": {
@@ -625,7 +711,50 @@
    }
   },
   {
-   "digest": "900e9822eef28e24138ab2c78a631a13eb4c5320c034c835bdf3dae8f0ee27f3",
+   "digest": "77a01fb7f5241245d6aefe402faec31d54c7b746fa217a3e99d119e0f8f7087b",
+   "name": "compose_nothing_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "private_state_written",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "ea73a02b8ec3dddf9acd0a8378f7379b896fece13c4e7cdef1007e02bcf07ebe",
+      "kind": "preparation"
+     },
+     {
+      "digest": "25971fe5c8902d9bfd05393f5b2a9805b8ecbaa4b0fff2f7f913742bf9c33761",
+      "kind": "session_routing"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "8c836e18bee4f5b3108056bbc6d765788313c267766a75919642413f07f26397",
+    "request_id": "req_437953c051a40080faba90b05198f678",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "eb85e72d1cf530195dbb9c3a97ac4b87e8ef5f653e6b2f3709a59d7b97cee27a",
+   "name": "activate_session_activation",
+   "record": {
+    "kind": "session_activation",
+    "preparation_digest": "ea73a02b8ec3dddf9acd0a8378f7379b896fece13c4e7cdef1007e02bcf07ebe",
+    "schema": 1,
+    "session": {
+     "host": {
+      "name": "claude-code",
+      "version": "2.1.278"
+     },
+     "profile_id": "prf_aac62a6c0c737a98e2d8de0b4d707c60"
+    }
+   }
+  },
+  {
+   "digest": "48c40730c0efeb51b25b89b4cc2451c99f0d49d4d83ef95cdba3d7c4e7b33df0",
    "name": "activate_session_request",
    "record": {
     "action": "use",
@@ -643,7 +772,7 @@
      "layer": "personal",
      "principal_id": "prn_e8d30f9fd71eef71baa27d29d808eb36"
     },
-    "payload_digest": "40779be4fdcb5de6ecf0fd7efa7e9c541c03db54d904039b98d0b0d09fc2c26d",
+    "payload_digest": "eb85e72d1cf530195dbb9c3a97ac4b87e8ef5f653e6b2f3709a59d7b97cee27a",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_c07c0212f4b8e6f8ccf188b4c13a136b",
@@ -654,14 +783,34 @@
    }
   },
   {
-   "digest": "10250a2da61d65f1f61cce4ebc8fa0f94e67f32cbd890f5976ec0e4d88db48c4",
+   "digest": "4410cb6bb5a314f3f15e574f87f0b5a8c70e7a1fdea48bd4e2403a0152dc7ee6",
+   "name": "activate_session_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "dbcbd2e5ca5ad5c327acf757a5288e68bc34fb56ec28649f11a235a94d4133bb",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_e8d30f9fd71eef71baa27d29d808eb36"
+    },
+    "request_digest": "48c40730c0efeb51b25b89b4cc2451c99f0d49d4d83ef95cdba3d7c4e7b33df0",
+    "request_id": "req_c07c0212f4b8e6f8ccf188b4c13a136b",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_aac62a6c0c737a98e2d8de0b4d707c60"
+    }
+   }
+  },
+  {
+   "digest": "d5936672c3504a7c98d46b950dd9b4067b9eba9cbe66002fb319718ada944107",
    "name": "empty_routing",
    "record": {
     "always_surface": "unchanged",
     "delivery": {
      "memory_usage": {
       "guide": {
-       "digest": "e0ae68691158873c1a2863b06fc4d0af0960616cb6cdeedaa55222a16bc41039",
+       "digest": "7d4eeeb65f6c90260aa22160754515fa76acf4e0acfe0f313de84b9abaca9e01",
        "path": "guides/memory-use.md"
       },
       "text": "Decision memory is read, never applied on your behalf. When an actual use would rely on incompatible current choices, ask the person. The procedure is in the guide this points at."
@@ -683,51 +832,31 @@
    }
   },
   {
-   "digest": "cf79db1c15921e0467494b01aa3dc8af208dff265d19d6514d0b6440d2cb7583",
-   "name": "activate_session_receipt",
-   "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "dbcbd2e5ca5ad5c327acf757a5288e68bc34fb56ec28649f11a235a94d4133bb",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "personal",
-     "principal_id": "prn_e8d30f9fd71eef71baa27d29d808eb36"
-    },
-    "request_digest": "900e9822eef28e24138ab2c78a631a13eb4c5320c034c835bdf3dae8f0ee27f3",
-    "request_id": "req_c07c0212f4b8e6f8ccf188b4c13a136b",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "resource_id": "prf_aac62a6c0c737a98e2d8de0b4d707c60"
-    }
-   }
-  },
-  {
-   "digest": "d3d5d38c7a3599ca598d611e4d559d26f7d73ad6b9b2daa820f29ee3e0db655c",
+   "digest": "7ee7c72cfa61019597f185169a2fe1f3101d9dc05b65d65c0ffa6265648c307f",
    "name": "activate_session_result",
    "record": {
     "kind": "operation_result",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "cf79db1c15921e0467494b01aa3dc8af208dff265d19d6514d0b6440d2cb7583",
+     "receipt_digest": "4410cb6bb5a314f3f15e574f87f0b5a8c70e7a1fdea48bd4e2403a0152dc7ee6",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "10250a2da61d65f1f61cce4ebc8fa0f94e67f32cbd890f5976ec0e4d88db48c4",
+      "digest": "d5936672c3504a7c98d46b950dd9b4067b9eba9cbe66002fb319718ada944107",
       "kind": "session_routing"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "900e9822eef28e24138ab2c78a631a13eb4c5320c034c835bdf3dae8f0ee27f3",
+    "request_digest": "48c40730c0efeb51b25b89b4cc2451c99f0d49d4d83ef95cdba3d7c4e7b33df0",
     "request_id": "req_c07c0212f4b8e6f8ccf188b4c13a136b",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "642b0245bbcfb88dd067ba538f17d490ac09f9791308014c1263e7861007fe1a",
+   "digest": "5b13d3008dce93d34d0e166736a1dc2cc1dfe1ea4ddaff165872bcdf674c3b0d",
    "name": "observe_session_request",
    "record": {
     "action": "read",
@@ -737,7 +866,7 @@
      "profile_id": "prf_aac62a6c0c737a98e2d8de0b4d707c60"
     },
     "control_digests": [],
-    "effect_class": "owner_commit",
+    "effect_class": "durable_candidate",
     "kind": "operation_request",
     "local_access_generation": 7,
     "operation": "delivery.observe",
@@ -755,7 +884,7 @@
    }
   },
   {
-   "digest": "85410fc38c63c4215aef4ed4ee2102bdc3a9eb796036c6801a563c321d07196e",
+   "digest": "8741297b8323fd3ece21c8477995973f8235f90d42eaae690748612ca3a04947",
    "name": "activation_seen",
    "record": {
     "kind": "delivery_observation",
@@ -769,59 +898,38 @@
     "preparation_id": "prp_1ddfca60535621ddbcc1943db58dc7b8",
     "recorded_at": "2000-01-01T00:00:00Z",
     "requested": {
-     "recipient_digest": "40779be4fdcb5de6ecf0fd7efa7e9c541c03db54d904039b98d0b0d09fc2c26d",
+     "recipient_digest": "bc99f7a11cbebd10432b2dcf87c9354727a8fe2b3989ce5125b7b3f7a0fb8630",
      "recipient_kind": "host_session"
     },
     "schema": 1
    }
   },
   {
-   "digest": "cefcf51bf90de13895ebd00f859278d174bddc0d2a29f6381b713c50b635f41d",
-   "name": "observe_session_receipt",
-   "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "f418685f84bae7f02c7847baa67c8bf526962b5f9ab59e08e8c04ddba6b7f798",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "personal",
-     "principal_id": "prn_e8d30f9fd71eef71baa27d29d808eb36"
-    },
-    "request_digest": "642b0245bbcfb88dd067ba538f17d490ac09f9791308014c1263e7861007fe1a",
-    "request_id": "req_74c47568c4ffe6ae74e59687ba8ae4a8",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "resource_id": "prp_1ddfca60535621ddbcc1943db58dc7b8"
-    }
-   }
-  },
-  {
-   "digest": "12f8457831ea52ce4604baaf9aebf79d3f89f30740ad3053762b140d2d13f14e",
+   "digest": "f76b3e3ca4a34f1e49a0bacc33d2e353c4ea137a76703ffa3c6b07613e7e6d41",
    "name": "observe_session_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "private_state_written",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "cefcf51bf90de13895ebd00f859278d174bddc0d2a29f6381b713c50b635f41d",
-     "stage": "committed"
+     "stage": "previewed"
     },
     "outputs": [
      {
-      "digest": "85410fc38c63c4215aef4ed4ee2102bdc3a9eb796036c6801a563c321d07196e",
+      "digest": "8741297b8323fd3ece21c8477995973f8235f90d42eaae690748612ca3a04947",
       "kind": "delivery_observation"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "642b0245bbcfb88dd067ba538f17d490ac09f9791308014c1263e7861007fe1a",
+    "request_digest": "5b13d3008dce93d34d0e166736a1dc2cc1dfe1ea4ddaff165872bcdf674c3b0d",
     "request_id": "req_74c47568c4ffe6ae74e59687ba8ae4a8",
     "schema": 1,
     "supported_recovery": []
    }
   }
  ],
- "says": "Alice has selected no Instructions at all: her personal preparation request pins no source, and the preparation composed from it holds no unit. She activates her host session with that preparation. The routing the owner returns is activated, carries no projection, and still carries the memory usage contract - the short text the runtime writes and a guide pointer naming the guide's path and the digest of the guide bytes this installation holds. The always surface is unchanged and native instruction files are preserved. Observing the session shows it activated with nothing delivered. Zero selected Instructions must not stop activation or drop the usage contract, and activation must not add to the always surface or write a native file.",
- "spec_sha256": "9f254ee5e7ac80d2500ed891a85a436111bd1a334da1554d659a714790e14988",
+ "says": "Alice has selected no Instructions at all: her personal preparation request pins no source. She opens a link to her host session and composes the session's start from that request; the owner returns a preparation that holds no unit and records the session as selected only. She then activates the session with that preparation. The routing the owner returns is activated, carries no projection, and still carries the memory usage contract - the short text the runtime writes and a guide pointer naming the guide's path and the digest of the guide bytes this installation holds. The always surface is unchanged and native instruction files are preserved. Observing the session shows it activated with nothing delivered, for the link it was started on. Zero selected Instructions must not stop activation or drop the usage contract, and activation must not add to the always surface or write a native file.",
+ "spec_sha256": "4c6067e5468eeb08233d2032e11818b666568c0229659b7f55dbf9ed26cf53de",
  "steps": [
   {
    "carries": [
@@ -836,13 +944,25 @@
   },
   {
    "carries": [
+    "work_link_submitted"
+   ],
+   "name": "open_work_link",
+   "request": "open_work_link_request",
+   "result": "open_work_link_result",
+   "returns": [
+    "work_link"
+   ]
+  },
+  {
+   "carries": [
     "nothing_selected"
    ],
    "name": "compose_nothing",
    "request": "compose_nothing_request",
    "result": "compose_nothing_result",
    "returns": [
-    "empty_preparation"
+    "empty_preparation",
+    "session_selected_only"
    ]
   },
   {

@@ -124,6 +124,10 @@
     {
      "pointer": "/roots/1/place/repository_id",
      "value": "@work"
+    },
+    {
+     "pointer": "/roots/0/permits/destinations/0/repository_id",
+     "value": "@work"
     }
    ]
   },
@@ -465,6 +469,90 @@
    ]
   },
   {
+   "name": "team_sealed_proposal",
+   "from": "proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership_id"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:team_founded_at"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/purpose",
+     "value": "The standards this group works to."
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
    "name": "carrier",
    "from": "c09/carrier_binding_as_submitted.json",
    "set": [
@@ -635,9 +723,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "stored_policy",
+     "team_founder_membership",
      "founder_grant",
-     "team_state"
+     "team_state",
+     "team_profile",
+     "team_founding_epoch"
     ],
     "head": "team_head"
    },

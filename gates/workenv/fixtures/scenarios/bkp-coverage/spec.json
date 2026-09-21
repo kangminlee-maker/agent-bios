@@ -1,6 +1,6 @@
 {
  "case": "BKP-COVERAGE",
- "says": "Alice's laptop takes backups under a configured recovery objective of one hour. She commits a revision of her private notes source, a backup is taken ten minutes later, and in the half hour after it she commits a second revision and keeps a hand-written draft — private work that exists only on the laptop. The laptop's live database is then lost. On a rebuilt runtime the backup is restored, and the report states exactly the frontier it covers — the receipt sequence and the instant of the backup it restored, the same values the backup set names — together with the recovery objective, work after the backup as not known, and authority passive. A query for the first commit returns its original result and receipt. A commit on the restored head, which would build over the second revision made after the backup, is not accepted: the restored copy is passive and answers access_locked. What must not happen: the report or any answer treating the second revision or the draft as absent, recovered or safe to discard — nothing here moves the head past the covered frontier or drops that work.",
+ "says": "Alice's laptop takes backups under a configured recovery objective of one hour. She registers her private notes source and commits a revision on the head the registration made, a backup is taken ten minutes later, and in the half hour after it she commits a second revision and keeps a hand-written draft — private work that exists only on the laptop. The laptop's live database is then lost. On a rebuilt runtime the backup is restored, and the report states exactly the frontier it covers — the receipt sequence and the instant of the backup it restored, the same values the backup set names — together with the recovery objective, work after the backup as not known, and authority passive. A query for the first commit returns its original result and receipt. Queries for the second commit's and the draft's request ids each return request_not_covered, naming the restore report whose frontier bounds what the owner holds — not request_not_held, which would say they were never received. A commit on the restored head, which would build over the second revision made after the backup, is not accepted: the restored copy is passive, locked at a generation past the restored one, and answers access_locked and access_generation_moved. What must not happen: the report or any answer treating the second revision or the draft as absent, recovered or safe to discard — nothing here moves the head past the covered frontier or drops that work.",
  "ids": [
   {
    "name": "alice",
@@ -19,10 +19,6 @@
    "prefix": "src"
   },
   {
-   "name": "notes_collection",
-   "prefix": "col"
-  },
-  {
    "name": "bind_request",
    "prefix": "req"
   },
@@ -33,10 +29,6 @@
   {
    "name": "lane_request",
    "prefix": "req"
-  },
-  {
-   "name": "draft_candidate",
-   "prefix": "cnd"
   },
   {
    "name": "commit_request_1",
@@ -64,6 +56,14 @@
   },
   {
    "name": "commit_request_3",
+   "prefix": "req"
+  },
+  {
+   "name": "ask_uncovered_commit_request",
+   "prefix": "req"
+  },
+  {
+   "name": "ask_uncovered_draft_request",
    "prefix": "req"
   }
  ],
@@ -170,10 +170,6 @@
      "value": "@alice"
     },
     {
-     "pointer": "/home/collection_id",
-     "value": "@notes_collection"
-    },
-    {
      "pointer": "/role",
      "value": "knowledge"
     },
@@ -201,7 +197,7 @@
     },
     {
      "pointer": "/action",
-     "value": "local_profile"
+     "value": "contribute"
     },
     {
      "pointer": "/effect_class",
@@ -400,11 +396,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#revision_1"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:notes_head_0"
     }
    ]
   },
@@ -697,7 +697,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@draft_candidate"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
@@ -711,7 +711,7 @@
    "set": [
     {
      "pointer": "/candidate_id",
-     "value": "@draft_candidate"
+     "value": "$cnd:draft_candidate"
     },
     {
      "pointer": "/version",
@@ -868,8 +868,18 @@
    ]
   },
   {
-   "name": "commit_receipt",
-   "from": "c03/commit_receipt.json",
+   "name": "ask_uncovered_commit_payload",
+   "from": "c03/query_by_request_id.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_request_2"
+    }
+   ]
+  },
+  {
+   "name": "ask_uncovered_commit",
+   "from": "bindings/storing_request.json",
    "drop": [
     "/owner/team_id",
     "/target/base"
@@ -877,11 +887,31 @@
    "set": [
     {
      "pointer": "/request_id",
-     "value": "@commit_request_1"
+     "value": "@ask_uncovered_commit_request"
     },
     {
-     "pointer": "/request_digest",
-     "value": "#commit_1"
+     "pointer": "/operation",
+     "value": "operation.query"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
     },
     {
      "pointer": "/owner/layer",
@@ -893,23 +923,99 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@notes_source"
+     "value": "@commit_request_2"
     },
     {
-     "pointer": "/head_digest",
-     "value": "$digest:notes_head_1"
+     "pointer": "/payload_digest",
+     "value": "#ask_uncovered_commit_payload"
+    }
+   ]
+  },
+  {
+   "name": "commit_not_covered",
+   "from": "c03/a_request_the_restored_store_does_not_cover.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_request_2"
     },
     {
-     "pointer": "/sequence",
-     "value": "$integer:sequence_1"
+     "pointer": "/restore_digest",
+     "value": "#report"
+    }
+   ]
+  },
+  {
+   "name": "ask_uncovered_draft_payload",
+   "from": "c03/query_by_request_id.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@draft_request"
+    }
+   ]
+  },
+  {
+   "name": "ask_uncovered_draft",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@ask_uncovered_draft_request"
     },
     {
-     "pointer": "/committed_at",
-     "value": "$instant:committed_at_1"
+     "pointer": "/operation",
+     "value": "operation.query"
     },
     {
-     "pointer": "/target/base/expects",
-     "value": "absent"
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@draft_request"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#ask_uncovered_draft_payload"
+    }
+   ]
+  },
+  {
+   "name": "draft_not_covered",
+   "from": "commit_not_covered",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@draft_request"
     }
    ]
   },
@@ -1023,7 +1129,8 @@
     "recovery": [],
     "returns": [
      "stored_home"
-    ]
+    ],
+    "head": "notes_head_0"
    },
    "process": "laptop"
   },
@@ -1153,7 +1260,43 @@
     "recovery": [],
     "returns": [
      "commit_first_revision_result",
-     "commit_receipt"
+     "commit_first_revision_receipt"
+    ]
+   },
+   "process": "rebuilt"
+  },
+  {
+   "name": "query_the_commit_after_the_backup",
+   "request": "ask_uncovered_commit",
+   "carries": [
+    "ask_uncovered_commit_payload"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "commit_not_covered"
+    ]
+   },
+   "process": "rebuilt"
+  },
+  {
+   "name": "query_the_draft_after_the_backup",
+   "request": "ask_uncovered_draft",
+   "carries": [
+    "ask_uncovered_draft_payload"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "draft_not_covered"
     ]
    },
    "process": "rebuilt"
@@ -1171,6 +1314,9 @@
     "gaps": [
      {
       "code": "access_locked"
+     },
+     {
+      "code": "access_generation_moved"
      }
     ],
     "recovery": [

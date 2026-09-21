@@ -1,6 +1,6 @@
 {
  "case": "TUI-ENTRY-UNKNOWN",
- "says": "A start from the launcher composes a preparation (committed) and session.routing.activate hands it to a new Claude Code session, but the host never confirms: the owner answers unknown (outcome_unknown, provider effect unknown) with query and retry of the same request as recovery. Reopening the entry reads recent history (operation.history.read): the compose request confirmed committed, the activation confirmed only as unknown, each with its time and local_only coverage, and a dated checkpoint whose note is the one written with the start. The reopened entry (surface.drive) keeps the activation as its draft request, shows it as unknown with its last confirmed stage and coverage, and focuses a check action on that same request; Esc goes to the hub, whose signal refers to the same request, and Enter returns to it unchanged; Enter on check dispatches one operation.query for that request id, which returns the same stored unknown result. Negative: back, return and reopening dispatch nothing, the start action is never pressed, no frame claims success or failure, reading history resumes nothing and the old note never becomes a work_request; a second activation of the same preparation under a new request id is refused (retry_under_a_new_id_refused) with query_same_request as its recovery.",
+ "says": "A start from the launcher composes a preparation (stored as the requester's own record, with no receipt) and session.routing.activate hands it to a new Claude Code session, but the host never confirms: the owner answers unknown (outcome_unknown, provider effect unknown) with query and retry of the same request as recovery. Reopening the entry reads recent history (operation.history.read): the compose request confirmed previewed, the activation confirmed only as unknown, each with its time and local_only coverage, and a dated checkpoint whose note is the one written with the start. The reopened entry (surface.drive) keeps the activation as its draft request, shows it as unknown with its last confirmed stage and coverage, and focuses a check action on that same request; Esc goes to the hub, whose signal refers to the same request, and Enter returns to it unchanged; Enter on check dispatches one operation.query for that request id, which returns the same stored unknown result. Negative: back, return and reopening dispatch nothing, the start action is never pressed, no frame claims success or failure, reading history resumes nothing and the old note never becomes a work_request; a second activation of the same preparation under a new request id while the first is unknown is refused with resubmitted_while_unknown at /request_id and no recovery of its own: the way on is to query the first request, never to run it again.",
  "ids": [
   {
    "name": "me",
@@ -226,6 +226,10 @@
     {
      "pointer": "/roots/0/place/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/roots/0/permits/destinations/0/repository_id",
+     "value": "@repo"
     }
    ]
   },
@@ -347,7 +351,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/actor/principal_id",
@@ -445,7 +449,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@laptop"
+     "value": "@profile"
     }
    ]
   },
@@ -547,7 +551,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@me"
+     "value": "@profile"
     }
    ]
   },
@@ -621,7 +625,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@me"
+     "value": "@profile"
     }
    ]
   },
@@ -1140,6 +1144,10 @@
     {
      "pointer": "/rationale",
      "value": "다음: 결제 재시도 테스트 실행"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
     }
    ]
   },
@@ -1245,7 +1253,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "use"
+     "value": "read"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1277,7 +1285,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@me"
+     "value": "@profile"
     }
    ]
   },
@@ -1351,7 +1359,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "$prp:start_preparation"
+     "value": "@profile"
     }
    ]
   },
@@ -1414,7 +1422,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@repo"
+     "value": "@profile"
     }
    ]
   },
@@ -1452,7 +1460,7 @@
     },
     {
      "pointer": "/entries/0/confirmed_stage",
-     "value": "committed"
+     "value": "previewed"
     },
     {
      "pointer": "/entries/0/confirmed_at",
@@ -1565,7 +1573,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@me"
+     "value": "@profile"
     }
    ]
   },
@@ -2383,7 +2391,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2400,7 +2408,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2452,7 +2460,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2469,7 +2477,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2502,7 +2510,7 @@
     "start_basis"
    ],
    "answer": {
-    "stage": "committed",
+    "stage": "previewed",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
@@ -2520,7 +2528,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2611,15 +2619,14 @@
    "answer": {
     "stage": "refused",
     "local_effect": "none",
-    "provider_effect": "not_applicable",
+    "provider_effect": "none",
     "gaps": [
      {
-      "code": "retry_under_a_new_id_refused"
+      "code": "resubmitted_while_unknown",
+      "pointer": "/request_id"
      }
     ],
-    "recovery": [
-     "query_same_request"
-    ],
+    "recovery": [],
     "returns": []
    }
   }

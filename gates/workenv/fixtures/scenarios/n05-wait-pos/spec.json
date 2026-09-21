@@ -1,6 +1,6 @@
 {
  "case": "N05-WAIT-POS",
- "says": "On her laptop Alice keeps a private notes source and a private decisions source. She publishes two choices answering one question into the decisions source, then prepares a use of that concern: the two choices conflict at one layer, so the owner seals and stores a question against the comparison basis and answers pending_user, waiting on her. Before any answer arrives, an independent commit of a new notes revision and a publication of an unrelated choice into a third, separate memory source both commit on the same store with receipts — the pending question holds no lock that blocks them. The process is killed after that publication commits and before it returns, and restarted; the publication is answered with its committed result. Querying the prepare request after the restart returns its original result, naming the same waiting reader result and the same stored question, so the same question_id and use_id are still pending. What must not happen: the independent writes waiting for the answer, the restart dropping or re-asking the question under a new id, or the use being admitted with a first option chosen on her behalf.",
+ "says": "On her laptop Alice keeps a private notes source and a private decisions source, each registered with its first head. She publishes two choices answering one question into the decisions source, then prepares a use of that concern: the two choices conflict at one layer, so the owner seals and stores a question against the comparison basis and answers pending_user, waiting on her. Before any answer arrives, an independent commit of a new notes revision and a publication of an unrelated choice into a third, separate memory source both commit on the same store with receipts — the pending question holds no lock that blocks them. The process is killed after that publication commits and before it returns, and restarted; the publication is answered with its committed result. Querying the prepare request after the restart returns its original result, naming the same waiting reader result and the same stored question; preparing that same use again finds its one pending question unchanged — same question_id, version and use_id, still pending_user — and writes nothing new. What must not happen: the independent writes waiting for the answer, the restart dropping or re-asking the question under a new id or version, or the use being admitted with a first option chosen on her behalf.",
  "ids": [
   {
    "name": "alice",
@@ -19,10 +19,6 @@
    "prefix": "src"
   },
   {
-   "name": "notes_collection",
-   "prefix": "col"
-  },
-  {
    "name": "bind_request",
    "prefix": "req"
   },
@@ -35,16 +31,8 @@
    "prefix": "src"
   },
   {
-   "name": "decisions_collection",
-   "prefix": "col"
-  },
-  {
    "name": "journal",
    "prefix": "src"
-  },
-  {
-   "name": "journal_collection",
-   "prefix": "col"
   },
   {
    "name": "concern",
@@ -88,6 +76,10 @@
   },
   {
    "name": "ask_prepare_request",
+   "prefix": "req"
+  },
+  {
+   "name": "prepare_again_request",
    "prefix": "req"
   }
  ],
@@ -194,10 +186,6 @@
      "value": "@alice"
     },
     {
-     "pointer": "/home/collection_id",
-     "value": "@notes_collection"
-    },
-    {
      "pointer": "/role",
      "value": "knowledge"
     },
@@ -225,7 +213,7 @@
     },
     {
      "pointer": "/action",
-     "value": "local_profile"
+     "value": "contribute"
     },
     {
      "pointer": "/effect_class",
@@ -380,10 +368,6 @@
      "value": "@alice"
     },
     {
-     "pointer": "/home/collection_id",
-     "value": "@decisions_collection"
-    },
-    {
      "pointer": "/role",
      "value": "memory"
     },
@@ -411,7 +395,7 @@
     },
     {
      "pointer": "/action",
-     "value": "local_profile"
+     "value": "contribute"
     },
     {
      "pointer": "/effect_class",
@@ -481,10 +465,6 @@
      "value": "@alice"
     },
     {
-     "pointer": "/home/collection_id",
-     "value": "@journal_collection"
-    },
-    {
      "pointer": "/role",
      "value": "memory"
     },
@@ -512,7 +492,7 @@
     },
     {
      "pointer": "/action",
-     "value": "local_profile"
+     "value": "contribute"
     },
     {
      "pointer": "/effect_class",
@@ -626,11 +606,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#notes_1"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:notes_head_0"
     }
    ]
   },
@@ -733,11 +717,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#choice_a"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:decisions_head_0"
     }
    ]
   },
@@ -1333,11 +1321,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#choice_c"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:journal_head_0"
     }
    ]
   },
@@ -1443,6 +1435,30 @@
      "value": "#prepare_query"
     }
    ]
+  },
+  {
+   "name": "prepare_again",
+   "from": "prepare",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@prepare_again_request"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$use:use"
+    }
+   ]
+  },
+  {
+   "name": "waiting_again",
+   "from": "waiting",
+   "set": [
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:waiting_again_at"
+    }
+   ]
   }
  ],
  "steps": [
@@ -1477,7 +1493,8 @@
     "recovery": [],
     "returns": [
      "stored_home"
-    ]
+    ],
+    "head": "notes_head_0"
    }
   },
   {
@@ -1511,7 +1528,8 @@
     "recovery": [],
     "returns": [
      "stored_decisions_home"
-    ]
+    ],
+    "head": "decisions_head_0"
    }
   },
   {
@@ -1528,7 +1546,8 @@
     "recovery": [],
     "returns": [
      "stored_journal_home"
-    ]
+    ],
+    "head": "journal_head_0"
    }
   },
   {
@@ -1661,6 +1680,28 @@
     "recovery": [],
     "returns": [
      "prepare_the_use_result"
+    ]
+   }
+  },
+  {
+   "name": "prepare_the_same_use_after_restart",
+   "request": "prepare_again",
+   "carries": [
+    "envelope"
+   ],
+   "answer": {
+    "stage": "blocked",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "choice_conflict_unresolved"
+     }
+    ],
+    "recovery": [],
+    "returns": [
+     "waiting_again",
+     "question"
     ]
    }
   }

@@ -1,6 +1,6 @@
 {
  "case": "DC-ASK",
- "says": "Alice's first use of the conflicting journal-mode concern waits on one sealed question. The runtime is killed after it commits that question and restarted, and the same request returns the same question and use rather than a second prompt; resubmitting the identical request (a page reload) does the same. The question is delivered to her host, and a reconnect that resubmits the same delivery request gets the same attempt back; a host retry that minted a question id of its own is refused with retry_under_a_new_id_refused and asks nothing. Alice answers WAL with ask-each-use and the use is admitted. Her next logical use of the same unchanged concern is not admitted on that answer: it waits on a new question of its own, which she answers with the rollback journal, and only that use is admitted on it.",
+ "says": "Alice's host is probed for native user events: the probe ran for real and worked. Her first use of the conflicting journal-mode concern targets the concern, so the owner starts a new use and waits on one sealed question. The runtime is killed after it commits that question and restarted, and the same request returns the same question and use rather than a second prompt; resubmitting the identical request bytes replays that answer, and a page reload that prepares the same use again under a new request, targeting the use, finds its one pending question and writes nothing. The question is delivered to her host, and a reconnect that resubmits the same delivery request gets the same attempt back; a host retry that minted a question id of its own is refused with retry_under_a_new_id_refused and asks nothing. Alice answers WAL with ask-each-use; the verified answer names the probe and the host configuration measured when the reply was classified, and the resume admits that use. Preparing the same use again then finds its admitted result. Her next logical use of the same unchanged concern targets the concern again and is not admitted on that answer: it is a new use waiting on a new question of its own, which she answers with the rollback journal, and only that use is admitted on it.",
  "ids": [
   {
    "name": "alice",
@@ -39,10 +39,6 @@
    "prefix": "src"
   },
   {
-   "name": "personal_notes",
-   "prefix": "col"
-  },
-  {
    "name": "register_personal_memory_id",
    "prefix": "req"
   },
@@ -60,6 +56,14 @@
   },
   {
    "name": "first_use_id",
+   "prefix": "req"
+  },
+  {
+   "name": "reload_the_page_id",
+   "prefix": "req"
+  },
+  {
+   "name": "reload_after_the_answer_id",
    "prefix": "req"
   },
   {
@@ -96,6 +100,10 @@
   },
   {
    "name": "resume_second_use_id",
+   "prefix": "req"
+  },
+  {
+   "name": "probe_the_host_id",
    "prefix": "req"
   }
  ],
@@ -167,6 +175,104 @@
     {
      "pointer": "/payload_digest",
      "value": "#alice_key"
+    }
+   ]
+  },
+  {
+   "name": "user_event_probe",
+   "from": "c12/probe_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/capability",
+     "value": "user_event"
+    }
+   ]
+  },
+  {
+   "name": "probe_that_worked",
+   "from": "c12/a_user_event_probe_that_worked.json",
+   "set": [
+    {
+     "pointer": "/probe_id",
+     "value": "$prb:user_event_probe"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:probed_at"
+    }
+   ]
+  },
+  {
+   "name": "host_profile",
+   "from": "c12/four_capabilities_qualified_one_at_a_time.json",
+   "drop": [
+    "/capabilities/3",
+    "/capabilities/1",
+    "/capabilities/0",
+    "/capabilities/0/state/because"
+   ],
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "$cap:host_profile"
+    },
+    {
+     "pointer": "/capabilities/0/state/qualified",
+     "value": "yes"
+    },
+    {
+     "pointer": "/capabilities/0/state/probe_digest",
+     "value": "#probe_that_worked"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:probed_at"
+    }
+   ]
+  },
+  {
+   "name": "probe_the_host",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@probe_the_host_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "capability.probe"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#user_event_probe"
     }
    ]
   },
@@ -323,7 +429,7 @@
     },
     {
      "pointer": "/action",
-     "value": "publish"
+     "value": "contribute"
     },
     {
      "pointer": "/owner/layer",
@@ -372,10 +478,6 @@
      "value": "@alice"
     },
     {
-     "pointer": "/home/collection_id",
-     "value": "@personal_notes"
-    },
-    {
      "pointer": "/home/markdown_view/path",
      "value": "views/decisions.md"
     },
@@ -404,10 +506,6 @@
     {
      "pointer": "/acceptance_authority/principal_id",
      "value": "@alice"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@personal_notes"
     },
     {
      "pointer": "/registered_at",
@@ -441,7 +539,7 @@
     },
     {
      "pointer": "/action",
-     "value": "publish"
+     "value": "contribute"
     },
     {
      "pointer": "/owner/principal_id",
@@ -815,6 +913,10 @@
     {
      "pointer": "/payload_digest",
      "value": "#alice_link"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
     }
    ]
   },
@@ -1122,6 +1224,20 @@
    ]
   },
   {
+   "name": "reload_the_page",
+   "from": "first_use",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@reload_the_page_id"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$use:first_use"
+    }
+   ]
+  },
+  {
    "name": "question_shown_payload",
    "from": "c11/attempt_as_submitted.json",
    "set": [
@@ -1315,6 +1431,20 @@
     {
      "pointer": "/reply/answer/mode",
      "value": "ask_each_use"
+    },
+    {
+     "pointer": "/reply/separation_evidence_digest",
+     "value": "#probe_that_worked"
+    }
+   ]
+  },
+  {
+   "name": "first_answer_configuration",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:first_answer_measured_at"
     }
    ]
   },
@@ -1340,7 +1470,7 @@
     },
     {
      "pointer": "/measured_configuration_digest",
-     "value": "$digest:first_answer_configuration"
+     "value": "#first_answer_configuration"
     },
     {
      "pointer": "/origin/answer/selected/record_id",
@@ -1353,6 +1483,10 @@
     {
      "pointer": "/observed_at",
      "value": "$instant:first_answer_at"
+    },
+    {
+     "pointer": "/origin/separation_evidence_digest",
+     "value": "#probe_that_worked"
     }
    ]
   },
@@ -1382,7 +1516,7 @@
     },
     {
      "pointer": "/action",
-     "value": "decide"
+     "value": "use"
     },
     {
      "pointer": "/owner/principal_id",
@@ -1532,6 +1666,16 @@
     {
      "pointer": "/payload_digest",
      "value": "#resume_first_use_payload"
+    }
+   ]
+  },
+  {
+   "name": "reload_after_the_answer",
+   "from": "reload_the_page",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@reload_after_the_answer_id"
     }
    ]
   },
@@ -1827,6 +1971,20 @@
     {
      "pointer": "/reply/answer/mode",
      "value": "ask_each_use"
+    },
+    {
+     "pointer": "/reply/separation_evidence_digest",
+     "value": "#probe_that_worked"
+    }
+   ]
+  },
+  {
+   "name": "second_answer_configuration",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:second_answer_measured_at"
     }
    ]
   },
@@ -1852,7 +2010,7 @@
     },
     {
      "pointer": "/measured_configuration_digest",
-     "value": "$digest:second_answer_configuration"
+     "value": "#second_answer_configuration"
     },
     {
      "pointer": "/origin/answer/selected/record_id",
@@ -1865,6 +2023,10 @@
     {
      "pointer": "/observed_at",
      "value": "$instant:second_answer_at"
+    },
+    {
+     "pointer": "/origin/separation_evidence_digest",
+     "value": "#probe_that_worked"
     }
    ]
   },
@@ -1894,7 +2056,7 @@
     },
     {
      "pointer": "/action",
-     "value": "decide"
+     "value": "use"
     },
     {
      "pointer": "/owner/principal_id",
@@ -2071,6 +2233,24 @@
    }
   },
   {
+   "name": "probe_the_host",
+   "request": "probe_the_host",
+   "carries": [
+    "user_event_probe"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "probe_that_worked",
+     "host_profile"
+    ]
+   }
+  },
+  {
    "name": "bind_alice_checkout",
    "request": "bind_alice_checkout",
    "carries": [
@@ -2169,7 +2349,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2185,7 +2365,7 @@
     "use_envelope"
    ],
    "answer": {
-    "stage": "previewed",
+    "stage": "blocked",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [
@@ -2203,14 +2383,22 @@
    }
   },
   {
-   "name": "reload_first_use",
+   "name": "resubmit_first_use",
    "request": "first_use",
    "carries": [
     "use_envelope"
    ],
+   "replays": "first_use"
+  },
+  {
+   "name": "reload_the_page",
+   "request": "reload_the_page",
+   "carries": [
+    "use_envelope"
+   ],
    "answer": {
-    "stage": "previewed",
-    "local_effect": "private_state_written",
+    "stage": "blocked",
+    "local_effect": "none",
     "provider_effect": "not_applicable",
     "gaps": [
      {
@@ -2220,9 +2408,7 @@
     "recovery": [],
     "returns": [
      "first_use_waiting",
-     "first_use_question",
-     "first_basis",
-     "first_use_state"
+     "first_use_question"
     ]
    }
   },
@@ -2234,7 +2420,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2249,16 +2435,7 @@
    "carries": [
     "question_shown_payload"
    ],
-   "answer": {
-    "stage": "committed",
-    "local_effect": "private_state_written",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "question_shown"
-    ]
-   }
+   "replays": "show_question"
   },
   {
    "name": "host_retries_under_its_own_id",
@@ -2291,12 +2468,13 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "first_answer"
+     "first_answer",
+     "first_answer_configuration"
     ]
    }
   },
@@ -2318,13 +2496,30 @@
    }
   },
   {
+   "name": "reload_after_the_answer",
+   "request": "reload_after_the_answer",
+   "carries": [
+    "use_envelope"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "first_use_admitted"
+    ]
+   }
+  },
+  {
    "name": "second_use",
    "request": "second_use",
    "carries": [
     "use_envelope"
    ],
    "answer": {
-    "stage": "previewed",
+    "stage": "blocked",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [
@@ -2349,12 +2544,13 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "second_answer"
+     "second_answer",
+     "second_answer_configuration"
     ]
    }
   },

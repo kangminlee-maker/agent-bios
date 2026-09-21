@@ -1,6 +1,6 @@
 {
  "case": "TUI-OBS-KOREAN-TERMINAL",
- "says": "Before any trial the conductor registers the installed candidate and records the protocol cell for typing and pasting Korean: novices, Apple Terminal, Korean locale, keyboard, IME and paste. Novice P4 meets the candidate for the first time, observed on Apple_Terminal at 80×24 in the Korean locale with keyboard, IME and paste as the input routes, the observation bound to the candidate's digest and claiming Apple Terminal only as pending. P4 composes a Korean sentence in the note field, cancels one syllable while composing, pastes a copied sentence and shrinks the window to 80×24: the trial records the composition shown in the field, the cancel taking only the composing syllable, the paste arriving whole, focus staying in the field and the save action unclipped. Novice P5's trial on the same task is recorded with what went wrong — Enter pressed during composition sent the note, and the save action was clipped after the resize — in its observed outcome and confusion, not dropped. What must not stand in for this: an observation called deterministic (injected precomposed strings), a prototype rendering, which is recorded as establishing nothing, a claim for a terminal nobody listed, and a locale the product has no text for — the last two are refused at admission, so no unobserved platform is declared supported.",
+ "says": "Before any trial the conductor registers the installed candidate and records the protocol cell for typing and pasting Korean: novices, Apple Terminal, Korean locale, keyboard, IME and paste. The installed candidate is probed for the participant's own keypresses: the user_event probe ran for real and worked, and every observation offered as human evidence names that probe as what separated the person from the host's automation. Novice P4 meets the candidate for the first time, observed on Apple_Terminal at 80×24 in the Korean locale with keyboard, IME and paste as the input routes, the observation bound to the candidate's digest and claiming Apple Terminal only as pending. P4 composes a Korean sentence in the note field, cancels one syllable while composing, pastes a copied sentence and shrinks the window to 80×24: the trial records the composition shown in the field, the cancel taking only the composing syllable, the paste arriving whole, focus staying in the field and the save action unclipped. Novice P5's trial on the same task is recorded with what went wrong — Enter pressed during composition sent the note, and the save action was clipped after the resize — in its observed outcome and confusion, not dropped. What must not stand in for this: an observation called deterministic (injected precomposed strings), a prototype rendering, which is recorded as establishing nothing, a claim for a terminal nobody listed, and a locale the product has no text for — the last two are refused at admission, so no unobserved platform is declared supported.",
  "ids": [
   {
    "name": "alice",
@@ -20,6 +20,10 @@
   },
   {
    "name": "record_protocol_id",
+   "prefix": "req"
+  },
+  {
+   "name": "probe_candidate_id",
    "prefix": "req"
   },
   {
@@ -254,6 +258,168 @@
    ]
   },
   {
+   "name": "user_event_probe",
+   "from": "c12/probe_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/capability",
+     "value": "user_event"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "agent-bios"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.20.0"
+    }
+   ]
+  },
+  {
+   "name": "probe_candidate",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@probe_candidate_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "capability.probe"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#user_event_probe"
+    }
+   ]
+  },
+  {
+   "name": "user_event_worked",
+   "from": "c12/a_user_event_probe_that_worked.json",
+   "set": [
+    {
+     "pointer": "/client/name",
+     "value": "agent-bios"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.20.0"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:user_event_probed_at"
+    },
+    {
+     "pointer": "/probe_id",
+     "value": "$prb:candidate_user_event"
+    },
+    {
+     "pointer": "/observed",
+     "value": "In the installed candidate on Apple Terminal, only a key the person pressed produced a user event; a scripted keystroke and a hook produced none."
+    }
+   ]
+  },
+  {
+   "name": "candidate_profile",
+   "from": "c12/four_capabilities_qualified_one_at_a_time.json",
+   "drop": [
+    "/capabilities/3",
+    "/capabilities/2",
+    "/capabilities/1"
+   ],
+   "set": [
+    {
+     "pointer": "/capabilities/0/capability",
+     "value": "user_event"
+    },
+    {
+     "pointer": "/capabilities/0/state/probe_digest",
+     "value": "#user_event_worked"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "agent-bios"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.20.0"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:user_event_probed_at"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "$cap:candidate_profile"
+    }
+   ]
+  },
+  {
+   "name": "candidate_configuration",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/client/name",
+     "value": "agent-bios"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.20.0"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:user_event_probed_at"
+    }
+   ]
+  },
+  {
    "name": "p4_session_submitted",
    "from": "routes/observation_submitted.json",
    "set": [
@@ -280,6 +446,10 @@
     {
      "pointer": "/observed_in/rows",
      "value": 24
+    },
+    {
+     "pointer": "/subject/evidence/origin/separation_evidence_digest",
+     "value": "#user_event_worked"
     }
    ]
   },
@@ -485,7 +655,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "$obs:p4_session"
+     "value": "@alice_profile"
     },
     {
      "pointer": "/owner/layer",
@@ -528,6 +698,10 @@
     {
      "pointer": "/observed_in/rows",
      "value": 24
+    },
+    {
+     "pointer": "/subject/evidence/origin/separation_evidence_digest",
+     "value": "#user_event_worked"
     }
    ]
   },
@@ -736,7 +910,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "$obs:p5_session"
+     "value": "@alice_profile"
     },
     {
      "pointer": "/owner/layer",
@@ -763,6 +937,10 @@
     {
      "pointer": "/subject/candidate_digest",
      "value": "#candidate"
+    },
+    {
+     "pointer": "/subject/evidence/origin/separation_evidence_digest",
+     "value": "#user_event_worked"
     }
    ]
   },
@@ -929,6 +1107,10 @@
     {
      "pointer": "/subject/candidate_digest",
      "value": "#candidate"
+    },
+    {
+     "pointer": "/subject/evidence/origin/separation_evidence_digest",
+     "value": "#user_event_worked"
     }
    ]
   },
@@ -1008,6 +1190,10 @@
     {
      "pointer": "/subject/candidate_digest",
      "value": "#candidate"
+    },
+    {
+     "pointer": "/subject/evidence/origin/separation_evidence_digest",
+     "value": "#user_event_worked"
     }
    ]
   },
@@ -1109,6 +1295,25 @@
     "recovery": [],
     "returns": [
      "stored_protocol"
+    ]
+   }
+  },
+  {
+   "name": "probe_the_candidate_for_user_events",
+   "request": "probe_candidate",
+   "carries": [
+    "user_event_probe"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "user_event_worked",
+     "candidate_profile",
+     "candidate_configuration"
     ]
    }
   },

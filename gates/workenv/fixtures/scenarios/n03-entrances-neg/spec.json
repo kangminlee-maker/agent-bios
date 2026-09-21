@@ -1,0 +1,1918 @@
+{
+ "case": "N03-ENTRANCES-NEG",
+ "says": "Alice's laptop reads its fresh profile (active, generation 1) and binds her device key. The access owner issues three handles at generation 1, each through the entrance its client calls from: one to the decision CLI, one to the decision MCP server, and one to a child reader the MCP server starts under its own handle, which names the MCP handle it derives from and carries that handle's generation. Alice locks the profile: generation 1 becomes 2. A history read under each old handle (the request names its handle among its proofs and still states generation 1) is refused with access_locked and access_generation_moved and returns nothing; the owner's admission of the CLI request says not admitted with both gaps. Alice unlocks at a terminal with her device key: the profile is active at generation 2, which an unlock does not move. The three old handles stay dead: each request is refused with access_generation_moved alone and returns nothing, and a new child reader asked for under the old MCP handle gets no handle. A handle the CLI asks for now carries generation 2, and a history read under it is admitted and answered. What must not happen: an unlock, or a child derived from an old handle, bringing a handle issued before the generation moved back to life, or any body or result returned under one.",
+ "ids": [
+  {
+   "name": "alice",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "alice_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "read_profile_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "bind_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "issue_cli_handle_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "issue_mcp_handle_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "issue_child_handle_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "lock_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "cli_while_locked_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "mcp_while_locked_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "child_while_locked_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "decide_cli_locked_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "unlock_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "cli_after_unlock_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "mcp_after_unlock_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "child_after_unlock_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "decide_mcp_unlocked_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "child_under_old_handle_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "issue_new_cli_handle_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "new_cli_history_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "decide_new_cli_request_id",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "read_profile_request",
+   "from": "c02/profile_read_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@read_profile_request_id"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    }
+   ]
+  },
+  {
+   "name": "read_profile_profile",
+   "from": "c02/profile_written_at_first_use.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:read_profile_profile_at"
+    }
+   ]
+  },
+  {
+   "name": "read_profile_state",
+   "from": "c02/active_at_first_use.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:read_profile_state_at"
+    }
+   ]
+  },
+  {
+   "name": "alice_laptop_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/credential/key_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/credential/public_key",
+     "value": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    {
+     "pointer": "/established_by",
+     "value": "local_creation"
+    }
+   ]
+  },
+  {
+   "name": "alice_laptop_binding",
+   "from": "alice_laptop_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:alice_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:alice_binding_at"
+    }
+   ]
+  },
+  {
+   "name": "bind_key_request",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.add"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#alice_laptop_key"
+    }
+   ]
+  },
+  {
+   "name": "issue_cli_handle_asked",
+   "from": "c02/handle_asked_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "decision_cli"
+    }
+   ]
+  },
+  {
+   "name": "issue_cli_handle_request",
+   "from": "c02/handle_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@issue_cli_handle_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.handle.issue"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#issue_cli_handle_asked"
+    }
+   ]
+  },
+  {
+   "name": "cli_handle",
+   "from": "c02/handle_issued_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/handle_id",
+     "value": "$hdl:cli_handle"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "decision_cli"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/issued_at",
+     "value": "$instant:cli_handle_at"
+    }
+   ]
+  },
+  {
+   "name": "issue_mcp_handle_asked",
+   "from": "c02/handle_asked_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "decision_mcp"
+    }
+   ]
+  },
+  {
+   "name": "issue_mcp_handle_request",
+   "from": "c02/handle_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@issue_mcp_handle_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.handle.issue"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#issue_mcp_handle_asked"
+    }
+   ]
+  },
+  {
+   "name": "mcp_handle",
+   "from": "c02/handle_issued_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/handle_id",
+     "value": "$hdl:mcp_handle"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "decision_mcp"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/issued_at",
+     "value": "$instant:mcp_handle_at"
+    }
+   ]
+  },
+  {
+   "name": "issue_child_handle_asked",
+   "from": "c02/handle_asked_for_a_child_reader.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "decision_mcp"
+    },
+    {
+     "pointer": "/derived_from",
+     "value": "$hdl:mcp_handle"
+    }
+   ]
+  },
+  {
+   "name": "issue_child_handle_request",
+   "from": "c02/handle_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@issue_child_handle_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.handle.issue"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#issue_child_handle_asked"
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#mcp_handle"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "child_handle",
+   "from": "c02/child_handle_issued_under_the_cli_handle.json",
+   "set": [
+    {
+     "pointer": "/handle_id",
+     "value": "$hdl:child_handle"
+    },
+    {
+     "pointer": "/derived_from",
+     "value": "$hdl:mcp_handle"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "decision_mcp"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/issued_at",
+     "value": "$instant:child_handle_at"
+    }
+   ]
+  },
+  {
+   "name": "lock_change",
+   "from": "c02/lock.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/expected_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/change/transition",
+     "value": "lock"
+    }
+   ]
+  },
+  {
+   "name": "lock_state",
+   "from": "c02/locked_state.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/state/is",
+     "value": "locked"
+    },
+    {
+     "pointer": "/state/because",
+     "value": "lock"
+    },
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:lock_at"
+    }
+   ]
+  },
+  {
+   "name": "lock_request",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@lock_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.transition"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#lock_change"
+    }
+   ]
+  },
+  {
+   "name": "history_query",
+   "from": "c03/history_asked_of_one_repository.json",
+   "drop": [
+    "/scope/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/scope/principal_id",
+     "value": "@alice"
+    }
+   ]
+  },
+  {
+   "name": "cli_while_locked_request",
+   "from": "c02/history_under_the_cli_handle.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@cli_while_locked_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.history.read"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#history_query"
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#cli_handle"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "mcp_while_locked_request",
+   "from": "c02/history_under_the_cli_handle.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@mcp_while_locked_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.history.read"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#history_query"
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#mcp_handle"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "child_while_locked_request",
+   "from": "c02/history_under_the_cli_handle.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@child_while_locked_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.history.read"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#history_query"
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#child_handle"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "cli_locked_admission",
+   "from": "c02/old_cli_handle_after_a_lock.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@cli_while_locked_request_id"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 2
+    }
+   ]
+  },
+  {
+   "name": "decide_cli_locked_request",
+   "from": "c02/admission_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@decide_cli_locked_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.admission.decide"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#cli_while_locked_request"
+    }
+   ]
+  },
+  {
+   "name": "unlock_change",
+   "from": "c02/unlock_at_a_terminal.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/expected_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/change/transition",
+     "value": "unlock"
+    },
+    {
+     "pointer": "/change/method",
+     "value": "device_key_at_terminal"
+    }
+   ]
+  },
+  {
+   "name": "unlock_state",
+   "from": "c02/locked_state.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/state/is",
+     "value": "active"
+    },
+    {
+     "pointer": "/state/because",
+     "value": "unlock"
+    },
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:unlock_at"
+    }
+   ]
+  },
+  {
+   "name": "unlock_request",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@unlock_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.transition"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#unlock_change"
+    }
+   ]
+  },
+  {
+   "name": "cli_after_unlock_request",
+   "from": "c02/history_under_the_cli_handle.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@cli_after_unlock_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.history.read"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#history_query"
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#cli_handle"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "mcp_after_unlock_request",
+   "from": "c02/history_under_the_cli_handle.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@mcp_after_unlock_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.history.read"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#history_query"
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#mcp_handle"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "child_after_unlock_request",
+   "from": "c02/history_under_the_cli_handle.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@child_after_unlock_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.history.read"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#history_query"
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#child_handle"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "mcp_unlocked_admission",
+   "from": "c02/old_cli_handle_after_a_lock.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@mcp_after_unlock_request_id"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/outcome/material_gaps/0/code",
+     "value": "access_generation_moved"
+    }
+   ],
+   "drop": [
+    "/outcome/material_gaps/1"
+   ]
+  },
+  {
+   "name": "decide_mcp_unlocked_request",
+   "from": "c02/admission_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@decide_mcp_unlocked_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.admission.decide"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#mcp_after_unlock_request"
+    }
+   ]
+  },
+  {
+   "name": "child_under_old_handle_asked",
+   "from": "c02/handle_asked_for_a_child_reader.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "decision_mcp"
+    },
+    {
+     "pointer": "/derived_from",
+     "value": "$hdl:mcp_handle"
+    }
+   ]
+  },
+  {
+   "name": "child_under_old_handle_request",
+   "from": "c02/handle_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@child_under_old_handle_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.handle.issue"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#child_under_old_handle_asked"
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#mcp_handle"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "issue_new_cli_handle_asked",
+   "from": "c02/handle_asked_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "decision_cli"
+    }
+   ]
+  },
+  {
+   "name": "issue_new_cli_handle_request",
+   "from": "c02/handle_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@issue_new_cli_handle_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.handle.issue"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#issue_new_cli_handle_asked"
+    }
+   ]
+  },
+  {
+   "name": "new_cli_handle",
+   "from": "c02/handle_issued_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/handle_id",
+     "value": "$hdl:new_cli_handle"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "decision_cli"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/issued_at",
+     "value": "$instant:new_cli_handle_at"
+    }
+   ]
+  },
+  {
+   "name": "new_cli_admission",
+   "from": "c02/allowed.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@new_cli_history_request_id"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 2
+    }
+   ]
+  },
+  {
+   "name": "new_cli_history_request",
+   "from": "c02/history_under_the_cli_handle.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@new_cli_history_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.history.read"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#history_query"
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#new_cli_handle"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "decide_new_cli_request",
+   "from": "c02/admission_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@decide_new_cli_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.admission.decide"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#new_cli_history_request"
+    }
+   ]
+  },
+  {
+   "name": "recent_history",
+   "from": "c03/an_unknown_request_and_a_dated_checkpoint.json",
+   "drop": [
+    "/scope/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/scope/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/observed_at",
+     "value": "$instant:history_observed_at"
+    },
+    {
+     "pointer": "/checkpoints",
+     "value": []
+    },
+    {
+     "pointer": "/entries/0/request_id",
+     "value": "@unlock_request_id"
+    },
+    {
+     "pointer": "/entries/0/request_digest",
+     "value": "#unlock_request"
+    },
+    {
+     "pointer": "/entries/0/operation",
+     "value": "access.transition"
+    },
+    {
+     "pointer": "/entries/0/confirmed_stage",
+     "value": "committed"
+    },
+    {
+     "pointer": "/entries/0/confirmed_at",
+     "value": "$instant:unlock_committed_at"
+    },
+    {
+     "pointer": "/entries/0/recovery",
+     "value": []
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "read_profile",
+   "request": "read_profile_request",
+   "carries": [],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "read_profile_profile",
+     "read_profile_state"
+    ]
+   }
+  },
+  {
+   "name": "bind_key",
+   "request": "bind_key_request",
+   "carries": [
+    "alice_laptop_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "alice_laptop_binding"
+    ]
+   }
+  },
+  {
+   "name": "issue_cli_handle",
+   "request": "issue_cli_handle_request",
+   "carries": [
+    "issue_cli_handle_asked"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "cli_handle"
+    ]
+   }
+  },
+  {
+   "name": "issue_mcp_handle",
+   "request": "issue_mcp_handle_request",
+   "carries": [
+    "issue_mcp_handle_asked"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "mcp_handle"
+    ]
+   }
+  },
+  {
+   "name": "issue_child_handle",
+   "request": "issue_child_handle_request",
+   "carries": [
+    "issue_child_handle_asked"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "child_handle"
+    ]
+   }
+  },
+  {
+   "name": "lock",
+   "request": "lock_request",
+   "carries": [
+    "lock_change"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "lock_state"
+    ]
+   }
+  },
+  {
+   "name": "cli_while_locked",
+   "request": "cli_while_locked_request",
+   "carries": [
+    "history_query"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "access_locked"
+     },
+     {
+      "code": "access_generation_moved"
+     }
+    ],
+    "recovery": [
+     "unlock"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "mcp_while_locked",
+   "request": "mcp_while_locked_request",
+   "carries": [
+    "history_query"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "access_locked"
+     },
+     {
+      "code": "access_generation_moved"
+     }
+    ],
+    "recovery": [
+     "unlock"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "child_while_locked",
+   "request": "child_while_locked_request",
+   "carries": [
+    "history_query"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "access_locked"
+     },
+     {
+      "code": "access_generation_moved"
+     }
+    ],
+    "recovery": [
+     "unlock"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "decide_cli_locked",
+   "request": "decide_cli_locked_request",
+   "carries": [
+    "cli_while_locked_request"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "cli_locked_admission"
+    ]
+   }
+  },
+  {
+   "name": "unlock",
+   "request": "unlock_request",
+   "carries": [
+    "unlock_change"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "unlock_state"
+    ]
+   }
+  },
+  {
+   "name": "cli_after_unlock",
+   "request": "cli_after_unlock_request",
+   "carries": [
+    "history_query"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "access_generation_moved"
+     }
+    ],
+    "recovery": [],
+    "returns": []
+   }
+  },
+  {
+   "name": "mcp_after_unlock",
+   "request": "mcp_after_unlock_request",
+   "carries": [
+    "history_query"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "access_generation_moved"
+     }
+    ],
+    "recovery": [],
+    "returns": []
+   }
+  },
+  {
+   "name": "child_after_unlock",
+   "request": "child_after_unlock_request",
+   "carries": [
+    "history_query"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "access_generation_moved"
+     }
+    ],
+    "recovery": [],
+    "returns": []
+   }
+  },
+  {
+   "name": "decide_mcp_unlocked",
+   "request": "decide_mcp_unlocked_request",
+   "carries": [
+    "mcp_after_unlock_request"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "mcp_unlocked_admission"
+    ]
+   }
+  },
+  {
+   "name": "child_under_old_handle",
+   "request": "child_under_old_handle_request",
+   "carries": [
+    "child_under_old_handle_asked"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "access_generation_moved"
+     }
+    ],
+    "recovery": [],
+    "returns": []
+   }
+  },
+  {
+   "name": "issue_new_cli_handle",
+   "request": "issue_new_cli_handle_request",
+   "carries": [
+    "issue_new_cli_handle_asked"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "new_cli_handle"
+    ]
+   }
+  },
+  {
+   "name": "decide_new_cli",
+   "request": "decide_new_cli_request",
+   "carries": [
+    "new_cli_history_request"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "new_cli_admission"
+    ]
+   }
+  },
+  {
+   "name": "new_cli_history",
+   "request": "new_cli_history_request",
+   "carries": [
+    "history_query"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "recent_history"
+    ]
+   }
+  }
+ ]
+}

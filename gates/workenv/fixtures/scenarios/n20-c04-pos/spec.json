@@ -1,6 +1,6 @@
 {
  "case": "N20-C04-POS",
- "says": "Each editor produces an owned revision or event, and one pinned validation run covers them. An Instructions source (review rules) is registered and its revision committed. A knowledge source is registered; its rate-table form profile and its tax model are checked with knowledge.member.prepare and returned as they will be committed, and a revision holding the table, the form and the model is committed. A question on that revision is asked and answered with a view, and a second revision adds the question itself as a member on the first head. A workstream and a memory source are set up; a choice resting on the knowledge revision is published, and an adoption event on that choice is applied, each committing a new memory revision. A validation request then pins the three resulting revisions by digest, one lens by name, version and digest, the question, and the knowledge revision as the package; the run the owner records is clean and lists a check that ran for every pinned target under that lens.",
+ "says": "Each editor produces an owned revision or event, and one pinned validation run covers them. The worker binds their device key and checkout. An Instructions source (review rules) is registered and its revision committed on the head the registration moved to. A knowledge source is registered; its rate-table form profile and its tax model are checked with knowledge.member.prepare and returned as they will be committed, and a revision holding the table, the form and the model is committed. A question on that revision is asked and answered with a view the owner keeps privately, and a second revision adds the question itself as a member on the first head. A workstream and a memory source are set up; a choice resting on the knowledge revision is published, and an adoption event on that choice is applied, each committing a new memory revision. A validation request then pins the three resulting revisions by digest, one lens by name, version and digest, the question, and the knowledge revision as the package; the run the owner records is clean and lists a check that ran for every pinned target under that lens.",
  "ids": [
   {
    "name": "rules",
@@ -81,9 +81,140 @@
   {
    "name": "validate_every_owned_revision_request_id",
    "prefix": "req"
+  },
+  {
+   "name": "bind_my_key_id",
+   "prefix": "req"
+  },
+  {
+   "name": "bind_my_checkout_id",
+   "prefix": "req"
   }
  ],
  "records": [
+  {
+   "name": "my_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "my_key_stored",
+   "from": "my_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:my_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:my_key_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "bind_my_key",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_my_key_id"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#my_key"
+    }
+   ]
+  },
+  {
+   "name": "my_checkout",
+   "from": "c01/repository_binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "my_checkout_bound",
+   "from": "c01/clone_shares_the_repository_id.json",
+   "drop": [
+    "/observed/working_bytes_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "bind_my_checkout",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_my_checkout_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "repository.bind"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#my_checkout"
+    }
+   ]
+  },
   {
    "name": "rules_home",
    "from": "sources/home_submitted.json",
@@ -126,7 +257,7 @@
     },
     {
      "pointer": "/home/binding_evidence_digest",
-     "value": "47a017af61158bae8401475d7156faf45fe1f355b9b2c2f9fc8ebc54de98a9e4"
+     "value": "#my_checkout_bound"
     },
     {
      "pointer": "/acceptance_authority/layer",
@@ -251,9 +382,6 @@
   {
    "name": "commit_rules_rev1",
    "from": "c04/model_check_request.json",
-   "drop": [
-    "/target/base/head_digest"
-   ],
    "set": [
     {
      "pointer": "/request_id",
@@ -289,7 +417,7 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
@@ -298,6 +426,10 @@
     {
      "pointer": "/owner/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:rules_registered"
     }
    ]
   },
@@ -343,7 +475,7 @@
     },
     {
      "pointer": "/home/binding_evidence_digest",
-     "value": "47a017af61158bae8401475d7156faf45fe1f355b9b2c2f9fc8ebc54de98a9e4"
+     "value": "#my_checkout_bound"
     },
     {
      "pointer": "/acceptance_authority/layer",
@@ -447,9 +579,6 @@
   {
    "name": "check_the_form_request",
    "from": "c04/model_check_request.json",
-   "drop": [
-    "/target/base/head_digest"
-   ],
    "set": [
     {
      "pointer": "/request_id",
@@ -485,7 +614,7 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
@@ -494,6 +623,10 @@
     {
      "pointer": "/owner/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:rates_registered"
     }
    ]
   },
@@ -526,9 +659,6 @@
   {
    "name": "check_the_model_request",
    "from": "c04/model_check_request.json",
-   "drop": [
-    "/target/base/head_digest"
-   ],
    "set": [
     {
      "pointer": "/request_id",
@@ -564,7 +694,7 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
@@ -573,6 +703,10 @@
     {
      "pointer": "/owner/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:rates_registered"
     }
    ]
   },
@@ -635,9 +769,6 @@
   {
    "name": "commit_rates_rev1",
    "from": "c04/model_check_request.json",
-   "drop": [
-    "/target/base/head_digest"
-   ],
    "set": [
     {
      "pointer": "/request_id",
@@ -673,7 +804,7 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
@@ -682,6 +813,10 @@
     {
      "pointer": "/owner/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:rates_registered"
     }
    ]
   },
@@ -777,7 +912,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "pure_preview"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -793,7 +928,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@repo"
+     "value": "@me"
     },
     {
      "pointer": "/payload_digest",
@@ -1038,7 +1173,7 @@
     },
     {
      "pointer": "/home/binding_evidence_digest",
-     "value": "47a017af61158bae8401475d7156faf45fe1f355b9b2c2f9fc8ebc54de98a9e4"
+     "value": "#my_checkout_bound"
     },
     {
      "pointer": "/acceptance_authority/layer",
@@ -1135,7 +1270,7 @@
     },
     {
      "pointer": "/question",
-     "value": "Which journal mode does the local state database use?"
+     "value": "Which relief schedule applies to this entity in 2026?"
     },
     {
      "pointer": "/workstream_ids",
@@ -1209,9 +1344,6 @@
   {
    "name": "publish_relief",
    "from": "c04/model_check_request.json",
-   "drop": [
-    "/target/base/head_digest"
-   ],
    "set": [
     {
      "pointer": "/request_id",
@@ -1247,7 +1379,7 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
@@ -1256,6 +1388,10 @@
     {
      "pointer": "/owner/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:decisions_registered"
     }
    ]
   },
@@ -1351,7 +1487,7 @@
     },
     {
      "pointer": "/action",
-     "value": "decide"
+     "value": "publish"
     },
     {
      "pointer": "/effect_class",
@@ -1532,6 +1668,40 @@
  ],
  "steps": [
   {
+   "name": "bind_my_key",
+   "request": "bind_my_key",
+   "carries": [
+    "my_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "my_key_stored"
+    ]
+   }
+  },
+  {
+   "name": "bind_my_checkout",
+   "request": "bind_my_checkout",
+   "carries": [
+    "my_checkout"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "my_checkout_bound"
+    ]
+   }
+  },
+  {
    "name": "register_rules_home",
    "request": "register_rules",
    "carries": [
@@ -1545,7 +1715,8 @@
     "recovery": [],
     "returns": [
      "rules_home_stored"
-    ]
+    ],
+    "head": "rules_registered"
    }
   },
   {
@@ -1580,7 +1751,8 @@
     "recovery": [],
     "returns": [
      "rates_home_stored"
-    ]
+    ],
+    "head": "rates_registered"
    }
   },
   {
@@ -1643,7 +1815,7 @@
    ],
    "answer": {
     "stage": "previewed",
-    "local_effect": "none",
+    "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1701,7 +1873,8 @@
     "recovery": [],
     "returns": [
      "decisions_home_stored"
-    ]
+    ],
+    "head": "decisions_registered"
    }
   },
   {
@@ -1750,7 +1923,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],

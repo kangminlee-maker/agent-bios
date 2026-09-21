@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C02 access state",
-  "description": "The local access state of one profile on one installation. The runtime writes it whole. These three states are not Team membership and not an `enabled` flag. A state and the change that produced it are one value: only an unlock or sign-in leads to `active`, and recovering an unfinished transition completes a restriction, never access.",
+  "description": "The local access state of one profile on one installation. The runtime writes it whole. These three states are not Team membership and not an `enabled` flag. A state and the change that produced it are one value: only an unlock or sign-in leads to `active`, and recovering an unfinished transition completes a restriction, never access. The generation is an invalidation count: it moves on every restriction and on nothing else, so an unlock or sign-in leaves it where the restriction put it and a handle issued before a restriction stays old after it. First use writes an active state at generation 1. A restore leaves each restored profile locked, or signed out when the backup held it signed out, at a generation past the one it restored: neither the restored copy nor a handle issued before the backup reopens access without an explicit unlock or sign-in.",
   "required": [
     "kind",
     "schema",
@@ -58,6 +58,7 @@
     "access_active": {
       "type": "object",
       "additionalProperties": false,
+      "description": "An active state a device key opened names in `key_mode` whether that key ran for real or was a fixture the harness supplied, by the fixture's digest. A fixture key opens a harness session and certifies no production assurance, and a real run has no field for a fixture digest, so a fixture key cannot be recorded as real.",
       "required": [
         "is",
         "because"
@@ -72,6 +73,9 @@
             "unlock",
             "sign_in"
           ]
+        },
+        "key_mode": {
+          "$ref": "#/$defs/run_mode"
         }
       }
     },
@@ -89,7 +93,8 @@
         "because": {
           "enum": [
             "lock",
-            "incomplete_transition_recovered"
+            "incomplete_transition_recovered",
+            "restored"
           ]
         }
       }
@@ -108,8 +113,51 @@
         "because": {
           "enum": [
             "sign_out",
-            "incomplete_transition_recovered"
+            "incomplete_transition_recovered",
+            "restored"
           ]
+        }
+      }
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "run_mode": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/real_run"
+        },
+        {
+          "$ref": "#/$defs/fixture_run"
+        }
+      ]
+    },
+    "real_run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runs"
+      ],
+      "properties": {
+        "runs": {
+          "const": "real"
+        }
+      }
+    },
+    "fixture_run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runs",
+        "fixture_digest"
+      ],
+      "properties": {
+        "runs": {
+          "const": "fixture"
+        },
+        "fixture_digest": {
+          "$ref": "#/$defs/digest"
         }
       }
     }

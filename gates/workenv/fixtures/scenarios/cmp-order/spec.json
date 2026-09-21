@@ -51,10 +51,6 @@
    "prefix": "src"
   },
   {
-   "name": "my_rules_store",
-   "prefix": "col"
-  },
-  {
    "name": "register_my_rules_rid",
    "prefix": "req"
   },
@@ -65,10 +61,6 @@
   {
    "name": "team_rules",
    "prefix": "src"
-  },
-  {
-   "name": "team_rules_store",
-   "prefix": "col"
   },
   {
    "name": "register_team_rules_rid",
@@ -422,19 +414,95 @@
   },
   {
    "name": "team_active",
-   "from": "c08/archived_team.json",
+   "from": "c08/active_team.json",
    "set": [
     {
      "pointer": "/since",
      "value": "$instant:founded_at"
     },
     {
-     "pointer": "/state",
-     "value": "active"
+     "pointer": "/team_id",
+     "value": "@platform"
+    }
+   ]
+  },
+  {
+   "name": "platform_sealed_proposal",
+   "from": "founding",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:platform_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "platform_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:platform_founder"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
     },
     {
      "pointer": "/team_id",
      "value": "@platform"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#platform_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "platform_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:platform_h1"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "platform_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:founded_at"
     }
    ]
   },
@@ -580,7 +648,7 @@
     },
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/owner/layer",
@@ -635,10 +703,6 @@
     {
      "pointer": "/applicability/states",
      "value": "unstated"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@my_rules_store"
     },
     {
      "pointer": "/home/markdown_view/view",
@@ -781,7 +845,7 @@
     },
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/owner/layer",
@@ -846,10 +910,6 @@
     {
      "pointer": "/disclosure",
      "value": "team"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@team_rules_store"
     },
     {
      "pointer": "/home/markdown_view/view",
@@ -993,7 +1053,7 @@
     },
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/owner/team_id",
@@ -1335,7 +1395,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "pure_preview"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1359,7 +1419,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@work_repo"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
@@ -1377,7 +1437,7 @@
     },
     {
      "pointer": "/collections/0/head_digest",
-     "value": "$digest:repo_instr_h1"
+     "value": "#repo_instr_v1_stored"
     },
     {
      "pointer": "/collections/1/collection_id",
@@ -1385,7 +1445,7 @@
     },
     {
      "pointer": "/collections/1/head_digest",
-     "value": "$digest:my_instr_h1"
+     "value": "#my_instr_v1_stored"
     },
     {
      "pointer": "/collections/2/collection_id",
@@ -1393,7 +1453,7 @@
     },
     {
      "pointer": "/collections/2/head_digest",
-     "value": "$digest:team_instr_h1"
+     "value": "#team_instr_v1_stored"
     },
     {
      "pointer": "/collections/2/state",
@@ -1596,7 +1656,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:team_instr_h1"
+     "value": "#team_instr_v1_stored"
     },
     {
      "pointer": "/payload_digest",
@@ -1682,7 +1742,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:my_instr_h1"
+     "value": "#my_instr_v1_stored"
     },
     {
      "pointer": "/payload_digest",
@@ -1749,7 +1809,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "pure_preview"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1804,7 +1864,7 @@
     },
     {
      "pointer": "/collections/0/head_digest",
-     "value": "$digest:my_instr_h2"
+     "value": "#my_instr_v2_stored"
     },
     {
      "pointer": "/collections/1/collection_id",
@@ -1812,7 +1872,7 @@
     },
     {
      "pointer": "/collections/1/head_digest",
-     "value": "$digest:team_instr_h1"
+     "value": "#team_instr_v1_stored"
     },
     {
      "pointer": "/frontiers",
@@ -2034,9 +2094,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "platform_sealed_proposal",
      "team_policy",
+     "platform_founder_membership",
      "alice_team_grant",
-     "team_active"
+     "team_active",
+     "platform_profile",
+     "platform_founding_epoch"
     ],
     "head": "platform_h1"
    },
@@ -2167,7 +2231,7 @@
     "returns": [
      "repo_instr_v1_stored"
     ],
-    "head": "repo_instr_h1"
+    "head": "repo_instr_v1_stored"
    }
   },
   {
@@ -2185,7 +2249,7 @@
     "returns": [
      "my_instr_v1_stored"
     ],
-    "head": "my_instr_h1"
+    "head": "my_instr_v1_stored"
    }
   },
   {
@@ -2203,7 +2267,7 @@
     "returns": [
      "team_instr_v1_stored"
     ],
-    "head": "team_instr_h1"
+    "head": "team_instr_v1_stored"
    }
   },
   {
@@ -2214,7 +2278,7 @@
    ],
    "answer": {
     "stage": "previewed",
-    "local_effect": "none",
+    "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2252,7 +2316,7 @@
     "returns": [
      "my_instr_v2_stored"
     ],
-    "head": "my_instr_h2"
+    "head": "my_instr_v2_stored"
    }
   },
   {
@@ -2263,7 +2327,7 @@
    ],
    "answer": {
     "stage": "previewed",
-    "local_effect": "none",
+    "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],

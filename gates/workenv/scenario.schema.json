@@ -248,7 +248,7 @@
     "answer": {
       "type": "object",
       "additionalProperties": false,
-      "description": "The result the owner writes, stated by what the contract fixes. The generator builds the operation_result from it and the request and holds it against the result schema, so an answer the contract cannot give cannot be written here either. A committed answer's receipt is generated as `<step>_receipt`; `head` names the head_digest it states, so a later request's base can expect it as $digest:<head>.",
+      "description": "The result the owner writes, stated by what the contract fixes. The generator builds the operation_result from it and the request and holds it against the result schema, so an answer the contract cannot give cannot be written here either. A committed answer's receipt is generated as `<step>_receipt`; `head` names the head its receipt states: a record the answer returns, whose digest it is (a later base expects it as #<head>), or else a digest the owner mints (a later base expects it as $digest:<head>). `receipt_of` names an earlier committed step whose receipt this answer states instead of writing one (a duplicate answered under a new request id); it states no head.",
       "required": [
         "stage",
         "local_effect",
@@ -290,6 +290,9 @@
           }
         },
         "head": {
+          "$ref": "#/$defs/name"
+        },
+        "receipt_of": {
           "$ref": "#/$defs/name"
         }
       }
@@ -345,7 +348,7 @@
     "world": {
       "type": "object",
       "additionalProperties": false,
-      "description": "The harness around the steps, not a contract record. With `processes`, every step names the process it runs on, each an isolated runtime with its own state root. With `clock`, the driver controls time: it starts at `start` and a step moves it by `advance_seconds` before it runs.",
+      "description": "The harness around the steps, not a contract record. With `processes`, every step names the process it runs on, each an isolated runtime with its own state root. With `clock`, the driver controls time: it starts at `start` and a step moves it by `advance_seconds` before it runs. With `during`, a step runs while another is in flight.",
       "properties": {
         "processes": {
           "type": "array",
@@ -377,6 +380,12 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/fault"
+          }
+        },
+        "during": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/during"
           }
         }
       }
@@ -410,7 +419,7 @@
     "fault": {
       "type": "object",
       "additionalProperties": false,
-      "description": "The process running step `step` is killed at `point` (a name B03's FAULT_POINTS declares) and restarted; the step's answer is what the owner returns for the same request after the restart.",
+      "description": "The process running step `step` is killed at `point` (a name B03's FAULT_POINTS declares) and restarted; the step's answer is what the owner returns for the same request after the restart. With `observed_by`, the caller does not resubmit: no reply reaches it, and it first learns the answer from that later step, which returns `<step>_result`.",
       "required": [
         "step",
         "point"
@@ -420,6 +429,9 @@
           "$ref": "#/$defs/name"
         },
         "point": {
+          "$ref": "#/$defs/name"
+        },
+        "observed_by": {
           "$ref": "#/$defs/name"
         }
       }
@@ -482,6 +494,23 @@
         "advance_seconds": {
           "type": "integer",
           "minimum": 1
+        }
+      }
+    },
+    "during": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Step `runs`, listed immediately before `step`, starts after the owner admitted `step`'s request and commits before the owner answers it: the driver holds `step` after admission, runs `runs` to its answer, then lets `step` finish. `step`'s request uses nothing `runs` mints.",
+      "required": [
+        "step",
+        "runs"
+      ],
+      "properties": {
+        "step": {
+          "$ref": "#/$defs/name"
+        },
+        "runs": {
+          "$ref": "#/$defs/name"
         }
       }
     }

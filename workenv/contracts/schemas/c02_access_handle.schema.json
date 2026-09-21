@@ -1,0 +1,93 @@
+{
+  "title": "C02 access handle",
+  "description": "A handle the local access owner issued to one client of one profile, through the entrance that client calls from, under the access generation current then. A child reader started under a parent's handle names that handle in `derived_from`; it is issued only while the parent's generation is current and carries it, so a lock or sign-out that moves the generation leaves the child as old as its parent. A request made under a handle names the handle's digest among its proofs, and the owner admits it only while the handle's generation is the profile's current one. No handle is issued through an entrance the cutover retired (`route_retired`). A handle issued to a browser page through the bridge names the digest of the per-launch client token the page reads from its URL fragment; the token itself is never stored, and it identifies the page and grants nothing. The runtime writes the id, the generation, the token digest and the time.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema",
+    "handle_id",
+    "profile_id",
+    "entrance",
+    "access_generation",
+    "issued_at"
+  ],
+  "properties": {
+    "kind": {
+      "const": "access_handle"
+    },
+    "schema": {
+      "const": 1
+    },
+    "handle_id": {
+      "$ref": "#/$defs/handle_id",
+      "x-runtime-owned": true
+    },
+    "profile_id": {
+      "$ref": "#/$defs/profile_id"
+    },
+    "entrance": {
+      "$ref": "#/$defs/named_entrance"
+    },
+    "derived_from": {
+      "$ref": "#/$defs/handle_id"
+    },
+    "access_generation": {
+      "type": "integer",
+      "minimum": 1,
+      "x-runtime-owned": true
+    },
+    "client_token_digest": {
+      "$ref": "#/$defs/digest",
+      "x-runtime-owned": true
+    },
+    "issued_at": {
+      "$ref": "#/$defs/instant",
+      "x-runtime-owned": true
+    }
+  },
+  "$defs": {
+    "handle_id": {
+      "type": "string",
+      "pattern": "^hdl_[0-9a-f]{32}$"
+    },
+    "profile_id": {
+      "type": "string",
+      "pattern": "^prf_[0-9a-f]{32}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "named_entrance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "enum": [
+            "session_start",
+            "host_launcher",
+            "studio_hub",
+            "supplied_request",
+            "work_link",
+            "setup",
+            "locked_scope",
+            "decision_cli",
+            "decision_mcp",
+            "studio_bridge",
+            "capture_intake",
+            "compatibility_route",
+            "maintenance"
+          ]
+        }
+      }
+    }
+  }
+}

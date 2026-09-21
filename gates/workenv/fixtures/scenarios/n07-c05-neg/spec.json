@@ -1,6 +1,6 @@
 {
  "case": "N07-C05-NEG",
- "says": "Three concerns in the repository memory each have a flaw that must leave state unresolved rather than ranked. A page-size choice states reliance on a record this reader cannot reach: its entry is unresolved with basis_target_missing and the comparison counts the unreachable record. A cache choice is replaced whole by two later choices: the replaced entry and both successors are unresolved with competing_successors, and neither the newer nor the older successor wins. A vacuum choice is both adopted and withdrawn by events stating the same instant: its entry is unresolved with lifecycle_contradiction. In none of the three does a timestamp, an order or a ranking select a current entry.",
+ "says": "Four concerns in the repository memory each have a flaw that must leave state unresolved rather than ranked. A page-size choice states reliance on a record this reader cannot reach: its entry is unresolved with basis_target_missing and the comparison counts the unreachable record. A cache choice is replaced whole by two later choices: the replaced entry and both successors are unresolved with competing_successors, and neither the newer nor the older successor wins. A vacuum choice is both adopted and withdrawn by events stating the same instant: its entry is unresolved with lifecycle_contradiction. Two checkpoint choices written in another checkout, each already carrying its record id, arrive when Alice commits the pulled docs/decisions files as the memory source's next revision; each states reliance on the other, so both entries are unresolved with basis_cycle. In none of the four does a timestamp, an order or a ranking select a current entry.",
  "ids": [
   {
    "name": "alice",
@@ -88,6 +88,26 @@
   },
   {
    "name": "resolve_the_vacuum_id",
+   "prefix": "req"
+  },
+  {
+   "name": "interval_a",
+   "prefix": "rec"
+  },
+  {
+   "name": "interval_b",
+   "prefix": "rec"
+  },
+  {
+   "name": "commit_the_pulled_records_id",
+   "prefix": "req"
+  },
+  {
+   "name": "checkpoint_concern",
+   "prefix": "cnc"
+  },
+  {
+   "name": "resolve_the_checkpoint_id",
    "prefix": "req"
   }
  ],
@@ -315,7 +335,7 @@
     },
     {
      "pointer": "/action",
-     "value": "publish"
+     "value": "contribute"
     },
     {
      "pointer": "/owner/layer",
@@ -1780,6 +1800,374 @@
      "value": "#vacuum_question"
     }
    ]
+  },
+  {
+   "name": "pulled_interval",
+   "from": "c05/choice_as_submitted.json",
+   "drop": [
+    "/context",
+    "/expected_consequences",
+    "/revisit_condition",
+    "/applicability/period",
+    "/basis/0/revision_digest",
+    "/basis/0/source_id"
+   ],
+   "set": [
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/workstream_ids",
+     "value": []
+    },
+    {
+     "pointer": "/question",
+     "value": "When does the WAL checkpoint run?"
+    },
+    {
+     "pointer": "/choice",
+     "value": "Checkpoint every 1000 pages."
+    },
+    {
+     "pointer": "/alternatives/0/choice",
+     "value": "Checkpoint every 30 seconds"
+    },
+    {
+     "pointer": "/alternatives/0/reason",
+     "value": "Idle databases would checkpoint for nothing."
+    },
+    {
+     "pointer": "/reason",
+     "value": "The trigger choice fires on page count, so the interval is counted in pages."
+    },
+    {
+     "pointer": "/applicability/conditions/0/dimension",
+     "value": "repository"
+    },
+    {
+     "pointer": "/applicability/conditions/0/value",
+     "value": "this one"
+    },
+    {
+     "pointer": "/basis/0/relies_on",
+     "value": "record"
+    },
+    {
+     "pointer": "/basis/0/record_id",
+     "value": "@interval_b"
+    },
+    {
+     "pointer": "/basis/0/as_stated",
+     "value": "The checkpoint trigger decided in the other record."
+    },
+    {
+     "pointer": "/record_id",
+     "value": "@interval_a"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "2026-09-18T10:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "pulled_trigger",
+   "from": "c05/choice_as_submitted.json",
+   "drop": [
+    "/context",
+    "/expected_consequences",
+    "/revisit_condition",
+    "/applicability/period",
+    "/basis/0/revision_digest",
+    "/basis/0/source_id"
+   ],
+   "set": [
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/workstream_ids",
+     "value": []
+    },
+    {
+     "pointer": "/question",
+     "value": "When does the WAL checkpoint run?"
+    },
+    {
+     "pointer": "/choice",
+     "value": "Trigger the checkpoint on page count, not on time."
+    },
+    {
+     "pointer": "/alternatives/0/choice",
+     "value": "Trigger on a timer"
+    },
+    {
+     "pointer": "/alternatives/0/reason",
+     "value": "A timer ignores how much was written."
+    },
+    {
+     "pointer": "/reason",
+     "value": "The interval choice is stated in pages, so the trigger has to count pages."
+    },
+    {
+     "pointer": "/applicability/conditions/0/dimension",
+     "value": "repository"
+    },
+    {
+     "pointer": "/applicability/conditions/0/value",
+     "value": "this one"
+    },
+    {
+     "pointer": "/basis/0/relies_on",
+     "value": "record"
+    },
+    {
+     "pointer": "/basis/0/record_id",
+     "value": "@interval_a"
+    },
+    {
+     "pointer": "/basis/0/as_stated",
+     "value": "The checkpoint interval decided in the other record."
+    },
+    {
+     "pointer": "/record_id",
+     "value": "@interval_b"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "2026-09-18T10:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "repo_memory_revision_9",
+   "from": "sources/revision_submitted.json",
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "memory/records.jsonl"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:repo_memory_bytes_8"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": "$integer:repo_memory_size_8"
+    },
+    {
+     "pointer": "/members/1/path",
+     "value": "docs/decisions/checkpoint-interval.json"
+    },
+    {
+     "pointer": "/members/1/digest",
+     "value": "#pulled_interval"
+    },
+    {
+     "pointer": "/members/1/size",
+     "value": 812
+    },
+    {
+     "pointer": "/members/2/path",
+     "value": "docs/decisions/checkpoint-trigger.json"
+    },
+    {
+     "pointer": "/members/2/digest",
+     "value": "#pulled_trigger"
+    },
+    {
+     "pointer": "/members/2/size",
+     "value": 834
+    }
+   ]
+  },
+  {
+   "name": "repo_memory_revision_9_stored",
+   "from": "repo_memory_revision_9",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:repo_memory_produced_9"
+    }
+   ]
+  },
+  {
+   "name": "commit_the_pulled_records",
+   "from": "c01/link_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_the_pulled_records_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.revision.commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:repo_memory_head_8"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_memory_revision_9"
+    }
+   ]
+  },
+  {
+   "name": "checkpoint_question",
+   "from": "c05/state_question_for_one_lane.json",
+   "drop": [
+    "/workstream_ids",
+    "/scopes/2",
+    "/scopes/1"
+   ],
+   "set": [
+    {
+     "pointer": "/scopes/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/concern/question",
+     "value": "When does the WAL checkpoint run?"
+    }
+   ]
+  },
+  {
+   "name": "checkpoint_state",
+   "from": "c05/state_whose_premises_close_on_themselves.json",
+   "set": [
+    {
+     "pointer": "/question_digest",
+     "value": "#checkpoint_question"
+    },
+    {
+     "pointer": "/frontiers/0/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/frontiers/0/checkpoint_digest",
+     "value": "$digest:repo_memory_head_9"
+    },
+    {
+     "pointer": "/entries/0/record_id",
+     "value": "@interval_a"
+    },
+    {
+     "pointer": "/entries/0/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/entries/1/record_id",
+     "value": "@interval_b"
+    },
+    {
+     "pointer": "/entries/1/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/material_gaps/0/pointer",
+     "value": "/entries/0"
+    },
+    {
+     "pointer": "/material_gaps/1/code",
+     "value": "basis_cycle"
+    },
+    {
+     "pointer": "/material_gaps/1/pointer",
+     "value": "/entries/1"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:checkpoint_state_at"
+    }
+   ]
+  },
+  {
+   "name": "resolve_the_checkpoint",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@resolve_the_checkpoint_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.state.resolve"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@checkpoint_concern"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#checkpoint_question"
+    }
+   ]
   }
  ],
  "steps": [
@@ -2016,6 +2404,43 @@
     "recovery": [],
     "returns": [
      "vacuum_state"
+    ]
+   }
+  },
+  {
+   "name": "commit_the_pulled_records",
+   "request": "commit_the_pulled_records",
+   "carries": [
+    "repo_memory_revision_9",
+    "pulled_interval",
+    "pulled_trigger"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_memory_revision_9_stored"
+    ],
+    "head": "repo_memory_head_9"
+   }
+  },
+  {
+   "name": "resolve_the_checkpoint",
+   "request": "resolve_the_checkpoint",
+   "carries": [
+    "checkpoint_question"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "none",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "checkpoint_state"
     ]
    }
   }

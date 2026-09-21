@@ -1,6 +1,6 @@
 {
  "case": "N19-C08-POS",
- "says": "The founder and Bora found a Team together: Bora accepts the exact founding request and it commits with a grant for each. The founder renames it, and Bora keeps two drafts as candidates on the desktop. Each lifecycle action is then applied with team.lifecycle.apply and carries what its own effect needs. Archive writes an archived team_state. Continue_archived names a repository work scope and the existing draft it continues, and the state stays archived. Restore writes an active team_state. Forget_here names Bora's desktop and settles the one draft only it holds, kept by the laptop. The state stays active and nobody leaves. Leave names Bora and hands Bora's other draft to the founder, and the state stays active. Purge names the superseded first profile version and asks for outcomes per owner, and the state stays active. Close carries its whole plan. It names the founder as surviving owner and lists the laptop as reached and the desktop as not reached, since an unreachable holder is not evidence that it holds nothing. It holds no outbox entry, keeps the continued repository independent and says the purge was governed separately. The owner writes a closed team_state. Every action commits under its own receipt on the head the one before it moved to. A closing read returns the closed state, the renamed profile and the grants.",
+ "says": "The founder and Bora found a Team together: the founder submits a reviewed founding, the owner holds it in review with the sealed proposal, Bora accepts the exact founding request, and it commits admitting the founder by founding and Bora by nomination, with a grant for each and the founding epoch. The founder renames it, and Bora keeps two drafts as candidates on the desktop. Each lifecycle action then travels in the operation whose authority it needs and carries what its own effect needs. Archive (team.lifecycle.apply) writes an archived team_state. Continue_archived (team.continuation.record) names a repository work scope and the existing draft it continues, and the state stays archived. Restore (team.lifecycle.apply) writes an active team_state. Forget_here (team.device.forget, on Bora's desktop itself, not the Team) names the desktop and settles the one draft only it holds, kept by the laptop; it returns nothing, moves no Team head, and nobody leaves. Leave (team.membership.leave) names Bora and hands Bora's other draft to the founder, and returns Bora's membership, now left. Purge (team.retention.apply) names the superseded first profile version and asks for outcomes per owner, and the state stays active. Close (team.lifecycle.apply) carries its whole plan. It names the founder as surviving owner and lists the laptop as reached and the desktop as not reached, since an unreachable holder is not evidence that it holds nothing. It holds no outbox entry, keeps the continued repository independent and says the purge was governed separately. The owner writes a closed team_state. Every Team action commits under its own receipt on the head the one before it moved to. A closing read returns the closed state, the renamed profile, both memberships and the grants.",
  "ids": [
   {
    "name": "founder",
@@ -149,6 +149,98 @@
     {
      "pointer": "/recovery/0/principal_id",
      "value": "@bora"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_sealed_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:proposed_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership_id"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@founder"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_bora_nominee_membership",
+   "from": "c08/nominee_admitted_by_accepting_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_bora_membership_id"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@bora"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/standing/acceptance_digest",
+     "value": "#acceptance_stored"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:founded"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:founded_at"
     }
    ]
   },
@@ -612,11 +704,11 @@
     },
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "policy"
     },
     {
      "pointer": "/effect_class",
-     "value": "durable_candidate"
+     "value": "owner_commit"
     },
     {
      "pointer": "/actor/principal_id",
@@ -712,11 +804,11 @@
     },
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "policy"
     },
     {
      "pointer": "/effect_class",
-     "value": "durable_candidate"
+     "value": "owner_commit"
     },
     {
      "pointer": "/actor/principal_id",
@@ -898,11 +990,11 @@
     },
     {
      "pointer": "/operation",
-     "value": "team.lifecycle.apply"
+     "value": "team.continuation.record"
     },
     {
      "pointer": "/action",
-     "value": "policy"
+     "value": "contribute"
     },
     {
      "pointer": "/effect_class",
@@ -1068,7 +1160,98 @@
     },
     {
      "pointer": "/operation",
-     "value": "team.lifecycle.apply"
+     "value": "team.device.forget"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bora"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bora_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#forgetting"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@bora"
+    }
+   ],
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ]
+  },
+  {
+   "name": "departure",
+   "from": "c08/leave_with_its_continuity_disposition.json",
+   "drop": [
+    "/action/continuity/items/1"
+   ],
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/action/principal_id",
+     "value": "@bora"
+    },
+    {
+     "pointer": "/action/continuity/items/0/subject_digest",
+     "value": "#bora_draft"
+    },
+    {
+     "pointer": "/action/continuity/items/0/holds",
+     "value": "draft"
+    },
+    {
+     "pointer": "/action/continuity/items/0/settled/to_principal_id",
+     "value": "@founder"
+    }
+   ]
+  },
+  {
+   "name": "departure_request",
+   "from": "c08/founding_cancellation_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@departure_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.membership.leave"
     },
     {
      "pointer": "/action",
@@ -1114,96 +1297,17 @@
     },
     {
      "pointer": "/payload_digest",
-     "value": "#forgetting"
-    }
-   ]
-  },
-  {
-   "name": "departure",
-   "from": "c08/leave_with_its_continuity_disposition.json",
-   "drop": [
-    "/action/continuity/items/1"
-   ],
-   "set": [
-    {
-     "pointer": "/team_id",
-     "value": "@team"
-    },
-    {
-     "pointer": "/action/principal_id",
-     "value": "@bora"
-    },
-    {
-     "pointer": "/action/continuity/items/0/subject_digest",
-     "value": "#bora_draft"
-    },
-    {
-     "pointer": "/action/continuity/items/0/holds",
-     "value": "draft"
-    },
-    {
-     "pointer": "/action/continuity/items/0/settled/to_principal_id",
-     "value": "@founder"
-    }
-   ]
-  },
-  {
-   "name": "departure_request",
-   "from": "c08/founding_cancellation_request.json",
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@departure_request_id"
-    },
-    {
-     "pointer": "/operation",
-     "value": "team.lifecycle.apply"
-    },
-    {
-     "pointer": "/action",
-     "value": "contribute"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "owner_commit"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@bora"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@desktop"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@bora_profile"
-    },
-    {
-     "pointer": "/owner/team_id",
-     "value": "@team"
-    },
-    {
-     "pointer": "/policy_digests",
-     "value": [
-      "#team_policy"
-     ]
-    },
-    {
-     "pointer": "/proof_digests",
-     "value": []
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@team"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:forgotten"
-    },
-    {
-     "pointer": "/payload_digest",
      "value": "#departure"
+    }
+   ]
+  },
+  {
+   "name": "bora_membership_left",
+   "from": "team_bora_nominee_membership",
+   "set": [
+    {
+     "pointer": "/standing/is",
+     "value": "left"
     }
    ]
   },
@@ -1233,7 +1337,7 @@
     },
     {
      "pointer": "/operation",
-     "value": "team.lifecycle.apply"
+     "value": "team.retention.apply"
     },
     {
      "pointer": "/action",
@@ -1467,12 +1571,17 @@
     "stage": "in_review",
     "local_effect": "candidate_stored",
     "provider_effect": "not_applicable",
-    "gaps": [],
+    "gaps": [
+     {
+      "code": "approval_threshold_unmet"
+     }
+    ],
     "recovery": [
      "query_same_request",
      "retry_same_request"
     ],
     "returns": [
+     "team_sealed_proposal",
      "founding_state"
     ]
    },
@@ -1511,11 +1620,15 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
+     "team_founder_membership",
+     "team_bora_nominee_membership",
      "founder_grant",
      "bora_grant",
      "active_state",
-     "first_profile"
+     "first_profile",
+     "team_founding_epoch"
     ],
     "head": "founded"
    },
@@ -1641,10 +1754,7 @@
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
-    "returns": [
-     "restored_state"
-    ],
-    "head": "forgotten"
+    "returns": []
    }
   },
   {
@@ -1660,7 +1770,7 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "restored_state"
+     "bora_membership_left"
     ],
     "head": "left"
    }
@@ -1715,6 +1825,8 @@
      "closed_state",
      "renamed_profile",
      "team_policy",
+     "team_founder_membership",
+     "bora_membership_left",
      "founder_grant",
      "bora_grant"
     ]

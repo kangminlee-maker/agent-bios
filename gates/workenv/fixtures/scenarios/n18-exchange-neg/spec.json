@@ -1,6 +1,6 @@
 {
  "case": "N18-EXCHANGE-NEG",
- "says": "Alice founds a Team and configures a Slack connection whose code exchange needs a client secret; the connection declares that the exchange runs in a Team-protected process she operates, and the stored connection carries no secret. A connection submitted with its client secret, and one declaring a protected exchange without saying who operates it, are refused at admission. She begins linking her Slack identity: a callback carrying the identity token itself is refused at admission, and the callback carrying only the verified claims links her identity, returning sign-in evidence and a binding with no token or secret in either. A Team permit carrying a refresh token is refused at admission when her device tries to keep it. What must not happen: a secret or token stored in the connection, the evidence, the binding or any record kept on the client.",
+ "says": "Alice founds a Team (becoming its member and issuing authority; the founding returns the Team's first continuity epoch) and configures a Slack connection whose code exchange needs a client secret; the connection declares that the exchange runs in a Team-protected process she operates, and the stored connection carries no secret. A connection submitted with its client secret, and one declaring a protected exchange without saying who operates it, are refused at admission. She begins linking her Slack identity: a callback carrying the identity token itself is refused at admission, and the callback carrying only the verified claims links her identity, returning sign-in evidence and a binding with no token or secret in either. As the Team's authority she tries to record on the Team a permit for her laptop that carries a refresh token: refused at admission. She then stages, for her desktop by peer, a package of the stored connection and her sign-in evidence that names the founding epoch as its continuity: it is staged as a draft, and none of its members has a place for a secret or token. A package whose member is the callback carrying the identity token is refused at admission, because that member cannot be a record. What must not happen: a secret or token stored in the connection, the evidence, the binding, any record kept on the client, or a staged transfer package.",
  "ids": [
   {
    "name": "alice",
@@ -56,6 +56,18 @@
   },
   {
    "name": "permit_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "desktop_peer",
+   "prefix": "per"
+  },
+  {
+   "name": "stage_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "stage_token_request_id",
    "prefix": "req"
   }
  ],
@@ -205,6 +217,68 @@
     {
      "pointer": "/policy_digest",
      "value": "#team_policy_draft"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "team_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_proposal_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_membership_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_epoch_at"
     }
    ]
   },
@@ -1033,7 +1107,7 @@
     },
     {
      "pointer": "/action",
-     "value": "local_profile"
+     "value": "grant"
     },
     {
      "pointer": "/effect_class",
@@ -1056,16 +1130,280 @@
      "value": 1
     },
     {
-     "pointer": "/owner/principal_id",
-     "value": "@alice"
-    },
-    {
      "pointer": "/target/resource_id",
-     "value": "@alice_profile"
+     "value": "@team"
     },
     {
      "pointer": "/payload_digest",
      "value": "#permit_with_a_refresh_token"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_2"
+    }
+   ],
+   "drop": [
+    "/owner/principal_id"
+   ]
+  },
+  {
+   "name": "connection_package",
+   "from": "c09/complete_transfer.json",
+   "drop": [
+    "/recipient/permitted_scope/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/namespace/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/recipient/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/recipient/permitted_scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/recipient/permitted_scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/continuity_evidence_digests",
+     "value": [
+      "#team_founding_epoch"
+     ]
+    },
+    {
+     "pointer": "/inventory/0/path",
+     "value": "connections/0000.json"
+    },
+    {
+     "pointer": "/inventory/0/digest",
+     "value": "#slack_stored"
+    },
+    {
+     "pointer": "/inventory/0/size",
+     "value": 512
+    },
+    {
+     "pointer": "/inventory/0/object_kind",
+     "value": "provider_connection"
+    },
+    {
+     "pointer": "/inventory/1/path",
+     "value": "evidence/0000.json"
+    },
+    {
+     "pointer": "/inventory/1/digest",
+     "value": "#slack_evidence"
+    },
+    {
+     "pointer": "/inventory/1/size",
+     "value": 512
+    },
+    {
+     "pointer": "/inventory/1/object_kind",
+     "value": "sign_in_evidence"
+    },
+    {
+     "pointer": "/inventory/2/path",
+     "value": "continuity/0001.json"
+    },
+    {
+     "pointer": "/inventory/2/digest",
+     "value": "#team_founding_epoch"
+    },
+    {
+     "pointer": "/inventory/2/size",
+     "value": 512
+    },
+    {
+     "pointer": "/inventory/2/object_kind",
+     "value": "authority_continuity"
+    }
+   ]
+  },
+  {
+   "name": "stage_connection_package",
+   "from": "c02/lock_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@stage_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "transfer.stage"
+    },
+    {
+     "pointer": "/action",
+     "value": "transfer"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_2"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#connection_package"
+    }
+   ]
+  },
+  {
+   "name": "connection_package_exported",
+   "from": "c09/exported.json",
+   "set": [
+    {
+     "pointer": "/envelope_digest",
+     "value": "#connection_package"
+    },
+    {
+     "pointer": "/stage/route/peer_id",
+     "value": "@desktop_peer"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:connection_package_at"
+    }
+   ]
+  },
+  {
+   "name": "token_package",
+   "from": "connection_package",
+   "set": [
+    {
+     "pointer": "/inventory/1/path",
+     "value": "callbacks/0000.json"
+    },
+    {
+     "pointer": "/inventory/1/digest",
+     "value": "#callback_with_its_token"
+    },
+    {
+     "pointer": "/inventory/1/object_kind",
+     "value": "provider_callback"
+    }
+   ]
+  },
+  {
+   "name": "stage_token_package",
+   "from": "c02/lock_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@stage_token_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "transfer.stage"
+    },
+    {
+     "pointer": "/action",
+     "value": "transfer"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_2"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#token_package"
     }
    ]
   }
@@ -1102,10 +1440,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
+     "team_founder_membership",
      "team_founder_grant",
      "team_state",
-     "team_profile"
+     "team_profile",
+     "team_founding_epoch"
     ],
     "head": "team_head"
    },
@@ -1167,7 +1508,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1219,6 +1560,38 @@
      "record": "permit_with_a_refresh_token",
      "code": "unknown_field",
      "pointer": "/refresh_token"
+    }
+   ]
+  },
+  {
+   "name": "stage_the_connection",
+   "request": "stage_connection_package",
+   "carries": [
+    "connection_package"
+   ],
+   "answer": {
+    "stage": "draft",
+    "local_effect": "objects_staged",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "connection_package_exported"
+    ]
+   }
+  },
+  {
+   "name": "stage_a_package_carrying_the_token",
+   "request": "stage_token_package",
+   "carries": [
+    "token_package",
+    "callback_with_its_token"
+   ],
+   "refused": [
+    {
+     "record": "callback_with_its_token",
+     "code": "unknown_field",
+     "pointer": "/id_token"
     }
    ]
   }

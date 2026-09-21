@@ -1,0 +1,819 @@
+{
+ "case": "N09-FIRSTUSE-POS",
+ "says": "Ana opens agent-bios for the first time, with no account and no Team: reading her profile returns the local profile and principal the runtime wrote at first use, active at access generation 1, and she binds her device key to that principal. A personal preparation composed then names her principal and nothing else. She founds a Team alone through team.found, as that same principal. The founding answers with the sealed proposal, the policy, her membership - standing active by the founding and naming the sealed proposal - her grant, held and issued by her, the active Team, its profile, and the founding epoch with her laptop as finalizer. A preparation composed afterwards over her own and the Team's layers names the same principal and the Team. No step may mint a new principal, a synthetic founder or a second id for her: the profile, the key binding, the founding's membership and grant, and both preparations name one principal_id, which is what the rules C08/founding_standing_names_its_founding and C08/continuity_follows_its_founding_or_handover hold of the membership and the epoch the founding writes.",
+ "ids": [
+  {
+   "name": "ana",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "team",
+   "prefix": "tem"
+  },
+  {
+   "name": "read_profile_id",
+   "prefix": "req"
+  },
+  {
+   "name": "bind_ana_id",
+   "prefix": "req"
+  },
+  {
+   "name": "compose_alone_id",
+   "prefix": "req"
+  },
+  {
+   "name": "found_team_id",
+   "prefix": "req"
+  },
+  {
+   "name": "compose_with_team_id",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "read_profile",
+   "from": "c02/profile_read_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@read_profile_id"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    }
+   ]
+  },
+  {
+   "name": "ana_profile",
+   "from": "c02/profile_written_at_first_use.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:first_use_at"
+    }
+   ]
+  },
+  {
+   "name": "ana_access",
+   "from": "c02/active_at_first_use.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:first_use_at"
+    }
+   ]
+  },
+  {
+   "name": "ana_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@ana"
+    }
+   ]
+  },
+  {
+   "name": "bind_ana",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.add"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@bind_ana_id"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#ana_key"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "name": "ana_binding",
+   "from": "c01/device_key_binding.json",
+   "set": [
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:ana_binding_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:ana_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "alone_selection",
+   "from": "c07/personal_preparation_with_nothing_selected.json",
+   "set": [
+    {
+     "pointer": "/basis/scopes/0/principal_id",
+     "value": "@ana"
+    }
+   ]
+  },
+  {
+   "name": "compose_alone",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "preparation.compose"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@compose_alone_id"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#alone_selection"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "name": "alone_preparation",
+   "from": "c07/preparation_of_nothing.json",
+   "set": [
+    {
+     "pointer": "/order/0/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/preparation_id",
+     "value": "$prp:alone_preparation_id"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:alone_prepared_at"
+    },
+    {
+     "pointer": "/recipient/work_scope/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/request_digest",
+     "value": "#alone_selection"
+    }
+   ]
+  },
+  {
+   "name": "team_policy_submitted",
+   "from": "c08/policy_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/threshold",
+     "value": 0
+    }
+   ]
+  },
+  {
+   "name": "team_proposal",
+   "from": "c08/proposal_as_submitted.json",
+   "drop": [
+    "/founding_mode/nominees"
+   ],
+   "set": [
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/founder_principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/founding_mode/acknowledged_self_reviewed",
+     "value": true
+    },
+    {
+     "pointer": "/founding_mode/mode",
+     "value": "self_founded"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#team_policy_submitted"
+    },
+    {
+     "pointer": "/recovery/0/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "team_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "ana_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:ana_membership_id"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "found_team",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.found"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@found_team_id"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_proposal"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "name": "team_policy",
+   "from": "team_policy_submitted",
+   "set": [
+    {
+     "pointer": "/policy_id",
+     "value": "$pol:team_policy_id"
+    },
+    {
+     "pointer": "/policy_version",
+     "value": 1
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "ana_founding_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "publish",
+      "adopt",
+      "grant",
+      "policy"
+     ]
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 2
+    },
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:ana_grant_id"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "team_state",
+   "from": "c08/active_team.json",
+   "set": [
+    {
+     "pointer": "/since",
+     "value": "$instant:team_founded_at"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "team_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_selection",
+   "from": "c07/personal_preparation_with_nothing_selected.json",
+   "set": [
+    {
+     "pointer": "/basis/scopes/0/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/basis/scopes/1/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/basis/scopes/1/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "compose_with_team",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "preparation.compose"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@compose_with_team_id"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_selection"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "name": "team_preparation",
+   "from": "c07/preparation_of_nothing.json",
+   "set": [
+    {
+     "pointer": "/order/0/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/order/1/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/order/1/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/preparation_id",
+     "value": "$prp:team_preparation_id"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:team_prepared_at"
+    },
+    {
+     "pointer": "/recipient/work_scope/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/request_digest",
+     "value": "#team_selection"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "read_profile_at_first_use",
+   "request": "read_profile",
+   "carries": [],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "ana_profile",
+     "ana_access"
+    ]
+   }
+  },
+  {
+   "name": "bind_ana",
+   "request": "bind_ana",
+   "carries": [
+    "ana_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "ana_binding"
+    ]
+   }
+  },
+  {
+   "name": "compose_alone",
+   "request": "compose_alone",
+   "carries": [
+    "alone_selection"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "alone_preparation"
+    ]
+   }
+  },
+  {
+   "name": "found_team",
+   "request": "found_team",
+   "carries": [
+    "team_proposal",
+    "team_policy_submitted"
+   ],
+   "submits": [
+    "team_policy_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_sealed_proposal",
+     "team_policy",
+     "ana_membership",
+     "ana_founding_grant",
+     "team_state",
+     "team_profile",
+     "team_founding_epoch"
+    ],
+    "head": "team_head"
+   }
+  },
+  {
+   "name": "compose_with_team",
+   "request": "compose_with_team",
+   "carries": [
+    "team_selection"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_preparation"
+    ]
+   }
+  }
+ ]
+}

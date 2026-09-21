@@ -1,6 +1,6 @@
 {
  "case": "N16-CAPABILITY-POS",
- "says": "alice binds her laptop key and founds the Team Platform. The installed client is probed twice: reading works, so the capability profile qualifies read by naming that probe; putting a question to a person is not offered, so the profile marks question not qualified (not_offered). The Studio hub's route.offer then lists the two Team views this client implements, environment composition (W02) and search and bulk work (W10), each qualified by the digest of the same read probe the profile names, and the decide route marked not_offered exactly as the profile says. Driven from the hub, arrowing to W02 and pressing Enter opens W02 in the Team's scope and dispatches one route.select, which names the read it produces and expects it prepared; the owner answers with a real run that produced a result. The same shell reaches W10 the same way. No view is reached except through route.offer and route.select, and no offered route carries a qualification other than the one its probe gave it.",
+ "says": "alice binds her laptop key and founds the Team Platform. The installed client is probed twice: reading works, so the capability profile qualifies read by naming that probe; putting a question to a person is not offered, so the profile marks question not qualified (not_offered). The Studio hub's route.offer then lists the two Team views this client implements, environment composition (W02) and search and bulk work (W10), each qualified by the digest of the same read probe the profile names, and the decide route marked not_offered exactly as the profile says. Driven from the hub, arrowing to W02 and pressing Enter opens W02 in the Team's scope and dispatches one route.select, which names the read it produces and expects view_opened, since opening a read-only view writes nothing; the owner answers with a real run that produced a result. The same shell reaches W10 the same way. No view is reached except through route.offer and route.select, and no offered route carries a qualification other than the one its probe gave it.",
  "ids": [
   {
    "name": "alice",
@@ -205,6 +205,20 @@
    ]
   },
   {
+   "name": "team_sealed_proposal",
+   "from": "founding",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_founding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
    "name": "found",
    "from": "c03/history_request.json",
    "drop": [
@@ -263,15 +277,11 @@
   },
   {
    "name": "team_active",
-   "from": "c08/team_closed_for_good.json",
+   "from": "c08/active_team.json",
    "set": [
     {
      "pointer": "/since",
      "value": "$instant:founded_at"
-    },
-    {
-     "pointer": "/state",
-     "value": "active"
     },
     {
      "pointer": "/team_id",
@@ -364,6 +374,54 @@
    ]
   },
   {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:founded_head"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
    "name": "read_probe",
    "from": "c12/probe_as_submitted.json",
    "set": [
@@ -399,7 +457,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "durable_candidate"
+     "value": "owner_commit"
     },
     {
      "pointer": "/operation",
@@ -420,6 +478,10 @@
     {
      "pointer": "/payload_digest",
      "value": "#read_probe"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
     }
    ]
   },
@@ -485,6 +547,24 @@
    ]
   },
   {
+   "name": "read_probe_configuration",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/client/name",
+     "value": "agent-bios"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.20.0"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:read_probed_at"
+    }
+   ]
+  },
+  {
    "name": "question_probe",
    "from": "c12/probe_as_submitted.json",
    "set": [
@@ -516,7 +596,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "durable_candidate"
+     "value": "owner_commit"
     },
     {
      "pointer": "/operation",
@@ -537,6 +617,10 @@
     {
      "pointer": "/payload_digest",
      "value": "#question_probe"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
     }
    ]
   },
@@ -597,6 +681,24 @@
     {
      "pointer": "/profile_id",
      "value": "$cap:client_profile"
+    }
+   ]
+  },
+  {
+   "name": "question_probe_configuration",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/client/name",
+     "value": "agent-bios"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.20.0"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:question_probed_at"
     }
    ]
   },
@@ -695,7 +797,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "durable_candidate"
+     "value": "owner_commit"
     },
     {
      "pointer": "/operation",
@@ -715,11 +817,15 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@route_w02"
+     "value": "@profile"
     },
     {
      "pointer": "/payload_digest",
      "value": "#hub_offer"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
     }
    ]
   },
@@ -2385,6 +2491,14 @@
     {
      "pointer": "/selected",
      "value": "@route_w02"
+    },
+    {
+     "pointer": "/expected/stage",
+     "value": "view_opened"
+    },
+    {
+     "pointer": "/expected/recovery",
+     "value": []
     }
    ]
   },
@@ -2409,7 +2523,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "durable_candidate"
+     "value": "owner_commit"
     },
     {
      "pointer": "/operation",
@@ -2429,11 +2543,15 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@route_w02"
+     "value": "@profile"
     },
     {
      "pointer": "/payload_digest",
      "value": "#w02_selection"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
     }
    ]
   },
@@ -2486,6 +2604,14 @@
     {
      "pointer": "/selected",
      "value": "@route_w10"
+    },
+    {
+     "pointer": "/expected/stage",
+     "value": "view_opened"
+    },
+    {
+     "pointer": "/expected/recovery",
+     "value": []
     }
    ]
   },
@@ -2510,7 +2636,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "durable_candidate"
+     "value": "owner_commit"
     },
     {
      "pointer": "/operation",
@@ -2530,11 +2656,15 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@route_w10"
+     "value": "@profile"
     },
     {
      "pointer": "/payload_digest",
      "value": "#w10_selection"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
     }
    ]
   },
@@ -2597,10 +2727,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
+     "team_policy",
+     "team_founder_membership",
+     "founder_grant",
      "team_active",
      "team_named",
-     "team_policy",
-     "founder_grant"
+     "team_founding_epoch"
     ],
     "head": "founded_head"
    },
@@ -2622,7 +2755,8 @@
     "recovery": [],
     "returns": [
      "read_probe_stored",
-     "profile_after_read"
+     "profile_after_read",
+     "read_probe_configuration"
     ]
    }
   },
@@ -2640,7 +2774,8 @@
     "recovery": [],
     "returns": [
      "question_probe_stored",
-     "profile_after_question"
+     "profile_after_question",
+     "question_probe_configuration"
     ]
    }
   },

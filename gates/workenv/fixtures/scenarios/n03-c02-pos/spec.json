@@ -1,6 +1,6 @@
 {
  "case": "N03-C02-POS",
- "says": "Alice has bound her device key and founded a Team, and her laptop keeps a Team-issued permit that lets it read her Team's state offline for a week. She is offline for the whole scenario: no step reaches a provider. She locks the profile, which moves the access generation from 1 to 2, and while it is locked a Team read is not admitted. She unlocks at a terminal with her local key: the profile is active again at generation 2, and a Team read issued under generation 2 and naming her permit is admitted at generation 2. She then signs out (generation 3) and signs back in at a terminal with the same local key: a read issued under generation 3 is admitted at generation 3. What must not happen: an admission at the old generation, a re-entry that needs a provider, or a re-entry without an explicit transition at a terminal.",
+ "says": "Alice's laptop first reads its fresh profile: active at generation 1. She binds her device key and founds a Team, whose founding makes her its member and its issuing authority. As that authority, on the laptop that finalizes the Team, she records a permit on the Team (against its current head) that lets the laptop read the Team's state offline for a week; she holds it from the issue. She is offline for the whole scenario: no step reaches a provider. She locks the profile, which moves the access generation from 1 to 2, and while it is locked a Team read is not admitted. She unlocks at a terminal with her local key: the profile is active again at generation 2 (an unlock moves no generation), and a Team read issued under generation 2 and naming her permit is admitted at generation 2. She then signs out (generation 3) and signs back in at a terminal with the same local key: a read issued under generation 3 is admitted at generation 3. What must not happen: an admission at the old generation, a re-entry that needs a provider, or a re-entry without an explicit transition at a terminal.",
  "ids": [
   {
    "name": "alice",
@@ -73,9 +73,83 @@
   {
    "name": "decide_after_sign_in_request_id",
    "prefix": "req"
+  },
+  {
+   "name": "read_profile_request_id",
+   "prefix": "req"
   }
  ],
  "records": [
+  {
+   "name": "read_profile_request",
+   "from": "c02/profile_read_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@read_profile_request_id"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    }
+   ]
+  },
+  {
+   "name": "read_profile_profile",
+   "from": "c02/profile_written_at_first_use.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:read_profile_profile_at"
+    }
+   ]
+  },
+  {
+   "name": "read_profile_state",
+   "from": "c02/active_at_first_use.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:read_profile_state_at"
+    }
+   ]
+  },
   {
    "name": "alice_laptop_key",
    "from": "c01/binding_as_submitted.json",
@@ -221,6 +295,68 @@
     {
      "pointer": "/policy_digest",
      "value": "#team_policy_draft"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "team_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_proposal_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_membership_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_epoch_at"
     }
    ]
   },
@@ -441,7 +577,7 @@
     },
     {
      "pointer": "/action",
-     "value": "local_profile"
+     "value": "grant"
     },
     {
      "pointer": "/effect_class",
@@ -464,17 +600,32 @@
      "value": 1
     },
     {
-     "pointer": "/owner/principal_id",
-     "value": "@alice"
-    },
-    {
      "pointer": "/target/resource_id",
-     "value": "@alice_profile"
+     "value": "@team"
     },
     {
      "pointer": "/payload_digest",
      "value": "#offline_permit"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head"
     }
+   ],
+   "drop": [
+    "/owner/principal_id"
    ]
   },
   {
@@ -629,7 +780,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:team_head"
+     "value": "$digest:team_head_permit"
     },
     {
      "pointer": "/control_digests",
@@ -675,7 +826,7 @@
     },
     {
      "pointer": "/action",
-     "value": "read"
+     "value": "local_profile"
     },
     {
      "pointer": "/effect_class",
@@ -867,7 +1018,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:team_head"
+     "value": "$digest:team_head_permit"
     },
     {
      "pointer": "/control_digests",
@@ -909,7 +1060,7 @@
     },
     {
      "pointer": "/action",
-     "value": "read"
+     "value": "local_profile"
     },
     {
      "pointer": "/effect_class",
@@ -1195,7 +1346,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:team_head"
+     "value": "$digest:team_head_permit"
     },
     {
      "pointer": "/control_digests",
@@ -1237,7 +1388,7 @@
     },
     {
      "pointer": "/action",
-     "value": "read"
+     "value": "local_profile"
     },
     {
      "pointer": "/effect_class",
@@ -1276,6 +1427,22 @@
  ],
  "steps": [
   {
+   "name": "read_profile",
+   "request": "read_profile_request",
+   "carries": [],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "read_profile_profile",
+     "read_profile_state"
+    ]
+   }
+  },
+  {
    "name": "bind_key",
    "request": "bind_alice_laptop",
    "carries": [
@@ -1306,10 +1473,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
+     "team_founder_membership",
      "team_founder_grant",
      "team_state",
-     "team_profile"
+     "team_profile",
+     "team_founding_epoch"
     ],
     "head": "team_head"
    },
@@ -1325,13 +1495,14 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
      "offline_permit"
-    ]
+    ],
+    "head": "team_head_permit"
    }
   },
   {
@@ -1342,7 +1513,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1377,7 +1548,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1411,7 +1582,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1429,7 +1600,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],

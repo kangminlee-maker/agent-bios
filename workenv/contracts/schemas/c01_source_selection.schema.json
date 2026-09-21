@@ -1,6 +1,6 @@
 {
   "title": "C01 source selection",
-  "description": "What an acquisition may read: the places a person or an entrance selected, each required or optional. Nothing outside them is read — no traversal out of a root, no adjacent repository, no transcript the selection does not name, no companion file beside a selected one — and a required place whose content is absent is a gap, not an empty read. Selecting places writes nothing: no Team, no repository metadata, no commit, no upload.",
+  "description": "What an acquisition may read: the places a person or an entrance selected, each required or optional, and what each place permits for text read there. Nothing outside them is read — no traversal out of a root, no adjacent repository, no transcript the selection does not name, no companion file beside a selected one — and a required place whose content is absent is a gap, not an empty read. A working-tree place names the checkout it is read from. Selecting places writes nothing: no Team, no repository metadata, no commit, no upload.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -27,6 +27,7 @@
     "selected_root": {
       "type": "object",
       "additionalProperties": false,
+      "description": "One selected place. `permits` is what the place's owner permits for text read there, and the capture inputs read under this root restate no more. A root that states none permits reading only: nothing captured from it may be processed, logged or committed.",
       "required": [
         "place",
         "need"
@@ -40,6 +41,9 @@
             "required",
             "optional"
           ]
+        },
+        "permits": {
+          "$ref": "#/$defs/input_permission"
         }
       }
     },
@@ -135,10 +139,11 @@
     "working_tree_path": {
       "type": "object",
       "additionalProperties": false,
-      "description": "A file or directory of the checkout bound to a repository id, as its working tree holds it now — committed, modified or untracked — not as its last commit does.",
+      "description": "A file or directory of one checkout bound to a repository id, as its working tree holds it now — committed, modified or untracked — not as its last commit does. `checkout` is the directory this device reads it from: clones and worktrees of one repository share its id, so the id alone does not say which working tree was read, and the directory proves nothing about which repository it is.",
       "required": [
         "from",
         "repository_id",
+        "checkout",
         "path"
       ],
       "properties": {
@@ -147,6 +152,11 @@
         },
         "repository_id": {
           "$ref": "#/$defs/repository_id"
+        },
+        "checkout": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
         },
         "path": {
           "$ref": "#/$defs/source_path"
@@ -230,6 +240,111 @@
     "source_path": {
       "type": "string",
       "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]*(?:/[A-Za-z0-9_][A-Za-z0-9_.-]*)*$"
+    },
+    "input_permission": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "What a place's owner permits for text read there: where it may be processed, whether a prompt carrying it may be kept in a log, and the scopes a result resting on it may be committed to. Permitting provider processing permits local processing too, and permitting a kept log permits keeping none; read permission and redaction are neither. A selection root states it for its place; a capture input restates no more than the root it was read under, and the owner refuses an overstatement, or a capture that uses more than its inputs permit, with `input_not_permitted`.",
+      "required": [
+        "processing",
+        "prompt_log",
+        "destinations"
+      ],
+      "properties": {
+        "processing": {
+          "enum": [
+            "local_processing",
+            "provider_processing"
+          ]
+        },
+        "prompt_log": {
+          "$ref": "#/$defs/prompt_log"
+        },
+        "destinations": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/scope"
+          }
+        }
+      }
+    },
+    "prompt_log": {
+      "enum": [
+        "not_kept",
+        "kept"
+      ],
+      "description": "Whether a prompt or response carrying the text may be kept in a log."
+    },
+    "scope": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/repository_scope"
+        },
+        {
+          "$ref": "#/$defs/personal_scope"
+        },
+        {
+          "$ref": "#/$defs/team_scope"
+        }
+      ]
+    },
+    "repository_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "repository_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "repository"
+        },
+        "repository_id": {
+          "$ref": "#/$defs/repository_id"
+        }
+      }
+    },
+    "personal_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "principal_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "personal"
+        },
+        "principal_id": {
+          "$ref": "#/$defs/principal_id"
+        }
+      }
+    },
+    "team_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "team_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "team"
+        },
+        "team_id": {
+          "$ref": "#/$defs/team_id"
+        }
+      }
+    },
+    "team_id": {
+      "type": "string",
+      "pattern": "^tem_[0-9a-f]{32}$"
+    },
+    "principal_id": {
+      "type": "string",
+      "pattern": "^prn_[0-9a-f]{32}$"
     }
   }
 }

@@ -12,8 +12,9 @@ the promise, which somebody sees, and never to evict a promised body, which nobo
 
 Removal happens to copies. Confirmed, denied, unreachable and unknown stay apart, a confirmed
 removal names its tombstone so returning offline data cannot put the object back, and nothing
-here promises that a copy already delivered or outside this Team's control is gone. A copy kept
-under a retention hold is `held`, which is neither removed nor refused.
+here promises that a copy already delivered or outside this Team's control is gone. A copy the
+retention plan in force still promises is `held` and names that plan: it is neither removed nor
+refused, and a plan that no longer promises the object is what releases it.
 
 What the store derives from an object — an index, an excerpt, a candidate, a prompt, an export —
 is in its `derivation_map`, and removing the object removes each of them with it, copy by copy;
@@ -29,15 +30,29 @@ IN_RESULTS = True
 # The operations of this contract that travel in a C03 sealed request. `takes` is the
 # record kinds its payload may be, and none means the request names no payload;
 # `returns` is the kinds its result may name in `outputs`. The union across the
-# contract modules is the closed list a request may name.
+# contract modules is the closed list a request may name. A request for an operation states
+# its `effect` class and grant `action`, and targets a resource whose id carries one of its
+# `targets` prefixes: a custody commitment targets the holder that undertakes it and an
+# acknowledgment the commitment it observes; retention and removal target the scope whose
+# holders keep the copies.
 OPERATIONS = {
-    "custody.commit": {"takes": ("custody_commitment",), "returns": ("custody_commitment",)},
+    "custody.commit": {"takes": ("custody_commitment",), "returns": ("custody_commitment",),
+                       "effect": "owner_commit", "action": "retain_delete",
+                       "targets": ("dev", "per")},
     "custody.acknowledge": {"takes": ("custody_acknowledgment",),
-                            "returns": ("custody_acknowledgment",)},
-    "retention.plan.set": {"takes": ("retention_plan",), "returns": ("retention_plan",)},
-    "removal.execute": {"takes": ("removal_request",), "returns": ("removal_outcome",)},
+                            "returns": ("custody_acknowledgment",),
+                            "effect": "owner_commit", "action": "retain_delete",
+                            "targets": ("cus",)},
+    "retention.plan.set": {"takes": ("retention_plan",), "returns": ("retention_plan",),
+                           "effect": "owner_commit", "action": "retain_delete",
+                           "targets": ("tem", "prn", "rep")},
+    "removal.execute": {"takes": ("removal_request",), "returns": ("removal_outcome",),
+                        "effect": "owner_commit", "action": "retain_delete",
+                        "targets": ("tem", "prn", "rep")},
     "retention.derivations.read": {"takes": ("derivation_query",),
-                                   "returns": ("derivation_map",)},
+                                   "returns": ("derivation_map",),
+                                   "effect": "pure_preview", "action": "read",
+                                   "targets": ("tem", "prn", "rep")},
 }
 
 # Rules that relate one element of a record to another, which a schema cannot state. The
@@ -69,6 +84,6 @@ ERRORS = {
                           "are gone",
     RESURRECTION_REFUSED: "returning offline data that would restore a removed object; its "
                           "tombstone stops it",
-    REMOVAL_HELD: "a copy kept under a retention hold that outlasts the removal; it is neither "
-                  "removed nor refused",
+    REMOVAL_HELD: "a copy the retention plan in force still promises; it is kept, neither "
+                  "removed nor refused, until a plan that no longer promises it is set",
 }

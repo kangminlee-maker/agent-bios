@@ -1,6 +1,6 @@
 {
  "case": "TUI-OBS-ENTRY-COMPREHENSION",
- "says": "Before any trial the conductor registers the installed candidate and records the protocol: starting prepared work, sharing a note, and answering a decision conflict met during work, each a Korean, keyboard cell on Apple Terminal for novices. Novice P1 meets the candidate for the first time, observed on Apple_Terminal at 80×24 with the observation bound to the candidate's digest. Before acting on each task P1 states the choices shown, the one selected, and what will happen where; the observed outcome is recorded after it, with the exact UI element and the assistance given (none). Starting prepared work matches the prediction. Sharing a note does not: P1 saves a draft believing the team can read it, and that critical misinterpretation stays recorded as unresolved rather than averaged away. At the decision conflict P1 tells apart the source being chosen, keeping the answer until a choice changes rather than being asked each time, and being asked again when either compared decision changes. Stand-ins for first-exposure observation are refused at admission: an observation whose evidence is an answer the host generated, offered as qualifying (AI role-play or synthetic clicks); a trial with no prediction stated before acting (explained from a screenshot afterwards); and help whose content is not recorded (coaching). A trial in which the conductor explained the design is recorded with that demonstration as its assistance, so it is not read as the interface communicating the choice by itself.",
+ "says": "Before any trial the conductor registers the installed candidate and records the protocol: starting prepared work, sharing a note, and answering a decision conflict met during work, each a Korean, keyboard cell on Apple Terminal for novices. The installed candidate is probed for the participant's own keypresses: the user_event probe ran for real and worked, and every observation offered as human evidence names that probe as what separated the person from the host's automation. Novice P1 meets the candidate for the first time, observed on Apple_Terminal at 80×24 with the observation bound to the candidate's digest. Before acting on each task P1 states the choices shown, the one selected, and what will happen where; the observed outcome is recorded after it, with the exact UI element and the assistance given (none). Starting prepared work matches the prediction. Sharing a note does not: P1 saves a draft believing the team can read it, and that critical misinterpretation stays recorded as unresolved rather than averaged away. At the decision conflict P1 tells apart the source being chosen, keeping the answer until a choice changes rather than being asked each time, and being asked again when either compared decision changes. Stand-ins for first-exposure observation are refused at admission: an observation whose evidence is an answer the host generated, offered as qualifying (AI role-play or synthetic clicks); a trial with no prediction stated before acting (explained from a screenshot afterwards); and help whose content is not recorded (coaching). A trial in which the conductor explained the design is recorded with that demonstration as its assistance, so it is not read as the interface communicating the choice by itself.",
  "ids": [
   {
    "name": "alice",
@@ -20,6 +20,10 @@
   },
   {
    "name": "record_protocol_id",
+   "prefix": "req"
+  },
+  {
+   "name": "probe_candidate_id",
    "prefix": "req"
   },
   {
@@ -324,6 +328,168 @@
    ]
   },
   {
+   "name": "user_event_probe",
+   "from": "c12/probe_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/capability",
+     "value": "user_event"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "agent-bios"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.20.0"
+    }
+   ]
+  },
+  {
+   "name": "probe_candidate",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@probe_candidate_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "capability.probe"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#user_event_probe"
+    }
+   ]
+  },
+  {
+   "name": "user_event_worked",
+   "from": "c12/a_user_event_probe_that_worked.json",
+   "set": [
+    {
+     "pointer": "/client/name",
+     "value": "agent-bios"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.20.0"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:user_event_probed_at"
+    },
+    {
+     "pointer": "/probe_id",
+     "value": "$prb:candidate_user_event"
+    },
+    {
+     "pointer": "/observed",
+     "value": "In the installed candidate on Apple Terminal, only a key the person pressed produced a user event; a scripted keystroke and a hook produced none."
+    }
+   ]
+  },
+  {
+   "name": "candidate_profile",
+   "from": "c12/four_capabilities_qualified_one_at_a_time.json",
+   "drop": [
+    "/capabilities/3",
+    "/capabilities/2",
+    "/capabilities/1"
+   ],
+   "set": [
+    {
+     "pointer": "/capabilities/0/capability",
+     "value": "user_event"
+    },
+    {
+     "pointer": "/capabilities/0/state/probe_digest",
+     "value": "#user_event_worked"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "agent-bios"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.20.0"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:user_event_probed_at"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "$cap:candidate_profile"
+    }
+   ]
+  },
+  {
+   "name": "candidate_configuration",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/client/name",
+     "value": "agent-bios"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.20.0"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:user_event_probed_at"
+    }
+   ]
+  },
+  {
    "name": "p1_session_submitted",
    "from": "routes/observation_submitted.json",
    "drop": [
@@ -351,6 +517,10 @@
     {
      "pointer": "/observed_in/rows",
      "value": 24
+    },
+    {
+     "pointer": "/subject/evidence/origin/separation_evidence_digest",
+     "value": "#user_event_worked"
     }
    ]
   },
@@ -556,7 +726,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "$obs:p1_session"
+     "value": "@alice_profile"
     },
     {
      "pointer": "/owner/layer",
@@ -699,7 +869,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "$obs:p1_session"
+     "value": "@alice_profile"
     },
     {
      "pointer": "/owner/layer",
@@ -839,7 +1009,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "$obs:p1_session"
+     "value": "@alice_profile"
     },
     {
      "pointer": "/owner/layer",
@@ -986,7 +1156,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "$obs:p1_session"
+     "value": "@alice_profile"
     },
     {
      "pointer": "/owner/layer",
@@ -1203,7 +1373,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "$obs:p1_session"
+     "value": "@alice_profile"
     },
     {
      "pointer": "/owner/layer",
@@ -1346,7 +1516,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "$obs:p1_session"
+     "value": "@alice_profile"
     },
     {
      "pointer": "/owner/layer",
@@ -1395,6 +1565,25 @@
     "recovery": [],
     "returns": [
      "stored_protocol"
+    ]
+   }
+  },
+  {
+   "name": "probe_the_candidate_for_user_events",
+   "request": "probe_candidate",
+   "carries": [
+    "user_event_probe"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "user_event_worked",
+     "candidate_profile",
+     "candidate_configuration"
     ]
    }
   },

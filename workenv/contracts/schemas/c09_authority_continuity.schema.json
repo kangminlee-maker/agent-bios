@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C09 authority continuity",
-  "description": "One epoch of an authority's continuity, which a package names in its continuity evidence. An epoch other than the first names the record it succeeds and the finalizer it fences, so the old writer cannot go on finalizing beside the new one. Two successors of one predecessor are `fork_evidence`: no epoch number, arrival order or count of copies resolves them. A copied key is not a successor, and nothing here names a key. The authority's runtime writes this record; a receiver verifies its bytes and never submits it.",
+  "description": "One epoch of an authority's continuity, which a package names in its continuity evidence. An epoch other than the first names the record it succeeds and the finalizer it fences, so the old writer cannot go on finalizing beside the new one. Two successors of one predecessor are `fork_evidence`: no epoch number, arrival order or count of copies resolves them. A copied key is not a successor, and nothing here names a key. The authority's runtime writes this record; a receiver verifies its bytes and never submits it. For a Team, `team.found` writes the founding epoch with the proposal's finalizer, and a committed finalizer handover (`team.stewardship.transfer`) writes the successor with the handover's finalizer. `checkpoint_digest` is the head of the authority's scope that the writing commit moved to, as its receipt states: the head the epoch begins at.",
   "required": [
     "kind",
     "schema",

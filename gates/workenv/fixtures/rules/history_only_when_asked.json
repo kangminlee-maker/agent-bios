@@ -1,0 +1,30 @@
+{
+  "rule": "C06/history_only_when_asked",
+  "holds": [
+    {
+      "record": "workenv/contracts/examples/c06/history_marked_with_its_standing.json",
+      "context": {
+        "envelope": "workenv/contracts/examples/c06/envelope_asking_for_memory_history.json"
+      }
+    },
+    {
+      "record": "workenv/contracts/examples/c06/result_admitting_the_use.json",
+      "context": {
+        "envelope": "workenv/contracts/examples/c06/envelope_asking_about_a_concern.json"
+      }
+    }
+  ],
+  "breaks": [
+    {
+      "what": "superseded and withdrawn units returned to an envelope that excluded history",
+      "record": "workenv/contracts/examples/c06/history_marked_with_its_standing.json",
+      "context": {
+        "envelope": "workenv/contracts/examples/c06/envelope_asking_about_a_concern.json"
+      },
+      "at": [
+        "/outcome/units/1/standing",
+        "/outcome/units/2/standing"
+      ]
+    }
+  ]
+}

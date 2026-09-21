@@ -1,6 +1,6 @@
 {
  "case": "CMP-PINS",
- "says": "Alice binds her device key, authors a personal Instructions source (revision one, whose body digest the owner computes) and selects revision one in her personal Instructions position. She opens a link to her working conversation, composes a first preparation bound to it, delivers its body to the current recipient and observes the delivery: the inventory names revision one's unit and body. Later she authors revision two of the same source against the head revision one left, re-pins her position to revision two against the position's head, and composes a second preparation for the same recipient: it names the position's new head and revision two's body. She then switches that entry off, and a third preparation names the position's newest head and holds the unit as disabled, with no body. Observing the first preparation after all three changes returns the same delivery observation as before, naming revision one: the changes reached only the preparations composed after them. What must not happen: a recomposition rewriting the first preparation, the recipient's delivered inventory or the revision it was pinned to, or a change to the position writing the source itself — revision two moves the source's own head only through its own admission.",
+ "says": "Alice binds her device key, authors a personal Instructions source (revision one, whose body digest the owner computes) and selects revision one in her personal Instructions position. She opens a link to her working conversation, composes a first preparation for delivery on it, delivers its body to the current recipient and observes the delivery: the inventory names revision one's unit and body. Later she authors revision two of the same source against the head revision one left, re-pins her position to revision two against the position's head (the digest of the collection her first change stored), and composes a second preparation for the same recipient: it names the position's new head and revision two's body. She then switches that entry off, and a third preparation names the position's newest head and holds the same source, member and revision two as disabled, with no body. Each preparation mints its own unit id; a unit is followed across preparations by its source, member and revision. Observing the first preparation after all three changes returns the same delivery observation as before, naming revision one, and writes nothing: the changes reached only the preparations composed after them. What must not happen: a recomposition rewriting the first preparation, the recipient's delivered inventory or the revision it was pinned to, or a change to the position writing the source itself — revision two moves the source's own head only through its own admission.",
  "ids": [
   {
    "name": "alice",
@@ -561,6 +561,10 @@
     {
      "pointer": "/basis/scopes/0/principal_id",
      "value": "@alice"
+    },
+    {
+     "pointer": "/declared_operation/name",
+     "value": "recipient.delivery.attempt"
     }
    ]
   },
@@ -588,7 +592,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -670,7 +674,7 @@
     },
     {
      "pointer": "/collections/0/head_digest",
-     "value": "$digest:collection_head"
+     "value": "#rules_selection"
     },
     {
      "pointer": "/collections/0/state",
@@ -919,7 +923,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1191,7 +1195,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:collection_head"
+     "value": "#rules_selection"
     },
     {
      "pointer": "/payload_digest",
@@ -1220,6 +1224,10 @@
     {
      "pointer": "/basis/scopes/0/principal_id",
      "value": "@alice"
+    },
+    {
+     "pointer": "/declared_operation/name",
+     "value": "recipient.delivery.attempt"
     }
    ]
   },
@@ -1247,7 +1255,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1329,7 +1337,7 @@
     },
     {
      "pointer": "/collections/0/head_digest",
-     "value": "$digest:collection_head_2"
+     "value": "#rules_repinned"
     },
     {
      "pointer": "/collections/0/state",
@@ -1495,7 +1503,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:collection_head_2"
+     "value": "#rules_repinned"
     },
     {
      "pointer": "/payload_digest",
@@ -1524,6 +1532,10 @@
     {
      "pointer": "/basis/scopes/0/principal_id",
      "value": "@alice"
+    },
+    {
+     "pointer": "/declared_operation/name",
+     "value": "recipient.delivery.attempt"
     }
    ]
   },
@@ -1551,7 +1563,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1607,8 +1619,7 @@
     "/units/1",
     "/units/0/body_digest",
     "/units/0/concern",
-    "/units/0/startup",
-    "/units/0/member"
+    "/units/0/startup"
    ],
    "set": [
     {
@@ -1637,7 +1648,7 @@
     },
     {
      "pointer": "/collections/0/head_digest",
-     "value": "$digest:collection_head_3"
+     "value": "#rules_switched_off"
     },
     {
      "pointer": "/collections/0/state",
@@ -1711,7 +1722,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1799,7 +1810,7 @@
     "returns": [
      "rules_selection"
     ],
-    "head": "collection_head"
+    "head": "rules_selection"
    }
   },
   {
@@ -1810,7 +1821,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1826,7 +1837,7 @@
     "first_preparation_request"
    ],
    "answer": {
-    "stage": "committed",
+    "stage": "previewed",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
@@ -1844,7 +1855,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1858,7 +1869,7 @@
    "request": "observe_first",
    "carries": [],
    "answer": {
-    "stage": "committed",
+    "stage": "previewed",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
@@ -1901,7 +1912,7 @@
     "returns": [
      "rules_repinned"
     ],
-    "head": "collection_head_2"
+    "head": "rules_repinned"
    }
   },
   {
@@ -1911,7 +1922,7 @@
     "second_preparation_request"
    ],
    "answer": {
-    "stage": "committed",
+    "stage": "previewed",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
@@ -1936,7 +1947,7 @@
     "returns": [
      "rules_switched_off"
     ],
-    "head": "collection_head_3"
+    "head": "rules_switched_off"
    }
   },
   {
@@ -1946,7 +1957,7 @@
     "third_preparation_request"
    ],
    "answer": {
-    "stage": "committed",
+    "stage": "previewed",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
@@ -1961,8 +1972,8 @@
    "request": "observe_first_again",
    "carries": [],
    "answer": {
-    "stage": "committed",
-    "local_effect": "private_state_written",
+    "stage": "previewed",
+    "local_effect": "none",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],

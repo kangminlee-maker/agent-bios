@@ -1,6 +1,6 @@
 {
  "case": "N14-C10-POS",
- "says": "Two isolated stores, Alice's laptop and her enrolled desktop, with no carrier bound: the Team is founded with local and peer carriers only. The laptop founds the Team, registers its knowledge source and commits two revisions, then stages a complete package of both by peer; the desktop verifies controls then bodies and commits it. The desktop undertakes custody of exactly that inventory for storage generation 1 and acknowledges holding each object at generation 1; the laptop records the desktop, as its peer, undertaking the same objects at generation 1. The desktop then stages the same inventory back as a complete package and the laptop's accept of it verifies and commits, reconstructing exactly the permitted inventory from the peer alone. What must not happen: any provider or network effect beyond the peer route, a commitment that omits the storage generation it assumes, an acknowledgment of objects that were not promised, or a reconstruction holding more or less than the inventory.",
+ "says": "Two isolated stores, Alice's laptop and her enrolled desktop, with no carrier bound: the Team is founded with local and peer carriers only, and the founding returns the Team's founding continuity epoch. The laptop founds the Team, registers its knowledge source and commits two revisions, then stages a complete package of both by peer — a draft in its outbox with no receipt — carrying the founding epoch as a member because the desktop does not hold it yet; the desktop verifies controls then bodies and commits it, the committed stage naming the accept's receipt. The desktop undertakes custody of exactly that inventory for storage generation 1 and acknowledges holding each object at generation 1; the laptop records the desktop, as its peer, undertaking the same objects at generation 1. The desktop then stages the same inventory back as a complete package and the laptop, which already holds the epoch, accepts it: it verifies and commits, moving the laptop's Team head, reconstructing exactly the permitted inventory from the peer alone. What must not happen: any provider or network effect beyond the peer route, a commitment that omits the storage generation it assumes, an acknowledgment of objects that were not promised, or a reconstruction holding more or less than the inventory.",
  "ids": [
   {
    "name": "desktop_peer",
@@ -37,10 +37,6 @@
   {
    "name": "knowledge_source",
    "prefix": "src"
-  },
-  {
-   "name": "knowledge_collection",
-   "prefix": "col"
   },
   {
    "name": "home_request",
@@ -320,7 +316,7 @@
     },
     {
      "pointer": "/committed_at",
-     "value": "$instant:policy_committed_at"
+     "value": "$instant:team_founded_at"
     }
    ]
   },
@@ -338,7 +334,7 @@
     },
     {
      "pointer": "/since",
-     "value": "$instant:team_active_since"
+     "value": "$instant:team_founded_at"
     }
    ]
   },
@@ -372,10 +368,6 @@
      "value": "@team"
     },
     {
-     "pointer": "/home/collection_id",
-     "value": "@knowledge_collection"
-    },
-    {
      "pointer": "/role",
      "value": "knowledge"
     },
@@ -407,7 +399,7 @@
     },
     {
      "pointer": "/action",
-     "value": "publish"
+     "value": "contribute"
     },
     {
      "pointer": "/effect_class",
@@ -517,11 +509,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#first_revision"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:home_head"
     }
    ]
   },
@@ -724,6 +720,120 @@
     {
      "pointer": "/finalizer/device_id",
      "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "founding",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:team_founder_grant"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "publish",
+      "adopt",
+      "grant",
+      "policy",
+      "transfer",
+      "retain_delete"
+     ]
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 2
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/purpose",
+     "value": "The standards this group works to."
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:team_founded_at"
     }
    ]
   },
@@ -791,6 +901,22 @@
     {
      "pointer": "/inventory/1/object_kind",
      "value": "source_manifest"
+    },
+    {
+     "pointer": "/inventory/2/path",
+     "value": "continuity/0001.json"
+    },
+    {
+     "pointer": "/inventory/2/digest",
+     "value": "#founding_epoch"
+    },
+    {
+     "pointer": "/inventory/2/size",
+     "value": 512
+    },
+    {
+     "pointer": "/inventory/2/object_kind",
+     "value": "authority_continuity"
     }
    ]
   },
@@ -816,7 +942,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1002,7 +1128,7 @@
     },
     {
      "pointer": "/receipt_digest",
-     "value": "$digest:accept_outbound_package_receipt"
+     "value": "#accept_outbound_package_receipt"
     },
     {
      "pointer": "/at",
@@ -1392,7 +1518,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1582,7 +1708,7 @@
     },
     {
      "pointer": "/receipt_digest",
-     "value": "$digest:accept_inbound_package_receipt"
+     "value": "#accept_inbound_package_receipt"
     },
     {
      "pointer": "/at",
@@ -1624,8 +1750,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
-     "team_active"
+     "team_founder_membership",
+     "team_founder_grant",
+     "team_active",
+     "team_profile",
+     "founding_epoch"
     ],
     "head": "team_head"
    },
@@ -1648,7 +1779,8 @@
     "recovery": [],
     "returns": [
      "stored_home"
-    ]
+    ],
+    "head": "home_head"
    },
    "process": "laptop"
   },
@@ -1716,8 +1848,8 @@
     "outbound_envelope"
    ],
    "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
+    "stage": "draft",
+    "local_effect": "objects_staged",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1816,8 +1948,8 @@
     "inbound_envelope"
    ],
    "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
+    "stage": "draft",
+    "local_effect": "objects_staged",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1832,8 +1964,7 @@
    "name": "accept_inbound_package",
    "request": "accept_inbound",
    "carries": [
-    "inbound_envelope",
-    "founding_epoch"
+    "inbound_envelope"
    ],
    "answer": {
     "stage": "committed",

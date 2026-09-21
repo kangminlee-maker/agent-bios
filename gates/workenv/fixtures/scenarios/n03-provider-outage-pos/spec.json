@@ -1,6 +1,6 @@
 {
  "case": "N03-PROVIDER-OUTAGE-POS",
- "says": "Alice has bound her key, founded a Team, configured a Google connection for it, and keeps a Team permit for a week of offline reads. She locks the profile (generation 2). The provider is now out of reach. She unlocks at a terminal with her device key, which needs no provider: the profile is active at generation 2. Her personal history read and her Team read naming the permit are both admitted at generation 2. A fresh provider check begins, but its callback reports that the provider never answered: the completion is blocked with provider_unreachable, verifies nothing and links nothing, and can be retried as the same request. What must not happen: the outage keeping her locked, refusing work that needs no provider, or the failed check being counted as verified.",
+ "says": "Alice's laptop first reads its fresh profile (active at generation 1). She binds her key, founds a Team (becoming its member and issuing authority) and configures a Google connection for it. As the Team's authority she records on the Team a permit that lets her laptop read the Team's state offline for a week, and then sets the Team's policy to require a fresh check through the Google connection before any grant or publish action. She locks the profile (generation 2). The provider is now out of reach. She unlocks at a terminal with her device key, which needs no provider: the profile is active again at generation 2. Her personal history read and her Team read naming the permit are both admitted at generation 2. Renewing the permit is a grant action the policy fresh-checks, and the device-key unlock supplied no fresh provider evidence: its admission is not_admitted with fresh_auth_required. A fresh provider check begins, but its callback reports that the provider never answered: the completion is blocked with provider_unreachable, verifies nothing and links nothing, and can be retried as the same request. What must not happen: the outage keeping her locked, refusing work that needs no provider, admitting the fresh-checked renewal on the strength of the unlock, or the failed check being counted as verified.",
  "ids": [
   {
    "name": "alice",
@@ -39,6 +39,22 @@
    "prefix": "req"
   },
   {
+   "name": "policy_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "renewed_permit_id",
+   "prefix": "ctl"
+  },
+  {
+   "name": "renew_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "renew_decide_request_id",
+   "prefix": "req"
+  },
+  {
    "name": "lock_request_id",
    "prefix": "req"
   },
@@ -69,9 +85,83 @@
   {
    "name": "unanswered_id",
    "prefix": "req"
+  },
+  {
+   "name": "read_profile_request_id",
+   "prefix": "req"
   }
  ],
  "records": [
+  {
+   "name": "read_profile_request",
+   "from": "c02/profile_read_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@read_profile_request_id"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    }
+   ]
+  },
+  {
+   "name": "read_profile_profile",
+   "from": "c02/profile_written_at_first_use.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:read_profile_profile_at"
+    }
+   ]
+  },
+  {
+   "name": "read_profile_state",
+   "from": "c02/active_at_first_use.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:read_profile_state_at"
+    }
+   ]
+  },
   {
    "name": "alice_laptop_key",
    "from": "c01/binding_as_submitted.json",
@@ -217,6 +307,68 @@
     {
      "pointer": "/policy_digest",
      "value": "#team_policy_draft"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "team_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_proposal_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_membership_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_epoch_at"
     }
    ]
   },
@@ -526,7 +678,7 @@
     },
     {
      "pointer": "/action",
-     "value": "local_profile"
+     "value": "grant"
     },
     {
      "pointer": "/effect_class",
@@ -549,16 +701,137 @@
      "value": 1
     },
     {
-     "pointer": "/owner/principal_id",
-     "value": "@alice"
-    },
-    {
      "pointer": "/target/resource_id",
-     "value": "@alice_profile"
+     "value": "@team"
     },
     {
      "pointer": "/payload_digest",
      "value": "#offline_permit"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_2"
+    }
+   ],
+   "drop": [
+    "/owner/principal_id"
+   ]
+  },
+  {
+   "name": "fresh_check_policy_draft",
+   "from": "team_policy_draft",
+   "set": [
+    {
+     "pointer": "/fresh_checks/0/connection_id",
+     "value": "$con:google"
+    },
+    {
+     "pointer": "/fresh_checks/0/actions",
+     "value": [
+      "publish",
+      "grant"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "fresh_check_policy",
+   "from": "fresh_check_policy_draft",
+   "set": [
+    {
+     "pointer": "/policy_id",
+     "value": "$pol:team_policy"
+    },
+    {
+     "pointer": "/policy_version",
+     "value": 2
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:fresh_check_policy_at"
+    }
+   ]
+  },
+  {
+   "name": "require_fresh_checks_request",
+   "from": "c02/lock_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@policy_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.policy.set"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_permit"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#fresh_check_policy_draft"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
     }
    ]
   },
@@ -853,7 +1126,7 @@
     },
     {
      "pointer": "/action",
-     "value": "read"
+     "value": "local_profile"
     },
     {
      "pointer": "/effect_class",
@@ -947,7 +1220,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:team_head_2"
+     "value": "$digest:team_head_fresh_checks"
     },
     {
      "pointer": "/control_digests",
@@ -989,7 +1262,7 @@
     },
     {
      "pointer": "/action",
-     "value": "read"
+     "value": "local_profile"
     },
     {
      "pointer": "/effect_class",
@@ -1022,6 +1295,171 @@
     {
      "pointer": "/payload_digest",
      "value": "#team_read"
+    }
+   ]
+  },
+  {
+   "name": "renewed_permit",
+   "from": "offline_permit",
+   "set": [
+    {
+     "pointer": "/evidence_id",
+     "value": "@renewed_permit_id"
+    },
+    {
+     "pointer": "/issued_at",
+     "value": "2026-09-21T10:00:00Z"
+    },
+    {
+     "pointer": "/statement/offline/until",
+     "value": "2026-09-28T10:00:00Z"
+    },
+    {
+     "pointer": "/statement/valid_until",
+     "value": "2026-10-21T10:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "renew_permit_request",
+   "from": "c02/lock_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@renew_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.control.record"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_fresh_checks"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#renewed_permit"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#fresh_check_policy"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "renewal_waits_admission",
+   "from": "c02/sign_after_lock.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@renew_request_id"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/outcome/material_gaps/0/code",
+     "value": "fresh_auth_required"
+    }
+   ]
+  },
+  {
+   "name": "renewal_waits_request",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@renew_decide_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.admission.decide"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#renew_permit_request"
     }
    ]
   },
@@ -1186,6 +1624,22 @@
  ],
  "steps": [
   {
+   "name": "read_profile",
+   "request": "read_profile_request",
+   "carries": [],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "read_profile_profile",
+     "read_profile_state"
+    ]
+   }
+  },
+  {
    "name": "bind_key",
    "request": "bind_alice_laptop",
    "carries": [
@@ -1216,10 +1670,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
+     "team_founder_membership",
      "team_founder_grant",
      "team_state",
-     "team_profile"
+     "team_profile",
+     "team_founding_epoch"
     ],
     "head": "team_head"
    },
@@ -1253,13 +1710,32 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
      "offline_permit"
-    ]
+    ],
+    "head": "team_head_permit"
+   }
+  },
+  {
+   "name": "require_fresh_checks",
+   "request": "require_fresh_checks_request",
+   "carries": [
+    "fresh_check_policy_draft"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "fresh_check_policy"
+    ],
+    "head": "team_head_fresh_checks"
    }
   },
   {
@@ -1270,7 +1746,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1288,7 +1764,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1332,6 +1808,24 @@
    }
   },
   {
+   "name": "renewal_waits_for_a_fresh_check",
+   "request": "renewal_waits_request",
+   "carries": [
+    "renew_permit_request",
+    "renewed_permit"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "renewal_waits_admission"
+    ]
+   }
+  },
+  {
    "name": "begin_fresh_check",
    "request": "begin_fresh_check_request",
    "carries": [
@@ -1339,7 +1833,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],

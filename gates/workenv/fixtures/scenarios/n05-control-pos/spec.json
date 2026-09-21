@@ -1,6 +1,6 @@
 {
  "case": "N05-CONTROL-POS",
- "says": "Alice founds a Team alone on her laptop, acknowledging that she reviewed its founding herself; its policy and active state are committed. Under that policy she issues an invitation to Bob, records Bob's membership as invited through that invitation, and grants herself read, use and contribute in the Team — each a governed control commit that expects the Team head the previous one moved to. The laptop process is killed after each of the founding, the membership change and the grant commits and before its answer returns, and restarted; each request is then answered with its committed result, not run again. Querying each of the three request ids afterwards returns the original result and the receipt naming that request's digest, the Team head it expected and the head it moved to. What must not happen: a restart losing a control receipt, a control applied twice, or a query answering with another request's result.",
+ "says": "Alice founds a Team alone on her laptop, acknowledging that she reviewed its founding herself; the founding commits the sealed proposal, its policy, her founder membership and grant, the active Team state, its profile and the Team's founding epoch. Under that policy she issues an invitation to Bob, records Bob's membership as invited through that invitation, and revises her founder grant to add publish — each a governed control commit that expects the Team head the previous one moved to. The laptop process is killed after each of the founding, the membership change and the grant commits and before its answer returns, and restarted; each request is then answered with its committed result, not run again. Querying each of the three request ids afterwards returns the original result and the receipt naming that request's digest, the Team head it expected and the head it moved to. What must not happen: a restart losing a control receipt, a control applied twice, or a query answering with another request's result.",
  "ids": [
   {
    "name": "alice",
@@ -190,6 +190,127 @@
     {
      "pointer": "/name",
      "value": "Storage"
+    }
+   ]
+  },
+  {
+   "name": "sealed_proposal",
+   "from": "proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:proposal_sealed_at"
+    }
+   ]
+  },
+  {
+   "name": "founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:founder_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founder_admitted_at"
+    }
+   ]
+  },
+  {
+   "name": "founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:founder_grant"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "review",
+      "grant",
+      "policy"
+     ]
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founder_granted_at"
+    }
+   ]
+  },
+  {
+   "name": "team_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/name",
+     "value": "Storage"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:profile_at"
+    }
+   ]
+  },
+  {
+   "name": "founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_head_0"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:founding_epoch_at"
     }
    ]
   },
@@ -493,7 +614,7 @@
   },
   {
    "name": "alice_grant",
-   "from": "c08/grant_as_submitted.json",
+   "from": "c08/grant_revision_as_submitted.json",
    "set": [
     {
      "pointer": "/team_id",
@@ -512,8 +633,20 @@
      "value": [
       "read",
       "use",
-      "contribute"
+      "contribute",
+      "review",
+      "grant",
+      "policy",
+      "publish"
      ]
+    },
+    {
+     "pointer": "/standing",
+     "value": "current"
+    },
+    {
+     "pointer": "/revises_digest",
+     "value": "#founder_grant"
     }
    ]
   },
@@ -591,11 +724,11 @@
    "set": [
     {
      "pointer": "/grant_id",
-     "value": "$gra:alice_grant"
+     "value": "$gra:founder_grant"
     },
     {
      "pointer": "/grant_revision",
-     "value": 1
+     "value": 2
     },
     {
      "pointer": "/issuer_principal_id",
@@ -672,47 +805,6 @@
    ]
   },
   {
-   "name": "found_receipt",
-   "from": "c03/commit_receipt.json",
-   "drop": [
-    "/target/base/head_digest"
-   ],
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@found_request"
-    },
-    {
-     "pointer": "/request_digest",
-     "value": "#found"
-    },
-    {
-     "pointer": "/owner/team_id",
-     "value": "@team"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@team"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "absent"
-    },
-    {
-     "pointer": "/head_digest",
-     "value": "$digest:team_head_0"
-    },
-    {
-     "pointer": "/sequence",
-     "value": "$integer:found_sequence"
-    },
-    {
-     "pointer": "/committed_at",
-     "value": "$instant:found_committed_at"
-    }
-   ]
-  },
-  {
    "name": "membership_query",
    "from": "c03/query_by_request_id.json",
    "set": [
@@ -773,44 +865,6 @@
     {
      "pointer": "/payload_digest",
      "value": "#membership_query"
-    }
-   ]
-  },
-  {
-   "name": "membership_receipt",
-   "from": "c03/commit_receipt.json",
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@membership_request"
-    },
-    {
-     "pointer": "/request_digest",
-     "value": "#admit"
-    },
-    {
-     "pointer": "/owner/team_id",
-     "value": "@team"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@team"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:team_head_1"
-    },
-    {
-     "pointer": "/head_digest",
-     "value": "$digest:team_head_2"
-    },
-    {
-     "pointer": "/sequence",
-     "value": "$integer:membership_sequence"
-    },
-    {
-     "pointer": "/committed_at",
-     "value": "$instant:membership_committed_at"
     }
    ]
   },
@@ -877,44 +931,6 @@
      "value": "#grant_query"
     }
    ]
-  },
-  {
-   "name": "grant_receipt",
-   "from": "c03/commit_receipt.json",
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@grant_request"
-    },
-    {
-     "pointer": "/request_digest",
-     "value": "#grant_alice"
-    },
-    {
-     "pointer": "/owner/team_id",
-     "value": "@team"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@team"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:team_head_2"
-    },
-    {
-     "pointer": "/head_digest",
-     "value": "$digest:team_head_3"
-    },
-    {
-     "pointer": "/sequence",
-     "value": "$integer:grant_sequence"
-    },
-    {
-     "pointer": "/committed_at",
-     "value": "$instant:grant_committed_at"
-    }
-   ]
   }
  ],
  "steps": [
@@ -949,8 +965,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "sealed_proposal",
      "stored_policy",
-     "team_active"
+     "founder_membership",
+     "founder_grant",
+     "team_active",
+     "team_profile",
+     "founding_epoch"
     ],
     "head": "team_head_0"
    },
@@ -1026,7 +1047,7 @@
     "recovery": [],
     "returns": [
      "found_the_team_result",
-     "found_receipt"
+     "found_the_team_receipt"
     ]
    }
   },
@@ -1044,7 +1065,7 @@
     "recovery": [],
     "returns": [
      "record_bob_invited_result",
-     "membership_receipt"
+     "record_bob_invited_receipt"
     ]
    }
   },
@@ -1062,7 +1083,7 @@
     "recovery": [],
     "returns": [
      "grant_alice_result",
-     "grant_receipt"
+     "grant_alice_receipt"
     ]
    }
   }

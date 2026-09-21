@@ -1,6 +1,6 @@
 {
  "case": "N19-CRUD-POS",
- "says": "One person founds a Team alone (team.found, self-founded mode that says it reviewed itself, finalized on their laptop): the owner commits the Team's policy, the founder's grant, an active team_state and a team_profile named Platform, and moves the Team's head. A team.state.read at that head returns exactly those records. The founder then renames the Team to Platform standards (team.profile.set on the head the founding moved to): the stored profile keeps the same team_id and only the name and its updated_at change; a read at the new head shows the new profile beside the unchanged state, policy and grant. The founder then closes the Team (team.lifecycle.apply close, whose plan names the founder as surviving owner, lists the laptop as the one holder it reached, holds no outbox entry or custody, keeps no repository and requests no purge): the owner returns a closed team_state under a third receipt, and a last read shows the closed state and the renamed profile. Each read names the head of the step it follows, so every change is seen under its own receipt; no read writes anything, and no step changes the team_id.",
+ "says": "One person founds a Team alone (team.found, self-founded mode that says it reviewed itself, finalized on their laptop): the owner commits and returns the sealed proposal, the Team's policy, the founder's membership by founding and grant, an active team_state, a team_profile named Platform and the founding epoch with the laptop as finalizer, and moves the Team's head. A team.state.read at that head returns exactly the state, profile, policy, membership and grant it wrote. The founder then renames the Team to Platform standards (team.profile.set on the head the founding moved to): the stored profile keeps the same team_id and only the name and its updated_at change; a read at the new head shows the new profile beside the unchanged state, policy, membership and grant. The founder then closes the Team (team.lifecycle.apply close, whose plan names the founder as surviving owner, lists the laptop as the one holder it reached, holds no outbox entry or custody, keeps no repository and requests no purge): the owner returns a closed team_state under a third receipt, and a last read shows the closed state and the renamed profile. Each read names the head of the step it follows, so every change is seen under its own receipt; no read writes anything, and no step changes the team_id.",
  "ids": [
   {
    "name": "founder",
@@ -108,6 +108,68 @@
     {
      "pointer": "/recovery/0/principal_id",
      "value": "@founder"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership_id"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@founder"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:founded"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:founded_at"
     }
    ]
   },
@@ -689,10 +751,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
+     "team_founder_membership",
      "founder_grant",
      "active_state",
-     "first_profile"
+     "first_profile",
+     "team_founding_epoch"
     ],
     "head": "founded"
    },
@@ -714,6 +779,7 @@
      "active_state",
      "first_profile",
      "team_policy",
+     "team_founder_membership",
      "founder_grant"
     ]
    }
@@ -750,6 +816,7 @@
      "active_state",
      "renamed_profile",
      "team_policy",
+     "team_founder_membership",
      "founder_grant"
     ]
    }
@@ -786,6 +853,7 @@
      "closed_state",
      "renamed_profile",
      "team_policy",
+     "team_founder_membership",
      "founder_grant"
     ]
    }

@@ -1,6 +1,6 @@
 {
  "case": "N01-STORE-POS",
- "says": "On her laptop Alice submits one record of each contract through its owner in submit mode: her device key binding (C01 principal_binding), her private notes source's home (C01 source_home), its first revision (C01 source_manifest), and a package envelope carrying that revision (C09 transfer_envelope); every request is itself a sealed C03 operation_request. Each owner answers with the record it stored: the submitted fields exactly as submitted, plus only the fields the runtime owns — the binding id and time, the registration time, the revision's production time — and the package's export recorded against the envelope's digest. The revision is then read back twice by a reference to its member, and each read returns the same stored revision under the same digest; the key binding and the export are each queried twice by request id, and each query returns the same original result, naming the same request digest and the same stored record's digest. What must not happen: a stored record whose submitted fields changed, a runtime-owned field taken from the submission, or a second read returning other bytes or another digest.",
+ "says": "On her laptop Alice submits one record of each contract through its owner in submit mode: her device key binding (C01 principal_binding), her private notes source's home (C01 source_home), its first revision on the head the registration made (C01 source_manifest), and a package envelope carrying that revision, trusted by the binding that enrolled the laptop (C09 transfer_envelope); every request is itself a sealed C03 operation_request. Each owner answers with the record it stored: the submitted fields exactly as submitted, plus only the fields the runtime owns — the binding id and time, the registration time, the revision's production time — and the package's export recorded against the envelope's digest; each commit also writes its C03 receipt. The revision is then read back twice by a reference to its member, and each read returns the same stored revision and home under the same digests; the key binding and the export are each queried twice by request id, and each query returns the same original result, naming the same request digest and the same stored record's digest, and for the binding the same receipt. What must not happen: a stored record whose submitted fields changed, a runtime-owned field taken from the submission, or a second read returning other bytes or another digest.",
  "ids": [
   {
    "name": "alice",
@@ -17,10 +17,6 @@
   {
    "name": "notes_source",
    "prefix": "src"
-  },
-  {
-   "name": "notes_collection",
-   "prefix": "col"
   },
   {
    "name": "bind_request",
@@ -166,10 +162,6 @@
      "value": "@alice"
     },
     {
-     "pointer": "/home/collection_id",
-     "value": "@notes_collection"
-    },
-    {
      "pointer": "/role",
      "value": "knowledge"
     },
@@ -197,7 +189,7 @@
     },
     {
      "pointer": "/action",
-     "value": "local_profile"
+     "value": "contribute"
     },
     {
      "pointer": "/effect_class",
@@ -311,11 +303,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#revision"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:notes_head_0"
     }
    ]
   },
@@ -439,31 +435,6 @@
    ]
   },
   {
-   "name": "founding_epoch",
-   "from": "c09/founding_epoch_of_an_authority.json",
-   "drop": [
-    "/authority/team_id"
-   ],
-   "set": [
-    {
-     "pointer": "/authority/layer",
-     "value": "personal"
-    },
-    {
-     "pointer": "/authority/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/finalizer/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/checkpoint_digest",
-     "value": "#stored_revision"
-    }
-   ]
-  },
-  {
    "name": "package",
    "from": "c09/complete_transfer.json",
    "drop": [
@@ -501,13 +472,41 @@
      "value": "@alice"
     },
     {
+     "pointer": "/inventory/0/path",
+     "value": "objects/0000.json"
+    },
+    {
      "pointer": "/inventory/0/digest",
      "value": "#stored_revision"
     },
     {
+     "pointer": "/inventory/0/size",
+     "value": 4121
+    },
+    {
+     "pointer": "/inventory/0/object_kind",
+     "value": "source_manifest"
+    },
+    {
+     "pointer": "/inventory/1/path",
+     "value": "continuity/0001.json"
+    },
+    {
+     "pointer": "/inventory/1/digest",
+     "value": "#stored_key"
+    },
+    {
+     "pointer": "/inventory/1/size",
+     "value": 412
+    },
+    {
+     "pointer": "/inventory/1/object_kind",
+     "value": "principal_binding"
+    },
+    {
      "pointer": "/continuity_evidence_digests",
      "value": [
-      "#founding_epoch"
+      "#stored_key"
      ]
     }
    ]
@@ -768,7 +767,8 @@
     "recovery": [],
     "returns": [
      "stored_home"
-    ]
+    ],
+    "head": "notes_head_0"
    }
   },
   {
@@ -802,7 +802,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "stored_revision"
+     "stored_revision",
+     "stored_home"
     ]
    }
   },
@@ -819,7 +820,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "stored_revision"
+     "stored_revision",
+     "stored_home"
     ]
    }
   },
@@ -829,7 +831,7 @@
    "carries": [
     "package",
     "stored_revision",
-    "founding_epoch"
+    "stored_key"
    ],
    "answer": {
     "stage": "draft",
@@ -855,7 +857,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "bind_device_key_result"
+     "bind_device_key_result",
+     "bind_device_key_receipt"
     ]
    }
   },
@@ -872,7 +875,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "bind_device_key_result"
+     "bind_device_key_result",
+     "bind_device_key_receipt"
     ]
    }
   },

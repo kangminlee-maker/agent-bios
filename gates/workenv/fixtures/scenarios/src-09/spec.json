@@ -27,10 +27,6 @@
    "prefix": "src"
   },
   {
-   "name": "notes_store",
-   "prefix": "col"
-  },
-  {
    "name": "notes_col",
    "prefix": "col"
   },
@@ -261,10 +257,6 @@
     {
      "pointer": "/acceptance_authority/principal_id",
      "value": "@me"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@notes_store"
     }
    ]
   },
@@ -346,10 +338,6 @@
     {
      "pointer": "/home/mode",
      "value": "managed"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@notes_store"
     },
     {
      "pointer": "/home/markdown_view/view",
@@ -511,10 +499,6 @@
     {
      "pointer": "/members/0/size",
      "value": 4388
-    },
-    {
-     "pointer": "/produced_at",
-     "value": "2026-09-21T10:00:00Z"
     }
    ]
   },
@@ -766,6 +750,10 @@
     {
      "pointer": "/payload_digest",
      "value": "#prep_request"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
     }
    ],
    "drop": [
@@ -808,7 +796,7 @@
     },
     {
      "pointer": "/collections/0/head_digest",
-     "value": "$digest:notes_col_head"
+     "value": "#stored_notes_col"
     },
     {
      "pointer": "/collections/1/collection_id",
@@ -816,7 +804,7 @@
     },
     {
      "pointer": "/collections/1/head_digest",
-     "value": "$digest:mem_col_head"
+     "value": "#stored_mem_col"
     },
     {
      "pointer": "/frontiers/0/source_id",
@@ -894,7 +882,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:notes_col_head"
+     "value": "#stored_notes_col"
     }
    ],
    "drop": [
@@ -1001,7 +989,8 @@
    "name": "change_personal_instructions",
    "request": "change_notes_col",
    "carries": [
-    "notes_position"
+    "notes_position",
+    "notes_rev2_staged"
    ],
    "answer": {
     "stage": "committed",
@@ -1012,8 +1001,11 @@
     "returns": [
      "stored_notes_col"
     ],
-    "head": "notes_col_head"
-   }
+    "head": "stored_notes_col"
+   },
+   "submits": [
+    "notes_rev2_staged"
+   ]
   },
   {
    "name": "change_repository_memory",
@@ -1030,7 +1022,7 @@
     "returns": [
      "stored_mem_col"
     ],
-    "head": "mem_col_head"
+    "head": "stored_mem_col"
    }
   },
   {
@@ -1041,7 +1033,7 @@
    ],
    "answer": {
     "stage": "previewed",
-    "local_effect": "none",
+    "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],

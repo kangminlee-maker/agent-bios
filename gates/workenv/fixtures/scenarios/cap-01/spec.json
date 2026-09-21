@@ -1,6 +1,6 @@
 {
  "case": "CAP-01",
- "says": "A person on this device binds its key, binds the checkout to its repository id and registers the repository's decision directory as a memory source. They then select records 12 to 18 of one Claude Code session transcript, and the owner reads exactly that span (source.observe, nothing written). A capture naming that observation, those exact span bytes, the destination source and the packaged local adapter that processed them is stored as a draft together with the extraction run of that adapter: an attributable capture from an explicit source, range and processor. Two captures that reach further are not made. One names the same observation but a session id guessed from a transcript file found on disk and a wider range of records; the owner refuses it with input_not_observed, because the observation it names did not read those bytes, and writes nothing. The other runs a local model without naming the adapter that ran; it is refused at admission because a processor that is not named has no spelling. Neither a file on disk, a guessed session name nor an unnamed model widens what the explicit selection and the named processor granted.",
+ "says": "A person on this device binds its key, binds the checkout to its repository id and registers the repository's decision directory as a memory source. They then select records 12 to 18 of one Claude Code session transcript, stating what the transcript's owner permits for that text: local processing, no prompt log, results for this repository only; the owner reads exactly that span (source.observe, nothing written). A capture naming that observation, those exact span bytes, the destination source at the head its registration committed, and the packaged local adapter that processed them is stored as a draft together with the extraction run of that adapter: an attributable capture from an explicit source, range and processor, whose input restates no more than the selection permits. Two captures that reach further are not made. One names the same observation but a session id guessed from a transcript file found on disk and a wider range of records; the owner refuses it with input_not_observed, because the observation it names did not read those bytes, and writes nothing. The other runs a local model without naming the adapter that ran; it is refused at admission because a processor that is not named has no spelling. Neither a file on disk, a guessed session name nor an unnamed model widens what the explicit selection and the named processor granted.",
  "ids": [
   {
    "name": "alice",
@@ -275,7 +275,20 @@
   },
   {
    "name": "span_selection",
-   "from": "c01/selection_of_a_transcript_span.json"
+   "from": "c01/selection_of_a_transcript_span.json",
+   "drop": [
+    "/roots/0/permits/destinations/1"
+   ],
+   "set": [
+    {
+     "pointer": "/roots/0/permits/destinations/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/roots/0/permits/processing",
+     "value": "local_processing"
+    }
+   ]
   },
   {
    "name": "observe_span_request",
@@ -353,6 +366,9 @@
      "pointer": "/entries/0/entry_id",
      "value": "@entry"
     }
+   ],
+   "drop": [
+    "/revision_digest"
    ]
   },
   {
@@ -385,11 +401,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#span_capture"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_memory_home_head"
     }
    ]
   },
@@ -465,11 +485,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#guessed_capture"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_memory_home_head"
     }
    ]
   },
@@ -510,11 +534,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#unnamed_model_capture"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_memory_home_head"
     }
    ]
   }

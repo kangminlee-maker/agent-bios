@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C08 membership record",
-  "description": "Consent, an invitation receipt and an active membership are three standings, not one. A provider claim admits only where the Team's own delegation policy says it may, and the policy is named here; a verified login or a matching e-mail domain admits nobody by itself. A standing carries how it was admitted, so invitation, consent and membership stay three stages. The runtime assigns the id and stamps the time.",
+  "description": "Consent, an invitation receipt and an active membership are three standings, not one. A provider claim admits only where the Team's own delegation policy says it may, and the policy is named here; a verified login or a matching e-mail domain admits nobody by itself. A standing carries how it was admitted, so invitation, consent and membership stay three stages. A Team's first members are admitted by its founding: the founder by the proposal it sealed, and a nominee by that proposal and the nominee's own acceptance of the founding request, so the principal that founded a Team is the one its membership names. The runtime assigns the id and stamps the time.",
   "required": [
     "kind",
     "schema",
@@ -69,6 +69,12 @@
         },
         {
           "$ref": "#/$defs/claimed_standing"
+        },
+        {
+          "$ref": "#/$defs/founded_standing"
+        },
+        {
+          "$ref": "#/$defs/nominated_standing"
         }
       ]
     },
@@ -152,6 +158,60 @@
           "$ref": "#/$defs/connection_id"
         },
         "policy_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "founded_standing": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The founder, admitted when the founding proposal it sealed committed. There is no invitation or consent to name: the proposal is the founder's own statement.",
+      "required": [
+        "is",
+        "how",
+        "proposal_digest"
+      ],
+      "properties": {
+        "is": {
+          "enum": [
+            "active",
+            "left",
+            "removed"
+          ]
+        },
+        "how": {
+          "const": "founding"
+        },
+        "proposal_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "nominated_standing": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A nominee of a reviewed founding, admitted when that proposal committed with the nominee's acceptance: the `approval` by this principal of the exact founding request. A nomination alone admits nobody.",
+      "required": [
+        "is",
+        "how",
+        "proposal_digest",
+        "acceptance_digest"
+      ],
+      "properties": {
+        "is": {
+          "enum": [
+            "active",
+            "left",
+            "removed"
+          ]
+        },
+        "how": {
+          "const": "nomination"
+        },
+        "proposal_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "acceptance_digest": {
           "$ref": "#/$defs/digest"
         }
       }

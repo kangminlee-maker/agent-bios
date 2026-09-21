@@ -1,6 +1,6 @@
 {
  "case": "N15-ANSWER-NEG",
- "says": "Alice binds her device key and the installed claude-code client is probed for native user events, which worked for real. She publishes two conflicting choices into her personal decisions source and her working conversation's use of that concern is prepared: the owner seals question version 1 offering exactly those two records and answers pending_user. She opens a link to that conversation and the question is delivered there. Her first reply cancels, and the answer evidence the owner writes is a cancelled non-answer that selects nothing. Her second reply chooses the second offered record, keep until the choices change, through the probed route; the owner writes a verified answer for the same question id and version whose selection is that offered record. Held against question version 1, every answer_evidence written here selects either nothing or one of the records that version offered; the rule's fixture holds the answer that selects a record the question never offered, which the owner must never write.",
+ "says": "Alice binds her device key and the installed claude-code client is probed for native user events, which worked for real; the probe returns the host configuration it ran under. She publishes two conflicting choices into her personal decisions source and her working conversation's use of that concern is prepared: the owner seals question version 1 offering exactly those two records and the use waits (pending_user). She opens a link to that conversation and the question is delivered there. Her first reply cancels: the owner commits a cancelled non-answer that selects nothing, and the use stays pending. A reply choosing a record version 1 never offered is refused as alternative_not_offered, and no evidence is written for it. Her next reply chooses the second offered record, keep until the choices change, through the probed route; the owner writes a verified answer for the same question id and version whose selection is that offered record. Every answer_evidence written here names the configuration measured on its host when the reply was classified, the verified one names the user_event probe that separated her, and held against question version 1 each selects either nothing or one of the records that version offered; the rules' fixtures hold the answers the owner must never write.",
  "ids": [
   {
    "name": "alice",
@@ -25,10 +25,6 @@
   {
    "name": "decisions",
    "prefix": "src"
-  },
-  {
-   "name": "decisions_collection",
-   "prefix": "col"
   },
   {
    "name": "register_decisions_id",
@@ -60,6 +56,14 @@
   },
   {
    "name": "record_cancelled_reply_id",
+   "prefix": "req"
+  },
+  {
+   "name": "unoffered_record",
+   "prefix": "rec"
+  },
+  {
+   "name": "record_unoffered_reply_id",
    "prefix": "req"
   },
   {
@@ -192,7 +196,7 @@
     },
     {
      "pointer": "/action",
-     "value": "read"
+     "value": "local_profile"
     },
     {
      "pointer": "/effect_class",
@@ -294,6 +298,16 @@
    ]
   },
   {
+   "name": "host_config",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:probed_at"
+    }
+   ]
+  },
+  {
    "name": "decisions_home",
    "from": "sources/home_of_a_managed_collection.json",
    "drop": [
@@ -311,10 +325,6 @@
     {
      "pointer": "/acceptance_authority/principal_id",
      "value": "@alice"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@decisions_collection"
     },
     {
      "pointer": "/role",
@@ -347,7 +357,7 @@
     },
     {
      "pointer": "/action",
-     "value": "local_profile"
+     "value": "contribute"
     },
     {
      "pointer": "/effect_class",
@@ -1219,7 +1229,7 @@
     },
     {
      "pointer": "/action",
-     "value": "decide"
+     "value": "use"
     },
     {
      "pointer": "/effect_class",
@@ -1289,7 +1299,7 @@
     },
     {
      "pointer": "/measured_configuration_digest",
-     "value": "$digest:cancel_evidence_configuration"
+     "value": "#cancel_config"
     },
     {
      "pointer": "/observed_at",
@@ -1298,6 +1308,91 @@
     {
      "pointer": "/origin/origin",
      "value": "cancelled"
+    }
+   ]
+  },
+  {
+   "name": "cancel_config",
+   "from": "host_config",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:cancel_evidence_at"
+    }
+   ]
+  },
+  {
+   "name": "unoffered_reply",
+   "from": "choice_reply",
+   "set": [
+    {
+     "pointer": "/reply/answer/selected/record_id",
+     "value": "@unoffered_record"
+    }
+   ]
+  },
+  {
+   "name": "record_unoffered_reply",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@record_unoffered_reply_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.answer.record"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$qst:question"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#unoffered_reply"
     }
    ]
   },
@@ -1352,7 +1447,7 @@
     },
     {
      "pointer": "/action",
-     "value": "decide"
+     "value": "use"
     },
     {
      "pointer": "/effect_class",
@@ -1422,7 +1517,7 @@
     },
     {
      "pointer": "/measured_configuration_digest",
-     "value": "$digest:verified_answer_configuration"
+     "value": "#choice_config"
     },
     {
      "pointer": "/observed_at",
@@ -1435,6 +1530,16 @@
     {
      "pointer": "/origin/separation_evidence_digest",
      "value": "#probe_that_worked"
+    }
+   ]
+  },
+  {
+   "name": "choice_config",
+   "from": "host_config",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:verified_answer_at"
     }
    ]
   }
@@ -1465,13 +1570,14 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
      "probe_that_worked",
-     "host_profile"
+     "host_profile",
+     "host_config"
     ]
    }
   },
@@ -1562,7 +1668,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1579,7 +1685,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1595,18 +1701,35 @@
     "cancelled_reply"
    ],
    "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "cancel_evidence",
+     "cancel_config"
+    ]
+   }
+  },
+  {
+   "name": "record_a_choice_nobody_offered",
+   "request": "record_unoffered_reply",
+   "carries": [
+    "unoffered_reply"
+   ],
+   "answer": {
     "stage": "refused",
-    "local_effect": "private_state_written",
+    "local_effect": "none",
     "provider_effect": "not_applicable",
     "gaps": [
      {
-      "code": "answer_not_from_a_person"
+      "code": "alternative_not_offered",
+      "pointer": "/reply/answer/selected/record_id"
      }
     ],
     "recovery": [],
-    "returns": [
-     "cancel_evidence"
-    ]
+    "returns": []
    }
   },
   {
@@ -1617,12 +1740,13 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "verified_answer"
+     "verified_answer",
+     "choice_config"
     ]
    }
   }

@@ -1,0 +1,119 @@
+{
+  "rule": "C03/reached_paths_are_members",
+  "holds": [
+    {
+      "record": "workenv/contracts/examples/c03/package_candidate_built_from_one_commit.json"
+    },
+    {
+      "what": "an installer and an assembler whose every reference is packed",
+      "record": {
+        "kind": "package_candidate",
+        "schema": 1,
+        "source_commit": "d360f26444444444444444444444444444444444",
+        "tarball": {
+          "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size": 482113
+        },
+        "members": [
+          {
+            "path": "install.sh",
+            "digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "size": 30211,
+            "origin": {
+              "copied_from": "install.sh"
+            },
+            "reaches": [
+              "compose/assemble.py",
+              "compose/instructions_catalog.py"
+            ]
+          },
+          {
+            "path": "compose/assemble.py",
+            "digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "size": 18874,
+            "origin": {
+              "copied_from": "compose/assemble.py"
+            },
+            "reaches": [
+              "compose/instructions_catalog.py"
+            ]
+          },
+          {
+            "path": "compose/instructions_catalog.py",
+            "digest": "8888888888888888888888888888888888888888888888888888888888888888",
+            "size": 9120,
+            "origin": {
+              "copied_from": "compose/instructions_catalog.py"
+            }
+          },
+          {
+            "path": "provenance.json",
+            "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "size": 312,
+            "origin": {
+              "made": "at_pack_time"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "breaks": [
+    {
+      "what": "an installer reaching a path no member provides",
+      "record": "workenv/contracts/examples/c03/a_candidate_short_of_its_closure.json",
+      "at": [
+        "/members/0/reaches/1"
+      ]
+    },
+    {
+      "what": "an installer and an assembler both reaching the one path left out",
+      "record": {
+        "kind": "package_candidate",
+        "schema": 1,
+        "source_commit": "d360f26444444444444444444444444444444444",
+        "tarball": {
+          "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size": 482113
+        },
+        "members": [
+          {
+            "path": "install.sh",
+            "digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "size": 30211,
+            "origin": {
+              "copied_from": "install.sh"
+            },
+            "reaches": [
+              "compose/assemble.py",
+              "compose/instructions_catalog.py"
+            ]
+          },
+          {
+            "path": "compose/assemble.py",
+            "digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "size": 18874,
+            "origin": {
+              "copied_from": "compose/assemble.py"
+            },
+            "reaches": [
+              "compose/instructions_catalog.py"
+            ]
+          },
+          {
+            "path": "provenance.json",
+            "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "size": 312,
+            "origin": {
+              "made": "at_pack_time"
+            }
+          }
+        ]
+      },
+      "at": [
+        "/members/0/reaches/1",
+        "/members/1/reaches/0"
+      ]
+    }
+  ]
+}

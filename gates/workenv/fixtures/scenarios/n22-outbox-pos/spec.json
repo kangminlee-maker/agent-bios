@@ -1,6 +1,6 @@
 {
  "case": "N22-OUTBOX-POS",
- "says": "Alice founds a Team on her laptop, registers its knowledge source and commits a revision; her desktop is enrolled but out of reach. The laptop undertakes to keep its own outbox and stages a complete package for the desktop; the laptop process is killed after the stage committed and before it answered, and after the restart the same request answers with the exported stage under the same envelope digest. While the desktop is still unreachable the laptop's custody acknowledgment says the staged package is the only copy (unique_outbox_at_risk). Once the desktop is reachable it accepts the package and commits it, and acknowledges holding it. The laptop then sends the same envelope again; the desktop's accept of that resend answers with the stage it already reached and writes nothing new. What must not happen: the staged package lost or restaged under another digest by the restart, a second package staged for one request, the outbox reported safe while it is the only copy, or the resend committing a second time.",
+ "says": "Alice founds a Team on her laptop, which returns the Team's founding continuity epoch, registers its knowledge source and commits a revision; her desktop is enrolled but out of reach. The laptop undertakes to keep its own outbox and stages a complete package for the desktop — a draft in its outbox with no receipt, carrying the founding epoch as a member because the desktop does not hold it yet; the laptop process is killed after the staged outbox entry was durable and before it answered, and after the restart the same request answers draft with the exported stage under the same envelope digest. While the desktop is still unreachable the laptop's custody acknowledgment says the staged package is the only copy (unique_outbox_at_risk). Once the desktop is reachable it accepts the package and commits it, the committed stage naming the accept's receipt, and acknowledges holding it. The laptop then sends the same envelope again; the desktop's accept of that resend, under a new request, is settled as a duplicate: the committed stage it already reached and the first accept's receipt, with nothing new written and no new receipt. What must not happen: the staged package lost or restaged under another digest by the restart, a second package staged for one request, the staging claiming a receipt, the outbox reported safe while it is the only copy, or the resend committing a second time.",
  "ids": [
   {
    "name": "desktop_peer",
@@ -37,10 +37,6 @@
   {
    "name": "knowledge_source",
    "prefix": "src"
-  },
-  {
-   "name": "knowledge_collection",
-   "prefix": "col"
   },
   {
    "name": "home_request",
@@ -316,7 +312,7 @@
     },
     {
      "pointer": "/committed_at",
-     "value": "$instant:policy_committed_at"
+     "value": "$instant:team_founded_at"
     }
    ]
   },
@@ -334,7 +330,7 @@
     },
     {
      "pointer": "/since",
-     "value": "$instant:team_active_since"
+     "value": "$instant:team_founded_at"
     }
    ]
   },
@@ -368,10 +364,6 @@
      "value": "@team"
     },
     {
-     "pointer": "/home/collection_id",
-     "value": "@knowledge_collection"
-    },
-    {
      "pointer": "/role",
      "value": "knowledge"
     },
@@ -403,7 +395,7 @@
     },
     {
      "pointer": "/action",
-     "value": "publish"
+     "value": "contribute"
     },
     {
      "pointer": "/effect_class",
@@ -513,11 +505,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#first_revision"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:home_head"
     }
    ]
   },
@@ -638,6 +634,120 @@
     {
      "pointer": "/finalizer/device_id",
      "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "founding",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:team_founder_grant"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "publish",
+      "adopt",
+      "grant",
+      "policy",
+      "transfer",
+      "retain_delete"
+     ]
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 2
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/purpose",
+     "value": "The standards this group works to."
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:team_founded_at"
     }
    ]
   },
@@ -689,6 +799,22 @@
     {
      "pointer": "/inventory/0/object_kind",
      "value": "source_manifest"
+    },
+    {
+     "pointer": "/inventory/1/path",
+     "value": "continuity/0001.json"
+    },
+    {
+     "pointer": "/inventory/1/digest",
+     "value": "#founding_epoch"
+    },
+    {
+     "pointer": "/inventory/1/size",
+     "value": 512
+    },
+    {
+     "pointer": "/inventory/1/object_kind",
+     "value": "authority_continuity"
     }
    ]
   },
@@ -714,7 +840,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1120,7 +1246,7 @@
     },
     {
      "pointer": "/receipt_digest",
-     "value": "$digest:accept_once_reachable_receipt"
+     "value": "#accept_once_reachable_receipt"
     },
     {
      "pointer": "/at",
@@ -1384,8 +1510,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
-     "team_active"
+     "team_founder_membership",
+     "team_founder_grant",
+     "team_active",
+     "team_profile",
+     "founding_epoch"
     ],
     "head": "team_head"
    },
@@ -1408,7 +1539,8 @@
     "recovery": [],
     "returns": [
      "stored_home"
-    ]
+    ],
+    "head": "home_head"
    },
    "process": "laptop"
   },
@@ -1456,8 +1588,8 @@
     "full_envelope"
    ],
    "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
+    "stage": "draft",
+    "local_effect": "objects_staged",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1577,13 +1709,14 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "none",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
      "full_committed"
-    ]
+    ],
+    "receipt_of": "accept_once_reachable"
    },
    "process": "desktop",
    "advance_seconds": 60

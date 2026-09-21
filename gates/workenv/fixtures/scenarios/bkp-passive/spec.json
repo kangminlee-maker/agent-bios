@@ -1,6 +1,6 @@
 {
  "case": "BKP-PASSIVE",
- "says": "On her laptop Alice commits a revision of her private notes source and takes a backup under access generation 7. The laptop keeps running; the backup is restored onto a second runtime, a restored copy holding the same device's data and that old access generation. The restore reports authority passive. A commit on the restored copy, expecting the head the backup holds and carrying the restored generation, is blocked with access_locked and moves nothing: the restored copy did not unlock itself and is not a second finalizer. On the laptop, meanwhile, a commit expecting that same head is accepted, so the laptop stays the one runtime that moves this head. Only an explicit unlock at a terminal on the restored copy makes its access active, as a new access state the unlock wrote; a query there then returns the restored commit's original result. What must not happen: the restored copy reading its restored generation as active access, unlocking without a person's explicit unlock, or finalizing a commit beside the laptop.",
+ "says": "On her laptop Alice registers her private notes source, commits a revision on the head the registration made, and takes a backup under access generation 7. The laptop keeps running; the backup is restored onto a second runtime, a restored copy holding the same device's data and that old access generation. The restore reports authority passive. A commit on the restored copy, expecting the head the backup holds and carrying the restored generation 7, is blocked with access_locked and access_generation_moved and moves nothing: the restored copy did not unlock itself and is not a second finalizer. Reading the profile there shows it locked because restored, at generation 8, past the one it restored. On the laptop, meanwhile, a commit expecting that same head is accepted, so the laptop stays the one runtime that moves this head. Only an explicit unlock at a terminal on the restored copy, expecting generation 8, makes its access active, as a new access state the unlock wrote at that same generation; a query there then returns the restored commit's original result and receipt. What must not happen: the restored copy reading its restored generation as active access, unlocking without a person's explicit unlock, or finalizing a commit beside the laptop.",
  "ids": [
   {
    "name": "alice",
@@ -17,10 +17,6 @@
   {
    "name": "notes_source",
    "prefix": "src"
-  },
-  {
-   "name": "notes_collection",
-   "prefix": "col"
   },
   {
    "name": "bind_request",
@@ -56,6 +52,10 @@
   },
   {
    "name": "ask_commit_request",
+   "prefix": "req"
+  },
+  {
+   "name": "profile_read_request",
    "prefix": "req"
   }
  ],
@@ -162,10 +162,6 @@
      "value": "@alice"
     },
     {
-     "pointer": "/home/collection_id",
-     "value": "@notes_collection"
-    },
-    {
      "pointer": "/role",
      "value": "knowledge"
     },
@@ -193,7 +189,7 @@
     },
     {
      "pointer": "/action",
-     "value": "local_profile"
+     "value": "contribute"
     },
     {
      "pointer": "/effect_class",
@@ -307,11 +303,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#revision_1"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:notes_head_0"
     }
    ]
   },
@@ -511,6 +511,89 @@
    ]
   },
   {
+   "name": "read_profile",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base",
+    "/payload_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@profile_read_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.profile.read"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    }
+   ]
+  },
+  {
+   "name": "copy_profile",
+   "from": "c02/profile_written_at_first_use.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:profile_created_at"
+    }
+   ]
+  },
+  {
+   "name": "restored_state",
+   "from": "c02/locked_after_a_restore.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:restored_locked_at"
+    }
+   ]
+  },
+  {
    "name": "revision_2",
    "from": "sources/revision_submitted.json",
    "set": [
@@ -668,7 +751,7 @@
     },
     {
      "pointer": "/expected_generation",
-     "value": 7
+     "value": 8
     }
    ]
   },
@@ -723,28 +806,20 @@
     {
      "pointer": "/payload_digest",
      "value": "#unlock_change"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 8
     }
    ]
   },
   {
    "name": "unlocked",
-   "from": "c02/locked_state.json",
+   "from": "c02/unlocked_with_the_device_key.json",
    "set": [
     {
      "pointer": "/profile_id",
      "value": "@alice_profile"
-    },
-    {
-     "pointer": "/state/is",
-     "value": "active"
-    },
-    {
-     "pointer": "/state/because",
-     "value": "unlock"
-    },
-    {
-     "pointer": "/access_generation",
-     "value": "$integer:unlocked_generation"
     },
     {
      "pointer": "/changed_at",
@@ -813,6 +888,10 @@
     {
      "pointer": "/payload_digest",
      "value": "#commit_query"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 8
     }
    ]
   }
@@ -850,7 +929,8 @@
     "recovery": [],
     "returns": [
      "stored_home"
-    ]
+    ],
+    "head": "notes_head_0"
    },
    "process": "laptop"
   },
@@ -920,12 +1000,32 @@
     "gaps": [
      {
       "code": "access_locked"
+     },
+     {
+      "code": "access_generation_moved"
      }
     ],
     "recovery": [
      "unlock"
     ],
     "returns": []
+   },
+   "process": "restored_copy"
+  },
+  {
+   "name": "read_the_restored_profile",
+   "request": "read_profile",
+   "carries": [],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "copy_profile",
+     "restored_state"
+    ]
    },
    "process": "restored_copy"
   },
@@ -979,7 +1079,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "commit_first_revision_result"
+     "commit_first_revision_result",
+     "commit_first_revision_receipt"
     ]
    },
    "process": "restored_copy"

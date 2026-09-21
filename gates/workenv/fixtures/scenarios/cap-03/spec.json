@@ -1,6 +1,6 @@
 {
  "case": "CAP-03",
- "says": "A person binds this device's key and the checkout, and registers two sources of the repository: a knowledge source for domain material and a memory source for decisions. From one observed span of a session transcript, a packaged local adapter makes two typed captures: a knowledge capture of one domain member, stored as a draft for the knowledge source, and a memory capture of one entry, stored as a draft for the memory source; a candidate choice extracted from the memory capture is stored as a candidate for the memory source. Each enters its own role's path. None of it becomes an always instruction or accepted current memory: a knowledge capture that also carries behavioural units is refused at admission (a knowledge capture has no field for a unit); a projection to the Instructions role that pins the knowledge source is refused with role_promotion_refused and nothing is projected; and the current state of the memory source, resolved after the candidate is stored, has no entry and no frontier, because nothing was accepted there.",
+ "says": "A person binds this device's key and the checkout, and registers two sources of the repository: a knowledge source for domain material and a memory source for decisions. From one observed span of a session transcript, whose selection permits local processing for this repository only, a packaged local adapter makes two typed captures: a knowledge capture of one domain member, stored as a draft for the knowledge source, and a memory capture of one entry, stored as a draft for the memory source; a candidate choice extracted from the memory capture is stored as a candidate for the memory source. Each enters its own role's path. None of it becomes an always instruction or accepted current memory: a knowledge capture that also carries behavioural units is refused at admission (a knowledge capture has no field for a unit); even once the captured member is committed as the knowledge source's first revision, a projection to the Instructions role that pins that revision is refused with role_promotion_refused and nothing is projected; and the current state of the memory concern, resolved after the candidate is stored, has no entry and reads the memory source only at the head its registration committed, because nothing was accepted there.",
  "ids": [
   {
    "name": "alice",
@@ -69,6 +69,14 @@
   {
    "name": "capture_units_rid",
    "prefix": "req"
+  },
+  {
+   "name": "commit_knowledge_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "journal_concern",
+   "prefix": "cnc"
   },
   {
    "name": "project_knowledge_rid",
@@ -396,7 +404,20 @@
   },
   {
    "name": "span_selection",
-   "from": "c01/selection_of_a_transcript_span.json"
+   "from": "c01/selection_of_a_transcript_span.json",
+   "drop": [
+    "/roots/0/permits/destinations/1"
+   ],
+   "set": [
+    {
+     "pointer": "/roots/0/permits/destinations/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/roots/0/permits/processing",
+     "value": "local_processing"
+    }
+   ]
   },
   {
    "name": "observe_span_request",
@@ -470,6 +491,9 @@
      "pointer": "/processing/inputs/0/permits/destinations/0/repository_id",
      "value": "@repo"
     }
+   ],
+   "drop": [
+    "/revision_digest"
    ]
   },
   {
@@ -502,11 +526,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#knowledge_capture"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_knowledge_home_head"
     }
    ]
   },
@@ -558,6 +586,9 @@
      "pointer": "/entries/0/entry_id",
      "value": "@entry"
     }
+   ],
+   "drop": [
+    "/revision_digest"
    ]
   },
   {
@@ -590,11 +621,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#memory_capture"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_memory_home_head"
     }
    ]
   },
@@ -711,7 +746,8 @@
    "name": "knowledge_capture_with_units",
    "from": "sources/knowledge_capture_carrying_behavioural_units.json",
    "drop": [
-    "/captured_at"
+    "/captured_at",
+    "/revision_digest"
    ],
    "set": [
     {
@@ -766,11 +802,96 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#knowledge_capture_with_units"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_knowledge_home_head"
+    }
+   ]
+  },
+  {
+   "name": "knowledge_manifest",
+   "from": "sources/revision_submitted.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@knowledge_source"
+    }
+   ]
+  },
+  {
+   "name": "commit_knowledge_request",
+   "from": "c01/repository_bind_request.json",
+   "drop": [
+    "/owner",
+    "/target"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_knowledge_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.revision.commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@knowledge_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_knowledge_home_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#knowledge_manifest"
+    }
+   ]
+  },
+  {
+   "name": "knowledge_revision",
+   "from": "knowledge_manifest",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:knowledge_revision_at"
     }
    ]
   },
@@ -784,7 +905,7 @@
     },
     {
      "pointer": "/source_pins/0/revision_digest",
-     "value": "e79118c1c48cba3d1c82dc40b67b7b6b65cd71dab3621c686d48fa9828595015"
+     "value": "#knowledge_revision"
     }
    ]
   },
@@ -814,11 +935,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@knowledge_source"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
@@ -889,11 +1006,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@memory_source"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "@journal_concern"
     },
     {
      "pointer": "/payload_digest",
@@ -912,6 +1025,14 @@
     {
      "pointer": "/prepared_at",
      "value": "$instant:state_prepared_at"
+    },
+    {
+     "pointer": "/frontiers/0/source_id",
+     "value": "@memory_source"
+    },
+    {
+     "pointer": "/frontiers/0/checkpoint_digest",
+     "value": "$digest:register_memory_home_head"
     }
    ]
   }
@@ -1068,6 +1189,24 @@
      "pointer": "/units"
     }
    ]
+  },
+  {
+   "name": "commit_knowledge_revision",
+   "request": "commit_knowledge_request",
+   "carries": [
+    "knowledge_manifest"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "knowledge_revision"
+    ],
+    "head": "knowledge_head"
+   }
   },
   {
    "name": "project_knowledge_as_instructions",

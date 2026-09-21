@@ -1,6 +1,6 @@
 {
  "case": "CAP-07",
- "says": "A person binds this device's key and the checkout, registers the repository's memory source, publishes an environment edition for this repository whose memory policy names that source, and adopts it. A preparation that names the environment without its adoption evidence is refused at admission; one resting on the adoption is composed, with no memory frontier yet. The owner then reads records 12 to 18 of a session transcript, a packaged local adapter captures a memory entry from them, and a candidate choice from that capture is stored. The capture and the candidate are drafts: neither names a receipt, neither moves the memory source's head, and the preparation composed again afterwards is the same composition as before. A review-only publication of the choice (pure_preview) is previewed and writes nothing. Only the destination's own commit of that exact choice at the memory source names a receipt and moves the head; it returns the committed record, the revision holding it and the candidate promoted with that receipt. Adoption stays a separate act: the commit adopts nothing, and the preparation composed after it, under the adoption made before, is the first to observe the memory source at the committed head.",
+ "says": "A person binds this device's key and the checkout, registers the repository's memory source, publishes an environment edition for this repository whose memory policy names that source, and adopts it: the adoption names the edition as the environment's head it expects and leaves that head where it was. A preparation that names the environment without its adoption evidence is refused at admission; one resting on the adoption is composed as a private record with no receipt, reading the memory source at the head its registration committed. The owner then reads records 12 to 18 of a session transcript, a packaged local adapter captures a memory entry from them, and a candidate choice from that capture is stored. The capture and the candidate are drafts: neither names a receipt, neither moves the memory source's head, and the preparation composed again afterwards reads the same head and composes the same units. A review-only publication of the choice, a publish request stating pure_preview, is refused with effect_class_mismatch and writes nothing. Only the destination's own commit of that exact choice at the memory source, stating the candidate version it promotes, names a receipt and moves the head; it returns the committed record, the revision holding it and the candidate promoted with that receipt. Adoption stays a separate act: the commit adopts nothing, and the preparation composed after it, under the adoption made before, is the first to observe the memory source at the committed head.",
  "ids": [
   {
    "name": "alice",
@@ -413,9 +413,6 @@
   {
    "name": "compose_unadopted_request",
    "from": "c04/projection_request.json",
-   "drop": [
-    "/target/base"
-   ],
    "set": [
     {
      "pointer": "/request_id",
@@ -443,11 +440,15 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@repo"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
      "value": "#unadopted_basis"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
     }
    ]
   },
@@ -496,7 +497,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:environment_head"
+     "value": "#edition"
     }
    ]
   },
@@ -539,9 +540,6 @@
   {
    "name": "compose_before_request",
    "from": "c04/projection_request.json",
-   "drop": [
-    "/target/base"
-   ],
    "set": [
     {
      "pointer": "/request_id",
@@ -569,11 +567,15 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@repo"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
      "value": "#adopted_basis"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
     }
    ]
   },
@@ -602,10 +604,6 @@
      "value": []
     },
     {
-     "pointer": "/frontiers",
-     "value": []
-    },
-    {
      "pointer": "/order/0/repository_id",
      "value": "@repo"
     },
@@ -620,6 +618,14 @@
     {
      "pointer": "/recipient/work_scope/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/frontiers/0/source_id",
+     "value": "@memory_source"
+    },
+    {
+     "pointer": "/frontiers/0/checkpoint_digest",
+     "value": "$digest:register_memory_home_head"
     }
    ],
    "drop": [
@@ -628,7 +634,20 @@
   },
   {
    "name": "span_selection",
-   "from": "c01/selection_of_a_transcript_span.json"
+   "from": "c01/selection_of_a_transcript_span.json",
+   "drop": [
+    "/roots/0/permits/destinations/1"
+   ],
+   "set": [
+    {
+     "pointer": "/roots/0/permits/destinations/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/roots/0/permits/processing",
+     "value": "local_processing"
+    }
+   ]
   },
   {
    "name": "observe_span_request",
@@ -706,6 +725,9 @@
      "pointer": "/entries/0/entry_id",
      "value": "@entry"
     }
+   ],
+   "drop": [
+    "/revision_digest"
    ]
   },
   {
@@ -738,11 +760,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#span_capture"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_memory_home_head"
     }
    ]
   },
@@ -858,9 +884,6 @@
   {
    "name": "compose_after_candidate_request",
    "from": "c04/projection_request.json",
-   "drop": [
-    "/target/base"
-   ],
    "set": [
     {
      "pointer": "/request_id",
@@ -888,11 +911,15 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@repo"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
      "value": "#adopted_basis"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
     }
    ]
   },
@@ -928,6 +955,14 @@
     {
      "pointer": "/workstream_ids",
      "value": []
+    },
+    {
+     "pointer": "/promotes/candidate_id",
+     "value": "$cnd:choice_candidate"
+    },
+    {
+     "pointer": "/promotes/version",
+     "value": 1
     }
    ]
   },
@@ -968,11 +1003,19 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#choice"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_memory_home_head"
     }
    ]
   },
@@ -1016,7 +1059,7 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/policy_digests",
@@ -1029,6 +1072,10 @@
     {
      "pointer": "/payload_digest",
      "value": "#choice"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_memory_home_head"
     }
    ]
   },
@@ -1085,7 +1132,7 @@
     },
     {
      "pointer": "/standing/receipt_digest",
-     "value": "$digest:publish_choice_receipt"
+     "value": "#publish_choice_receipt"
     },
     {
      "pointer": "/created_at",
@@ -1096,9 +1143,6 @@
   {
    "name": "compose_after_commit_request",
    "from": "c04/projection_request.json",
-   "drop": [
-    "/target/base"
-   ],
    "set": [
     {
      "pointer": "/request_id",
@@ -1126,11 +1170,15 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@repo"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
      "value": "#adopted_basis"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
     }
    ]
   },
@@ -1228,7 +1276,7 @@
     "returns": [
      "edition"
     ],
-    "head": "environment_head"
+    "head": "edition"
    }
   },
   {
@@ -1257,7 +1305,8 @@
     "recovery": [],
     "returns": [
      "adoption"
-    ]
+    ],
+    "head": "adoption"
    }
   },
   {
@@ -1268,7 +1317,7 @@
    ],
    "answer": {
     "stage": "previewed",
-    "local_effect": "none",
+    "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1337,7 +1386,7 @@
    ],
    "answer": {
     "stage": "previewed",
-    "local_effect": "none",
+    "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1353,10 +1402,14 @@
     "choice"
    ],
    "answer": {
-    "stage": "previewed",
+    "stage": "refused",
     "local_effect": "none",
     "provider_effect": "not_applicable",
-    "gaps": [],
+    "gaps": [
+     {
+      "code": "effect_class_mismatch"
+     }
+    ],
     "recovery": [],
     "returns": []
    }
@@ -1389,7 +1442,7 @@
    ],
    "answer": {
     "stage": "previewed",
-    "local_effect": "none",
+    "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],

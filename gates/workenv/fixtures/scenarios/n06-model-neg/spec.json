@@ -1,6 +1,6 @@
 {
  "case": "N06-MODEL-NEG",
- "says": "A repository knowledge source is registered and its first revision (a rate table) is committed. The author checks a domain model for it with knowledge.member.prepare: two nodes, taxable_income and income_tax, and a relation computed_from between them. The owner returns the model exactly as it will be committed, both ends of its one relation naming nodes of that model, and a second revision holding the table and that model is committed on the first head. The author then edits the model to delete the taxable_income node while computed_from still points at it, and checks it against the second head: the owner refuses it with model_reference_dangling and returns no model, so no knowledge_model whose relation names a node it lacks is ever written or committed. The relation-endpoint rule (C04/relation_endpoints_are_nodes) is held by every model the owner returns here; its breaking records stay in the rule fixture.",
+ "says": "A repository knowledge source is registered and its first revision (a rate table) is committed on the head the registration moved to. The author checks a domain model for it with knowledge.member.prepare: two nodes, taxable_income and income_tax, and a relation computed_from between them. The owner returns the model exactly as it will be committed, both ends of its one relation naming nodes of that model, and a second revision holding the table and that model is committed on the first head. The author then edits the model to delete the taxable_income node while computed_from still points at it, and checks it against the second head: the owner refuses it with model_reference_dangling and returns no model, so no knowledge_model whose relation names a node it lacks is ever written or committed. The relation-endpoint rule (C04/relation_endpoints_are_nodes) is held by every model the owner returns here; its breaking records stay in the rule fixture.",
  "ids": [
   {
    "name": "rates",
@@ -211,9 +211,6 @@
   {
    "name": "commit_rates_rev1",
    "from": "c04/model_check_request.json",
-   "drop": [
-    "/target/base/head_digest"
-   ],
    "set": [
     {
      "pointer": "/request_id",
@@ -249,7 +246,7 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
@@ -258,6 +255,10 @@
     {
      "pointer": "/owner/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:rates_registered"
     }
    ]
   },
@@ -504,7 +505,8 @@
     "recovery": [],
     "returns": [
      "rates_home_stored"
-    ]
+    ],
+    "head": "rates_registered"
    }
   },
   {

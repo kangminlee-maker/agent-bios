@@ -1,6 +1,6 @@
 {
  "case": "N19-EVIDENCE-NEG",
- "says": "A person founds a Team alone, renames it and closes it, then recovers the closed Team's evidence with recover_evidence purpose preserve, which commits and returns the closed team_state. After that recovery every attempt to use the Team again is refused by its owner with team_terminal and writes nothing: a new rename (team.profile.set), a restore (team.lifecycle.apply restore), and new work that continues the renamed profile's change as archived work (continue_archived naming the rename's stored profile). A recovery whose purpose is reopen has no spelling and is refused at admission. A final team.state.read at the recovery's head still returns the closed team_state and the renamed profile: no refused step returns a record, and no team_state other than closed is written.",
+ "says": "A person founds a Team alone, renames it, publishes a Team environment edition (environment.publish) and closes the Team, then recovers the closed Team's evidence through its retention authority (team.retention.apply recover_evidence, purpose preserve), which commits and returns the closed team_state. After that recovery every attempt to use the Team again is refused by its owner with team_terminal and writes nothing: a new rename (team.profile.set), a restore (team.lifecycle.apply restore), new work that continues the renamed profile's change as archived work (team.continuation.record continue_archived naming the rename's stored profile), and an adoption of the Team's published edition (environment.adopt). A recovery whose purpose is reopen has no spelling and is refused at admission. A final team.state.read at the recovery's head still returns the closed team_state and the renamed profile: no refused step returns a record, and no team_state other than closed is written.",
  "ids": [
   {
    "name": "founder",
@@ -27,6 +27,14 @@
    "prefix": "req"
   },
   {
+   "name": "platform_env",
+   "prefix": "env"
+  },
+  {
+   "name": "publish_edition_request_id",
+   "prefix": "req"
+  },
+  {
    "name": "close_request_id",
    "prefix": "req"
   },
@@ -48,6 +56,10 @@
   },
   {
    "name": "continue_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "adopt_after_recovery_id",
    "prefix": "req"
   },
   {
@@ -124,6 +136,68 @@
     {
      "pointer": "/recovery/0/principal_id",
      "value": "@founder"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership_id"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@founder"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:founded"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:founded_at"
     }
    ]
   },
@@ -402,6 +476,85 @@
    ]
   },
   {
+   "name": "platform_edition",
+   "from": "c07/an_edition_derived_from_its_parent.json",
+   "drop": [
+    "/lineage/changes",
+    "/lineage/parents"
+   ],
+   "set": [
+    {
+     "pointer": "/environment_id",
+     "value": "@platform_env"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/instructions",
+     "value": []
+    },
+    {
+     "pointer": "/knowledge",
+     "value": []
+    },
+    {
+     "pointer": "/memory_policy/selectors",
+     "value": []
+    },
+    {
+     "pointer": "/memory_policy/sources",
+     "value": []
+    },
+    {
+     "pointer": "/lineage/derives",
+     "value": "nothing"
+    },
+    {
+     "pointer": "/purpose",
+     "value": "Working defaults for this team."
+    },
+    {
+     "pointer": "/created_at",
+     "value": "2026-09-21T09:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "publish_edition_request",
+   "from": "rename_request",
+   "drop": [
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@publish_edition_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "environment.publish"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@platform_env"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#platform_edition"
+    }
+   ]
+  },
+  {
    "name": "closure",
    "from": "c08/close_naming_the_surviving_stewardship.json",
    "drop": [
@@ -542,7 +695,7 @@
     },
     {
      "pointer": "/operation",
-     "value": "team.lifecycle.apply"
+     "value": "team.retention.apply"
     },
     {
      "pointer": "/action",
@@ -770,11 +923,11 @@
     },
     {
      "pointer": "/operation",
-     "value": "team.lifecycle.apply"
+     "value": "team.continuation.record"
     },
     {
      "pointer": "/action",
-     "value": "policy"
+     "value": "contribute"
     },
     {
      "pointer": "/effect_class",
@@ -821,6 +974,35 @@
    ]
   },
   {
+   "name": "adopt_request",
+   "from": "rename_request",
+   "drop": [
+    "/payload_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@adopt_after_recovery_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "environment.adopt"
+    },
+    {
+     "pointer": "/action",
+     "value": "adopt"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@platform_env"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "#platform_edition"
+    }
+   ]
+  },
+  {
    "name": "reopening",
    "from": "c08/recovery_that_would_reopen_the_team.json",
    "set": [
@@ -846,11 +1028,11 @@
     },
     {
      "pointer": "/operation",
-     "value": "team.lifecycle.apply"
+     "value": "team.retention.apply"
     },
     {
      "pointer": "/action",
-     "value": "policy"
+     "value": "retain_delete"
     },
     {
      "pointer": "/effect_class",
@@ -971,10 +1153,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
+     "team_founder_membership",
      "founder_grant",
      "active_state",
-     "first_profile"
+     "first_profile",
+     "team_founding_epoch"
     ],
     "head": "founded"
    },
@@ -998,6 +1183,24 @@
      "renamed_profile"
     ],
     "head": "renamed"
+   }
+  },
+  {
+   "name": "publish_environment",
+   "request": "publish_edition_request",
+   "carries": [
+    "platform_edition"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "platform_edition"
+    ],
+    "head": "platform_edition"
    }
   },
   {
@@ -1094,6 +1297,23 @@
    }
   },
   {
+   "name": "adopt_after_recovery",
+   "request": "adopt_request",
+   "carries": [],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "none",
+    "gaps": [
+     {
+      "code": "team_terminal"
+     }
+    ],
+    "recovery": [],
+    "returns": []
+   }
+  },
+  {
    "name": "recover_to_reopen",
    "request": "reopen_request",
    "carries": [
@@ -1121,6 +1341,7 @@
      "closed_state",
      "renamed_profile",
      "team_policy",
+     "team_founder_membership",
      "founder_grant"
     ]
    }

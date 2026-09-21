@@ -1,6 +1,6 @@
 {
  "case": "N11-CEILING-NEG",
- "says": "Cho owns a personal instructions source whose rights allow read and use only. Ana founds a Team, Ben joins it by invitation, verified key and consent, and Ana issues Ben a grant under her founder grant limited to the service repository, for read, use, contribute and grant, with a delegation ceiling of 1. Ben then tries three child grants for Cho naming his grant as parent: one adding publish, which his grant does not hold; one scoped to the whole Team rather than the repository; and one with a delegation ceiling of 1, which his own ceiling does not leave room for. Each is refused with delegation_ceiling_exceeded. Ana, acting for the Team under its policy, sets rights on Cho's source that would allow derive and export, and is refused with source_right_not_overridable. Asking the owner by request id afterwards returns the refused results themselves, with no receipt: nothing was committed and no head moved.",
+ "says": "Cho owns a personal instructions source: she registers it, commits its first revision and sets its rights to read and use only, each commit expecting the source head the previous one moved to. Ana founds a Team, Ben joins it by invitation, his own key binding, Ana's in-person verification of that key recorded on the Team, and consent, and Ana issues Ben a grant under her founder grant limited to the service repository, for read, use, contribute and grant, with a delegation ceiling of 1. Ben then tries three child grants for Cho naming his grant as parent: one adding publish, which his grant does not hold; one scoped to the whole Team rather than the repository; and one with a delegation ceiling of 1, which his own ceiling does not leave room for. Each is refused with delegation_ceiling_exceeded. Ana, acting for the Team under its policy, sets rights on Cho's source, at its current head, that would allow derive and export, and is refused with source_right_not_overridable. Asking the owner by request id afterwards returns the refused results themselves, with no receipt: nothing was committed and no head moved.",
  "ids": [
   {
    "name": "ana",
@@ -43,10 +43,6 @@
    "prefix": "src"
   },
   {
-   "name": "vendor_collection",
-   "prefix": "col"
-  },
-  {
    "name": "register_vendor_rules_request",
    "prefix": "req"
   },
@@ -75,11 +71,7 @@
    "prefix": "req"
   },
   {
-   "name": "ben_verification",
-   "prefix": "ctl"
-  },
-  {
-   "name": "keep_ben_verification_request",
+   "name": "verify_ben_request",
    "prefix": "req"
   },
   {
@@ -144,10 +136,6 @@
      "value": "@cho"
     },
     {
-     "pointer": "/home/collection_id",
-     "value": "@vendor_collection"
-    },
-    {
      "pointer": "/role",
      "value": "instructions"
     },
@@ -174,7 +162,7 @@
     },
     {
      "pointer": "/action",
-     "value": "local_profile"
+     "value": "contribute"
     },
     {
      "pointer": "/effect_class",
@@ -315,11 +303,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#vendor_rules_revision_submitted"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:vendor_rules_head_1"
     }
    ]
   },
@@ -419,7 +411,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:vendor_rules_head_1"
+     "value": "$digest:vendor_rules_head_2"
     },
     {
      "pointer": "/payload_digest",
@@ -507,6 +499,68 @@
     {
      "pointer": "/recovery/0/principal_id",
      "value": "@ana"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "team_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership_id"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_head_1"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@ana_device"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_founded_at"
     }
    ]
   },
@@ -895,119 +949,82 @@
    ]
   },
   {
-   "name": "ben_verification_permit",
-   "from": "c02/offline_permit_for_one_device.json",
+   "name": "ben_verification_submitted",
+   "from": "c08/verification_as_submitted.json",
    "set": [
     {
-     "pointer": "/evidence_id",
-     "value": "@ben_verification"
-    },
-    {
-     "pointer": "/issuer/team_id",
+     "pointer": "/team_id",
      "value": "@team"
     },
     {
-     "pointer": "/issuer/authority_principal_id",
-     "value": "@ana"
+     "pointer": "/invitation_digest",
+     "value": "#ben_invitation"
     },
     {
-     "pointer": "/holder/principal_id",
-     "value": "@ben"
+     "pointer": "/binding_digest",
+     "value": "#ben_key"
     },
     {
-     "pointer": "/holder/device_id",
-     "value": "@ben_device"
-    },
-    {
-     "pointer": "/scope/team_id",
-     "value": "@team"
-    },
-    {
-     "pointer": "/issued_at",
-     "value": "2026-09-21T09:00:00Z"
-    },
-    {
-     "pointer": "/statement/attests",
-     "value": [
-      "#ben_key"
-     ]
-    },
-    {
-     "pointer": "/statement/valid_until",
-     "value": "2026-12-31T09:00:00Z"
-    },
-    {
-     "pointer": "/statement/offline/until",
-     "value": "2026-09-28T09:00:00Z"
+     "pointer": "/procedure",
+     "value": "in_person"
     }
    ]
   },
   {
-   "name": "keep_ben_verification",
-   "from": "c08/governed_change_request.json",
-   "drop": [
-    "/owner/team_id"
-   ],
+   "name": "verify_ben",
+   "from": "c08/verification_request.json",
    "set": [
     {
      "pointer": "/request_id",
-     "value": "@keep_ben_verification_request"
-    },
-    {
-     "pointer": "/operation",
-     "value": "access.control.record"
-    },
-    {
-     "pointer": "/action",
-     "value": "local_profile"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "owner_commit"
-    },
-    {
-     "pointer": "/local_access_generation",
-     "value": 7
+     "value": "@verify_ben_request"
     },
     {
      "pointer": "/actor/principal_id",
-     "value": "@ben"
+     "value": "@ana"
     },
     {
      "pointer": "/actor/device_id",
-     "value": "@ben_device"
+     "value": "@ana_device"
     },
     {
      "pointer": "/actor/profile_id",
-     "value": "@ben_profile"
+     "value": "@ana_profile"
     },
     {
-     "pointer": "/policy_digests",
-     "value": []
-    },
-    {
-     "pointer": "/control_digests",
-     "value": []
-    },
-    {
-     "pointer": "/proof_digests",
-     "value": []
-    },
-    {
-     "pointer": "/owner/layer",
-     "value": "personal"
-    },
-    {
-     "pointer": "/owner/principal_id",
-     "value": "@ben"
+     "pointer": "/owner/team_id",
+     "value": "@team"
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@ben_profile"
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_2"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
     },
     {
      "pointer": "/payload_digest",
-     "value": "#ben_verification_permit"
+     "value": "#ben_verification_submitted"
+    }
+   ]
+  },
+  {
+   "name": "ben_verification",
+   "from": "ben_verification_submitted",
+   "set": [
+    {
+     "pointer": "/verifier_principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/verified_at",
+     "value": "$instant:ben_verified_at"
     }
    ]
   },
@@ -1025,7 +1042,7 @@
     },
     {
      "pointer": "/verification_digest",
-     "value": "#ben_verification_permit"
+     "value": "#ben_verification"
     }
    ]
   },
@@ -1093,7 +1110,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:team_head_2"
+     "value": "$digest:team_head_3"
     },
     {
      "pointer": "/payload_digest",
@@ -1205,7 +1222,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:team_head_3"
+     "value": "$digest:team_head_4"
     },
     {
      "pointer": "/payload_digest",
@@ -1333,7 +1350,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:team_head_4"
+     "value": "$digest:team_head_5"
     },
     {
      "pointer": "/payload_digest",
@@ -1467,7 +1484,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:team_head_5"
+     "value": "$digest:team_head_6"
     },
     {
      "pointer": "/payload_digest",
@@ -1571,7 +1588,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:team_head_5"
+     "value": "$digest:team_head_6"
     },
     {
      "pointer": "/payload_digest",
@@ -1682,7 +1699,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:team_head_5"
+     "value": "$digest:team_head_6"
     },
     {
      "pointer": "/payload_digest",
@@ -1773,7 +1790,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:vendor_rules_head_1"
+     "value": "$digest:vendor_rules_head_3"
     },
     {
      "pointer": "/payload_digest",
@@ -1941,7 +1958,8 @@
     "recovery": [],
     "returns": [
      "vendor_rules_home"
-    ]
+    ],
+    "head": "vendor_rules_head_1"
    },
    "process": "tablet"
   },
@@ -1960,7 +1978,7 @@
     "returns": [
      "vendor_rules_revision"
     ],
-    "head": "vendor_rules_head_1"
+    "head": "vendor_rules_head_2"
    },
    "process": "tablet"
   },
@@ -1978,7 +1996,8 @@
     "recovery": [],
     "returns": [
      "vendor_rules_rights"
-    ]
+    ],
+    "head": "vendor_rules_head_3"
    },
    "process": "tablet"
   },
@@ -1996,10 +2015,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
+     "team_founder_membership",
      "team_founder_grant",
      "team_active",
-     "team_profile"
+     "team_profile",
+     "team_founding_epoch"
     ],
     "head": "team_head_1"
    },
@@ -2046,22 +2068,23 @@
    "process": "desktop"
   },
   {
-   "name": "keep_ben_verification",
-   "request": "keep_ben_verification",
+   "name": "verify_ben",
+   "request": "verify_ben",
    "carries": [
-    "ben_verification_permit"
+    "ben_verification_submitted"
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "ben_verification_permit"
-    ]
+     "ben_verification"
+    ],
+    "head": "team_head_3"
    },
-   "process": "desktop"
+   "process": "laptop"
   },
   {
    "name": "consent_ben",
@@ -2078,7 +2101,7 @@
     "returns": [
      "ben_consent"
     ],
-    "head": "team_head_3"
+    "head": "team_head_4"
    },
    "process": "desktop"
   },
@@ -2097,7 +2120,7 @@
     "returns": [
      "ben_membership"
     ],
-    "head": "team_head_4"
+    "head": "team_head_5"
    },
    "process": "laptop"
   },
@@ -2116,7 +2139,7 @@
     "returns": [
      "ben_grant"
     ],
-    "head": "team_head_5"
+    "head": "team_head_6"
    },
    "process": "laptop"
   },

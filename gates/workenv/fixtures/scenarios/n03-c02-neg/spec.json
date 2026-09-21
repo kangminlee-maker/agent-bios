@@ -1,6 +1,6 @@
 {
  "case": "N03-C02-NEG",
- "says": "Alice has bound her key, founded a Team and keeps a Team permit for a week of offline reads. Under generation 1 she renames her profile, which commits, and a Team read is issued. She locks the profile (generation 2); the process is killed after the lock commits and restarted, and the lock is still what the owner answers. The read issued under generation 1 arrives late, after the restart: it is not admitted, with access_locked and access_generation_moved. A silent token refresh offered as a transition is refused at admission, and nothing changes. After an explicit unlock at a terminal the same old read is still refused with access_generation_moved; the unlock reopens nothing issued before the lock. A query for the rename that was committed before the lock answers with its original result. Eight days later the permit's offline limit has passed, and a fresh read naming it is not admitted, with credential_expired and fresh_auth_required. What must not happen: a restart, a refresh, a late answer or the later unlock admitting the old handle; expired offline evidence admitting a read; or the query answering with anything but the rename's original result.",
+ "says": "Alice's laptop reads its fresh profile (active, generation 1), binds her key and founds a Team; as the Team's issuing authority she records on the Team a permit that lets the laptop read the Team's state offline for a week. The decision CLI is issued a handle at generation 1. Under generation 1 she renames her profile, which commits, and the CLI issues a Team read under its handle. She locks the profile (generation 2); the process is killed after the lock commits and restarted, and the lock is still what the owner answers. The read issued under the old handle arrives late, after the restart: it is not admitted, with access_locked and access_generation_moved. A silent token refresh offered as a transition is refused at admission, and nothing changes. After an explicit unlock at a terminal (still generation 2) the same old read is still refused with access_generation_moved; the unlock reopens nothing issued before the lock, and the CLI is issued a new handle at generation 2. A query for the rename that was committed before the lock answers with its original result. Eight days later the permit's offline limit has passed: a fresh read under the new handle naming the permit is not admitted, with credential_expired and fresh_auth_required. What must not happen: a restart, a refresh, a late answer or the later unlock admitting the old handle; expired offline evidence admitting a read; or the query answering with anything but the rename's original result.",
  "ids": [
   {
    "name": "alice",
@@ -73,9 +73,91 @@
   {
    "name": "expired_decide_request_id",
    "prefix": "req"
+  },
+  {
+   "name": "read_profile_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "issue_cli_handle_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "issue_new_cli_handle_request_id",
+   "prefix": "req"
   }
  ],
  "records": [
+  {
+   "name": "read_profile_request",
+   "from": "c02/profile_read_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@read_profile_request_id"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    }
+   ]
+  },
+  {
+   "name": "read_profile_profile",
+   "from": "c02/profile_written_at_first_use.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:read_profile_profile_at"
+    }
+   ]
+  },
+  {
+   "name": "read_profile_state",
+   "from": "c02/active_at_first_use.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:read_profile_state_at"
+    }
+   ]
+  },
   {
    "name": "alice_laptop_key",
    "from": "c01/binding_as_submitted.json",
@@ -221,6 +303,68 @@
     {
      "pointer": "/policy_digest",
      "value": "#team_policy_draft"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "team_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_proposal_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_membership_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_epoch_at"
     }
    ]
   },
@@ -441,7 +585,7 @@
     },
     {
      "pointer": "/action",
-     "value": "local_profile"
+     "value": "grant"
     },
     {
      "pointer": "/effect_class",
@@ -464,17 +608,32 @@
      "value": 1
     },
     {
-     "pointer": "/owner/principal_id",
-     "value": "@alice"
-    },
-    {
      "pointer": "/target/resource_id",
-     "value": "@alice_profile"
+     "value": "@team"
     },
     {
      "pointer": "/payload_digest",
      "value": "#offline_permit"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head"
     }
+   ],
+   "drop": [
+    "/owner/principal_id"
    ]
   },
   {
@@ -617,12 +776,18 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:team_head"
+     "value": "$digest:team_head_permit"
     },
     {
      "pointer": "/control_digests",
      "value": [
       "#offline_permit"
+     ]
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#cli_handle"
      ]
     }
    ]
@@ -761,7 +926,7 @@
     },
     {
      "pointer": "/action",
-     "value": "read"
+     "value": "local_profile"
     },
     {
      "pointer": "/effect_class",
@@ -995,7 +1160,7 @@
     },
     {
      "pointer": "/action",
-     "value": "read"
+     "value": "local_profile"
     },
     {
      "pointer": "/effect_class",
@@ -1149,12 +1314,18 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:team_head"
+     "value": "$digest:team_head_permit"
     },
     {
      "pointer": "/control_digests",
      "value": [
       "#offline_permit"
+     ]
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#new_cli_handle"
      ]
     }
    ]
@@ -1199,7 +1370,7 @@
     },
     {
      "pointer": "/action",
-     "value": "read"
+     "value": "local_profile"
     },
     {
      "pointer": "/effect_class",
@@ -1234,9 +1405,205 @@
      "value": "#read_after_offline_limit"
     }
    ]
+  },
+  {
+   "name": "issue_cli_handle_asked",
+   "from": "c02/handle_asked_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "decision_cli"
+    }
+   ]
+  },
+  {
+   "name": "issue_cli_handle_request",
+   "from": "c02/handle_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@issue_cli_handle_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.handle.issue"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#issue_cli_handle_asked"
+    }
+   ]
+  },
+  {
+   "name": "cli_handle",
+   "from": "c02/handle_issued_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/handle_id",
+     "value": "$hdl:cli_handle"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "decision_cli"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/issued_at",
+     "value": "$instant:cli_handle_at"
+    }
+   ]
+  },
+  {
+   "name": "issue_new_cli_handle_asked",
+   "from": "c02/handle_asked_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "decision_cli"
+    }
+   ]
+  },
+  {
+   "name": "issue_new_cli_handle_request",
+   "from": "c02/handle_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@issue_new_cli_handle_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.handle.issue"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#issue_new_cli_handle_asked"
+    }
+   ]
+  },
+  {
+   "name": "new_cli_handle",
+   "from": "c02/handle_issued_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/handle_id",
+     "value": "$hdl:new_cli_handle"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "decision_cli"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/issued_at",
+     "value": "$instant:new_cli_handle_at"
+    }
+   ]
   }
  ],
  "steps": [
+  {
+   "name": "read_profile",
+   "request": "read_profile_request",
+   "carries": [],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "read_profile_profile",
+     "read_profile_state"
+    ]
+   }
+  },
   {
    "name": "bind_key",
    "request": "bind_alice_laptop",
@@ -1268,10 +1635,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
+     "team_founder_membership",
      "team_founder_grant",
      "team_state",
-     "team_profile"
+     "team_profile",
+     "team_founding_epoch"
     ],
     "head": "team_head"
    },
@@ -1287,12 +1657,30 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
      "offline_permit"
+    ],
+    "head": "team_head_permit"
+   }
+  },
+  {
+   "name": "issue_cli_handle",
+   "request": "issue_cli_handle_request",
+   "carries": [
+    "issue_cli_handle_asked"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "cli_handle"
     ]
    }
   },
@@ -1321,7 +1709,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1370,7 +1758,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1393,6 +1781,23 @@
     "recovery": [],
     "returns": [
      "old_read_after_unlock_admission"
+    ]
+   }
+  },
+  {
+   "name": "issue_new_cli_handle",
+   "request": "issue_new_cli_handle_request",
+   "carries": [
+    "issue_new_cli_handle_asked"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "new_cli_handle"
     ]
    }
   },

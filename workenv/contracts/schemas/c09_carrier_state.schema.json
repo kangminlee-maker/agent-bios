@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C09 carrier state",
-  "description": "What the owner observed of one carrier binding. Bound and nothing provisioned, provisioned against the repository identity the provider reported, provisioned part way, in doubt, and disconnected are five states. A provisioning whose outcome is not known is queried by its own request, and another provisioning of the binding is refused until it resolves, so an unknown result cannot become a second repository. Written by the runtime.",
+  "description": "What the owner observed of one carrier binding. Bound and nothing provisioned, provisioned against the repository the binding names, mismatched, provisioned part way, in doubt, and disconnected are six states. A provider that reports a repository other than the binding's leaves it mismatched: nothing is provisioned, and nothing moves through the binding in that state. A provisioning whose outcome is not known is queried by its own request, and another provisioning of the binding is refused until it resolves, so an unknown result cannot become a second repository. Written by the runtime.",
   "required": [
     "kind",
     "schema",
@@ -57,6 +57,9 @@
           "$ref": "#/$defs/provisioned_state"
         },
         {
+          "$ref": "#/$defs/mismatched_state"
+        },
+        {
           "$ref": "#/$defs/partial_state"
         },
         {
@@ -83,7 +86,7 @@
     "provisioned_state": {
       "type": "object",
       "additionalProperties": false,
-      "description": "The repository identity as the provider reported it, and the rights the credential holds there. Those rights grant nothing in the Team.",
+      "description": "The repository identity the provider reported, which is the one the binding names, and the rights the credential holds there. Those rights grant nothing in the Team.",
       "required": [
         "is",
         "repository_id",
@@ -181,6 +184,24 @@
         },
         "credential": {
           "const": "kept"
+        }
+      }
+    },
+    "mismatched_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The provider reported a repository other than the one the binding names. Nothing was provisioned and no object moves through the binding; the reported identity is kept as the provider stated it and grants nothing. Exchanging through that repository takes a binding that names it.",
+      "required": [
+        "is",
+        "reported_repository_id"
+      ],
+      "properties": {
+        "is": {
+          "const": "mismatched"
+        },
+        "reported_repository_id": {
+          "type": "string",
+          "pattern": "^[0-9]{1,20}$"
         }
       }
     }

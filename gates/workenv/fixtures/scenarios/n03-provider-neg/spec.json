@@ -1,6 +1,6 @@
 {
  "case": "N03-PROVIDER-NEG",
- "says": "Alice has bound her key, founded a Team and configured a Google connection for it. She begins linking her Google identity, then locks the profile (generation 2). The provider's callback for that attempt arrives while the profile is locked: it is refused with access_locked, nothing is verified or linked, and the profile stays locked. A token refresh offered as a transition is refused at admission. She unlocks at a terminal (generation 2), begins a second link attempt, and signs out (generation 3). The second callback arrives while she is signed out: refused with access_signed_out, and a read issued under generation 2 is still not admitted. Only her explicit sign-in at a terminal with her local key makes the profile active again at generation 3, after which a read issued under generation 3 is admitted. What must not happen: a callback, a refresh or a provider login reopening access, verifying an identity or writing a binding while the profile is locked or signed out.",
+ "says": "Alice's laptop first reads its fresh profile (active at generation 1). She has bound her key, founded a Team and configured a Google connection for it. She begins linking her Google identity, then locks the profile (generation 2). The provider's callback for that attempt arrives while the profile is locked: it was issued under generation 1 and is refused with access_locked and access_generation_moved, nothing is verified or linked, and the profile stays locked. A token refresh offered as a transition is refused at admission. She unlocks at a terminal (still generation 2: an unlock moves no generation), begins a second link attempt, and signs out (generation 3). The second callback arrives while she is signed out: refused with access_signed_out and access_generation_moved, and a read issued under generation 2 is still not admitted. Only her explicit sign-in at a terminal with her local key makes the profile active again at generation 3, after which a read issued under generation 3 is admitted. What must not happen: a callback, a refresh or a provider login reopening access, verifying an identity or writing a binding while the profile is locked or signed out.",
  "ids": [
   {
    "name": "alice",
@@ -81,9 +81,83 @@
   {
    "name": "admitted_request_id",
    "prefix": "req"
+  },
+  {
+   "name": "read_profile_request_id",
+   "prefix": "req"
   }
  ],
  "records": [
+  {
+   "name": "read_profile_request",
+   "from": "c02/profile_read_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@read_profile_request_id"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    }
+   ]
+  },
+  {
+   "name": "read_profile_profile",
+   "from": "c02/profile_written_at_first_use.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:read_profile_profile_at"
+    }
+   ]
+  },
+  {
+   "name": "read_profile_state",
+   "from": "c02/active_at_first_use.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:read_profile_state_at"
+    }
+   ]
+  },
   {
    "name": "alice_laptop_key",
    "from": "c01/binding_as_submitted.json",
@@ -229,6 +303,68 @@
     {
      "pointer": "/policy_digest",
      "value": "#team_policy_draft"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "team_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_proposal_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_membership_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_epoch_at"
     }
    ]
   },
@@ -1252,7 +1388,7 @@
     },
     {
      "pointer": "/action",
-     "value": "read"
+     "value": "local_profile"
     },
     {
      "pointer": "/effect_class",
@@ -1480,7 +1616,7 @@
     },
     {
      "pointer": "/action",
-     "value": "read"
+     "value": "local_profile"
     },
     {
      "pointer": "/effect_class",
@@ -1519,6 +1655,22 @@
  ],
  "steps": [
   {
+   "name": "read_profile",
+   "request": "read_profile_request",
+   "carries": [],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "read_profile_profile",
+     "read_profile_state"
+    ]
+   }
+  },
+  {
    "name": "bind_key",
    "request": "bind_alice_laptop",
    "carries": [
@@ -1549,10 +1701,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
+     "team_founder_membership",
      "team_founder_grant",
      "team_state",
-     "team_profile"
+     "team_profile",
+     "team_founding_epoch"
     ],
     "head": "team_head"
    },
@@ -1586,7 +1741,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1603,7 +1758,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1625,6 +1780,9 @@
     "gaps": [
      {
       "code": "access_locked"
+     },
+     {
+      "code": "access_generation_moved"
      }
     ],
     "recovery": [
@@ -1655,7 +1813,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1672,7 +1830,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1689,7 +1847,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1711,6 +1869,9 @@
     "gaps": [
      {
       "code": "access_signed_out"
+     },
+     {
+      "code": "access_generation_moved"
      }
     ],
     "recovery": [
@@ -1744,7 +1905,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],

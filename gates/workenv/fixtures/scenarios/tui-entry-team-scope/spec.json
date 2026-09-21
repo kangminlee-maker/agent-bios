@@ -1,6 +1,6 @@
 {
  "case": "TUI-ENTRY-TEAM-SCOPE",
- "says": "One person founds two Teams that are both named 'Platform' (team.found twice: two ids) and commits one instructions source to each. Earlier work runs in Team A: a start composed over Team A, selected, activated in a Claude Code session, and that conversation opened as a recipient link scoped to Team A. The launcher (surface.drive) lists both Teams by name with a short id apart, Team A selected because the existing recipient is bound to it. Down and Enter browse Team B: browse_scope becomes Team B while selected_scope stays Team A and the recipient link stays the same; only Space explicitly selects Team B's instructions, and then selected_scope is Team B. Tab and Enter dispatch one new start whose preparation.compose basis is Team B alone; route.select records Team B's route for that request. Negative: the two Teams are never merged — every scope, route and request names one id; browsing Team B changes neither the selection nor the existing conversation, which stays linked to Team A; the Team B start carries nothing of Team A's source or history; the repository location selects no Team; and a selection naming the Team by its shared name instead of a route id is refused at admission (pattern_mismatch /selected).",
+ "says": "One person founds two Teams that are both named 'Platform' (team.found twice: two ids) and commits one instructions source to each. Earlier work runs in Team A: a start composed over Team A, selected, activated in a Claude Code session (the activation returns the projection of Team A's instructions it routed), and that conversation opened as a recipient link scoped to Team A. The launcher (surface.drive) lists both Teams by name with a short id apart, Team A selected because the existing recipient is bound to it. Down and Enter browse Team B: browse_scope becomes Team B while selected_scope stays Team A and the recipient link stays the same; only Space explicitly selects Team B's instructions, and then selected_scope is Team B. Tab and Enter dispatch one new start whose preparation.compose basis is Team B alone; route.select records Team B's route for that request. Negative: the two Teams are never merged — every scope, route and request names one id; browsing Team B changes neither the selection nor the existing conversation, which stays linked to Team A; the Team B start carries nothing of Team A's source or history; the repository location selects no Team; and a selection naming the Team by its shared name instead of a route id is refused at admission (pattern_mismatch /selected).",
  "ids": [
   {
    "name": "me",
@@ -378,19 +378,141 @@
   },
   {
    "name": "team_a_active",
-   "from": "c08/archived_team.json",
+   "from": "c08/active_team.json",
    "set": [
     {
      "pointer": "/since",
      "value": "$instant:team_a_founded_at"
     },
     {
-     "pointer": "/state",
-     "value": "active"
+     "pointer": "/team_id",
+     "value": "@team_a"
+    }
+   ]
+  },
+  {
+   "name": "team_a_sealed_proposal",
+   "from": "team_a_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_a_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_a_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_a_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_a_founder"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
     },
     {
      "pointer": "/team_id",
      "value": "@team_a"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_a_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_a_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_a_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_a_head"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_a_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_a_founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "publish",
+      "adopt",
+      "grant",
+      "policy"
+     ]
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_a_founded_at"
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 2
+    },
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:team_a_founder_grant_id"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team_a"
+    }
+   ]
+  },
+  {
+   "name": "team_a_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:team_a_founded_at"
     }
    ]
   },
@@ -532,19 +654,141 @@
   },
   {
    "name": "team_b_active",
-   "from": "c08/archived_team.json",
+   "from": "c08/active_team.json",
    "set": [
     {
      "pointer": "/since",
      "value": "$instant:team_b_founded_at"
     },
     {
-     "pointer": "/state",
-     "value": "active"
+     "pointer": "/team_id",
+     "value": "@team_b"
+    }
+   ]
+  },
+  {
+   "name": "team_b_sealed_proposal",
+   "from": "team_b_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_b_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_b_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_b_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_b_founder"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
     },
     {
      "pointer": "/team_id",
      "value": "@team_b"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_b_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_b_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_b_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_b_head"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_b_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_b_founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "publish",
+      "adopt",
+      "grant",
+      "policy"
+     ]
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_b_founded_at"
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 2
+    },
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:team_b_founder_grant_id"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team_b"
+    }
+   ]
+  },
+  {
+   "name": "team_b_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:team_b_founded_at"
     }
    ]
   },
@@ -561,6 +805,10 @@
     },
     {
      "pointer": "/roots/0/place/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/roots/0/permits/destinations/0/repository_id",
      "value": "@repo"
     }
    ]
@@ -683,7 +931,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/actor/principal_id",
@@ -750,6 +998,10 @@
     },
     {
      "pointer": "/roots/0/place/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/roots/0/permits/destinations/0/repository_id",
      "value": "@repo"
     }
    ]
@@ -872,7 +1124,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/actor/principal_id",
@@ -970,7 +1222,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@laptop"
+     "value": "@profile"
     }
    ]
   },
@@ -1092,7 +1344,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@me"
+     "value": "@profile"
     }
    ]
   },
@@ -1175,6 +1427,10 @@
     {
      "pointer": "/target/resource_id",
      "value": "@me"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
     }
    ]
   },
@@ -1294,7 +1550,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "use"
+     "value": "read"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1326,7 +1582,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@me"
+     "value": "@profile"
     }
    ]
   },
@@ -1400,7 +1656,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "$prp:start_a_preparation"
+     "value": "@profile"
     }
    ]
   },
@@ -1409,13 +1665,9 @@
    "from": "session/activated_with_nothing_selected_still_carries_the_contract.json",
    "set": [
     {
-     "pointer": "/delivery/memory_usage/guide/digest",
-     "value": "$digest:memory_use_guide"
-    },
-    {
      "pointer": "/delivery/projections",
      "value": [
-      "$digest:instructions_projection"
+      "#instructions_projection"
      ]
     },
     {
@@ -1429,6 +1681,51 @@
    ]
   },
   {
+   "name": "instructions_projection",
+   "from": "c04/projection_keeps_a_shadowed_unit_attributable.json",
+   "drop": [
+    "/units/1"
+   ],
+   "set": [
+    {
+     "pointer": "/projection_id",
+     "value": "$prj:instructions_projection"
+    },
+    {
+     "pointer": "/plan_digest",
+     "value": "$digest:instructions_projection_plan"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:a_activation_routed_at"
+    },
+    {
+     "pointer": "/units/0/unit_id",
+     "value": "$unt:a_unit"
+    },
+    {
+     "pointer": "/units/0/source_id",
+     "value": "@a_src"
+    },
+    {
+     "pointer": "/units/0/revision_digest",
+     "value": "#a_src_revision"
+    },
+    {
+     "pointer": "/units/0/body_digest",
+     "value": "$digest:a_src_bytes"
+    },
+    {
+     "pointer": "/units/0/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/units/0/standing",
+     "value": "layered"
+    }
+   ]
+  },
+  {
    "name": "a_link",
    "from": "c11/link_as_submitted.json",
    "drop": [
@@ -1436,10 +1733,6 @@
     "/work_scope/repository_id"
    ],
    "set": [
-    {
-     "pointer": "/destination/destination_digest",
-     "value": "#a_activation"
-    },
     {
      "pointer": "/principal_id",
      "value": "@me"
@@ -1601,7 +1894,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@me"
+     "value": "@profile"
     }
    ]
   },
@@ -2985,6 +3278,10 @@
     {
      "pointer": "/target/resource_id",
      "value": "@me"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
     }
    ]
   },
@@ -3104,7 +3401,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "use"
+     "value": "read"
     },
     {
      "pointer": "/actor/principal_id",
@@ -3136,7 +3433,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@me"
+     "value": "@profile"
     }
    ]
   },
@@ -3194,7 +3491,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "use"
+     "value": "read"
     },
     {
      "pointer": "/actor/principal_id",
@@ -3226,7 +3523,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@me"
+     "value": "@profile"
     }
    ]
   }
@@ -3240,7 +3537,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -3257,7 +3554,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -3283,8 +3580,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_a_sealed_proposal",
      "team_a_policy_stored",
-     "team_a_active"
+     "team_a_founder_membership",
+     "team_a_founder_grant",
+     "team_a_active",
+     "team_a_profile",
+     "team_a_founding_epoch"
     ],
     "head": "team_a_head"
    }
@@ -3306,8 +3608,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_b_sealed_proposal",
      "team_b_policy_stored",
-     "team_b_active"
+     "team_b_founder_membership",
+     "team_b_founder_grant",
+     "team_b_active",
+     "team_b_profile",
+     "team_b_founding_epoch"
     ],
     "head": "team_b_head"
    }
@@ -3390,7 +3697,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -3407,7 +3714,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -3423,7 +3730,7 @@
     "start_a_basis"
    ],
    "answer": {
-    "stage": "committed",
+    "stage": "previewed",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
@@ -3441,7 +3748,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -3458,12 +3765,13 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "a_activation_routing"
+     "a_activation_routing",
+     "instructions_projection"
     ]
    }
   },
@@ -3475,7 +3783,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -3508,7 +3816,7 @@
     "start_b_basis"
    ],
    "answer": {
-    "stage": "committed",
+    "stage": "previewed",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
@@ -3526,7 +3834,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],

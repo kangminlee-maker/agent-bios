@@ -1,6 +1,6 @@
 {
  "case": "N02-C01-POS",
- "says": "Alice starts personal work on her laptop with no Team, account, sign-up or network: the runtime wrote her profile at first use, and she binds her first device key, which creates her principal. She locks the profile and unlocks it at a terminal with that key, and names the profile 'Laptop'. She then rotates her credential: a second key, signed by the first as proof of control, is bound to the same principal, and the first binding is revoked. Every answer names the same principal id and profile id: the second binding, and the profile after a second rename, carry alice's principal id and the profile's original creation time. No step reaches a provider, a Team or the network. What must not happen: a new principal id after the rotation, a profile whose identity moves with its name, or any step that needs an account or Team.",
+ "says": "Alice starts personal work on her laptop with no Team, account, sign-up or network: her first step reads the profile the runtime wrote at first use (active, generation 1), and she binds her first device key to the principal that profile names (established by local creation). She locks the profile (generation 2) and unlocks it at a terminal with that key (still generation 2), and names the profile 'Laptop'. She then rotates her credential: a second key, signed by the first as proof of control, is bound to the same principal, and the first binding is revoked. Every answer names the same principal id and profile id: the second binding, and the profile after a second rename, carry alice's principal id and the creation time the first read returned. No step reaches a provider, a Team or the network. What must not happen: a new principal id after the rotation, a profile whose identity moves with its name, or any step that needs an account or Team.",
  "ids": [
   {
    "name": "alice",
@@ -41,9 +41,83 @@
   {
    "name": "rename_again_id",
    "prefix": "req"
+  },
+  {
+   "name": "read_profile_request_id",
+   "prefix": "req"
   }
  ],
  "records": [
+  {
+   "name": "read_profile_request",
+   "from": "c02/profile_read_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@read_profile_request_id"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    }
+   ]
+  },
+  {
+   "name": "read_profile_profile",
+   "from": "c02/profile_written_at_first_use.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:read_profile_profile_at"
+    }
+   ]
+  },
+  {
+   "name": "read_profile_state",
+   "from": "c02/active_at_first_use.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:read_profile_state_at"
+    }
+   ]
+  },
   {
    "name": "alice_laptop_key",
    "from": "c01/binding_as_submitted.json",
@@ -273,6 +347,10 @@
     {
      "pointer": "/changed_at",
      "value": "$instant:unlock_at_terminal_at"
+    },
+    {
+     "pointer": "/state/key_mode/runs",
+     "value": "real"
     }
    ]
   },
@@ -354,7 +432,7 @@
     },
     {
      "pointer": "/created_at",
-     "value": "$instant:profile_created"
+     "value": "$instant:read_profile_profile_at"
     }
    ]
   },
@@ -644,6 +722,22 @@
  ],
  "steps": [
   {
+   "name": "read_profile",
+   "request": "read_profile_request",
+   "carries": [],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "read_profile_profile",
+     "read_profile_state"
+    ]
+   }
+  },
+  {
    "name": "bind_first_key",
    "request": "bind_alice_laptop",
    "carries": [
@@ -668,7 +762,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -685,7 +779,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],

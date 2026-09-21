@@ -1,6 +1,6 @@
 {
  "case": "CMP-MEANING",
- "says": "The repository and the Team platform each keep a knowledge source of 2026 KR tax rates, and each keeps a decision-memory source. Asking the rate question under jurisdiction KR against both exact revisions must come back with a view that keeps the stated condition and cites both revisions as evidence: the repository table is preferred by the layer order and the Team table is retained beside it, not dropped and not declared false. The repository then publishes one choice for the journal mode, with its reason and the alternative it rejected, and the Team publishes a different choice for the same question with its own reason. Resolving the question over both scopes names both choices unresolved with choice_conflict_unresolved: the repository-first order selects no winner. A use that needs the answer waits on alice with a sealed question offering both choices, bound to a comparison basis of both records at their exact revisions; her verified answer, through the conversation link she opened, keeps the repository choice until the choices change; the preference she now holds names that answer and both participants, each still applicable. The use resumed on that answer applies the repository choice and names the Team choice shadowed by it. Resolving the question again afterwards still names both records, unresolved, exactly as published, and reopening the knowledge view returns the same view. What must not happen: priority treated as factual truth, the Team choice withdrawn, rejected or deleted by the person's application, or either record's reason or alternatives disappearing.",
+ "says": "The repository and the Team platform each keep a knowledge source of 2026 KR tax rates, and each keeps a decision-memory source. Asking the rate question under jurisdiction KR against both exact revisions must come back with a view that keeps the stated condition and cites both revisions as evidence: the repository table is preferred by the layer order and the Team table is retained beside it, not dropped and not declared false. The repository then publishes one choice for the journal mode, with its reason and the alternative it rejected, and the Team publishes a different choice for the same question with its own reason. Resolving the question over both scopes names both choices unresolved with choice_conflict_unresolved: the repository-first order selects no winner. A use that needs the answer waits on alice with a sealed question offering both choices, bound to a comparison basis of both records at their exact revisions; her verified answer, through the conversation link she opened on a host whose real user-event probe worked (the answer names that probe and the host configuration measured when it was recorded), keeps the repository choice until the choices change; the preference she now holds names that answer and both participants, each still applicable. The use resumed on that answer applies the repository choice and names the Team choice shadowed by it. Resolving the question again afterwards still names both records, unresolved, exactly as published, and reopening the knowledge view returns the same view. What must not happen: priority treated as factual truth, the Team choice withdrawn, rejected or deleted by the person's application, or either record's reason or alternatives disappearing.",
  "ids": [
   {
    "name": "alice",
@@ -51,10 +51,6 @@
    "prefix": "src"
   },
   {
-   "name": "team_tables_store",
-   "prefix": "col"
-  },
-  {
    "name": "register_team_tables_rid",
    "prefix": "req"
   },
@@ -93,10 +89,6 @@
   {
    "name": "team_decisions",
    "prefix": "src"
-  },
-  {
-   "name": "team_decisions_store",
-   "prefix": "col"
   },
   {
    "name": "register_team_decisions_rid",
@@ -144,6 +136,10 @@
   },
   {
    "name": "reopen_the_rate_view_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "probe_user_event_rid",
    "prefix": "req"
   }
  ],
@@ -450,19 +446,95 @@
   },
   {
    "name": "team_active",
-   "from": "c08/archived_team.json",
+   "from": "c08/active_team.json",
    "set": [
     {
      "pointer": "/since",
      "value": "$instant:founded_at"
     },
     {
-     "pointer": "/state",
-     "value": "active"
+     "pointer": "/team_id",
+     "value": "@platform"
+    }
+   ]
+  },
+  {
+   "name": "platform_sealed_proposal",
+   "from": "founding",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:platform_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "platform_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:platform_founder"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
     },
     {
      "pointer": "/team_id",
      "value": "@platform"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#platform_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "platform_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:platform_h1"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "platform_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:founded_at"
     }
    ]
   },
@@ -624,7 +696,7 @@
     },
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/owner/layer",
@@ -692,10 +764,6 @@
     {
      "pointer": "/disclosure",
      "value": "team"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@team_tables_store"
     },
     {
      "pointer": "/home/markdown_view/view",
@@ -834,7 +902,7 @@
     },
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/owner/team_id",
@@ -1142,7 +1210,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "pure_preview"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1166,7 +1234,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@work_repo"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
@@ -1371,10 +1439,6 @@
     {
      "pointer": "/disclosure",
      "value": "team"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@team_decisions_store"
     },
     {
      "pointer": "/home/markdown_view/view",
@@ -1863,7 +1927,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@work_repo"
+     "value": "@journal_concern"
     },
     {
      "pointer": "/payload_digest",
@@ -1918,6 +1982,78 @@
    ]
   },
   {
+   "name": "user_event_probe",
+   "from": "c12/probe_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/capability",
+     "value": "user_event"
+    }
+   ]
+  },
+  {
+   "name": "probe_user_event",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@probe_user_event_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "capability.probe"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#user_event_probe"
+    }
+   ]
+  },
+  {
+   "name": "user_event_probe_stored",
+   "from": "c12/a_user_event_probe_that_worked.json",
+   "set": [
+    {
+     "pointer": "/probe_id",
+     "value": "$prb:user_event_probe"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:user_event_probed_at"
+    }
+   ]
+  },
+  {
+   "name": "host_measured_at_the_probe",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:user_event_probed_at"
+    }
+   ]
+  },
+  {
    "name": "conversation_link",
    "from": "c11/link_as_submitted.json",
    "drop": [
@@ -1964,7 +2100,7 @@
     },
     {
      "pointer": "/action",
-     "value": "local_profile"
+     "value": "use"
     },
     {
      "pointer": "/owner/layer",
@@ -2230,6 +2366,10 @@
     {
      "pointer": "/use_id",
      "value": "$use:journal_use_id"
+    },
+    {
+     "pointer": "/reply/separation_evidence_digest",
+     "value": "#user_event_probe_stored"
     }
    ]
   },
@@ -2263,7 +2403,7 @@
     },
     {
      "pointer": "/action",
-     "value": "decide"
+     "value": "use"
     },
     {
      "pointer": "/owner/layer",
@@ -2275,7 +2415,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "$lnk:conversation"
+     "value": "$qst:journal_question_id"
     },
     {
      "pointer": "/payload_digest",
@@ -2297,7 +2437,7 @@
     },
     {
      "pointer": "/measured_configuration_digest",
-     "value": "$digest:measured_configuration"
+     "value": "#host_measured_at_the_answer"
     },
     {
      "pointer": "/observed_at",
@@ -2318,6 +2458,20 @@
     {
      "pointer": "/use_id",
      "value": "$use:journal_use_id"
+    },
+    {
+     "pointer": "/origin/separation_evidence_digest",
+     "value": "#user_event_probe_stored"
+    }
+   ]
+  },
+  {
+   "name": "host_measured_at_the_answer",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:answered_at"
     }
    ]
   },
@@ -2325,7 +2479,6 @@
    "name": "keep_the_application",
    "from": "c07/collection_change_request.json",
    "drop": [
-    "/payload_digest",
     "/owner/repository_id",
     "/target/base"
    ],
@@ -2367,10 +2520,8 @@
      "value": "@journal_concern"
     },
     {
-     "pointer": "/proof_digests",
-     "value": [
-      "#alice_answer"
-     ]
+     "pointer": "/payload_digest",
+     "value": "#resume_on_the_answer"
     }
    ]
   },
@@ -2503,7 +2654,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@journal_concern"
+     "value": "$use:journal_use_id"
     },
     {
      "pointer": "/payload_digest",
@@ -2638,7 +2789,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@work_repo"
+     "value": "@journal_concern"
     },
     {
      "pointer": "/payload_digest",
@@ -2788,9 +2939,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "platform_sealed_proposal",
      "team_policy",
+     "platform_founder_membership",
      "alice_team_grant",
-     "team_active"
+     "team_active",
+     "platform_profile",
+     "platform_founding_epoch"
     ],
     "head": "platform_h1"
    },
@@ -2885,7 +3040,7 @@
     "returns": [
      "repo_know_v1_stored"
     ],
-    "head": "repo_know_h1"
+    "head": "repo_know_v1_stored"
    }
   },
   {
@@ -2903,7 +3058,7 @@
     "returns": [
      "team_know_v1_stored"
     ],
-    "head": "team_know_h1"
+    "head": "team_know_v1_stored"
    }
   },
   {
@@ -2914,7 +3069,7 @@
    ],
    "answer": {
     "stage": "previewed",
-    "local_effect": "none",
+    "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -3019,6 +3174,24 @@
    }
   },
   {
+   "name": "probe_user_event",
+   "request": "probe_user_event",
+   "carries": [
+    "user_event_probe"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "user_event_probe_stored",
+     "host_measured_at_the_probe"
+    ]
+   }
+  },
+  {
    "name": "open_the_conversation_link",
    "request": "open_the_conversation_link",
    "carries": [
@@ -3067,17 +3240,20 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "alice_answer"
+     "alice_answer",
+     "host_measured_at_the_answer"
     ]
    }
   },
   {
    "name": "keep_the_application",
    "request": "keep_the_application",
-   "carries": [],
+   "carries": [
+    "resume_on_the_answer"
+   ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],

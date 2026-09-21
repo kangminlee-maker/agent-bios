@@ -1,6 +1,6 @@
 {
  "case": "CAP-04",
- "says": "A person binds this device's key and the checkout, registers the repository's memory source, has the owner read records 12 to 18 of one session transcript, and stores the memory capture a packaged local adapter made from those bytes. A candidate choice extracted from that capture is stored as version 1, naming the capture and the exact span bytes as its origin. The person then edits the proposed choice: the owner stores version 2 under the same candidate id, and version 2 names the same capture and the same evidence as version 1. Editing changes only the candidate. Reading the same selection again afterwards returns the same span bytes, so the transcript was not changed by the edit, and the stored capture is not re-written by it. An edit that tries to write what the runtime owns - the candidate id, the version it replaces, its standing and a creation time dated before the capture - is refused at admission and nothing is stored, so an edit cannot rewrite an earlier version or date itself into the past.",
+ "says": "A person binds this device's key and the checkout, registers the repository's memory source, has the owner read records 12 to 18 of one session transcript, and stores the memory capture a packaged local adapter made from those bytes. A candidate choice extracted from that capture is stored as version 1, naming the capture and the exact span bytes as its origin. The person then edits the proposed choice: the owner stores version 2 under the same candidate id, and version 2 names the same capture and the same evidence as version 1. Editing changes only the candidate. Reading the same selection again afterwards returns the same span bytes, so the transcript was not changed by the edit, and the stored capture is not re-written by it. An edit that tries to write what the runtime owns - the candidate id, the version it replaces, its standing and a creation time dated before the capture - is refused at admission and nothing is stored, so an edit cannot rewrite an earlier version or date itself into the past. An edit that relabels the candidate as written by hand, dropping the capture and the span bytes it came from, is refused by the owner with candidate_origin_changed at /origin and nothing is stored, so no edit changes where the candidate came from.",
  "ids": [
   {
    "name": "alice",
@@ -60,6 +60,10 @@
   },
   {
    "name": "rewrite_candidate_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "relabel_candidate_rid",
    "prefix": "req"
   }
  ],
@@ -283,7 +287,20 @@
   },
   {
    "name": "span_selection",
-   "from": "c01/selection_of_a_transcript_span.json"
+   "from": "c01/selection_of_a_transcript_span.json",
+   "drop": [
+    "/roots/0/permits/destinations/1"
+   ],
+   "set": [
+    {
+     "pointer": "/roots/0/permits/destinations/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/roots/0/permits/processing",
+     "value": "local_processing"
+    }
+   ]
   },
   {
    "name": "observe_span_request",
@@ -361,6 +378,9 @@
      "pointer": "/entries/0/entry_id",
      "value": "@entry"
     }
+   ],
+   "drop": [
+    "/revision_digest"
    ]
   },
   {
@@ -393,11 +413,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#span_capture"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_memory_home_head"
     }
    ]
   },
@@ -671,6 +695,34 @@
      "value": "#edit_rewriting_history"
     }
    ]
+  },
+  {
+   "name": "edit_relabelling_its_origin",
+   "from": "choice_candidate_edit",
+   "drop": [
+    "/origin/capture_digest",
+    "/origin/evidence_digests"
+   ],
+   "set": [
+    {
+     "pointer": "/origin/from",
+     "value": "author"
+    }
+   ]
+  },
+  {
+   "name": "relabel_request",
+   "from": "edit_candidate_request",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@relabel_candidate_rid"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#edit_relabelling_its_origin"
+    }
+   ]
   }
  ],
  "steps": [
@@ -839,6 +891,26 @@
      "pointer": "/created_at"
     }
    ]
+  },
+  {
+   "name": "edit_relabelling_the_origin",
+   "request": "relabel_request",
+   "carries": [
+    "edit_relabelling_its_origin"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "candidate_origin_changed",
+      "pointer": "/origin"
+     }
+    ],
+    "recovery": [],
+    "returns": []
+   }
   }
  ]
 }

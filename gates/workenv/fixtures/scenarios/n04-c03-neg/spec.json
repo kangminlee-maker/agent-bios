@@ -1,6 +1,6 @@
 {
  "case": "N04-C03-NEG",
- "says": "Alice and Bob each have a principal; Bob keeps private rules in his personal source, and Alice's repository has its own rules. Nine entrances that reach kept state are recorded with their guards (setup, session start, maintenance, the decision CLI, the studio hub, capture intake, the host launcher, supplied requests and the studio bridge), and the old corpus-store compatibility route is recorded as retired at cutover, naming the store that succeeds it. Alice then asks, through each of the nine entrances and from a root she chose (as with --repo or AGENT_BIOS_STATE_DIR pointing at another directory), for a projection of Bob's rules: every request is refused as source_not_authorized and returns nothing. Asking for her own repository's rules through capture intake and supplied requests, whose guard is the source store rather than the projection owner, or through the retired compatibility route, is refused as protected_root_bypass: the retired route names its successor and serves nothing itself. No refused request may return a projection or any body.",
+ "says": "Alice and Bob each have a principal; Bob keeps private rules in his personal source, and Alice's repository has its own rules. The access owner issues Alice a handle through each of ten entrances - setup, session start, maintenance, the decision CLI, the studio hub, capture intake, the host launcher, supplied requests, the studio bridge, and the old corpus-store compatibility route while it is still a route - and every later request names the handle of the entrance it came through among its proofs. The nine entrances that reach kept state are recorded with their guards, the compatibility route is recorded as retired at cutover naming the store that succeeds it, and a registered package candidate is installed by one fresh-start cutover, which retires that route. Alice then asks, through each of the nine entrances and from a root she chose (as with --repo or AGENT_BIOS_STATE_DIR pointing at another directory), for a projection of Bob's rules: every request is refused as source_not_authorized and returns nothing. Asking for her own repository's rules through capture intake and supplied requests, whose guard is the source store rather than the projection owner, is refused as protected_root_bypass. Asking under the compatibility route's handle is refused as route_retired at that proof, and asking for a new handle through that route is refused as route_retired at its entrance: the retired route names its successor and serves nothing itself. No refused request may return a projection, a handle or any body.",
  "ids": [
   {
    "name": "alice",
@@ -59,83 +59,91 @@
    "prefix": "req"
   },
   {
-   "name": "setup_entrance",
-   "prefix": "ent"
+   "name": "issue_compatibility_route_handle_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "issue_studio_bridge_handle_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "issue_supplied_request_handle_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "issue_host_launcher_handle_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "issue_capture_intake_handle_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "issue_studio_hub_handle_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "issue_decision_cli_handle_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "issue_maintenance_handle_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "issue_session_start_handle_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "issue_setup_handle_request_req",
+   "prefix": "req"
   },
   {
    "name": "trace_setup_request_req",
    "prefix": "req"
   },
   {
-   "name": "session_start_entrance",
-   "prefix": "ent"
-  },
-  {
    "name": "trace_session_start_request_req",
    "prefix": "req"
-  },
-  {
-   "name": "maintenance_entrance",
-   "prefix": "ent"
   },
   {
    "name": "trace_maintenance_request_req",
    "prefix": "req"
   },
   {
-   "name": "decision_cli_entrance",
-   "prefix": "ent"
-  },
-  {
    "name": "trace_decision_cli_request_req",
    "prefix": "req"
-  },
-  {
-   "name": "studio_hub_entrance",
-   "prefix": "ent"
   },
   {
    "name": "trace_studio_hub_request_req",
    "prefix": "req"
   },
   {
-   "name": "capture_intake_entrance",
-   "prefix": "ent"
-  },
-  {
    "name": "trace_capture_intake_request_req",
    "prefix": "req"
-  },
-  {
-   "name": "host_launcher_entrance",
-   "prefix": "ent"
   },
   {
    "name": "trace_host_launcher_request_req",
    "prefix": "req"
   },
   {
-   "name": "supplied_request_entrance",
-   "prefix": "ent"
-  },
-  {
    "name": "trace_supplied_request_request_req",
    "prefix": "req"
-  },
-  {
-   "name": "studio_bridge_entrance",
-   "prefix": "ent"
   },
   {
    "name": "trace_studio_bridge_request_req",
    "prefix": "req"
   },
   {
-   "name": "compatibility_route_entrance",
-   "prefix": "ent"
+   "name": "trace_compatibility_route_request_req",
+   "prefix": "req"
   },
   {
-   "name": "trace_compatibility_route_request_req",
+   "name": "register_candidate_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "commit_cutover_request_req",
    "prefix": "req"
   },
   {
@@ -184,6 +192,10 @@
   },
   {
    "name": "bypass_via_compatibility_route_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "reissue_compatibility_handle_request_req",
    "prefix": "req"
   }
  ],
@@ -695,6 +707,1016 @@
    ]
   },
   {
+   "name": "compatibility_route_handle_asked",
+   "from": "c02/handle_asked_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "compatibility_route"
+    }
+   ]
+  },
+  {
+   "name": "issue_compatibility_route_handle_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.handle.issue"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@issue_compatibility_route_handle_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#compatibility_route_handle_asked"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    }
+   ]
+  },
+  {
+   "name": "compatibility_route_handle",
+   "from": "c02/handle_issued_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/handle_id",
+     "value": "$hdl:compatibility_route_handle_id"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "compatibility_route"
+    },
+    {
+     "pointer": "/issued_at",
+     "value": "$instant:compatibility_route_handle_at"
+    }
+   ]
+  },
+  {
+   "name": "studio_bridge_handle_asked",
+   "from": "c02/handle_asked_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "studio_bridge"
+    }
+   ]
+  },
+  {
+   "name": "issue_studio_bridge_handle_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.handle.issue"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@issue_studio_bridge_handle_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#studio_bridge_handle_asked"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    }
+   ]
+  },
+  {
+   "name": "studio_bridge_handle",
+   "from": "c02/handle_issued_to_the_studio_page.json",
+   "set": [
+    {
+     "pointer": "/handle_id",
+     "value": "$hdl:studio_bridge_handle_id"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/client_token_digest",
+     "value": "$digest:studio_bridge_client_token"
+    },
+    {
+     "pointer": "/issued_at",
+     "value": "$instant:studio_bridge_handle_at"
+    }
+   ]
+  },
+  {
+   "name": "supplied_request_handle_asked",
+   "from": "c02/handle_asked_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "supplied_request"
+    }
+   ]
+  },
+  {
+   "name": "issue_supplied_request_handle_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.handle.issue"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@issue_supplied_request_handle_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#supplied_request_handle_asked"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    }
+   ]
+  },
+  {
+   "name": "supplied_request_handle",
+   "from": "c02/handle_issued_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/handle_id",
+     "value": "$hdl:supplied_request_handle_id"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "supplied_request"
+    },
+    {
+     "pointer": "/issued_at",
+     "value": "$instant:supplied_request_handle_at"
+    }
+   ]
+  },
+  {
+   "name": "host_launcher_handle_asked",
+   "from": "c02/handle_asked_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "host_launcher"
+    }
+   ]
+  },
+  {
+   "name": "issue_host_launcher_handle_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.handle.issue"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@issue_host_launcher_handle_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#host_launcher_handle_asked"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    }
+   ]
+  },
+  {
+   "name": "host_launcher_handle",
+   "from": "c02/handle_issued_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/handle_id",
+     "value": "$hdl:host_launcher_handle_id"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "host_launcher"
+    },
+    {
+     "pointer": "/issued_at",
+     "value": "$instant:host_launcher_handle_at"
+    }
+   ]
+  },
+  {
+   "name": "capture_intake_handle_asked",
+   "from": "c02/handle_asked_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "capture_intake"
+    }
+   ]
+  },
+  {
+   "name": "issue_capture_intake_handle_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.handle.issue"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@issue_capture_intake_handle_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#capture_intake_handle_asked"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    }
+   ]
+  },
+  {
+   "name": "capture_intake_handle",
+   "from": "c02/handle_issued_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/handle_id",
+     "value": "$hdl:capture_intake_handle_id"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "capture_intake"
+    },
+    {
+     "pointer": "/issued_at",
+     "value": "$instant:capture_intake_handle_at"
+    }
+   ]
+  },
+  {
+   "name": "studio_hub_handle_asked",
+   "from": "c02/handle_asked_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "studio_hub"
+    }
+   ]
+  },
+  {
+   "name": "issue_studio_hub_handle_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.handle.issue"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@issue_studio_hub_handle_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#studio_hub_handle_asked"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    }
+   ]
+  },
+  {
+   "name": "studio_hub_handle",
+   "from": "c02/handle_issued_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/handle_id",
+     "value": "$hdl:studio_hub_handle_id"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "studio_hub"
+    },
+    {
+     "pointer": "/issued_at",
+     "value": "$instant:studio_hub_handle_at"
+    }
+   ]
+  },
+  {
+   "name": "decision_cli_handle_asked",
+   "from": "c02/handle_asked_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "decision_cli"
+    }
+   ]
+  },
+  {
+   "name": "issue_decision_cli_handle_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.handle.issue"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@issue_decision_cli_handle_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#decision_cli_handle_asked"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    }
+   ]
+  },
+  {
+   "name": "decision_cli_handle",
+   "from": "c02/handle_issued_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/handle_id",
+     "value": "$hdl:decision_cli_handle_id"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "decision_cli"
+    },
+    {
+     "pointer": "/issued_at",
+     "value": "$instant:decision_cli_handle_at"
+    }
+   ]
+  },
+  {
+   "name": "maintenance_handle_asked",
+   "from": "c02/handle_asked_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "maintenance"
+    }
+   ]
+  },
+  {
+   "name": "issue_maintenance_handle_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.handle.issue"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@issue_maintenance_handle_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#maintenance_handle_asked"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    }
+   ]
+  },
+  {
+   "name": "maintenance_handle",
+   "from": "c02/handle_issued_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/handle_id",
+     "value": "$hdl:maintenance_handle_id"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "maintenance"
+    },
+    {
+     "pointer": "/issued_at",
+     "value": "$instant:maintenance_handle_at"
+    }
+   ]
+  },
+  {
+   "name": "session_start_handle_asked",
+   "from": "c02/handle_asked_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "session_start"
+    }
+   ]
+  },
+  {
+   "name": "issue_session_start_handle_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.handle.issue"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@issue_session_start_handle_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#session_start_handle_asked"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    }
+   ]
+  },
+  {
+   "name": "session_start_handle",
+   "from": "c02/handle_issued_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/handle_id",
+     "value": "$hdl:session_start_handle_id"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "session_start"
+    },
+    {
+     "pointer": "/issued_at",
+     "value": "$instant:session_start_handle_at"
+    }
+   ]
+  },
+  {
+   "name": "setup_handle_asked",
+   "from": "c02/handle_asked_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "setup"
+    }
+   ]
+  },
+  {
+   "name": "issue_setup_handle_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.handle.issue"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@issue_setup_handle_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#setup_handle_asked"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    }
+   ]
+  },
+  {
+   "name": "setup_handle",
+   "from": "c02/handle_issued_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/handle_id",
+     "value": "$hdl:setup_handle_id"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "setup"
+    },
+    {
+     "pointer": "/issued_at",
+     "value": "$instant:setup_handle_at"
+    }
+   ]
+  },
+  {
    "name": "setup_disposition",
    "from": "c03/the_store_admits_what_it_owns.json",
    "set": [
@@ -740,7 +1762,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "policy"
+     "value": "local_profile"
     },
     {
      "pointer": "/actor/device_id",
@@ -780,7 +1802,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@setup_entrance"
+     "value": "@profile"
     },
     {
      "pointer": "/payload_digest",
@@ -823,7 +1845,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "policy"
+     "value": "local_profile"
     },
     {
      "pointer": "/actor/device_id",
@@ -863,7 +1885,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@session_start_entrance"
+     "value": "@profile"
     },
     {
      "pointer": "/payload_digest",
@@ -906,7 +1928,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "policy"
+     "value": "local_profile"
     },
     {
      "pointer": "/actor/device_id",
@@ -946,7 +1968,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@maintenance_entrance"
+     "value": "@profile"
     },
     {
      "pointer": "/payload_digest",
@@ -977,7 +1999,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "policy"
+     "value": "local_profile"
     },
     {
      "pointer": "/actor/device_id",
@@ -1017,7 +2039,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@decision_cli_entrance"
+     "value": "@profile"
     },
     {
      "pointer": "/payload_digest",
@@ -1067,7 +2089,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "policy"
+     "value": "local_profile"
     },
     {
      "pointer": "/actor/device_id",
@@ -1107,7 +2129,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@studio_hub_entrance"
+     "value": "@profile"
     },
     {
      "pointer": "/payload_digest",
@@ -1146,7 +2168,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "policy"
+     "value": "local_profile"
     },
     {
      "pointer": "/actor/device_id",
@@ -1186,7 +2208,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@capture_intake_entrance"
+     "value": "@profile"
     },
     {
      "pointer": "/payload_digest",
@@ -1233,7 +2255,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "policy"
+     "value": "local_profile"
     },
     {
      "pointer": "/actor/device_id",
@@ -1273,7 +2295,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@host_launcher_entrance"
+     "value": "@profile"
     },
     {
      "pointer": "/payload_digest",
@@ -1312,7 +2334,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "policy"
+     "value": "local_profile"
     },
     {
      "pointer": "/actor/device_id",
@@ -1352,7 +2374,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@supplied_request_entrance"
+     "value": "@profile"
     },
     {
      "pointer": "/payload_digest",
@@ -1395,7 +2417,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "policy"
+     "value": "local_profile"
     },
     {
      "pointer": "/actor/device_id",
@@ -1435,7 +2457,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@studio_bridge_entrance"
+     "value": "@profile"
     },
     {
      "pointer": "/payload_digest",
@@ -1454,6 +2476,150 @@
    ]
   },
   {
+   "name": "candidate",
+   "from": "c03/package_candidate_built_from_one_commit.json"
+  },
+  {
+   "name": "register_candidate_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "package.candidate.register"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@register_candidate_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#candidate"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    }
+   ]
+  },
+  {
+   "name": "fresh_start_plan",
+   "from": "c03/a_cutover_to_a_fresh_start.json",
+   "set": [
+    {
+     "pointer": "/candidate_digest",
+     "value": "#candidate"
+    }
+   ]
+  },
+  {
+   "name": "commit_cutover_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "entrance.cutover.commit"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@commit_cutover_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#fresh_start_plan"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    }
+   ]
+  },
+  {
    "name": "trace_compatibility_route_request",
    "from": "c03/commit_request.json",
    "drop": [
@@ -1466,7 +2632,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "policy"
+     "value": "local_profile"
     },
     {
      "pointer": "/actor/device_id",
@@ -1506,7 +2672,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@compatibility_route_entrance"
+     "value": "@profile"
     },
     {
      "pointer": "/payload_digest",
@@ -1543,7 +2709,8 @@
     "/rationale",
     "/recipient_digest",
     "/work_scope",
-    "/owner/team_id"
+    "/owner/team_id",
+    "/target/base"
    ],
    "set": [
     {
@@ -1584,7 +2751,9 @@
     },
     {
      "pointer": "/proof_digests",
-     "value": []
+     "value": [
+      "#setup_handle"
+     ]
     },
     {
      "pointer": "/request_id",
@@ -1592,11 +2761,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@bob_rules"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:bob_rules_head"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
@@ -1629,7 +2794,8 @@
     "/rationale",
     "/recipient_digest",
     "/work_scope",
-    "/owner/team_id"
+    "/owner/team_id",
+    "/target/base"
    ],
    "set": [
     {
@@ -1670,7 +2836,9 @@
     },
     {
      "pointer": "/proof_digests",
-     "value": []
+     "value": [
+      "#session_start_handle"
+     ]
     },
     {
      "pointer": "/request_id",
@@ -1678,11 +2846,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@bob_rules"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:bob_rules_head"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
@@ -1719,7 +2883,8 @@
     "/rationale",
     "/recipient_digest",
     "/work_scope",
-    "/owner/team_id"
+    "/owner/team_id",
+    "/target/base"
    ],
    "set": [
     {
@@ -1760,7 +2925,9 @@
     },
     {
      "pointer": "/proof_digests",
-     "value": []
+     "value": [
+      "#maintenance_handle"
+     ]
     },
     {
      "pointer": "/request_id",
@@ -1768,11 +2935,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@bob_rules"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:bob_rules_head"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
@@ -1809,7 +2972,8 @@
     "/rationale",
     "/recipient_digest",
     "/work_scope",
-    "/owner/team_id"
+    "/owner/team_id",
+    "/target/base"
    ],
    "set": [
     {
@@ -1850,7 +3014,9 @@
     },
     {
      "pointer": "/proof_digests",
-     "value": []
+     "value": [
+      "#decision_cli_handle"
+     ]
     },
     {
      "pointer": "/request_id",
@@ -1858,11 +3024,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@bob_rules"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:bob_rules_head"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
@@ -1899,7 +3061,8 @@
     "/rationale",
     "/recipient_digest",
     "/work_scope",
-    "/owner/team_id"
+    "/owner/team_id",
+    "/target/base"
    ],
    "set": [
     {
@@ -1940,7 +3103,9 @@
     },
     {
      "pointer": "/proof_digests",
-     "value": []
+     "value": [
+      "#studio_hub_handle"
+     ]
     },
     {
      "pointer": "/request_id",
@@ -1948,11 +3113,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@bob_rules"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:bob_rules_head"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
@@ -1989,7 +3150,8 @@
     "/rationale",
     "/recipient_digest",
     "/work_scope",
-    "/owner/team_id"
+    "/owner/team_id",
+    "/target/base"
    ],
    "set": [
     {
@@ -2030,7 +3192,9 @@
     },
     {
      "pointer": "/proof_digests",
-     "value": []
+     "value": [
+      "#capture_intake_handle"
+     ]
     },
     {
      "pointer": "/request_id",
@@ -2038,11 +3202,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@bob_rules"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:bob_rules_head"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
@@ -2079,7 +3239,8 @@
     "/rationale",
     "/recipient_digest",
     "/work_scope",
-    "/owner/team_id"
+    "/owner/team_id",
+    "/target/base"
    ],
    "set": [
     {
@@ -2120,7 +3281,9 @@
     },
     {
      "pointer": "/proof_digests",
-     "value": []
+     "value": [
+      "#host_launcher_handle"
+     ]
     },
     {
      "pointer": "/request_id",
@@ -2128,11 +3291,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@bob_rules"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:bob_rules_head"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
@@ -2169,7 +3328,8 @@
     "/rationale",
     "/recipient_digest",
     "/work_scope",
-    "/owner/team_id"
+    "/owner/team_id",
+    "/target/base"
    ],
    "set": [
     {
@@ -2210,7 +3370,9 @@
     },
     {
      "pointer": "/proof_digests",
-     "value": []
+     "value": [
+      "#supplied_request_handle"
+     ]
     },
     {
      "pointer": "/request_id",
@@ -2218,11 +3380,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@bob_rules"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:bob_rules_head"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
@@ -2259,7 +3417,8 @@
     "/rationale",
     "/recipient_digest",
     "/work_scope",
-    "/owner/team_id"
+    "/owner/team_id",
+    "/target/base"
    ],
    "set": [
     {
@@ -2300,7 +3459,9 @@
     },
     {
      "pointer": "/proof_digests",
-     "value": []
+     "value": [
+      "#studio_bridge_handle"
+     ]
     },
     {
      "pointer": "/request_id",
@@ -2308,11 +3469,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@bob_rules"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:bob_rules_head"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
@@ -2349,7 +3506,8 @@
     "/rationale",
     "/recipient_digest",
     "/work_scope",
-    "/owner/team_id"
+    "/owner/team_id",
+    "/target/base"
    ],
    "set": [
     {
@@ -2390,7 +3548,9 @@
     },
     {
      "pointer": "/proof_digests",
-     "value": []
+     "value": [
+      "#capture_intake_handle"
+     ]
     },
     {
      "pointer": "/request_id",
@@ -2398,11 +3558,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@repo_rules"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:repo_rules_head"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
@@ -2439,7 +3595,8 @@
     "/rationale",
     "/recipient_digest",
     "/work_scope",
-    "/owner/team_id"
+    "/owner/team_id",
+    "/target/base"
    ],
    "set": [
     {
@@ -2480,7 +3637,9 @@
     },
     {
      "pointer": "/proof_digests",
-     "value": []
+     "value": [
+      "#supplied_request_handle"
+     ]
     },
     {
      "pointer": "/request_id",
@@ -2488,11 +3647,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@repo_rules"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:repo_rules_head"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
@@ -2529,7 +3684,8 @@
     "/rationale",
     "/recipient_digest",
     "/work_scope",
-    "/owner/team_id"
+    "/owner/team_id",
+    "/target/base"
    ],
    "set": [
     {
@@ -2570,7 +3726,9 @@
     },
     {
      "pointer": "/proof_digests",
-     "value": []
+     "value": [
+      "#compatibility_route_handle"
+     ]
     },
     {
      "pointer": "/request_id",
@@ -2578,15 +3736,76 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@repo_rules"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:repo_rules_head"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
      "value": "#bypass_via_compatibility_route_plan"
+    }
+   ]
+  },
+  {
+   "name": "reissue_compatibility_handle_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.handle.issue"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@reissue_compatibility_handle_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#compatibility_route_handle_asked"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
     }
    ]
   }
@@ -2677,6 +3896,176 @@
      "bob_rules_rev"
     ],
     "head": "bob_rules_head"
+   }
+  },
+  {
+   "name": "issue_setup_handle",
+   "request": "issue_setup_handle_request",
+   "carries": [
+    "setup_handle_asked"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "setup_handle"
+    ]
+   }
+  },
+  {
+   "name": "issue_session_start_handle",
+   "request": "issue_session_start_handle_request",
+   "carries": [
+    "session_start_handle_asked"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "session_start_handle"
+    ]
+   }
+  },
+  {
+   "name": "issue_maintenance_handle",
+   "request": "issue_maintenance_handle_request",
+   "carries": [
+    "maintenance_handle_asked"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "maintenance_handle"
+    ]
+   }
+  },
+  {
+   "name": "issue_decision_cli_handle",
+   "request": "issue_decision_cli_handle_request",
+   "carries": [
+    "decision_cli_handle_asked"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "decision_cli_handle"
+    ]
+   }
+  },
+  {
+   "name": "issue_studio_hub_handle",
+   "request": "issue_studio_hub_handle_request",
+   "carries": [
+    "studio_hub_handle_asked"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "studio_hub_handle"
+    ]
+   }
+  },
+  {
+   "name": "issue_capture_intake_handle",
+   "request": "issue_capture_intake_handle_request",
+   "carries": [
+    "capture_intake_handle_asked"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "capture_intake_handle"
+    ]
+   }
+  },
+  {
+   "name": "issue_host_launcher_handle",
+   "request": "issue_host_launcher_handle_request",
+   "carries": [
+    "host_launcher_handle_asked"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "host_launcher_handle"
+    ]
+   }
+  },
+  {
+   "name": "issue_supplied_request_handle",
+   "request": "issue_supplied_request_handle_request",
+   "carries": [
+    "supplied_request_handle_asked"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "supplied_request_handle"
+    ]
+   }
+  },
+  {
+   "name": "issue_studio_bridge_handle",
+   "request": "issue_studio_bridge_handle_request",
+   "carries": [
+    "studio_bridge_handle_asked"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "studio_bridge_handle"
+    ]
+   }
+  },
+  {
+   "name": "issue_compatibility_route_handle",
+   "request": "issue_compatibility_route_handle_request",
+   "carries": [
+    "compatibility_route_handle_asked"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "compatibility_route_handle"
+    ]
    }
   },
   {
@@ -2847,6 +4236,38 @@
     "returns": [
      "compatibility_route_disposition"
     ]
+   }
+  },
+  {
+   "name": "register_candidate",
+   "request": "register_candidate_request",
+   "carries": [
+    "candidate"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "candidate"
+    ]
+   }
+  },
+  {
+   "name": "commit_cutover",
+   "request": "commit_cutover_request",
+   "carries": [
+    "fresh_start_plan"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": []
    }
   },
   {
@@ -3092,12 +4513,31 @@
     "provider_effect": "not_applicable",
     "gaps": [
      {
-      "code": "protected_root_bypass"
+      "code": "route_retired",
+      "pointer": "/proof_digests/0"
      }
     ],
-    "recovery": [
-     "new_governed_request"
+    "recovery": [],
+    "returns": []
+   }
+  },
+  {
+   "name": "reissue_compatibility_handle",
+   "request": "reissue_compatibility_handle_request",
+   "carries": [
+    "compatibility_route_handle_asked"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "route_retired",
+      "pointer": "/entrance/name"
+     }
     ],
+    "recovery": [],
     "returns": []
    }
   }

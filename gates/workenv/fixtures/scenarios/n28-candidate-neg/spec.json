@@ -1,6 +1,6 @@
 {
  "case": "N28-CANDIDATE-NEG",
- "says": "A person captures the memory of one selected transcript span (source.observe, then source.capture.record) and stores a candidate choice extracted from that capture (memory.candidate.store), which the owner writes as version 1 naming the capture and the exact span bytes as its origin. The person then edits the proposal, changing the chosen synchronous mode, and submits it under the same candidate id; the owner writes version 2, and its origin is the origin of version 1, byte for byte. The person then rejects the candidate (memory.candidate.reject); the owner writes version 3 standing rejected, and its origin is still that of version 2. Every memory_candidate the owner returns keeps the origin of the version it replaces: none restates the captured candidate as written by hand and none names another capture, which are the breaking records of the rule fixture candidate_keeps_its_origin. Neither the edit nor the rejection changes the capture, the observed span or any destination source.",
+ "says": "A person binds this device's key and the checkout, registers the repository's decisions source, captures the memory of one selected transcript span (source.observe, then source.capture.record) and stores a candidate choice extracted from that capture (memory.candidate.store), which the owner writes as version 1 naming the capture and the exact span bytes as its origin. The person then edits the proposal, changing the chosen synchronous mode, and submits it under the same candidate id; the owner writes version 2, and its origin is the origin of version 1, byte for byte. The destination then publishes that choice at the decisions source, on the head its registration committed, stating that it promotes version 2 of the candidate (memory.record.publish); the commit returns the choice record, the revision holding it, and version 3 standing promoted with the commit's receipt, whose proposal is exactly what the choice record states and whose origin is still that of version 2. Every memory_candidate the owner returns keeps the origin of the version it replaces, and the record promoting it names the version before the promoted one: none restates the captured candidate as written by hand, names another capture, proposes something other than what was published or follows another version than the one published, which are the breaking records of the rule fixtures candidate_keeps_its_origin and promotion_states_its_candidate. Neither the edit nor the promotion changes the capture or the observed span.",
  "ids": [
   {
    "name": "me",
@@ -23,12 +23,16 @@
    "prefix": "src"
   },
   {
-   "name": "lane",
-   "prefix": "wst"
+   "name": "bind_key_rid",
+   "prefix": "req"
   },
   {
-   "name": "measured_source",
-   "prefix": "src"
+   "name": "bind_repo_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "register_home_rid",
+   "prefix": "req"
   },
   {
    "name": "entry",
@@ -51,14 +55,235 @@
    "prefix": "req"
   },
   {
-   "name": "reject_request",
+   "name": "publish_request",
    "prefix": "req"
   }
  ],
  "records": [
   {
+   "name": "key_submitted",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "bind_key_request",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_key_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#key_submitted"
+    }
+   ]
+  },
+  {
+   "name": "key",
+   "from": "c01/device_key_binding.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:key_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:bound_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_binding_submitted",
+   "from": "c01/repository_binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "bind_repo_request",
+   "from": "c01/repository_bind_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_repo_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_binding_submitted"
+    }
+   ]
+  },
+  {
+   "name": "repo_binding",
+   "from": "c01/clone_shares_the_repository_id.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/observed/working_bytes_digest",
+     "value": "$digest:checkout_bytes"
+    }
+   ]
+  },
+  {
+   "name": "home_submitted",
+   "from": "sources/home_of_a_repository_document.json",
+   "drop": [
+    "/registered_at"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@decisions"
+    },
+    {
+     "pointer": "/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/acceptance_authority/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/binding_evidence_digest",
+     "value": "#repo_binding"
+    }
+   ]
+  },
+  {
+   "name": "home_request",
+   "from": "sources/request_to_register_a_home.json",
+   "drop": [
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_home_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@decisions"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#home_submitted"
+    }
+   ]
+  },
+  {
+   "name": "home",
+   "from": "home_submitted",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:registered_at"
+    }
+   ]
+  },
+  {
    "name": "selection",
-   "from": "c01/selection_of_a_transcript_span.json"
+   "from": "c01/selection_of_a_transcript_span.json",
+   "drop": [
+    "/roots/0/permits/destinations/1"
+   ],
+   "set": [
+    {
+     "pointer": "/roots/0/permits/destinations/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/roots/0/permits/processing",
+     "value": "local_processing"
+    }
+   ]
   },
   {
    "name": "observe",
@@ -136,6 +361,9 @@
      "pointer": "/processing/inputs/0/permits/destinations/0/repository_id",
      "value": "@repo"
     }
+   ],
+   "drop": [
+    "/revision_digest"
    ]
   },
   {
@@ -169,6 +397,14 @@
     {
      "pointer": "/payload_digest",
      "value": "#capture"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_decisions_home_head"
     }
    ]
   },
@@ -217,13 +453,12 @@
      "value": "@repo"
     },
     {
-     "pointer": "/proposed/workstream_ids/0",
-     "value": "@lane"
-    },
-    {
-     "pointer": "/proposed/basis/0/source_id",
-     "value": "@measured_source"
+     "pointer": "/proposed/workstream_ids",
+     "value": []
     }
+   ],
+   "drop": [
+    "/proposed/basis"
    ]
   },
   {
@@ -333,32 +568,109 @@
    ]
   },
   {
-   "name": "reject_submit",
-   "from": "candidate_submit",
+   "name": "promoting_choice",
+   "from": "c05/choice_promoting_a_candidate.json",
    "drop": [
-    "/payload_digest"
+    "/basis"
    ],
    "set": [
     {
-     "pointer": "/request_id",
-     "value": "@reject_request"
+     "pointer": "/home/repository_id",
+     "value": "@repo"
     },
     {
-     "pointer": "/operation",
-     "value": "memory.candidate.reject"
+     "pointer": "/workstream_ids",
+     "value": []
     },
     {
-     "pointer": "/action",
-     "value": "review"
-    },
-    {
-     "pointer": "/target/resource_id",
+     "pointer": "/promotes/candidate_id",
      "value": "$cnd:candidate"
+    },
+    {
+     "pointer": "/promotes/version",
+     "value": 2
     }
    ]
   },
   {
-   "name": "stored_rejection",
+   "name": "publish_submit",
+   "from": "c05/publish_request_for_recorded_evidence.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@publish_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@decisions"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_decisions_home_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#promoting_choice"
+    }
+   ]
+  },
+  {
+   "name": "stored_choice",
+   "from": "promoting_choice",
+   "set": [
+    {
+     "pointer": "/record_id",
+     "value": "$rec:journal_choice"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:published_at"
+    }
+   ]
+  },
+  {
+   "name": "decisions_revision",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@decisions"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "decisions/0001.json"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "#stored_choice"
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:revision_at"
+    }
+   ]
+  },
+  {
+   "name": "stored_promotion",
    "from": "stored_edit",
    "set": [
     {
@@ -367,16 +679,71 @@
     },
     {
      "pointer": "/standing/is",
-     "value": "rejected"
+     "value": "promoted"
+    },
+    {
+     "pointer": "/standing/receipt_digest",
+     "value": "#publish_choice_receipt"
     },
     {
      "pointer": "/created_at",
-     "value": "$instant:rejected_at"
+     "value": "$instant:promoted_at"
     }
    ]
   }
  ],
  "steps": [
+  {
+   "name": "bind_device_key",
+   "request": "bind_key_request",
+   "carries": [
+    "key_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "key"
+    ]
+   }
+  },
+  {
+   "name": "bind_repository",
+   "request": "bind_repo_request",
+   "carries": [
+    "repo_binding_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_binding"
+    ]
+   }
+  },
+  {
+   "name": "register_decisions_home",
+   "request": "home_request",
+   "carries": [
+    "home_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "home"
+    ]
+   }
+  },
   {
    "name": "observe_span",
    "request": "observe",
@@ -447,18 +814,23 @@
    }
   },
   {
-   "name": "reject_candidate",
-   "request": "reject_submit",
-   "carries": [],
+   "name": "publish_choice",
+   "request": "publish_submit",
+   "carries": [
+    "promoting_choice"
+   ],
    "answer": {
-    "stage": "rejected",
-    "local_effect": "candidate_stored",
+    "stage": "committed",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "stored_rejection"
-    ]
+     "stored_choice",
+     "decisions_revision",
+     "stored_promotion"
+    ],
+    "head": "decisions_head"
    }
   }
  ]

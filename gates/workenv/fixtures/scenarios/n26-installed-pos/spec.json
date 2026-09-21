@@ -1,6 +1,6 @@
 {
  "case": "N26-INSTALLED-POS",
- "says": "Before any trial, the study conductor registers the installed candidate package and records the first-exposure protocol: three tasks and four cells on Apple Terminal in Korean — novices starting prepared work (keyboard), maintainers starting prepared work (keyboard), novices sharing a note (keyboard), and novices typing and pasting Korean (keyboard, IME and paste) — each needing at least one trial. Three people then meet the installed candidate for the first time, each observed on Apple_Terminal at 80×24 in the Korean locale with the input routes they used, the observation bound to the candidate's digest: novice P1 starts prepared work and shares a note, maintainer M1 starts prepared work, and novice P2 types, cancels a composition and pastes Korean. Every trial names the recorded protocol, its task and the observation it happened in, and states the options, the selection and the predicted effect and target before the observed outcome. Counting trials per cell, every cell has its minimum; nothing is averaged, and no observation claims support for a terminal, locale or input route that no cell covers — SSH and screen readers are not claimed, because no cell lists them.",
+ "says": "Before any trial, the study conductor registers the installed candidate package and records the first-exposure protocol: three tasks and four cells on Apple Terminal in Korean — novices starting prepared work (keyboard), maintainers starting prepared work (keyboard), novices sharing a note (keyboard), and novices typing and pasting Korean (keyboard, IME and paste) — each needing at least one trial. The installed candidate is probed for the participant's own keypresses: the user_event probe ran for real and worked, and every observation offered as human evidence names that probe as what separated the person from the host's automation. Three people then meet the installed candidate for the first time, each observed on Apple_Terminal at 80×24 in the Korean locale with the input routes they used, the observation bound to the candidate's digest: novice P1 starts prepared work and shares a note, maintainer M1 starts prepared work, and novice P2 types, cancels a composition and pastes Korean. Every trial names the recorded protocol, its task and the observation it happened in, and states the options, the selection and the predicted effect and target before the observed outcome. Counting trials per cell, every cell has its minimum; nothing is averaged, and no observation claims support for a terminal, locale or input route that no cell covers — SSH and screen readers are not claimed, because no cell lists them.",
  "ids": [
   {
    "name": "alice",
@@ -20,6 +20,10 @@
   },
   {
    "name": "record_protocol_id",
+   "prefix": "req"
+  },
+  {
+   "name": "probe_candidate_id",
    "prefix": "req"
   },
   {
@@ -345,6 +349,168 @@
    ]
   },
   {
+   "name": "user_event_probe",
+   "from": "c12/probe_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/capability",
+     "value": "user_event"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "agent-bios"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.20.0"
+    }
+   ]
+  },
+  {
+   "name": "probe_candidate",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@probe_candidate_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "capability.probe"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#user_event_probe"
+    }
+   ]
+  },
+  {
+   "name": "user_event_worked",
+   "from": "c12/a_user_event_probe_that_worked.json",
+   "set": [
+    {
+     "pointer": "/client/name",
+     "value": "agent-bios"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.20.0"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:user_event_probed_at"
+    },
+    {
+     "pointer": "/probe_id",
+     "value": "$prb:candidate_user_event"
+    },
+    {
+     "pointer": "/observed",
+     "value": "In the installed candidate on Apple Terminal, only a key the person pressed produced a user event; a scripted keystroke and a hook produced none."
+    }
+   ]
+  },
+  {
+   "name": "candidate_profile",
+   "from": "c12/four_capabilities_qualified_one_at_a_time.json",
+   "drop": [
+    "/capabilities/3",
+    "/capabilities/2",
+    "/capabilities/1"
+   ],
+   "set": [
+    {
+     "pointer": "/capabilities/0/capability",
+     "value": "user_event"
+    },
+    {
+     "pointer": "/capabilities/0/state/probe_digest",
+     "value": "#user_event_worked"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "agent-bios"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.20.0"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:user_event_probed_at"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "$cap:candidate_profile"
+    }
+   ]
+  },
+  {
+   "name": "candidate_configuration",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/client/name",
+     "value": "agent-bios"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.20.0"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:user_event_probed_at"
+    }
+   ]
+  },
+  {
    "name": "p1_session_submitted",
    "from": "routes/observation_submitted.json",
    "drop": [
@@ -372,6 +538,10 @@
     {
      "pointer": "/observed_in/rows",
      "value": 24
+    },
+    {
+     "pointer": "/subject/evidence/origin/separation_evidence_digest",
+     "value": "#user_event_worked"
     }
    ]
   },
@@ -577,7 +747,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "$obs:p1_session"
+     "value": "@alice_profile"
     },
     {
      "pointer": "/owner/layer",
@@ -716,7 +886,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "$obs:p1_session"
+     "value": "@alice_profile"
     },
     {
      "pointer": "/owner/layer",
@@ -760,6 +930,10 @@
     {
      "pointer": "/observed_in/rows",
      "value": 24
+    },
+    {
+     "pointer": "/subject/evidence/origin/separation_evidence_digest",
+     "value": "#user_event_worked"
     }
    ]
   },
@@ -965,7 +1139,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "$obs:m1_session"
+     "value": "@alice_profile"
     },
     {
      "pointer": "/owner/layer",
@@ -1011,6 +1185,10 @@
     {
      "pointer": "/observed_in/rows",
      "value": 24
+    },
+    {
+     "pointer": "/subject/evidence/origin/separation_evidence_digest",
+     "value": "#user_event_worked"
     }
    ]
   },
@@ -1216,7 +1394,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "$obs:p2_session"
+     "value": "@alice_profile"
     },
     {
      "pointer": "/owner/layer",
@@ -1265,6 +1443,25 @@
     "recovery": [],
     "returns": [
      "stored_protocol"
+    ]
+   }
+  },
+  {
+   "name": "probe_the_candidate_for_user_events",
+   "request": "probe_candidate",
+   "carries": [
+    "user_event_probe"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "user_event_worked",
+     "candidate_profile",
+     "candidate_configuration"
     ]
    }
   },

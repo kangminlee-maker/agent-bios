@@ -1,6 +1,6 @@
 {
  "case": "CAP-02",
- "says": "A person binds this device's key and the checkout, registers the repository's memory source, and founds a Team of their own with a memory source of its own. The owner reads records 12 to 18 of one session transcript. A capture whose single input states that its source permits processing by a named model provider, no prompt log and results committed to this repository is run by that provider with no prompt kept and stored as a draft for the repository's memory source: every contributing input permits the processing, the log and the destination it is used for. Three captures of the same bytes are not made. One sends to the provider a span whose source permits only local processing; it has no spelling and is refused at admission, whatever was redacted or read. One keeps the provider's prompt in a log although the input permits none; the owner refuses it with input_not_permitted. One commits the span to the Team's source although its input permits only this repository as a destination; the owner refuses it with input_not_permitted and no Team receives anything. None of them writes, sends or logs anything.",
+ "says": "A person binds this device's key and the checkout, registers the repository's memory source, and founds a Team of their own (which makes them its first member and its issuing authority) with a memory source of its own. The owner reads records 12 to 18 of one session transcript whose selection states what the transcript's owner permits for that text: processing by a named model provider, no prompt log, results for this repository only. A capture whose single input restates exactly that is run by that provider with no prompt kept and stored as a draft for the repository's memory source, at the head its registration committed: every contributing input permits the processing, the log and the destination it is used for, and no input states more than its selection permits. Four captures of the same bytes are not made. One sends to the provider a span whose input permits only local processing; it has no spelling and is refused at admission, whatever was redacted or read. One keeps the provider's prompt in a log although the input permits none; the owner refuses it with input_not_permitted. One commits the span to the Team's source although its input permits only this repository as a destination; the owner refuses it with input_not_permitted and no Team receives anything. One reads the same span under a selection that states no permission at all, only that it may be read, and still claims provider processing; the owner refuses it with input_not_permitted, because read permission alone permits no capture. None of them writes, sends or logs anything.",
  "ids": [
   {
    "name": "alice",
@@ -47,10 +47,6 @@
    "prefix": "src"
   },
   {
-   "name": "team_memory_collection",
-   "prefix": "col"
-  },
-  {
    "name": "register_team_memory_home_rid",
    "prefix": "req"
   },
@@ -76,6 +72,14 @@
   },
   {
    "name": "team_destination_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "observe_read_only_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "read_only_capture_rid",
    "prefix": "req"
   }
  ],
@@ -316,7 +320,7 @@
    ]
   },
   {
-   "name": "founding_proposal",
+   "name": "team_proposal",
    "from": "c08/proposal_as_submitted.json",
    "drop": [
     "/founding_mode/nominees"
@@ -331,14 +335,6 @@
      "value": "@alice"
     },
     {
-     "pointer": "/finalizer/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/policy_digest",
-     "value": "#team_policy_submitted"
-    },
-    {
      "pointer": "/founding_mode/mode",
      "value": "self_founded"
     },
@@ -347,8 +343,16 @@
      "value": true
     },
     {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
      "pointer": "/recovery/0/principal_id",
      "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#team_policy_submitted"
     },
     {
      "pointer": "/carriers",
@@ -359,20 +363,12 @@
    ]
   },
   {
-   "name": "found_team_request",
-   "from": "c08/governed_change_request.json",
+   "name": "team_found_request",
+   "from": "c08/founding_request.json",
    "set": [
     {
      "pointer": "/request_id",
      "value": "@found_team_rid"
-    },
-    {
-     "pointer": "/operation",
-     "value": "team.found"
-    },
-    {
-     "pointer": "/action",
-     "value": "policy"
     },
     {
      "pointer": "/actor/principal_id",
@@ -395,16 +391,22 @@
      "value": "@team"
     },
     {
-     "pointer": "/target/base/expects",
-     "value": "absent"
-    },
-    {
-     "pointer": "/policy_digests",
-     "value": []
-    },
-    {
      "pointer": "/payload_digest",
-     "value": "#founding_proposal"
+     "value": "#team_proposal"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "team_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_proposal_at"
     }
    ]
   },
@@ -427,7 +429,73 @@
    ]
   },
   {
-   "name": "team_active",
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_membership_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:team_founder_grant"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "grant",
+      "policy"
+     ]
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_granted_at"
+    }
+   ]
+  },
+  {
+   "name": "team_state",
    "from": "c08/archived_team.json",
    "set": [
     {
@@ -441,6 +509,46 @@
     {
      "pointer": "/since",
      "value": "$instant:team_active_at"
+    }
+   ]
+  },
+  {
+   "name": "team_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:team_profile_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_epoch_at"
     }
    ]
   },
@@ -477,10 +585,6 @@
     {
      "pointer": "/acceptance_authority/team_id",
      "value": "@team"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@team_memory_collection"
     },
     {
      "pointer": "/home/markdown_view/path",
@@ -583,7 +687,16 @@
   },
   {
    "name": "span_selection",
-   "from": "c01/selection_of_a_transcript_span.json"
+   "from": "c01/selection_of_a_transcript_span.json",
+   "drop": [
+    "/roots/0/permits/destinations/1"
+   ],
+   "set": [
+    {
+     "pointer": "/roots/0/permits/destinations/0/repository_id",
+     "value": "@repo"
+    }
+   ]
   },
   {
    "name": "observe_span_request",
@@ -661,6 +774,9 @@
      "pointer": "/entries/0/entry_id",
      "value": "@entry"
     }
+   ],
+   "drop": [
+    "/revision_digest"
    ]
   },
   {
@@ -693,11 +809,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#provider_capture"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_memory_home_head"
     }
    ]
   },
@@ -765,11 +885,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#local_span_to_provider"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_memory_home_head"
     }
    ]
   },
@@ -813,11 +937,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#logged_prompt_capture"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_memory_home_head"
     }
    ]
   },
@@ -868,7 +996,7 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
@@ -879,6 +1007,69 @@
      "value": [
       "#team_policy"
      ]
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_team_memory_home_head"
+    }
+   ]
+  },
+  {
+   "name": "read_only_selection",
+   "from": "span_selection",
+   "drop": [
+    "/roots/0/permits"
+   ]
+  },
+  {
+   "name": "observe_read_only_request",
+   "from": "observe_span_request",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@observe_read_only_rid"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#read_only_selection"
+    }
+   ]
+  },
+  {
+   "name": "read_only_observation",
+   "from": "span_observation",
+   "set": [
+    {
+     "pointer": "/selection_digest",
+     "value": "#read_only_selection"
+    },
+    {
+     "pointer": "/observed_at",
+     "value": "$instant:observe_read_only_at"
+    }
+   ]
+  },
+  {
+   "name": "read_only_capture",
+   "from": "provider_capture",
+   "set": [
+    {
+     "pointer": "/observation_digest",
+     "value": "#read_only_observation"
+    }
+   ]
+  },
+  {
+   "name": "read_only_capture_request",
+   "from": "capture_by_a_permitted_provider_request",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@read_only_capture_rid"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#read_only_capture"
     }
    ]
   }
@@ -937,9 +1128,12 @@
   },
   {
    "name": "found_team",
-   "request": "found_team_request",
+   "request": "team_found_request",
    "carries": [
-    "founding_proposal",
+    "team_proposal",
+    "team_policy_submitted"
+   ],
+   "submits": [
     "team_policy_submitted"
    ],
    "answer": {
@@ -949,14 +1143,16 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
-     "team_active"
+     "team_founder_membership",
+     "team_founder_grant",
+     "team_state",
+     "team_profile",
+     "team_founding_epoch"
     ],
     "head": "team_head"
-   },
-   "submits": [
-    "team_policy_submitted"
-   ]
+   }
   },
   {
    "name": "register_team_memory_home",
@@ -1058,6 +1254,43 @@
      {
       "code": "input_not_permitted",
       "pointer": "/processing/inputs/0/permits/destinations"
+     }
+    ],
+    "recovery": [],
+    "returns": []
+   }
+  },
+  {
+   "name": "observe_with_read_permission_only",
+   "request": "observe_read_only_request",
+   "carries": [
+    "read_only_selection"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "read_only_observation"
+    ]
+   }
+  },
+  {
+   "name": "capture_under_read_permission_only",
+   "request": "read_only_capture_request",
+   "carries": [
+    "read_only_capture"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "none",
+    "gaps": [
+     {
+      "code": "input_not_permitted",
+      "pointer": "/processing/inputs/0/permits"
      }
     ],
     "recovery": [],

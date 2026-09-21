@@ -1,6 +1,6 @@
 {
  "case": "N02-C01-NEG",
- "says": "Alice binds her laptop key, and Bob, sharing the machine under his own profile, binds his. Then things that are not principal ids are offered where one is required, and each is refused at admission with nothing written: a typed name in a binding's principal_id, a binding carrying an e-mail address, the laptop's device id and a task id in place of a principal id, and a request whose actor names a person by name. Alice offers a second key for her desktop with no proof of control: binding_unverified, nothing bound. She offers Bob's public key, signed by her own enrolled key: binding_conflict, the key stays Bob's and nothing is merged. With proof of control her desktop key is bound to her principal. She founds a Team whose policy governs grants and requires one independent review, and from her laptop asks to grant Bob read and use; the change waits in review. Approving it from her desktop, under her second key, is refused with approver_not_independent: a second key of one principal is not a second person. What must not happen: any of these binding anything, merging a credential into another principal, or the desktop approval counting toward the review threshold.",
+ "says": "Alice binds her laptop key, and Bob, sharing the machine under his own profile, binds his. Then things that are not principal ids are offered where one is required, and each is refused at admission with nothing written: a typed name in a binding's principal_id, a binding carrying an e-mail address, the laptop's device id and a task id in place of a principal id, and a request whose actor names a person by name. Alice offers a second key for her desktop with no proof of control: binding_unverified, nothing bound. She offers Bob's public key, signed by her own enrolled key: binding_conflict, the key stays Bob's and nothing is merged. With proof of control her desktop key is bound to her principal. She founds a Team whose policy governs grants and requires one independent review, and from her laptop asks to grant Bob read and use, against the Team's current head; the change is stored as a candidate and waits in review. Approving it from her desktop, under her second key, is refused with approver_not_independent: a second key of one principal is not a second person. What must not happen: any of these binding anything, merging a credential into another principal, or the desktop approval counting toward the review threshold.",
  "ids": [
   {
    "name": "alice",
@@ -29,10 +29,6 @@
   {
    "name": "alice_desktop_profile",
    "prefix": "prf"
-  },
-  {
-   "name": "bob_grant",
-   "prefix": "gra"
   },
   {
    "name": "bind_alice_request_id",
@@ -893,6 +889,68 @@
    ]
   },
   {
+   "name": "team_sealed_proposal",
+   "from": "team_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_proposal_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_membership_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_epoch_at"
+    }
+   ]
+  },
+  {
    "name": "team_policy",
    "from": "team_policy_draft",
    "set": [
@@ -1121,7 +1179,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@bob_grant"
+     "value": "@team"
     },
     {
      "pointer": "/payload_digest",
@@ -1132,6 +1190,14 @@
      "value": [
       "#team_policy"
      ]
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head"
     }
    ]
   },
@@ -1393,10 +1459,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
+     "team_founder_membership",
      "team_founder_grant",
      "team_state",
-     "team_profile"
+     "team_profile",
+     "team_founding_epoch"
     ],
     "head": "team_head"
    },
@@ -1412,14 +1481,16 @@
    ],
    "answer": {
     "stage": "in_review",
-    "local_effect": "none",
-    "provider_effect": "none",
+    "local_effect": "candidate_stored",
+    "provider_effect": "not_applicable",
     "gaps": [
      {
       "code": "approval_threshold_unmet"
      }
     ],
-    "recovery": [],
+    "recovery": [
+     "retry_same_request"
+    ],
     "returns": []
    }
   },

@@ -1,6 +1,6 @@
 {
  "case": "N16-DASHBOARD-POS",
- "says": "alice binds her laptop key and founds the Team Platform. In the Team's scope she publishes two decisions: the owner cannot learn whether the first reached the peer (unknown, outcome_unknown) and the second committed locally and only partly beyond (partial). She renames the Team, then submits a second rename sealed on the old head, which comes back stale. operation.history.read over the Team scope returns those four requests with the stage each was last confirmed at, local_only coverage and the recovery each supports. The dashboard, driven from the Studio hub, shows one signal each for the unknown, partial and stale requests (the committed rename raises none), states that the Team was checked by this installation's owner only, and shows the personal scope as not checked rather than as zero. Enter on the unknown signal opens that same publish request in W08 in the Team's scope, with the recoveries its history entry names; the only owner call is operation.query of that request id, which returns the same unknown result. No frame dispatches a request, so following a signal starts nothing new and retries nothing.",
+ "says": "alice binds her laptop key and founds the Team Platform. In the Team's scope she registers two decisions sources and publishes one decision into each: the owner cannot learn whether the first reached the peer (unknown, outcome_unknown) and the second committed locally and only partly beyond (partial). She renames the Team, then submits a second rename sealed on the old head, which comes back stale. operation.history.read over the Team scope returns every request made there — the founding, the two registrations, the two publications and the two renames — with the stage each was last confirmed at, local_only coverage and the recovery each supports. The dashboard, driven from the Studio hub, shows one signal each for the unknown, partial and stale requests (the committed founding, registrations and rename raise none), states that the Team was checked by this installation's owner only, and shows the personal scope as not checked rather than as zero. Enter on the unknown signal opens that same publish request in W08 in the Team's scope, with the recoveries its history entry names; the only owner call is operation.query of that request id, which returns the same unknown result. No frame dispatches a request, so following a signal starts nothing new and retries nothing.",
  "ids": [
   {
    "name": "alice",
@@ -60,6 +60,14 @@
   },
   {
    "name": "query_request",
+   "prefix": "req"
+  },
+  {
+   "name": "register_a_request",
+   "prefix": "req"
+  },
+  {
+   "name": "register_b_request",
    "prefix": "req"
   }
  ],
@@ -193,6 +201,20 @@
    ]
   },
   {
+   "name": "team_sealed_proposal",
+   "from": "founding",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_founding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
    "name": "found",
    "from": "c03/history_request.json",
    "drop": [
@@ -251,15 +273,11 @@
   },
   {
    "name": "team_active",
-   "from": "c08/team_closed_for_good.json",
+   "from": "c08/active_team.json",
    "set": [
     {
      "pointer": "/since",
      "value": "$instant:founded_at"
-    },
-    {
-     "pointer": "/state",
-     "value": "active"
     },
     {
      "pointer": "/team_id",
@@ -348,6 +366,284 @@
     {
      "pointer": "/team_id",
      "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:founded_head"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "decisions_a_home",
+   "from": "sources/home_of_a_managed_collection.json",
+   "drop": [
+    "/registered_at",
+    "/scope/principal_id",
+    "/acceptance_authority/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@decisions_a"
+    },
+    {
+     "pointer": "/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    },
+    {
+     "pointer": "/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/acceptance_authority/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/acceptance_authority/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "register_decisions_a",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/target/base/head_digest",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_a_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@decisions_a"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#decisions_a_home"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "decisions_a_home_stored",
+   "from": "decisions_a_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:decisions_a_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "decisions_b_home",
+   "from": "sources/home_of_a_managed_collection.json",
+   "drop": [
+    "/registered_at",
+    "/scope/principal_id",
+    "/acceptance_authority/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@decisions_b"
+    },
+    {
+     "pointer": "/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    },
+    {
+     "pointer": "/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/acceptance_authority/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/acceptance_authority/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "register_decisions_b",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/target/base/head_digest",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_b_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@decisions_b"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#decisions_b_home"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "decisions_b_home_stored",
+   "from": "decisions_b_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:decisions_b_registered_at"
     }
    ]
   },
@@ -441,11 +737,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#journal_choice"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:decisions_a_registered"
     }
    ]
   },
@@ -543,11 +843,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#retry_choice"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:decisions_b_registered"
     }
    ]
   },
@@ -794,30 +1098,39 @@
     },
     {
      "pointer": "/entries/0/confirmed_at",
-     "value": "$instant:publish_a_request_confirmed_at"
+     "value": "$instant:found_team_committed_at"
+    },
+    {
+     "pointer": "/entries/0/confirmed_stage",
+     "value": "committed"
+    },
+    {
+     "pointer": "/entries/0/coverage",
+     "value": "local_only"
+    },
+    {
+     "pointer": "/entries/0/operation",
+     "value": "team.found"
     },
     {
      "pointer": "/entries/0/recovery",
-     "value": [
-      "query_same_request",
-      "retry_same_request"
-     ]
+     "value": []
     },
     {
      "pointer": "/entries/0/request_digest",
-     "value": "#publish_a"
+     "value": "#found"
     },
     {
      "pointer": "/entries/0/request_id",
-     "value": "@publish_a_request"
+     "value": "@found_request"
     },
     {
      "pointer": "/entries/1/confirmed_at",
-     "value": "$instant:publish_b_request_confirmed_at"
+     "value": "$instant:register_journal_decisions_committed_at"
     },
     {
      "pointer": "/entries/1/confirmed_stage",
-     "value": "partial"
+     "value": "committed"
     },
     {
      "pointer": "/entries/1/coverage",
@@ -825,25 +1138,23 @@
     },
     {
      "pointer": "/entries/1/operation",
-     "value": "memory.record.publish"
+     "value": "source.home.register"
     },
     {
      "pointer": "/entries/1/recovery",
-     "value": [
-      "query_same_request"
-     ]
+     "value": []
     },
     {
      "pointer": "/entries/1/request_digest",
-     "value": "#publish_b"
+     "value": "#register_decisions_a"
     },
     {
      "pointer": "/entries/1/request_id",
-     "value": "@publish_b_request"
+     "value": "@register_a_request"
     },
     {
      "pointer": "/entries/2/confirmed_at",
-     "value": "$instant:rename_a_request_confirmed_at"
+     "value": "$instant:register_retry_decisions_committed_at"
     },
     {
      "pointer": "/entries/2/confirmed_stage",
@@ -855,7 +1166,7 @@
     },
     {
      "pointer": "/entries/2/operation",
-     "value": "team.profile.set"
+     "value": "source.home.register"
     },
     {
      "pointer": "/entries/2/recovery",
@@ -863,40 +1174,117 @@
     },
     {
      "pointer": "/entries/2/request_digest",
-     "value": "#rename_a"
+     "value": "#register_decisions_b"
     },
     {
      "pointer": "/entries/2/request_id",
-     "value": "@rename_a_request"
+     "value": "@register_b_request"
     },
     {
      "pointer": "/entries/3/confirmed_at",
-     "value": "$instant:rename_b_request_confirmed_at"
-    },
-    {
-     "pointer": "/entries/3/confirmed_stage",
-     "value": "stale"
-    },
-    {
-     "pointer": "/entries/3/coverage",
-     "value": "local_only"
-    },
-    {
-     "pointer": "/entries/3/operation",
-     "value": "team.profile.set"
+     "value": "$instant:publish_a_request_confirmed_at"
     },
     {
      "pointer": "/entries/3/recovery",
+     "value": [
+      "query_same_request",
+      "retry_same_request"
+     ]
+    },
+    {
+     "pointer": "/entries/3/request_digest",
+     "value": "#publish_a"
+    },
+    {
+     "pointer": "/entries/3/request_id",
+     "value": "@publish_a_request"
+    },
+    {
+     "pointer": "/entries/4/confirmed_at",
+     "value": "$instant:publish_b_request_confirmed_at"
+    },
+    {
+     "pointer": "/entries/4/confirmed_stage",
+     "value": "partial"
+    },
+    {
+     "pointer": "/entries/4/coverage",
+     "value": "local_only"
+    },
+    {
+     "pointer": "/entries/4/operation",
+     "value": "memory.record.publish"
+    },
+    {
+     "pointer": "/entries/4/recovery",
+     "value": [
+      "query_same_request"
+     ]
+    },
+    {
+     "pointer": "/entries/4/request_digest",
+     "value": "#publish_b"
+    },
+    {
+     "pointer": "/entries/4/request_id",
+     "value": "@publish_b_request"
+    },
+    {
+     "pointer": "/entries/5/confirmed_at",
+     "value": "$instant:rename_team_committed_at"
+    },
+    {
+     "pointer": "/entries/5/confirmed_stage",
+     "value": "committed"
+    },
+    {
+     "pointer": "/entries/5/coverage",
+     "value": "local_only"
+    },
+    {
+     "pointer": "/entries/5/operation",
+     "value": "team.profile.set"
+    },
+    {
+     "pointer": "/entries/5/recovery",
+     "value": []
+    },
+    {
+     "pointer": "/entries/5/request_digest",
+     "value": "#rename_a"
+    },
+    {
+     "pointer": "/entries/5/request_id",
+     "value": "@rename_a_request"
+    },
+    {
+     "pointer": "/entries/6/confirmed_at",
+     "value": "$instant:rename_b_request_confirmed_at"
+    },
+    {
+     "pointer": "/entries/6/confirmed_stage",
+     "value": "stale"
+    },
+    {
+     "pointer": "/entries/6/coverage",
+     "value": "local_only"
+    },
+    {
+     "pointer": "/entries/6/operation",
+     "value": "team.profile.set"
+    },
+    {
+     "pointer": "/entries/6/recovery",
      "value": [
       "reseal_on_current_head"
      ]
     },
     {
-     "pointer": "/entries/3/request_digest",
+     "pointer": "/entries/6/request_digest",
      "value": "#rename_b"
     },
     {
-     "pointer": "/entries/3/request_id",
+     "pointer": "/entries/6/request_id",
      "value": "@rename_b_request"
     },
     {
@@ -910,6 +1298,18 @@
     {
      "pointer": "/scope/team_id",
      "value": "@team"
+    },
+    {
+     "pointer": "/entries/3/operation",
+     "value": "memory.record.publish"
+    },
+    {
+     "pointer": "/entries/3/confirmed_stage",
+     "value": "unknown"
+    },
+    {
+     "pointer": "/entries/3/coverage",
+     "value": "local_only"
     }
    ]
   },
@@ -1474,16 +1874,55 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
+     "team_policy",
+     "team_founder_membership",
+     "founder_grant",
      "team_active",
      "team_named",
-     "team_policy",
-     "founder_grant"
+     "team_founding_epoch"
     ],
     "head": "founded_head"
    },
    "submits": [
     "proposed_policy"
    ]
+  },
+  {
+   "name": "register_journal_decisions",
+   "request": "register_decisions_a",
+   "carries": [
+    "decisions_a_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "decisions_a_home_stored"
+    ],
+    "head": "decisions_a_registered"
+   }
+  },
+  {
+   "name": "register_retry_decisions",
+   "request": "register_decisions_b",
+   "carries": [
+    "decisions_b_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "decisions_b_home_stored"
+    ],
+    "head": "decisions_b_registered"
+   }
   },
   {
    "name": "publish_journal_choice",

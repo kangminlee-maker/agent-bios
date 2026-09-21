@@ -1,0 +1,71 @@
+{
+  "rule": "C02/admitted_only_under_a_current_handle",
+  "holds": [
+    {
+      "what": "a request under the CLI handle admitted at the generation it was issued under",
+      "record": "workenv/contracts/examples/c02/allowed.json",
+      "context": {
+        "handle": "workenv/contracts/examples/c02/handle_issued_through_the_cli.json"
+      }
+    },
+    {
+      "what": "the same handle after a lock, refused as moved",
+      "record": "workenv/contracts/examples/c02/old_cli_handle_after_a_lock.json",
+      "context": {
+        "handle": "workenv/contracts/examples/c02/handle_issued_through_the_cli.json"
+      }
+    },
+    {
+      "what": "a child reader's old handle after a lock, refused as moved",
+      "record": "workenv/contracts/examples/c02/old_cli_handle_after_a_lock.json",
+      "context": {
+        "handle": "workenv/contracts/examples/c02/child_handle_issued_under_the_cli_handle.json"
+      }
+    }
+  ],
+  "breaks": [
+    {
+      "what": "an old CLI handle admitted after a lock",
+      "record": {
+        "access_generation": 8,
+        "kind": "access_admission",
+        "outcome": {
+          "admission": "allowed"
+        },
+        "profile_id": "prf_4913b3ed7ccad0513efe87ff54c71930",
+        "request_id": "req_6d2530bc61bb96b07d95b96dc69b097c",
+        "schema": 1
+      },
+      "context": {
+        "handle": "workenv/contracts/examples/c02/handle_issued_through_the_cli.json"
+      },
+      "at": [
+        "/outcome"
+      ]
+    },
+    {
+      "what": "an old child handle refused only as locked",
+      "record": {
+        "access_generation": 8,
+        "kind": "access_admission",
+        "outcome": {
+          "admission": "not_admitted",
+          "material_gaps": [
+            {
+              "code": "access_locked"
+            }
+          ]
+        },
+        "profile_id": "prf_4913b3ed7ccad0513efe87ff54c71930",
+        "request_id": "req_6d2530bc61bb96b07d95b96dc69b097c",
+        "schema": 1
+      },
+      "context": {
+        "handle": "workenv/contracts/examples/c02/child_handle_issued_under_the_cli_handle.json"
+      },
+      "at": [
+        "/outcome"
+      ]
+    }
+  ]
+}

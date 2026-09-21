@@ -1,6 +1,6 @@
 {
  "case": "N14-C10-NEG",
- "says": "Alice's Team is founded on her laptop, which is also its finalizer; her enrolled desktop takes a backup of its own store, then imports and keeps a complete package and acknowledges custody of it at storage generation 1. While the two cannot reach each other, the desktop's commit to the Team's source is blocked with finalizer_unavailable and is not finalized on the desktop; retried by the same request once the laptop is reachable, the laptop finalizes it once. The desktop's storage is then reset: its acknowledgment at generation 2 states storage_generation_reset. A second complete package whose body never arrived stops at received with body_missing. A package presenting two successors of the founding epoch stops at received with fork_evidence. A package whose successor continuity carries the key it copied is refused at admission. Restoring the desktop's old backup reports passive authority and names nothing after the backup as known. What must not happen: a shared commit finalized anywhere but the finalizer, the reset holder counted as still keeping its promise, an incomplete package or two successors producing a complete copy or authority, a copied key accepted as continuity, or the rolled-back disk becoming active authority.",
+ "says": "Alice's Team is founded on her laptop, which is also its finalizer, and the founding returns the Team's founding continuity epoch; her enrolled desktop takes a backup of its own store, then imports and keeps a complete package — staged by the laptop as a draft with no receipt, carrying the founding epoch as a member — and acknowledges custody of it at storage generation 1. While the two cannot reach each other, the desktop's commit to the Team's source is blocked with finalizer_unavailable and is not finalized on the desktop; retried by the same request once the laptop is reachable, the laptop finalizes it once. The desktop's storage is then reset: its acknowledgment at generation 2 states storage_generation_reset. A second complete package whose body never arrived stops at received with body_missing. A package whose continuity runs from the founding epoch to two successors of it, both carried as members, stops at received with fork_evidence. A package whose successor epoch carries the key it copied is refused at admission. Restoring the desktop's old backup reports passive authority and names nothing after the backup as known. What must not happen: a shared commit finalized anywhere but the finalizer, the reset holder counted as still keeping its promise, an incomplete package or two successors producing a complete copy or authority, a copied key accepted as continuity, or the rolled-back disk becoming active authority.",
  "ids": [
   {
    "name": "desktop_peer",
@@ -37,10 +37,6 @@
   {
    "name": "knowledge_source",
    "prefix": "src"
-  },
-  {
-   "name": "knowledge_collection",
-   "prefix": "col"
   },
   {
    "name": "home_request",
@@ -332,7 +328,7 @@
     },
     {
      "pointer": "/committed_at",
-     "value": "$instant:policy_committed_at"
+     "value": "$instant:team_founded_at"
     }
    ]
   },
@@ -350,7 +346,7 @@
     },
     {
      "pointer": "/since",
-     "value": "$instant:team_active_since"
+     "value": "$instant:team_founded_at"
     }
    ]
   },
@@ -384,10 +380,6 @@
      "value": "@team"
     },
     {
-     "pointer": "/home/collection_id",
-     "value": "@knowledge_collection"
-    },
-    {
      "pointer": "/role",
      "value": "knowledge"
     },
@@ -419,7 +411,7 @@
     },
     {
      "pointer": "/action",
-     "value": "publish"
+     "value": "contribute"
     },
     {
      "pointer": "/effect_class",
@@ -529,11 +521,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#first_revision"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:home_head"
     }
    ]
   },
@@ -654,6 +650,120 @@
     {
      "pointer": "/finalizer/device_id",
      "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "founding",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:team_founder_grant"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "publish",
+      "adopt",
+      "grant",
+      "policy",
+      "transfer",
+      "retain_delete"
+     ]
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 2
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/purpose",
+     "value": "The standards this group works to."
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:team_founded_at"
     }
    ]
   },
@@ -774,6 +884,22 @@
     {
      "pointer": "/inventory/0/object_kind",
      "value": "source_manifest"
+    },
+    {
+     "pointer": "/inventory/1/path",
+     "value": "continuity/0001.json"
+    },
+    {
+     "pointer": "/inventory/1/digest",
+     "value": "#founding_epoch"
+    },
+    {
+     "pointer": "/inventory/1/size",
+     "value": 512
+    },
+    {
+     "pointer": "/inventory/1/object_kind",
+     "value": "authority_continuity"
     }
    ]
   },
@@ -799,7 +925,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -985,7 +1111,7 @@
     },
     {
      "pointer": "/receipt_digest",
-     "value": "$digest:accept_full_package_receipt"
+     "value": "#accept_full_package_receipt"
     },
     {
      "pointer": "/at",
@@ -1566,7 +1692,9 @@
     {
      "pointer": "/continuity_evidence_digests",
      "value": [
-      "#founding_epoch"
+      "#founding_epoch",
+      "#successor_a",
+      "#successor_b"
      ]
     },
     {
@@ -1590,11 +1718,36 @@
      "value": "source_manifest"
     },
     {
-     "pointer": "/continuity_evidence_digests",
-     "value": [
-      "#successor_a",
-      "#successor_b"
-     ]
+     "pointer": "/inventory/1/path",
+     "value": "continuity/0002.json"
+    },
+    {
+     "pointer": "/inventory/1/digest",
+     "value": "#successor_a"
+    },
+    {
+     "pointer": "/inventory/1/size",
+     "value": 512
+    },
+    {
+     "pointer": "/inventory/1/object_kind",
+     "value": "authority_continuity"
+    },
+    {
+     "pointer": "/inventory/2/path",
+     "value": "continuity/0002_b.json"
+    },
+    {
+     "pointer": "/inventory/2/digest",
+     "value": "#successor_b"
+    },
+    {
+     "pointer": "/inventory/2/size",
+     "value": 512
+    },
+    {
+     "pointer": "/inventory/2/object_kind",
+     "value": "authority_continuity"
     }
    ]
   },
@@ -1722,7 +1875,8 @@
     {
      "pointer": "/continuity_evidence_digests",
      "value": [
-      "#founding_epoch"
+      "#founding_epoch",
+      "#copied_successor"
      ]
     },
     {
@@ -1746,10 +1900,20 @@
      "value": "source_manifest"
     },
     {
-     "pointer": "/continuity_evidence_digests",
-     "value": [
-      "#copied_successor"
-     ]
+     "pointer": "/inventory/1/path",
+     "value": "continuity/0002.json"
+    },
+    {
+     "pointer": "/inventory/1/digest",
+     "value": "#copied_successor"
+    },
+    {
+     "pointer": "/inventory/1/size",
+     "value": 512
+    },
+    {
+     "pointer": "/inventory/1/object_kind",
+     "value": "authority_continuity"
     }
    ]
   },
@@ -1925,8 +2089,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
-     "team_active"
+     "team_founder_membership",
+     "team_founder_grant",
+     "team_active",
+     "team_profile",
+     "founding_epoch"
     ],
     "head": "team_head"
    },
@@ -1949,7 +2118,8 @@
     "recovery": [],
     "returns": [
      "stored_home"
-    ]
+    ],
+    "head": "home_head"
    },
    "process": "laptop"
   },
@@ -2014,8 +2184,8 @@
     "full_envelope"
    ],
    "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
+    "stage": "draft",
+    "local_effect": "objects_staged",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2155,8 +2325,7 @@
    "name": "accept_package_missing_its_body",
    "request": "accept_missing",
    "carries": [
-    "second_full_envelope",
-    "founding_epoch"
+    "second_full_envelope"
    ],
    "answer": {
     "stage": "refused",

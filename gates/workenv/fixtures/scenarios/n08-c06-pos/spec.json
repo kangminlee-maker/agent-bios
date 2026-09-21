@@ -1,6 +1,6 @@
 {
  "case": "N08-C06-POS",
- "says": "A repository knowledge source holding a rate table and the prose that explains it is registered and committed. A reader asks a concern with that source required and a budget of one unit. The first page returns the table as the required unit before any optional support, states what it examined and returned, names the source's frontier (the head the commit moved to), omits the prose with the reason, is not ended and carries a continuation: a cursor and the frontier it was taken at. The reader then sends the same concern with that continuation. The second page resumes from exactly that frontier and returns the prose as optional support, ends, and names the same frontier; nothing already returned is repeated and no newer head is followed.",
+ "says": "The reader binds their device key and their checkout of the repository; a repository knowledge source named by that checkout binding is registered, and its first revision, holding a rate table and the prose that explains it, is committed at the head the registration moved to. A reader asks a concern with that source required and a budget of one unit. The first page returns the table as the required unit before any optional support, states what it examined and returned, names the source's frontier (the head the commit moved to), omits the prose with the reason, is not ended and carries a continuation: a cursor and the frontier it was taken at. The reader then sends the same concern with that continuation. The second page resumes from exactly that frontier and returns the prose as optional support, ends, and names the same frontier; nothing already returned is repeated and no newer head is followed.",
  "ids": [
   {
    "name": "rates",
@@ -37,9 +37,140 @@
   {
    "name": "read_second_page_request_id",
    "prefix": "req"
+  },
+  {
+   "name": "bind_my_key_id",
+   "prefix": "req"
+  },
+  {
+   "name": "bind_my_checkout_id",
+   "prefix": "req"
   }
  ],
  "records": [
+  {
+   "name": "my_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "my_key_stored",
+   "from": "my_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:my_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:my_key_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "bind_my_key",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_my_key_id"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#my_key"
+    }
+   ]
+  },
+  {
+   "name": "my_checkout",
+   "from": "c01/repository_binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "my_checkout_bound",
+   "from": "c01/clone_shares_the_repository_id.json",
+   "drop": [
+    "/observed/working_bytes_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "bind_my_checkout",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_my_checkout_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "repository.bind"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#my_checkout"
+    }
+   ]
+  },
   {
    "name": "rates_home",
    "from": "sources/home_submitted.json",
@@ -82,7 +213,7 @@
     },
     {
      "pointer": "/home/binding_evidence_digest",
-     "value": "47a017af61158bae8401475d7156faf45fe1f355b9b2c2f9fc8ebc54de98a9e4"
+     "value": "#my_checkout_bound"
     },
     {
      "pointer": "/acceptance_authority/layer",
@@ -216,9 +347,6 @@
   {
    "name": "commit_rates_rev1",
    "from": "c04/model_check_request.json",
-   "drop": [
-    "/target/base/head_digest"
-   ],
    "set": [
     {
      "pointer": "/request_id",
@@ -254,7 +382,7 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
@@ -263,6 +391,10 @@
     {
      "pointer": "/owner/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:rates_registered"
     }
    ]
   },
@@ -631,6 +763,40 @@
  ],
  "steps": [
   {
+   "name": "bind_my_key",
+   "request": "bind_my_key",
+   "carries": [
+    "my_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "my_key_stored"
+    ]
+   }
+  },
+  {
+   "name": "bind_my_checkout",
+   "request": "bind_my_checkout",
+   "carries": [
+    "my_checkout"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "my_checkout_bound"
+    ]
+   }
+  },
+  {
    "name": "register_rates_home",
    "request": "register_rates",
    "carries": [
@@ -644,7 +810,8 @@
     "recovery": [],
     "returns": [
      "rates_home_stored"
-    ]
+    ],
+    "head": "rates_registered"
    }
   },
   {

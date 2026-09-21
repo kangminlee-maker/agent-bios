@@ -1,6 +1,6 @@
 {
  "case": "DEL-TEAM",
- "says": "Alice founds a Team alone; she invites Bob, Bob consents with the device key he bound, Alice admits him as an active member and grants him read and use in the Team, each against the Team head the previous change moved to. Alice authors the Team's Instructions source and selects its exact revision in the Team's Instructions position. Bob opens a link to his Team conversation and composes a preparation of the Team position bound to that link. Before delivering, the owner assesses Bob's delivery request: he may act, on a current Team grant for use. The attempt delivers the exact Team body to the current recipient, and observing the preparation names the Team unit, source, revision and body that arrived for his conversation. None of the following may certify a delivery: the same bodies sent on a personal conversation of his that the preparation does not name are refused as recipient_mismatch; a child session this route cannot reach is recorded as child_route_unsupported, and observing the preparation then names the host session's delivery beside a child session that was not observed (delivery_unobserved), because the parent's receipt proves nothing of the child; and a rehydrated resume the route cannot carry is refused as route_unsupported. Alice then revokes Bob's grant; the owner's assessment of his next delivery request says he may not act (grant_not_held, the grant seen as revoked), and that delivery is refused as grant_not_held and delivers nothing.",
+ "says": "Alice founds a Team alone: the founding returns her membership by founding and the Team's first authority epoch. She invites Bob, verifies in person that the device key he bound is the one the invitation is for, Bob consents naming that verification, and Alice admits him as an active member and grants him read and use in the Team, each against the Team head the previous change moved to. Alice authors the Team's Instructions source and selects its exact revision in the Team's Instructions position. Bob opens a link to his Team conversation naming the grant he receives the Team's material under, and composes a preparation for delivery of the Team position on that link. Before delivering, the owner assesses Bob's delivery request: he may act, on a current Team grant for use. The attempt delivers the exact Team body to the current recipient, and observing the preparation names the Team unit, source, revision and body that arrived for his conversation. None of the following may certify a delivery: the same bodies sent on a personal conversation of his that the preparation does not name are refused as recipient_mismatch; a child session this route cannot reach is recorded as child_route_unsupported, and observing the preparation then names the host session's delivery beside a child session that was not observed (delivery_unobserved), because the parent's receipt proves nothing of the child; and a rehydrated resume the route cannot carry is refused as route_unsupported. Alice then revokes Bob's grant by committing its next revision on the Team head; the owner's assessment of his next delivery request says he may not act (grant_not_held, the grant seen as revoked), and that delivery is refused as grant_not_held and delivers nothing.",
  "ids": [
   {
    "name": "alice",
@@ -44,6 +44,10 @@
   },
   {
    "name": "invite_id",
+   "prefix": "req"
+  },
+  {
+   "name": "verify_bob_id",
    "prefix": "req"
   },
   {
@@ -390,6 +394,20 @@
    ]
   },
   {
+   "name": "team_sealed_proposal",
+   "from": "team_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_founding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
    "name": "found",
    "from": "c03/commit_request.json",
    "drop": [
@@ -523,15 +541,11 @@
   },
   {
    "name": "team_state",
-   "from": "c08/archived_team.json",
+   "from": "c08/active_team.json",
    "set": [
     {
      "pointer": "/since",
      "value": "$instant:team_founded_at"
-    },
-    {
-     "pointer": "/state",
-     "value": "active"
     },
     {
      "pointer": "/team_id",
@@ -553,6 +567,54 @@
     },
     {
      "pointer": "/updated_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_head_0"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
      "value": "$instant:team_founded_at"
     }
    ]
@@ -667,6 +729,107 @@
    ]
   },
   {
+   "name": "bob_verification_submitted",
+   "from": "c08/verification_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/invitation_digest",
+     "value": "#stored_invitation"
+    },
+    {
+     "pointer": "/binding_digest",
+     "value": "#bob_binding"
+    },
+    {
+     "pointer": "/procedure",
+     "value": "in_person"
+    }
+   ]
+  },
+  {
+   "name": "verify_bob",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@verify_bob_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.verification.record"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_1"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#bob_verification_submitted"
+    }
+   ]
+  },
+  {
+   "name": "bob_verification",
+   "from": "bob_verification_submitted",
+   "set": [
+    {
+     "pointer": "/verifier_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/verified_at",
+     "value": "$instant:verified_at"
+    }
+   ]
+  },
+  {
    "name": "consent",
    "from": "c08/consent_as_submitted.json",
    "set": [
@@ -677,6 +840,10 @@
     {
      "pointer": "/invitation_digest",
      "value": "#stored_invitation"
+    },
+    {
+     "pointer": "/verification_digest",
+     "value": "#bob_verification"
     }
    ]
   },
@@ -735,7 +902,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:team_head_1"
+     "value": "$digest:team_head_2"
     },
     {
      "pointer": "/payload_digest",
@@ -844,7 +1011,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:team_head_2"
+     "value": "$digest:team_head_3"
     },
     {
      "pointer": "/payload_digest",
@@ -952,7 +1119,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:team_head_3"
+     "value": "$digest:team_head_4"
     },
     {
      "pointer": "/payload_digest",
@@ -1238,7 +1405,6 @@
    "name": "bob_link_submitted",
    "from": "c11/link_as_submitted.json",
    "drop": [
-    "/rights_digest",
     "/work_scope/repository_id"
    ],
    "set": [
@@ -1273,6 +1439,10 @@
     {
      "pointer": "/isolation",
      "value": "proven_fresh"
+    },
+    {
+     "pointer": "/rights_digest",
+     "value": "#stored_bob_grant"
     }
    ]
   },
@@ -1364,6 +1534,10 @@
     {
      "pointer": "/basis/scopes/0/team_id",
      "value": "@team"
+    },
+    {
+     "pointer": "/declared_operation/name",
+     "value": "recipient.delivery.attempt"
     }
    ]
   },
@@ -1390,7 +1564,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1468,7 +1642,7 @@
     },
     {
      "pointer": "/collections/0/head_digest",
-     "value": "$digest:team_collection_head"
+     "value": "#team_selection"
     },
     {
      "pointer": "/collections/0/state",
@@ -1628,11 +1802,11 @@
     },
     {
      "pointer": "/action",
-     "value": "use"
+     "value": "read"
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "pure_preview"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1817,7 +1991,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -2197,7 +2371,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -2368,6 +2542,10 @@
     {
      "pointer": "/standing",
      "value": "revoked"
+    },
+    {
+     "pointer": "/revises_digest",
+     "value": "#stored_bob_grant"
     }
    ]
   },
@@ -2377,7 +2555,6 @@
    "drop": [
     "/rationale",
     "/work_scope",
-    "/target/base",
     "/recipient_digest"
    ],
    "set": [
@@ -2419,7 +2596,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "$gra:bob_grant"
+     "value": "@team"
     },
     {
      "pointer": "/owner/team_id",
@@ -2434,6 +2611,10 @@
      "value": [
       "#team_policy"
      ]
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_5"
     }
    ]
   },
@@ -2567,11 +2748,11 @@
     },
     {
      "pointer": "/action",
-     "value": "use"
+     "value": "read"
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "pure_preview"
     },
     {
      "pointer": "/actor/principal_id",
@@ -2707,10 +2888,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
+     "team_founder_membership",
      "alice_founding_grant",
      "team_state",
-     "team_profile"
+     "team_profile",
+     "team_founding_epoch"
     ],
     "head": "team_head_0"
    },
@@ -2737,6 +2921,24 @@
    }
   },
   {
+   "name": "verify_bobs_key",
+   "request": "verify_bob",
+   "carries": [
+    "bob_verification_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "bob_verification"
+    ],
+    "head": "team_head_2"
+   }
+  },
+  {
    "name": "bob_consents",
    "request": "consent_request",
    "carries": [
@@ -2751,7 +2953,7 @@
     "returns": [
      "stored_consent"
     ],
-    "head": "team_head_2"
+    "head": "team_head_3"
    }
   },
   {
@@ -2769,7 +2971,7 @@
     "returns": [
      "stored_membership"
     ],
-    "head": "team_head_3"
+    "head": "team_head_4"
    }
   },
   {
@@ -2787,7 +2989,7 @@
     "returns": [
      "stored_bob_grant"
     ],
-    "head": "team_head_4"
+    "head": "team_head_5"
    }
   },
   {
@@ -2823,7 +3025,7 @@
     "returns": [
      "team_selection"
     ],
-    "head": "team_collection_head"
+    "head": "team_selection"
    }
   },
   {
@@ -2834,7 +3036,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2850,7 +3052,7 @@
     "team_preparation_request"
    ],
    "answer": {
-    "stage": "committed",
+    "stage": "previewed",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
@@ -2885,7 +3087,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2899,7 +3101,7 @@
    "request": "observe_first",
    "carries": [],
    "answer": {
-    "stage": "committed",
+    "stage": "previewed",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
@@ -2917,7 +3119,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2971,7 +3173,7 @@
    "request": "observe_children",
    "carries": [],
    "answer": {
-    "stage": "committed",
+    "stage": "previewed",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
@@ -3017,7 +3219,8 @@
     "recovery": [],
     "returns": [
      "stored_bob_grant_revoked"
-    ]
+    ],
+    "head": "team_head_6"
    }
   },
   {

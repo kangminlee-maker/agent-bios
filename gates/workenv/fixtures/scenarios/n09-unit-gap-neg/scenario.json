@@ -85,16 +85,6 @@
    "record": "bind_alice_request"
   },
   {
-   "minted": "alice_binding_id",
-   "pointer": "/binding_id",
-   "record": "alice_binding"
-  },
-  {
-   "minted": "alice_bound_at",
-   "pointer": "/created_at",
-   "record": "alice_binding"
-  },
-  {
    "digest_of": "bind_alice_request",
    "pointer": "/request_digest",
    "record": "bind_alice_receipt"
@@ -113,6 +103,16 @@
    "minted": "bind_alice_committed_at",
    "pointer": "/committed_at",
    "record": "bind_alice_receipt"
+  },
+  {
+   "minted": "alice_binding_id",
+   "pointer": "/binding_id",
+   "record": "alice_binding"
+  },
+  {
+   "minted": "alice_bound_at",
+   "pointer": "/created_at",
+   "record": "alice_binding"
   },
   {
    "digest_of": "bind_alice_receipt",
@@ -135,11 +135,6 @@
    "record": "bind_repository_request"
   },
   {
-   "minted": "repo_bound_bytes",
-   "pointer": "/observed/working_bytes_digest",
-   "record": "repo_binding"
-  },
-  {
    "digest_of": "bind_repository_request",
    "pointer": "/request_digest",
    "record": "bind_repository_receipt"
@@ -158,6 +153,11 @@
    "minted": "bind_repository_committed_at",
    "pointer": "/committed_at",
    "record": "bind_repository_receipt"
+  },
+  {
+   "minted": "repo_bound_bytes",
+   "pointer": "/observed/working_bytes_digest",
+   "record": "repo_binding"
   },
   {
    "digest_of": "bind_repository_receipt",
@@ -185,6 +185,41 @@
    "record": "found_team_request"
   },
   {
+   "digest_of": "found_team_request",
+   "pointer": "/request_digest",
+   "record": "found_team_receipt"
+  },
+  {
+   "minted": "team_head",
+   "pointer": "/head_digest",
+   "record": "found_team_receipt"
+  },
+  {
+   "minted": "found_team_sequence",
+   "pointer": "/sequence",
+   "record": "found_team_receipt"
+  },
+  {
+   "minted": "found_team_committed_at",
+   "pointer": "/committed_at",
+   "record": "found_team_receipt"
+  },
+  {
+   "digest_of": "team_policy_submitted",
+   "pointer": "/policy_digest",
+   "record": "team_sealed_proposal"
+  },
+  {
+   "minted": "team_proposal_id",
+   "pointer": "/proposal_id",
+   "record": "team_sealed_proposal"
+  },
+  {
+   "minted": "team_founded_at",
+   "pointer": "/created_at",
+   "record": "team_sealed_proposal"
+  },
+  {
    "minted": "team_policy_id",
    "pointer": "/policy_id",
    "record": "team_policy"
@@ -193,6 +228,21 @@
    "minted": "team_founded_at",
    "pointer": "/committed_at",
    "record": "team_policy"
+  },
+  {
+   "minted": "alice_membership_id",
+   "pointer": "/membership_id",
+   "record": "alice_membership"
+  },
+  {
+   "digest_of": "team_sealed_proposal",
+   "pointer": "/standing/proposal_digest",
+   "record": "alice_membership"
+  },
+  {
+   "minted": "team_founded_at",
+   "pointer": "/created_at",
+   "record": "alice_membership"
   },
   {
    "minted": "team_founded_at",
@@ -215,24 +265,14 @@
    "record": "team_profile"
   },
   {
-   "digest_of": "found_team_request",
-   "pointer": "/request_digest",
-   "record": "found_team_receipt"
-  },
-  {
    "minted": "team_head",
-   "pointer": "/head_digest",
-   "record": "found_team_receipt"
+   "pointer": "/checkpoint_digest",
+   "record": "team_founding_epoch"
   },
   {
-   "minted": "found_team_sequence",
-   "pointer": "/sequence",
-   "record": "found_team_receipt"
-  },
-  {
-   "minted": "found_team_committed_at",
-   "pointer": "/committed_at",
-   "record": "found_team_receipt"
+   "minted": "team_founded_at",
+   "pointer": "/recorded_at",
+   "record": "team_founding_epoch"
   },
   {
    "digest_of": "found_team_receipt",
@@ -245,44 +285,44 @@
    "record": "found_team_result"
   },
   {
-   "digest_of": "team_policy",
+   "digest_of": "team_sealed_proposal",
    "pointer": "/outputs/0/digest",
    "record": "found_team_result"
   },
   {
-   "digest_of": "alice_founding_grant",
+   "digest_of": "team_policy",
    "pointer": "/outputs/1/digest",
    "record": "found_team_result"
   },
   {
-   "digest_of": "team_state",
+   "digest_of": "alice_membership",
    "pointer": "/outputs/2/digest",
    "record": "found_team_result"
   },
   {
-   "digest_of": "team_profile",
+   "digest_of": "alice_founding_grant",
    "pointer": "/outputs/3/digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "team_state",
+   "pointer": "/outputs/4/digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "team_profile",
+   "pointer": "/outputs/5/digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "team_founding_epoch",
+   "pointer": "/outputs/6/digest",
    "record": "found_team_result"
   },
   {
    "digest_of": "repo_rules_request",
    "pointer": "/payload_digest",
    "record": "author_repo_rules_request"
-  },
-  {
-   "minted": "repo_rules_review_body",
-   "pointer": "/members/0/digest",
-   "record": "repo_rules_rev"
-  },
-  {
-   "minted": "repo_rules_background_body",
-   "pointer": "/members/1/digest",
-   "record": "repo_rules_rev"
-  },
-  {
-   "minted": "repo_rules_produced_at",
-   "pointer": "/produced_at",
-   "record": "repo_rules_rev"
   },
   {
    "digest_of": "author_repo_rules_request",
@@ -305,6 +345,21 @@
    "record": "author_repo_rules_receipt"
   },
   {
+   "minted": "repo_rules_review_body",
+   "pointer": "/members/0/digest",
+   "record": "repo_rules_rev"
+  },
+  {
+   "minted": "repo_rules_background_body",
+   "pointer": "/members/1/digest",
+   "record": "repo_rules_rev"
+  },
+  {
+   "minted": "repo_rules_produced_at",
+   "pointer": "/produced_at",
+   "record": "repo_rules_rev"
+  },
+  {
    "digest_of": "author_repo_rules_receipt",
    "pointer": "/outcome/receipt_digest",
    "record": "author_repo_rules_result"
@@ -323,21 +378,6 @@
    "digest_of": "team_rules_request",
    "pointer": "/payload_digest",
    "record": "author_team_rules_request"
-  },
-  {
-   "minted": "team_rules_review_body",
-   "pointer": "/members/0/digest",
-   "record": "team_rules_rev"
-  },
-  {
-   "minted": "team_rules_terms_body",
-   "pointer": "/members/1/digest",
-   "record": "team_rules_rev"
-  },
-  {
-   "minted": "team_rules_produced_at",
-   "pointer": "/produced_at",
-   "record": "team_rules_rev"
   },
   {
    "digest_of": "author_team_rules_request",
@@ -360,6 +400,21 @@
    "record": "author_team_rules_receipt"
   },
   {
+   "minted": "team_rules_review_body",
+   "pointer": "/members/0/digest",
+   "record": "team_rules_rev"
+  },
+  {
+   "minted": "team_rules_terms_body",
+   "pointer": "/members/1/digest",
+   "record": "team_rules_rev"
+  },
+  {
+   "minted": "team_rules_produced_at",
+   "pointer": "/produced_at",
+   "record": "team_rules_rev"
+  },
+  {
    "digest_of": "author_team_rules_receipt",
    "pointer": "/outcome/receipt_digest",
    "record": "author_team_rules_result"
@@ -380,16 +435,6 @@
    "record": "author_team_extra_request"
   },
   {
-   "minted": "team_extra_extra_body",
-   "pointer": "/members/0/digest",
-   "record": "team_extra_rev"
-  },
-  {
-   "minted": "team_extra_produced_at",
-   "pointer": "/produced_at",
-   "record": "team_extra_rev"
-  },
-  {
    "digest_of": "author_team_extra_request",
    "pointer": "/request_digest",
    "record": "author_team_extra_receipt"
@@ -408,6 +453,16 @@
    "minted": "author_team_extra_committed_at",
    "pointer": "/committed_at",
    "record": "author_team_extra_receipt"
+  },
+  {
+   "minted": "team_extra_extra_body",
+   "pointer": "/members/0/digest",
+   "record": "team_extra_rev"
+  },
+  {
+   "minted": "team_extra_produced_at",
+   "pointer": "/produced_at",
+   "record": "team_extra_rev"
   },
   {
    "digest_of": "author_team_extra_receipt",
@@ -435,6 +490,11 @@
    "record": "select_repository_rules_request"
   },
   {
+   "digest_of": "select_repository_rules_request",
+   "pointer": "/request_digest",
+   "record": "select_repository_rules_receipt"
+  },
+  {
    "digest_of": "repo_rules_rev",
    "pointer": "/entries/0/pin/revision_digest",
    "record": "repo_position_head_record"
@@ -445,12 +505,7 @@
    "record": "repo_position_head_record"
   },
   {
-   "digest_of": "select_repository_rules_request",
-   "pointer": "/request_digest",
-   "record": "select_repository_rules_receipt"
-  },
-  {
-   "minted": "repo_position_head",
+   "digest_of": "repo_position_head_record",
    "pointer": "/head_digest",
    "record": "select_repository_rules_receipt"
   },
@@ -495,6 +550,11 @@
    "record": "select_team_rules_request"
   },
   {
+   "digest_of": "select_team_rules_request",
+   "pointer": "/request_digest",
+   "record": "select_team_rules_receipt"
+  },
+  {
    "digest_of": "team_rules_rev",
    "pointer": "/entries/0/pin/revision_digest",
    "record": "team_position_head_record"
@@ -510,12 +570,7 @@
    "record": "team_position_head_record"
   },
   {
-   "digest_of": "select_team_rules_request",
-   "pointer": "/request_digest",
-   "record": "select_team_rules_receipt"
-  },
-  {
-   "minted": "team_position_head",
+   "digest_of": "team_position_head_record",
    "pointer": "/head_digest",
    "record": "select_team_rules_receipt"
   },
@@ -550,12 +605,12 @@
    "record": "compose_layered_request"
   },
   {
-   "minted": "repo_position_head",
+   "digest_of": "repo_position_head_record",
    "pointer": "/collections/0/head_digest",
    "record": "layered_preparation"
   },
   {
-   "minted": "team_position_head",
+   "digest_of": "team_position_head_record",
    "pointer": "/collections/1/head_digest",
    "record": "layered_preparation"
   },
@@ -587,11 +642,6 @@
   {
    "digest_of": "repo_rules_rev",
    "pointer": "/units/0/revision_digest",
-   "record": "layered_preparation"
-  },
-  {
-   "minted": "repo_rules_review_body",
-   "pointer": "/units/0/body_digest",
    "record": "layered_preparation"
   },
   {
@@ -657,31 +707,6 @@
   {
    "digest_of": "compose_layered_request",
    "pointer": "/request_digest",
-   "record": "compose_layered_receipt"
-  },
-  {
-   "minted": "compose_layered_head",
-   "pointer": "/head_digest",
-   "record": "compose_layered_receipt"
-  },
-  {
-   "minted": "compose_layered_sequence",
-   "pointer": "/sequence",
-   "record": "compose_layered_receipt"
-  },
-  {
-   "minted": "compose_layered_committed_at",
-   "pointer": "/committed_at",
-   "record": "compose_layered_receipt"
-  },
-  {
-   "digest_of": "compose_layered_receipt",
-   "pointer": "/outcome/receipt_digest",
-   "record": "compose_layered_result"
-  },
-  {
-   "digest_of": "compose_layered_request",
-   "pointer": "/request_digest",
    "record": "compose_layered_result"
   },
   {
@@ -742,6 +767,11 @@
    "step": "found_team"
   },
   {
+   "name": "alice_membership_id",
+   "shape": "mbr",
+   "step": "found_team"
+  },
+  {
    "name": "found_team_committed_at",
    "shape": "instant",
    "step": "found_team"
@@ -764,6 +794,11 @@
   {
    "name": "team_policy_id",
    "shape": "pol",
+   "step": "found_team"
+  },
+  {
+   "name": "team_proposal_id",
+   "shape": "fnd",
    "step": "found_team"
   },
   {
@@ -857,11 +892,6 @@
    "step": "select_repository_rules"
   },
   {
-   "name": "repo_position_head",
-   "shape": "digest",
-   "step": "select_repository_rules"
-  },
-  {
    "name": "select_repository_rules_committed_at",
    "shape": "instant",
    "step": "select_repository_rules"
@@ -887,28 +917,8 @@
    "step": "select_team_rules"
   },
   {
-   "name": "team_position_head",
-   "shape": "digest",
-   "step": "select_team_rules"
-  },
-  {
    "name": "background_unit",
    "shape": "unt",
-   "step": "compose_layered"
-  },
-  {
-   "name": "compose_layered_committed_at",
-   "shape": "instant",
-   "step": "compose_layered"
-  },
-  {
-   "name": "compose_layered_head",
-   "shape": "digest",
-   "step": "compose_layered"
-  },
-  {
-   "name": "compose_layered_sequence",
-   "shape": "integer",
    "step": "compose_layered"
   },
   {
@@ -995,25 +1005,6 @@
    }
   },
   {
-   "digest": "2ffe02087157a1c9cf6561ed288706337c317668e1043229c30069162bc6ca5f",
-   "name": "alice_binding",
-   "record": {
-    "binding_id": "bnd_11b824d27599b1c3940a4cda17cfe05d",
-    "created_at": "2000-01-01T00:00:00Z",
-    "credential": {
-     "credential": "device_key",
-     "device_id": "dev_17cb0d63a8bc75be1015af773ea1f903",
-     "key_generation": 1,
-     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
-    },
-    "established_by": "local_creation",
-    "evidence_digests": [],
-    "kind": "principal_binding",
-    "principal_id": "prn_afb106fdc66d6135f93a74adbd2ca634",
-    "schema": 1
-   }
-  },
-  {
    "digest": "f2a96d7176877fd7d0a5627fe3078fda6c65dc06dce49f3d8e82e92e2c06d0fa",
    "name": "bind_alice_receipt",
    "record": {
@@ -1031,6 +1022,25 @@
     "target": {
      "resource_id": "prn_afb106fdc66d6135f93a74adbd2ca634"
     }
+   }
+  },
+  {
+   "digest": "2ffe02087157a1c9cf6561ed288706337c317668e1043229c30069162bc6ca5f",
+   "name": "alice_binding",
+   "record": {
+    "binding_id": "bnd_11b824d27599b1c3940a4cda17cfe05d",
+    "created_at": "2000-01-01T00:00:00Z",
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_17cb0d63a8bc75be1015af773ea1f903",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_afb106fdc66d6135f93a74adbd2ca634",
+    "schema": 1
    }
   },
   {
@@ -1099,24 +1109,6 @@
    }
   },
   {
-   "digest": "f8c3aed18c17055a13b10a228160a50c190c0547f1faa7edbb82e5e6c7c18c47",
-   "name": "repo_binding",
-   "record": {
-    "kind": "repository_binding",
-    "observed": {
-     "branch": "main",
-     "commit": "0123456789abcdef0123456789abcdef01234567",
-     "locator": "git@github.com:example/work.git",
-     "working_bytes_digest": "ab3f567eb88fff2d499f17d6b5ba61be06e1e513aa39ed5c3fa7b8a5e7cb23ce"
-    },
-    "relation": {
-     "how": "clone"
-    },
-    "repository_id": "rep_baf90e01e32f3db5f523db0af047555a",
-    "schema": 1
-   }
-  },
-  {
    "digest": "e0c53680bd890496b3d819831cc64cef0c49e7cc4c593f9a199c7fe584c8731d",
    "name": "bind_repository_receipt",
    "record": {
@@ -1134,6 +1126,24 @@
     "target": {
      "resource_id": "rep_baf90e01e32f3db5f523db0af047555a"
     }
+   }
+  },
+  {
+   "digest": "f8c3aed18c17055a13b10a228160a50c190c0547f1faa7edbb82e5e6c7c18c47",
+   "name": "repo_binding",
+   "record": {
+    "kind": "repository_binding",
+    "observed": {
+     "branch": "main",
+     "commit": "0123456789abcdef0123456789abcdef01234567",
+     "locator": "git@github.com:example/work.git",
+     "working_bytes_digest": "ab3f567eb88fff2d499f17d6b5ba61be06e1e513aa39ed5c3fa7b8a5e7cb23ce"
+    },
+    "relation": {
+     "how": "clone"
+    },
+    "repository_id": "rep_baf90e01e32f3db5f523db0af047555a",
+    "schema": 1
    }
   },
   {
@@ -1251,6 +1261,64 @@
    }
   },
   {
+   "digest": "f25c9596a80c7724cc0c3d43d621f8f49a4e777255bc6d36ada3811867075a26",
+   "name": "found_team_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "37680a174f421374128f372511fc4ff0e2715379b140f04dc3c44728022214e1",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_bfbfc22aada5c693be351cab36af5922"
+    },
+    "request_digest": "de7d9db40942898fbd2d89920a4aefbee8b80a3e84fa90ba2dec60c1dce0930f",
+    "request_id": "req_4f0e8f0793a60d3df4b65c0ae9b0f46b",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "tem_bfbfc22aada5c693be351cab36af5922"
+    }
+   }
+  },
+  {
+   "digest": "a2340e7becd9432c567d46baddeaf83061dfae0acf445bd117d96e4236fc10aa",
+   "name": "team_sealed_proposal",
+   "record": {
+    "carriers": [
+     "local",
+     "peer"
+    ],
+    "created_at": "2000-01-01T00:00:00Z",
+    "custody_target": 3,
+    "finalizer": {
+     "device_id": "dev_17cb0d63a8bc75be1015af773ea1f903",
+     "runs_on": "member_device"
+    },
+    "founder_principal_id": "prn_afb106fdc66d6135f93a74adbd2ca634",
+    "founding_mode": {
+     "acknowledged_self_reviewed": true,
+     "mode": "self_founded"
+    },
+    "kind": "founding_proposal",
+    "name": "Platform",
+    "policy_digest": "73ef5eb83180c654d0d666bf65bed503efcbbc0ccaa8d2523e1f1b6183873a42",
+    "proposal_id": "fnd_84517f1bb8dc07f7dddf73fc98a16baa",
+    "proposal_version": 1,
+    "purpose": "The standards this group works to.",
+    "recovery": [
+     {
+      "duty": "recovery",
+      "principal_id": "prn_afb106fdc66d6135f93a74adbd2ca634"
+     }
+    ],
+    "schema": 1,
+    "team_id": "tem_bfbfc22aada5c693be351cab36af5922"
+   }
+  },
+  {
    "digest": "ee08e3696b7f613d933ddc4ee01a45c2c5816ff73c850461dfc36d0bc4a5f2b6",
    "name": "team_policy",
    "record": {
@@ -1276,6 +1344,23 @@
     "schema": 1,
     "team_id": "tem_bfbfc22aada5c693be351cab36af5922",
     "threshold": 0
+   }
+  },
+  {
+   "digest": "5e07e2b7b2574ad3eca98711eca597c020ac12801946e14e9c167b1b05982036",
+   "name": "alice_membership",
+   "record": {
+    "created_at": "2000-01-01T00:00:00Z",
+    "kind": "membership_record",
+    "membership_id": "mbr_06a07fce6f82a6e46065d3a13e314f4e",
+    "principal_id": "prn_afb106fdc66d6135f93a74adbd2ca634",
+    "schema": 1,
+    "standing": {
+     "how": "founding",
+     "is": "active",
+     "proposal_digest": "a2340e7becd9432c567d46baddeaf83061dfae0acf445bd117d96e4236fc10aa"
+    },
+    "team_id": "tem_bfbfc22aada5c693be351cab36af5922"
    }
   },
   {
@@ -1334,30 +1419,29 @@
    }
   },
   {
-   "digest": "f25c9596a80c7724cc0c3d43d621f8f49a4e777255bc6d36ada3811867075a26",
-   "name": "found_team_receipt",
+   "digest": "7400e54e6b4357b4cbf6b0b3b7d702a9450250e1e9f098dbab49f892e3d80119",
+   "name": "team_founding_epoch",
    "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "37680a174f421374128f372511fc4ff0e2715379b140f04dc3c44728022214e1",
-    "kind": "operation_receipt",
-    "owner": {
+    "authority": {
      "layer": "team",
      "team_id": "tem_bfbfc22aada5c693be351cab36af5922"
     },
-    "request_digest": "de7d9db40942898fbd2d89920a4aefbee8b80a3e84fa90ba2dec60c1dce0930f",
-    "request_id": "req_4f0e8f0793a60d3df4b65c0ae9b0f46b",
+    "checkpoint_digest": "37680a174f421374128f372511fc4ff0e2715379b140f04dc3c44728022214e1",
+    "epoch": 1,
+    "finalizer": {
+     "device_id": "dev_17cb0d63a8bc75be1015af773ea1f903",
+     "runs_on": "member_device"
+    },
+    "kind": "authority_continuity",
+    "recorded_at": "2000-01-01T00:00:00Z",
     "schema": 1,
-    "sequence": 1,
-    "target": {
-     "base": {
-      "expects": "absent"
-     },
-     "resource_id": "tem_bfbfc22aada5c693be351cab36af5922"
+    "succession": {
+     "from": "founding"
     }
    }
   },
   {
-   "digest": "ed54c511e7e490d87aaa04224f302ce867b1ece77201f10444b5ad4498972e89",
+   "digest": "747683729578a99f7d287144a6663da72de713fddb674a7382d87350aeae5f7f",
    "name": "found_team_result",
    "record": {
     "kind": "operation_result",
@@ -1369,8 +1453,16 @@
     },
     "outputs": [
      {
+      "digest": "a2340e7becd9432c567d46baddeaf83061dfae0acf445bd117d96e4236fc10aa",
+      "kind": "founding_proposal"
+     },
+     {
       "digest": "ee08e3696b7f613d933ddc4ee01a45c2c5816ff73c850461dfc36d0bc4a5f2b6",
       "kind": "governing_policy"
+     },
+     {
+      "digest": "5e07e2b7b2574ad3eca98711eca597c020ac12801946e14e9c167b1b05982036",
+      "kind": "membership_record"
      },
      {
       "digest": "cbbc0a75bb022eb13fec45579b956e8a9cdbbb75355c67bd26149b4241a978d5",
@@ -1383,6 +1475,10 @@
      {
       "digest": "63f3a72dfd45ffe661ba78c49c5f4e2e6a7ae09d824a155ac9750dcc84d313b3",
       "kind": "team_profile"
+     },
+     {
+      "digest": "7400e54e6b4357b4cbf6b0b3b7d702a9450250e1e9f098dbab49f892e3d80119",
+      "kind": "authority_continuity"
      }
     ],
     "provider_effect": "not_applicable",
@@ -1444,29 +1540,6 @@
    }
   },
   {
-   "digest": "642b15de3c50383f00b077762c888ae79e646e09b64346d872bf10e3424d214e",
-   "name": "repo_rules_rev",
-   "record": {
-    "format_version": 1,
-    "kind": "source_manifest",
-    "members": [
-     {
-      "digest": "f0b04433c0d9a04d1b361df2cdc5da5e9d18282249c6e088dfbcf39d3ae1bb29",
-      "path": "rules/review.md",
-      "size": 2048
-     },
-     {
-      "digest": "5dc30464048debf5777bf61553ebe5aad330697459e8c1a7a7beeeba57861948",
-      "path": "notes/background.md",
-      "size": 700
-     }
-    ],
-    "produced_at": "2000-01-01T00:00:00Z",
-    "schema": 1,
-    "source_id": "src_bf5d862c1da1c9055640e8c9262c0123"
-   }
-  },
-  {
    "digest": "a28595518dc74805a266767deb38bfda89f89b487c8638cfd4340d06b847356b",
    "name": "author_repo_rules_receipt",
    "record": {
@@ -1487,6 +1560,29 @@
      },
      "resource_id": "src_bf5d862c1da1c9055640e8c9262c0123"
     }
+   }
+  },
+  {
+   "digest": "642b15de3c50383f00b077762c888ae79e646e09b64346d872bf10e3424d214e",
+   "name": "repo_rules_rev",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "f0b04433c0d9a04d1b361df2cdc5da5e9d18282249c6e088dfbcf39d3ae1bb29",
+      "path": "rules/review.md",
+      "size": 2048
+     },
+     {
+      "digest": "5dc30464048debf5777bf61553ebe5aad330697459e8c1a7a7beeeba57861948",
+      "path": "notes/background.md",
+      "size": 700
+     }
+    ],
+    "produced_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "source_id": "src_bf5d862c1da1c9055640e8c9262c0123"
    }
   },
   {
@@ -1565,29 +1661,6 @@
    }
   },
   {
-   "digest": "ce373eee32ef2d04a1f3bb530d2223b237d31c179bb9d7d0720fcfa155d92246",
-   "name": "team_rules_rev",
-   "record": {
-    "format_version": 1,
-    "kind": "source_manifest",
-    "members": [
-     {
-      "digest": "20ea060244bc01a7d94937506c2337b3c393662c7f3d280d23bce65e3a33f1ba",
-      "path": "rules/review.md",
-      "size": 1900
-     },
-     {
-      "digest": "6a2709ded728dc3b3a2480d926fa712babe802b76241c74959ed4affd92d20e7",
-      "path": "rules/terms.md",
-      "size": 800
-     }
-    ],
-    "produced_at": "2000-01-01T00:00:00Z",
-    "schema": 1,
-    "source_id": "src_e0906488de2feee597337ad93f898897"
-   }
-  },
-  {
    "digest": "0d533814e202d0806a2d3a7524e11b02b1f9cc48ce5007ce25eed09a79a880f6",
    "name": "author_team_rules_receipt",
    "record": {
@@ -1608,6 +1681,29 @@
      },
      "resource_id": "src_e0906488de2feee597337ad93f898897"
     }
+   }
+  },
+  {
+   "digest": "ce373eee32ef2d04a1f3bb530d2223b237d31c179bb9d7d0720fcfa155d92246",
+   "name": "team_rules_rev",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "20ea060244bc01a7d94937506c2337b3c393662c7f3d280d23bce65e3a33f1ba",
+      "path": "rules/review.md",
+      "size": 1900
+     },
+     {
+      "digest": "6a2709ded728dc3b3a2480d926fa712babe802b76241c74959ed4affd92d20e7",
+      "path": "rules/terms.md",
+      "size": 800
+     }
+    ],
+    "produced_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "source_id": "src_e0906488de2feee597337ad93f898897"
    }
   },
   {
@@ -1686,24 +1782,6 @@
    }
   },
   {
-   "digest": "c219001e4b47c2b85f81cb0bd2e25ae6bffdde576a80ff2a14a8e825d4b652b6",
-   "name": "team_extra_rev",
-   "record": {
-    "format_version": 1,
-    "kind": "source_manifest",
-    "members": [
-     {
-      "digest": "aea11a26944fc171b4695ee69db77e7a49a6b49f7b054b6511375bc9e5bbc161",
-      "path": "rules/extra.md",
-      "size": 600
-     }
-    ],
-    "produced_at": "2000-01-01T00:00:00Z",
-    "schema": 1,
-    "source_id": "src_6a30872af78003073d5ff5fc380931c2"
-   }
-  },
-  {
    "digest": "94f83805ae0770b0c669ca34298106b392b019989de6bdf75fa9aa681e9ee4b6",
    "name": "author_team_extra_receipt",
    "record": {
@@ -1724,6 +1802,24 @@
      },
      "resource_id": "src_6a30872af78003073d5ff5fc380931c2"
     }
+   }
+  },
+  {
+   "digest": "c219001e4b47c2b85f81cb0bd2e25ae6bffdde576a80ff2a14a8e825d4b652b6",
+   "name": "team_extra_rev",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "aea11a26944fc171b4695ee69db77e7a49a6b49f7b054b6511375bc9e5bbc161",
+      "path": "rules/extra.md",
+      "size": 600
+     }
+    ],
+    "produced_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "source_id": "src_6a30872af78003073d5ff5fc380931c2"
    }
   },
   {
@@ -1874,11 +1970,11 @@
    }
   },
   {
-   "digest": "11b3c4112dc2c6914e6576a55899ef2bd7704422b11a8661a4fe255ea0503dcf",
+   "digest": "e654639b4a75809c39a748ebaf970df7e1210b69661f919db223403c5ac0b6fd",
    "name": "select_repository_rules_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "d23b697154a793a5ce30ed7f99a918f2851644dc31a6f8c2201ba4b5716f5c0d",
+    "head_digest": "232c5c6105951b6ed1fe305ca5bf1fd2fb75cc2e1cae8f39043fe3c2b3b3f79c",
     "kind": "operation_receipt",
     "owner": {
      "layer": "repository",
@@ -1897,14 +1993,14 @@
    }
   },
   {
-   "digest": "aacb65de1f37ccd7b2198d2fa5b2cd439f9aae80df26f286f17a90aa459a7ea3",
+   "digest": "23e3a28cc54b07729342600615e75a67a56ced178efa38f8eb694683a3b07811",
    "name": "select_repository_rules_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "11b3c4112dc2c6914e6576a55899ef2bd7704422b11a8661a4fe255ea0503dcf",
+     "receipt_digest": "e654639b4a75809c39a748ebaf970df7e1210b69661f919db223403c5ac0b6fd",
      "stage": "committed"
     },
     "outputs": [
@@ -2060,11 +2156,11 @@
    }
   },
   {
-   "digest": "c2a597ccc512f6ee94cf596bfeef19508bdc1496f035cd2293a75c9aa5c2b03e",
+   "digest": "63543973819161a3a2d13fcd2c5d7ae783ee6d8188764bd1ce234fca9a355638",
    "name": "select_team_rules_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "7053b69474e76ecb442ee150ae64b52de756c8a089ae6efd66e4be6745a0baf4",
+    "head_digest": "33d2ef5659b8ef863c94fcbe996e2c82fdb764c83a5f6968761a58b0e00fc9e9",
     "kind": "operation_receipt",
     "owner": {
      "layer": "team",
@@ -2083,14 +2179,14 @@
    }
   },
   {
-   "digest": "8470157e5fc4058bee70ee8210b362575ebfcda08d5cff8542ef9ee0c5640aaa",
+   "digest": "bc1826a54b81e8572f3ba593dba8c2fc34f7384e015b7cc92781939ee1a2235d",
    "name": "select_team_rules_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "c2a597ccc512f6ee94cf596bfeef19508bdc1496f035cd2293a75c9aa5c2b03e",
+     "receipt_digest": "63543973819161a3a2d13fcd2c5d7ae783ee6d8188764bd1ce234fca9a355638",
      "stage": "committed"
     },
     "outputs": [
@@ -2137,7 +2233,7 @@
    }
   },
   {
-   "digest": "2fc1acc9d151762584ab073acb9d605e26b3421414387d96124ce31d24969569",
+   "digest": "4766da59fe8c5b5b0091adbb038dd5b01dd4a1fa795ad29dd6a2d13c513c26ba",
    "name": "compose_layered_request",
    "record": {
     "action": "use",
@@ -2147,7 +2243,7 @@
      "profile_id": "prf_a8d920dc6af0c4f51cf868794f5d4cef"
     },
     "control_digests": [],
-    "effect_class": "owner_commit",
+    "effect_class": "durable_candidate",
     "kind": "operation_request",
     "local_access_generation": 7,
     "operation": "preparation.compose",
@@ -2166,7 +2262,7 @@
    }
   },
   {
-   "digest": "36f33d08a22e256f6ae87d698ca2bdec293b7a17aaef6f0107a5a459ea1ace43",
+   "digest": "f7369ccfe22d07f1b17e6476e96a34f2b701bf1b5d36d791fdd4c8a473c76f90",
    "name": "layered_preparation",
    "record": {
     "adapter": {
@@ -2176,18 +2272,23 @@
     "collections": [
      {
       "collection_id": "col_c4db900110d9cd0c46ab23d964fa6047",
-      "head_digest": "d23b697154a793a5ce30ed7f99a918f2851644dc31a6f8c2201ba4b5716f5c0d",
+      "head_digest": "232c5c6105951b6ed1fe305ca5bf1fd2fb75cc2e1cae8f39043fe3c2b3b3f79c",
       "state": "applied"
      },
      {
       "collection_id": "col_8ee144b16a347805de093c19fdf04864",
-      "head_digest": "7053b69474e76ecb442ee150ae64b52de756c8a089ae6efd66e4be6745a0baf4",
+      "head_digest": "33d2ef5659b8ef863c94fcbe996e2c82fdb764c83a5f6968761a58b0e00fc9e9",
       "state": "applied"
      }
     ],
     "frontiers": [],
     "kind": "preparation",
-    "material_gaps": [],
+    "material_gaps": [
+     {
+      "code": "role_body_unavailable",
+      "pointer": "/units/0"
+     }
+    ],
     "observed": {
      "branch": "main",
      "commit": "0123456789abcdef0123456789abcdef01234567",
@@ -2222,7 +2323,6 @@
     "schema": 1,
     "units": [
      {
-      "body_digest": "f0b04433c0d9a04d1b361df2cdc5da5e9d18282249c6e088dfbcf39d3ae1bb29",
       "concern": "review.approval",
       "layer": "repository",
       "member": "rules/review.md",
@@ -2287,52 +2387,36 @@
    }
   },
   {
-   "digest": "306d869c2b0d8bc3ccf2c37128fa9b0447db627eef92de987967965549d9d2a0",
-   "name": "compose_layered_receipt",
-   "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "31cfb606424853e8e735ac450f73bd6a53c20611dfe48a61137f341fffe5886d",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "personal",
-     "principal_id": "prn_afb106fdc66d6135f93a74adbd2ca634"
-    },
-    "request_digest": "2fc1acc9d151762584ab073acb9d605e26b3421414387d96124ce31d24969569",
-    "request_id": "req_a232b528ea5b27488b81fbb802a0b47a",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "resource_id": "prn_afb106fdc66d6135f93a74adbd2ca634"
-    }
-   }
-  },
-  {
-   "digest": "ded52e3590885d34715f48b7e928efce2e7a6cb6ee2c0389d1dd5eb01f8e23d7",
+   "digest": "001c73e1a730137d55054b13ae5cc941ec3cf06e3f3401cc724f176266493c16",
    "name": "compose_layered_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "private_state_written",
     "outcome": {
-     "material_gaps": [],
-     "receipt_digest": "306d869c2b0d8bc3ccf2c37128fa9b0447db627eef92de987967965549d9d2a0",
-     "stage": "committed"
+     "material_gaps": [
+      {
+       "code": "role_body_unavailable",
+       "pointer": "/units/0"
+      }
+     ],
+     "stage": "previewed"
     },
     "outputs": [
      {
-      "digest": "36f33d08a22e256f6ae87d698ca2bdec293b7a17aaef6f0107a5a459ea1ace43",
+      "digest": "f7369ccfe22d07f1b17e6476e96a34f2b701bf1b5d36d791fdd4c8a473c76f90",
       "kind": "preparation"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "2fc1acc9d151762584ab073acb9d605e26b3421414387d96124ce31d24969569",
+    "request_digest": "4766da59fe8c5b5b0091adbb038dd5b01dd4a1fa795ad29dd6a2d13c513c26ba",
     "request_id": "req_a232b528ea5b27488b81fbb802a0b47a",
     "schema": 1,
     "supported_recovery": []
    }
   }
  ],
- "says": "A repository's review rule wins the concern review.approval over the Team's own review rule, which is shadowed; a second Team source is switched off, so its required unit is disabled; the Team's terms unit is kept because the winning rule needs it. Neither the shadowed Team rule nor the disabled unit is held as a body in the preparation, and neither may hold the session's start: the preparation the owner writes states no gap naming either of them, while it keeps the needed terms unit. This is the rule C07/gap_names_no_losing_unit; its fixture's breaking records - a gap naming the shadowed Team rule, or naming the switched-off unit's missing body - are what the owner must never write.",
- "spec_sha256": "fa9c9e950b56b442d20b040fa6e734be0c9602275312e1c45b3e932fe452f3e9",
+ "says": "A repository's review rule wins the concern review.approval over the Team's own review rule, which is shadowed; a second Team source is switched off, so its required unit is disabled; the Team's terms unit is kept because the winning rule needs it. The repository's rules revision is committed, but its review.md bytes are not held on this device - the same condition as the shadowed Team rule and the disabled unit, whose bodies the preparation does not hold either, and all three are required at startup. The preparation the owner writes, and the compose answer, name the winning review rule with role_body_unavailable, because only a winning required unit gates a start, and state no gap naming the shadowed Team rule or the disabled unit, while keeping the needed terms unit. This is the rule C07/gap_names_no_losing_unit; its fixture's breaking records - a gap naming the shadowed Team rule, or naming the switched-off unit's missing body - are what the owner must never write.",
+ "spec_sha256": "4b15e2d04e6a8d1bf9713c1bc0359ae21a90a10e249be9d6593697ce26b73712",
  "steps": [
   {
    "carries": [
@@ -2366,10 +2450,13 @@
    "request": "found_team_request",
    "result": "found_team_result",
    "returns": [
+    "team_sealed_proposal",
     "team_policy",
+    "alice_membership",
     "alice_founding_grant",
     "team_state",
-    "team_profile"
+    "team_profile",
+    "team_founding_epoch"
    ],
    "submits": [
     "team_policy_submitted"
@@ -2415,7 +2502,7 @@
    "carries": [
     "repo_position_submitted"
    ],
-   "head": "repo_position_head",
+   "head": "repo_position_head_record",
    "name": "select_repository_rules",
    "request": "select_repository_rules_request",
    "result": "select_repository_rules_result",
@@ -2427,7 +2514,7 @@
    "carries": [
     "team_position_submitted"
    ],
-   "head": "team_position_head",
+   "head": "team_position_head_record",
    "name": "select_team_rules",
    "request": "select_team_rules_request",
    "result": "select_team_rules_result",

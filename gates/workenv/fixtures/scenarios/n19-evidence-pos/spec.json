@@ -1,6 +1,6 @@
 {
  "case": "N19-EVIDENCE-POS",
- "says": "A person founds a Team alone, renames it once (so it holds two profile versions, Platform and Platform standards) and closes it with a plan naming themselves as the surviving owner. On the closed Team they then recover its evidence three times with team.lifecycle.apply recover_evidence, each naming exact evidence digests: purpose read of the first profile version, answered as a preview that writes nothing and returns the closed team_state; purpose preserve of the renamed profile, committed under its own receipt and returning the same closed team_state; and purpose clean_up of the first profile version, committed likewise. A final team.state.read at the head the last recovery moved to returns the closed team_state and the renamed profile. The recoveries name only those two profile digests and never the policy or grant, and no step writes a team_state other than closed: nothing reopens or restores the Team.",
+ "says": "A person founds a Team alone, renames it once (so it holds two profile versions, Platform and Platform standards) and closes it with a plan naming themselves as the surviving owner. On the closed Team they then recover its evidence three times through the Team's retention authority (team.retention.apply recover_evidence), each naming exact evidence digests: purpose read of the first profile version, answered as a preview that writes nothing and returns the closed team_state; purpose preserve of the renamed profile, committed under its own receipt and returning the same closed team_state; and purpose clean_up of the first profile version, committed likewise. A final team.state.read at the head the last recovery moved to returns the closed team_state, the renamed profile, and the unchanged policy, membership and grant. The recoveries name only those two profile digests and never the policy or grant, and no step writes a team_state other than closed: nothing reopens or restores the Team.",
  "ids": [
   {
    "name": "founder",
@@ -112,6 +112,68 @@
     {
      "pointer": "/recovery/0/principal_id",
      "value": "@founder"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership_id"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@founder"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:founded"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:founded_at"
     }
    ]
   },
@@ -530,11 +592,11 @@
     },
     {
      "pointer": "/operation",
-     "value": "team.lifecycle.apply"
+     "value": "team.retention.apply"
     },
     {
      "pointer": "/action",
-     "value": "read"
+     "value": "retain_delete"
     },
     {
      "pointer": "/effect_class",
@@ -610,7 +672,7 @@
     },
     {
      "pointer": "/operation",
-     "value": "team.lifecycle.apply"
+     "value": "team.retention.apply"
     },
     {
      "pointer": "/action",
@@ -690,7 +752,7 @@
     },
     {
      "pointer": "/operation",
-     "value": "team.lifecycle.apply"
+     "value": "team.retention.apply"
     },
     {
      "pointer": "/action",
@@ -815,10 +877,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
+     "team_founder_membership",
      "founder_grant",
      "active_state",
-     "first_profile"
+     "first_profile",
+     "team_founding_epoch"
     ],
     "head": "founded"
    },
@@ -929,6 +994,7 @@
      "closed_state",
      "renamed_profile",
      "team_policy",
+     "team_founder_membership",
      "founder_grant"
     ]
    }

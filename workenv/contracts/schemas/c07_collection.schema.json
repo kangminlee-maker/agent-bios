@@ -1,6 +1,6 @@
 {
   "title": "C07 collection",
-  "description": "One of the nine scope/role positions: the sources one repository, person or Team selected for one role, with the switches, order and units its owner chose. It is the position's original and keeps its own head. Composition reads it and never writes it: the effective environment is a preparation derived from the heads it read, not a tenth collection. An entry references a source and owns nothing of it — the source's owner, home, rights and bytes stay the source's — and changing an entry changes this position alone. The position's scope is the application layer of every entry in it. An empty position is valid and contributes nothing, so lower layers can supply the concern; a position or entry switched `off` excludes that selection, and nothing else, until it is switched on.",
+  "description": "One of the nine scope/role positions: the sources one repository, person or Team selected for one role, with the switches, order and units its owner chose. It is the position's original and keeps its own head: the digest of the collection its last committed change stored, which the next change's base, that change's receipt and every preparation that reads it name. Composition reads it and never writes it: the effective environment is a preparation derived from the heads it read, not a tenth collection. An entry references a source and owns nothing of it — the source's owner, home, rights and bytes stay the source's — and changing an entry changes this position alone. The position's scope is the application layer of every entry in it. An empty position is valid and contributes nothing, so lower layers can supply the concern; a position or entry switched `off` excludes that selection, and nothing else, until it is switched on.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -212,7 +212,7 @@
     "draft": {
       "type": "object",
       "additionalProperties": false,
-      "description": "A revision of one of this position's sources that is staged and not committed. It is not an original until its owner commits it.",
+      "description": "A revision of one of this position's sources that is staged and not committed. The change that names it carries its `source_manifest` beside the collection, and the owner stages those bytes without accepting them. It is not an original until its owner commits it, and composition does not read it.",
       "required": [
         "source_id",
         "manifest_digest"

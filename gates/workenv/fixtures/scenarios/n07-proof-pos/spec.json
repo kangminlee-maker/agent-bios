@@ -1,0 +1,1396 @@
+{
+ "case": "N07-PROOF-POS",
+ "says": "A steward founds a Team and registers its decisions source, which only the Team may read. The steward publishes a journal-mode choice there and then withdraws it by a lifecycle event. Alice, who holds no grant in the Team, asks to read the Team source's bodies and is refused with access_not_established. For her question the steward issues a state proof (memory.state.prove): addressed to Alice as the request's work scope, for that question, over the Team source at the head the withdrawal committed; it discloses only the choice's id and that it is withdrawn, and states the withheld effect without the event, its reason or any other record. The proof comes back with the steward's signature envelope under the steward's device-key binding. Alice resolves her question (memory.state.resolve) presenting both, and the qualified state reports the choice withdrawn at that frontier, qualified by what the proof withholds. No event id, reason, body or other record of the Team source appears in anything Alice receives.",
+ "ids": [
+  {
+   "name": "steward",
+   "prefix": "prn"
+  },
+  {
+   "name": "steward_device",
+   "prefix": "dev"
+  },
+  {
+   "name": "steward_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "bind_steward_key_id",
+   "prefix": "req"
+  },
+  {
+   "name": "alice",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "alice_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "bind_alice_key_id",
+   "prefix": "req"
+  },
+  {
+   "name": "team",
+   "prefix": "tem"
+  },
+  {
+   "name": "found_team_id",
+   "prefix": "req"
+  },
+  {
+   "name": "team_decisions",
+   "prefix": "src"
+  },
+  {
+   "name": "register_team_decisions_id",
+   "prefix": "req"
+  },
+  {
+   "name": "publish_journal_choice_id",
+   "prefix": "req"
+  },
+  {
+   "name": "withdraw_journal_choice_id",
+   "prefix": "req"
+  },
+  {
+   "name": "journal_concern",
+   "prefix": "cnc"
+  },
+  {
+   "name": "read_team_decisions_id",
+   "prefix": "req"
+  },
+  {
+   "name": "prove_for_alice_id",
+   "prefix": "req"
+  },
+  {
+   "name": "resolve_with_the_proof_id",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "steward_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@steward"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@steward_device"
+    }
+   ]
+  },
+  {
+   "name": "steward_key_stored",
+   "from": "c01/device_key_binding.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@steward"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@steward_device"
+    },
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:steward_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:steward_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "bind_steward_key",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_steward_key_id"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@steward"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@steward_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@steward_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@steward"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@steward"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#steward_key"
+    }
+   ]
+  },
+  {
+   "name": "alice_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "alice_key_stored",
+   "from": "c01/device_key_binding.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:alice_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:alice_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "bind_alice_key",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_alice_key_id"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#alice_key"
+    }
+   ]
+  },
+  {
+   "name": "team_policy_submitted",
+   "from": "c08/policy_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@steward"
+    },
+    {
+     "pointer": "/threshold",
+     "value": 0
+    }
+   ]
+  },
+  {
+   "name": "team_proposal",
+   "from": "c08/proposal_as_submitted.json",
+   "drop": [
+    "/founding_mode/nominees"
+   ],
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/founder_principal_id",
+     "value": "@steward"
+    },
+    {
+     "pointer": "/founding_mode/mode",
+     "value": "self_founded"
+    },
+    {
+     "pointer": "/founding_mode/acknowledged_self_reviewed",
+     "value": true
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@steward_device"
+    },
+    {
+     "pointer": "/recovery/0/principal_id",
+     "value": "@steward"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#team_policy_submitted"
+    },
+    {
+     "pointer": "/carriers",
+     "value": [
+      "local"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "found_team",
+   "from": "c08/founding_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@found_team_id"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@steward"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@steward_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@steward_profile"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_proposal"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "team_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_policy",
+   "from": "team_policy_submitted",
+   "set": [
+    {
+     "pointer": "/policy_id",
+     "value": "$pol:team_policy"
+    },
+    {
+     "pointer": "/policy_version",
+     "value": 1
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "steward_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:steward_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@steward"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "steward_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:steward_grant"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@steward"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@steward"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "publish",
+      "grant",
+      "policy"
+     ]
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_state",
+   "from": "c08/archived_team.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/state",
+     "value": "active"
+    },
+    {
+     "pointer": "/since",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@steward_device"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_decisions_home",
+   "from": "sources/home_of_a_managed_collection.json",
+   "drop": [
+    "/registered_at",
+    "/scope/principal_id",
+    "/acceptance_authority/principal_id",
+    "/retention/until"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/acceptance_authority/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/acceptance_authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/home/markdown_view/path",
+     "value": "views/decisions.md"
+    },
+    {
+     "pointer": "/applicability/conditions/0/dimension",
+     "value": "team"
+    },
+    {
+     "pointer": "/applicability/conditions/0/value",
+     "value": "this team"
+    },
+    {
+     "pointer": "/disclosure",
+     "value": "team"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    },
+    {
+     "pointer": "/retention/keep",
+     "value": "until_withdrawn"
+    }
+   ]
+  },
+  {
+   "name": "team_decisions_registered",
+   "from": "team_decisions_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:team_decisions_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "register_team_decisions",
+   "from": "c01/capture_request.json",
+   "drop": [
+    "/owner/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_team_decisions_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@steward"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@steward_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@steward_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_decisions_home"
+    }
+   ]
+  },
+  {
+   "name": "journal_choice",
+   "from": "c05/choice_as_submitted.json",
+   "drop": [
+    "/home/repository_id",
+    "/basis",
+    "/context",
+    "/expected_consequences",
+    "/revisit_condition",
+    "/applicability/period"
+   ],
+   "set": [
+    {
+     "pointer": "/home/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/home/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/workstream_ids",
+     "value": []
+    },
+    {
+     "pointer": "/question",
+     "value": "Which journal mode does the local state database use?"
+    },
+    {
+     "pointer": "/applicability/conditions/0/dimension",
+     "value": "team"
+    },
+    {
+     "pointer": "/applicability/conditions/0/value",
+     "value": "this team"
+    }
+   ]
+  },
+  {
+   "name": "journal_choice_stored",
+   "from": "journal_choice",
+   "set": [
+    {
+     "pointer": "/record_id",
+     "value": "$rec:journal_choice"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:journal_choice_recorded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_decisions_manifest_2",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "memory/records.jsonl"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:team_decisions_bytes_2"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": "$integer:team_decisions_size_2"
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:team_decisions_produced_2"
+    }
+   ]
+  },
+  {
+   "name": "publish_journal_choice",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@publish_journal_choice_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.record.publish"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@steward"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@steward_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@steward_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_decisions_head_1"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#journal_choice"
+    }
+   ]
+  },
+  {
+   "name": "journal_withdrawn",
+   "from": "c05/event_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/target/record_id",
+     "value": "$rec:journal_choice"
+    },
+    {
+     "pointer": "/effect/did",
+     "value": "withdrawn"
+    },
+    {
+     "pointer": "/attributed_to",
+     "value": "@steward"
+    },
+    {
+     "pointer": "/evidence_digests",
+     "value": []
+    }
+   ]
+  },
+  {
+   "name": "journal_withdrawn_stored",
+   "from": "journal_withdrawn",
+   "set": [
+    {
+     "pointer": "/event_id",
+     "value": "$evt:journal_withdrawn"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:journal_withdrawn_recorded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_decisions_manifest_3",
+   "from": "team_decisions_manifest_2",
+   "set": [
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:team_decisions_bytes_3"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": "$integer:team_decisions_size_3"
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:team_decisions_produced_3"
+    }
+   ]
+  },
+  {
+   "name": "withdraw_journal_choice",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@withdraw_journal_choice_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.lifecycle.apply"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@steward"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@steward_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@steward_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_decisions_head_2"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#journal_withdrawn"
+    }
+   ]
+  },
+  {
+   "name": "journal_question",
+   "from": "c05/state_question_over_three_scopes.json",
+   "drop": [
+    "/scopes/2",
+    "/scopes/1",
+    "/scopes/0/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/scopes/0/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/scopes/0/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/concern/question",
+     "value": "Which journal mode does the local state database use?"
+    },
+    {
+     "pointer": "/concern/conditions/0/dimension",
+     "value": "team"
+    },
+    {
+     "pointer": "/concern/conditions/0/value",
+     "value": "this team"
+    }
+   ]
+  },
+  {
+   "name": "team_decisions_envelope",
+   "from": "c06/envelope_asking_about_a_concern.json",
+   "drop": [
+    "/work_scope/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/required/0/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/required/0/source_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/role_view/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/selector/concern/question",
+     "value": "Which journal mode does the local state database use?"
+    },
+    {
+     "pointer": "/work_scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/work_scope/principal_id",
+     "value": "@alice"
+    }
+   ]
+  },
+  {
+   "name": "read_team_decisions",
+   "from": "c05/resolve_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@read_team_decisions_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "reader.body.read"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_decisions_envelope"
+    }
+   ]
+  },
+  {
+   "name": "team_decisions_denied",
+   "from": "c06/denied_is_not_empty.json",
+   "set": [
+    {
+     "pointer": "/envelope_digest",
+     "value": "#team_decisions_envelope"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:team_decisions_denied_at"
+    }
+   ]
+  },
+  {
+   "name": "prove_for_alice",
+   "from": "c05/prove_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@prove_for_alice_id"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@steward"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@steward_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@steward_profile"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_decisions_head_3"
+    },
+    {
+     "pointer": "/work_scope/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#journal_question"
+    }
+   ]
+  },
+  {
+   "name": "prove_for_alice_proof",
+   "from": "c05/proof_of_state_for_one_audience.json",
+   "set": [
+    {
+     "pointer": "/audience/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/issuer/principal_id",
+     "value": "@steward"
+    },
+    {
+     "pointer": "/issuer/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/question_digest",
+     "value": "#journal_question"
+    },
+    {
+     "pointer": "/frontiers/0/source_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/frontiers/0/checkpoint_digest",
+     "value": "$digest:team_decisions_head_3"
+    },
+    {
+     "pointer": "/coverage/compared",
+     "value": 1
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/valid_until",
+     "value": "$instant:prove_for_alice_valid_until"
+    },
+    {
+     "pointer": "/issued_at",
+     "value": "$instant:prove_for_alice_issued_at"
+    },
+    {
+     "pointer": "/disclosed/0/record_id",
+     "value": "$rec:journal_choice"
+    },
+    {
+     "pointer": "/disclosed/0/source_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/disclosed/0/standing",
+     "value": "withdrawn"
+    },
+    {
+     "pointer": "/withheld/effect",
+     "value": "A later Team decision that is not disclosed to you withdrew this choice; it is no longer current."
+    }
+   ]
+  },
+  {
+   "name": "prove_for_alice_signature",
+   "from": "c05/proof_signed_by_its_issuer.json",
+   "set": [
+    {
+     "pointer": "/signed_digest",
+     "value": "#prove_for_alice_proof"
+    },
+    {
+     "pointer": "/signer_binding_id",
+     "value": "$bnd:steward_binding"
+    }
+   ]
+  },
+  {
+   "name": "resolve_with_the_proof",
+   "from": "c05/resolve_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@resolve_with_the_proof_id"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@journal_concern"
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#prove_for_alice_proof",
+      "#prove_for_alice_signature"
+     ]
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#journal_question"
+    }
+   ]
+  },
+  {
+   "name": "resolve_with_the_proof_state",
+   "from": "c05/state_with_one_current_choice.json",
+   "drop": [
+    "/entries/1"
+   ],
+   "set": [
+    {
+     "pointer": "/question_digest",
+     "value": "#journal_question"
+    },
+    {
+     "pointer": "/frontiers/0/source_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/entries/0/record_id",
+     "value": "$rec:journal_choice"
+    },
+    {
+     "pointer": "/entries/0/source_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/comparison/compared",
+     "value": 1
+    },
+    {
+     "pointer": "/frontiers/0/checkpoint_digest",
+     "value": "$digest:team_decisions_head_3"
+    },
+    {
+     "pointer": "/entries/0/standing",
+     "value": "withdrawn"
+    },
+    {
+     "pointer": "/entries/0/qualification",
+     "value": "A later Team decision that is not disclosed to you withdrew this choice; it is no longer current."
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:resolve_with_the_proof_prepared_at"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_steward_key",
+   "request": "bind_steward_key",
+   "carries": [
+    "steward_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "steward_key_stored"
+    ]
+   }
+  },
+  {
+   "name": "bind_alice_key",
+   "request": "bind_alice_key",
+   "carries": [
+    "alice_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "alice_key_stored"
+    ]
+   }
+  },
+  {
+   "name": "found_team",
+   "request": "found_team",
+   "carries": [
+    "team_proposal",
+    "team_policy_submitted"
+   ],
+   "submits": [
+    "team_policy_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_sealed_proposal",
+     "team_policy",
+     "steward_membership",
+     "steward_grant",
+     "team_state",
+     "team_profile",
+     "team_founding_epoch"
+    ],
+    "head": "team_head"
+   }
+  },
+  {
+   "name": "register_team_decisions",
+   "request": "register_team_decisions",
+   "carries": [
+    "team_decisions_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_decisions_registered"
+    ],
+    "head": "team_decisions_head_1"
+   }
+  },
+  {
+   "name": "publish_journal_choice",
+   "request": "publish_journal_choice",
+   "carries": [
+    "journal_choice"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "journal_choice_stored",
+     "team_decisions_manifest_2"
+    ],
+    "head": "team_decisions_head_2"
+   }
+  },
+  {
+   "name": "withdraw_journal_choice",
+   "request": "withdraw_journal_choice",
+   "carries": [
+    "journal_withdrawn"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "journal_withdrawn_stored",
+     "team_decisions_manifest_3"
+    ],
+    "head": "team_decisions_head_3"
+   }
+  },
+  {
+   "name": "read_team_decisions",
+   "request": "read_team_decisions",
+   "carries": [
+    "team_decisions_envelope"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "access_not_established"
+     }
+    ],
+    "recovery": [],
+    "returns": [
+     "team_decisions_denied"
+    ]
+   }
+  },
+  {
+   "name": "prove_for_alice",
+   "request": "prove_for_alice",
+   "carries": [
+    "journal_question"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "prove_for_alice_proof",
+     "prove_for_alice_signature"
+    ]
+   }
+  },
+  {
+   "name": "resolve_with_the_proof",
+   "request": "resolve_with_the_proof",
+   "carries": [
+    "journal_question"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "resolve_with_the_proof_state"
+    ]
+   }
+  }
+ ]
+}

@@ -1,6 +1,6 @@
 {
  "case": "TUI-ENTRY-STATE",
- "says": "In a bound repository with an instructions source and a knowledge source both committed, the launcher shows the instructions position as installed and the knowledge position as selected but not checked, and one start action (surface.drive). Tab and Enter dispatch one preparation.compose request for a session start with no work_request; the owner's preparation pins both revisions, carries the instructions unit with its body and the knowledge unit without one, and states task support as not requested. route.select answers for that request with the preparation; session.routing.activate hands it to a new Claude Code session, whose routing keeps the host's native files ('preserved'); delivery.observe reports what the session was observed to receive: exactly the instructions unit. Returning to the entry (a second surface.drive) shows instructions as delivered, knowledge as prepared with its body listed as missing from the view, and the start's request as delivered. Negative: during entry, selection and start the trace calls no reader, knowledge or memory operation — only preparation.compose and later delivery.observe — so no task-specific query ran; setup, selection and preparation are never labelled delivered, the knowledge selection is never shown as a retrieved body, the observation names no knowledge body, and no frame claims task support or an empty search.",
+ "says": "In a bound repository with an instructions source and a knowledge source both committed, the launcher shows the instructions position as installed and the knowledge position as selected but not checked, and one start action (surface.drive). Tab and Enter dispatch one preparation.compose request for a session start with no work_request; the owner's preparation pins both revisions, carries the instructions unit with its body and the knowledge unit without one, and states task support as not requested. route.select answers for that request with the preparation; session.routing.activate hands it to a new Claude Code session, whose routing keeps the host's native files ('preserved') and names the instructions projection the activation returns beside it; delivery.observe reports what the session was observed to receive: exactly the instructions unit. Returning to the entry (a second surface.drive) shows instructions as delivered, knowledge as prepared with its body listed as missing from the view, and the start's request as delivered. Negative: during entry, selection and start the trace calls no reader, knowledge or memory operation — only preparation.compose and later delivery.observe — so no task-specific query ran; setup, selection and preparation are never labelled delivered, the knowledge selection is never shown as a retrieved body, the observation names no knowledge body, and no frame claims task support or an empty search.",
  "ids": [
   {
    "name": "me",
@@ -230,6 +230,10 @@
     {
      "pointer": "/roots/0/place/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/roots/0/permits/destinations/0/repository_id",
+     "value": "@repo"
     }
    ]
   },
@@ -351,7 +355,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/actor/principal_id",
@@ -418,6 +422,10 @@
     },
     {
      "pointer": "/roots/0/place/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/roots/0/permits/destinations/0/repository_id",
      "value": "@repo"
     }
    ]
@@ -540,7 +548,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/actor/principal_id",
@@ -638,7 +646,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@laptop"
+     "value": "@profile"
     }
    ]
   },
@@ -740,7 +748,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@me"
+     "value": "@profile"
     }
    ]
   },
@@ -814,7 +822,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@me"
+     "value": "@profile"
     }
    ]
   },
@@ -1480,6 +1488,10 @@
     {
      "pointer": "/target/resource_id",
      "value": "@me"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
     }
    ]
   },
@@ -1617,7 +1629,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "use"
+     "value": "read"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1649,7 +1661,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@me"
+     "value": "@profile"
     }
    ]
   },
@@ -1723,7 +1735,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "$prp:start_preparation"
+     "value": "@profile"
     }
    ]
   },
@@ -1732,13 +1744,9 @@
    "from": "session/activated_with_nothing_selected_still_carries_the_contract.json",
    "set": [
     {
-     "pointer": "/delivery/memory_usage/guide/digest",
-     "value": "$digest:memory_use_guide"
-    },
-    {
      "pointer": "/delivery/projections",
      "value": [
-      "$digest:instructions_projection"
+      "#instructions_projection"
      ]
     },
     {
@@ -1748,6 +1756,51 @@
     {
      "pointer": "/session/profile_id",
      "value": "@profile"
+    }
+   ]
+  },
+  {
+   "name": "instructions_projection",
+   "from": "c04/projection_keeps_a_shadowed_unit_attributable.json",
+   "drop": [
+    "/units/1"
+   ],
+   "set": [
+    {
+     "pointer": "/projection_id",
+     "value": "$prj:instructions_projection"
+    },
+    {
+     "pointer": "/plan_digest",
+     "value": "$digest:instructions_projection_plan"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:activation_routed_at"
+    },
+    {
+     "pointer": "/units/0/unit_id",
+     "value": "$unt:instr_unit"
+    },
+    {
+     "pointer": "/units/0/source_id",
+     "value": "@instr"
+    },
+    {
+     "pointer": "/units/0/revision_digest",
+     "value": "#instr_revision"
+    },
+    {
+     "pointer": "/units/0/body_digest",
+     "value": "$digest:instr_bytes"
+    },
+    {
+     "pointer": "/units/0/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/units/0/standing",
+     "value": "layered"
     }
    ]
   },
@@ -1776,7 +1829,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "pure_preview"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/operation",
@@ -1890,7 +1943,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@me"
+     "value": "@profile"
     }
    ]
   },
@@ -2083,7 +2136,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2100,7 +2153,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2187,7 +2240,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2204,7 +2257,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2237,7 +2290,7 @@
     "start_basis"
    ],
    "answer": {
-    "stage": "committed",
+    "stage": "previewed",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
@@ -2255,7 +2308,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2272,12 +2325,13 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "activation_routing"
+     "activation_routing",
+     "instructions_projection"
     ]
    }
   },
@@ -2287,7 +2341,7 @@
    "carries": [],
    "answer": {
     "stage": "previewed",
-    "local_effect": "none",
+    "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],

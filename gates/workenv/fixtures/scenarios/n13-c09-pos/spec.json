@@ -1,6 +1,6 @@
 {
  "case": "N13-C09-POS",
- "says": "Alice founds a Team on her laptop, registers its knowledge source and commits a first revision; her desktop is enrolled as a second device. The laptop stages a complete transfer to the desktop by peer; the desktop's accept records received, then controls_verified naming the continuity record it put in force, then verified naming that controls record, then committed. The desktop undertakes custody of what arrived and acknowledges it, and returns that acknowledgment to the laptop in a return package, which the laptop verifies the same way (controls first, then bodies) and the Team accepts as a contribution with a receipt. The laptop then commits a second revision and stages an incremental transfer naming its baseline (the source head the desktop holds) and the acknowledgment it kept; the desktop verifies and commits it. Importing the same return package a second time answers with the duplicate outcome and the original receipt. What must not happen: verified recorded before controls_verified, a stage skipped, an incremental without the acknowledgment it rests on, or the second import accepting anything again.",
+ "says": "Alice founds a Team on her laptop, which returns the Team's founding continuity epoch, registers its knowledge source and commits a first revision; her desktop is enrolled as a second device. The laptop stages a complete transfer to the desktop by peer — a draft in its outbox with no receipt — carrying the founding epoch as a member because the desktop does not hold it yet; the desktop's accept records received, then controls_verified naming the epoch it put in force, then verified naming that controls record, then committed naming the accept's receipt. The desktop undertakes custody of what arrived and acknowledges it, and returns that acknowledgment to the laptop in a return package, which the laptop verifies the same way (controls first, then bodies) and the Team accepts as a contribution with a receipt; each Team commit moves the laptop's Team head, and the next Team request expects it. The laptop then commits a second revision and stages an incremental transfer naming its baseline (the source head the desktop holds) and the acknowledgment it kept; the desktop, which now holds the epoch, verifies and commits it. Importing the same return package a second time under a new request is settled as a duplicate: the duplicate outcome and the first import's receipt, and no new receipt. What must not happen: verified recorded before controls_verified, a stage skipped, a staging that claims a receipt, an incremental without the acknowledgment it rests on, or the second import accepting anything again.",
  "ids": [
   {
    "name": "desktop_peer",
@@ -37,10 +37,6 @@
   {
    "name": "knowledge_source",
    "prefix": "src"
-  },
-  {
-   "name": "knowledge_collection",
-   "prefix": "col"
   },
   {
    "name": "home_request",
@@ -332,7 +328,7 @@
     },
     {
      "pointer": "/committed_at",
-     "value": "$instant:policy_committed_at"
+     "value": "$instant:team_founded_at"
     }
    ]
   },
@@ -350,7 +346,7 @@
     },
     {
      "pointer": "/since",
-     "value": "$instant:team_active_since"
+     "value": "$instant:team_founded_at"
     }
    ]
   },
@@ -384,10 +380,6 @@
      "value": "@team"
     },
     {
-     "pointer": "/home/collection_id",
-     "value": "@knowledge_collection"
-    },
-    {
      "pointer": "/role",
      "value": "knowledge"
     },
@@ -419,7 +411,7 @@
     },
     {
      "pointer": "/action",
-     "value": "publish"
+     "value": "contribute"
     },
     {
      "pointer": "/effect_class",
@@ -529,11 +521,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#first_revision"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:home_head"
     }
    ]
   },
@@ -654,6 +650,120 @@
     {
      "pointer": "/finalizer/device_id",
      "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "founding",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:team_founder_grant"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "publish",
+      "adopt",
+      "grant",
+      "policy",
+      "transfer",
+      "retain_delete"
+     ]
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 2
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/purpose",
+     "value": "The standards this group works to."
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:team_founded_at"
     }
    ]
   },
@@ -705,6 +815,22 @@
     {
      "pointer": "/inventory/0/object_kind",
      "value": "source_manifest"
+    },
+    {
+     "pointer": "/inventory/1/path",
+     "value": "continuity/0001.json"
+    },
+    {
+     "pointer": "/inventory/1/digest",
+     "value": "#founding_epoch"
+    },
+    {
+     "pointer": "/inventory/1/size",
+     "value": 512
+    },
+    {
+     "pointer": "/inventory/1/object_kind",
+     "value": "authority_continuity"
     }
    ]
   },
@@ -730,7 +856,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -916,7 +1042,7 @@
     },
     {
      "pointer": "/receipt_digest",
-     "value": "$digest:accept_full_transfer_receipt"
+     "value": "#accept_full_transfer_receipt"
     },
     {
      "pointer": "/at",
@@ -1197,7 +1323,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1435,7 +1561,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:team_head"
+     "value": "$digest:team_head_2"
     },
     {
      "pointer": "/payload_digest",
@@ -1458,7 +1584,7 @@
     {
      "pointer": "/receipt_digests",
      "value": [
-      "$digest:resolve_returned_contribution_receipt"
+      "#resolve_returned_contribution_receipt"
      ]
     },
     {
@@ -1638,7 +1764,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1670,7 +1796,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:team_head_2"
+     "value": "$digest:team_head_3"
     },
     {
      "pointer": "/payload_digest",
@@ -1810,7 +1936,7 @@
     },
     {
      "pointer": "/receipt_digest",
-     "value": "$digest:accept_incremental_transfer_receipt"
+     "value": "#accept_incremental_transfer_receipt"
     },
     {
      "pointer": "/at",
@@ -1872,7 +1998,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:team_head_2"
+     "value": "$digest:team_head_3"
     },
     {
      "pointer": "/payload_digest",
@@ -1895,7 +2021,7 @@
     {
      "pointer": "/receipt_digests",
      "value": [
-      "$digest:resolve_returned_contribution_receipt"
+      "#resolve_returned_contribution_receipt"
      ]
     },
     {
@@ -1942,8 +2068,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
-     "team_active"
+     "team_founder_membership",
+     "team_founder_grant",
+     "team_active",
+     "team_profile",
+     "founding_epoch"
     ],
     "head": "team_head"
    },
@@ -1966,7 +2097,8 @@
     "recovery": [],
     "returns": [
      "stored_home"
-    ]
+    ],
+    "head": "home_head"
    },
    "process": "laptop"
   },
@@ -2014,8 +2146,8 @@
     "full_envelope"
    ],
    "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
+    "stage": "draft",
+    "local_effect": "objects_staged",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2095,8 +2227,8 @@
     "return_envelope"
    ],
    "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
+    "stage": "draft",
+    "local_effect": "objects_staged",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2111,8 +2243,7 @@
    "name": "accept_return_package",
    "request": "accept_return",
    "carries": [
-    "return_envelope",
-    "founding_epoch"
+    "return_envelope"
    ],
    "answer": {
     "stage": "committed",
@@ -2125,7 +2256,8 @@
      "return_controls",
      "return_verified",
      "return_accepted"
-    ]
+    ],
+    "head": "team_head_2"
    },
    "process": "laptop",
    "advance_seconds": 60
@@ -2145,7 +2277,7 @@
     "returns": [
      "contribution_kept"
     ],
-    "head": "team_head_2"
+    "head": "team_head_3"
    },
    "process": "laptop",
    "advance_seconds": 60
@@ -2177,8 +2309,8 @@
     "incremental_envelope"
    ],
    "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
+    "stage": "draft",
+    "local_effect": "objects_staged",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2193,8 +2325,7 @@
    "name": "accept_incremental_transfer",
    "request": "accept_incremental",
    "carries": [
-    "incremental_envelope",
-    "founding_epoch"
+    "incremental_envelope"
    ],
    "answer": {
     "stage": "committed",
@@ -2221,13 +2352,14 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "none",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
      "contribution_duplicate"
-    ]
+    ],
+    "receipt_of": "resolve_returned_contribution"
    },
    "process": "laptop",
    "advance_seconds": 60

@@ -18,10 +18,6 @@
    "name": "notes_source"
   },
   {
-   "id": "col_bd0063c82a959a5b59c049b489f5ce13",
-   "name": "notes_collection"
-  },
-  {
    "id": "req_df458437fd0f4f314299595dca0c8805",
    "name": "bind_request_id"
   },
@@ -56,23 +52,42 @@
   {
    "id": "req_6e67dab73903b7c4cfe07ba357967e42",
    "name": "unlocked_decide_request_id"
+  },
+  {
+   "id": "req_3ff7f0998b4f835e3cf40363bb3ba44b",
+   "name": "read_profile_request_id"
   }
  ],
  "joins": [
   {
+   "minted": "read_profile_profile_at",
+   "pointer": "/created_at",
+   "record": "read_profile_profile"
+  },
+  {
+   "minted": "read_profile_state_at",
+   "pointer": "/changed_at",
+   "record": "read_profile_state"
+  },
+  {
+   "digest_of": "read_profile_request",
+   "pointer": "/request_digest",
+   "record": "read_profile_result"
+  },
+  {
+   "digest_of": "read_profile_profile",
+   "pointer": "/outputs/0/digest",
+   "record": "read_profile_result"
+  },
+  {
+   "digest_of": "read_profile_state",
+   "pointer": "/outputs/1/digest",
+   "record": "read_profile_result"
+  },
+  {
    "digest_of": "alice_laptop_key",
    "pointer": "/payload_digest",
    "record": "bind_alice_laptop"
-  },
-  {
-   "minted": "alice_binding",
-   "pointer": "/binding_id",
-   "record": "alice_laptop_binding"
-  },
-  {
-   "minted": "alice_binding_at",
-   "pointer": "/created_at",
-   "record": "alice_laptop_binding"
   },
   {
    "digest_of": "bind_alice_laptop",
@@ -95,6 +110,16 @@
    "record": "bind_key_receipt"
   },
   {
+   "minted": "alice_binding",
+   "pointer": "/binding_id",
+   "record": "alice_laptop_binding"
+  },
+  {
+   "minted": "alice_binding_at",
+   "pointer": "/created_at",
+   "record": "alice_laptop_binding"
+  },
+  {
    "digest_of": "bind_key_receipt",
    "pointer": "/outcome/receipt_digest",
    "record": "bind_key_result"
@@ -115,17 +140,12 @@
    "record": "register_request"
   },
   {
-   "minted": "registered_at",
-   "pointer": "/registered_at",
-   "record": "stored_home"
-  },
-  {
    "digest_of": "register_request",
    "pointer": "/request_digest",
    "record": "register_notes_receipt"
   },
   {
-   "minted": "register_notes_head",
+   "minted": "notes_h0",
    "pointer": "/head_digest",
    "record": "register_notes_receipt"
   },
@@ -138,6 +158,11 @@
    "minted": "register_notes_committed_at",
    "pointer": "/committed_at",
    "record": "register_notes_receipt"
+  },
+  {
+   "minted": "registered_at",
+   "pointer": "/registered_at",
+   "record": "stored_home"
   },
   {
    "digest_of": "register_notes_receipt",
@@ -160,11 +185,6 @@
    "record": "lock_request"
   },
   {
-   "minted": "lock_at",
-   "pointer": "/changed_at",
-   "record": "lock_state"
-  },
-  {
    "digest_of": "lock_request",
    "pointer": "/request_digest",
    "record": "lock_receipt"
@@ -183,6 +203,11 @@
    "minted": "lock_committed_at",
    "pointer": "/committed_at",
    "record": "lock_receipt"
+  },
+  {
+   "minted": "lock_at",
+   "pointer": "/changed_at",
+   "record": "lock_state"
   },
   {
    "digest_of": "lock_receipt",
@@ -225,6 +250,11 @@
    "record": "signed_commit"
   },
   {
+   "minted": "notes_h0",
+   "pointer": "/target/base/head_digest",
+   "record": "signed_commit"
+  },
+  {
    "digest_of": "signed_commit",
    "pointer": "/payload_digest",
    "record": "sign_while_locked_request"
@@ -245,11 +275,6 @@
    "record": "unlock_at_terminal_request"
   },
   {
-   "minted": "unlock_at_terminal_at",
-   "pointer": "/changed_at",
-   "record": "unlock_at_terminal_state"
-  },
-  {
    "digest_of": "unlock_at_terminal_request",
    "pointer": "/request_digest",
    "record": "unlock_at_terminal_receipt"
@@ -268,6 +293,11 @@
    "minted": "unlock_at_terminal_committed_at",
    "pointer": "/committed_at",
    "record": "unlock_at_terminal_receipt"
+  },
+  {
+   "minted": "unlock_at_terminal_at",
+   "pointer": "/changed_at",
+   "record": "unlock_at_terminal_state"
   },
   {
    "digest_of": "unlock_at_terminal_receipt",
@@ -302,6 +332,16 @@
  ],
  "minted": [
   {
+   "name": "read_profile_profile_at",
+   "shape": "instant",
+   "step": "read_profile"
+  },
+  {
+   "name": "read_profile_state_at",
+   "shape": "instant",
+   "step": "read_profile"
+  },
+  {
    "name": "alice_binding",
    "shape": "bnd",
    "step": "bind_key"
@@ -327,13 +367,13 @@
    "step": "bind_key"
   },
   {
-   "name": "register_notes_committed_at",
-   "shape": "instant",
+   "name": "notes_h0",
+   "shape": "digest",
    "step": "register_notes"
   },
   {
-   "name": "register_notes_head",
-   "shape": "digest",
+   "name": "register_notes_committed_at",
+   "shape": "instant",
    "step": "register_notes"
   },
   {
@@ -389,6 +429,87 @@
  ],
  "records": [
   {
+   "digest": "802d661a220c32872c35aba4d932d34390b3936695ec2f8c9e4ecf38c9d92f42",
+   "name": "read_profile_request",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_da39f8cdfe2696b1e1195f592967c39b",
+     "principal_id": "prn_bf6bfe1fd2042b1f30d5c089d0825f22",
+     "profile_id": "prf_9466de8e5d9832318058b6bf59a2c3e9"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 1,
+    "operation": "access.profile.read",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_bf6bfe1fd2042b1f30d5c089d0825f22"
+    },
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_3ff7f0998b4f835e3cf40363bb3ba44b",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_9466de8e5d9832318058b6bf59a2c3e9"
+    }
+   }
+  },
+  {
+   "digest": "40334244b63f660742d1ab2c3028f4b175c6eb4fcc33281a883517bd9088d6ec",
+   "name": "read_profile_profile",
+   "record": {
+    "created_at": "2000-01-01T00:00:00Z",
+    "kind": "local_profile",
+    "principal_id": "prn_bf6bfe1fd2042b1f30d5c089d0825f22",
+    "profile_id": "prf_9466de8e5d9832318058b6bf59a2c3e9",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "178e9489d0a462a99c2b71cd6c9691de673a475ec80035f7aef2fc43b60335c5",
+   "name": "read_profile_state",
+   "record": {
+    "access_generation": 1,
+    "changed_at": "2000-01-01T00:00:00Z",
+    "kind": "access_state",
+    "profile_id": "prf_9466de8e5d9832318058b6bf59a2c3e9",
+    "schema": 1,
+    "state": {
+     "because": "first_use",
+     "is": "active"
+    }
+   }
+  },
+  {
+   "digest": "64131ddf9aab0ec018d529382632fd9a6198bed93a60872afa07be3f5869d552",
+   "name": "read_profile_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "40334244b63f660742d1ab2c3028f4b175c6eb4fcc33281a883517bd9088d6ec",
+      "kind": "local_profile"
+     },
+     {
+      "digest": "178e9489d0a462a99c2b71cd6c9691de673a475ec80035f7aef2fc43b60335c5",
+      "kind": "access_state"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "802d661a220c32872c35aba4d932d34390b3936695ec2f8c9e4ecf38c9d92f42",
+    "request_id": "req_3ff7f0998b4f835e3cf40363bb3ba44b",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
    "digest": "877a0dbe745f32d757a496e8976604a9a354b62f4dab264d4ae6199c7300c878",
    "name": "alice_laptop_key",
    "record": {
@@ -435,25 +556,6 @@
    }
   },
   {
-   "digest": "237249b99c102a37ac77488e1db5cd1719d5c6523d20766fb73c22a7ddcff8fa",
-   "name": "alice_laptop_binding",
-   "record": {
-    "binding_id": "bnd_8958799ca54644bf7eb89de1379938f1",
-    "created_at": "2000-01-01T00:00:00Z",
-    "credential": {
-     "credential": "device_key",
-     "device_id": "dev_da39f8cdfe2696b1e1195f592967c39b",
-     "key_generation": 1,
-     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
-    },
-    "established_by": "local_creation",
-    "evidence_digests": [],
-    "kind": "principal_binding",
-    "principal_id": "prn_bf6bfe1fd2042b1f30d5c089d0825f22",
-    "schema": 1
-   }
-  },
-  {
    "digest": "9c02d598a00b0ddedd857d9b7c92d69843959dff23353dcde71436ed65b3c696",
    "name": "bind_key_receipt",
    "record": {
@@ -471,6 +573,25 @@
     "target": {
      "resource_id": "prn_bf6bfe1fd2042b1f30d5c089d0825f22"
     }
+   }
+  },
+  {
+   "digest": "237249b99c102a37ac77488e1db5cd1719d5c6523d20766fb73c22a7ddcff8fa",
+   "name": "alice_laptop_binding",
+   "record": {
+    "binding_id": "bnd_8958799ca54644bf7eb89de1379938f1",
+    "created_at": "2000-01-01T00:00:00Z",
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_da39f8cdfe2696b1e1195f592967c39b",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_bf6bfe1fd2042b1f30d5c089d0825f22",
+    "schema": 1
    }
   },
   {
@@ -498,7 +619,7 @@
    }
   },
   {
-   "digest": "b0c16341a3834ca301c360c9e90c67416e5d4e9d9f2956a3263ee7ea2052bce2",
+   "digest": "1aa0f2d89a29384682e768dd1d96477720fa9e825b22aa06a5f3b5b566b8abca",
    "name": "notes_home",
    "record": {
     "acceptance_authority": {
@@ -517,7 +638,6 @@
     "disclosure": "private",
     "format_version": 1,
     "home": {
-     "collection_id": "col_bd0063c82a959a5b59c049b489f5ce13",
      "markdown_view": {
       "path": "views/collection.md",
       "view": "derived"
@@ -540,10 +660,10 @@
    }
   },
   {
-   "digest": "18246b64d87540e47b675db1c552888255e52b5c3a8752757603be725573d28c",
+   "digest": "c96e1d23b3f010d4be745f6e06528e5c3e44a640fba2901ad0647f780eb0659b",
    "name": "register_request",
    "record": {
-    "action": "local_profile",
+    "action": "contribute",
     "actor": {
      "device_id": "dev_da39f8cdfe2696b1e1195f592967c39b",
      "principal_id": "prn_bf6bfe1fd2042b1f30d5c089d0825f22",
@@ -558,7 +678,7 @@
      "layer": "personal",
      "principal_id": "prn_bf6bfe1fd2042b1f30d5c089d0825f22"
     },
-    "payload_digest": "b0c16341a3834ca301c360c9e90c67416e5d4e9d9f2956a3263ee7ea2052bce2",
+    "payload_digest": "1aa0f2d89a29384682e768dd1d96477720fa9e825b22aa06a5f3b5b566b8abca",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_e9546630081b3f5a9da82b1d2e7b0468",
@@ -572,7 +692,30 @@
    }
   },
   {
-   "digest": "42bd41c1ec81e2247cfc1d553821e0d2a3388188f4311e30123a4ad1788c0ffb",
+   "digest": "6d09cb60b2cba13ebd62ade8cad648a9023e0284fcd4ed7ff4e17f78649ad732",
+   "name": "register_notes_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "3d5f5bb66c3985a3d08ad8fe7d64663f8ca0db222b219070f84ef8000a8e3f7f",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_bf6bfe1fd2042b1f30d5c089d0825f22"
+    },
+    "request_digest": "c96e1d23b3f010d4be745f6e06528e5c3e44a640fba2901ad0647f780eb0659b",
+    "request_id": "req_e9546630081b3f5a9da82b1d2e7b0468",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_7da92b74a084458b49420b8a25b22e53"
+    }
+   }
+  },
+  {
+   "digest": "21e0c81a41a2be9367a3965979e2121ce9f1410a6a23b2dc62bd028c9d147566",
    "name": "stored_home",
    "record": {
     "acceptance_authority": {
@@ -591,7 +734,6 @@
     "disclosure": "private",
     "format_version": 1,
     "home": {
-     "collection_id": "col_bd0063c82a959a5b59c049b489f5ce13",
      "markdown_view": {
       "path": "views/collection.md",
       "view": "derived"
@@ -615,47 +757,24 @@
    }
   },
   {
-   "digest": "2eb6037152a832cb062979b2030dc1c5ff56b91c9758ccb467d78603a6d38cbb",
-   "name": "register_notes_receipt",
-   "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "57669cb606f07e0ceb8ce65aa00dece51a2af6781608c58f78dfe61e4f880e15",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "personal",
-     "principal_id": "prn_bf6bfe1fd2042b1f30d5c089d0825f22"
-    },
-    "request_digest": "18246b64d87540e47b675db1c552888255e52b5c3a8752757603be725573d28c",
-    "request_id": "req_e9546630081b3f5a9da82b1d2e7b0468",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "base": {
-      "expects": "absent"
-     },
-     "resource_id": "src_7da92b74a084458b49420b8a25b22e53"
-    }
-   }
-  },
-  {
-   "digest": "af253c14870fd5e83366e34b1d5ef711a9c0f622ce5c4419cf364fa697804a38",
+   "digest": "1942ade191647019770317a000b371f72722017c453690de477b70501b252441",
    "name": "register_notes_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "2eb6037152a832cb062979b2030dc1c5ff56b91c9758ccb467d78603a6d38cbb",
+     "receipt_digest": "6d09cb60b2cba13ebd62ade8cad648a9023e0284fcd4ed7ff4e17f78649ad732",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "42bd41c1ec81e2247cfc1d553821e0d2a3388188f4311e30123a4ad1788c0ffb",
+      "digest": "21e0c81a41a2be9367a3965979e2121ce9f1410a6a23b2dc62bd028c9d147566",
       "kind": "source_home"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "18246b64d87540e47b675db1c552888255e52b5c3a8752757603be725573d28c",
+    "request_digest": "c96e1d23b3f010d4be745f6e06528e5c3e44a640fba2901ad0647f780eb0659b",
     "request_id": "req_e9546630081b3f5a9da82b1d2e7b0468",
     "schema": 1,
     "supported_recovery": []
@@ -704,21 +823,6 @@
    }
   },
   {
-   "digest": "07ea90111da4b503ca646dd8550bc1b0504cb754e148a615135196940bf844aa",
-   "name": "lock_state",
-   "record": {
-    "access_generation": 2,
-    "changed_at": "2000-01-01T00:00:00Z",
-    "kind": "access_state",
-    "profile_id": "prf_9466de8e5d9832318058b6bf59a2c3e9",
-    "schema": 1,
-    "state": {
-     "because": "lock",
-     "is": "locked"
-    }
-   }
-  },
-  {
    "digest": "c5ade90d77e1ecb7476dea25c7b2717be8886a0436a57bed23dc712e16b95485",
    "name": "lock_receipt",
    "record": {
@@ -739,11 +843,26 @@
    }
   },
   {
-   "digest": "396d2f2b51be83f5460ec5810b2b44e12f41398bf638a4919facd40cb5365875",
+   "digest": "07ea90111da4b503ca646dd8550bc1b0504cb754e148a615135196940bf844aa",
+   "name": "lock_state",
+   "record": {
+    "access_generation": 2,
+    "changed_at": "2000-01-01T00:00:00Z",
+    "kind": "access_state",
+    "profile_id": "prf_9466de8e5d9832318058b6bf59a2c3e9",
+    "schema": 1,
+    "state": {
+     "because": "lock",
+     "is": "locked"
+    }
+   }
+  },
+  {
+   "digest": "7f2819bfbfa1cb9bf3ac6928a47088f42c3796a7a183c35151d0b7352c7ee9ed",
    "name": "lock_result",
    "record": {
     "kind": "operation_result",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
      "receipt_digest": "c5ade90d77e1ecb7476dea25c7b2717be8886a0436a57bed23dc712e16b95485",
@@ -919,7 +1038,7 @@
    }
   },
   {
-   "digest": "3f92ba98cb6db472e470c0f0dca3b163c36d954a41d7a63ad292962186b49ae9",
+   "digest": "4b91bfdbfa4ff120d50d41bde53fe613200027f97c31b685dc0fad2115bb8ff1",
    "name": "signed_commit",
    "record": {
     "action": "publish",
@@ -944,17 +1063,18 @@
     "schema": 1,
     "target": {
      "base": {
-      "expects": "absent"
+      "expects": "head",
+      "head_digest": "3d5f5bb66c3985a3d08ad8fe7d64663f8ca0db222b219070f84ef8000a8e3f7f"
      },
      "resource_id": "src_7da92b74a084458b49420b8a25b22e53"
     }
    }
   },
   {
-   "digest": "bf4d3713751c4094a7b3fc8d92af77b118c06bb8fb7f746c5a324ffb55774b0d",
+   "digest": "1ad9ce432618f252a0fbf9f413f166e29924af0eea52d6d0374821c4b8ca9404",
    "name": "sign_while_locked_request",
    "record": {
-    "action": "read",
+    "action": "local_profile",
     "actor": {
      "device_id": "dev_da39f8cdfe2696b1e1195f592967c39b",
      "principal_id": "prn_bf6bfe1fd2042b1f30d5c089d0825f22",
@@ -969,7 +1089,7 @@
      "layer": "personal",
      "principal_id": "prn_bf6bfe1fd2042b1f30d5c089d0825f22"
     },
-    "payload_digest": "3f92ba98cb6db472e470c0f0dca3b163c36d954a41d7a63ad292962186b49ae9",
+    "payload_digest": "4b91bfdbfa4ff120d50d41bde53fe613200027f97c31b685dc0fad2115bb8ff1",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_02f904fd68fa9ce8f21e2bbb82f4e38b",
@@ -999,7 +1119,7 @@
    }
   },
   {
-   "digest": "5bee95212aeadcc227c79321ff78a67f6fb3b07f22b97d370da2d72d1d5bb593",
+   "digest": "3a6c9384f33e5509bc42f36b1692277bdaa1004de68d272bcd7944bbc8168f9e",
    "name": "sign_while_locked_result",
    "record": {
     "kind": "operation_result",
@@ -1015,7 +1135,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "bf4d3713751c4094a7b3fc8d92af77b118c06bb8fb7f746c5a324ffb55774b0d",
+    "request_digest": "1ad9ce432618f252a0fbf9f413f166e29924af0eea52d6d0374821c4b8ca9404",
     "request_id": "req_02f904fd68fa9ce8f21e2bbb82f4e38b",
     "schema": 1,
     "supported_recovery": []
@@ -1065,21 +1185,6 @@
    }
   },
   {
-   "digest": "02d57bd933558ff99748fca4f754a3273256deb4bd41d1b725455838c595ebe1",
-   "name": "unlock_at_terminal_state",
-   "record": {
-    "access_generation": 2,
-    "changed_at": "2000-01-01T00:00:00Z",
-    "kind": "access_state",
-    "profile_id": "prf_9466de8e5d9832318058b6bf59a2c3e9",
-    "schema": 1,
-    "state": {
-     "because": "unlock",
-     "is": "active"
-    }
-   }
-  },
-  {
    "digest": "aa84e7f013e37dfa7cc6d61449a6b95639a6bda2725e42a5bc5824da4e8b8575",
    "name": "unlock_at_terminal_receipt",
    "record": {
@@ -1100,11 +1205,29 @@
    }
   },
   {
-   "digest": "e7e42cb1311056c143244ad94d428482bf45bcd07becd63e70b5a5ea5717f981",
+   "digest": "89546c69adce614ebe4957cb08ed275f4c3678e862112eb76de624223919a44f",
+   "name": "unlock_at_terminal_state",
+   "record": {
+    "access_generation": 2,
+    "changed_at": "2000-01-01T00:00:00Z",
+    "kind": "access_state",
+    "profile_id": "prf_9466de8e5d9832318058b6bf59a2c3e9",
+    "schema": 1,
+    "state": {
+     "because": "unlock",
+     "is": "active",
+     "key_mode": {
+      "runs": "real"
+     }
+    }
+   }
+  },
+  {
+   "digest": "df77047738da0928ac847d0fafd29b836b5347ea55714e5d16cc0f88f183c10e",
    "name": "unlock_at_terminal_result",
    "record": {
     "kind": "operation_result",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
      "receipt_digest": "aa84e7f013e37dfa7cc6d61449a6b95639a6bda2725e42a5bc5824da4e8b8575",
@@ -1112,7 +1235,7 @@
     },
     "outputs": [
      {
-      "digest": "02d57bd933558ff99748fca4f754a3273256deb4bd41d1b725455838c595ebe1",
+      "digest": "89546c69adce614ebe4957cb08ed275f4c3678e862112eb76de624223919a44f",
       "kind": "access_state"
      }
     ],
@@ -1124,10 +1247,10 @@
    }
   },
   {
-   "digest": "1c67939111b22fafdbf83f200e0077dc7070dd76c10bb1d7bb02cdcf2c373d9e",
+   "digest": "44a181d35828be381d7de98e7ad7630b97b965010bb6160c78fd7ecb0eed39da",
    "name": "sign_after_unlock_request",
    "record": {
-    "action": "read",
+    "action": "local_profile",
     "actor": {
      "device_id": "dev_da39f8cdfe2696b1e1195f592967c39b",
      "principal_id": "prn_bf6bfe1fd2042b1f30d5c089d0825f22",
@@ -1142,7 +1265,7 @@
      "layer": "personal",
      "principal_id": "prn_bf6bfe1fd2042b1f30d5c089d0825f22"
     },
-    "payload_digest": "3f92ba98cb6db472e470c0f0dca3b163c36d954a41d7a63ad292962186b49ae9",
+    "payload_digest": "4b91bfdbfa4ff120d50d41bde53fe613200027f97c31b685dc0fad2115bb8ff1",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_6e67dab73903b7c4cfe07ba357967e42",
@@ -1167,7 +1290,7 @@
    }
   },
   {
-   "digest": "ddd4b26d118715bc9400d22da1521e223177b563a1a0811725022417d1b63f0c",
+   "digest": "a4e5291c0223dc5774ef464f8a9b2ff43f24bc6556ef7c6f28304cb5223a4b23",
    "name": "sign_after_unlock_result",
    "record": {
     "kind": "operation_result",
@@ -1183,16 +1306,26 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "1c67939111b22fafdbf83f200e0077dc7070dd76c10bb1d7bb02cdcf2c373d9e",
+    "request_digest": "44a181d35828be381d7de98e7ad7630b97b965010bb6160c78fd7ecb0eed39da",
     "request_id": "req_6e67dab73903b7c4cfe07ba357967e42",
     "schema": 1,
     "supported_recovery": []
    }
   }
  ],
- "says": "Alice has bound her device key and registered a private notes source, then locks the profile (generation 2). She tries to unlock while her key's private half sits beside the public key the signing call names: the unlock is refused with private_key_beside_public and the profile stays locked, because under that layout OpenSSH would prompt for the passphrase again outside the unlock. She tries again while SSH_AUTH_SOCK names a signing agent this runtime does not own: refused with agent_not_owned_here. While locked, the signed commit of her notes' first revision is not admitted, with access_locked: no signature is made. With the public half stored apart and the runtime's own agent, an unlock at a terminal succeeds (generation 2), and the same commit is admitted. What must not happen: a signature made while locked, an unlock through an agent the runtime does not own, or any passphrase prompt other than the one inside the unlock transition.",
- "spec_sha256": "f92e73709aec7b4501cc01bf94f043d7ba141ebf35144ee457ebfdcbd25a28d3",
+ "says": "Alice's laptop reads its fresh profile (active, generation 1); she binds her device key and registers a private notes source, then locks the profile (generation 2). She tries to unlock while her key's private half sits beside the public key the signing call names: the unlock is refused with private_key_beside_public and the profile stays locked, because under that layout OpenSSH would prompt for the passphrase again outside the unlock. She tries again while SSH_AUTH_SOCK names a signing agent this runtime does not own: refused with agent_not_owned_here. While locked, the signed commit of her notes' first revision is not admitted, with access_locked: no signature is made. With the public half stored apart and the runtime's own agent, an unlock at a terminal succeeds with the real device key (still generation 2: an unlock moves no generation), and the same commit is admitted. What must not happen: a signature made while locked, an unlock through an agent the runtime does not own, or any passphrase prompt other than the one inside the unlock transition.",
+ "spec_sha256": "4d6e090807ab625018eda1831cd9f130bb819d2c0fb777a8a33ee2287c3a5f78",
  "steps": [
+  {
+   "carries": [],
+   "name": "read_profile",
+   "request": "read_profile_request",
+   "result": "read_profile_result",
+   "returns": [
+    "read_profile_profile",
+    "read_profile_state"
+   ]
+  },
   {
    "carries": [
     "alice_laptop_key"
@@ -1208,6 +1341,7 @@
    "carries": [
     "notes_home"
    ],
+   "head": "notes_h0",
    "name": "register_notes",
    "request": "register_request",
    "result": "register_notes_result",

@@ -1,6 +1,6 @@
 {
  "case": "N10-PROVIDER-POS",
- "says": "Ana founds a Team and configures a Google connection for it that expects the hosted-domain claim example.com. On his own device Ben begins a sign-in for admission through that connection and completes it; the owner verifies the callback against the attempt's state and nonce and returns sign-in evidence carrying the hd claim, and nothing else. Ana first asks to admit Ben on that evidence while the Team's policy has no admission rule: the owner refuses it with claim_not_admitted. Ana then sets policy version 2, whose admission rule names that connection, the hosted_domain claim and the value example.com, bounded to read and use. The same claim, submitted again as a membership change naming the connection and policy version 2, commits Ben's provider-claim membership. What must come back is a membership whose standing names the connection and the policy that admitted it; what must not happen is an admission before a rule of the Team's own policy names that connection and claim.",
+ "says": "Ana founds a Team, which returns her membership by founding and the founding epoch, and configures a Google connection for it that expects the hosted-domain claim example.com. On his own device Ben begins a sign-in for admission through that connection and completes it; the owner verifies the callback against the attempt's state and nonce and returns sign-in evidence carrying the hd claim, and nothing else. Ana first asks to admit Ben on that evidence while the Team's policy has no admission rule: the owner refuses it with claim_not_admitted. Ana then sets policy version 2, whose admission rule names that connection, the hosted_domain claim and the value example.com, bounded to read and use. The same claim, submitted again as a membership change naming the connection and policy version 2, commits Ben's provider-claim membership. What must come back is a membership whose standing names the connection and the policy that admitted it; what must not happen is an admission before a rule of the Team's own policy names that connection and claim.",
  "ids": [
   {
    "name": "ana",
@@ -126,6 +126,68 @@
     {
      "pointer": "/recovery/0/principal_id",
      "value": "@ana"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "team_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership_id"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_head_1"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@ana_device"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_founded_at"
     }
    ]
   },
@@ -959,10 +1021,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
+     "team_founder_membership",
      "team_founder_grant",
      "team_active",
-     "team_profile"
+     "team_profile",
+     "team_founding_epoch"
     ],
     "head": "team_head_1"
    },
@@ -998,7 +1063,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],

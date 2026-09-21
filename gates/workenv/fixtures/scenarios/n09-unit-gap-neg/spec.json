@@ -1,6 +1,6 @@
 {
  "case": "N09-UNIT-GAP-NEG",
- "says": "A repository's review rule wins the concern review.approval over the Team's own review rule, which is shadowed; a second Team source is switched off, so its required unit is disabled; the Team's terms unit is kept because the winning rule needs it. Neither the shadowed Team rule nor the disabled unit is held as a body in the preparation, and neither may hold the session's start: the preparation the owner writes states no gap naming either of them, while it keeps the needed terms unit. This is the rule C07/gap_names_no_losing_unit; its fixture's breaking records - a gap naming the shadowed Team rule, or naming the switched-off unit's missing body - are what the owner must never write.",
+ "says": "A repository's review rule wins the concern review.approval over the Team's own review rule, which is shadowed; a second Team source is switched off, so its required unit is disabled; the Team's terms unit is kept because the winning rule needs it. The repository's rules revision is committed, but its review.md bytes are not held on this device - the same condition as the shadowed Team rule and the disabled unit, whose bodies the preparation does not hold either, and all three are required at startup. The preparation the owner writes, and the compose answer, name the winning review rule with role_body_unavailable, because only a winning required unit gates a start, and state no gap naming the shadowed Team rule or the disabled unit, while keeping the needed terms unit. This is the rule C07/gap_names_no_losing_unit; its fixture's breaking records - a gap naming the shadowed Team rule, or naming the switched-off unit's missing body - are what the owner must never write.",
  "ids": [
   {
    "name": "alice",
@@ -314,6 +314,68 @@
     {
      "pointer": "/team_id",
      "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "team_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "alice_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:alice_membership_id"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_founded_at"
     }
    ]
   },
@@ -1200,7 +1262,8 @@
    "name": "layered_preparation",
    "from": "c07/preparation_where_the_repository_rule_wins_and_the_team_rule_gates_nothing.json",
    "drop": [
-    "/collections/2"
+    "/collections/2",
+    "/units/0/body_digest"
    ],
    "set": [
     {
@@ -1209,7 +1272,7 @@
     },
     {
      "pointer": "/collections/0/head_digest",
-     "value": "$digest:repo_position_head"
+     "value": "#repo_position_head_record"
     },
     {
      "pointer": "/collections/1/collection_id",
@@ -1217,7 +1280,7 @@
     },
     {
      "pointer": "/collections/1/head_digest",
-     "value": "$digest:team_position_head"
+     "value": "#team_position_head_record"
     },
     {
      "pointer": "/frontiers",
@@ -1266,10 +1329,6 @@
     {
      "pointer": "/units/0/revision_digest",
      "value": "#repo_rules_rev"
-    },
-    {
-     "pointer": "/units/0/body_digest",
-     "value": "$digest:repo_rules_review_body"
     },
     {
      "pointer": "/units/1/unit_id",
@@ -1368,6 +1427,14 @@
     {
      "pointer": "/units/4/startup",
      "value": "required"
+    },
+    {
+     "pointer": "/material_gaps/0/code",
+     "value": "role_body_unavailable"
+    },
+    {
+     "pointer": "/material_gaps/0/pointer",
+     "value": "/units/0"
     }
    ]
   },
@@ -1429,6 +1496,10 @@
     {
      "pointer": "/payload_digest",
      "value": "#layered_selection"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
     }
    ]
   }
@@ -1482,10 +1553,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
+     "alice_membership",
      "alice_founding_grant",
      "team_state",
-     "team_profile"
+     "team_profile",
+     "team_founding_epoch"
     ],
     "head": "team_head"
    },
@@ -1562,7 +1636,7 @@
     "returns": [
      "repo_position_head_record"
     ],
-    "head": "repo_position_head"
+    "head": "repo_position_head_record"
    }
   },
   {
@@ -1580,7 +1654,7 @@
     "returns": [
      "team_position_head_record"
     ],
-    "head": "team_position_head"
+    "head": "team_position_head_record"
    }
   },
   {
@@ -1590,10 +1664,15 @@
     "layered_selection"
    ],
    "answer": {
-    "stage": "committed",
+    "stage": "previewed",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
-    "gaps": [],
+    "gaps": [
+     {
+      "code": "role_body_unavailable",
+      "pointer": "/units/0"
+     }
+    ],
     "recovery": [],
     "returns": [
      "layered_preparation"

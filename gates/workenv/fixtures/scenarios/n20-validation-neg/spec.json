@@ -1,6 +1,6 @@
 {
  "case": "N20-VALIDATION-NEG",
- "says": "A knowledge source is registered and two revisions are committed, the second correcting the rate table. A validation request pins both revisions and one lens; the validator checks only the first, so the run the owner records is unverified (partial_run) and its checks name the first revision as ran and the second as not run, never a clean verdict over part of what was pinned. A second request pins only the second revision under the same lens; the run finds a problem and records one check and one finding, both on that revision under that lens, naming no target or lens the request did not pin. A third request on the second revision times out and is recorded unverified. Every validation_run the owner writes here covers exactly the targets and lenses its request pinned (C12/validation_covers_its_request); the breaking records stay in the rule fixture.",
+ "says": "A knowledge source is registered and two revisions are committed, each on the head the step before it moved to, the second correcting the rate table. A validation request pins both revisions and one lens; the validator checks only the first, so the run the owner records is unverified (partial_run) and its checks name the first revision as ran and the second as not run, never a clean verdict over part of what was pinned. A second request pins only the second revision under the same lens; the run finds a problem and records one check and one finding, both on that revision under that lens, naming no target or lens the request did not pin. A third request on the second revision times out and is recorded unverified. Every validation_run the owner writes here covers exactly the targets and lenses its request pinned (C12/validation_covers_its_request); the breaking records stay in the rule fixture.",
  "ids": [
   {
    "name": "rates",
@@ -224,9 +224,6 @@
   {
    "name": "commit_rates_rev1",
    "from": "c04/model_check_request.json",
-   "drop": [
-    "/target/base/head_digest"
-   ],
    "set": [
     {
      "pointer": "/request_id",
@@ -262,7 +259,7 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
@@ -271,6 +268,10 @@
     {
      "pointer": "/owner/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:rates_registered"
     }
    ]
   },
@@ -722,7 +723,8 @@
     "recovery": [],
     "returns": [
      "rates_home_stored"
-    ]
+    ],
+    "head": "rates_registered"
    }
   },
   {
@@ -769,7 +771,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -786,7 +788,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -803,7 +805,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],

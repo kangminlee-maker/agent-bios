@@ -1,6 +1,6 @@
 {
  "case": "N22-E2E-NEG",
- "says": "Three isolated processes, Alice's laptop (the Team's finalizer), desktop and home server, run under the harness's clock and network policy; the user's clock is never set. The home server imports Monday's complete package; the desktop is out of reach and misses it. When the desktop is reachable again the laptop sends it only the increment, and the desktop's accept stops at received with baseline_missing; a complete package then brings it level and commits. The desktop commits a custody undertaking and then signs out: the undertaking stays committed, and a request handle it prepared before signing out is not admitted, with access_signed_out and access_generation_moved. A package carrying the permit's newly recorded revocation reaches the home server with its body missing: the revocation is put in force at controls_verified and the import stops there. Finally the laptop is lost: the home server's commit to the Team source is blocked with finalizer_unavailable and is not finalized on the home server; after Alice, holding the recovery duty, hands the finalizer duty to the home server, the same request is retried and commits once. What must not happen: a missed package papered over by the increment, a sign-out undoing a committed write or admitting an old handle, a restriction dropped because the bodies failed, or a shared commit finalized anywhere but the current finalizer.",
+ "says": "Three isolated processes, Alice's laptop (the Team's finalizer), desktop and home server, run under the harness's clock and network policy; the user's clock is never set. The founding returns the founding epoch (epoch 1, the laptop as finalizer). Every staging is a draft with no receipt. The home server imports Monday's complete package, which carries that epoch as a member, and undertakes custody of it and acknowledges it; the desktop is out of reach and misses it. When the desktop is reachable again the laptop sends it only the increment, built on the Monday baseline and the home server's acknowledgment, and the desktop's accept stops at received with baseline_missing; a complete package then brings it level and commits. The desktop commits a custody undertaking and then signs out: the undertaking stays committed, and a request handle it prepared before signing out is not admitted, with access_signed_out and access_generation_moved. As the Team's issuing authority Alice issues a permit for the desktop through access.control.record on the Team, then its revocation, each moving the Team head. A package carrying the revocation as a member reaches the home server with its body missing: the revocation is put in force at controls_verified and the import stops there. Finally the laptop is lost: the home server's commit to the Team source is blocked with finalizer_unavailable and is not finalized there; after Alice, holding the recovery duty, hands the finalizer duty to the home server, which returns the successor epoch (epoch 2, naming the founding epoch and fencing the laptop, its checkpoint the head the handover moved to), the same request is retried and commits once. What must not happen: a missed package papered over by the increment, a sign-out undoing a committed write or admitting an old handle, a restriction dropped because the bodies failed, a successor that does not follow its predecessor, or a shared commit finalized anywhere but the current finalizer.",
  "ids": [
   {
    "name": "desktop_peer",
@@ -43,10 +43,6 @@
    "prefix": "src"
   },
   {
-   "name": "knowledge_collection",
-   "prefix": "col"
-  },
-  {
    "name": "home_request",
    "prefix": "req"
   },
@@ -84,6 +80,14 @@
   },
   {
    "name": "accept_monday_server_request",
+   "prefix": "req"
+  },
+  {
+   "name": "server_keeps_request",
+   "prefix": "req"
+  },
+  {
+   "name": "server_ack_request",
    "prefix": "req"
   },
   {
@@ -384,7 +388,7 @@
     },
     {
      "pointer": "/committed_at",
-     "value": "$instant:policy_committed_at"
+     "value": "$instant:team_founded_at"
     }
    ]
   },
@@ -402,7 +406,7 @@
     },
     {
      "pointer": "/since",
-     "value": "$instant:team_active_since"
+     "value": "$instant:team_founded_at"
     }
    ]
   },
@@ -436,10 +440,6 @@
      "value": "@team"
     },
     {
-     "pointer": "/home/collection_id",
-     "value": "@knowledge_collection"
-    },
-    {
      "pointer": "/role",
      "value": "knowledge"
     },
@@ -471,7 +471,7 @@
     },
     {
      "pointer": "/action",
-     "value": "publish"
+     "value": "contribute"
     },
     {
      "pointer": "/effect_class",
@@ -581,11 +581,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#first_revision"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:home_head"
     }
    ]
   },
@@ -798,6 +802,120 @@
     {
      "pointer": "/finalizer/device_id",
      "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "founding",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:team_founder_grant"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "publish",
+      "adopt",
+      "grant",
+      "policy",
+      "transfer",
+      "retain_delete"
+     ]
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 2
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/purpose",
+     "value": "The standards this group works to."
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:team_founded_at"
     }
    ]
   },
@@ -849,6 +967,22 @@
     {
      "pointer": "/inventory/0/object_kind",
      "value": "source_manifest"
+    },
+    {
+     "pointer": "/inventory/1/path",
+     "value": "continuity/0001.json"
+    },
+    {
+     "pointer": "/inventory/1/digest",
+     "value": "#founding_epoch"
+    },
+    {
+     "pointer": "/inventory/1/size",
+     "value": 512
+    },
+    {
+     "pointer": "/inventory/1/object_kind",
+     "value": "authority_continuity"
     }
    ]
   },
@@ -874,7 +1008,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -980,11 +1114,203 @@
     },
     {
      "pointer": "/receipt_digest",
-     "value": "$digest:accept_monday_server_receipt"
+     "value": "#accept_monday_server_receipt"
     },
     {
      "pointer": "/at",
      "value": "$instant:monday_server_committed_at"
+    }
+   ]
+  },
+  {
+   "name": "server_commitment",
+   "from": "c10/commitment_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/holder/device_id",
+     "value": "@home_server"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/storage_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/promised/0/digest",
+     "value": "#stored_revision"
+    },
+    {
+     "pointer": "/promised/1/digest",
+     "value": "#founding_epoch"
+    },
+    {
+     "pointer": "/promised/1/object_kind",
+     "value": "authority_continuity"
+    }
+   ]
+  },
+  {
+   "name": "server_keeps",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@server_keeps_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "custody.commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "retain_delete"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@home_server"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_server"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@home_server"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#server_commitment"
+    }
+   ]
+  },
+  {
+   "name": "server_kept",
+   "from": "server_commitment",
+   "set": [
+    {
+     "pointer": "/commitment_id",
+     "value": "$cus:server"
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:server_kept_at"
+    }
+   ]
+  },
+  {
+   "name": "monday_observed",
+   "from": "c10/acknowledgment_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/for_commitment_id",
+     "value": "$cus:server"
+    },
+    {
+     "pointer": "/holder/device_id",
+     "value": "@home_server"
+    },
+    {
+     "pointer": "/storage_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/observed/0/digest",
+     "value": "#stored_revision"
+    },
+    {
+     "pointer": "/observed/1/digest",
+     "value": "#founding_epoch"
+    }
+   ]
+  },
+  {
+   "name": "server_ack",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@server_ack_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "custody.acknowledge"
+    },
+    {
+     "pointer": "/action",
+     "value": "retain_delete"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@home_server"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_server"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$cus:server"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#monday_observed"
+    }
+   ]
+  },
+  {
+   "name": "monday_ack_kept",
+   "from": "monday_observed",
+   "set": [
+    {
+     "pointer": "/material_gaps",
+     "value": []
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:monday_ack_at"
     }
    ]
   },
@@ -1068,7 +1394,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1267,7 +1593,23 @@
     },
     {
      "pointer": "/completeness/acknowledged_inventory_digest",
-     "value": "#monday_server_committed"
+     "value": "#monday_ack_kept"
+    },
+    {
+     "pointer": "/inventory/1/path",
+     "value": "continuity/0001.json"
+    },
+    {
+     "pointer": "/inventory/1/digest",
+     "value": "#founding_epoch"
+    },
+    {
+     "pointer": "/inventory/1/size",
+     "value": 512
+    },
+    {
+     "pointer": "/inventory/1/object_kind",
+     "value": "authority_continuity"
     }
    ]
   },
@@ -1293,7 +1635,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1495,6 +1837,22 @@
     {
      "pointer": "/inventory/1/object_kind",
      "value": "source_manifest"
+    },
+    {
+     "pointer": "/inventory/2/path",
+     "value": "continuity/0001.json"
+    },
+    {
+     "pointer": "/inventory/2/digest",
+     "value": "#founding_epoch"
+    },
+    {
+     "pointer": "/inventory/2/size",
+     "value": 512
+    },
+    {
+     "pointer": "/inventory/2/object_kind",
+     "value": "authority_continuity"
     }
    ]
   },
@@ -1520,7 +1878,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1626,7 +1984,7 @@
     },
     {
      "pointer": "/receipt_digest",
-     "value": "$digest:accept_complete_desktop_receipt"
+     "value": "#accept_complete_desktop_receipt"
     },
     {
      "pointer": "/at",
@@ -2128,7 +2486,7 @@
     },
     {
      "pointer": "/action",
-     "value": "local_profile"
+     "value": "grant"
     },
     {
      "pointer": "/effect_class",
@@ -2148,19 +2506,27 @@
     },
     {
      "pointer": "/owner/layer",
-     "value": "personal"
-    },
-    {
-     "pointer": "/owner/principal_id",
-     "value": "@alice"
+     "value": "team"
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice_laptop"
+     "value": "@team"
     },
     {
      "pointer": "/payload_digest",
      "value": "#desktop_permit"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head"
     }
    ]
   },
@@ -2182,7 +2548,7 @@
     },
     {
      "pointer": "/action",
-     "value": "local_profile"
+     "value": "grant"
     },
     {
      "pointer": "/effect_class",
@@ -2202,19 +2568,27 @@
     },
     {
      "pointer": "/owner/layer",
-     "value": "personal"
-    },
-    {
-     "pointer": "/owner/principal_id",
-     "value": "@alice"
+     "value": "team"
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice_laptop"
+     "value": "@team"
     },
     {
      "pointer": "/payload_digest",
      "value": "#revocation"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_2"
     }
    ]
   },
@@ -2307,7 +2681,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -2339,7 +2713,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:team_head"
+     "value": "$digest:team_head_3"
     },
     {
      "pointer": "/payload_digest",
@@ -2563,7 +2937,7 @@
     },
     {
      "pointer": "/action",
-     "value": "policy"
+     "value": "transfer"
     },
     {
      "pointer": "/effect_class",
@@ -2618,6 +2992,40 @@
    ]
   },
   {
+   "name": "successor_epoch",
+   "from": "c09/successor_that_fences_the_old_finalizer.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:server_team_head_2"
+    },
+    {
+     "pointer": "/finalizer/runs_on",
+     "value": "member_device"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@home_server"
+    },
+    {
+     "pointer": "/succession/predecessor_digest",
+     "value": "#founding_epoch"
+    },
+    {
+     "pointer": "/succession/fences/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:successor_epoch_at"
+    }
+   ]
+  },
+  {
    "name": "server_revision_stored",
    "from": "server_revision",
    "set": [
@@ -2661,8 +3069,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
-     "team_active"
+     "team_founder_membership",
+     "team_founder_grant",
+     "team_active",
+     "team_profile",
+     "founding_epoch"
     ],
     "head": "team_head"
    },
@@ -2685,7 +3098,8 @@
     "recovery": [],
     "returns": [
      "stored_home"
-    ]
+    ],
+    "head": "home_head"
    },
    "process": "laptop"
   },
@@ -2751,8 +3165,8 @@
     "full_envelope"
    ],
    "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
+    "stage": "draft",
+    "local_effect": "objects_staged",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2787,14 +3201,52 @@
    "advance_seconds": 60
   },
   {
+   "name": "server_undertakes_custody",
+   "request": "server_keeps",
+   "carries": [
+    "server_commitment"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "server_kept"
+    ]
+   },
+   "process": "home_server",
+   "advance_seconds": 60
+  },
+  {
+   "name": "server_acknowledges_monday",
+   "request": "server_ack",
+   "carries": [
+    "monday_observed"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "monday_ack_kept"
+    ]
+   },
+   "process": "home_server",
+   "advance_seconds": 60
+  },
+  {
    "name": "stage_monday_desktop",
    "request": "stage_monday_desktop",
    "carries": [
     "full_envelope"
    ],
    "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
+    "stage": "draft",
+    "local_effect": "objects_staged",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2832,8 +3284,8 @@
     "increment_envelope"
    ],
    "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
+    "stage": "draft",
+    "local_effect": "objects_staged",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2875,8 +3327,8 @@
     "complete_envelope"
    ],
    "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
+    "stage": "draft",
+    "local_effect": "objects_staged",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2994,7 +3446,8 @@
     "recovery": [],
     "returns": [
      "desktop_permit"
-    ]
+    ],
+    "head": "team_head_2"
    },
    "process": "laptop",
    "advance_seconds": 60
@@ -3013,7 +3466,8 @@
     "recovery": [],
     "returns": [
      "revocation"
-    ]
+    ],
+    "head": "team_head_3"
    },
    "process": "laptop",
    "advance_seconds": 60
@@ -3025,8 +3479,8 @@
     "restriction_envelope"
    ],
    "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
+    "stage": "draft",
+    "local_effect": "objects_staged",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -3042,7 +3496,6 @@
    "request": "accept_restriction_server",
    "carries": [
     "restriction_envelope",
-    "founding_epoch",
     "revocation"
    ],
    "answer": {
@@ -3101,7 +3554,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "handed_over"
+     "handed_over",
+     "successor_epoch"
     ],
     "head": "server_team_head_2"
    },

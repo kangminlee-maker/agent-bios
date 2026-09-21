@@ -1,6 +1,6 @@
 {
  "case": "N23-VALIDATOR-POS",
- "says": "A person commits a domain package holding the pinned lens table_consistency version 2 and its question, and a rates table to validate, each through source.revision.commit. The validator adapter (domain-lens-runner 1.4.0 on the agent_bios_validation wire) is probed for real: it loads the pinned lens by digest and returns findings, so the owner stores the probe (mode real, outcome worked) and a profile that qualifies validation by naming that probe. A validation request then pins exactly the committed rates revision as its target, the committed package by digest, the question and the lens by name, version and digest, expecting the head the commit moved to. The owner answers with a validation_run in real mode from that qualified validator, naming the request it ran, a check that ran for the one pinned target and lens, the finding it produced against that target, and the digest of the output the validator produced; every check it rests on ran, and nothing outside what the request pinned is checked.",
+ "says": "A person registers a managed home for a domain package source and for a rates table source (each the first commit on its id), then commits a domain package holding the pinned lens table_consistency version 2 and its question, and a rates table to validate, each through source.revision.commit at the head its registration moved the source to. The validator adapter (domain-lens-runner 1.4.0 on the agent_bios_validation wire) is probed for real: it loads the pinned lens by digest and returns findings, so the owner stores the probe (mode real, outcome worked) and a profile that qualifies validation by naming that probe. A validation request then pins exactly the committed rates revision as its target, the committed package by digest, the question and the lens by name, version and digest; the request targets Alice, for whom it runs, and expects no source head, because the payload pins every revision it covers. The owner answers with a validation_run in real mode from that qualified validator, naming the request it ran, a check that ran for the one pinned target and lens, the finding it produced against that target, and the digest of the output the validator produced; every check it rests on ran, and nothing outside what the request pinned is checked.",
  "ids": [
   {
    "name": "alice",
@@ -40,6 +40,14 @@
   },
   {
    "name": "validation_submit_id",
+   "prefix": "req"
+  },
+  {
+   "name": "register_package_source_id",
+   "prefix": "req"
+  },
+  {
+   "name": "register_rates_source_id",
    "prefix": "req"
   }
  ],
@@ -194,11 +202,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#package_manifest"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:package_source_h0"
     }
    ]
   },
@@ -264,11 +276,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#rates_manifest"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:rates_source_h0"
     }
    ]
   },
@@ -490,15 +506,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@rates_source"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "head"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:rates_head"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
@@ -535,6 +543,184 @@
      "value": "$instant:validated_at"
     }
    ]
+  },
+  {
+   "name": "register_package_source_home",
+   "from": "sources/home_of_a_managed_collection.json",
+   "drop": [
+    "/registered_at"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@package_source"
+    },
+    {
+     "pointer": "/scope/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/acceptance_authority/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    }
+   ]
+  },
+  {
+   "name": "register_package_source_stored_home",
+   "from": "register_package_source_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:register_package_source_at"
+    }
+   ]
+  },
+  {
+   "name": "register_package_source_request",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_package_source_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@package_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#register_package_source_home"
+    }
+   ]
+  },
+  {
+   "name": "register_rates_source_home",
+   "from": "sources/home_of_a_managed_collection.json",
+   "drop": [
+    "/registered_at"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@rates_source"
+    },
+    {
+     "pointer": "/scope/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/acceptance_authority/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    }
+   ]
+  },
+  {
+   "name": "register_rates_source_stored_home",
+   "from": "register_rates_source_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:register_rates_source_at"
+    }
+   ]
+  },
+  {
+   "name": "register_rates_source_request",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_rates_source_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@rates_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#register_rates_source_home"
+    }
+   ]
   }
  ],
  "steps": [
@@ -556,6 +742,24 @@
    }
   },
   {
+   "name": "register_package_source",
+   "request": "register_package_source_request",
+   "carries": [
+    "register_package_source_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "register_package_source_stored_home"
+    ],
+    "head": "package_source_h0"
+   }
+  },
+  {
    "name": "commit_the_domain_package",
    "request": "commit_package",
    "carries": [
@@ -571,6 +775,24 @@
      "stored_package"
     ],
     "head": "package_head"
+   }
+  },
+  {
+   "name": "register_rates_source",
+   "request": "register_rates_source_request",
+   "carries": [
+    "register_rates_source_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "register_rates_source_stored_home"
+    ],
+    "head": "rates_source_h0"
    }
   },
   {

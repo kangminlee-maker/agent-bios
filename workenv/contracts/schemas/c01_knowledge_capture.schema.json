@@ -2,13 +2,12 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C01 domain knowledge capture",
-  "description": "Domain members taken into a knowledge source, by path and hash. It has no property for a behavioural unit, so an instruction projection cannot be written here at all; promotion runs through the destination owner's own revision, never through a capture. What was taken and what processed it are one property, `processing`: each input is the digest of exact bytes with what its source permits, and text goes to a provider only when every input's source permits that. Each input names where its bytes were read — the transcript records, revision member, working-tree file or supplied file — and what its source permits for processing, prompt logs and destinations; `observation_digest` names the `source_observation` that read them from an explicit selection, so bytes found on disk under a guessed name are not an input. A capture proposed for a wider scope than its inputs came from states the widening.",
+  "description": "Domain members taken into a knowledge source, by path and hash. It has no property for a behavioural unit, so an instruction projection cannot be written here at all; promotion runs through the destination owner's own revision, never through a capture. What was taken and what processed it are one property, `processing`: each input is the digest of exact bytes with what its source permits, and text goes to a provider only when every input's source permits that. Each input names where its bytes were read — the transcript records, revision member, working-tree file or supplied file — and what its source permits for processing, prompt logs and destinations, which is no more than the selection root it was read under states; `observation_digest` names the `source_observation` that read them from an explicit selection, so bytes found on disk under a guessed name are not an input. A capture proposed for a wider scope than its inputs came from states the widening. `revision_digest` is the destination's revision the capture was made against, the baseline a later publication is compared with; a destination with no committed revision yet has none to name.",
   "required": [
     "kind",
     "schema",
     "role",
     "destination_source_id",
-    "revision_digest",
     "processing",
     "observation_digest",
     "members",
@@ -293,7 +292,7 @@
     "input_permission": {
       "type": "object",
       "additionalProperties": false,
-      "description": "What the input's own source permits for it: where its text may be processed, whether a prompt carrying it may be kept in a log, and the scopes a result resting on it may be committed to. Read permission and redaction are neither; the owner holds these against the source's rights and refuses an overstatement with `input_not_permitted`.",
+      "description": "What a place's owner permits for text read there: where it may be processed, whether a prompt carrying it may be kept in a log, and the scopes a result resting on it may be committed to. Permitting provider processing permits local processing too, and permitting a kept log permits keeping none; read permission and redaction are neither. A selection root states it for its place; a capture input restates no more than the root it was read under, and the owner refuses an overstatement, or a capture that uses more than its inputs permit, with `input_not_permitted`.",
       "required": [
         "processing",
         "prompt_log",
@@ -457,10 +456,11 @@
     "working_tree_path": {
       "type": "object",
       "additionalProperties": false,
-      "description": "A file or directory of the checkout bound to a repository id, as its working tree holds it now — committed, modified or untracked — not as its last commit does.",
+      "description": "A file or directory of one checkout bound to a repository id, as its working tree holds it now — committed, modified or untracked — not as its last commit does. `checkout` is the directory this device reads it from: clones and worktrees of one repository share its id, so the id alone does not say which working tree was read, and the directory proves nothing about which repository it is.",
       "required": [
         "from",
         "repository_id",
+        "checkout",
         "path"
       ],
       "properties": {
@@ -469,6 +469,11 @@
         },
         "repository_id": {
           "$ref": "#/$defs/repository_id"
+        },
+        "checkout": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
         },
         "path": {
           "$ref": "#/$defs/source_path"

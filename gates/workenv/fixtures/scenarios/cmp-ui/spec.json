@@ -121,6 +121,10 @@
   {
    "name": "drive_request",
    "prefix": "req"
+  },
+  {
+   "name": "journal_concern",
+   "prefix": "cnc"
   }
  ],
  "records": [
@@ -386,19 +390,141 @@
   },
   {
    "name": "team_active",
-   "from": "c08/archived_team.json",
+   "from": "c08/active_team.json",
    "set": [
     {
      "pointer": "/since",
      "value": "$instant:team_founded_at"
     },
     {
-     "pointer": "/state",
-     "value": "active"
+     "pointer": "/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "team_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
     },
     {
      "pointer": "/team_id",
      "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "publish",
+      "adopt",
+      "grant",
+      "policy"
+     ]
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 2
+    },
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:team_founder_grant_id"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "team_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:team_founded_at"
     }
    ]
   },
@@ -415,6 +541,10 @@
     },
     {
      "pointer": "/roots/0/place/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/roots/0/permits/destinations/0/repository_id",
      "value": "@repo"
     }
    ]
@@ -537,7 +667,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/actor/principal_id",
@@ -604,6 +734,10 @@
     },
     {
      "pointer": "/roots/0/place/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/roots/0/permits/destinations/0/repository_id",
      "value": "@repo"
     }
    ]
@@ -726,7 +860,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/actor/principal_id",
@@ -793,6 +927,10 @@
     },
     {
      "pointer": "/roots/0/place/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/roots/0/permits/destinations/0/repository_id",
      "value": "@repo"
     }
    ]
@@ -915,7 +1053,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/actor/principal_id",
@@ -982,6 +1120,10 @@
     },
     {
      "pointer": "/roots/0/place/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/roots/0/permits/destinations/0/repository_id",
      "value": "@repo"
     }
    ]
@@ -1104,7 +1246,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1427,15 +1569,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@repo_mem"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "head"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:repo_mem_published"
+     "value": "@journal_concern"
     }
    ]
   },
@@ -1571,15 +1705,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@instr"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "head"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:instr_head"
+     "value": "@me"
     }
    ]
   },
@@ -1842,7 +1968,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@laptop"
+     "value": "@profile"
     }
    ]
   },
@@ -2006,7 +2132,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@me"
+     "value": "@profile"
     }
    ]
   },
@@ -2119,7 +2245,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@me"
+     "value": "@profile"
     }
    ]
   },
@@ -4362,7 +4488,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -4379,7 +4505,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -4405,8 +4531,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy_stored",
-     "team_active"
+     "team_founder_membership",
+     "team_founder_grant",
+     "team_active",
+     "team_profile",
+     "team_founding_epoch"
     ],
     "head": "team_head"
    }
@@ -4597,7 +4728,11 @@
     "stage": "previewed",
     "local_effect": "none",
     "provider_effect": "not_applicable",
-    "gaps": [],
+    "gaps": [
+     {
+      "code": "choice_conflict_unresolved"
+     }
+    ],
     "recovery": [],
     "returns": [
      "journal_state"
@@ -4646,7 +4781,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -4663,7 +4798,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],

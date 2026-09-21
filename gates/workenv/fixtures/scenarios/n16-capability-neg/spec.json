@@ -150,7 +150,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "durable_candidate"
+     "value": "owner_commit"
     },
     {
      "pointer": "/operation",
@@ -171,6 +171,10 @@
     {
      "pointer": "/payload_digest",
      "value": "#question_probe"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
     }
    ]
   },
@@ -241,6 +245,24 @@
    ]
   },
   {
+   "name": "client_config",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/client/name",
+     "value": "agent-bios"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.20.0"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:probed_at"
+    }
+   ]
+  },
+  {
    "name": "decide_offer",
    "from": "routes/offer_submitted.json",
    "drop": [
@@ -302,7 +324,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "durable_candidate"
+     "value": "owner_commit"
     },
     {
      "pointer": "/operation",
@@ -318,11 +340,15 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@route_decide"
+     "value": "@profile"
     },
     {
      "pointer": "/payload_digest",
      "value": "#decide_offer"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
     }
    ]
   },
@@ -1188,7 +1214,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "decide"
+     "value": "read"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1204,7 +1230,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "durable_candidate"
+     "value": "owner_commit"
     },
     {
      "pointer": "/operation",
@@ -1220,7 +1246,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@route_decide"
+     "value": "@profile"
     },
     {
      "pointer": "/payload_digest",
@@ -1345,7 +1371,8 @@
     "recovery": [],
     "returns": [
      "probe_found_nothing",
-     "client_profile"
+     "client_profile",
+     "client_config"
     ]
    }
   },

@@ -1,6 +1,6 @@
 {
  "case": "SRC-04",
- "says": "A person with no Team installs a product-supplied knowledge package into their own scope through the add_published_package route (source.revision.admit), naming the exact revision by the digest of the publisher's manifest. The owner commits it and returns that same manifest and a provenance whose origin is the product-supplied package with its publisher evidence, whose acceptance is not_accepted, and which keeps the package's illustrative ADR statements (author, decision date, status Accepted, a council approval) as stated_only claims. The person registers the publisher-owned home (package_published, the package id and license conditions) and resolves an exact member back to the same manifest and provenance. Negative: a commit of a manifest that edits a publisher member in place is refused with publisher_bytes_modified and nothing changes; installing records no Team acceptance, adoption or history, and asking the person's memory state for the decision the illustrative ADR describes returns no entry, because an example ADR in a package is not a past choice of this person or any Team.",
+ "says": "A person with no Team installs a product-supplied knowledge package into their own scope through the add_published_package route (source.revision.admit), naming the exact revision by the digest of the publisher's manifest. The owner commits it and returns that same manifest and a provenance whose origin is the product-supplied package with its publisher evidence, whose acceptance is not_accepted, and which keeps the package's illustrative ADR statements (author, decision date, status Accepted, a council approval) as stated_only claims. The person registers the publisher-owned home (package_published, the package id and license conditions) and resolves an exact member back to the same manifest and provenance, with that publisher-owned home as it stands at the head the registration left. Negative: a commit of a manifest that edits a publisher member in place is refused with publisher_bytes_modified and nothing changes; installing records no Team acceptance, adoption or history, and asking the person's memory state for the decision the illustrative ADR describes returns no entry, because an example ADR in a package is not a past choice of this person or any Team.",
  "ids": [
   {
    "name": "me",
@@ -45,6 +45,10 @@
   {
    "name": "state_request",
    "prefix": "req"
+  },
+  {
+   "name": "concern",
+   "prefix": "cnc"
   }
  ],
  "records": [
@@ -535,7 +539,7 @@
     },
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/owner/principal_id",
@@ -616,7 +620,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@me"
+     "value": "@concern"
     },
     {
      "pointer": "/payload_digest",
@@ -708,7 +712,8 @@
     "recovery": [],
     "returns": [
      "pkg_manifest",
-     "pkg_provenance"
+     "pkg_provenance",
+     "stored_home"
     ]
    }
   },

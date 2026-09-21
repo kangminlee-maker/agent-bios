@@ -45,16 +45,6 @@
    "record": "bind"
   },
   {
-   "minted": "first_binding",
-   "pointer": "/binding_id",
-   "record": "stored_key"
-  },
-  {
-   "minted": "bound_at",
-   "pointer": "/created_at",
-   "record": "stored_key"
-  },
-  {
    "digest_of": "bind",
    "pointer": "/request_digest",
    "record": "bind_device_key_receipt"
@@ -73,6 +63,16 @@
    "minted": "bind_device_key_committed_at",
    "pointer": "/committed_at",
    "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "first_binding",
+   "pointer": "/binding_id",
+   "record": "stored_key"
+  },
+  {
+   "minted": "bound_at",
+   "pointer": "/created_at",
+   "record": "stored_key"
   },
   {
    "digest_of": "bind_device_key_receipt",
@@ -100,21 +100,6 @@
    "record": "install"
   },
   {
-   "minted": "publisher_evidence",
-   "pointer": "/origin/publisher_evidence_digest",
-   "record": "pkg_provenance"
-  },
-  {
-   "minted": "installed_at",
-   "pointer": "/acquisition/acquired_at",
-   "record": "pkg_provenance"
-  },
-  {
-   "minted": "package_bytes",
-   "pointer": "/acquisition/availability_evidence_digest",
-   "record": "pkg_provenance"
-  },
-  {
    "digest_of": "install",
    "pointer": "/request_digest",
    "record": "install_package_receipt"
@@ -133,6 +118,21 @@
    "minted": "install_package_committed_at",
    "pointer": "/committed_at",
    "record": "install_package_receipt"
+  },
+  {
+   "minted": "publisher_evidence",
+   "pointer": "/origin/publisher_evidence_digest",
+   "record": "pkg_provenance"
+  },
+  {
+   "minted": "installed_at",
+   "pointer": "/acquisition/acquired_at",
+   "record": "pkg_provenance"
+  },
+  {
+   "minted": "package_bytes",
+   "pointer": "/acquisition/availability_evidence_digest",
+   "record": "pkg_provenance"
   },
   {
    "digest_of": "install_package_receipt",
@@ -340,25 +340,6 @@
    }
   },
   {
-   "digest": "03407dc615e7d7ba8a196822a33fb4aeb4fa8aff2497fc92fb89a3438e573a75",
-   "name": "stored_key",
-   "record": {
-    "binding_id": "bnd_a0e12928bee4b92a08163e2826570439",
-    "created_at": "2000-01-01T00:00:00Z",
-    "credential": {
-     "credential": "device_key",
-     "device_id": "dev_1ccf6164c992be31e3a37fc10a4216e7",
-     "key_generation": 1,
-     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
-    },
-    "established_by": "local_creation",
-    "evidence_digests": [],
-    "kind": "principal_binding",
-    "principal_id": "prn_21fc383fc99162d36a050e2a43ed5cf7",
-    "schema": 1
-   }
-  },
-  {
    "digest": "ffbe314ee34144df3e1d8223775b7d801fd59ce7952d3d1d2d08dbd7f3336d72",
    "name": "bind_device_key_receipt",
    "record": {
@@ -376,6 +357,25 @@
     "target": {
      "resource_id": "prn_21fc383fc99162d36a050e2a43ed5cf7"
     }
+   }
+  },
+  {
+   "digest": "03407dc615e7d7ba8a196822a33fb4aeb4fa8aff2497fc92fb89a3438e573a75",
+   "name": "stored_key",
+   "record": {
+    "binding_id": "bnd_a0e12928bee4b92a08163e2826570439",
+    "created_at": "2000-01-01T00:00:00Z",
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_1ccf6164c992be31e3a37fc10a4216e7",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_21fc383fc99162d36a050e2a43ed5cf7",
+    "schema": 1
    }
   },
   {
@@ -479,6 +479,29 @@
    }
   },
   {
+   "digest": "81fb225097c88ca48af9411acb4a32fea460c0da1278d3156027575838568810",
+   "name": "install_package_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "56fc28c0066c72a63bb4c8e68116ec736895121570a1029a9632069cc854a3a9",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_21fc383fc99162d36a050e2a43ed5cf7"
+    },
+    "request_digest": "a05ad4c200db04e94dacffbf4b4b932fa4c0a979881f1c6d3385a17fa4aa82ff",
+    "request_id": "req_03b5118ab5229b264918803fa53ee141",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_5603a3f1537aeeef833219d29049b22b"
+    }
+   }
+  },
+  {
    "digest": "127f50267c2acd5ad830fdd9d0213b52b5c8a3698e69f442f612a97c13418d2a",
    "name": "pkg_provenance",
    "record": {
@@ -507,29 +530,6 @@
     "role": "knowledge",
     "schema": 1,
     "source_id": "src_5603a3f1537aeeef833219d29049b22b"
-   }
-  },
-  {
-   "digest": "81fb225097c88ca48af9411acb4a32fea460c0da1278d3156027575838568810",
-   "name": "install_package_receipt",
-   "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "56fc28c0066c72a63bb4c8e68116ec736895121570a1029a9632069cc854a3a9",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "personal",
-     "principal_id": "prn_21fc383fc99162d36a050e2a43ed5cf7"
-    },
-    "request_digest": "a05ad4c200db04e94dacffbf4b4b932fa4c0a979881f1c6d3385a17fa4aa82ff",
-    "request_id": "req_03b5118ab5229b264918803fa53ee141",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "base": {
-      "expects": "absent"
-     },
-     "resource_id": "src_5603a3f1537aeeef833219d29049b22b"
-    }
    }
   },
   {
@@ -666,7 +666,7 @@
    }
   },
   {
-   "digest": "2572ba263f44398a8fdd1ad9acb16cf3a27b3f8e9f7d97239d82d138e7691a2c",
+   "digest": "7447c75e253a305aaa7be8321b47ac6ecdc68b44020da803fbde39b90732ba3c",
    "name": "ask",
    "record": {
     "action": "read",
@@ -676,7 +676,7 @@
      "profile_id": "prf_b382e07bae866d982adc56ffa493e49e"
     },
     "control_digests": [],
-    "effect_class": "pure_preview",
+    "effect_class": "durable_candidate",
     "kind": "operation_request",
     "local_access_generation": 7,
     "operation": "knowledge.question.ask",
@@ -745,11 +745,11 @@
    }
   },
   {
-   "digest": "0e29ce218c60d4aac9490e0d24d6a483d6d81dfd673e9580a589ca4337786525",
+   "digest": "eef7dac83e244bfdf97d07039abaf2603dc2002be30ac178b98c49c1b7470895",
    "name": "ask_the_package_result",
    "record": {
     "kind": "operation_result",
-    "local_effect": "none",
+    "local_effect": "private_state_written",
     "outcome": {
      "material_gaps": [],
      "stage": "previewed"
@@ -761,7 +761,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "2572ba263f44398a8fdd1ad9acb16cf3a27b3f8e9f7d97239d82d138e7691a2c",
+    "request_digest": "7447c75e253a305aaa7be8321b47ac6ecdc68b44020da803fbde39b90732ba3c",
     "request_id": "req_c0c4a26c62d834705c694d34dd4d4b08",
     "schema": 1,
     "supported_recovery": []
@@ -769,7 +769,7 @@
   }
  ],
  "says": "A person with no Team installs the knowledge package shipped in the product through the add_published_package route (source.revision.admit), naming the exact revision by the digest of the shipped manifest. The owner commits it and returns that same manifest and a provenance whose origin is the product-supplied package, whose acceptance is not_accepted and whose content-review statement is kept as an approval claim with stated_only support, never as an acceptance. Resolving an exact member (reference.resolve) returns the same manifest, whose member digest is the member the reference names, and the same provenance. Asking a question against that exact revision (knowledge.question.ask) returns a view whose members are the package's bytes in the person's own layer, cited to that revision. Nothing here adopts the package for a Team, records a Team acceptance, or gives it a priority: the provenance has no priority field and the view places it only in the layer it was installed into.",
- "spec_sha256": "ecad81d5a857af00d38ab035589d12d323a6db3a93eaf7993d2e857af43a7057",
+ "spec_sha256": "9605b53521d6f4cdc1f5baf84717a25a515f91a7b46ba43bf6cbacda0bda54e2",
  "steps": [
   {
    "carries": [

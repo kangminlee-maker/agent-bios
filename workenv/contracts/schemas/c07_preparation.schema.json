@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C07 preparation",
-  "description": "An immutable manifest of one composition: the order that was applied, every unit with the source behind it, the frontiers observed, and the bytes of the checkout as they were. It proves assembly and nothing beyond it — not that anything was delivered, not that a recipient read it, and not that a rendering can be reconstructed from a digest. Working bytes that move afterwards invalidate the claims that rested on them, which is why they are recorded here rather than assumed unchanged. A preparation of nothing — a personal session with no environment and nothing selected — has no frontier to name. It names the collection heads it read, so each original it was composed from stays attributable and unchanged by it.",
+  "description": "An immutable manifest of one composition: the order that was applied, every unit with the source behind it, the frontiers observed, and the bytes of the checkout as they were. It proves assembly and nothing beyond it — not that anything was delivered, not that a recipient read it, and not that a rendering can be reconstructed from a digest. Working bytes that move afterwards invalidate the claims that rested on them, which is why they are recorded here rather than assumed unchanged. A preparation of nothing — a personal session with no environment and nothing selected — has no frontier to name. It names the collection heads it read, so each original it was composed from stays attributable and unchanged by it. It is stored whole, because later requests name it, and composing it moves no head.",
   "required": [
     "kind",
     "schema",
@@ -207,12 +207,14 @@
             "adapter_unavailable",
             "adoption_evidence_missing",
             "agent_not_owned_here",
+            "alternative_not_offered",
             "answer_not_from_a_person",
             "answer_origin_unverified",
             "applicability_unstated",
             "approval_threshold_unmet",
             "approver_not_independent",
             "audience_mismatch",
+            "author_side_member",
             "backup_set_damaged",
             "backup_set_incomplete",
             "baseline_missing",
@@ -226,7 +228,10 @@
             "budget_exhausted",
             "callback_not_bound",
             "cancel_too_late",
+            "candidate_not_registered",
+            "candidate_origin_changed",
             "capability_not_qualified",
+            "carrier_repository_mismatch",
             "carrier_unreachable",
             "child_route_unsupported",
             "choice_conflict_unresolved",
@@ -235,6 +240,7 @@
             "client_token_missing",
             "client_token_unknown",
             "companion_unavailable",
+            "comparison_incomplete",
             "competing_successors",
             "condition_not_covered",
             "confirmation_is_not_authorization",
@@ -253,6 +259,7 @@
             "destination_invented",
             "effect_class_mismatch",
             "erasure_not_promised",
+            "evidence_already_recorded",
             "executable_import_refused",
             "finalizer_unavailable",
             "fixture_result_in_real_mode",
@@ -271,6 +278,7 @@
             "invitation_not_open",
             "isolation_unproven",
             "journal_mode_unexpected",
+            "keystore_missing",
             "knowledge_evidence_conflicts",
             "last_owner_removal_refused",
             "lifecycle_contradiction",
@@ -285,6 +293,7 @@
             "outcome_partial",
             "outcome_unknown",
             "payload_not_taken",
+            "policy_superseded",
             "preference_invalidated",
             "preflight_refused",
             "private_key_beside_public",
@@ -306,13 +315,16 @@
             "repository_rights_not_a_grant",
             "request_id_conflict",
             "request_mismatch",
+            "resubmitted_while_unknown",
             "resume_stale",
             "resurrection_refused",
             "retention_declined",
             "retry_under_a_new_id_refused",
             "role_body_unavailable",
             "role_promotion_refused",
+            "route_retired",
             "route_unsupported",
+            "runtime_path_missing",
             "same_layer_unordered",
             "selection_unresolved",
             "semantics_unsupported",
@@ -578,6 +590,9 @@
         "revision_digest": {
           "$ref": "#/$defs/digest"
         },
+        "home_digest": {
+          "$ref": "#/$defs/digest"
+        },
         "role": {
           "$ref": "#/$defs/role"
         },
@@ -624,7 +639,7 @@
           }
         }
       },
-      "description": "One unit of the composition and what happened to it. A unit with a `concern` competed for it under the layer order and explicit precedence: `winning`, `shadowed` (by `shadowed_by`) or `unresolved`. A unit without one is unkeyed prose, delivered `layered` in its labelled layer and the application order, with no winner declared. `disabled` is a unit a switch excluded. `startup` is copied from the collection that declared the unit; only a winning required unit gates a start. `needed_by` names winning units whose bytes rely on this one, which keeps it required whatever its own standing."
+      "description": "One unit of the composition and what happened to it. A unit with a `concern` competed for it under the layer order and explicit precedence: `winning`, `shadowed` (by `shadowed_by`) or `unresolved`. A unit without one is unkeyed prose, delivered `layered` in its labelled layer and the application order, with no winner declared. `disabled` is a unit a switch excluded. `startup` is copied from the collection that declared the unit; only a winning required unit gates a start. `needed_by` names winning units whose bytes rely on this one, which keeps it required whatever its own standing. `home_digest` names the `source_home` the unit's source was composed under — its applicability, disclosure and retention at that moment — so a home registered again with new conditions shows in a later preparation although `revision_digest` is unchanged. `unit_id` names the unit in this preparation only: another preparation of the same member mints its own, so a unit is followed across preparations by `source_id`, `member` and `revision_digest`."
     },
     "concern_key": {
       "type": "string",
@@ -634,7 +649,7 @@
     "collection_head": {
       "type": "object",
       "additionalProperties": false,
-      "description": "A collection position this preparation read, at the head it read, and what the position contributed. Later changes to the position make a new preparation and do not reach this one.",
+      "description": "A collection position this preparation read, at the head it read — the digest of the collection that position's last committed change stored — and what the position contributed. Later changes to the position make a new preparation and do not reach this one.",
       "required": [
         "collection_id",
         "head_digest",

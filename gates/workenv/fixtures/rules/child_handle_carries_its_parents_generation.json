@@ -1,0 +1,63 @@
+{
+  "rule": "C02/child_handle_carries_its_parents_generation",
+  "holds": [
+    {
+      "what": "a child reader's handle derived from the CLI handle",
+      "record": "workenv/contracts/examples/c02/child_handle_issued_under_the_cli_handle.json",
+      "context": {
+        "parent": "workenv/contracts/examples/c02/handle_issued_through_the_cli.json"
+      }
+    },
+    {
+      "what": "a handle issued through an entrance derives from nothing",
+      "record": "workenv/contracts/examples/c02/handle_issued_to_the_studio_page.json",
+      "context": {
+        "parent": "workenv/contracts/examples/c02/handle_issued_through_the_cli.json"
+      }
+    }
+  ],
+  "breaks": [
+    {
+      "what": "a child issued at a newer generation than the handle it derives from",
+      "record": {
+        "access_generation": 8,
+        "derived_from": "hdl_cd2bac102726cc484a21c65b05aa9a31",
+        "entrance": {
+          "name": "decision_mcp"
+        },
+        "handle_id": "hdl_0d0abcd084f4240e936b043013c9180e",
+        "issued_at": "2026-09-20T09:02:00Z",
+        "kind": "access_handle",
+        "profile_id": "prf_4913b3ed7ccad0513efe87ff54c71930",
+        "schema": 1
+      },
+      "context": {
+        "parent": "workenv/contracts/examples/c02/handle_issued_through_the_cli.json"
+      },
+      "at": [
+        "/access_generation"
+      ]
+    },
+    {
+      "what": "a child derived from another profile's handle",
+      "record": {
+        "access_generation": 7,
+        "derived_from": "hdl_cd2bac102726cc484a21c65b05aa9a31",
+        "entrance": {
+          "name": "decision_mcp"
+        },
+        "handle_id": "hdl_0d0abcd084f4240e936b043013c9180e",
+        "issued_at": "2026-09-20T09:02:00Z",
+        "kind": "access_handle",
+        "profile_id": "prf_00000000000000000000000000000001",
+        "schema": 1
+      },
+      "context": {
+        "parent": "workenv/contracts/examples/c02/handle_issued_through_the_cli.json"
+      },
+      "at": [
+        "/profile_id"
+      ]
+    }
+  ]
+}

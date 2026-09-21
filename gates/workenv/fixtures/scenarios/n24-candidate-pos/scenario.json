@@ -33,16 +33,6 @@
    "record": "bind_key"
   },
   {
-   "minted": "alice_binding",
-   "pointer": "/binding_id",
-   "record": "stored_key"
-  },
-  {
-   "minted": "bound_at",
-   "pointer": "/created_at",
-   "record": "stored_key"
-  },
-  {
    "digest_of": "bind_key",
    "pointer": "/request_digest",
    "record": "bind_device_key_receipt"
@@ -61,6 +51,16 @@
    "minted": "bind_device_key_committed_at",
    "pointer": "/committed_at",
    "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "alice_binding",
+   "pointer": "/binding_id",
+   "record": "stored_key"
+  },
+  {
+   "minted": "bound_at",
+   "pointer": "/created_at",
+   "record": "stored_key"
   },
   {
    "digest_of": "bind_device_key_receipt",
@@ -123,27 +123,7 @@
    "record": "register_rebuilt"
   },
   {
-   "digest_of": "register_rebuilt",
-   "pointer": "/request_digest",
-   "record": "register_rebuilt_candidate_receipt"
-  },
-  {
-   "minted": "register_rebuilt_candidate_head",
-   "pointer": "/head_digest",
-   "record": "register_rebuilt_candidate_receipt"
-  },
-  {
-   "minted": "register_rebuilt_candidate_sequence",
-   "pointer": "/sequence",
-   "record": "register_rebuilt_candidate_receipt"
-  },
-  {
-   "minted": "register_rebuilt_candidate_committed_at",
-   "pointer": "/committed_at",
-   "record": "register_rebuilt_candidate_receipt"
-  },
-  {
-   "digest_of": "register_rebuilt_candidate_receipt",
+   "digest_of": "register_candidate_receipt",
    "pointer": "/outcome/receipt_digest",
    "record": "register_rebuilt_candidate_result"
   },
@@ -198,21 +178,6 @@
    "name": "register_candidate_sequence",
    "shape": "integer",
    "step": "register_candidate"
-  },
-  {
-   "name": "register_rebuilt_candidate_committed_at",
-   "shape": "instant",
-   "step": "register_rebuilt_candidate"
-  },
-  {
-   "name": "register_rebuilt_candidate_head",
-   "shape": "digest",
-   "step": "register_rebuilt_candidate"
-  },
-  {
-   "name": "register_rebuilt_candidate_sequence",
-   "shape": "integer",
-   "step": "register_rebuilt_candidate"
   }
  ],
  "records": [
@@ -263,25 +228,6 @@
    }
   },
   {
-   "digest": "fe15fdab085a4435670c87d6eb42f9379a9f5ecb2d622e6fd1365d7d041aef84",
-   "name": "stored_key",
-   "record": {
-    "binding_id": "bnd_81de0ba6621c0340f0d3a45fa73a2fce",
-    "created_at": "2000-01-01T00:00:00Z",
-    "credential": {
-     "credential": "device_key",
-     "device_id": "dev_2b24d904268d97c082c167eb2a901fd4",
-     "key_generation": 1,
-     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
-    },
-    "established_by": "local_creation",
-    "evidence_digests": [],
-    "kind": "principal_binding",
-    "principal_id": "prn_1541ec95617e12c8882fdca18d2866ee",
-    "schema": 1
-   }
-  },
-  {
    "digest": "fabad5ba35e518d1fb6afdfd0188fb17c529ed68f22cad0eee424cd3e442a9e7",
    "name": "bind_device_key_receipt",
    "record": {
@@ -299,6 +245,25 @@
     "target": {
      "resource_id": "prn_1541ec95617e12c8882fdca18d2866ee"
     }
+   }
+  },
+  {
+   "digest": "fe15fdab085a4435670c87d6eb42f9379a9f5ecb2d622e6fd1365d7d041aef84",
+   "name": "stored_key",
+   "record": {
+    "binding_id": "bnd_81de0ba6621c0340f0d3a45fa73a2fce",
+    "created_at": "2000-01-01T00:00:00Z",
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_2b24d904268d97c082c167eb2a901fd4",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_1541ec95617e12c8882fdca18d2866ee",
+    "schema": 1
    }
   },
   {
@@ -506,34 +471,14 @@
    }
   },
   {
-   "digest": "4abbc5940532e33e31c065c11a267bbffb8631dd42bafd93d6c7f48d0a8b8557",
-   "name": "register_rebuilt_candidate_receipt",
-   "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "c58e6b65113a1b48b5defcab9da8f956b5302bc02c91ccf5e9a1f869acd60489",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "personal",
-     "principal_id": "prn_1541ec95617e12c8882fdca18d2866ee"
-    },
-    "request_digest": "43ad77dd862b464113ade4cc52758c834fa4ab9ccd7f44eaba8ea2db54ecf102",
-    "request_id": "req_1846ff03c635516622ae8011b3600a5f",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "resource_id": "prf_1caacf88dbe2c8d76518f15e81466fe8"
-    }
-   }
-  },
-  {
-   "digest": "8724619dceefa56292d1760fccb66f68a42a3a28839f87b9d853568dd6d10104",
+   "digest": "946d9c5e880fc06631ae96b9d7f6d2f1b9fb292bf18ab21d199dccf77ad93e48",
    "name": "register_rebuilt_candidate_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "4abbc5940532e33e31c065c11a267bbffb8631dd42bafd93d6c7f48d0a8b8557",
+     "receipt_digest": "6d530109a7899c7b692d74fc4ef27bfec4404263f72f7982cb213a72c820636e",
      "stage": "committed"
     },
     "outputs": [
@@ -550,8 +495,8 @@
    }
   }
  ],
- "says": "Alice binds her device key, then registers the package candidate built from one commit of the integrated source through package.candidate.register. The candidate states the tarball's digest and size and one member per packed file: two members name the source path they were copied from at source_commit, and provenance.json says it was made at pack time. The owner commits and returns the candidate exactly as submitted. The same commit is then built again and the rebuilt candidate registered under a new request: its bytes, tarball digest and every member are identical, so the owner returns a record with the same digest as the first. What must not happen: a member listed without a source path or pack-time origin, or a rebuild of one commit giving another tarball digest.",
- "spec_sha256": "8cbf148831a0fc8b400e45965f977ced0b76b331015148eb67584f44e08f7c59",
+ "says": "Alice binds her device key, then registers the package candidate built from one commit of the integrated source through package.candidate.register. The candidate states the tarball's digest and size and one member per packed file: two members name the source path they were copied from at source_commit, and provenance.json says it was made at pack time. The owner commits and returns the candidate exactly as submitted. The same commit is then built again and the rebuilt candidate registered under a new request: its bytes, tarball digest and every member are identical, so the same operation, target and payload are already committed: the owner settles it as a duplicate, writes nothing, and answers with the first registration's receipt and a record with the same digest as the first. What must not happen: a member listed without a source path or pack-time origin, or a rebuild of one commit giving another tarball digest.",
+ "spec_sha256": "575d569a8664249c6db036949a8d086de2a8d9998c23071f902a0b46d9f41364",
  "steps": [
   {
    "carries": [
@@ -580,6 +525,7 @@
     "rebuilt"
    ],
    "name": "register_rebuilt_candidate",
+   "receipt_of": "register_candidate",
    "request": "register_rebuilt",
    "result": "register_rebuilt_candidate_result",
    "returns": [

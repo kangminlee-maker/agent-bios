@@ -18,10 +18,6 @@
    "name": "notes_source"
   },
   {
-   "id": "col_dab70906e4b03ed02f51ece249bfcd85",
-   "name": "notes_collection"
-  },
-  {
    "id": "req_f0d5af0d48ce477863d3023eb61ca457",
    "name": "bind_request"
   },
@@ -36,10 +32,6 @@
   {
    "id": "per_8a4f61daf9254f25a91eb1ea5e76d26a",
    "name": "desktop_peer"
-  },
-  {
-   "id": "cnd_256399b109326eea349152344c877375",
-   "name": "draft_candidate"
   },
   {
    "id": "req_b122501957ea8a82027e4b82f8a78a1f",
@@ -85,16 +77,6 @@
    "record": "bind_key"
   },
   {
-   "minted": "alice_binding",
-   "pointer": "/binding_id",
-   "record": "stored_key"
-  },
-  {
-   "minted": "bound_at",
-   "pointer": "/created_at",
-   "record": "stored_key"
-  },
-  {
    "digest_of": "bind_key",
    "pointer": "/request_digest",
    "record": "bind_device_key_receipt"
@@ -113,6 +95,16 @@
    "minted": "bind_device_key_committed_at",
    "pointer": "/committed_at",
    "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "alice_binding",
+   "pointer": "/binding_id",
+   "record": "stored_key"
+  },
+  {
+   "minted": "bound_at",
+   "pointer": "/created_at",
+   "record": "stored_key"
   },
   {
    "digest_of": "bind_device_key_receipt",
@@ -135,17 +127,12 @@
    "record": "register_home"
   },
   {
-   "minted": "registered_at",
-   "pointer": "/registered_at",
-   "record": "stored_home"
-  },
-  {
    "digest_of": "register_home",
    "pointer": "/request_digest",
    "record": "register_notes_home_receipt"
   },
   {
-   "minted": "register_notes_home_head",
+   "minted": "notes_head_0",
    "pointer": "/head_digest",
    "record": "register_notes_home_receipt"
   },
@@ -158,6 +145,11 @@
    "minted": "register_notes_home_committed_at",
    "pointer": "/committed_at",
    "record": "register_notes_home_receipt"
+  },
+  {
+   "minted": "registered_at",
+   "pointer": "/registered_at",
+   "record": "stored_home"
   },
   {
    "digest_of": "register_notes_home_receipt",
@@ -180,16 +172,6 @@
    "record": "open_lane"
   },
   {
-   "minted": "storage_lane",
-   "pointer": "/workstream_id",
-   "record": "stored_lane"
-  },
-  {
-   "minted": "lane_at",
-   "pointer": "/created_at",
-   "record": "stored_lane"
-  },
-  {
    "digest_of": "open_lane",
    "pointer": "/request_digest",
    "record": "open_storage_lane_receipt"
@@ -208,6 +190,16 @@
    "minted": "open_storage_lane_committed_at",
    "pointer": "/committed_at",
    "record": "open_storage_lane_receipt"
+  },
+  {
+   "minted": "storage_lane",
+   "pointer": "/workstream_id",
+   "record": "stored_lane"
+  },
+  {
+   "minted": "lane_at",
+   "pointer": "/created_at",
+   "record": "stored_lane"
   },
   {
    "digest_of": "open_storage_lane_receipt",
@@ -230,9 +222,9 @@
    "record": "commit"
   },
   {
-   "minted": "produced_at",
-   "pointer": "/produced_at",
-   "record": "stored_revision"
+   "minted": "notes_head_0",
+   "pointer": "/target/base/head_digest",
+   "record": "commit"
   },
   {
    "digest_of": "commit",
@@ -253,6 +245,16 @@
    "minted": "commit_a_revision_committed_at",
    "pointer": "/committed_at",
    "record": "commit_a_revision_receipt"
+  },
+  {
+   "minted": "notes_head_0",
+   "pointer": "/target/base/head_digest",
+   "record": "commit_a_revision_receipt"
+  },
+  {
+   "minted": "produced_at",
+   "pointer": "/produced_at",
+   "record": "stored_revision"
   },
   {
    "digest_of": "commit_a_revision_receipt",
@@ -295,6 +297,11 @@
    "record": "stored_draft"
   },
   {
+   "minted": "draft_candidate",
+   "pointer": "/candidate_id",
+   "record": "stored_draft"
+  },
+  {
    "minted": "draft_at",
    "pointer": "/created_at",
    "record": "stored_draft"
@@ -315,12 +322,12 @@
    "record": "package"
   },
   {
-   "digest_of": "stored_revision",
-   "pointer": "/checkpoint_digest",
-   "record": "founding_epoch"
+   "digest_of": "stored_key",
+   "pointer": "/inventory/1/digest",
+   "record": "package"
   },
   {
-   "digest_of": "founding_epoch",
+   "digest_of": "stored_key",
    "pointer": "/continuity_evidence_digests/0",
    "record": "package"
   },
@@ -348,6 +355,26 @@
    "digest_of": "exported",
    "pointer": "/outputs/0/digest",
    "record": "export_to_the_desktop_result"
+  },
+  {
+   "digest_of": "take_backup",
+   "pointer": "/request_digest",
+   "record": "take_a_backup_receipt"
+  },
+  {
+   "minted": "take_a_backup_head",
+   "pointer": "/head_digest",
+   "record": "take_a_backup_receipt"
+  },
+  {
+   "minted": "take_a_backup_sequence",
+   "pointer": "/sequence",
+   "record": "take_a_backup_receipt"
+  },
+  {
+   "minted": "take_a_backup_committed_at",
+   "pointer": "/committed_at",
+   "record": "take_a_backup_receipt"
   },
   {
    "minted": "backup_taken_at",
@@ -385,26 +412,6 @@
    "record": "backup"
   },
   {
-   "digest_of": "take_backup",
-   "pointer": "/request_digest",
-   "record": "take_a_backup_receipt"
-  },
-  {
-   "minted": "take_a_backup_head",
-   "pointer": "/head_digest",
-   "record": "take_a_backup_receipt"
-  },
-  {
-   "minted": "take_a_backup_sequence",
-   "pointer": "/sequence",
-   "record": "take_a_backup_receipt"
-  },
-  {
-   "minted": "take_a_backup_committed_at",
-   "pointer": "/committed_at",
-   "record": "take_a_backup_receipt"
-  },
-  {
    "digest_of": "take_a_backup_receipt",
    "pointer": "/outcome/receipt_digest",
    "record": "take_a_backup_result"
@@ -440,26 +447,6 @@
    "record": "restore"
   },
   {
-   "digest_of": "backup",
-   "pointer": "/backup_digest",
-   "record": "report"
-  },
-  {
-   "minted": "backup_taken_at",
-   "pointer": "/taken_at",
-   "record": "report"
-  },
-  {
-   "minted": "backup_covered_through",
-   "pointer": "/covered_through",
-   "record": "report"
-  },
-  {
-   "minted": "restored_at",
-   "pointer": "/restored_at",
-   "record": "report"
-  },
-  {
    "digest_of": "restore",
    "pointer": "/request_digest",
    "record": "restore_the_backup_receipt"
@@ -478,6 +465,26 @@
    "minted": "restore_the_backup_committed_at",
    "pointer": "/committed_at",
    "record": "restore_the_backup_receipt"
+  },
+  {
+   "digest_of": "backup",
+   "pointer": "/backup_digest",
+   "record": "report"
+  },
+  {
+   "minted": "backup_taken_at",
+   "pointer": "/taken_at",
+   "record": "report"
+  },
+  {
+   "minted": "backup_covered_through",
+   "pointer": "/covered_through",
+   "record": "report"
+  },
+  {
+   "minted": "restored_at",
+   "pointer": "/restored_at",
+   "record": "report"
   },
   {
    "digest_of": "restore_the_backup_receipt",
@@ -500,26 +507,6 @@
    "record": "ask_commit_2"
   },
   {
-   "digest_of": "commit",
-   "pointer": "/request_digest",
-   "record": "commit_receipt"
-  },
-  {
-   "minted": "notes_head",
-   "pointer": "/head_digest",
-   "record": "commit_receipt"
-  },
-  {
-   "minted": "commit_sequence",
-   "pointer": "/sequence",
-   "record": "commit_receipt"
-  },
-  {
-   "minted": "commit_committed_at",
-   "pointer": "/committed_at",
-   "record": "commit_receipt"
-  },
-  {
    "digest_of": "ask_commit_2",
    "pointer": "/request_digest",
    "record": "query_the_commit_result"
@@ -530,7 +517,7 @@
    "record": "query_the_commit_result"
   },
   {
-   "digest_of": "commit_receipt",
+   "digest_of": "commit_a_revision_receipt",
    "pointer": "/outputs/1/digest",
    "record": "query_the_commit_result"
   },
@@ -592,13 +579,13 @@
    "step": "bind_device_key"
   },
   {
-   "name": "register_notes_home_committed_at",
-   "shape": "instant",
+   "name": "notes_head_0",
+   "shape": "digest",
    "step": "register_notes_home"
   },
   {
-   "name": "register_notes_home_head",
-   "shape": "digest",
+   "name": "register_notes_home_committed_at",
+   "shape": "instant",
    "step": "register_notes_home"
   },
   {
@@ -662,6 +649,11 @@
    "step": "keep_a_draft"
   },
   {
+   "name": "draft_candidate",
+   "shape": "cnd",
+   "step": "keep_a_draft"
+  },
+  {
    "name": "exported_at",
    "shape": "instant",
    "step": "export_to_the_desktop"
@@ -720,16 +712,6 @@
    "name": "restored_at",
    "shape": "instant",
    "step": "restore_the_backup"
-  },
-  {
-   "name": "commit_committed_at",
-   "shape": "instant",
-   "step": "query_the_commit"
-  },
-  {
-   "name": "commit_sequence",
-   "shape": "integer",
-   "step": "query_the_commit"
   }
  ],
  "records": [
@@ -780,25 +762,6 @@
    }
   },
   {
-   "digest": "1e4f249dd9bcd106896aea3e90ae7b0ef42eabc5faf94ae7e238fbae0f3bde82",
-   "name": "stored_key",
-   "record": {
-    "binding_id": "bnd_23ee95ee61bcb0d65332621524f18609",
-    "created_at": "2000-01-01T00:00:00Z",
-    "credential": {
-     "credential": "device_key",
-     "device_id": "dev_fc66a533553a2eda9b41eee45f351283",
-     "key_generation": 1,
-     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
-    },
-    "established_by": "local_creation",
-    "evidence_digests": [],
-    "kind": "principal_binding",
-    "principal_id": "prn_49ee05d353821d093974dc26cd895ae5",
-    "schema": 1
-   }
-  },
-  {
    "digest": "287f363b0a20e56c04f7dc54c9d1c3d2f47a0fec18624b75ca55c908c2e39a89",
    "name": "bind_device_key_receipt",
    "record": {
@@ -816,6 +779,25 @@
     "target": {
      "resource_id": "prn_49ee05d353821d093974dc26cd895ae5"
     }
+   }
+  },
+  {
+   "digest": "1e4f249dd9bcd106896aea3e90ae7b0ef42eabc5faf94ae7e238fbae0f3bde82",
+   "name": "stored_key",
+   "record": {
+    "binding_id": "bnd_23ee95ee61bcb0d65332621524f18609",
+    "created_at": "2000-01-01T00:00:00Z",
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_fc66a533553a2eda9b41eee45f351283",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_49ee05d353821d093974dc26cd895ae5",
+    "schema": 1
    }
   },
   {
@@ -843,7 +825,7 @@
    }
   },
   {
-   "digest": "2f4ed527673b091262ee7b9c2f7aa3d76008d8d611bc2497e094cae6f22cf1d5",
+   "digest": "5669ebf8dd2c9875804fb4be425ae4a812b9df2533a463e18df2782f55faddd5",
    "name": "notes_home",
    "record": {
     "acceptance_authority": {
@@ -862,7 +844,6 @@
     "disclosure": "private",
     "format_version": 1,
     "home": {
-     "collection_id": "col_dab70906e4b03ed02f51ece249bfcd85",
      "markdown_view": {
       "path": "views/collection.md",
       "view": "derived"
@@ -885,10 +866,10 @@
    }
   },
   {
-   "digest": "f5fd30e2e21754192728b7d8f0cae292388118faf97861a3ad01b9fb76243583",
+   "digest": "57f02f0b229ffd8596169f2ee64ee7fe66bcdc59e85381257b8bb995734b9b1f",
    "name": "register_home",
    "record": {
-    "action": "local_profile",
+    "action": "contribute",
     "actor": {
      "device_id": "dev_fc66a533553a2eda9b41eee45f351283",
      "principal_id": "prn_49ee05d353821d093974dc26cd895ae5",
@@ -903,7 +884,7 @@
      "layer": "personal",
      "principal_id": "prn_49ee05d353821d093974dc26cd895ae5"
     },
-    "payload_digest": "2f4ed527673b091262ee7b9c2f7aa3d76008d8d611bc2497e094cae6f22cf1d5",
+    "payload_digest": "5669ebf8dd2c9875804fb4be425ae4a812b9df2533a463e18df2782f55faddd5",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_b94ce055d8fdc0361b9d448067824bb8",
@@ -917,7 +898,30 @@
    }
   },
   {
-   "digest": "b8116c311107da195024a36cc3464894564aeb7c34e8dd658d921d50dd59510c",
+   "digest": "0d8d7c880c9dd4d3e51468703eff91f33493e4aead5ccbbd971323bc044fa049",
+   "name": "register_notes_home_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "0155e34463ff6cd4c9fd04fce1708eb2fc32977eb32a968738760b23168e2270",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_49ee05d353821d093974dc26cd895ae5"
+    },
+    "request_digest": "57f02f0b229ffd8596169f2ee64ee7fe66bcdc59e85381257b8bb995734b9b1f",
+    "request_id": "req_b94ce055d8fdc0361b9d448067824bb8",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_3974456c9e2c7ab19c3a57323c781561"
+    }
+   }
+  },
+  {
+   "digest": "84b1af8949f53d7f7a4a780df3d4856b42d657a97a1365513e768362a0a97e22",
    "name": "stored_home",
    "record": {
     "acceptance_authority": {
@@ -936,7 +940,6 @@
     "disclosure": "private",
     "format_version": 1,
     "home": {
-     "collection_id": "col_dab70906e4b03ed02f51ece249bfcd85",
      "markdown_view": {
       "path": "views/collection.md",
       "view": "derived"
@@ -960,47 +963,24 @@
    }
   },
   {
-   "digest": "e303e0b2fcb96c19fe731b6eeeff801885b001c76be6d5eb762eb658df1ef108",
-   "name": "register_notes_home_receipt",
-   "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "17f63a65a9881c7d6e4ba4b01191e820fed81f699fb05b056414b9815bb9c595",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "personal",
-     "principal_id": "prn_49ee05d353821d093974dc26cd895ae5"
-    },
-    "request_digest": "f5fd30e2e21754192728b7d8f0cae292388118faf97861a3ad01b9fb76243583",
-    "request_id": "req_b94ce055d8fdc0361b9d448067824bb8",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "base": {
-      "expects": "absent"
-     },
-     "resource_id": "src_3974456c9e2c7ab19c3a57323c781561"
-    }
-   }
-  },
-  {
-   "digest": "f7a6e69e54faa0550815fd41367a3dbaa24ca4c9436d77f3e84df2333f87ad60",
+   "digest": "3e7ce9f828fbb6c8172bc286c09958adec923739780fe677cc0ff5c88d16c485",
    "name": "register_notes_home_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "e303e0b2fcb96c19fe731b6eeeff801885b001c76be6d5eb762eb658df1ef108",
+     "receipt_digest": "0d8d7c880c9dd4d3e51468703eff91f33493e4aead5ccbbd971323bc044fa049",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "b8116c311107da195024a36cc3464894564aeb7c34e8dd658d921d50dd59510c",
+      "digest": "84b1af8949f53d7f7a4a780df3d4856b42d657a97a1365513e768362a0a97e22",
       "kind": "source_home"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "f5fd30e2e21754192728b7d8f0cae292388118faf97861a3ad01b9fb76243583",
+    "request_digest": "57f02f0b229ffd8596169f2ee64ee7fe66bcdc59e85381257b8bb995734b9b1f",
     "request_id": "req_b94ce055d8fdc0361b9d448067824bb8",
     "schema": 1,
     "supported_recovery": []
@@ -1050,22 +1030,6 @@
    }
   },
   {
-   "digest": "87fa64b7925fe025807e0191754379e9556b4edd3eab9176a167595d7f39d970",
-   "name": "stored_lane",
-   "record": {
-    "created_at": "2000-01-01T00:00:00Z",
-    "home": {
-     "layer": "personal",
-     "principal_id": "prn_49ee05d353821d093974dc26cd895ae5"
-    },
-    "kind": "workstream",
-    "name": "Storage and durability",
-    "purpose": "Where records live and what a restart must preserve.",
-    "schema": 1,
-    "workstream_id": "wst_980ef277e8b9a2d016239acf5f0f6087"
-   }
-  },
-  {
    "digest": "2e3f9d81947db7cbb2dae28f254b442c98af8aad529fe87acd7ec1fa375bf7fa",
    "name": "open_storage_lane_receipt",
    "record": {
@@ -1083,6 +1047,22 @@
     "target": {
      "resource_id": "prn_49ee05d353821d093974dc26cd895ae5"
     }
+   }
+  },
+  {
+   "digest": "87fa64b7925fe025807e0191754379e9556b4edd3eab9176a167595d7f39d970",
+   "name": "stored_lane",
+   "record": {
+    "created_at": "2000-01-01T00:00:00Z",
+    "home": {
+     "layer": "personal",
+     "principal_id": "prn_49ee05d353821d093974dc26cd895ae5"
+    },
+    "kind": "workstream",
+    "name": "Storage and durability",
+    "purpose": "Where records live and what a restart must preserve.",
+    "schema": 1,
+    "workstream_id": "wst_980ef277e8b9a2d016239acf5f0f6087"
    }
   },
   {
@@ -1132,7 +1112,7 @@
    }
   },
   {
-   "digest": "8c7de1df7ebd47446dd26e60eed5462ed8c0c7049c0d093c5d27daa47c345ca1",
+   "digest": "09fe0e20f7a91c339caa4b1a55ed97819559f6417406c22d2027839d61f69a95",
    "name": "commit",
    "record": {
     "action": "publish",
@@ -1157,7 +1137,32 @@
     "schema": 1,
     "target": {
      "base": {
-      "expects": "absent"
+      "expects": "head",
+      "head_digest": "0155e34463ff6cd4c9fd04fce1708eb2fc32977eb32a968738760b23168e2270"
+     },
+     "resource_id": "src_3974456c9e2c7ab19c3a57323c781561"
+    }
+   }
+  },
+  {
+   "digest": "566e1414f9ccf44f72d517eaa4e20858ed05fec1f5fec6c0c7e3f489590008ac",
+   "name": "commit_a_revision_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "ed9f822dfbce637f3a1c9f3e9c9485f2b7deb1793d05d48b25f50b002c93a6d7",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_49ee05d353821d093974dc26cd895ae5"
+    },
+    "request_digest": "09fe0e20f7a91c339caa4b1a55ed97819559f6417406c22d2027839d61f69a95",
+    "request_id": "req_b122501957ea8a82027e4b82f8a78a1f",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "0155e34463ff6cd4c9fd04fce1708eb2fc32977eb32a968738760b23168e2270"
      },
      "resource_id": "src_3974456c9e2c7ab19c3a57323c781561"
     }
@@ -1187,37 +1192,14 @@
    }
   },
   {
-   "digest": "d0833a5fc911bcc5deb6b72d12cde105383cc7bae900753ecea05616c2ee5e9f",
-   "name": "commit_a_revision_receipt",
-   "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "ed9f822dfbce637f3a1c9f3e9c9485f2b7deb1793d05d48b25f50b002c93a6d7",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "personal",
-     "principal_id": "prn_49ee05d353821d093974dc26cd895ae5"
-    },
-    "request_digest": "8c7de1df7ebd47446dd26e60eed5462ed8c0c7049c0d093c5d27daa47c345ca1",
-    "request_id": "req_b122501957ea8a82027e4b82f8a78a1f",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "base": {
-      "expects": "absent"
-     },
-     "resource_id": "src_3974456c9e2c7ab19c3a57323c781561"
-    }
-   }
-  },
-  {
-   "digest": "9caa6a2006a8bebc198008f268ce344babe17ffaf6c84a517ba9ffe1c906db3b",
+   "digest": "e82e5eba46852629f9bc98bf1b22aa39d53e9527d52d87649a17235cbc727b6e",
    "name": "commit_a_revision_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "d0833a5fc911bcc5deb6b72d12cde105383cc7bae900753ecea05616c2ee5e9f",
+     "receipt_digest": "566e1414f9ccf44f72d517eaa4e20858ed05fec1f5fec6c0c7e3f489590008ac",
      "stage": "committed"
     },
     "outputs": [
@@ -1227,7 +1209,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "8c7de1df7ebd47446dd26e60eed5462ed8c0c7049c0d093c5d27daa47c345ca1",
+    "request_digest": "09fe0e20f7a91c339caa4b1a55ed97819559f6417406c22d2027839d61f69a95",
     "request_id": "req_b122501957ea8a82027e4b82f8a78a1f",
     "schema": 1,
     "supported_recovery": []
@@ -1287,7 +1269,7 @@
    }
   },
   {
-   "digest": "45b3c2485b9ca30e9754e07d8d8c62e08ac35ae4c4fd5c653704c4bad90b83bf",
+   "digest": "6677c9774572934accfb6f82c1c2058a202b6e57cb6d6252a7b22586800074c9",
    "name": "keep_draft",
    "record": {
     "action": "contribute",
@@ -1311,15 +1293,15 @@
     "request_id": "req_bc3674b4b2ad7dab4885df025fd6bb11",
     "schema": 1,
     "target": {
-     "resource_id": "cnd_256399b109326eea349152344c877375"
+     "resource_id": "prn_49ee05d353821d093974dc26cd895ae5"
     }
    }
   },
   {
-   "digest": "76d05537006d4d0c236ebd58f2ffca13d571ac782c156358bafd00662aa72e02",
+   "digest": "401a5d051a894d91e88cf61e9df5dcc02b67c3998f648a49cb4ee2658322becc",
    "name": "stored_draft",
    "record": {
-    "candidate_id": "cnd_256399b109326eea349152344c877375",
+    "candidate_id": "cnd_de6e09837a2a683c456af83354c31e20",
     "created_at": "2000-01-01T00:00:00Z",
     "kind": "memory_candidate",
     "origin": {
@@ -1375,7 +1357,7 @@
    }
   },
   {
-   "digest": "4a9eeea1737c0cef310d66c444c09068288d422c29f852eac433bd1d24653911",
+   "digest": "01d66eaebbc014239e2f052532f676918e81e274c452b16d26c3b1f866909455",
    "name": "keep_a_draft_result",
    "record": {
     "kind": "operation_result",
@@ -1386,41 +1368,19 @@
     },
     "outputs": [
      {
-      "digest": "76d05537006d4d0c236ebd58f2ffca13d571ac782c156358bafd00662aa72e02",
+      "digest": "401a5d051a894d91e88cf61e9df5dcc02b67c3998f648a49cb4ee2658322becc",
       "kind": "memory_candidate"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "45b3c2485b9ca30e9754e07d8d8c62e08ac35ae4c4fd5c653704c4bad90b83bf",
+    "request_digest": "6677c9774572934accfb6f82c1c2058a202b6e57cb6d6252a7b22586800074c9",
     "request_id": "req_bc3674b4b2ad7dab4885df025fd6bb11",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "4aa16ff0a6b4226df31265f25e95ebe1d062dc21b269c7661da749c092490e23",
-   "name": "founding_epoch",
-   "record": {
-    "authority": {
-     "layer": "personal",
-     "principal_id": "prn_49ee05d353821d093974dc26cd895ae5"
-    },
-    "checkpoint_digest": "3aebb956473d62a0b37ee6e66965c0ea92c74d4b215bfb736f0e808f0cdf3a7e",
-    "epoch": 1,
-    "finalizer": {
-     "device_id": "dev_fc66a533553a2eda9b41eee45f351283",
-     "runs_on": "member_device"
-    },
-    "kind": "authority_continuity",
-    "recorded_at": "2026-09-20T09:00:00Z",
-    "schema": 1,
-    "succession": {
-     "from": "founding"
-    }
-   }
-  },
-  {
-   "digest": "6eac854c798249f6315b1cfb58373f312053ddf41cebbdf409a00370f5fbe94c",
+   "digest": "3101dcab33387d04303dd6cd63c2b0250594b968b803f46622c3c02f9ffbb240",
    "name": "package",
    "record": {
     "authority": {
@@ -1432,14 +1392,20 @@
     },
     "confidentiality": "at_rest",
     "continuity_evidence_digests": [
-     "4aa16ff0a6b4226df31265f25e95ebe1d062dc21b269c7661da749c092490e23"
+     "1e4f249dd9bcd106896aea3e90ae7b0ef42eabc5faf94ae7e238fbae0f3bde82"
     ],
     "inventory": [
      {
       "digest": "3aebb956473d62a0b37ee6e66965c0ea92c74d4b215bfb736f0e808f0cdf3a7e",
       "object_kind": "source_manifest",
       "path": "objects/0000.json",
-      "size": 4096
+      "size": 4121
+     },
+     {
+      "digest": "1e4f249dd9bcd106896aea3e90ae7b0ef42eabc5faf94ae7e238fbae0f3bde82",
+      "object_kind": "principal_binding",
+      "path": "continuity/0001.json",
+      "size": 412
      }
     ],
     "kind": "transfer_envelope",
@@ -1465,7 +1431,7 @@
    }
   },
   {
-   "digest": "28c8fdf52dc6b58e76ce4d12b17e802b17249ab4820073fdc41d0c62d19bce4f",
+   "digest": "c8637a0ab1194aa6536f5a7fe5ff693a37894de6aee13c9add8d5c970f75e969",
    "name": "export",
    "record": {
     "action": "transfer",
@@ -1483,7 +1449,7 @@
      "layer": "personal",
      "principal_id": "prn_49ee05d353821d093974dc26cd895ae5"
     },
-    "payload_digest": "6eac854c798249f6315b1cfb58373f312053ddf41cebbdf409a00370f5fbe94c",
+    "payload_digest": "3101dcab33387d04303dd6cd63c2b0250594b968b803f46622c3c02f9ffbb240",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_562a3c5b1f10ce870b3516a47dfef319",
@@ -1494,11 +1460,11 @@
    }
   },
   {
-   "digest": "e83c838a6efd6080c2dc6ef9408094fda0d2ac6f6177e8e651ff718e7880bf98",
+   "digest": "7dbe8fa2352739e73a0862afc2a84631c9b3ca89969eb69b691d664937ee397e",
    "name": "exported",
    "record": {
     "at": "2000-01-01T00:00:00Z",
-    "envelope_digest": "6eac854c798249f6315b1cfb58373f312053ddf41cebbdf409a00370f5fbe94c",
+    "envelope_digest": "3101dcab33387d04303dd6cd63c2b0250594b968b803f46622c3c02f9ffbb240",
     "kind": "transfer_stage_record",
     "schema": 1,
     "stage": {
@@ -1512,7 +1478,7 @@
    }
   },
   {
-   "digest": "882611d37c017c2b8886618a3ab3601ae76b25d60391f27c8387e06297545ee4",
+   "digest": "3f6e1dc401252c926e606698eb20796f2e06c67241349f1b1631431f1c3cf8f3",
    "name": "export_to_the_desktop_result",
    "record": {
     "kind": "operation_result",
@@ -1527,12 +1493,12 @@
     },
     "outputs": [
      {
-      "digest": "e83c838a6efd6080c2dc6ef9408094fda0d2ac6f6177e8e651ff718e7880bf98",
+      "digest": "7dbe8fa2352739e73a0862afc2a84631c9b3ca89969eb69b691d664937ee397e",
       "kind": "transfer_stage_record"
      }
     ],
     "provider_effect": "unknown",
-    "request_digest": "28c8fdf52dc6b58e76ce4d12b17e802b17249ab4820073fdc41d0c62d19bce4f",
+    "request_digest": "c8637a0ab1194aa6536f5a7fe5ff693a37894de6aee13c9add8d5c970f75e969",
     "request_id": "req_562a3c5b1f10ce870b3516a47dfef319",
     "schema": 1,
     "supported_recovery": [
@@ -1569,49 +1535,6 @@
    }
   },
   {
-   "digest": "f51000da90642c4c87ef6e187bbb328909f0c407be724079295dec25935243b8",
-   "name": "backup",
-   "record": {
-    "access_generation": 7,
-    "covered_through": 1,
-    "database": {
-     "digest": "0ab0d7a7e721b8de3597c0d0d162317106890174251e0e5764c66cb2c367c75e",
-     "path": "state.sqlite3",
-     "size": 1048576
-    },
-    "kind": "backup_set",
-    "members": [
-     {
-      "digest": "76d05537006d4d0c236ebd58f2ffca13d571ac782c156358bafd00662aa72e02",
-      "holds": "draft",
-      "path": "drafts/0001.json",
-      "size": 812
-     },
-     {
-      "digest": "6eac854c798249f6315b1cfb58373f312053ddf41cebbdf409a00370f5fbe94c",
-      "holds": "outbox",
-      "path": "outbox/0001.json",
-      "size": 1204
-     },
-     {
-      "digest": "882611d37c017c2b8886618a3ab3601ae76b25d60391f27c8387e06297545ee4",
-      "holds": "unknown_operation",
-      "path": "operations/unknown.json",
-      "size": 96
-     },
-     {
-      "digest": "c6ecc23bff2d9a6534a66ba253d40f65d879f43ccb1973af11953f131b484dc1",
-      "holds": "control_state",
-      "path": "control/sequence.json",
-      "size": 64
-     }
-    ],
-    "profile_id": "prf_669c57c911d98ac1751fb1cf67087405",
-    "schema": 1,
-    "taken_at": "2000-01-01T00:00:00Z"
-   }
-  },
-  {
    "digest": "0591af55e08d8b98e5d1f971ae3485f6561a2cd1640a505ca9b21bbcfcb829b7",
    "name": "take_a_backup_receipt",
    "record": {
@@ -1632,7 +1555,50 @@
    }
   },
   {
-   "digest": "7294de534483d15c258715792e65091e926f01cb37b409d0163856b811733927",
+   "digest": "f2c5e8188d445127228bc730f1d3a2cd80dcc4c14ac284cf1a9ac9dc196ea586",
+   "name": "backup",
+   "record": {
+    "access_generation": 7,
+    "covered_through": 1,
+    "database": {
+     "digest": "0ab0d7a7e721b8de3597c0d0d162317106890174251e0e5764c66cb2c367c75e",
+     "path": "state.sqlite3",
+     "size": 1048576
+    },
+    "kind": "backup_set",
+    "members": [
+     {
+      "digest": "401a5d051a894d91e88cf61e9df5dcc02b67c3998f648a49cb4ee2658322becc",
+      "holds": "draft",
+      "path": "drafts/0001.json",
+      "size": 812
+     },
+     {
+      "digest": "3101dcab33387d04303dd6cd63c2b0250594b968b803f46622c3c02f9ffbb240",
+      "holds": "outbox",
+      "path": "outbox/0001.json",
+      "size": 1204
+     },
+     {
+      "digest": "3f6e1dc401252c926e606698eb20796f2e06c67241349f1b1631431f1c3cf8f3",
+      "holds": "unknown_operation",
+      "path": "operations/unknown.json",
+      "size": 96
+     },
+     {
+      "digest": "c6ecc23bff2d9a6534a66ba253d40f65d879f43ccb1973af11953f131b484dc1",
+      "holds": "control_state",
+      "path": "control/sequence.json",
+      "size": 64
+     }
+    ],
+    "profile_id": "prf_669c57c911d98ac1751fb1cf67087405",
+    "schema": 1,
+    "taken_at": "2000-01-01T00:00:00Z"
+   }
+  },
+  {
+   "digest": "21b9b713d40bd2fe09d38a520c4a9ba95f748aafac4d129a58e617b5b6e203db",
    "name": "take_a_backup_result",
    "record": {
     "kind": "operation_result",
@@ -1644,7 +1610,7 @@
     },
     "outputs": [
      {
-      "digest": "f51000da90642c4c87ef6e187bbb328909f0c407be724079295dec25935243b8",
+      "digest": "f2c5e8188d445127228bc730f1d3a2cd80dcc4c14ac284cf1a9ac9dc196ea586",
       "kind": "backup_set"
      }
     ],
@@ -1726,7 +1692,7 @@
    }
   },
   {
-   "digest": "d18d9c19be366131bf20230ae62d1b954c1536c04699870daec739a7b18860f7",
+   "digest": "843bd08bb781b39b65a1c59564457f1f05fcbe2175182dfc95611b96e64bf7f3",
    "name": "restore",
    "record": {
     "action": "local_profile",
@@ -1744,7 +1710,7 @@
      "layer": "personal",
      "principal_id": "prn_49ee05d353821d093974dc26cd895ae5"
     },
-    "payload_digest": "f51000da90642c4c87ef6e187bbb328909f0c407be724079295dec25935243b8",
+    "payload_digest": "f2c5e8188d445127228bc730f1d3a2cd80dcc4c14ac284cf1a9ac9dc196ea586",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_4ed5b2483e652edf2fc78dd19068a993",
@@ -1755,22 +1721,7 @@
    }
   },
   {
-   "digest": "ccfe3eaa198771e02d6a12c133d43432ad543a3f1d2d9d5f934a739eba2a028e",
-   "name": "report",
-   "record": {
-    "after_backup": "not_known",
-    "authority": "passive",
-    "backup_digest": "f51000da90642c4c87ef6e187bbb328909f0c407be724079295dec25935243b8",
-    "covered_through": 1,
-    "kind": "restore_report",
-    "recovery_objective_seconds": 3600,
-    "restored_at": "2000-01-01T00:00:00Z",
-    "schema": 1,
-    "taken_at": "2000-01-01T00:00:00Z"
-   }
-  },
-  {
-   "digest": "1ae6a5d4c3b6e442528f906bfb131df5031ac7345ab13d6c3a26498bc2413335",
+   "digest": "bff2851bf91054fc7c1e013164ce5f2b0326aea1f85c66a3b7419536fb24b097",
    "name": "restore_the_backup_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -1780,7 +1731,7 @@
      "layer": "personal",
      "principal_id": "prn_49ee05d353821d093974dc26cd895ae5"
     },
-    "request_digest": "d18d9c19be366131bf20230ae62d1b954c1536c04699870daec739a7b18860f7",
+    "request_digest": "843bd08bb781b39b65a1c59564457f1f05fcbe2175182dfc95611b96e64bf7f3",
     "request_id": "req_4ed5b2483e652edf2fc78dd19068a993",
     "schema": 1,
     "sequence": 1,
@@ -1790,24 +1741,39 @@
    }
   },
   {
-   "digest": "87cf62ecbc9918e8a8ba31ac2ab556f321a03d97f45326ccfa3d9c7a5689a2ff",
+   "digest": "e94c5eaf2c0c42b73e30a0e01fc42f48f7605661c179ef9b6ad9dda39ac49bec",
+   "name": "report",
+   "record": {
+    "after_backup": "not_known",
+    "authority": "passive",
+    "backup_digest": "f2c5e8188d445127228bc730f1d3a2cd80dcc4c14ac284cf1a9ac9dc196ea586",
+    "covered_through": 1,
+    "kind": "restore_report",
+    "recovery_objective_seconds": 3600,
+    "restored_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "taken_at": "2000-01-01T00:00:00Z"
+   }
+  },
+  {
+   "digest": "d674cca1fbc49a5d961023191ab22ac97656352b995c939fa58be1d606e7a15f",
    "name": "restore_the_backup_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "1ae6a5d4c3b6e442528f906bfb131df5031ac7345ab13d6c3a26498bc2413335",
+     "receipt_digest": "bff2851bf91054fc7c1e013164ce5f2b0326aea1f85c66a3b7419536fb24b097",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "ccfe3eaa198771e02d6a12c133d43432ad543a3f1d2d9d5f934a739eba2a028e",
+      "digest": "e94c5eaf2c0c42b73e30a0e01fc42f48f7605661c179ef9b6ad9dda39ac49bec",
       "kind": "restore_report"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "d18d9c19be366131bf20230ae62d1b954c1536c04699870daec739a7b18860f7",
+    "request_digest": "843bd08bb781b39b65a1c59564457f1f05fcbe2175182dfc95611b96e64bf7f3",
     "request_id": "req_4ed5b2483e652edf2fc78dd19068a993",
     "schema": 1,
     "supported_recovery": []
@@ -1843,30 +1809,7 @@
    }
   },
   {
-   "digest": "d0833a5fc911bcc5deb6b72d12cde105383cc7bae900753ecea05616c2ee5e9f",
-   "name": "commit_receipt",
-   "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "ed9f822dfbce637f3a1c9f3e9c9485f2b7deb1793d05d48b25f50b002c93a6d7",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "personal",
-     "principal_id": "prn_49ee05d353821d093974dc26cd895ae5"
-    },
-    "request_digest": "8c7de1df7ebd47446dd26e60eed5462ed8c0c7049c0d093c5d27daa47c345ca1",
-    "request_id": "req_b122501957ea8a82027e4b82f8a78a1f",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "base": {
-      "expects": "absent"
-     },
-     "resource_id": "src_3974456c9e2c7ab19c3a57323c781561"
-    }
-   }
-  },
-  {
-   "digest": "7f1271661b852ab893fa1b81e2fc20e33b8e2054bf909309b23279b1eac8765e",
+   "digest": "80bf84dcbe66f886027101c9c82581f608a55cfd0fda6ea0b0a11aa4db140384",
    "name": "query_the_commit_result",
    "record": {
     "kind": "operation_result",
@@ -1877,11 +1820,11 @@
     },
     "outputs": [
      {
-      "digest": "9caa6a2006a8bebc198008f268ce344babe17ffaf6c84a517ba9ffe1c906db3b",
+      "digest": "e82e5eba46852629f9bc98bf1b22aa39d53e9527d52d87649a17235cbc727b6e",
       "kind": "operation_result"
      },
      {
-      "digest": "d0833a5fc911bcc5deb6b72d12cde105383cc7bae900753ecea05616c2ee5e9f",
+      "digest": "566e1414f9ccf44f72d517eaa4e20858ed05fec1f5fec6c0c7e3f489590008ac",
       "kind": "operation_receipt"
      }
     ],
@@ -1931,7 +1874,7 @@
    }
   },
   {
-   "digest": "2bcfc73d0e2c17e2b07d4b543c64a6449f1cf7ad6a96907af28669dec82a1a78",
+   "digest": "0af6c0a149252dc431b75985c27378d0ed00f768e058879d6804e2594fab919b",
    "name": "query_the_draft_result",
    "record": {
     "kind": "operation_result",
@@ -1942,7 +1885,7 @@
     },
     "outputs": [
      {
-      "digest": "4a9eeea1737c0cef310d66c444c09068288d422c29f852eac433bd1d24653911",
+      "digest": "01d66eaebbc014239e2f052532f676918e81e274c452b16d26c3b1f866909455",
       "kind": "operation_result"
      }
     ],
@@ -1992,7 +1935,7 @@
    }
   },
   {
-   "digest": "8fda06367a5f27ea46bb5e544efe7818c61e8f2c9ee890e022a8966a1b59b218",
+   "digest": "f25cd6ca440927e90fefbe72dea339ee59b698cb4aff1c763a0c1f250b779b85",
    "name": "query_the_export_result",
    "record": {
     "kind": "operation_result",
@@ -2003,7 +1946,7 @@
     },
     "outputs": [
      {
-      "digest": "882611d37c017c2b8886618a3ab3601ae76b25d60391f27c8387e06297545ee4",
+      "digest": "3f6e1dc401252c926e606698eb20796f2e06c67241349f1b1631431f1c3cf8f3",
       "kind": "operation_result"
      }
     ],
@@ -2015,8 +1958,8 @@
    }
   }
  ],
- "says": "On her laptop Alice commits a revision of her private notes source (a receipt and the head it moved), keeps a hand-written choice as a draft candidate, and exports a package to her desktop over a peer route while the two cannot reach each other, so the export stays in her outbox with an unknown outcome. She then takes a backup, which names the database snapshot and each member beside it: the draft, the outbox package, the unknown operation and the control sequence. The laptop's live database is then lost: on a rebuilt runtime that never held it, a query for the commit's request id first answers request_not_held — nothing survived to be restarted. Restoring the backup there reports the receipt sequence and instant the backup covers, work after it not known and authority passive. Afterwards the same queries return exactly the originals: the commit's result and its receipt naming its request and head, the draft candidate's result, and the export's unknown result with its query-the-same-request recovery. What must not count as this proof: a surviving database restarted in place, or the desktop's copy of the exported package standing in for the laptop's draft, outbox, unknown operation and control mappings; nothing here is rebuilt from a peer.",
- "spec_sha256": "da1b793feeb5f9938020d2c97658998efed5105ae4d51e1602b69475e3cca173",
+ "says": "On her laptop Alice registers her private notes source and commits a revision on the head the registration made (a receipt and the head it moved), keeps a hand-written choice as a draft candidate whose id the owner assigns, and exports a package carrying the revision, trusted by the binding that enrolled the laptop, to her desktop over a peer route while the two cannot reach each other, so the export stays in her outbox with an unknown outcome. She then takes a backup, which names the database snapshot and each member beside it: the draft, the outbox package, the unknown operation and the control sequence. The laptop's live database is then lost: on a rebuilt runtime that never held it, a query for the commit's request id first answers request_not_held — nothing survived to be restarted. Restoring the backup there reports the receipt sequence and instant the backup covers, work after it not known and authority passive. Afterwards the same queries return exactly the originals: the commit's result and its receipt naming its request and head, the draft candidate's result, and the export's unknown result with its query-the-same-request recovery. What must not count as this proof: a surviving database restarted in place, or the desktop's copy of the exported package standing in for the laptop's draft, outbox, unknown operation and control mappings; nothing here is rebuilt from a peer.",
+ "spec_sha256": "7c20d8b5328fd7f204d1c97805f676a1dce55d6c02e4cc4bb23a6517c4868ecb",
  "steps": [
   {
    "carries": [
@@ -2034,6 +1977,7 @@
    "carries": [
     "notes_home"
    ],
+   "head": "notes_head_0",
    "name": "register_notes_home",
    "process": "laptop",
    "request": "register_home",
@@ -2083,7 +2027,7 @@
    "carries": [
     "package",
     "stored_revision",
-    "founding_epoch"
+    "stored_key"
    ],
    "name": "export_to_the_desktop",
    "process": "laptop",
@@ -2137,7 +2081,7 @@
    "result": "query_the_commit_result",
    "returns": [
     "commit_a_revision_result",
-    "commit_receipt"
+    "commit_a_revision_receipt"
    ]
   },
   {

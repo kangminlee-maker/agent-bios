@@ -30,6 +30,18 @@
    "prefix": "ent"
   },
   {
+   "name": "bind_key_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "bind_repo_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "register_home_rid",
+   "prefix": "req"
+  },
+  {
    "name": "register_request",
    "prefix": "req"
   },
@@ -113,6 +125,214 @@
    ]
   },
   {
+   "name": "key_submitted",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "bind_key_request",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_key_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#key_submitted"
+    }
+   ]
+  },
+  {
+   "name": "key",
+   "from": "c01/device_key_binding.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:key_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:bound_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_binding_submitted",
+   "from": "c01/repository_binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "bind_repo_request",
+   "from": "c01/repository_bind_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_repo_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_binding_submitted"
+    }
+   ]
+  },
+  {
+   "name": "repo_binding",
+   "from": "c01/clone_shares_the_repository_id.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/observed/working_bytes_digest",
+     "value": "$digest:checkout_bytes"
+    }
+   ]
+  },
+  {
+   "name": "home_submitted",
+   "from": "sources/home_of_a_repository_document.json",
+   "drop": [
+    "/registered_at"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@decisions"
+    },
+    {
+     "pointer": "/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/acceptance_authority/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/binding_evidence_digest",
+     "value": "#repo_binding"
+    }
+   ]
+  },
+  {
+   "name": "home_request",
+   "from": "sources/request_to_register_a_home.json",
+   "drop": [
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_home_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@decisions"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#home_submitted"
+    }
+   ]
+  },
+  {
+   "name": "home",
+   "from": "home_submitted",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:registered_at"
+    }
+   ]
+  },
+  {
    "name": "register_submit",
    "from": "c03/candidate_register_request.json",
    "set": [
@@ -148,7 +368,20 @@
   },
   {
    "name": "selection",
-   "from": "c01/selection_of_a_transcript_span.json"
+   "from": "c01/selection_of_a_transcript_span.json",
+   "drop": [
+    "/roots/0/permits/destinations/1"
+   ],
+   "set": [
+    {
+     "pointer": "/roots/0/permits/destinations/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/roots/0/permits/processing",
+     "value": "local_processing"
+    }
+   ]
   },
   {
    "name": "observe",
@@ -226,6 +459,9 @@
      "pointer": "/processing/inputs/0/permits/destinations/0/repository_id",
      "value": "@repo"
     }
+   ],
+   "drop": [
+    "/revision_digest"
    ]
   },
   {
@@ -259,6 +495,14 @@
     {
      "pointer": "/payload_digest",
      "value": "#capture"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_decisions_home_head"
     }
    ]
   },
@@ -456,6 +700,57 @@
    }
   },
   {
+   "name": "bind_device_key",
+   "request": "bind_key_request",
+   "carries": [
+    "key_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "key"
+    ]
+   }
+  },
+  {
+   "name": "bind_repository",
+   "request": "bind_repo_request",
+   "carries": [
+    "repo_binding_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_binding"
+    ]
+   }
+  },
+  {
+   "name": "register_decisions_home",
+   "request": "home_request",
+   "carries": [
+    "home_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "home"
+    ]
+   }
+  },
+  {
    "name": "observe_span",
    "request": "observe",
    "carries": [
@@ -546,5 +841,5 @@
    }
   }
  ],
- "says": "The candidate package built from one commit is registered (package.candidate.register): its members are the distillation adapter workenv/intake/distill.py and its declared dependency workenv/contracts/canonical.py, each copied from that source path with its digest, and the pack-time provenance file. On that installation a person observes one transcript span and captures it (source.observe, source.capture.record); the extraction run the owner returns names the packaged adapter by the digest of that member and lists as loaded only those two package members with their package digests, and writes its entry inside its own run directory. A second span captured the same way gets its own run id and writes the same relative entry path inside its own directory, so no run shares a mutable output directory with another. A capture naming the author-side session-distill ledger script as its adapter, which the package does not contain, is refused with adapter_unavailable at /processing/adapter: no extraction run is written, nothing is stored, and no other script or canned result stands in for it."
+ "says": "The candidate package built from one commit is registered (package.candidate.register): its members are the distillation adapter workenv/intake/distill.py and its declared dependency workenv/contracts/canonical.py, each copied from that source path with its digest, and the pack-time provenance file. On that installation a person binds the device key and the checkout and registers the repository's decisions source, then observes one transcript span, selected for local processing and this repository only, and captures it at the head the source's registration committed (source.observe, source.capture.record); the extraction run the owner returns names the packaged adapter by the digest of that member and lists as loaded only those two package members with their package digests, and writes its entry inside its own run directory. A second span captured the same way gets its own run id and writes the same relative entry path inside its own directory, so no run shares a mutable output directory with another. A capture naming the author-side session-distill ledger script as its adapter, which the package does not contain, is refused with adapter_unavailable at /processing/adapter: no extraction run is written, nothing is stored, and no other script or canned result stands in for it."
 }

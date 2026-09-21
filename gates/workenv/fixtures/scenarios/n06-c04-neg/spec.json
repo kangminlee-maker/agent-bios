@@ -1,6 +1,6 @@
 {
  "case": "N06-C04-NEG",
- "says": "Two knowledge sources answer the same relief question: a repository source whose home states no applicability, and a personal source whose home states jurisdiction KR only. Each is registered and committed. Asked with both revisions pinned in the default order (repository first), the view prefers the repository table, keeps the personal table beside it as retained with its own evidence, reads its applicability as unstated and states applicability_unstated on the repository member. Asked again with an explicit order that puts the personal layer first, the preferred and retained members swap and the view takes the personal source's KR applicability, yet applicability_unstated is still stated on the now retained repository member: choosing the higher layer drops no qualification and marks nothing verified. A question that requires companions, whose declared companion notes this installation does not hold, comes back with the companion listed as unavailable and companion_unavailable; a question naming the entity_form condition, which neither source covers, comes back with condition_not_covered and the table still cited, never an answer with the condition dropped. Every one of these is a previewed read that commits nothing; no view is returned without its qualification and none is refused as if the qualification were an error.",
+ "says": "A worker binds their device key and checkout. Two knowledge sources answer the same relief question: a repository source whose home states no applicability, and a personal source whose home states jurisdiction KR only and whose committed revision declares the source notes as its companion, which this installation does not hold. Each is registered and committed on the head its registration moved to. Asked with both revisions pinned in the default order (repository first), the view prefers the repository table, keeps the personal table beside it as retained with its own evidence, reads its applicability as unstated and states applicability_unstated on the repository member, and names notes as an unavailable companion because the personal revision it cites declares it. Asked again with an explicit order that puts the personal layer first, the preferred and retained members swap and the view takes the personal source's KR applicability, yet applicability_unstated is still stated on the now retained repository member and notes is still named unavailable: choosing the higher layer drops no qualification and marks nothing verified. A question that requires companions comes back with notes listed as unavailable and companion_unavailable; a question naming the entity_form condition, which neither source covers, comes back with condition_not_covered, notes still named unavailable and the table still cited, never an answer with the condition dropped. Every view names exactly the companion its cited revisions declare and no other source. Each question is answered previewed with a view the owner keeps privately and no head moves; no view is returned without its qualification and none is refused as if the qualification were an error.",
  "ids": [
   {
    "name": "rates",
@@ -65,9 +65,140 @@
   {
    "name": "ask_on_an_uncovered_condition_request_id",
    "prefix": "req"
+  },
+  {
+   "name": "bind_my_key_id",
+   "prefix": "req"
+  },
+  {
+   "name": "bind_my_checkout_id",
+   "prefix": "req"
   }
  ],
  "records": [
+  {
+   "name": "my_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "my_key_stored",
+   "from": "my_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:my_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:my_key_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "bind_my_key",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_my_key_id"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#my_key"
+    }
+   ]
+  },
+  {
+   "name": "my_checkout",
+   "from": "c01/repository_binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "my_checkout_bound",
+   "from": "c01/clone_shares_the_repository_id.json",
+   "drop": [
+    "/observed/working_bytes_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "bind_my_checkout",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_my_checkout_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "repository.bind"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#my_checkout"
+    }
+   ]
+  },
   {
    "name": "rates_home",
    "from": "sources/home_submitted.json",
@@ -110,7 +241,7 @@
     },
     {
      "pointer": "/home/binding_evidence_digest",
-     "value": "47a017af61158bae8401475d7156faf45fe1f355b9b2c2f9fc8ebc54de98a9e4"
+     "value": "#my_checkout_bound"
     },
     {
      "pointer": "/acceptance_authority/layer",
@@ -228,10 +359,6 @@
     {
      "pointer": "/home/mode",
      "value": "managed"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@mine_collection"
     },
     {
      "pointer": "/home/markdown_view/view",
@@ -378,9 +505,6 @@
   {
    "name": "commit_rates_rev1",
    "from": "c04/model_check_request.json",
-   "drop": [
-    "/target/base/head_digest"
-   ],
    "set": [
     {
      "pointer": "/request_id",
@@ -416,7 +540,7 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
@@ -425,6 +549,10 @@
     {
      "pointer": "/owner/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:rates_registered"
     }
    ]
   },
@@ -450,6 +578,10 @@
     {
      "pointer": "/members/0/size",
      "value": 1900
+    },
+    {
+     "pointer": "/companions/-",
+     "value": "@notes"
     }
    ]
   },
@@ -467,7 +599,6 @@
    "name": "commit_mine_rev1",
    "from": "c04/model_check_request.json",
    "drop": [
-    "/target/base/head_digest",
     "/owner/repository_id"
    ],
    "set": [
@@ -505,7 +636,7 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
@@ -518,6 +649,10 @@
     {
      "pointer": "/owner/principal_id",
      "value": "@me"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:mine_registered"
     }
    ]
   },
@@ -573,10 +708,6 @@
     {
      "pointer": "/applicability/states",
      "value": "unstated"
-    },
-    {
-     "pointer": "/companions",
-     "value": []
     },
     {
      "pointer": "/evidence/0/source_id",
@@ -649,6 +780,14 @@
     {
      "pointer": "/material_gaps/0/pointer",
      "value": "/members/0"
+    },
+    {
+     "pointer": "/companions/0/source_id",
+     "value": "@notes"
+    },
+    {
+     "pointer": "/companions/0/state",
+     "value": "unavailable"
     }
    ]
   },
@@ -673,7 +812,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "pure_preview"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -689,7 +828,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@repo"
+     "value": "@me"
     },
     {
      "pointer": "/payload_digest",
@@ -765,10 +904,6 @@
      "value": "$instant:view_personal_first_at"
     },
     {
-     "pointer": "/companions",
-     "value": []
-    },
-    {
      "pointer": "/evidence/0/source_id",
      "value": "@rates"
     },
@@ -839,6 +974,14 @@
     {
      "pointer": "/material_gaps/0/pointer",
      "value": "/members/0"
+    },
+    {
+     "pointer": "/companions/0/source_id",
+     "value": "@notes"
+    },
+    {
+     "pointer": "/companions/0/state",
+     "value": "unavailable"
     }
    ]
   },
@@ -863,7 +1006,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "pure_preview"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -879,7 +1022,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@repo"
+     "value": "@me"
     },
     {
      "pointer": "/payload_digest",
@@ -974,7 +1117,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "pure_preview"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -990,7 +1133,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@repo"
+     "value": "@me"
     },
     {
      "pointer": "/payload_digest",
@@ -1040,10 +1183,6 @@
      "value": "$instant:view_for_an_uncovered_condition_at"
     },
     {
-     "pointer": "/companions",
-     "value": []
-    },
-    {
      "pointer": "/evidence/0/source_id",
      "value": "@mine"
     },
@@ -1062,6 +1201,14 @@
     {
      "pointer": "/members/0/layer",
      "value": "personal"
+    },
+    {
+     "pointer": "/companions/0/source_id",
+     "value": "@notes"
+    },
+    {
+     "pointer": "/companions/0/state",
+     "value": "unavailable"
     }
    ]
   },
@@ -1086,7 +1233,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "pure_preview"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1102,7 +1249,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@repo"
+     "value": "@me"
     },
     {
      "pointer": "/payload_digest",
@@ -1117,6 +1264,40 @@
  ],
  "steps": [
   {
+   "name": "bind_my_key",
+   "request": "bind_my_key",
+   "carries": [
+    "my_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "my_key_stored"
+    ]
+   }
+  },
+  {
+   "name": "bind_my_checkout",
+   "request": "bind_my_checkout",
+   "carries": [
+    "my_checkout"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "my_checkout_bound"
+    ]
+   }
+  },
+  {
    "name": "register_rates_home",
    "request": "register_rates",
    "carries": [
@@ -1130,7 +1311,8 @@
     "recovery": [],
     "returns": [
      "rates_home_stored"
-    ]
+    ],
+    "head": "rates_registered"
    }
   },
   {
@@ -1147,7 +1329,8 @@
     "recovery": [],
     "returns": [
      "mine_home_stored"
-    ]
+    ],
+    "head": "mine_registered"
    }
   },
   {
@@ -1194,7 +1377,7 @@
    ],
    "answer": {
     "stage": "previewed",
-    "local_effect": "none",
+    "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [
      {
@@ -1215,7 +1398,7 @@
    ],
    "answer": {
     "stage": "previewed",
-    "local_effect": "none",
+    "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [
      {
@@ -1236,7 +1419,7 @@
    ],
    "answer": {
     "stage": "previewed",
-    "local_effect": "none",
+    "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [
      {
@@ -1257,7 +1440,7 @@
    ],
    "answer": {
     "stage": "previewed",
-    "local_effect": "none",
+    "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [
      {

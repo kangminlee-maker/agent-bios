@@ -1,6 +1,6 @@
 {
  "case": "N20-C04-NEG",
- "says": "A knowledge source whose applicability carries an exception (companies founded before 2020 keep the 2025 rate) is registered and its first revision committed. None of the following becomes accepted clean state. A model whose relation computed_from names gross_income, a node the model lacks, is refused with model_reference_dangling. A form profile with nowhere to hold the source's exceptions is refused with form_mapping_invalid. A validation request naming a lens without its digest (an arbitrary validator) is refused at admission and nothing runs. A run pinned to two lenses where only one ran is recorded unverified (partial_run), never clean. A run whose lens met nothing to check is recorded unverified (empty_subject). A second revision is then committed, and a run over the first revision's table, whose target is no longer the source's head, is recorded unverified (target_changed). No knowledge_model or form_profile is returned for the refused checks, and no clean verdict is written for any of these runs.",
+ "says": "A knowledge source whose applicability carries an exception (companies founded before 2020 keep the 2025 rate) is registered and its first revision committed on the head the registration moved to. None of the following becomes accepted clean state. A model whose relation computed_from names gross_income, a node the model lacks, is refused with model_reference_dangling. A form profile with nowhere to hold the source's exceptions is refused with form_mapping_invalid. A validation request naming a lens without its digest (an arbitrary validator) is refused at admission and nothing runs. A run pinned to two lenses where only one ran is recorded unverified (partial_run), never clean. A run whose lens met nothing to check is recorded unverified (empty_subject). A second revision is then committed, and a run over the first revision's table, whose target is no longer the source's head, is recorded unverified (target_changed). No knowledge_model or form_profile is returned for the refused checks, and no clean verdict is written for any of these runs.",
  "ids": [
   {
    "name": "rates",
@@ -242,9 +242,6 @@
   {
    "name": "commit_rates_rev1",
    "from": "c04/model_check_request.json",
-   "drop": [
-    "/target/base/head_digest"
-   ],
    "set": [
     {
      "pointer": "/request_id",
@@ -280,7 +277,7 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
@@ -289,6 +286,10 @@
     {
      "pointer": "/owner/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:rates_registered"
     }
    ]
   },
@@ -980,7 +981,8 @@
     "recovery": [],
     "returns": [
      "rates_home_stored"
-    ]
+    ],
+    "head": "rates_registered"
    }
   },
   {
@@ -1067,7 +1069,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1084,7 +1086,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1119,7 +1121,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],

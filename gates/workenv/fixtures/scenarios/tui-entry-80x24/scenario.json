@@ -77,16 +77,6 @@
    "record": "my_key_request"
   },
   {
-   "minted": "my_key_binding",
-   "pointer": "/binding_id",
-   "record": "my_key_stored"
-  },
-  {
-   "minted": "my_key_bound_at",
-   "pointer": "/created_at",
-   "record": "my_key_stored"
-  },
-  {
    "digest_of": "my_key_request",
    "pointer": "/request_digest",
    "record": "bind_device_key_receipt"
@@ -105,6 +95,16 @@
    "minted": "bind_device_key_committed_at",
    "pointer": "/committed_at",
    "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "my_key_binding",
+   "pointer": "/binding_id",
+   "record": "my_key_stored"
+  },
+  {
+   "minted": "my_key_bound_at",
+   "pointer": "/created_at",
+   "record": "my_key_stored"
   },
   {
    "digest_of": "bind_device_key_receipt",
@@ -127,11 +127,6 @@
    "record": "repo_bind_request"
   },
   {
-   "minted": "checkout_bytes",
-   "pointer": "/observed/working_bytes_digest",
-   "record": "repo_bound"
-  },
-  {
    "digest_of": "repo_bind_request",
    "pointer": "/request_digest",
    "record": "bind_repository_receipt"
@@ -150,6 +145,11 @@
    "minted": "bind_repository_committed_at",
    "pointer": "/committed_at",
    "record": "bind_repository_receipt"
+  },
+  {
+   "minted": "checkout_bytes",
+   "pointer": "/observed/working_bytes_digest",
+   "record": "repo_bound"
   },
   {
    "digest_of": "bind_repository_receipt",
@@ -207,16 +207,6 @@
    "record": "instr_commit_request"
   },
   {
-   "minted": "instr_bytes",
-   "pointer": "/members/0/digest",
-   "record": "instr_revision"
-  },
-  {
-   "minted": "instr_produced_at",
-   "pointer": "/produced_at",
-   "record": "instr_revision"
-  },
-  {
    "digest_of": "instr_commit_request",
    "pointer": "/request_digest",
    "record": "commit_instr_receipt"
@@ -235,6 +225,16 @@
    "minted": "commit_instr_committed_at",
    "pointer": "/committed_at",
    "record": "commit_instr_receipt"
+  },
+  {
+   "minted": "instr_bytes",
+   "pointer": "/members/0/digest",
+   "record": "instr_revision"
+  },
+  {
+   "minted": "instr_produced_at",
+   "pointer": "/produced_at",
+   "record": "instr_revision"
   },
   {
    "digest_of": "commit_instr_receipt",
@@ -292,16 +292,6 @@
    "record": "know_commit_request"
   },
   {
-   "minted": "know_bytes",
-   "pointer": "/members/0/digest",
-   "record": "know_revision"
-  },
-  {
-   "minted": "know_produced_at",
-   "pointer": "/produced_at",
-   "record": "know_revision"
-  },
-  {
    "digest_of": "know_commit_request",
    "pointer": "/request_digest",
    "record": "commit_know_receipt"
@@ -320,6 +310,16 @@
    "minted": "commit_know_committed_at",
    "pointer": "/committed_at",
    "record": "commit_know_receipt"
+  },
+  {
+   "minted": "know_bytes",
+   "pointer": "/members/0/digest",
+   "record": "know_revision"
+  },
+  {
+   "minted": "know_produced_at",
+   "pointer": "/produced_at",
+   "record": "know_revision"
   },
   {
    "digest_of": "commit_know_receipt",
@@ -342,16 +342,6 @@
    "record": "probe_request"
   },
   {
-   "minted": "probed_at",
-   "pointer": "/at",
-   "record": "read_probe_stored"
-  },
-  {
-   "minted": "read_probe",
-   "pointer": "/probe_id",
-   "record": "read_probe_stored"
-  },
-  {
    "digest_of": "probe_request",
    "pointer": "/request_digest",
    "record": "probe_host_read_receipt"
@@ -370,6 +360,16 @@
    "minted": "probe_host_read_committed_at",
    "pointer": "/committed_at",
    "record": "probe_host_read_receipt"
+  },
+  {
+   "minted": "probed_at",
+   "pointer": "/at",
+   "record": "read_probe_stored"
+  },
+  {
+   "minted": "read_probe",
+   "pointer": "/probe_id",
+   "record": "read_probe_stored"
   },
   {
    "digest_of": "probe_host_read_receipt",
@@ -397,16 +397,6 @@
    "record": "offer_request"
   },
   {
-   "digest_of": "read_probe_stored",
-   "pointer": "/offered/0/support/probe_digest",
-   "record": "offer_stored"
-  },
-  {
-   "minted": "offer_at",
-   "pointer": "/offered_at",
-   "record": "offer_stored"
-  },
-  {
    "digest_of": "offer_request",
    "pointer": "/request_digest",
    "record": "offer_routes_receipt"
@@ -425,6 +415,16 @@
    "minted": "offer_routes_committed_at",
    "pointer": "/committed_at",
    "record": "offer_routes_receipt"
+  },
+  {
+   "digest_of": "read_probe_stored",
+   "pointer": "/offered/0/support/probe_digest",
+   "record": "offer_stored"
+  },
+  {
+   "minted": "offer_at",
+   "pointer": "/offered_at",
+   "record": "offer_stored"
   },
   {
    "digest_of": "offer_routes_receipt",
@@ -672,25 +672,6 @@
    }
   },
   {
-   "digest": "5c79822a4b298a141df31599cca27a9feeaff2211b7fbcf3d1d87204e01e019b",
-   "name": "my_key_stored",
-   "record": {
-    "binding_id": "bnd_be89f2b81ea18106ab6c2b69257f879e",
-    "created_at": "2000-01-01T00:00:00Z",
-    "credential": {
-     "credential": "device_key",
-     "device_id": "dev_0e42b636e0ea594e9c0bf5c5038fafa9",
-     "key_generation": 1,
-     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
-    },
-    "established_by": "local_creation",
-    "evidence_digests": [],
-    "kind": "principal_binding",
-    "principal_id": "prn_b73c2192e7c439af09fa20bce41f71f4",
-    "schema": 1
-   }
-  },
-  {
    "digest": "2bcad9d69f4382c6502436ab86f6c6932effdd356da4753dabc73c5241566aac",
    "name": "bind_device_key_receipt",
    "record": {
@@ -711,11 +692,30 @@
    }
   },
   {
-   "digest": "4180bf1ba14a678bc058b3709d15b9984df939e50b11b2d49e8655fd6a4c3c19",
+   "digest": "5c79822a4b298a141df31599cca27a9feeaff2211b7fbcf3d1d87204e01e019b",
+   "name": "my_key_stored",
+   "record": {
+    "binding_id": "bnd_be89f2b81ea18106ab6c2b69257f879e",
+    "created_at": "2000-01-01T00:00:00Z",
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_0e42b636e0ea594e9c0bf5c5038fafa9",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_b73c2192e7c439af09fa20bce41f71f4",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "d40846610cc851a0be28ff71c85485b64d327e7e7ec67a2fe5fcec6af7de7fa3",
    "name": "bind_device_key_result",
    "record": {
     "kind": "operation_result",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
      "receipt_digest": "2bcad9d69f4382c6502436ab86f6c6932effdd356da4753dabc73c5241566aac",
@@ -776,24 +776,6 @@
    }
   },
   {
-   "digest": "77fdebfdcdc76fdc89d85b1ea71562e1016db178f7b64855cbbc2f4c64b31152",
-   "name": "repo_bound",
-   "record": {
-    "kind": "repository_binding",
-    "observed": {
-     "branch": "main",
-     "commit": "0123456789abcdef0123456789abcdef01234567",
-     "locator": "git@github.com:example/work.git",
-     "working_bytes_digest": "a344c4325fd7c975c2cfab4a25ddd20ca682cbd0d4b4991b7bcfcf17cdb6010f"
-    },
-    "relation": {
-     "how": "clone"
-    },
-    "repository_id": "rep_f7c5c4cf7395a26d74f113c9bb9343ec",
-    "schema": 1
-   }
-  },
-  {
    "digest": "6f27e1d1a970127aabef7e8a2674cd559a9d17d66bc177be65204095345e652b",
    "name": "bind_repository_receipt",
    "record": {
@@ -814,11 +796,29 @@
    }
   },
   {
-   "digest": "6aa547941885043a7818fb51615a595605892bfb2ada734a3ae26ab33c66e591",
+   "digest": "77fdebfdcdc76fdc89d85b1ea71562e1016db178f7b64855cbbc2f4c64b31152",
+   "name": "repo_bound",
+   "record": {
+    "kind": "repository_binding",
+    "observed": {
+     "branch": "main",
+     "commit": "0123456789abcdef0123456789abcdef01234567",
+     "locator": "git@github.com:example/work.git",
+     "working_bytes_digest": "a344c4325fd7c975c2cfab4a25ddd20ca682cbd0d4b4991b7bcfcf17cdb6010f"
+    },
+    "relation": {
+     "how": "clone"
+    },
+    "repository_id": "rep_f7c5c4cf7395a26d74f113c9bb9343ec",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "0560855a63202cfe3fa55705dc1dc89d3b784cc81f60cbd3aa2acc503aa81fdf",
    "name": "bind_repository_result",
    "record": {
     "kind": "operation_result",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
      "receipt_digest": "6f27e1d1a970127aabef7e8a2674cd559a9d17d66bc177be65204095345e652b",
@@ -838,14 +838,25 @@
    }
   },
   {
-   "digest": "4b48736e46577e34a81730c2afb5d4974b54032fff7e9dff12b10c2f60ae628a",
+   "digest": "5c3a2921fda5bb18e58798505ea8c01e3371a95c05372f09c8bb74a3c0d8e119",
    "name": "instr_selection",
    "record": {
     "kind": "source_selection",
     "roots": [
      {
       "need": "required",
+      "permits": {
+       "destinations": [
+        {
+         "layer": "repository",
+         "repository_id": "rep_f7c5c4cf7395a26d74f113c9bb9343ec"
+        }
+       ],
+       "processing": "local_processing",
+       "prompt_log": "not_kept"
+      },
       "place": {
+       "checkout": "/home/ana/work",
        "from": "working_tree",
        "path": "AGENTS.md",
        "repository_id": "rep_f7c5c4cf7395a26d74f113c9bb9343ec"
@@ -856,7 +867,7 @@
    }
   },
   {
-   "digest": "46d78d8a50f26654fad8a78253739d9727ce30feaccbe636ef09dc2c2dbda4e8",
+   "digest": "4e3f9595304cc6d6f159921612729b6c51512a973a25cd9154e42f42335c4b57",
    "name": "instr_observe_request",
    "record": {
     "action": "read",
@@ -874,7 +885,7 @@
      "layer": "repository",
      "repository_id": "rep_f7c5c4cf7395a26d74f113c9bb9343ec"
     },
-    "payload_digest": "4b48736e46577e34a81730c2afb5d4974b54032fff7e9dff12b10c2f60ae628a",
+    "payload_digest": "5c3a2921fda5bb18e58798505ea8c01e3371a95c05372f09c8bb74a3c0d8e119",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_7b3dfe6577e28696267b692ed7c57e85",
@@ -885,7 +896,7 @@
    }
   },
   {
-   "digest": "bf36e46c24774083ecb26079fe3b84ef4810b7cd775ab389f2e7424d1efc4051",
+   "digest": "b1d7efb9ac72a043c120d9c22cb1663915fbfb35e65857a158d9454cce594303",
    "name": "instr_observation",
    "record": {
     "kind": "source_observation",
@@ -902,11 +913,11 @@
      }
     ],
     "schema": 1,
-    "selection_digest": "4b48736e46577e34a81730c2afb5d4974b54032fff7e9dff12b10c2f60ae628a"
+    "selection_digest": "5c3a2921fda5bb18e58798505ea8c01e3371a95c05372f09c8bb74a3c0d8e119"
    }
   },
   {
-   "digest": "6589438f010003b626af9d4f63123928908f6130398411223620d5bba6baccbd",
+   "digest": "64ff82ca944b088ac2debece776dcb5c007112236d799e2ec8e4920dbe112c11",
    "name": "observe_instr_result",
    "record": {
     "kind": "operation_result",
@@ -917,12 +928,12 @@
     },
     "outputs": [
      {
-      "digest": "bf36e46c24774083ecb26079fe3b84ef4810b7cd775ab389f2e7424d1efc4051",
+      "digest": "b1d7efb9ac72a043c120d9c22cb1663915fbfb35e65857a158d9454cce594303",
       "kind": "source_observation"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "46d78d8a50f26654fad8a78253739d9727ce30feaccbe636ef09dc2c2dbda4e8",
+    "request_digest": "4e3f9595304cc6d6f159921612729b6c51512a973a25cd9154e42f42335c4b57",
     "request_id": "req_7b3dfe6577e28696267b692ed7c57e85",
     "schema": 1,
     "supported_recovery": []
@@ -946,10 +957,10 @@
    }
   },
   {
-   "digest": "e31e9e7c2e1dcbf81d2fbe6a644136b23fc9d7965026711de9273b7dea3ea557",
+   "digest": "372aa84d4601b75b945b6bc610255a9813c3f4f4e351e3b9dbdbcfef88677d8e",
    "name": "instr_commit_request",
    "record": {
-    "action": "contribute",
+    "action": "publish",
     "actor": {
      "device_id": "dev_0e42b636e0ea594e9c0bf5c5038fafa9",
      "principal_id": "prn_b73c2192e7c439af09fa20bce41f71f4",
@@ -978,6 +989,29 @@
    }
   },
   {
+   "digest": "babf8cb26a0468296d1365058a3e75fea6525644261f07a02693398455412d84",
+   "name": "commit_instr_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "29f6aed7118b28f997397d51790d6ae5e66ee4506fb4b8b9b2e5d7e2e5809eb5",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_f7c5c4cf7395a26d74f113c9bb9343ec"
+    },
+    "request_digest": "372aa84d4601b75b945b6bc610255a9813c3f4f4e351e3b9dbdbcfef88677d8e",
+    "request_id": "req_8e2aaa3c2bd2f398f71b6676b6ebe869",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_dabd94838031f2c81b5530d43ed54a9a"
+    }
+   }
+  },
+  {
    "digest": "880d6d114695e3698665b40b936e5b0374c83285b480a234e03866739e686f8a",
    "name": "instr_revision",
    "record": {
@@ -996,37 +1030,14 @@
    }
   },
   {
-   "digest": "7d3581f11d1b8dd525002981ab76cc3ed9a60d41ccb961fe643cca6ea1b4bb70",
-   "name": "commit_instr_receipt",
-   "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "29f6aed7118b28f997397d51790d6ae5e66ee4506fb4b8b9b2e5d7e2e5809eb5",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "repository",
-     "repository_id": "rep_f7c5c4cf7395a26d74f113c9bb9343ec"
-    },
-    "request_digest": "e31e9e7c2e1dcbf81d2fbe6a644136b23fc9d7965026711de9273b7dea3ea557",
-    "request_id": "req_8e2aaa3c2bd2f398f71b6676b6ebe869",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "base": {
-      "expects": "absent"
-     },
-     "resource_id": "src_dabd94838031f2c81b5530d43ed54a9a"
-    }
-   }
-  },
-  {
-   "digest": "62239f2131d8274733ec84031ab65e789ab4bd5f703e77b903519991a35e0557",
+   "digest": "4933db04dd740539bce077817a3f3dd9491d47a72554e9da51d59f42d87d7770",
    "name": "commit_instr_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "7d3581f11d1b8dd525002981ab76cc3ed9a60d41ccb961fe643cca6ea1b4bb70",
+     "receipt_digest": "babf8cb26a0468296d1365058a3e75fea6525644261f07a02693398455412d84",
      "stage": "committed"
     },
     "outputs": [
@@ -1036,21 +1047,32 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "e31e9e7c2e1dcbf81d2fbe6a644136b23fc9d7965026711de9273b7dea3ea557",
+    "request_digest": "372aa84d4601b75b945b6bc610255a9813c3f4f4e351e3b9dbdbcfef88677d8e",
     "request_id": "req_8e2aaa3c2bd2f398f71b6676b6ebe869",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "783bba6472d42cd69c6c74ebeff6b3318388cf788e102d9971c5b08d88bb13bb",
+   "digest": "89c1ac1484e39bb5f1c384c0fdc3cb2daaf09e861e589d58a492607e03613947",
    "name": "know_selection",
    "record": {
     "kind": "source_selection",
     "roots": [
      {
       "need": "required",
+      "permits": {
+       "destinations": [
+        {
+         "layer": "repository",
+         "repository_id": "rep_f7c5c4cf7395a26d74f113c9bb9343ec"
+        }
+       ],
+       "processing": "local_processing",
+       "prompt_log": "not_kept"
+      },
       "place": {
+       "checkout": "/home/ana/work",
        "from": "working_tree",
        "path": "docs/retry.md",
        "repository_id": "rep_f7c5c4cf7395a26d74f113c9bb9343ec"
@@ -1061,7 +1083,7 @@
    }
   },
   {
-   "digest": "2e9ba102703db9670254a966363250732596bc8d8f6320425e4515c47af4f553",
+   "digest": "6ea761157c8c9e224385031937719e2e77bb82aca6b30a633d298182b551b97e",
    "name": "know_observe_request",
    "record": {
     "action": "read",
@@ -1079,7 +1101,7 @@
      "layer": "repository",
      "repository_id": "rep_f7c5c4cf7395a26d74f113c9bb9343ec"
     },
-    "payload_digest": "783bba6472d42cd69c6c74ebeff6b3318388cf788e102d9971c5b08d88bb13bb",
+    "payload_digest": "89c1ac1484e39bb5f1c384c0fdc3cb2daaf09e861e589d58a492607e03613947",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_0527ac28033d12b5d13d7160fb7cc3cb",
@@ -1090,7 +1112,7 @@
    }
   },
   {
-   "digest": "f03f5e0fddc5190b6ae84b7fd4d5055e9bb632fc24f8c1c7fefb32aa1638c11b",
+   "digest": "1d15782aae4ac0e7d3e9bac86e7de3c6b2786c11bf9e6eecfa88bc422091e152",
    "name": "know_observation",
    "record": {
     "kind": "source_observation",
@@ -1107,11 +1129,11 @@
      }
     ],
     "schema": 1,
-    "selection_digest": "783bba6472d42cd69c6c74ebeff6b3318388cf788e102d9971c5b08d88bb13bb"
+    "selection_digest": "89c1ac1484e39bb5f1c384c0fdc3cb2daaf09e861e589d58a492607e03613947"
    }
   },
   {
-   "digest": "646ce6a7a0497d1bd9a2467875ee5e273e0c006d9bcde98754c2f57918da5dc0",
+   "digest": "847d23a7777d5cb9b85db7ae9a7b3675c3aa52e9efeff18d69715a1e6b283c50",
    "name": "observe_know_result",
    "record": {
     "kind": "operation_result",
@@ -1122,12 +1144,12 @@
     },
     "outputs": [
      {
-      "digest": "f03f5e0fddc5190b6ae84b7fd4d5055e9bb632fc24f8c1c7fefb32aa1638c11b",
+      "digest": "1d15782aae4ac0e7d3e9bac86e7de3c6b2786c11bf9e6eecfa88bc422091e152",
       "kind": "source_observation"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "2e9ba102703db9670254a966363250732596bc8d8f6320425e4515c47af4f553",
+    "request_digest": "6ea761157c8c9e224385031937719e2e77bb82aca6b30a633d298182b551b97e",
     "request_id": "req_0527ac28033d12b5d13d7160fb7cc3cb",
     "schema": 1,
     "supported_recovery": []
@@ -1151,10 +1173,10 @@
    }
   },
   {
-   "digest": "af4058ecb08248a2b2b32d94b2cf3959826d2dd38c074f5145dcae8708db2458",
+   "digest": "6e9cdf32736e8e5cfea98d2449a1a2261f44f7003090403fce7a48a71a0d2d83",
    "name": "know_commit_request",
    "record": {
-    "action": "contribute",
+    "action": "publish",
     "actor": {
      "device_id": "dev_0e42b636e0ea594e9c0bf5c5038fafa9",
      "principal_id": "prn_b73c2192e7c439af09fa20bce41f71f4",
@@ -1183,6 +1205,29 @@
    }
   },
   {
+   "digest": "3a999da45c6fb5db8f61192c62c50feb995eb5c6294d084e15bc2bf29665d249",
+   "name": "commit_know_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "5bcedcb8738080997ab4606df08e785817e4797fc1123e7006b0ad1765037a14",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_f7c5c4cf7395a26d74f113c9bb9343ec"
+    },
+    "request_digest": "6e9cdf32736e8e5cfea98d2449a1a2261f44f7003090403fce7a48a71a0d2d83",
+    "request_id": "req_b1dfa5272af47a16593f524edf12d071",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_a606d63f70bdfc22b943b8ad7412fbb0"
+    }
+   }
+  },
+  {
    "digest": "9df0737b0bc24f07c05adab4fe74551cef6c9b4297aed12a6b2b1d04ae7dda28",
    "name": "know_revision",
    "record": {
@@ -1201,37 +1246,14 @@
    }
   },
   {
-   "digest": "fe08ae386cf28862e347437817fe2b19afd27e8917777cca6b68b1002f392c7f",
-   "name": "commit_know_receipt",
-   "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "5bcedcb8738080997ab4606df08e785817e4797fc1123e7006b0ad1765037a14",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "repository",
-     "repository_id": "rep_f7c5c4cf7395a26d74f113c9bb9343ec"
-    },
-    "request_digest": "af4058ecb08248a2b2b32d94b2cf3959826d2dd38c074f5145dcae8708db2458",
-    "request_id": "req_b1dfa5272af47a16593f524edf12d071",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "base": {
-      "expects": "absent"
-     },
-     "resource_id": "src_a606d63f70bdfc22b943b8ad7412fbb0"
-    }
-   }
-  },
-  {
-   "digest": "7abf669cb113e78ab8f15c153abd2fbf747a6355c4e27f720f18488928b489a1",
+   "digest": "efc6dc91b091181dde8bee13f2bad30e633e59c8fca33d6020d8d5250f84d1c3",
    "name": "commit_know_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "fe08ae386cf28862e347437817fe2b19afd27e8917777cca6b68b1002f392c7f",
+     "receipt_digest": "3a999da45c6fb5db8f61192c62c50feb995eb5c6294d084e15bc2bf29665d249",
      "stage": "committed"
     },
     "outputs": [
@@ -1241,7 +1263,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "af4058ecb08248a2b2b32d94b2cf3959826d2dd38c074f5145dcae8708db2458",
+    "request_digest": "6e9cdf32736e8e5cfea98d2449a1a2261f44f7003090403fce7a48a71a0d2d83",
     "request_id": "req_b1dfa5272af47a16593f524edf12d071",
     "schema": 1,
     "supported_recovery": []
@@ -1265,7 +1287,7 @@
    }
   },
   {
-   "digest": "b0b3fe5be8e246d6b3131df5ab86e8a99c84a0509793f49a5e8a470bf6c7726f",
+   "digest": "18772643391c8533314af3e8374b315b5107ef70525fd64a820bb4726294914b",
    "name": "probe_request",
    "record": {
     "action": "local_profile",
@@ -1289,7 +1311,27 @@
     "request_id": "req_0e18c87a8eeeae4103e5cb2341adc035",
     "schema": 1,
     "target": {
-     "resource_id": "dev_0e42b636e0ea594e9c0bf5c5038fafa9"
+     "resource_id": "prf_8255e2cd1a6e6f5efda5880a3e46ef9b"
+    }
+   }
+  },
+  {
+   "digest": "afaff83f7486d543b1850f3fb19feabd49115140a927457c84dead1c72ea2ed5",
+   "name": "probe_host_read_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "5f7ab30930560378a533ec44ac072d9c07f8d474c21b36bb9aeb99b228ca57b2",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_b73c2192e7c439af09fa20bce41f71f4"
+    },
+    "request_digest": "18772643391c8533314af3e8374b315b5107ef70525fd64a820bb4726294914b",
+    "request_id": "req_0e18c87a8eeeae4103e5cb2341adc035",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_8255e2cd1a6e6f5efda5880a3e46ef9b"
     }
    }
   },
@@ -1319,34 +1361,14 @@
    }
   },
   {
-   "digest": "97dc248c552e5d9208a1e90a90677d56fa2a77c16599280730daa79643f8d8a0",
-   "name": "probe_host_read_receipt",
-   "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "5f7ab30930560378a533ec44ac072d9c07f8d474c21b36bb9aeb99b228ca57b2",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "personal",
-     "principal_id": "prn_b73c2192e7c439af09fa20bce41f71f4"
-    },
-    "request_digest": "b0b3fe5be8e246d6b3131df5ab86e8a99c84a0509793f49a5e8a470bf6c7726f",
-    "request_id": "req_0e18c87a8eeeae4103e5cb2341adc035",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "resource_id": "dev_0e42b636e0ea594e9c0bf5c5038fafa9"
-    }
-   }
-  },
-  {
-   "digest": "bec7d1dc3cee6d9f47fbf005f63eecdb1841f8d02ea462d73396fc137f0fabfd",
+   "digest": "c695385ccdc5c18c5083d9ca02d0f98f07076c404672b3a2d7613ce470dc4e36",
    "name": "probe_host_read_result",
    "record": {
     "kind": "operation_result",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "97dc248c552e5d9208a1e90a90677d56fa2a77c16599280730daa79643f8d8a0",
+     "receipt_digest": "afaff83f7486d543b1850f3fb19feabd49115140a927457c84dead1c72ea2ed5",
      "stage": "committed"
     },
     "outputs": [
@@ -1356,7 +1378,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "b0b3fe5be8e246d6b3131df5ab86e8a99c84a0509793f49a5e8a470bf6c7726f",
+    "request_digest": "18772643391c8533314af3e8374b315b5107ef70525fd64a820bb4726294914b",
     "request_id": "req_0e18c87a8eeeae4103e5cb2341adc035",
     "schema": 1,
     "supported_recovery": []
@@ -1408,7 +1430,7 @@
    }
   },
   {
-   "digest": "c610e6af2ebde467434d9d676de1cbf4a1231398679950ef31c45c3d704a8176",
+   "digest": "214af365d1a1e12d865096d2583712368657b5f89c2e4f2173a1a49b3d92a711",
    "name": "offer_request",
    "record": {
     "action": "read",
@@ -1432,7 +1454,27 @@
     "request_id": "req_04b907b0f246a578eb1ec390db64461f",
     "schema": 1,
     "target": {
-     "resource_id": "prn_b73c2192e7c439af09fa20bce41f71f4"
+     "resource_id": "prf_8255e2cd1a6e6f5efda5880a3e46ef9b"
+    }
+   }
+  },
+  {
+   "digest": "3e88505a835ba7f8b886101f190004950eb277d4d937cd2262e12a7be4885f2b",
+   "name": "offer_routes_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "3cb53faff1e49ba3b3b243c809a198c94ec0af120aaaa1638ddd99203c9912a5",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_b73c2192e7c439af09fa20bce41f71f4"
+    },
+    "request_digest": "214af365d1a1e12d865096d2583712368657b5f89c2e4f2173a1a49b3d92a711",
+    "request_id": "req_04b907b0f246a578eb1ec390db64461f",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_8255e2cd1a6e6f5efda5880a3e46ef9b"
     }
    }
   },
@@ -1483,34 +1525,14 @@
    }
   },
   {
-   "digest": "7983a39df131725156e255c035ed76071d8a84af0943972d5b4f0bb19155bc6b",
-   "name": "offer_routes_receipt",
-   "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "3cb53faff1e49ba3b3b243c809a198c94ec0af120aaaa1638ddd99203c9912a5",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "personal",
-     "principal_id": "prn_b73c2192e7c439af09fa20bce41f71f4"
-    },
-    "request_digest": "c610e6af2ebde467434d9d676de1cbf4a1231398679950ef31c45c3d704a8176",
-    "request_id": "req_04b907b0f246a578eb1ec390db64461f",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "resource_id": "prn_b73c2192e7c439af09fa20bce41f71f4"
-    }
-   }
-  },
-  {
-   "digest": "67024e402f594388d54e87dbf384b5d68d717fcfddbbe5466ab3a0fb6f0bbf0f",
+   "digest": "8501c937e62d59cc5086829962661ef43dea87baa86cc61fdc8139dd8c362339",
    "name": "offer_routes_result",
    "record": {
     "kind": "operation_result",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "7983a39df131725156e255c035ed76071d8a84af0943972d5b4f0bb19155bc6b",
+     "receipt_digest": "3e88505a835ba7f8b886101f190004950eb277d4d937cd2262e12a7be4885f2b",
      "stage": "committed"
     },
     "outputs": [
@@ -1520,7 +1542,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "c610e6af2ebde467434d9d676de1cbf4a1231398679950ef31c45c3d704a8176",
+    "request_digest": "214af365d1a1e12d865096d2583712368657b5f89c2e4f2173a1a49b3d92a711",
     "request_id": "req_04b907b0f246a578eb1ec390db64461f",
     "schema": 1,
     "supported_recovery": []
@@ -1574,7 +1596,7 @@
    }
   },
   {
-   "digest": "f2a2c04eab29af05f3f6610cb75bb3965a17314bad289a9fdb0160a6e4112232",
+   "digest": "8b5cdcc691cc34653af4dcdc8f47533a091042eae2b58817dd464ffe91085a60",
    "name": "script_request",
    "record": {
     "action": "read",
@@ -1598,7 +1620,7 @@
     "request_id": "req_f24169453efacc7393c38de523d7d319",
     "schema": 1,
     "target": {
-     "resource_id": "prn_b73c2192e7c439af09fa20bce41f71f4"
+     "resource_id": "prf_8255e2cd1a6e6f5efda5880a3e46ef9b"
     }
    }
   },
@@ -2580,7 +2602,7 @@
    }
   },
   {
-   "digest": "8ac129f2361509f58ff5aeac777744029fe75f940017aadaeecbaa0c256b16f4",
+   "digest": "54ccb4a6bd3e83cc0f944a4bb29a5ef73a5f3cbd42bc8fba1b7d113e2e31aaba",
    "name": "drive_entry_result",
    "record": {
     "kind": "operation_result",
@@ -2596,7 +2618,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "f2a2c04eab29af05f3f6610cb75bb3965a17314bad289a9fdb0160a6e4112232",
+    "request_digest": "8b5cdcc691cc34653af4dcdc8f47533a091042eae2b58817dd464ffe91085a60",
     "request_id": "req_f24169453efacc7393c38de523d7d319",
     "schema": 1,
     "supported_recovery": []
@@ -2604,7 +2626,7 @@
   }
  ],
  "says": "In a bound repository with a committed instructions source (selected) and a knowledge source (not yet checked), the host launcher offers a qualified start route and an unqualified personal decision route. The person's script starts at 80x24, resizes to 100x30, 80x24, 132x43 and back to 80x24 (the sizes gates/workenv/fixtures/text/terminal.json names), then presses Enter on the focused instructions position and Esc (surface.drive). At every size the trace must keep the selected target, the material qualification element, the blocker with its reason and remedy, and the start action `shown: whole`, with the two positions' labels distinct and focus and selection unchanged by the resize. Enter replaces the body with that position's detail (view w02, target the instructions position, return_view w01) and Esc returns to w01 with the same focus and selection. Negative: no frame dispatches a request or calls an owner operation, the start action is never `executing`, and no element that carries state is `clipped` or `off_screen` at 80x24 — a resize runs nothing and hides nothing.",
- "spec_sha256": "e0555e1147a6ddc43e2e612f334679c381b951e9b939e113094e8dd2b53b4a5b",
+ "spec_sha256": "634bedb8c246ad5b35f0e5dedd0bbf1921d9de0c717fc2a4b88cc3a9b52c7801",
  "steps": [
   {
    "carries": [

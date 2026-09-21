@@ -1,6 +1,6 @@
 {
  "case": "DH-FORM",
- "says": "The person's repository says WAL and their own decisions say a rollback journal, so a use that relies on the journal mode needs their answer. The working host is Claude Code 2.1.278 on MCP 2025-11-25 with hooks disabled; Codex CLI 0.155.1, which offers only 2025-06-18, is also installed. Links to the native form of each are opened for this work. The Claude Code form route is probed for real: the form reached the person and came back, and the host's user event separated their submission from its own automation, so the profile qualifies question and user_event by naming those two probes. Codex declares form support, but its real probe declines within milliseconds with nobody present, so its profile says probe_failed: a declaration or a published protocol qualifies nothing. The owner seals the question against the basis of the two choices and stores it pending before asking, naming the qualified native form. Asking through Codex is not attempted at a version it does not offer: that attempt is recorded unsupported with protocol_version_not_offered and no channel. Asked through the Claude Code form, the person first cancels, and the owner records a cancelled non-answer; a reply that carries a choice but no separation evidence is classified hook_generated; resuming the use with either is refused with answer_not_from_a_person and the use stays pending on the same question. The person then chooses WAL in the form, and the owner records a verified_native_user_event answer bound to this link, use, question version and host, naming the user-event probe as its separation evidence and the choice. Resuming with that answer admits the same use on the unchanged basis and returns the WAL unit it applies.",
+ "says": "The repository says WAL and the person's own decisions say a rollback journal, so a use relying on the journal mode needs their answer. The working host is Claude Code 2.1.278 on MCP 2025-11-25, whose one Elicitation hook is kept disabled; Codex CLI 0.155.1, offering only 2025-06-18, is also installed. A native-form link to each is opened. Each probe runs for real and writes the configuration it ran under: on Claude Code the form reached the person and came back, and the user event separated their submission from automation, so its profile qualifies question and user_event by those probes. Codex declares form support but its real probe declines in milliseconds with nobody present, so its profile says probe_failed: a declaration or protocol qualifies nothing. The owner seals the question against the two choices and stores it pending before asking. Asking through Codex at a version it does not offer is recorded unsupported, protocol_version_not_offered, no channel. In the Claude Code form the person first cancels (a cancelled non-answer); then, while the hook is switched on, the form returns a choice with no separation evidence, and the configuration measured at classification shows the enabled hook, so it is hook_generated. Resuming with either is blocked with answer_not_from_a_person; the same use stays pending_user on the same question version and nothing is admitted. With the hook off again the person chooses WAL, and the owner records a verified_native_user_event answer bound to this link, use, question version and host, under the configuration measured then and naming the real user-event probe as its separation. Resuming the use with it admits it on the unchanged basis and returns the WAL unit.",
  "ids": [
   {
    "name": "alice",
@@ -704,6 +704,31 @@
    ]
   },
   {
+   "name": "claude_configuration_at_form_probe",
+   "from": "c12/a_host_measured_with_a_hook_that_answers_questions.json",
+   "drop": [
+    "/hooks/1"
+   ],
+   "set": [
+    {
+     "pointer": "/hooks/0/enabled",
+     "value": false
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:claude_configuration_at_form_probe_at"
+    }
+   ]
+  },
+  {
    "name": "claude_profile_after_form",
    "from": "c12/four_capabilities_qualified_one_at_a_time.json",
    "drop": [
@@ -865,6 +890,31 @@
     {
      "pointer": "/at",
      "value": "$instant:user_event_probe_at"
+    }
+   ]
+  },
+  {
+   "name": "claude_configuration_at_user_event_probe",
+   "from": "c12/a_host_measured_with_a_hook_that_answers_questions.json",
+   "drop": [
+    "/hooks/1"
+   ],
+   "set": [
+    {
+     "pointer": "/hooks/0/enabled",
+     "value": false
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:claude_configuration_at_user_event_probe_at"
     }
    ]
   },
@@ -1042,6 +1092,24 @@
     {
      "pointer": "/at",
      "value": "$instant:codex_form_probe_at"
+    }
+   ]
+  },
+  {
+   "name": "codex_configuration_at_form_probe",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/client/name",
+     "value": "codex-cli"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.155.1"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:codex_configuration_at_form_probe_at"
     }
    ]
   },
@@ -1444,7 +1512,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice"
+     "value": "$lnk:codex_link"
     },
     {
      "pointer": "/payload_digest",
@@ -1538,7 +1606,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice"
+     "value": "$lnk:form_link"
     },
     {
      "pointer": "/payload_digest",
@@ -1636,7 +1704,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice"
+     "value": "$qst:journal_question"
     },
     {
      "pointer": "/payload_digest",
@@ -1670,7 +1738,7 @@
     },
     {
      "pointer": "/measured_configuration_digest",
-     "value": "$digest:cancel_reply_evidence_configuration"
+     "value": "#claude_configuration_at_cancel"
     },
     {
      "pointer": "/observed_at",
@@ -1695,6 +1763,31 @@
     {
      "pointer": "/origin/origin",
      "value": "cancelled"
+    }
+   ]
+  },
+  {
+   "name": "claude_configuration_at_cancel",
+   "from": "c12/a_host_measured_with_a_hook_that_answers_questions.json",
+   "drop": [
+    "/hooks/1"
+   ],
+   "set": [
+    {
+     "pointer": "/hooks/0/enabled",
+     "value": false
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:claude_configuration_at_cancel_at"
     }
    ]
   },
@@ -1758,11 +1851,25 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@journal_concern"
+     "value": "$use:journal_use"
     },
     {
      "pointer": "/payload_digest",
      "value": "#resume_with_the_cancel_submitted"
+    }
+   ]
+  },
+  {
+   "name": "journal_still_waiting_after_the_cancel",
+   "from": "journal_waiting",
+   "set": [
+    {
+     "pointer": "/material_gaps/0/code",
+     "value": "choice_conflict_unresolved"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:journal_still_waiting_after_the_cancel_at"
     }
    ]
   },
@@ -1841,7 +1948,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice"
+     "value": "$qst:journal_question"
     },
     {
      "pointer": "/payload_digest",
@@ -1875,7 +1982,7 @@
     },
     {
      "pointer": "/measured_configuration_digest",
-     "value": "$digest:hook_reply_evidence_configuration"
+     "value": "#claude_configuration_at_hook_reply"
     },
     {
      "pointer": "/observed_at",
@@ -1900,6 +2007,31 @@
     {
      "pointer": "/origin/origin",
      "value": "hook_generated"
+    }
+   ]
+  },
+  {
+   "name": "claude_configuration_at_hook_reply",
+   "from": "c12/a_host_measured_with_a_hook_that_answers_questions.json",
+   "drop": [
+    "/hooks/1"
+   ],
+   "set": [
+    {
+     "pointer": "/hooks/0/enabled",
+     "value": true
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:claude_configuration_at_hook_reply_at"
     }
    ]
   },
@@ -1963,11 +2095,25 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@journal_concern"
+     "value": "$use:journal_use"
     },
     {
      "pointer": "/payload_digest",
      "value": "#resume_with_the_hook_reply_submitted"
+    }
+   ]
+  },
+  {
+   "name": "journal_still_waiting_after_the_hook_reply",
+   "from": "journal_waiting",
+   "set": [
+    {
+     "pointer": "/material_gaps/0/code",
+     "value": "choice_conflict_unresolved"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:journal_still_waiting_after_the_hook_reply_at"
     }
    ]
   },
@@ -2047,7 +2193,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice"
+     "value": "$qst:journal_question"
     },
     {
      "pointer": "/payload_digest",
@@ -2077,7 +2223,7 @@
     },
     {
      "pointer": "/measured_configuration_digest",
-     "value": "$digest:person_reply_evidence_configuration"
+     "value": "#claude_configuration_at_person_reply"
     },
     {
      "pointer": "/observed_at",
@@ -2114,6 +2260,31 @@
     {
      "pointer": "/origin/answer/mode",
      "value": "keep_until_change"
+    }
+   ]
+  },
+  {
+   "name": "claude_configuration_at_person_reply",
+   "from": "c12/a_host_measured_with_a_hook_that_answers_questions.json",
+   "drop": [
+    "/hooks/1"
+   ],
+   "set": [
+    {
+     "pointer": "/hooks/0/enabled",
+     "value": false
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:claude_configuration_at_person_reply_at"
     }
    ]
   },
@@ -2177,7 +2348,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@journal_concern"
+     "value": "$use:journal_use"
     },
     {
      "pointer": "/payload_digest",
@@ -2317,7 +2488,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2334,7 +2505,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2357,7 +2528,8 @@
     "recovery": [],
     "returns": [
      "form_question_probe",
-     "claude_profile_after_form"
+     "claude_profile_after_form",
+     "claude_configuration_at_form_probe"
     ]
    }
   },
@@ -2375,7 +2547,8 @@
     "recovery": [],
     "returns": [
      "user_event_probe",
-     "claude_profile_after_user_event"
+     "claude_profile_after_user_event",
+     "claude_configuration_at_user_event_probe"
     ]
    }
   },
@@ -2393,7 +2566,8 @@
     "recovery": [],
     "returns": [
      "codex_form_probe",
-     "codex_profile"
+     "codex_profile",
+     "codex_configuration_at_form_probe"
     ]
    }
   },
@@ -2428,7 +2602,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2445,7 +2619,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2462,12 +2636,13 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "cancel_reply_evidence"
+     "cancel_reply_evidence",
+     "claude_configuration_at_cancel"
     ]
    }
   },
@@ -2478,7 +2653,7 @@
     "resume_with_the_cancel_submitted"
    ],
    "answer": {
-    "stage": "refused",
+    "stage": "blocked",
     "local_effect": "none",
     "provider_effect": "not_applicable",
     "gaps": [
@@ -2487,7 +2662,9 @@
      }
     ],
     "recovery": [],
-    "returns": []
+    "returns": [
+     "journal_still_waiting_after_the_cancel"
+    ]
    }
   },
   {
@@ -2498,12 +2675,13 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "hook_reply_evidence"
+     "hook_reply_evidence",
+     "claude_configuration_at_hook_reply"
     ]
    }
   },
@@ -2514,7 +2692,7 @@
     "resume_with_the_hook_reply_submitted"
    ],
    "answer": {
-    "stage": "refused",
+    "stage": "blocked",
     "local_effect": "none",
     "provider_effect": "not_applicable",
     "gaps": [
@@ -2523,7 +2701,9 @@
      }
     ],
     "recovery": [],
-    "returns": []
+    "returns": [
+     "journal_still_waiting_after_the_hook_reply"
+    ]
    }
   },
   {
@@ -2534,12 +2714,13 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "person_reply_evidence"
+     "person_reply_evidence",
+     "claude_configuration_at_person_reply"
     ]
    }
   },

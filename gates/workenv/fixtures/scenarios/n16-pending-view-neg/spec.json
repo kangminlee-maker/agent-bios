@@ -1,6 +1,6 @@
 {
  "case": "N16-PENDING-VIEW-NEG",
- "says": "alice binds her laptop key, founds the Team Platform and binds the payments repository. A probe qualifies Claude Code's native form for putting a question to her. She publishes one journal-mode decision in the repository and a conflicting one in the Team, and opens a recipient link for her Claude Code conversation. memory.use.prepare for that link then waits on her: its result is pending_user, with a pending question asked through the host's native form over both decisions. The Studio hub, opened while the use waits, shows the use as pending and offers only source inspection: inspecting the repository decision opens W04 and calls reference.resolve for its source map, and nothing else. No frame calls reader.question.answer, recipient.answer.record or memory.preference.record, dispatches a request, or offers a control that answers. alice answers in Claude Code instead: recipient.answer.record stores the verified native answer, and reader.use.resume with that evidence admits the use in the working host. The surface is not what answers or resumes it.",
+ "says": "alice binds her laptop key, founds the Team Platform and binds the payments repository. Probes qualify Claude Code's native form for putting a question to her and the host's native user event that separates her from its automation, each returning the configuration it ran under. She registers a decisions source in the repository and one in the Team, publishes one journal-mode decision in the repository and a conflicting one in the Team, and opens a recipient link for her Claude Code conversation. memory.use.prepare for that link then waits on her: blocked on the unresolved conflict, its result is pending_user, with a pending question asked through the host's native form over both decisions. The Studio hub, opened while the use waits, shows the use as pending and offers only source inspection: inspecting the repository decision opens W04 and calls reference.resolve for its source map, and nothing else. No frame calls reader.question.answer, recipient.answer.record or memory.preference.record, dispatches a request, or offers a control that answers. alice answers in Claude Code instead: the working host fetches the sealed question it asks (reader.question.answer, which writes and admits nothing), recipient.answer.record stores the verified native answer naming the user_event probe and the configuration measured then, and reader.use.resume with that evidence admits the use in the working host. The surface is not what answers or resumes it.",
  "ids": [
   {
    "name": "alice",
@@ -51,6 +51,10 @@
    "prefix": "req"
   },
   {
+   "name": "host_user_event_probe_request",
+   "prefix": "req"
+  },
+  {
    "name": "publish_repo_request",
    "prefix": "req"
   },
@@ -75,11 +79,23 @@
    "prefix": "req"
   },
   {
+   "name": "fetch_question_request",
+   "prefix": "req"
+  },
+  {
    "name": "answer_request",
    "prefix": "req"
   },
   {
    "name": "resume_request",
+   "prefix": "req"
+  },
+  {
+   "name": "register_repo_decisions_request",
+   "prefix": "req"
+  },
+  {
+   "name": "register_team_decisions_request",
    "prefix": "req"
   }
  ],
@@ -213,6 +229,20 @@
    ]
   },
   {
+   "name": "team_sealed_proposal",
+   "from": "founding",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_founding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
    "name": "found",
    "from": "c03/history_request.json",
    "drop": [
@@ -271,15 +301,11 @@
   },
   {
    "name": "team_active",
-   "from": "c08/team_closed_for_good.json",
+   "from": "c08/active_team.json",
    "set": [
     {
      "pointer": "/since",
      "value": "$instant:founded_at"
-    },
-    {
-     "pointer": "/state",
-     "value": "active"
     },
     {
      "pointer": "/team_id",
@@ -368,6 +394,54 @@
     {
      "pointer": "/team_id",
      "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:founded_head"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:founded_at"
     }
    ]
   },
@@ -467,7 +541,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "durable_candidate"
+     "value": "owner_commit"
     },
     {
      "pointer": "/operation",
@@ -488,6 +562,10 @@
     {
      "pointer": "/payload_digest",
      "value": "#host_question_probe"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
     }
    ]
   },
@@ -529,6 +607,386 @@
     {
      "pointer": "/profile_id",
      "value": "$cap:host_profile"
+    }
+   ]
+  },
+  {
+   "name": "host_question_configuration",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:host_probed_at"
+    }
+   ]
+  },
+  {
+   "name": "host_user_event_probe",
+   "from": "c12/probe_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/capability",
+     "value": "user_event"
+    }
+   ]
+  },
+  {
+   "name": "probe_user_event",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@host_user_event_probe_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "capability.probe"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#host_user_event_probe"
+    }
+   ]
+  },
+  {
+   "name": "host_user_event_worked",
+   "from": "c12/a_user_event_probe_that_worked.json",
+   "set": [
+    {
+     "pointer": "/at",
+     "value": "$instant:host_user_event_probed_at"
+    },
+    {
+     "pointer": "/probe_id",
+     "value": "$prb:host_user_event_probe"
+    }
+   ]
+  },
+  {
+   "name": "host_profile_with_user_event",
+   "from": "host_profile",
+   "set": [
+    {
+     "pointer": "/capabilities/1/capability",
+     "value": "user_event"
+    },
+    {
+     "pointer": "/capabilities/1/state/qualified",
+     "value": "yes"
+    },
+    {
+     "pointer": "/capabilities/1/state/probe_digest",
+     "value": "#host_user_event_worked"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:host_user_event_probed_at"
+    }
+   ]
+  },
+  {
+   "name": "host_user_event_configuration",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:host_user_event_probed_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_decisions_home",
+   "from": "sources/home_of_a_managed_collection.json",
+   "drop": [
+    "/registered_at",
+    "/scope/principal_id",
+    "/acceptance_authority/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@repo_decisions"
+    },
+    {
+     "pointer": "/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    },
+    {
+     "pointer": "/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/acceptance_authority/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/acceptance_authority/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "register_repo_decisions",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base/head_digest",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_repo_decisions_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_decisions"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_decisions_home"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "repo_decisions_home_stored",
+   "from": "repo_decisions_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:repo_decisions_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "team_decisions_home",
+   "from": "sources/home_of_a_managed_collection.json",
+   "drop": [
+    "/registered_at",
+    "/scope/principal_id",
+    "/acceptance_authority/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    },
+    {
+     "pointer": "/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/acceptance_authority/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/acceptance_authority/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "register_team_decisions",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/target/base/head_digest",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_team_decisions_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_decisions_home"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "team_decisions_home_stored",
+   "from": "team_decisions_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:team_decisions_registered_at"
     }
    ]
   },
@@ -607,11 +1065,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#repo_choice"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:repo_decisions_registered"
     }
    ]
   },
@@ -739,11 +1201,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#team_choice"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_decisions_registered"
     }
    ]
   },
@@ -829,7 +1295,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "durable_candidate"
+     "value": "owner_commit"
     },
     {
      "pointer": "/operation",
@@ -845,7 +1311,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@repo"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
@@ -1277,6 +1743,71 @@
    ]
   },
   {
+   "name": "fetch_question",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@fetch_question_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "reader.question.answer"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$use:journal_use"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#journal_envelope"
+    }
+   ]
+  },
+  {
    "name": "host_answer",
    "from": "c11/host_reply_with_a_choice.json",
    "set": [
@@ -1295,6 +1826,10 @@
     {
      "pointer": "/use_id",
      "value": "$use:journal_use"
+    },
+    {
+     "pointer": "/reply/separation_evidence_digest",
+     "value": "#host_user_event_worked"
     }
    ]
   },
@@ -1304,7 +1839,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "decide"
+     "value": "use"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1320,7 +1855,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "durable_candidate"
+     "value": "owner_commit"
     },
     {
      "pointer": "/operation",
@@ -1362,7 +1897,7 @@
     },
     {
      "pointer": "/measured_configuration_digest",
-     "value": "$digest:host_configuration"
+     "value": "#answer_configuration"
     },
     {
      "pointer": "/observed_at",
@@ -1379,6 +1914,20 @@
     {
      "pointer": "/use_id",
      "value": "$use:journal_use"
+    },
+    {
+     "pointer": "/origin/separation_evidence_digest",
+     "value": "#host_user_event_worked"
+    }
+   ]
+  },
+  {
+   "name": "answer_configuration",
+   "from": "host_user_event_configuration",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:answered_at"
     }
    ]
   },
@@ -2034,10 +2583,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
+     "team_policy",
+     "team_founder_membership",
+     "founder_grant",
      "team_active",
      "team_named",
-     "team_policy",
-     "founder_grant"
+     "team_founding_epoch"
     ],
     "head": "founded_head"
    },
@@ -2076,8 +2628,64 @@
     "recovery": [],
     "returns": [
      "host_question_worked",
-     "host_profile"
+     "host_profile",
+     "host_question_configuration"
     ]
+   }
+  },
+  {
+   "name": "probe_host_user_event",
+   "request": "probe_user_event",
+   "carries": [
+    "host_user_event_probe"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "host_user_event_worked",
+     "host_profile_with_user_event",
+     "host_user_event_configuration"
+    ]
+   }
+  },
+  {
+   "name": "register_repo_decisions",
+   "request": "register_repo_decisions",
+   "carries": [
+    "repo_decisions_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_decisions_home_stored"
+    ],
+    "head": "repo_decisions_registered"
+   }
+  },
+  {
+   "name": "register_team_decisions",
+   "request": "register_team_decisions",
+   "carries": [
+    "team_decisions_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_decisions_home_stored"
+    ],
+    "head": "team_decisions_registered"
    }
   },
   {
@@ -2140,10 +2748,14 @@
     "journal_envelope"
    ],
    "answer": {
-    "stage": "previewed",
+    "stage": "blocked",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
-    "gaps": [],
+    "gaps": [
+     {
+      "code": "choice_conflict_unresolved"
+     }
+    ],
     "recovery": [],
     "returns": [
      "use_waiting",
@@ -2187,6 +2799,25 @@
    }
   },
   {
+   "name": "fetch_the_question_in_the_host",
+   "request": "fetch_question",
+   "carries": [
+    "journal_envelope"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "use_waiting",
+     "journal_question",
+     "journal_basis"
+    ]
+   }
+  },
+  {
    "name": "answer_in_the_host",
    "request": "record_answer",
    "carries": [
@@ -2199,7 +2830,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "answer_evidence"
+     "answer_evidence",
+     "answer_configuration"
     ]
    }
   },

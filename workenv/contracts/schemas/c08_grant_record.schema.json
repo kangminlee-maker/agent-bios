@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C08 grant record",
-  "description": "Who may do what, where, under whose issuance. A grant to a group says how its membership is established — an approved member set with current membership evidence, or dynamic membership delegated to a named provider connection by policy — because a group manager is not implicitly a grant authority; a child grant names its parent and cannot exceed it. Editing a role template does not reach these records, which is why a template has no field here. The issuer is the actor of the request that carries the grant, so the runtime writes it, with the id, the revision and the time; a submission cannot name another issuer.",
+  "description": "Who may do what, where, under whose issuance. A grant to a group says how its membership is established — an approved member set with current membership evidence, or dynamic membership delegated to a named provider connection by policy — because a group manager is not implicitly a grant authority; a child grant names its parent and cannot exceed it. Editing a role template does not reach these records, which is why a template has no field here. A change to an existing grant — a revocation, a suspension, a new expiry or action list — names the exact revision it replaces in `revises_digest`; the runtime keeps that grant's id and holder and writes the next revision, and a grant naming no revision is a new grant. The issuer is the actor of the request that carries the grant, so the runtime writes it, with the id, the revision and the time; a submission cannot name another issuer.",
   "required": [
     "kind",
     "schema",
@@ -55,13 +55,17 @@
       "minimum": 1,
       "x-runtime-owned": true
     },
+    "revises_digest": {
+      "$ref": "#/$defs/digest"
+    },
     "parent_grant_id": {
       "type": "string",
       "pattern": "^gra_[0-9a-f]{32}$"
     },
     "delegation_ceiling": {
       "type": "integer",
-      "minimum": 0
+      "minimum": 0,
+      "description": "How many further levels of grants the holder may issue beneath this one: 0 issues none, and a child's ceiling is below its parent's."
     },
     "expires_at": {
       "$ref": "#/$defs/instant"

@@ -1,6 +1,6 @@
 {
  "case": "DC-KEEP",
- "says": "Alice answers the WAL-or-rollback conflict once, choosing her rollback journal and keep-until-change, and the owner records that application against the whole participant set. The runtime is killed after that commit and restarted, and the same request gets the same stored preference back. A day later, in a new session with nothing in the basis changed, her next use of the concern is admitted on the kept application without a question: a new session is not a reason to ask again. Bob, another person on the same installation who cannot read Alice's personal memory, uses the same concern and is admitted on the repository's WAL choice alone; Alice's application is not borrowed. After Alice locks her profile, her next use is refused with access_locked even though the preference exists: the kept application never bypasses current access.",
+ "says": "Alice's host is probed for native user events: the probe ran for real and worked, and the host's capability profile names it. Her first use of the WAL-or-rollback concern waits on a sealed question; she answers it once on the native form, choosing her rollback journal and keep-until-change, and the runtime records a verified answer that names that probe and the host configuration it measured when it classified the reply. The resume admits the use, and memory.preference.record, given that same resume request and targeting the concern, records the application against the whole participant set. The runtime is killed after that commit and restarted, and the same request gets the same stored preference back. A day later, in a new session with nothing in the basis changed, her next use of the concern is admitted on the kept application without a question: a new session is not a reason to ask again. Bob, another person on the same installation who cannot read Alice's personal memory, uses the same concern and is admitted on the repository's WAL choice alone; Alice's application is not borrowed. Alice then sets her personal memory's own rights to reading only, a commit that moves that source's head: her next use, which the kept application would admit on that source's rollback choice, is refused with source_right_not_overridable, so the kept application never reaches past the source's current rights. After Alice locks her profile, her next use is refused with access_locked even though the preference exists: the kept application never bypasses current access.",
  "ids": [
   {
    "name": "alice",
@@ -37,10 +37,6 @@
   {
    "name": "personal_memory",
    "prefix": "src"
-  },
-  {
-   "name": "personal_notes",
-   "prefix": "col"
   },
   {
    "name": "register_personal_memory_id",
@@ -103,11 +99,23 @@
    "prefix": "req"
   },
   {
+   "name": "narrow_personal_rights_id",
+   "prefix": "req"
+  },
+  {
+   "name": "use_past_the_rights_id",
+   "prefix": "req"
+  },
+  {
    "name": "lock_alice_id",
    "prefix": "req"
   },
   {
    "name": "use_while_locked_id",
+   "prefix": "req"
+  },
+  {
+   "name": "probe_the_host_id",
    "prefix": "req"
   }
  ],
@@ -179,6 +187,104 @@
     {
      "pointer": "/payload_digest",
      "value": "#alice_key"
+    }
+   ]
+  },
+  {
+   "name": "user_event_probe",
+   "from": "c12/probe_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/capability",
+     "value": "user_event"
+    }
+   ]
+  },
+  {
+   "name": "probe_that_worked",
+   "from": "c12/a_user_event_probe_that_worked.json",
+   "set": [
+    {
+     "pointer": "/probe_id",
+     "value": "$prb:user_event_probe"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:probed_at"
+    }
+   ]
+  },
+  {
+   "name": "host_profile",
+   "from": "c12/four_capabilities_qualified_one_at_a_time.json",
+   "drop": [
+    "/capabilities/3",
+    "/capabilities/1",
+    "/capabilities/0",
+    "/capabilities/0/state/because"
+   ],
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "$cap:host_profile"
+    },
+    {
+     "pointer": "/capabilities/0/state/qualified",
+     "value": "yes"
+    },
+    {
+     "pointer": "/capabilities/0/state/probe_digest",
+     "value": "#probe_that_worked"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:probed_at"
+    }
+   ]
+  },
+  {
+   "name": "probe_the_host",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@probe_the_host_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "capability.probe"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#user_event_probe"
     }
    ]
   },
@@ -335,7 +441,7 @@
     },
     {
      "pointer": "/action",
-     "value": "publish"
+     "value": "contribute"
     },
     {
      "pointer": "/owner/layer",
@@ -384,10 +490,6 @@
      "value": "@alice"
     },
     {
-     "pointer": "/home/collection_id",
-     "value": "@personal_notes"
-    },
-    {
      "pointer": "/home/markdown_view/path",
      "value": "views/decisions.md"
     },
@@ -416,10 +518,6 @@
     {
      "pointer": "/acceptance_authority/principal_id",
      "value": "@alice"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@personal_notes"
     },
     {
      "pointer": "/registered_at",
@@ -453,7 +551,7 @@
     },
     {
      "pointer": "/action",
-     "value": "publish"
+     "value": "contribute"
     },
     {
      "pointer": "/owner/principal_id",
@@ -827,6 +925,10 @@
     {
      "pointer": "/payload_digest",
      "value": "#alice_link"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
     }
    ]
   },
@@ -1152,6 +1254,20 @@
     {
      "pointer": "/reply/answer/selected/record_id",
      "value": "$rec:rollback"
+    },
+    {
+     "pointer": "/reply/separation_evidence_digest",
+     "value": "#probe_that_worked"
+    }
+   ]
+  },
+  {
+   "name": "alice_answer_configuration",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:alice_answer_measured_at"
     }
    ]
   },
@@ -1177,7 +1293,7 @@
     },
     {
      "pointer": "/measured_configuration_digest",
-     "value": "$digest:alice_answer_configuration"
+     "value": "#alice_answer_configuration"
     },
     {
      "pointer": "/origin/answer/selected/record_id",
@@ -1186,6 +1302,10 @@
     {
      "pointer": "/observed_at",
      "value": "$instant:alice_answer_at"
+    },
+    {
+     "pointer": "/origin/separation_evidence_digest",
+     "value": "#probe_that_worked"
     }
    ]
   },
@@ -1215,7 +1335,7 @@
     },
     {
      "pointer": "/action",
-     "value": "decide"
+     "value": "use"
     },
     {
      "pointer": "/owner/principal_id",
@@ -1445,9 +1565,6 @@
   {
    "name": "record_the_application",
    "from": "c01/link_request.json",
-   "drop": [
-    "/payload_digest"
-   ],
    "set": [
     {
      "pointer": "/request_id",
@@ -1479,13 +1596,11 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "$qst:journal_question"
+     "value": "@journal_concern"
     },
     {
-     "pointer": "/proof_digests",
-     "value": [
-      "#alice_answer"
-     ]
+     "pointer": "/payload_digest",
+     "value": "#resume_with_her_answer_payload"
     }
    ]
   },
@@ -1925,6 +2040,92 @@
    ]
   },
   {
+   "name": "personal_rights_read_only",
+   "from": "c08/rights_allowing_derivation_but_not_export.json",
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@personal_memory"
+    },
+    {
+     "pointer": "/allows",
+     "value": [
+      "read"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "personal_rights_set",
+   "from": "c08/rights_allowing_reading_only.json",
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@personal_memory"
+    },
+    {
+     "pointer": "/set_by",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/set_at",
+     "value": "$instant:personal_rights_set_at"
+    }
+   ]
+  },
+  {
+   "name": "narrow_personal_rights",
+   "from": "c08/rights_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@narrow_personal_rights_id"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@personal_memory"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:personal_memory_head_2"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#personal_rights_read_only"
+    }
+   ]
+  },
+  {
+   "name": "use_past_the_rights",
+   "from": "use_while_locked",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@use_past_the_rights_id"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    }
+   ]
+  },
+  {
    "name": "lock_profile",
    "from": "c02/lock.json",
    "set": [
@@ -2056,6 +2257,24 @@
    }
   },
   {
+   "name": "probe_the_host",
+   "request": "probe_the_host",
+   "carries": [
+    "user_event_probe"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "probe_that_worked",
+     "host_profile"
+    ]
+   }
+  },
+  {
    "name": "bind_alice_checkout",
    "request": "bind_alice_checkout",
    "carries": [
@@ -2154,7 +2373,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2170,7 +2389,7 @@
     "use_envelope"
    ],
    "answer": {
-    "stage": "previewed",
+    "stage": "blocked",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [
@@ -2195,12 +2414,13 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "alice_answer"
+     "alice_answer",
+     "alice_answer_configuration"
     ]
    }
   },
@@ -2224,10 +2444,12 @@
   {
    "name": "record_the_application",
    "request": "record_the_application",
-   "carries": [],
+   "carries": [
+    "resume_with_her_answer_payload"
+   ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2288,6 +2510,45 @@
      "bob_admitted",
      "bob_state"
     ]
+   }
+  },
+  {
+   "name": "narrow_personal_rights",
+   "request": "narrow_personal_rights",
+   "carries": [
+    "personal_rights_read_only"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "personal_rights_set"
+    ],
+    "head": "personal_memory_head_3"
+   }
+  },
+  {
+   "name": "use_past_the_rights",
+   "request": "use_past_the_rights",
+   "carries": [
+    "use_envelope"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "source_right_not_overridable"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
    }
   },
   {

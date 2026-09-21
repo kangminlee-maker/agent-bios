@@ -1,6 +1,6 @@
 {
  "case": "CAP-11",
- "says": "A person has founded a Team alone (team.found) and selected one transcript span (source.observe). Before the extraction is saved, the owner decides admission for the capture under the current session (access.admission.decide, allowed at access generation 7), and the capture is then saved as a draft for the Team decision source it named (source.capture.record). Four later changes must each stop a late extraction from being saved or redirected, and none writes anything: an extraction still executing is cancelled by its request id (operation.cancel), and querying that id (operation.query) returns its result withdrawn with no output; the selected bytes change, a second observation of the same selection reads other bytes, and a capture of those bytes under the first observation is refused with input_not_observed; the Team is archived (team.lifecycle.apply on the head the founding committed), and the same capture for that Team sealed again is refused with team_archived; and a capture admitted at generation 7 arrives after the person signs out (access.transition sign_out, generation 8): it is refused with access_signed_out and access_generation_moved and points at sign-in, and deciding its admission again now answers not_admitted with the same two gaps. No late result is attached to another request, another target or the changed bytes.",
+ "says": "A person binds this device's key and the checkout and registers the repository's decisions source, founds a Team alone (team.found) whose founding grants them what the Team allows, registers the Team's decision source, and selects one transcript span whose selection permits results in the repository and the Team (source.observe). Before the extraction is saved, the owner decides admission for the capture under the current session (access.admission.decide, allowed at access generation 7), and the capture is then saved as a draft for the Team decision source it named, stating its widening from the repository with the founder's grant as authority, at the head that source's registration committed (source.capture.record). Four later changes must each stop a late extraction from being saved or redirected, and none writes anything: an extraction for the repository's source still executing is cancelled by its request id (operation.cancel), and querying that id (operation.query) returns its result withdrawn with no output; the selected bytes change, a second observation of the same selection reads other bytes, and a capture of those bytes under the first observation is refused with input_not_observed; the Team is archived (team.lifecycle.apply on the head the founding committed), and the same capture for that Team sealed again is refused with team_archived; and a capture admitted at generation 7 arrives after the person signs out (access.transition sign_out, generation 8): it is refused with access_signed_out and access_generation_moved and points at sign-in, and deciding its admission again now answers not_admitted with the same two gaps. No late result is attached to another request, another target or the changed bytes.",
  "ids": [
   {
    "name": "me",
@@ -31,11 +31,27 @@
    "prefix": "src"
   },
   {
+   "name": "bind_key_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "bind_repo_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "register_home_rid",
+   "prefix": "req"
+  },
+  {
    "name": "entry",
    "prefix": "ent"
   },
   {
    "name": "found_request",
+   "prefix": "req"
+  },
+  {
+   "name": "register_team_decisions_request",
    "prefix": "req"
   },
   {
@@ -97,7 +113,215 @@
  ],
  "records": [
   {
-   "name": "policy",
+   "name": "key_submitted",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "bind_key_request",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_key_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#key_submitted"
+    }
+   ]
+  },
+  {
+   "name": "key",
+   "from": "c01/device_key_binding.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:key_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:bound_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_binding_submitted",
+   "from": "c01/repository_binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "bind_repo_request",
+   "from": "c01/repository_bind_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_repo_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_binding_submitted"
+    }
+   ]
+  },
+  {
+   "name": "repo_binding",
+   "from": "c01/clone_shares_the_repository_id.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/observed/working_bytes_digest",
+     "value": "$digest:checkout_bytes"
+    }
+   ]
+  },
+  {
+   "name": "home_submitted",
+   "from": "sources/home_of_a_repository_document.json",
+   "drop": [
+    "/registered_at"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@repo_decisions"
+    },
+    {
+     "pointer": "/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/acceptance_authority/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/binding_evidence_digest",
+     "value": "#repo_binding"
+    }
+   ]
+  },
+  {
+   "name": "home_request",
+   "from": "sources/request_to_register_a_home.json",
+   "drop": [
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_home_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_decisions"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#home_submitted"
+    }
+   ]
+  },
+  {
+   "name": "home",
+   "from": "home_submitted",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:registered_at"
+    }
+   ]
+  },
+  {
+   "name": "team_policy_submitted",
    "from": "c08/policy_as_submitted.json",
    "set": [
     {
@@ -115,7 +339,7 @@
    ]
   },
   {
-   "name": "proposal",
+   "name": "team_proposal",
    "from": "c08/proposal_as_submitted.json",
    "drop": [
     "/founding_mode/nominees"
@@ -130,10 +354,6 @@
      "value": "@me"
     },
     {
-     "pointer": "/finalizer/device_id",
-     "value": "@laptop"
-    },
-    {
      "pointer": "/founding_mode/mode",
      "value": "self_founded"
     },
@@ -142,18 +362,22 @@
      "value": true
     },
     {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
      "pointer": "/recovery/0/principal_id",
      "value": "@me"
     },
     {
      "pointer": "/policy_digest",
-     "value": "#policy"
+     "value": "#team_policy_submitted"
     }
    ]
   },
   {
-   "name": "found_submit",
-   "from": "c08/governed_change_request.json",
+   "name": "team_found_request",
+   "from": "c08/founding_request.json",
    "set": [
     {
      "pointer": "/request_id",
@@ -172,14 +396,6 @@
      "value": "@local_profile"
     },
     {
-     "pointer": "/operation",
-     "value": "team.found"
-    },
-    {
-     "pointer": "/action",
-     "value": "policy"
-    },
-    {
      "pointer": "/owner/team_id",
      "value": "@team"
     },
@@ -188,26 +404,32 @@
      "value": "@team"
     },
     {
-     "pointer": "/target/base/expects",
-     "value": "absent"
-    },
-    {
      "pointer": "/payload_digest",
-     "value": "#proposal"
-    },
-    {
-     "pointer": "/policy_digests",
-     "value": []
+     "value": "#team_proposal"
     }
    ]
   },
   {
-   "name": "stored_policy",
-   "from": "policy",
+   "name": "team_sealed_proposal",
+   "from": "team_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_proposal_at"
+    }
+   ]
+  },
+  {
+   "name": "team_policy",
+   "from": "team_policy_submitted",
    "set": [
     {
      "pointer": "/policy_id",
-     "value": "$pol:policy"
+     "value": "$pol:team_policy"
     },
     {
      "pointer": "/policy_version",
@@ -215,24 +437,54 @@
     },
     {
      "pointer": "/committed_at",
-     "value": "$instant:founded_at"
+     "value": "$instant:team_policy_at"
     }
    ]
   },
   {
-   "name": "founder_grant",
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_membership_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_grant",
    "from": "c08/grant_to_a_person.json",
    "set": [
     {
      "pointer": "/grant_id",
-     "value": "$gra:founder_grant"
+     "value": "$gra:team_founder_grant"
     },
     {
-     "pointer": "/holder/principal_id",
-     "value": "@me"
+     "pointer": "/team_id",
+     "value": "@team"
     },
     {
      "pointer": "/issuer_principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/holder/principal_id",
      "value": "@me"
     },
     {
@@ -240,12 +492,18 @@
      "value": "@team"
     },
     {
-     "pointer": "/team_id",
-     "value": "@team"
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "grant",
+      "policy"
+     ]
     },
     {
      "pointer": "/created_at",
-     "value": "$instant:founded_at"
+     "value": "$instant:team_granted_at"
     }
    ]
   },
@@ -263,7 +521,7 @@
     },
     {
      "pointer": "/since",
-     "value": "$instant:founded_at"
+     "value": "$instant:team_active_at"
     }
    ]
   },
@@ -281,13 +539,159 @@
     },
     {
      "pointer": "/updated_at",
-     "value": "$instant:founded_at"
+     "value": "$instant:team_profile_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_epoch_at"
+    }
+   ]
+  },
+  {
+   "name": "team_decisions_home_submitted",
+   "from": "sources/home_of_a_managed_collection.json",
+   "drop": [
+    "/registered_at",
+    "/scope/principal_id",
+    "/acceptance_authority/principal_id",
+    "/retention/until"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/acceptance_authority/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/acceptance_authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/home/markdown_view/path",
+     "value": "views/decisions.md"
+    },
+    {
+     "pointer": "/applicability/conditions/0/dimension",
+     "value": "team"
+    },
+    {
+     "pointer": "/applicability/conditions/0/value",
+     "value": "this team"
+    },
+    {
+     "pointer": "/disclosure",
+     "value": "team"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    },
+    {
+     "pointer": "/retention/keep",
+     "value": "until_withdrawn"
+    }
+   ]
+  },
+  {
+   "name": "team_decisions_home_request",
+   "from": "sources/request_to_register_a_home.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_team_decisions_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_decisions_home_submitted"
+    }
+   ]
+  },
+  {
+   "name": "team_decisions_home",
+   "from": "team_decisions_home_submitted",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:team_decisions_registered_at"
     }
    ]
   },
   {
    "name": "selection",
-   "from": "c01/selection_of_a_transcript_span.json"
+   "from": "c01/selection_of_a_transcript_span.json",
+   "set": [
+    {
+     "pointer": "/roots/0/permits/destinations/1/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/roots/0/permits/destinations/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/roots/0/permits/processing",
+     "value": "local_processing"
+    }
+   ]
   },
   {
    "name": "observe",
@@ -343,7 +747,7 @@
   },
   {
    "name": "team_capture",
-   "from": "sources/capture_of_memory_material_submitted.json",
+   "from": "c01/capture_proposed_for_a_wider_scope.json",
    "set": [
     {
      "pointer": "/destination_source_id",
@@ -362,16 +766,24 @@
      "value": "$digest:span_bytes"
     },
     {
-     "pointer": "/processing/inputs/0/permits/destinations/0/layer",
-     "value": "team"
+     "pointer": "/processing/inputs/0/permits/destinations/0/repository_id",
+     "value": "@repo"
     },
     {
-     "pointer": "/processing/inputs/0/permits/destinations/0/team_id",
+     "pointer": "/processing/inputs/0/permits/destinations/1/team_id",
      "value": "@team"
+    },
+    {
+     "pointer": "/widens/from_scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/widens/authority_evidence_digest",
+     "value": "#team_founder_grant"
     }
    ],
    "drop": [
-    "/processing/inputs/0/permits/destinations/0/repository_id"
+    "/revision_digest"
    ]
   },
   {
@@ -408,7 +820,7 @@
     {
      "pointer": "/policy_digests",
      "value": [
-      "#stored_policy"
+      "#team_policy"
      ]
     },
     {
@@ -418,6 +830,14 @@
     {
      "pointer": "/payload_digest",
      "value": "#team_capture"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_team_decisions_head"
     }
    ]
   },
@@ -451,7 +871,7 @@
     },
     {
      "pointer": "/action",
-     "value": "read"
+     "value": "local_profile"
     },
     {
      "pointer": "/owner/principal_id",
@@ -529,6 +949,9 @@
      "pointer": "/processing/inputs/0/permits/destinations/0/repository_id",
      "value": "@repo"
     }
+   ],
+   "drop": [
+    "/revision_digest"
    ]
   },
   {
@@ -562,6 +985,14 @@
     {
      "pointer": "/payload_digest",
      "value": "#repo_capture"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_repo_decisions_head"
     }
    ]
   },
@@ -597,7 +1028,7 @@
     },
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "local_profile"
     },
     {
      "pointer": "/owner/layer",
@@ -768,7 +1199,7 @@
     {
      "pointer": "/policy_digests",
      "value": [
-      "#stored_policy"
+      "#team_policy"
      ]
     },
     {
@@ -932,11 +1363,10 @@
  ],
  "steps": [
   {
-   "name": "found_team",
-   "request": "found_submit",
+   "name": "bind_device_key",
+   "request": "bind_key_request",
    "carries": [
-    "proposal",
-    "policy"
+    "key_submitted"
    ],
    "answer": {
     "stage": "committed",
@@ -945,16 +1375,88 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "stored_policy",
-     "founder_grant",
+     "key"
+    ]
+   }
+  },
+  {
+   "name": "bind_repository",
+   "request": "bind_repo_request",
+   "carries": [
+    "repo_binding_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_binding"
+    ]
+   }
+  },
+  {
+   "name": "register_repo_decisions",
+   "request": "home_request",
+   "carries": [
+    "home_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "home"
+    ]
+   }
+  },
+  {
+   "name": "found_team",
+   "request": "team_found_request",
+   "carries": [
+    "team_proposal",
+    "team_policy_submitted"
+   ],
+   "submits": [
+    "team_policy_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_sealed_proposal",
+     "team_policy",
+     "team_founder_membership",
+     "team_founder_grant",
      "team_state",
-     "team_profile"
+     "team_profile",
+     "team_founding_epoch"
     ],
     "head": "team_head"
-   },
-   "submits": [
-    "policy"
-   ]
+   }
+  },
+  {
+   "name": "register_team_decisions",
+   "request": "team_decisions_home_request",
+   "carries": [
+    "team_decisions_home_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_decisions_home"
+    ]
+   }
   },
   {
    "name": "observe_span",

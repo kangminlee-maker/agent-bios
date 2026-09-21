@@ -1,6 +1,6 @@
 {
  "case": "CAP-05",
- "says": "A person binds this device's key and the checkout and registers the repository's memory source. The owner reads records 12 to 18 of a session transcript in which a journal mode was chosen and nobody said why or what else was considered; the packaged local adapter captures it, and the candidate extracted from the capture proposes the choice with its alternatives and reason named as unrecorded rather than filled in. Publishing it at the memory source commits a choice record that still names alternatives and reason as unrecorded, a revision holding it, and the candidate promoted with that commit's receipt. When the reason is explained later, the explanation is a second record published on the moved head: it relies on the first record by id and says it was written afterwards, and the first record is not changed. Nothing may be invented or backdated: a choice submitted with an approval field is refused at admission (a choice record has no field for one), a choice that states its own recorded time before the commit is refused at admission, and a capture that states its own capture time is refused at admission. None of those writes anything.",
+ "says": "A person binds this device's key and the checkout and registers the repository's memory source. The owner reads records 12 to 18 of a session transcript in which a journal mode was chosen and nobody said why or what else was considered; the packaged local adapter captures it, and the candidate extracted from the capture proposes the choice with its alternatives and reason named as unrecorded rather than filled in. Publishing it at the memory source, on the head its registration committed and stating that it promotes version 1 of that candidate, commits a choice record that still names alternatives and reason as unrecorded, a revision holding it, and the candidate's version 2 promoted with that commit's receipt, proposing exactly what was published. When the reason is explained later, the explanation is a second record published on the moved head: it relies on the first record by id and says it was written afterwards, and the first record is not changed. Nothing may be invented or backdated: a choice submitted with an approval field is refused at admission (a choice record has no field for one), a choice that states its own recorded time before the commit is refused at admission, and a capture that states its own capture time is refused at admission. None of those writes anything.",
  "ids": [
   {
    "name": "alice",
@@ -291,7 +291,20 @@
   },
   {
    "name": "span_selection",
-   "from": "c01/selection_of_a_transcript_span.json"
+   "from": "c01/selection_of_a_transcript_span.json",
+   "drop": [
+    "/roots/0/permits/destinations/1"
+   ],
+   "set": [
+    {
+     "pointer": "/roots/0/permits/destinations/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/roots/0/permits/processing",
+     "value": "local_processing"
+    }
+   ]
   },
   {
    "name": "observe_span_request",
@@ -369,6 +382,9 @@
      "pointer": "/entries/0/entry_id",
      "value": "@entry"
     }
+   ],
+   "drop": [
+    "/revision_digest"
    ]
   },
   {
@@ -401,11 +417,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#span_capture"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_memory_home_head"
     }
    ]
   },
@@ -550,6 +570,14 @@
     {
      "pointer": "/workstream_ids",
      "value": []
+    },
+    {
+     "pointer": "/promotes/candidate_id",
+     "value": "$cnd:choice_candidate"
+    },
+    {
+     "pointer": "/promotes/version",
+     "value": 1
     }
    ]
   },
@@ -593,7 +621,7 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/policy_digests",
@@ -606,6 +634,10 @@
     {
      "pointer": "/payload_digest",
      "value": "#choice_without_a_reason"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_memory_home_head"
     }
    ]
   },
@@ -662,7 +694,7 @@
     },
     {
      "pointer": "/standing/receipt_digest",
-     "value": "$digest:publish_choice_receipt"
+     "value": "#publish_choice_receipt"
     },
     {
      "pointer": "/created_at",
@@ -816,6 +848,9 @@
      "pointer": "/approval",
      "value": "Approved by the platform council"
     }
+   ],
+   "drop": [
+    "/promotes"
    ]
   },
   {
@@ -885,6 +920,9 @@
      "pointer": "/recorded_at",
      "value": "2025-11-04T00:00:00Z"
     }
+   ],
+   "drop": [
+    "/promotes"
    ]
   },
   {
@@ -986,11 +1024,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#backdated_capture"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_memory_home_head"
     }
    ]
   }

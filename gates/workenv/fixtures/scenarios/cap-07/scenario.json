@@ -93,16 +93,6 @@
    "record": "bind_key_request"
   },
   {
-   "minted": "alice_binding",
-   "pointer": "/binding_id",
-   "record": "alice_key"
-  },
-  {
-   "minted": "alice_bound_at",
-   "pointer": "/created_at",
-   "record": "alice_key"
-  },
-  {
    "digest_of": "bind_key_request",
    "pointer": "/request_digest",
    "record": "bind_device_key_receipt"
@@ -121,6 +111,16 @@
    "minted": "bind_device_key_committed_at",
    "pointer": "/committed_at",
    "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "alice_binding",
+   "pointer": "/binding_id",
+   "record": "alice_key"
+  },
+  {
+   "minted": "alice_bound_at",
+   "pointer": "/created_at",
+   "record": "alice_key"
   },
   {
    "digest_of": "bind_device_key_receipt",
@@ -143,11 +143,6 @@
    "record": "bind_repo_request"
   },
   {
-   "minted": "checkout_bytes",
-   "pointer": "/observed/working_bytes_digest",
-   "record": "repo_binding"
-  },
-  {
    "digest_of": "bind_repo_request",
    "pointer": "/request_digest",
    "record": "bind_repository_receipt"
@@ -166,6 +161,11 @@
    "minted": "bind_repository_committed_at",
    "pointer": "/committed_at",
    "record": "bind_repository_receipt"
+  },
+  {
+   "minted": "checkout_bytes",
+   "pointer": "/observed/working_bytes_digest",
+   "record": "repo_binding"
   },
   {
    "digest_of": "bind_repository_receipt",
@@ -193,16 +193,6 @@
    "record": "memory_source_home_request"
   },
   {
-   "digest_of": "repo_binding",
-   "pointer": "/home/binding_evidence_digest",
-   "record": "memory_source_home"
-  },
-  {
-   "minted": "memory_source_registered_at",
-   "pointer": "/registered_at",
-   "record": "memory_source_home"
-  },
-  {
    "digest_of": "memory_source_home_request",
    "pointer": "/request_digest",
    "record": "register_memory_home_receipt"
@@ -221,6 +211,16 @@
    "minted": "register_memory_home_committed_at",
    "pointer": "/committed_at",
    "record": "register_memory_home_receipt"
+  },
+  {
+   "digest_of": "repo_binding",
+   "pointer": "/home/binding_evidence_digest",
+   "record": "memory_source_home"
+  },
+  {
+   "minted": "memory_source_registered_at",
+   "pointer": "/registered_at",
+   "record": "memory_source_home"
   },
   {
    "digest_of": "register_memory_home_receipt",
@@ -248,7 +248,7 @@
    "record": "publish_edition_receipt"
   },
   {
-   "minted": "environment_head",
+   "digest_of": "edition",
    "pointer": "/head_digest",
    "record": "publish_edition_receipt"
   },
@@ -283,9 +283,14 @@
    "record": "compose_unadopted_request"
   },
   {
-   "minted": "environment_head",
+   "digest_of": "edition",
    "pointer": "/target/base/head_digest",
    "record": "adopt_request"
+  },
+  {
+   "digest_of": "adopt_request",
+   "pointer": "/request_digest",
+   "record": "adopt_edition_receipt"
   },
   {
    "digest_of": "edition",
@@ -298,12 +303,7 @@
    "record": "adoption"
   },
   {
-   "digest_of": "adopt_request",
-   "pointer": "/request_digest",
-   "record": "adopt_edition_receipt"
-  },
-  {
-   "minted": "adopt_edition_head",
+   "digest_of": "adoption",
    "pointer": "/head_digest",
    "record": "adopt_edition_receipt"
   },
@@ -318,7 +318,7 @@
    "record": "adopt_edition_receipt"
   },
   {
-   "minted": "environment_head",
+   "digest_of": "edition",
    "pointer": "/target/base/head_digest",
    "record": "adopt_edition_receipt"
   },
@@ -365,6 +365,11 @@
   {
    "minted": "checkout_bytes",
    "pointer": "/observed/working_bytes_digest",
+   "record": "preparation_before"
+  },
+  {
+   "minted": "register_memory_home_head",
+   "pointer": "/frontiers/0/checkpoint_digest",
    "record": "preparation_before"
   },
   {
@@ -420,6 +425,11 @@
   {
    "digest_of": "span_capture",
    "pointer": "/payload_digest",
+   "record": "capture_span_request"
+  },
+  {
+   "minted": "register_memory_home_head",
+   "pointer": "/target/base/head_digest",
    "record": "capture_span_request"
   },
   {
@@ -518,6 +528,11 @@
    "record": "preparation_after_candidate"
   },
   {
+   "minted": "register_memory_home_head",
+   "pointer": "/frontiers/0/checkpoint_digest",
+   "record": "preparation_after_candidate"
+  },
+  {
    "minted": "preparation_after_candidate",
    "pointer": "/preparation_id",
    "record": "preparation_after_candidate"
@@ -543,8 +558,18 @@
    "record": "compose_after_candidate_result"
   },
   {
+   "minted": "choice_candidate",
+   "pointer": "/promotes/candidate_id",
+   "record": "choice"
+  },
+  {
    "digest_of": "choice",
    "pointer": "/payload_digest",
+   "record": "preview_request"
+  },
+  {
+   "minted": "register_memory_home_head",
+   "pointer": "/target/base/head_digest",
    "record": "preview_request"
   },
   {
@@ -556,6 +581,41 @@
    "digest_of": "choice",
    "pointer": "/payload_digest",
    "record": "publish_request"
+  },
+  {
+   "minted": "register_memory_home_head",
+   "pointer": "/target/base/head_digest",
+   "record": "publish_request"
+  },
+  {
+   "digest_of": "publish_request",
+   "pointer": "/request_digest",
+   "record": "publish_choice_receipt"
+  },
+  {
+   "minted": "memory_head",
+   "pointer": "/head_digest",
+   "record": "publish_choice_receipt"
+  },
+  {
+   "minted": "publish_choice_sequence",
+   "pointer": "/sequence",
+   "record": "publish_choice_receipt"
+  },
+  {
+   "minted": "publish_choice_committed_at",
+   "pointer": "/committed_at",
+   "record": "publish_choice_receipt"
+  },
+  {
+   "minted": "register_memory_home_head",
+   "pointer": "/target/base/head_digest",
+   "record": "publish_choice_receipt"
+  },
+  {
+   "minted": "choice_candidate",
+   "pointer": "/promotes/candidate_id",
+   "record": "choice_record"
   },
   {
    "minted": "committed_choice",
@@ -593,7 +653,7 @@
    "record": "candidate_promoted"
   },
   {
-   "minted": "publish_choice_receipt",
+   "digest_of": "publish_choice_receipt",
    "pointer": "/standing/receipt_digest",
    "record": "candidate_promoted"
   },
@@ -601,26 +661,6 @@
    "minted": "candidate_promoted_at",
    "pointer": "/created_at",
    "record": "candidate_promoted"
-  },
-  {
-   "digest_of": "publish_request",
-   "pointer": "/request_digest",
-   "record": "publish_choice_receipt"
-  },
-  {
-   "minted": "memory_head",
-   "pointer": "/head_digest",
-   "record": "publish_choice_receipt"
-  },
-  {
-   "minted": "publish_choice_sequence",
-   "pointer": "/sequence",
-   "record": "publish_choice_receipt"
-  },
-  {
-   "minted": "publish_choice_committed_at",
-   "pointer": "/committed_at",
-   "record": "publish_choice_receipt"
   },
   {
    "digest_of": "publish_choice_receipt",
@@ -755,11 +795,6 @@
    "step": "register_memory_home"
   },
   {
-   "name": "environment_head",
-   "shape": "digest",
-   "step": "publish_edition"
-  },
-  {
    "name": "publish_edition_committed_at",
    "shape": "instant",
    "step": "publish_edition"
@@ -772,11 +807,6 @@
   {
    "name": "adopt_edition_committed_at",
    "shape": "instant",
-   "step": "adopt_edition"
-  },
-  {
-   "name": "adopt_edition_head",
-   "shape": "digest",
    "step": "adopt_edition"
   },
   {
@@ -875,11 +905,6 @@
    "step": "publish_choice"
   },
   {
-   "name": "publish_choice_receipt",
-   "shape": "digest",
-   "step": "publish_choice"
-  },
-  {
    "name": "publish_choice_sequence",
    "shape": "integer",
    "step": "publish_choice"
@@ -943,25 +968,6 @@
    }
   },
   {
-   "digest": "44b1c72dfbe12a2f9d47aa035ab50636a08a4de3602b871a73d7a9809752d7dd",
-   "name": "alice_key",
-   "record": {
-    "binding_id": "bnd_7c6b5fd8b1c56c2caef12b661cac4ab9",
-    "created_at": "2000-01-01T00:00:00Z",
-    "credential": {
-     "credential": "device_key",
-     "device_id": "dev_179d168e8765989e1077c35647be8852",
-     "key_generation": 1,
-     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
-    },
-    "established_by": "local_creation",
-    "evidence_digests": [],
-    "kind": "principal_binding",
-    "principal_id": "prn_551e5022968cf32f8e028dee70985878",
-    "schema": 1
-   }
-  },
-  {
    "digest": "8ad1a0c5b59be6a802cdb18b9dc60c7fccdd7f32397b0d4766fa1c901efb7b71",
    "name": "bind_device_key_receipt",
    "record": {
@@ -979,6 +985,25 @@
     "target": {
      "resource_id": "prn_551e5022968cf32f8e028dee70985878"
     }
+   }
+  },
+  {
+   "digest": "44b1c72dfbe12a2f9d47aa035ab50636a08a4de3602b871a73d7a9809752d7dd",
+   "name": "alice_key",
+   "record": {
+    "binding_id": "bnd_7c6b5fd8b1c56c2caef12b661cac4ab9",
+    "created_at": "2000-01-01T00:00:00Z",
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_179d168e8765989e1077c35647be8852",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_551e5022968cf32f8e028dee70985878",
+    "schema": 1
    }
   },
   {
@@ -1047,24 +1072,6 @@
    }
   },
   {
-   "digest": "6c9a3d6474ee20d22d98c3a96bbcfd25019398763d6a929b2efc35d8ed00dff7",
-   "name": "repo_binding",
-   "record": {
-    "kind": "repository_binding",
-    "observed": {
-     "branch": "main",
-     "commit": "0123456789abcdef0123456789abcdef01234567",
-     "locator": "git@github.com:example/work.git",
-     "working_bytes_digest": "03a6f84840243b7044253f9723f00cc0607d6c02d1d8b4a0cd134e5bb5f51ec7"
-    },
-    "relation": {
-     "how": "clone"
-    },
-    "repository_id": "rep_2edbb95847c1ed5d5c9f1f236efdea71",
-    "schema": 1
-   }
-  },
-  {
    "digest": "8f9d5bcf4bdab7a8d16697131e25d7e54df6971b1ce99c5e1292017d966c3d60",
    "name": "bind_repository_receipt",
    "record": {
@@ -1082,6 +1089,24 @@
     "target": {
      "resource_id": "rep_2edbb95847c1ed5d5c9f1f236efdea71"
     }
+   }
+  },
+  {
+   "digest": "6c9a3d6474ee20d22d98c3a96bbcfd25019398763d6a929b2efc35d8ed00dff7",
+   "name": "repo_binding",
+   "record": {
+    "kind": "repository_binding",
+    "observed": {
+     "branch": "main",
+     "commit": "0123456789abcdef0123456789abcdef01234567",
+     "locator": "git@github.com:example/work.git",
+     "working_bytes_digest": "03a6f84840243b7044253f9723f00cc0607d6c02d1d8b4a0cd134e5bb5f51ec7"
+    },
+    "relation": {
+     "how": "clone"
+    },
+    "repository_id": "rep_2edbb95847c1ed5d5c9f1f236efdea71",
+    "schema": 1
    }
   },
   {
@@ -1174,6 +1199,29 @@
    }
   },
   {
+   "digest": "5c898f03ab4e421d83e0f03f275b1c5f5a7b780fba02debaec9ea19f10d415a1",
+   "name": "register_memory_home_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "4072fbc02146d1a66f07d1c3ca85e9f3e0d3ae44f1e4e1406e46cebb33161965",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_2edbb95847c1ed5d5c9f1f236efdea71"
+    },
+    "request_digest": "f5a17409a8da1a147add97a31983df0c15b393c7bd0d5199e30462632841a81c",
+    "request_id": "req_a13177f2e79c0fd476e6e640c14b344a",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_0d4f235306ea9951c9b2d1c4a4085fdd"
+    }
+   }
+  },
+  {
    "digest": "a2f5ef65cea0d7c39c8dd1e2cfa07b0de56f19b1a543f7026eec01571604448a",
    "name": "memory_source_home",
    "record": {
@@ -1205,29 +1253,6 @@
      "repository_id": "rep_2edbb95847c1ed5d5c9f1f236efdea71"
     },
     "source_id": "src_0d4f235306ea9951c9b2d1c4a4085fdd"
-   }
-  },
-  {
-   "digest": "5c898f03ab4e421d83e0f03f275b1c5f5a7b780fba02debaec9ea19f10d415a1",
-   "name": "register_memory_home_receipt",
-   "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "4072fbc02146d1a66f07d1c3ca85e9f3e0d3ae44f1e4e1406e46cebb33161965",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "repository",
-     "repository_id": "rep_2edbb95847c1ed5d5c9f1f236efdea71"
-    },
-    "request_digest": "f5a17409a8da1a147add97a31983df0c15b393c7bd0d5199e30462632841a81c",
-    "request_id": "req_a13177f2e79c0fd476e6e640c14b344a",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "base": {
-      "expects": "absent"
-     },
-     "resource_id": "src_0d4f235306ea9951c9b2d1c4a4085fdd"
-    }
    }
   },
   {
@@ -1339,11 +1364,11 @@
    }
   },
   {
-   "digest": "18a04c98eb7dc1d41fd20c5b9aba8f7cf317880655bffe1e669310764c4ce143",
+   "digest": "e804cc16f0c6135dff5d37d4240dfbaad9203cf2cf29ce97f177b0b2e1eee4d4",
    "name": "publish_edition_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "f468e65289cc16e062d3fbaca358712f29d1b24e88066c1089e7aea8b2a67fa1",
+    "head_digest": "9078b952510dc11da24cb8387df68912dc67ca06432440662882c3e38cec3b32",
     "kind": "operation_receipt",
     "owner": {
      "layer": "repository",
@@ -1362,14 +1387,14 @@
    }
   },
   {
-   "digest": "60c8b8bc6ba91ffb0030cc10c8adde21332112357a12a33111a25e6f6f79d917",
+   "digest": "d0936e37baca72b56c579b7ac551b4911f354e510b07a5d1b601412396beb1e5",
    "name": "publish_edition_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "18a04c98eb7dc1d41fd20c5b9aba8f7cf317880655bffe1e669310764c4ce143",
+     "receipt_digest": "e804cc16f0c6135dff5d37d4240dfbaad9203cf2cf29ce97f177b0b2e1eee4d4",
      "stage": "committed"
     },
     "outputs": [
@@ -1402,7 +1427,7 @@
    }
   },
   {
-   "digest": "38249f0b11cbccabe675c7196ef4f25a2151a1630cb797f09f00a699d26eaa6d",
+   "digest": "afa97b94ceca92413dcd92c7a4e216552dbc96975a10cb6fcb5e5c9748b4940f",
    "name": "compose_unadopted_request",
    "record": {
     "action": "use",
@@ -1412,7 +1437,7 @@
      "profile_id": "prf_04d34e8d2fab61483c69f09d673e5ee6"
     },
     "control_digests": [],
-    "effect_class": "pure_preview",
+    "effect_class": "durable_candidate",
     "kind": "operation_request",
     "local_access_generation": 7,
     "operation": "preparation.compose",
@@ -1426,12 +1451,12 @@
     "request_id": "req_fa8d385b7d1e63de741118ece1848e58",
     "schema": 1,
     "target": {
-     "resource_id": "rep_2edbb95847c1ed5d5c9f1f236efdea71"
+     "resource_id": "prn_551e5022968cf32f8e028dee70985878"
     }
    }
   },
   {
-   "digest": "0730d56365e2677977d31dd6a9aa1e65c57e829e5984c1788bbcfdf1cb38e944",
+   "digest": "5eea5d093d07e430bf88473a83f6f8deb27054b15f1a083b90b88ec2f4970946",
    "name": "adopt_request",
    "record": {
     "action": "adopt",
@@ -1456,7 +1481,7 @@
     "target": {
      "base": {
       "expects": "head",
-      "head_digest": "f468e65289cc16e062d3fbaca358712f29d1b24e88066c1089e7aea8b2a67fa1"
+      "head_digest": "9078b952510dc11da24cb8387df68912dc67ca06432440662882c3e38cec3b32"
      },
      "resource_id": "env_e052ea693103d20c52905bb9ec5ca786"
     }
@@ -1478,38 +1503,38 @@
    }
   },
   {
-   "digest": "9bd7e2f1edaa08afda2818621ed7c4a7cb6437acfcf962fafd4679a65477cfbf",
+   "digest": "33f94da194e151b64999dcb0cabf3b6c881bc9aa25be27c197756a3c6605d8f8",
    "name": "adopt_edition_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "855735a25dd58b47dcc0ee82d0b3613b8c00ff7c6d29dd987b5aaa98eadf2e0f",
+    "head_digest": "55953c49ad425f5ae9d976cbc1e1c7fa4bfe81cc433b22c98f363e1cbafea39f",
     "kind": "operation_receipt",
     "owner": {
      "layer": "repository",
      "repository_id": "rep_2edbb95847c1ed5d5c9f1f236efdea71"
     },
-    "request_digest": "0730d56365e2677977d31dd6a9aa1e65c57e829e5984c1788bbcfdf1cb38e944",
+    "request_digest": "5eea5d093d07e430bf88473a83f6f8deb27054b15f1a083b90b88ec2f4970946",
     "request_id": "req_8a3b13791c2ae84d4c750e690162996f",
     "schema": 1,
     "sequence": 1,
     "target": {
      "base": {
       "expects": "head",
-      "head_digest": "f468e65289cc16e062d3fbaca358712f29d1b24e88066c1089e7aea8b2a67fa1"
+      "head_digest": "9078b952510dc11da24cb8387df68912dc67ca06432440662882c3e38cec3b32"
      },
      "resource_id": "env_e052ea693103d20c52905bb9ec5ca786"
     }
    }
   },
   {
-   "digest": "071a696d443d3239b2b1c9fcf94c5b39f007f95f39a594f34abee28ed2d6697f",
+   "digest": "049f6662033fc35334cdd08ff594da77ccb372faf84823220778164a02e35b27",
    "name": "adopt_edition_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "9bd7e2f1edaa08afda2818621ed7c4a7cb6437acfcf962fafd4679a65477cfbf",
+     "receipt_digest": "33f94da194e151b64999dcb0cabf3b6c881bc9aa25be27c197756a3c6605d8f8",
      "stage": "committed"
     },
     "outputs": [
@@ -1519,7 +1544,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "0730d56365e2677977d31dd6a9aa1e65c57e829e5984c1788bbcfdf1cb38e944",
+    "request_digest": "5eea5d093d07e430bf88473a83f6f8deb27054b15f1a083b90b88ec2f4970946",
     "request_id": "req_8a3b13791c2ae84d4c750e690162996f",
     "schema": 1,
     "supported_recovery": []
@@ -1543,7 +1568,7 @@
    }
   },
   {
-   "digest": "376f086ee48378503e6e578008dd33672389526298fe9b80f23d430583a58d99",
+   "digest": "2dc33372cf54578d89442f7c67527385211eb1639ee6f6072d6836a766387528",
    "name": "compose_before_request",
    "record": {
     "action": "use",
@@ -1553,7 +1578,7 @@
      "profile_id": "prf_04d34e8d2fab61483c69f09d673e5ee6"
     },
     "control_digests": [],
-    "effect_class": "pure_preview",
+    "effect_class": "durable_candidate",
     "kind": "operation_request",
     "local_access_generation": 7,
     "operation": "preparation.compose",
@@ -1567,12 +1592,12 @@
     "request_id": "req_37cf383f01b7cd0453f1b9343f513f46",
     "schema": 1,
     "target": {
-     "resource_id": "rep_2edbb95847c1ed5d5c9f1f236efdea71"
+     "resource_id": "prn_551e5022968cf32f8e028dee70985878"
     }
    }
   },
   {
-   "digest": "5e73d4da9de4ecc735ce200b1d6eb7c20fb9d5d2b796b0c9384c28ba3ef4f638",
+   "digest": "0e1206b8bdb2377c8c92278c0b7bd1ec3dd576f1ed0b08d18cab12ccaca32df7",
    "name": "preparation_before",
    "record": {
     "adapter": {
@@ -1580,7 +1605,12 @@
      "version": "0.1.0"
     },
     "collections": [],
-    "frontiers": [],
+    "frontiers": [
+     {
+      "checkpoint_digest": "4072fbc02146d1a66f07d1c3ca85e9f3e0d3ae44f1e4e1406e46cebb33161965",
+      "source_id": "src_0d4f235306ea9951c9b2d1c4a4085fdd"
+     }
+    ],
     "kind": "preparation",
     "material_gaps": [],
     "observed": {
@@ -1618,36 +1648,46 @@
    }
   },
   {
-   "digest": "2870f25f4753ddb584716ee9ff649ed5381703eb96253306703b433090ab9ccd",
+   "digest": "fa9c2b7052d3fe830018fa21b56955597c8f23b0f1ecef0bcfa7f825a7c7223c",
    "name": "compose_before_result",
    "record": {
     "kind": "operation_result",
-    "local_effect": "none",
+    "local_effect": "private_state_written",
     "outcome": {
      "material_gaps": [],
      "stage": "previewed"
     },
     "outputs": [
      {
-      "digest": "5e73d4da9de4ecc735ce200b1d6eb7c20fb9d5d2b796b0c9384c28ba3ef4f638",
+      "digest": "0e1206b8bdb2377c8c92278c0b7bd1ec3dd576f1ed0b08d18cab12ccaca32df7",
       "kind": "preparation"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "376f086ee48378503e6e578008dd33672389526298fe9b80f23d430583a58d99",
+    "request_digest": "2dc33372cf54578d89442f7c67527385211eb1639ee6f6072d6836a766387528",
     "request_id": "req_37cf383f01b7cd0453f1b9343f513f46",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "a3e8794e9772e96357b42282364d5953d753bb3520aa0bc600d0e4d96fd5ca25",
+   "digest": "ed05e30810dc847749a20f48644bccfd297c0d9d89cfb3c67cb8ad31b2567832",
    "name": "span_selection",
    "record": {
     "kind": "source_selection",
     "roots": [
      {
       "need": "required",
+      "permits": {
+       "destinations": [
+        {
+         "layer": "repository",
+         "repository_id": "rep_2edbb95847c1ed5d5c9f1f236efdea71"
+        }
+       ],
+       "processing": "local_processing",
+       "prompt_log": "not_kept"
+      },
       "place": {
        "first_record": 12,
        "from": "session_transcript",
@@ -1666,7 +1706,7 @@
    }
   },
   {
-   "digest": "c967c1edf745ffc7e8bc2b638aed1adf16faf25a2278eff7f8150f2aa9196633",
+   "digest": "7ac50afb9ecad03eb818cf2116bdd0a7c3bda9389aec074db0bdfa2b3abe0c85",
    "name": "observe_span_request",
    "record": {
     "action": "read",
@@ -1684,7 +1724,7 @@
      "layer": "repository",
      "repository_id": "rep_2edbb95847c1ed5d5c9f1f236efdea71"
     },
-    "payload_digest": "a3e8794e9772e96357b42282364d5953d753bb3520aa0bc600d0e4d96fd5ca25",
+    "payload_digest": "ed05e30810dc847749a20f48644bccfd297c0d9d89cfb3c67cb8ad31b2567832",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_d55790a0bc0a80f68dadbaa2686c24fe",
@@ -1695,7 +1735,7 @@
    }
   },
   {
-   "digest": "d83117531ee55ad54a754e3e35d8200ab5b8fc3c52b3b870254063f850437a77",
+   "digest": "5d5fe81f2c9642bd386b391056362792963a68becfab29b8febcf92069a1123b",
    "name": "span_observation",
    "record": {
     "kind": "source_observation",
@@ -1712,11 +1752,11 @@
      }
     ],
     "schema": 1,
-    "selection_digest": "a3e8794e9772e96357b42282364d5953d753bb3520aa0bc600d0e4d96fd5ca25"
+    "selection_digest": "ed05e30810dc847749a20f48644bccfd297c0d9d89cfb3c67cb8ad31b2567832"
    }
   },
   {
-   "digest": "d33009973c163ca154c30356ef934853a7df08977f21d6e958121dfce119ad3e",
+   "digest": "218c4e5fc3239548ad784822cd56c935cb962bb04773bfa33aa79b3e7a39f95b",
    "name": "observe_span_result",
    "record": {
     "kind": "operation_result",
@@ -1727,19 +1767,19 @@
     },
     "outputs": [
      {
-      "digest": "d83117531ee55ad54a754e3e35d8200ab5b8fc3c52b3b870254063f850437a77",
+      "digest": "5d5fe81f2c9642bd386b391056362792963a68becfab29b8febcf92069a1123b",
       "kind": "source_observation"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "c967c1edf745ffc7e8bc2b638aed1adf16faf25a2278eff7f8150f2aa9196633",
+    "request_digest": "7ac50afb9ecad03eb818cf2116bdd0a7c3bda9389aec074db0bdfa2b3abe0c85",
     "request_id": "req_d55790a0bc0a80f68dadbaa2686c24fe",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "a0b2df1e500aed304c740bfd3720b7074415c3a962f663db4d71f1693b413b9c",
+   "digest": "cee654a2a6bec890dfcbb09004de7204271347f9b49b451916c8f7e734406eed",
    "name": "span_capture",
    "record": {
     "destination_source_id": "src_0d4f235306ea9951c9b2d1c4a4085fdd",
@@ -1750,7 +1790,7 @@
      }
     ],
     "kind": "memory_capture",
-    "observation_digest": "d83117531ee55ad54a754e3e35d8200ab5b8fc3c52b3b870254063f850437a77",
+    "observation_digest": "5d5fe81f2c9642bd386b391056362792963a68becfab29b8febcf92069a1123b",
     "processing": {
      "adapter": {
       "digest": "446b029fe11ff71ac8f57cc61d1e686b5cd9b9f987ffe56f8a2190d3b959a2e4",
@@ -1786,13 +1826,12 @@
      "prompt_log": "not_kept",
      "runs": "local"
     },
-    "revision_digest": "e75372be62c10ffe1ee0757f4f3b52025a9ef87fb285ea492edd01edfe6e15d0",
     "role": "memory",
     "schema": 1
    }
   },
   {
-   "digest": "1eb93b2222ef0a0074b6224f5ab4e6320fd39396ef9196fb0c30827eb5e5d046",
+   "digest": "aa9d6f5b3221e3d229672450dc47e49632ae5b8668ab77482ed374c5e4047c7f",
    "name": "capture_span_request",
    "record": {
     "action": "contribute",
@@ -1810,21 +1849,22 @@
      "layer": "repository",
      "repository_id": "rep_2edbb95847c1ed5d5c9f1f236efdea71"
     },
-    "payload_digest": "a0b2df1e500aed304c740bfd3720b7074415c3a962f663db4d71f1693b413b9c",
+    "payload_digest": "cee654a2a6bec890dfcbb09004de7204271347f9b49b451916c8f7e734406eed",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_f2d5bebe2a19055f084ca367bf9bfb5b",
     "schema": 1,
     "target": {
      "base": {
-      "expects": "absent"
+      "expects": "head",
+      "head_digest": "4072fbc02146d1a66f07d1c3ca85e9f3e0d3ae44f1e4e1406e46cebb33161965"
      },
      "resource_id": "src_0d4f235306ea9951c9b2d1c4a4085fdd"
     }
    }
   },
   {
-   "digest": "63242bdf821c22f082b88744a212b1d469ca0d3b595bb00d9a4ea5f1b8050d55",
+   "digest": "a28bc5be97fae6bff105ba7d1581d5911c0b5ab0d410004bd2be8f5e1f4835cf",
    "name": "span_capture_stored",
    "record": {
     "captured_at": "2000-01-01T00:00:00Z",
@@ -1836,7 +1876,7 @@
      }
     ],
     "kind": "memory_capture",
-    "observation_digest": "d83117531ee55ad54a754e3e35d8200ab5b8fc3c52b3b870254063f850437a77",
+    "observation_digest": "5d5fe81f2c9642bd386b391056362792963a68becfab29b8febcf92069a1123b",
     "processing": {
      "adapter": {
       "digest": "446b029fe11ff71ac8f57cc61d1e686b5cd9b9f987ffe56f8a2190d3b959a2e4",
@@ -1872,7 +1912,6 @@
      "prompt_log": "not_kept",
      "runs": "local"
     },
-    "revision_digest": "e75372be62c10ffe1ee0757f4f3b52025a9ef87fb285ea492edd01edfe6e15d0",
     "role": "memory",
     "schema": 1
    }
@@ -1908,7 +1947,7 @@
    }
   },
   {
-   "digest": "bd86893f6704bde9402f9570eebe0acbf2fe4fabd98ba7fcc9868c917050576b",
+   "digest": "17520125c44a30148c94cc6dde5af24fcd2f7639f97c84b260d8f42956f8e8a0",
    "name": "capture_span_result",
    "record": {
     "kind": "operation_result",
@@ -1919,7 +1958,7 @@
     },
     "outputs": [
      {
-      "digest": "63242bdf821c22f082b88744a212b1d469ca0d3b595bb00d9a4ea5f1b8050d55",
+      "digest": "a28bc5be97fae6bff105ba7d1581d5911c0b5ab0d410004bd2be8f5e1f4835cf",
       "kind": "memory_capture"
      },
      {
@@ -1928,20 +1967,20 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "1eb93b2222ef0a0074b6224f5ab4e6320fd39396ef9196fb0c30827eb5e5d046",
+    "request_digest": "aa9d6f5b3221e3d229672450dc47e49632ae5b8668ab77482ed374c5e4047c7f",
     "request_id": "req_f2d5bebe2a19055f084ca367bf9bfb5b",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "5adf69014545bb37151298cdc81e27102218e78a16c46064c3e14345c1b0792f",
+   "digest": "7aad5cfd932b8fdbd2b9273a366039a404980d945306b2f3c6a8c461aaf56eed",
    "name": "choice_candidate",
    "record": {
     "destination_source_id": "src_0d4f235306ea9951c9b2d1c4a4085fdd",
     "kind": "memory_candidate",
     "origin": {
-     "capture_digest": "63242bdf821c22f082b88744a212b1d469ca0d3b595bb00d9a4ea5f1b8050d55",
+     "capture_digest": "a28bc5be97fae6bff105ba7d1581d5911c0b5ab0d410004bd2be8f5e1f4835cf",
      "evidence_digests": [
       "efd542ff1bbde48a2d885afa93ed2a8d67d9c91679c18b73306e04ae1d7abb9f"
      ],
@@ -1983,7 +2022,7 @@
    }
   },
   {
-   "digest": "3d5eb6166a5bdcf56a85188cfc60ae27591211e1a97de7691d68b7f3ddbb1a2e",
+   "digest": "8e89d492cbba2526d386246531692bb3ec46f656994c4cd0687decafcb7f0f15",
    "name": "store_candidate_request",
    "record": {
     "action": "contribute",
@@ -2001,7 +2040,7 @@
      "layer": "personal",
      "principal_id": "prn_551e5022968cf32f8e028dee70985878"
     },
-    "payload_digest": "5adf69014545bb37151298cdc81e27102218e78a16c46064c3e14345c1b0792f",
+    "payload_digest": "7aad5cfd932b8fdbd2b9273a366039a404980d945306b2f3c6a8c461aaf56eed",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_377fabdb46c6d243c7a0ec825a56aaa7",
@@ -2012,7 +2051,7 @@
    }
   },
   {
-   "digest": "f188c6e7808b99f1d3cff5bcd919c9280b6fded3abe80b3153ba9607df2f0d37",
+   "digest": "8dea69ce8553927f80646bbf6feb9999c4069e6407daf2fbff6075962a848a20",
    "name": "candidate_v1",
    "record": {
     "candidate_id": "cnd_87d3d3224600bec7fb06a374a5ab1759",
@@ -2020,7 +2059,7 @@
     "destination_source_id": "src_0d4f235306ea9951c9b2d1c4a4085fdd",
     "kind": "memory_candidate",
     "origin": {
-     "capture_digest": "63242bdf821c22f082b88744a212b1d469ca0d3b595bb00d9a4ea5f1b8050d55",
+     "capture_digest": "a28bc5be97fae6bff105ba7d1581d5911c0b5ab0d410004bd2be8f5e1f4835cf",
      "evidence_digests": [
       "efd542ff1bbde48a2d885afa93ed2a8d67d9c91679c18b73306e04ae1d7abb9f"
      ],
@@ -2066,7 +2105,7 @@
    }
   },
   {
-   "digest": "1e164043946e3b767d64e720d0f196e12b80351b879eb48172bda82d1c580ed8",
+   "digest": "ec4a1ce903cfd1350eb518e630853ad0ef09eb43cd859f6093a3e4c2c8634aaf",
    "name": "store_candidate_result",
    "record": {
     "kind": "operation_result",
@@ -2077,19 +2116,19 @@
     },
     "outputs": [
      {
-      "digest": "f188c6e7808b99f1d3cff5bcd919c9280b6fded3abe80b3153ba9607df2f0d37",
+      "digest": "8dea69ce8553927f80646bbf6feb9999c4069e6407daf2fbff6075962a848a20",
       "kind": "memory_candidate"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "3d5eb6166a5bdcf56a85188cfc60ae27591211e1a97de7691d68b7f3ddbb1a2e",
+    "request_digest": "8e89d492cbba2526d386246531692bb3ec46f656994c4cd0687decafcb7f0f15",
     "request_id": "req_377fabdb46c6d243c7a0ec825a56aaa7",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "d63f5cadc55167d941a2d5fef904a720f4bcae9098df014c81f414d794380d9b",
+   "digest": "5cdc0e7a3f40b4e9555ca4126be0f317b8cf894e6c1f893505ffbaf83aaeda3e",
    "name": "compose_after_candidate_request",
    "record": {
     "action": "use",
@@ -2099,7 +2138,7 @@
      "profile_id": "prf_04d34e8d2fab61483c69f09d673e5ee6"
     },
     "control_digests": [],
-    "effect_class": "pure_preview",
+    "effect_class": "durable_candidate",
     "kind": "operation_request",
     "local_access_generation": 7,
     "operation": "preparation.compose",
@@ -2113,12 +2152,12 @@
     "request_id": "req_7d8f2d83366d68e07c642c3647bf33a6",
     "schema": 1,
     "target": {
-     "resource_id": "rep_2edbb95847c1ed5d5c9f1f236efdea71"
+     "resource_id": "prn_551e5022968cf32f8e028dee70985878"
     }
    }
   },
   {
-   "digest": "7eaba731b24e18e8871ad954c1b7dc3f63cb555b58d440d4b2bab1f24b359455",
+   "digest": "c24b27fac607caee0fd63bd0ab052c9bd56c212b5f7d5162ccb67ff8623c16b5",
    "name": "preparation_after_candidate",
    "record": {
     "adapter": {
@@ -2126,7 +2165,12 @@
      "version": "0.1.0"
     },
     "collections": [],
-    "frontiers": [],
+    "frontiers": [
+     {
+      "checkpoint_digest": "4072fbc02146d1a66f07d1c3ca85e9f3e0d3ae44f1e4e1406e46cebb33161965",
+      "source_id": "src_0d4f235306ea9951c9b2d1c4a4085fdd"
+     }
+    ],
     "kind": "preparation",
     "material_gaps": [],
     "observed": {
@@ -2164,30 +2208,30 @@
    }
   },
   {
-   "digest": "e687420b3bc843e6b1f7d2ce7ca33f7b76f3587d30e8c3eeee09736f66d5861d",
+   "digest": "1a6e402e6aeac1cea99ec35d9bd43712a384809e083ea77a416db5486d1cfd61",
    "name": "compose_after_candidate_result",
    "record": {
     "kind": "operation_result",
-    "local_effect": "none",
+    "local_effect": "private_state_written",
     "outcome": {
      "material_gaps": [],
      "stage": "previewed"
     },
     "outputs": [
      {
-      "digest": "7eaba731b24e18e8871ad954c1b7dc3f63cb555b58d440d4b2bab1f24b359455",
+      "digest": "c24b27fac607caee0fd63bd0ab052c9bd56c212b5f7d5162ccb67ff8623c16b5",
       "kind": "preparation"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "d63f5cadc55167d941a2d5fef904a720f4bcae9098df014c81f414d794380d9b",
+    "request_digest": "5cdc0e7a3f40b4e9555ca4126be0f317b8cf894e6c1f893505ffbaf83aaeda3e",
     "request_id": "req_7d8f2d83366d68e07c642c3647bf33a6",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "c9971a06c647851e56f349f0237738744658f24645f806140f3704901b28cc71",
+   "digest": "61f0f317c1d7a4110d404a24592248d2204f85a4af6ccc56c0927f6267dd6619",
    "name": "choice",
    "record": {
     "alternatives": [
@@ -2216,6 +2260,10 @@
      "repository_id": "rep_2edbb95847c1ed5d5c9f1f236efdea71"
     },
     "kind": "choice_record",
+    "promotes": {
+     "candidate_id": "cnd_87d3d3224600bec7fb06a374a5ab1759",
+     "version": 1
+    },
     "question": "Which journal mode does the local state database use?",
     "reason": "4.11 ms per commit against 11.76, and readers are not blocked.",
     "revisit_condition": "A filesystem that does not honour fullfsync.",
@@ -2224,10 +2272,10 @@
    }
   },
   {
-   "digest": "93b5dc0c0b6524d40257e3293b6d3f81e6fb1d0a2f2e98c78ab71c0e8d9bc706",
+   "digest": "b05c2a621db4bd2b6239b61a6afd62097ced411d411b914488f9f795bd723931",
    "name": "preview_request",
    "record": {
-    "action": "contribute",
+    "action": "publish",
     "actor": {
      "device_id": "dev_179d168e8765989e1077c35647be8852",
      "principal_id": "prn_551e5022968cf32f8e028dee70985878",
@@ -2242,39 +2290,44 @@
      "layer": "repository",
      "repository_id": "rep_2edbb95847c1ed5d5c9f1f236efdea71"
     },
-    "payload_digest": "c9971a06c647851e56f349f0237738744658f24645f806140f3704901b28cc71",
+    "payload_digest": "61f0f317c1d7a4110d404a24592248d2204f85a4af6ccc56c0927f6267dd6619",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_b1d49f32f858d55d01b910369e3cbcdf",
     "schema": 1,
     "target": {
      "base": {
-      "expects": "absent"
+      "expects": "head",
+      "head_digest": "4072fbc02146d1a66f07d1c3ca85e9f3e0d3ae44f1e4e1406e46cebb33161965"
      },
      "resource_id": "src_0d4f235306ea9951c9b2d1c4a4085fdd"
     }
    }
   },
   {
-   "digest": "f87f2b74eb90c2b7dc1992b61e08e451c16d5b24b0e07b9d9ba0179b405e9428",
+   "digest": "29aa581e58c2b7b2ef02adb6fcc6e23015e4ab9c4ff622353c930f00dd4927d6",
    "name": "preview_publication_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "none",
     "outcome": {
-     "material_gaps": [],
-     "stage": "previewed"
+     "material_gaps": [
+      {
+       "code": "effect_class_mismatch"
+      }
+     ],
+     "stage": "refused"
     },
     "outputs": [],
     "provider_effect": "not_applicable",
-    "request_digest": "93b5dc0c0b6524d40257e3293b6d3f81e6fb1d0a2f2e98c78ab71c0e8d9bc706",
+    "request_digest": "b05c2a621db4bd2b6239b61a6afd62097ced411d411b914488f9f795bd723931",
     "request_id": "req_b1d49f32f858d55d01b910369e3cbcdf",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "ee5ce3f411b9520a619993f93cfe5835a19b6ee69e15161b52e31dce3f58431c",
+   "digest": "7adc61a85010c0034cbb39bc52e0afbd3adabc0f8817c7995e7218a88f6cf910",
    "name": "publish_request",
    "record": {
     "action": "publish",
@@ -2292,7 +2345,7 @@
      "layer": "repository",
      "repository_id": "rep_2edbb95847c1ed5d5c9f1f236efdea71"
     },
-    "payload_digest": "c9971a06c647851e56f349f0237738744658f24645f806140f3704901b28cc71",
+    "payload_digest": "61f0f317c1d7a4110d404a24592248d2204f85a4af6ccc56c0927f6267dd6619",
     "policy_digests": [],
     "proof_digests": [],
     "rationale": "Record the decision taken on 2026-09-18.",
@@ -2300,14 +2353,39 @@
     "schema": 1,
     "target": {
      "base": {
-      "expects": "absent"
+      "expects": "head",
+      "head_digest": "4072fbc02146d1a66f07d1c3ca85e9f3e0d3ae44f1e4e1406e46cebb33161965"
      },
      "resource_id": "src_0d4f235306ea9951c9b2d1c4a4085fdd"
     }
    }
   },
   {
-   "digest": "caa22ed444a59a53b1aa320adffae83a810f4ef767eb333a2190e88aee21b6f3",
+   "digest": "324359e904c5c99e1e0e87b4ea6b572618abb3baaeef11c6a24a87df3aa26122",
+   "name": "publish_choice_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "fc3ddf07e3d14cb1f4889e4fbbb637495d83f9588291001c3452fe969ca7d92c",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_2edbb95847c1ed5d5c9f1f236efdea71"
+    },
+    "request_digest": "7adc61a85010c0034cbb39bc52e0afbd3adabc0f8817c7995e7218a88f6cf910",
+    "request_id": "req_88622eae0c2fda28e39a0063cb9e51f3",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "4072fbc02146d1a66f07d1c3ca85e9f3e0d3ae44f1e4e1406e46cebb33161965"
+     },
+     "resource_id": "src_0d4f235306ea9951c9b2d1c4a4085fdd"
+    }
+   }
+  },
+  {
+   "digest": "d999742956d1bf9f18beace28e6a96ee42a43816c45126c10bc25820a5d0172a",
    "name": "choice_record",
    "record": {
     "alternatives": [
@@ -2336,6 +2414,10 @@
      "repository_id": "rep_2edbb95847c1ed5d5c9f1f236efdea71"
     },
     "kind": "choice_record",
+    "promotes": {
+     "candidate_id": "cnd_87d3d3224600bec7fb06a374a5ab1759",
+     "version": 1
+    },
     "question": "Which journal mode does the local state database use?",
     "reason": "4.11 ms per commit against 11.76, and readers are not blocked.",
     "record_id": "rec_5a07d3ca54305d5790fc99e89e7c85ff",
@@ -2346,14 +2428,14 @@
    }
   },
   {
-   "digest": "d51bce7e9e318dc6268574aeb9b8601101f545dce634059ded3e7aade8f1dccd",
+   "digest": "2194c64379ab28a3fbed7ff22402552ce15cd369ca6e461b4f5eb00217420447",
    "name": "memory_revision",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "caa22ed444a59a53b1aa320adffae83a810f4ef767eb333a2190e88aee21b6f3",
+      "digest": "d999742956d1bf9f18beace28e6a96ee42a43816c45126c10bc25820a5d0172a",
       "path": "decisions/0001.json",
       "size": 4120
      }
@@ -2364,7 +2446,7 @@
    }
   },
   {
-   "digest": "4b06c0acc7fb9e7e91854dd69c55bc2dcd132344aade2eda2a83cf26ffe5ec9f",
+   "digest": "a1aadab7b1749c8cef8be0e0ed7ae9dbf056f8e0e158520a1101ffb5ed39a12d",
    "name": "candidate_promoted",
    "record": {
     "candidate_id": "cnd_87d3d3224600bec7fb06a374a5ab1759",
@@ -2372,7 +2454,7 @@
     "destination_source_id": "src_0d4f235306ea9951c9b2d1c4a4085fdd",
     "kind": "memory_candidate",
     "origin": {
-     "capture_digest": "63242bdf821c22f082b88744a212b1d469ca0d3b595bb00d9a4ea5f1b8050d55",
+     "capture_digest": "a28bc5be97fae6bff105ba7d1581d5911c0b5ab0d410004bd2be8f5e1f4835cf",
      "evidence_digests": [
       "efd542ff1bbde48a2d885afa93ed2a8d67d9c91679c18b73306e04ae1d7abb9f"
      ],
@@ -2413,68 +2495,45 @@
     "schema": 1,
     "standing": {
      "is": "promoted",
-     "receipt_digest": "24bfdd3c870ee80a4f29fc4fba48627f91c60c91772d8fdc21f825fd80a07237"
+     "receipt_digest": "324359e904c5c99e1e0e87b4ea6b572618abb3baaeef11c6a24a87df3aa26122"
     },
     "version": 2
    }
   },
   {
-   "digest": "ff147c06d821bc779e0c785528fdcd94b07cae7b595d91482586ec80bedbd1bd",
-   "name": "publish_choice_receipt",
-   "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "fc3ddf07e3d14cb1f4889e4fbbb637495d83f9588291001c3452fe969ca7d92c",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "repository",
-     "repository_id": "rep_2edbb95847c1ed5d5c9f1f236efdea71"
-    },
-    "request_digest": "ee5ce3f411b9520a619993f93cfe5835a19b6ee69e15161b52e31dce3f58431c",
-    "request_id": "req_88622eae0c2fda28e39a0063cb9e51f3",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "base": {
-      "expects": "absent"
-     },
-     "resource_id": "src_0d4f235306ea9951c9b2d1c4a4085fdd"
-    }
-   }
-  },
-  {
-   "digest": "38ac43dc716a686d065d15ca49c9443d8a1f2b100111643183c37e0d2fefd89a",
+   "digest": "0465c36b2d0f993fe3b7cdc032943e35cb0573db3faaef1df374af3c9c96a5ff",
    "name": "publish_choice_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "ff147c06d821bc779e0c785528fdcd94b07cae7b595d91482586ec80bedbd1bd",
+     "receipt_digest": "324359e904c5c99e1e0e87b4ea6b572618abb3baaeef11c6a24a87df3aa26122",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "caa22ed444a59a53b1aa320adffae83a810f4ef767eb333a2190e88aee21b6f3",
+      "digest": "d999742956d1bf9f18beace28e6a96ee42a43816c45126c10bc25820a5d0172a",
       "kind": "choice_record"
      },
      {
-      "digest": "d51bce7e9e318dc6268574aeb9b8601101f545dce634059ded3e7aade8f1dccd",
+      "digest": "2194c64379ab28a3fbed7ff22402552ce15cd369ca6e461b4f5eb00217420447",
       "kind": "source_manifest"
      },
      {
-      "digest": "4b06c0acc7fb9e7e91854dd69c55bc2dcd132344aade2eda2a83cf26ffe5ec9f",
+      "digest": "a1aadab7b1749c8cef8be0e0ed7ae9dbf056f8e0e158520a1101ffb5ed39a12d",
       "kind": "memory_candidate"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "ee5ce3f411b9520a619993f93cfe5835a19b6ee69e15161b52e31dce3f58431c",
+    "request_digest": "7adc61a85010c0034cbb39bc52e0afbd3adabc0f8817c7995e7218a88f6cf910",
     "request_id": "req_88622eae0c2fda28e39a0063cb9e51f3",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "988dc0b6d1c665e9fca13ec8918bd3f2aebbf341b8262f1ec67e0059e6c4df76",
+   "digest": "2ad3a7344e60118a6f3d8f5861f7f9bf13188a585bc428a57073428b67ab807c",
    "name": "compose_after_commit_request",
    "record": {
     "action": "use",
@@ -2484,7 +2543,7 @@
      "profile_id": "prf_04d34e8d2fab61483c69f09d673e5ee6"
     },
     "control_digests": [],
-    "effect_class": "pure_preview",
+    "effect_class": "durable_candidate",
     "kind": "operation_request",
     "local_access_generation": 7,
     "operation": "preparation.compose",
@@ -2498,7 +2557,7 @@
     "request_id": "req_f05cf9e7225b831e5554fad375a0b04e",
     "schema": 1,
     "target": {
-     "resource_id": "rep_2edbb95847c1ed5d5c9f1f236efdea71"
+     "resource_id": "prn_551e5022968cf32f8e028dee70985878"
     }
    }
   },
@@ -2554,11 +2613,11 @@
    }
   },
   {
-   "digest": "83019055e7bd231a3c9f62903bbade8dbfe8626a010bdf4e41d00de7369d410e",
+   "digest": "facc52b10df1442602a26f3ecc64bff396cb818f6190abd8e64d98f02a26edc2",
    "name": "compose_after_commit_result",
    "record": {
     "kind": "operation_result",
-    "local_effect": "none",
+    "local_effect": "private_state_written",
     "outcome": {
      "material_gaps": [],
      "stage": "previewed"
@@ -2570,15 +2629,15 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "988dc0b6d1c665e9fca13ec8918bd3f2aebbf341b8262f1ec67e0059e6c4df76",
+    "request_digest": "2ad3a7344e60118a6f3d8f5861f7f9bf13188a585bc428a57073428b67ab807c",
     "request_id": "req_f05cf9e7225b831e5554fad375a0b04e",
     "schema": 1,
     "supported_recovery": []
    }
   }
  ],
- "says": "A person binds this device's key and the checkout, registers the repository's memory source, publishes an environment edition for this repository whose memory policy names that source, and adopts it. A preparation that names the environment without its adoption evidence is refused at admission; one resting on the adoption is composed, with no memory frontier yet. The owner then reads records 12 to 18 of a session transcript, a packaged local adapter captures a memory entry from them, and a candidate choice from that capture is stored. The capture and the candidate are drafts: neither names a receipt, neither moves the memory source's head, and the preparation composed again afterwards is the same composition as before. A review-only publication of the choice (pure_preview) is previewed and writes nothing. Only the destination's own commit of that exact choice at the memory source names a receipt and moves the head; it returns the committed record, the revision holding it and the candidate promoted with that receipt. Adoption stays a separate act: the commit adopts nothing, and the preparation composed after it, under the adoption made before, is the first to observe the memory source at the committed head.",
- "spec_sha256": "5b9f7e9c36e3fd2bdafb18ba4901841c6f11136f8288704e2502212719ae7c26",
+ "says": "A person binds this device's key and the checkout, registers the repository's memory source, publishes an environment edition for this repository whose memory policy names that source, and adopts it: the adoption names the edition as the environment's head it expects and leaves that head where it was. A preparation that names the environment without its adoption evidence is refused at admission; one resting on the adoption is composed as a private record with no receipt, reading the memory source at the head its registration committed. The owner then reads records 12 to 18 of a session transcript, a packaged local adapter captures a memory entry from them, and a candidate choice from that capture is stored. The capture and the candidate are drafts: neither names a receipt, neither moves the memory source's head, and the preparation composed again afterwards reads the same head and composes the same units. A review-only publication of the choice, a publish request stating pure_preview, is refused with effect_class_mismatch and writes nothing. Only the destination's own commit of that exact choice at the memory source, stating the candidate version it promotes, names a receipt and moves the head; it returns the committed record, the revision holding it and the candidate promoted with that receipt. Adoption stays a separate act: the commit adopts nothing, and the preparation composed after it, under the adoption made before, is the first to observe the memory source at the committed head.",
+ "spec_sha256": "5680cef5c1fd735357196745eb248409c9b6da3085de94eaea6ae5a46d613122",
  "steps": [
   {
    "carries": [
@@ -2617,7 +2676,7 @@
    "carries": [
     "edition"
    ],
-   "head": "environment_head",
+   "head": "edition",
    "name": "publish_edition",
    "request": "publish_edition_request",
    "result": "publish_edition_result",
@@ -2641,6 +2700,7 @@
   },
   {
    "carries": [],
+   "head": "adoption",
    "name": "adopt_edition",
    "request": "adopt_request",
    "result": "adopt_edition_result",

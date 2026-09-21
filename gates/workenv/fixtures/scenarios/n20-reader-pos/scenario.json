@@ -45,17 +45,12 @@
    "record": "register_rates"
   },
   {
-   "minted": "rates_registered_at",
-   "pointer": "/registered_at",
-   "record": "rates_home_stored"
-  },
-  {
    "digest_of": "register_rates",
    "pointer": "/request_digest",
    "record": "register_rates_home_receipt"
   },
   {
-   "minted": "register_rates_home_head",
+   "minted": "rates_registered",
    "pointer": "/head_digest",
    "record": "register_rates_home_receipt"
   },
@@ -68,6 +63,11 @@
    "minted": "register_rates_home_committed_at",
    "pointer": "/committed_at",
    "record": "register_rates_home_receipt"
+  },
+  {
+   "minted": "rates_registered_at",
+   "pointer": "/registered_at",
+   "record": "rates_home_stored"
   },
   {
    "digest_of": "register_rates_home_receipt",
@@ -90,9 +90,9 @@
    "record": "commit_rates_rev1"
   },
   {
-   "minted": "rates_rev1_at",
-   "pointer": "/produced_at",
-   "record": "rates_rev1"
+   "minted": "rates_registered",
+   "pointer": "/target/base/head_digest",
+   "record": "commit_rates_rev1"
   },
   {
    "digest_of": "commit_rates_rev1",
@@ -113,6 +113,16 @@
    "minted": "commit_rates_revision_1_committed_at",
    "pointer": "/committed_at",
    "record": "commit_rates_revision_1_receipt"
+  },
+  {
+   "minted": "rates_registered",
+   "pointer": "/target/base/head_digest",
+   "record": "commit_rates_revision_1_receipt"
+  },
+  {
+   "minted": "rates_rev1_at",
+   "pointer": "/produced_at",
+   "record": "rates_rev1"
   },
   {
    "digest_of": "commit_rates_revision_1_receipt",
@@ -190,11 +200,6 @@
    "record": "commit_rates_rev2"
   },
   {
-   "minted": "rates_rev2_at",
-   "pointer": "/produced_at",
-   "record": "rates_rev2"
-  },
-  {
    "digest_of": "commit_rates_rev2",
    "pointer": "/request_digest",
    "record": "commit_rates_revision_2_receipt"
@@ -220,6 +225,11 @@
    "record": "commit_rates_revision_2_receipt"
   },
   {
+   "minted": "rates_rev2_at",
+   "pointer": "/produced_at",
+   "record": "rates_rev2"
+  },
+  {
    "digest_of": "commit_rates_revision_2_receipt",
    "pointer": "/outcome/receipt_digest",
    "record": "commit_rates_revision_2_result"
@@ -237,6 +247,11 @@
  ],
  "minted": [
   {
+   "name": "rates_registered",
+   "shape": "digest",
+   "step": "register_rates_home"
+  },
+  {
    "name": "rates_registered_at",
    "shape": "instant",
    "step": "register_rates_home"
@@ -244,11 +259,6 @@
   {
    "name": "register_rates_home_committed_at",
    "shape": "instant",
-   "step": "register_rates_home"
-  },
-  {
-   "name": "register_rates_home_head",
-   "shape": "digest",
    "step": "register_rates_home"
   },
   {
@@ -388,6 +398,29 @@
    }
   },
   {
+   "digest": "9ed21b5c8ed4ed8a1c53aa4defdf0d97f2eb41d29e7b3083c3a43f2f812d552d",
+   "name": "register_rates_home_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "935fdc8b209226bf6ea1c872f99c142efbc89952bf1d4b344b35879ca9a78fb0",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_377170395bce988288ff5b2b8c7f6130"
+    },
+    "request_digest": "094e0c6fb5d6abcc2fffc2d261b4b4efbf78397d56c7145f6b4316ee4586fd2d",
+    "request_id": "req_4727e211ec79798fef9e2366bb748dba",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_abc6a4fd8fa08e5f1a2eef2143336389"
+    }
+   }
+  },
+  {
    "digest": "2a8d8d632882e00399bc6a668d8553aedc767da5b263b3942f4cc1cee8931bed",
    "name": "rates_home_stored",
    "record": {
@@ -431,37 +464,14 @@
    }
   },
   {
-   "digest": "e64f49fc76b3f7ffccba61048a986cb1a2854734517558b1f42a158240447f86",
-   "name": "register_rates_home_receipt",
-   "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "bf0e908c0a1f1d149271da6388df8a186f179d3fc5384ce05cf3a772f1669b38",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "repository",
-     "repository_id": "rep_377170395bce988288ff5b2b8c7f6130"
-    },
-    "request_digest": "094e0c6fb5d6abcc2fffc2d261b4b4efbf78397d56c7145f6b4316ee4586fd2d",
-    "request_id": "req_4727e211ec79798fef9e2366bb748dba",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "base": {
-      "expects": "absent"
-     },
-     "resource_id": "src_abc6a4fd8fa08e5f1a2eef2143336389"
-    }
-   }
-  },
-  {
-   "digest": "346623ab40ac5c7f099ce3dbfc9c0aac5cd876e17022731a79c73a1e0c6891b3",
+   "digest": "572d729d0383664b46c8d0d7f2fa1b23fe73df7b08900251a2be32b8d9c18cc8",
    "name": "register_rates_home_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "e64f49fc76b3f7ffccba61048a986cb1a2854734517558b1f42a158240447f86",
+     "receipt_digest": "9ed21b5c8ed4ed8a1c53aa4defdf0d97f2eb41d29e7b3083c3a43f2f812d552d",
      "stage": "committed"
     },
     "outputs": [
@@ -500,7 +510,7 @@
    }
   },
   {
-   "digest": "bce5fc6d1bfdbcbc79110e8ab3ba9cd9e53ece0f6996668bb6ef57ad52f87dce",
+   "digest": "f8f546d3065f946f556492dbe85a2ca18c03da183a721eb92307ea0374027f7b",
    "name": "commit_rates_rev1",
    "record": {
     "action": "publish",
@@ -525,7 +535,32 @@
     "schema": 1,
     "target": {
      "base": {
-      "expects": "absent"
+      "expects": "head",
+      "head_digest": "935fdc8b209226bf6ea1c872f99c142efbc89952bf1d4b344b35879ca9a78fb0"
+     },
+     "resource_id": "src_abc6a4fd8fa08e5f1a2eef2143336389"
+    }
+   }
+  },
+  {
+   "digest": "65ba2d173c3ac7f8395c417397f1ad20a4f5460fd43e4d82e3488861fa2061d6",
+   "name": "commit_rates_revision_1_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "51d13c4bf0b465c4dcfe6b8521c58865f55c61776bb005a9d03b5e2c043d0df6",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_377170395bce988288ff5b2b8c7f6130"
+    },
+    "request_digest": "f8f546d3065f946f556492dbe85a2ca18c03da183a721eb92307ea0374027f7b",
+    "request_id": "req_4175c87c298e3d314b6dc5734d4f4495",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "935fdc8b209226bf6ea1c872f99c142efbc89952bf1d4b344b35879ca9a78fb0"
      },
      "resource_id": "src_abc6a4fd8fa08e5f1a2eef2143336389"
     }
@@ -555,37 +590,14 @@
    }
   },
   {
-   "digest": "b61642f73c401fa1a373e7575de85934ad16d0f20cc1e07164d9d5ba4e56af55",
-   "name": "commit_rates_revision_1_receipt",
-   "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "51d13c4bf0b465c4dcfe6b8521c58865f55c61776bb005a9d03b5e2c043d0df6",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "repository",
-     "repository_id": "rep_377170395bce988288ff5b2b8c7f6130"
-    },
-    "request_digest": "bce5fc6d1bfdbcbc79110e8ab3ba9cd9e53ece0f6996668bb6ef57ad52f87dce",
-    "request_id": "req_4175c87c298e3d314b6dc5734d4f4495",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "base": {
-      "expects": "absent"
-     },
-     "resource_id": "src_abc6a4fd8fa08e5f1a2eef2143336389"
-    }
-   }
-  },
-  {
-   "digest": "fe2ccd26e628294c0916e526ccc13501a967a11da020a599b3dccd66fcf1a09f",
+   "digest": "002ce0514c5fda5be80adf15b7a78c84e903f9b37041a306f74c22695c10ea47",
    "name": "commit_rates_revision_1_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "b61642f73c401fa1a373e7575de85934ad16d0f20cc1e07164d9d5ba4e56af55",
+     "receipt_digest": "65ba2d173c3ac7f8395c417397f1ad20a4f5460fd43e4d82e3488861fa2061d6",
      "stage": "committed"
     },
     "outputs": [
@@ -595,7 +607,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "bce5fc6d1bfdbcbc79110e8ab3ba9cd9e53ece0f6996668bb6ef57ad52f87dce",
+    "request_digest": "f8f546d3065f946f556492dbe85a2ca18c03da183a721eb92307ea0374027f7b",
     "request_id": "req_4175c87c298e3d314b6dc5734d4f4495",
     "schema": 1,
     "supported_recovery": []
@@ -793,29 +805,6 @@
    }
   },
   {
-   "digest": "35ec8ebe65d065b136de1b30bbf8c9788461e5f452450df8cd4dfa1288076784",
-   "name": "rates_rev2",
-   "record": {
-    "format_version": 1,
-    "kind": "source_manifest",
-    "members": [
-     {
-      "digest": "2702a48949ff2ef94c13c8f8e0a45a7a481e0e19482d3ffa8f8fc2c584a1d2c2",
-      "path": "tables/rates.csv",
-      "size": 2071
-     },
-     {
-      "digest": "4876e236e3b0623954adb10a0d23c94041088fc2913e6addd63f77a3b9a12efd",
-      "path": "concepts.md",
-      "size": 4120
-     }
-    ],
-    "produced_at": "2000-01-01T00:00:00Z",
-    "schema": 1,
-    "source_id": "src_abc6a4fd8fa08e5f1a2eef2143336389"
-   }
-  },
-  {
    "digest": "b18ad45f2ac3bb9adce2cc1b31fb9b51820e670bfb018a0b9e710440dcf14cc7",
    "name": "commit_rates_revision_2_receipt",
    "record": {
@@ -837,6 +826,29 @@
      },
      "resource_id": "src_abc6a4fd8fa08e5f1a2eef2143336389"
     }
+   }
+  },
+  {
+   "digest": "35ec8ebe65d065b136de1b30bbf8c9788461e5f452450df8cd4dfa1288076784",
+   "name": "rates_rev2",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "2702a48949ff2ef94c13c8f8e0a45a7a481e0e19482d3ffa8f8fc2c584a1d2c2",
+      "path": "tables/rates.csv",
+      "size": 2071
+     },
+     {
+      "digest": "4876e236e3b0623954adb10a0d23c94041088fc2913e6addd63f77a3b9a12efd",
+      "path": "concepts.md",
+      "size": 4120
+     }
+    ],
+    "produced_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "source_id": "src_abc6a4fd8fa08e5f1a2eef2143336389"
    }
   },
   {
@@ -864,13 +876,14 @@
    }
   }
  ],
- "says": "A repository knowledge source with a rate table and its prose is registered and committed. The editor loads the bodies it will edit with reader.body.read in the knowledge role and the contributor view; the result delivers both units with their bodies and names the source's frontier, the head the commit moved to. The author corrects the table and the editor saves it with source.revision.commit whose base expects exactly that frontier as the head, and the owner commits the second revision on it. The saved revision's base is the frontier the read returned, not a head the editor assumed.",
- "spec_sha256": "0a4c1c8830378c49ec7306042f2acf26ecae242dfcbcd76e62becf5604935969",
+ "says": "A repository knowledge source with a rate table and its prose is registered, and its first revision is committed on the head the registration moved to. The editor loads the bodies it will edit with reader.body.read in the knowledge role and the contributor view; the result delivers both units with their bodies and names the source's frontier, the head the commit moved to. The author corrects the table and the editor saves it with source.revision.commit whose base expects exactly that frontier as the head, and the owner commits the second revision on it. The saved revision's base is the frontier the read returned, not a head the editor assumed.",
+ "spec_sha256": "c840c8df45a4a89e3962a177807896a04162f9bc602894e5fd813d55545724df",
  "steps": [
   {
    "carries": [
     "rates_home"
    ],
+   "head": "rates_registered",
    "name": "register_rates_home",
    "request": "register_rates",
    "result": "register_rates_home_result",

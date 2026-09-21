@@ -1,6 +1,6 @@
 {
  "case": "SRC-11",
- "says": "Two repositories, R and S, each keep an ADR numbered 0001 at docs/adr/0001-journal-mode.md with the same title and the same Markdown bytes. Each checkout is bound to its own repository id, each ADR directory is registered as its own repository-authored memory source, and the decision is published into each (memory.record.publish): the owner commits two choice records with two record ids and two manifests, one per source, even though the member path, digest and question text are identical. A Team A is founded and references R's ADR source in its own Team memory position, one entry naming the one source record; Team A then edits its own wrapper by switching that entry off, which commits a new head of Team A's position only. Resolving R's exact revision afterwards (reference.resolve against the head R's publication left) returns R's manifest unchanged, and asking which journal mode applies over both repositories (memory.state.resolve) returns two current entries, each naming its own record and its own source. Equal numbers, titles and bytes must not merge the two owners into one record, and Team A's edit must not rewrite, supersede or move anything of repository R.",
+ "says": "Two repositories, R and S, each keep an ADR numbered 0001 at docs/adr/0001-journal-mode.md with the same title and the same Markdown bytes. Each checkout is bound to its own repository id, each ADR directory is registered as its own repository-authored memory source, and the decision is published into each (memory.record.publish): the owner commits two choice records with two record ids and two manifests, one per source, even though the member path, digest and question text are identical. A Team A is founded and references R's ADR source in its own Team memory position, one entry naming the one source record; Team A then edits its own wrapper by switching that entry off, which commits a new head of Team A's position only. Resolving R's exact revision afterwards (reference.resolve against the head R's publication left) returns R's manifest unchanged, with R's repository home, and asking which journal mode applies over both repositories (memory.state.resolve) returns two current entries, each naming its own record and its own source. Equal numbers, titles and bytes must not merge the two owners into one record, and Team A's edit must not rewrite, supersede or move anything of repository R.",
  "ids": [
   {
    "name": "me",
@@ -81,6 +81,10 @@
   {
    "name": "state_request",
    "prefix": "req"
+  },
+  {
+   "name": "concern",
+   "prefix": "cnc"
   }
  ],
  "records": [
@@ -852,6 +856,90 @@
    ]
   },
   {
+   "name": "ta_sealed_proposal",
+   "from": "ta_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:ta_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:ta_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "ta_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:ta_founder_membership_id"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#ta_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:ta_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "ta_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:ta_founded_at"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/purpose",
+     "value": "The standards this group works to."
+    }
+   ]
+  },
+  {
+   "name": "ta_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:ta_founded"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:ta_founded_at"
+    }
+   ]
+  },
+  {
    "name": "team_position",
    "from": "c07/memory_position_switched_off.json",
    "drop": [
@@ -985,7 +1073,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:team_col_v1"
+     "value": "#stored_team_position"
     },
     {
      "pointer": "/payload_digest",
@@ -1158,7 +1246,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@me"
+     "value": "@concern"
     },
     {
      "pointer": "/payload_digest",
@@ -1354,9 +1442,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "ta_sealed_proposal",
      "ta_stored_policy",
+     "ta_founder_membership",
+     "ta_founder_grant",
      "ta_state",
-     "ta_founder_grant"
+     "ta_profile",
+     "ta_founding_epoch"
     ],
     "head": "ta_founded"
    }
@@ -1376,7 +1468,7 @@
     "returns": [
      "stored_team_position"
     ],
-    "head": "team_col_v1"
+    "head": "stored_team_position"
    }
   },
   {
@@ -1394,7 +1486,7 @@
     "returns": [
      "stored_team_position_edited"
     ],
-    "head": "team_col_v2"
+    "head": "stored_team_position_edited"
    }
   },
   {
@@ -1410,7 +1502,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "manifest_r"
+     "manifest_r",
+     "stored_home_r"
     ]
    }
   },

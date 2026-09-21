@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C05 lifecycle event",
-  "description": "What happened to a record, attributed and evidenced. The time it was recorded and the time it occurred are different fields, and the second is present only when it is known. A replacement names its successor in the same record, so no reader has to guess which choice displaced which. An event may be recorded in lanes of its own: that association says where it was recorded, and the event still changes the state of its target in every lane that reads it.",
+  "description": "What happened to a record, attributed and evidenced. The time it was recorded and the time it occurred are different fields, and the second is present only when it is known. A replacement names its successor in the same record, so no reader has to guess which choice displaced which. An event may be recorded in lanes of its own: that association says where it was recorded, and the event still changes the state of its target in every lane that reads it. An event published from a memory candidate names the exact version it `promotes`.",
   "required": [
     "kind",
     "schema",
@@ -43,6 +43,10 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 4000
+    },
+    "promotes": {
+      "$ref": "#/$defs/candidate_version",
+      "description": "The memory candidate version this record publishes, when it came from one. It states what that version proposes, and the candidate's promoted version names this commit's receipt."
     },
     "recorded_at": {
       "$ref": "#/$defs/instant",
@@ -173,6 +177,28 @@
     "workstream_id": {
       "type": "string",
       "pattern": "^wst_[0-9a-f]{32}$"
+    },
+    "candidate_version": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One version of a memory candidate, by its id and version number.",
+      "required": [
+        "candidate_id",
+        "version"
+      ],
+      "properties": {
+        "candidate_id": {
+          "$ref": "#/$defs/candidate_id"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "candidate_id": {
+      "type": "string",
+      "pattern": "^cnd_[0-9a-f]{32}$"
     }
   }
 }

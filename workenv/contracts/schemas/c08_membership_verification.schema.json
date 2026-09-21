@@ -1,0 +1,66 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C08 membership verification",
+  "description": "The Team's out-of-band verification of the actual participant behind one invitation: somebody acting for the Team confirmed, in person, on a live call or through a channel the Team already trusts, that this person holds the exact device credential they proved in the exchange, which `binding_digest` names by its principal binding. A copied name or code, a login or an e-mail address is none of these, so none has a value here. The invitee's consent names this record, and a membership admitted by invitation rests on both. The verifier is the actor of the request that records it; the runtime writes who verified and when.",
+  "required": [
+    "kind",
+    "schema",
+    "team_id",
+    "invitation_digest",
+    "binding_digest",
+    "procedure",
+    "verifier_principal_id",
+    "verified_at"
+  ],
+  "properties": {
+    "kind": {
+      "const": "membership_verification"
+    },
+    "schema": {
+      "const": 1
+    },
+    "team_id": {
+      "$ref": "#/$defs/team_id"
+    },
+    "invitation_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "binding_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "procedure": {
+      "enum": [
+        "in_person",
+        "live_call",
+        "known_channel"
+      ]
+    },
+    "verifier_principal_id": {
+      "$ref": "#/$defs/principal_id",
+      "x-runtime-owned": true
+    },
+    "verified_at": {
+      "$ref": "#/$defs/instant",
+      "x-runtime-owned": true
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "principal_id": {
+      "type": "string",
+      "pattern": "^prn_[0-9a-f]{32}$"
+    },
+    "team_id": {
+      "type": "string",
+      "pattern": "^tem_[0-9a-f]{32}$"
+    }
+  }
+}

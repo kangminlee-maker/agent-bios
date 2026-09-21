@@ -1,6 +1,6 @@
 {
  "case": "N16-C12-POS",
- "says": "One actor, alice, binds her laptop key and founds the Team Platform, and a probe qualifies the installed client's read capability. From the host launcher she starts personally: the launcher's route.offer offers one start route qualified by that probe, she selects the Team's instructions beside her own, and Enter on the single start action dispatches preparation.compose and one route.select. The selection names the compose request and expects it prepared; compose returns the preparation, and the route outcome is a real run whose output is that preparation. From the Studio hub the same Team and preparation are then carried through W01 to W10, each view keeping the Team as browse and selected scope, the preparation as its target and the view it came from as its return; W07 reads the Team's state through team.state.read and W08 its recent history through operation.history.read, both real owner operations run as steps here. Esc returns to W01 with the same target. A direct work link opens W09 on the same preparation in the same scope, and Esc returns to W01 on it. No view changes the actor, the Team or the preparation, and no navigation dispatches a request.",
+ "says": "One actor, alice, binds her laptop key and founds the Team Platform (the founding returns her membership by founding and the Team's first authority epoch), and a probe qualifies the installed client's read capability. From the host launcher she starts personally: the launcher's route.offer offers one start route qualified by that probe, she selects the Team's instructions beside her own, and Enter on the single start action dispatches preparation.compose, which composes her own preparation and stores it without a receipt, and one route.select. The selection names the compose request and expects it prepared; compose returns the preparation, and the route outcome is a real run whose output is that preparation. From the Studio hub the same Team and preparation are then carried through W01 to W10, each view keeping the Team as browse and selected scope, the preparation as its target and the view it came from as its return; W07 reads the Team's state through team.state.read and W08 its recent history through operation.history.read, both real owner operations run as steps here. Esc returns to W01 with the same target. A direct work link opens W09 on the same preparation in the same scope, and Esc returns to W01 on it. No view changes the actor, the Team or the preparation, and no navigation dispatches a request.",
  "ids": [
   {
    "name": "alice",
@@ -197,6 +197,20 @@
    ]
   },
   {
+   "name": "team_sealed_proposal",
+   "from": "founding",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_founding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
    "name": "found",
    "from": "c03/history_request.json",
    "drop": [
@@ -255,15 +269,11 @@
   },
   {
    "name": "team_active",
-   "from": "c08/team_closed_for_good.json",
+   "from": "c08/active_team.json",
    "set": [
     {
      "pointer": "/since",
      "value": "$instant:founded_at"
-    },
-    {
-     "pointer": "/state",
-     "value": "active"
     },
     {
      "pointer": "/team_id",
@@ -356,6 +366,54 @@
    ]
   },
   {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:founded_head"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
    "name": "read_probe",
    "from": "c12/probe_as_submitted.json",
    "set": [
@@ -391,7 +449,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "durable_candidate"
+     "value": "owner_commit"
     },
     {
      "pointer": "/operation",
@@ -412,6 +470,10 @@
     {
      "pointer": "/payload_digest",
      "value": "#read_probe"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
     }
    ]
   },
@@ -477,6 +539,24 @@
    ]
   },
   {
+   "name": "read_probe_configuration",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/client/name",
+     "value": "agent-bios"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.20.0"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:probed_at"
+    }
+   ]
+  },
+  {
    "name": "start_offer",
    "from": "routes/offer_submitted.json",
    "drop": [
@@ -513,7 +593,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "use"
+     "value": "read"
     },
     {
      "pointer": "/actor/principal_id",
@@ -529,7 +609,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "durable_candidate"
+     "value": "owner_commit"
     },
     {
      "pointer": "/operation",
@@ -545,7 +625,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@route_start"
+     "value": "@profile"
     },
     {
      "pointer": "/payload_digest",
@@ -699,7 +779,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@profile"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
@@ -763,7 +843,7 @@
     },
     {
      "pointer": "/request_digest",
-     "value": "#compose"
+     "value": "#start_request"
     },
     {
      "pointer": "/units",
@@ -803,7 +883,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "use"
+     "value": "read"
     },
     {
      "pointer": "/actor/principal_id",
@@ -819,7 +899,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "durable_candidate"
+     "value": "owner_commit"
     },
     {
      "pointer": "/operation",
@@ -835,7 +915,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@route_start"
+     "value": "@profile"
     },
     {
      "pointer": "/payload_digest",
@@ -4710,10 +4790,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
+     "team_policy",
+     "team_founder_membership",
+     "founder_grant",
      "team_active",
      "team_named",
-     "team_policy",
-     "founder_grant"
+     "team_founding_epoch"
     ],
     "head": "founded_head"
    },
@@ -4735,7 +4818,8 @@
     "recovery": [],
     "returns": [
      "read_probe_stored",
-     "client_profile"
+     "client_profile",
+     "read_probe_configuration"
     ]
    }
   },

@@ -178,7 +178,7 @@
     "retired_at_cutover": {
       "type": "object",
       "additionalProperties": false,
-      "description": "A compatibility-only route. It forwards rather than reaches, so it carries no choke point of its own; the route it forwards to is named.",
+      "description": "A compatibility-only route. It forwards rather than reaches, so it carries no choke point of its own; the route it forwards to is named. Recorded before the cutover commits, this retires the route, and an entrance whose every recorded route is retired is retired with them; both stay retired, also after a restore. A later disposition that has the same route reach kept state, or a request naming an access handle issued through a retired entrance, is `route_retired`.",
       "required": [
         "state",
         "compatibility_only",

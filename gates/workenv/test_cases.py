@@ -86,10 +86,49 @@ class Registry(unittest.TestCase):
             r["atomic"].append(dict(copy.deepcopy(r["atomic"][0]), id="SRC-99"))
         self.refused("atomic SRC-99: the catalog defines no such case", edit)
 
-    def test_a_contract_no_module_declares_is_refused(self):
+    def test_what_a_case_drives_is_read_from_its_scenario(self):
+        derived, _ = cases.derive(self.registry)
+        generator = ["gates/workenv/scenarios.py", "gates/workenv/scenario.schema.json"]
+        cutover = derived["N24-C03-NEG"]
+        self.assertIn("entrance.cutover.commit", cutover["operations"])
+        self.assertEqual(cutover["contracts"], {"C01", "C03"})
+        self.assertEqual(cutover["fixtures"],
+                         ["gates/workenv/fixtures/scenarios/n24-c03-neg/", *generator])
+        self.assertEqual(derived["RUN-MODE"]["contracts"], {"runner"})
+        self.assertIn("gates/workenv/fixtures/runner/preflight.json",
+                      derived["RUN-MODE"]["fixtures"])
+        self.assertIn("B03", derived["N13-RESUME-POS"]["contracts"])
+        self.assertIn("gates/workenv/fixtures/rules/derivative_within_base_rights.json",
+                      derived["N27-RIGHTS-NEG"]["fixtures"])
+        self.assertIn("gates/workenv/fixtures/text/terminal.json",
+                      derived["TUI-ENTRY-80X24"]["fixtures"])
+
+    def test_a_case_without_a_scenario_is_refused(self):
         def edit(r):
-            r["atomic"][0]["contracts"].append("C13")
-        self.refused("contract C13 is no contract module's", edit)
+            r["cases"].append(dict(copy.deepcopy(self.row(r, "cases", "N24-C03-NEG")),
+                                   id="N24-GHOST-NEG"))
+            self.selection(r, "P18")["cases"].append("N24-GHOST-NEG")
+        self.refused("N24-GHOST-NEG: no scenario at "
+                     "gates/workenv/fixtures/scenarios/n24-ghost-neg/", edit)
+
+    def test_a_scenario_no_case_defines_is_refused(self):
+        def edit(r):
+            r["cases"].remove(self.row(r, "cases", "N24-C03-NEG"))
+            for row in r["selects"]:
+                if "N24-C03-NEG" in row["cases"]:
+                    row["cases"].remove("N24-C03-NEG")
+        self.refused("scenario n24-c03-neg: no case is defined for it", edit)
+
+    def test_a_scenario_written_for_another_case_is_refused(self):
+        with tempfile.TemporaryDirectory() as folder:
+            place = cases.scenario_dir("N24-C03-NEG") + "scenario.json"
+            built = json.loads((cases.ROOT / place).read_bytes())
+            built["case"] = "N24-C03-POS"
+            (pathlib.Path(folder) / place).parent.mkdir(parents=True)
+            (pathlib.Path(folder) / place).write_text(json.dumps(built))
+            registry = {"atomic": [], "cases": [self.row(self.registry, "cases", "N24-C03-NEG")]}
+            self.assertEqual(cases.derive(registry, pathlib.Path(folder))[1],
+                             ["N24-C03-NEG: its scenario is written for N24-C03-POS"])
 
     def test_a_family_the_catalog_does_not_hold_is_refused(self):
         def edit(r):
@@ -107,14 +146,13 @@ class Registry(unittest.TestCase):
     def test_an_atomic_case_the_registry_does_not_bind_is_refused(self):
         self.refused("the registry binds nothing", lambda r: r["atomic"].pop(0))
 
-    def test_an_operation_outside_the_named_contracts_is_refused(self):
-        def edit(r):
-            r["atomic"][0]["operations"].append("team.found")
-        self.refused("belongs to none of", edit)
+    def test_an_atomic_case_selected_outside_the_profiles_families_is_refused(self):
+        self.refused("selects P03: DEL-PERSONAL is outside its families",
+                     lambda r: self.selection(r, "P03")["cases"].append("DEL-PERSONAL"))
 
     def test_a_fixture_nobody_tracks_is_refused(self):
         def edit(r):
-            r["cases"][0]["fixtures"].append("gates/workenv/fixtures/absent.json")
+            r["cases"][0]["reads"] = ["gates/workenv/fixtures/absent.json"]
         self.refused("matches no tracked file", edit)
 
     def test_an_oracle_the_family_does_not_hold_is_refused(self):
@@ -124,12 +162,12 @@ class Registry(unittest.TestCase):
 
     def test_a_rule_no_contract_declares_is_refused(self):
         def edit(r):
-            self.row(r, "cases", "N07-PREFERENCE-NEG")["rule"] = "C05/nothing_declares_this"
+            self.row(r, "cases", "N07-PREFERENCE-NEG")["rules"] = ["C05/nothing_declares_this"]
         self.refused("declared by no contract module", edit)
 
     def test_a_declared_rule_no_case_checks_is_refused(self):
         def edit(r):
-            del self.row(r, "cases", "N08-READER-GAP-NEG")["rule"]
+            del self.row(r, "cases", "N08-READER-GAP-NEG")["rules"]
         self.refused("rule C06/gap_named_frontier_not_returned: no case checks it", edit)
 
     def test_a_rule_checked_only_where_nobody_implements_it_is_refused(self):
@@ -158,8 +196,10 @@ class Registry(unittest.TestCase):
         self.refused("stated twice", lambda r: r["selects"].append(copy.deepcopy(r["selects"][0])))
 
     def test_a_pair_without_a_negative_is_refused(self):
-        self.refused("P18 N24: no negative case",
-                     lambda r: self.selection(r, "P18")["cases"].remove("N24-C03-NEG"))
+        def edit(r):
+            chosen = self.selection(r, "P18")["cases"]
+            chosen[:] = [case for case in chosen if not case.endswith("-NEG")]
+        self.refused("P18 N24: no negative case", edit)
 
     def test_a_family_with_no_case_is_refused_by_the_dated_evaluator_too(self):
         registry = copy.deepcopy(self.registry)
@@ -168,11 +208,34 @@ class Registry(unittest.TestCase):
                       "empty/incomplete bound case families", self.check(registry))
 
     def test_an_operation_no_case_drives_is_refused(self):
-        def edit(r):
-            for row in r["atomic"] + r["cases"]:
-                if "store.backup.create" in row["operations"]:
-                    row["operations"].remove("store.backup.create")
-        self.refused("operation store.backup.create: no case drives it", edit)
+        derived, _ = cases.derive(self.registry)
+        for drives in derived.values():
+            drives["operations"].discard("store.backup.create")
+        problems = cases.check(self.registry, loaded=self.loaded, paths=self.paths,
+                               derived=derived)[0]
+        self.assertIn("operation store.backup.create: no case drives it", problems)
+
+    def cover(self, registry, profile):
+        return next(r for r in registry["covers"] if r["profile"] == profile)
+
+    def test_a_profile_whose_done_when_nobody_maps_is_refused(self):
+        self.refused("covers P03: no row maps its done_when items",
+                     lambda r: r["covers"].remove(self.cover(r, "P03")))
+        self.refused("covers P03: 6 items for 7 done_when items",
+                     lambda r: self.cover(r, "P03")["done_when"].pop())
+
+    def test_a_done_when_item_realized_by_a_case_the_profile_does_not_run_is_refused(self):
+        self.refused("covers P03 done_when[0]: N24-C03-NEG is bound to neither P03 nor R0",
+                     lambda r: self.cover(r, "P03")["done_when"][0].append("N24-C03-NEG"))
+
+    def test_a_node_contract_no_bound_case_drives_needs_a_reason_elsewhere(self):
+        def drop(r):
+            row = self.cover(r, "P18")
+            row["elsewhere"] = [e for e in row["elsewhere"] if e["contract"] != "C12"]
+        self.refused("covers P18: no bound case drives C12", drop)
+        self.refused("covers P18: elsewhere names C01, which a bound case drives",
+                     lambda r: self.cover(r, "P18")["elsewhere"].append(
+                         {"contract": "C01", "reason": "said without looking"}))
 
     def test_a_field_the_schema_does_not_define_is_refused_on_load(self):
         registry = copy.deepcopy(self.registry)
@@ -219,6 +282,7 @@ class Bindings(unittest.TestCase):
         cls.loaded = cases.bundle(cls.root)
         cls.registry = cases.load()
         cls.profiles = sorted(cls.loaded[1]["profiles"])
+        cls.derived = cases.derive(cls.registry, cls.root)[0]
         cls.before = cls.bindings(cls.registry)
 
     @classmethod
@@ -234,9 +298,8 @@ class Bindings(unittest.TestCase):
         return {p for p in self.profiles if after[p][field] != self.before[p][field]}
 
     def readers_of(self, predicate):
-        rows = {r["id"]: r for key in ("atomic", "cases") for r in self.registry[key]}
         return {p for p in self.profiles if p != "P00" and any(
-            predicate(rows[c]) for c in self.before[p]["cases"] if c in rows)}
+            predicate(self.derived[c]) for c in self.before[p]["cases"] if c in self.derived)}
 
     def test_every_binding_is_one_the_dated_evaluator_accepts(self):
         atomic = {a["id"]: f["id"] for f in self.loaded[1]["cases"]
@@ -252,10 +315,10 @@ class Bindings(unittest.TestCase):
         self.assertEqual(self.loaded[2].digest(self.before[row["profile"]]), row["binding_digest"])
 
     def test_a_fixtures_bytes_move_exactly_the_profiles_that_read_it(self):
-        fixture = "workenv/contracts/examples/c09/verified.json"
-        wanted = self.readers_of(lambda row: fixture in row["fixtures"]
+        fixture = "gates/workenv/fixtures/scenarios/n13-c09-pos/scenario.json"
+        wanted = self.readers_of(lambda drives: fixture in drives["fixtures"]
                                  or any(f.endswith("/") and fixture.startswith(f)
-                                        for f in row["fixtures"]))
+                                        for f in drives["fixtures"]))
         self.assertTrue(wanted and wanted != set(self.profiles) - {"P00"})
         original = (self.root / fixture).read_bytes()
         try:
@@ -268,7 +331,7 @@ class Bindings(unittest.TestCase):
 
     def test_a_contracts_bytes_move_exactly_the_profiles_that_drive_it(self):
         module = "workenv/contracts/c10.py"
-        wanted = self.readers_of(lambda row: "C10" in row["contracts"])
+        wanted = self.readers_of(lambda drives: "C10" in drives["contracts"])
         self.assertTrue(wanted and wanted != set(self.profiles) - {"P00"})
         original = (self.root / module).read_bytes()
         try:

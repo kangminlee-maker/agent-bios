@@ -23,17 +23,24 @@ with a new id and payload. A string value may name instead of state:
 owner's real value in each minted place, and recompute every digest over it, before submitting.
 A digest of a record a step returns is likewise the digest of what the owner actually returned.
 A committed step's receipt is generated too, as the record `<step>_receipt` its result names:
-the owner mints its sequence and time, and its head, which the answer may name (`head`) for a
-later request whose base expects that head. A later operation.query can return the receipt by
-that name. A step that `replays` an earlier one resubmits the same request bytes and is answered
-with that step's result and receipt; the owner writes nothing new.
+the owner mints its sequence and time. Its head is the digest of the record the step stored
+when the answer's `head` names one it returns (a collection's head is the collection record its
+change stored), and otherwise a digest the owner mints under that name, which a later request's
+base expects as `$digest:<head>`. A later operation.query can return the receipt by
+that name, and a record the step's own answer returns may name it too. A step that `replays` an
+earlier one resubmits the same request bytes and is answered with that step's result and receipt;
+the owner writes nothing new. An answer under a new request id that the owner settles as a
+duplicate states `receipt_of` the earlier committed step instead, and no receipt is written for it.
 
 `world` is the harness around the steps, never a contract record: isolated processes, each step
 naming the one it runs on; a controlled clock that each step may move forward, the generated step
 stating the instant it runs at; partitions between two processes over a run of steps; and faults,
 each killing the process of one answered step at a fault point B03 names and restarting it, so
-that step's answer is what the owner returns for the same request after the restart. A runner
-step names a situation of the same case in the runner's preflight cases instead of a request.
+that step's answer is what the owner returns for the same request after the restart — or, when
+the fault names the step that `observed_by` it, what the owner committed, which the caller first
+learns from that later query because no reply reached it. `during` runs one step while another is
+in flight: after the owner admitted the other's request and before it answers. A runner step names
+a situation of the same case in the runner's preflight cases instead of a request.
 
 What can be decided from the spec alone is checked here and fails by name:
   - every record resolves, and every name it uses is defined;
@@ -46,11 +53,17 @@ What can be decided from the spec alone is checked here and fails by name:
     name must be named by its payload (a batch's item requests);
   - the payload is a kind its operation takes (no payload when it takes none), and every record
     the answer returns is a kind the operation returns;
+  - every request states the effect class, grant action and kind of target its operation's row
+    declares, the effect class aside when the answer is `effect_class_mismatch`;
   - the result built from the answer passes the result schema, so an answer the contract cannot
     give — a commit beside a gap that prevents one — cannot be written in a spec either;
   - a minted value is used only after the step whose answer first returns it;
   - the world's processes, partitions and faults name steps and processes that exist, a fault
-    names a B03 fault point and an answered step, and a runner step a situation of its case.
+    names a B03 fault point and an answered step, and a runner step a situation of its case;
+  - a fault's observer is a later step that returns the faulted step's result; a step that runs
+    during another is listed immediately before it, and the other's request uses nothing it mints;
+  - an answer's `receipt_of` names an earlier committed step, and such an answer states no head;
+  - a committed answer states the local effect `committed` (C03's meaning of the value).
 
   python3 gates/workenv/scenarios.py [CASE ...]           # write scenario.json from each spec
   python3 gates/workenv/scenarios.py --check [CASE ...]   # fail when one differs from its spec
@@ -68,6 +81,7 @@ from datetime import datetime, timedelta
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 from workenv.contracts import b03, canonical, errors, examples, records  # noqa: E402
+from workenv.contracts.c03 import EFFECT_CLASS_MISMATCH  # noqa: E402
 from workenv.contracts.schema import STORED, SUBMIT, load_schema  # noqa: E402
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -90,7 +104,8 @@ class ScenarioError(ValueError):
 
 
 def operations() -> dict[str, dict]:
-    """operation -> {"takes": kinds, "returns": kinds}, joined from the contract modules."""
+    """operation -> its row (what it takes and returns, its effect class, the grant action it
+    needs and the kinds of resource it targets), joined from the contract modules."""
     return {name: row for module in errors.OWNERS
             for name, row in getattr(module, "OPERATIONS", {}).items()}
 
@@ -217,6 +232,10 @@ class _Scenario:
             else:
                 parent[key] = self.value(change["value"], name, f"{at}/{key}")
         self.open.pop()
+        # What the record rests on is what its joins still name, not what it replaced.
+        self.uses[name] = set().union(*({j["minted"]} if "minted" in j
+                                        else self.uses[j["digest_of"]]
+                                        for j in self.joins if j["record"] == name))
         try:
             self.digests[name] = canonical.digest_of(value)
         except canonical.CanonicalError as error:
@@ -266,13 +285,16 @@ class _Scenario:
             found.extend(value if isinstance(value, list) else [value])
         return found
 
-    def receipt(self, name: str, request_name: str, request: dict, head: str, step: str) -> None:
-        """The receipt a committed step's owner writes, joined to its request and head."""
+    def receipt(self, name: str, request_name: str, request: dict, head: str, step: str,
+                stored: bool) -> None:
+        """The receipt a committed step's owner writes, joined to its request and head: the
+        digest of the record the step stored when it names one, or else a digest it mints."""
         self.uses[name] = set()
         receipt = {"kind": "operation_receipt", "schema": 1, "request_id": request["request_id"],
                    "request_digest": self.value(f"#{request_name}", name, "/request_digest"),
                    "owner": request["owner"], "target": request["target"],
-                   "head_digest": self.value(f"$digest:{head}", name, "/head_digest"),
+                   "head_digest": self.value(f"#{head}" if stored else f"$digest:{head}", name,
+                                             "/head_digest"),
                    "sequence": self.value(f"$integer:{step}_sequence", name, "/sequence"),
                    "committed_at": self.value(f"$instant:{step}_committed_at", name,
                                               "/committed_at")}
@@ -287,6 +309,25 @@ class _Scenario:
             self.fail(step, f"no receipt the contract permits answers this request: {found}")
         self.built[name] = receipt
         self.digests[name] = canonical.digest_of(receipt)
+
+    def convention(self, step: str, name: str, table: dict, gaps: list) -> None:
+        """A request states its operation's effect class, grant action and kind of target."""
+        request = self.built[name]
+        row = table.get(request.get("operation"))
+        if row is None:  # an operation no contract declares is refused by the request schema
+            return
+        stated = {"effect_class": request.get("effect_class"), "action": request.get("action")}
+        wanted = {"effect_class": row["effect"], "action": row["action"]}
+        if any(gap["code"] == EFFECT_CLASS_MISMATCH for gap in gaps):
+            del stated["effect_class"], wanted["effect_class"]
+        for field, value in wanted.items():
+            if stated[field] != value:
+                self.fail(step, f"{name} states {field} {stated[field]!r}; "
+                                f"{request['operation']} is {value!r}")
+        target = request.get("target", {}).get("resource_id", "")
+        if target[:3] not in row["targets"]:
+            self.fail(step, f"{name} targets {target[:3]}_; {request['operation']} targets "
+                            f"{', '.join(row['targets'])}")
 
     def placed(self, row: dict) -> dict:
         """The step's name, and where and when it runs when the world says."""
@@ -327,6 +368,10 @@ class _Scenario:
                                 "its payload")
         modes = {row["request"]: SUBMIT, **{n: (SUBMIT if n == payload or n in submits
                                                 else STORED) for n in carried}}
+        gaps = row.get("answer", {}).get("gaps", [])
+        for sent in [row["request"], *(n for n in carried
+                                        if carried[n].get("kind") == "operation_request")]:
+            self.convention(name, sent, table, gaps)
         if "refused" in row:
             stated: dict[str, list] = {}
             for refusal in row["refused"]:
@@ -362,6 +407,32 @@ class _Scenario:
         if payload is not None and self.built[payload]["kind"] not in takes:
             self.fail(name, f"{operation} takes {list(takes)}, not {self.built[payload]['kind']}")
         answer = row["answer"]
+        head, reused = answer.get("head"), answer.get("receipt_of")
+        if (head is not None or reused is not None) and answer["stage"] != "committed":
+            self.fail(name, "names a head or a receipt, and only a committed answer has one")
+        if head is not None and reused is not None:
+            self.fail(name, "names an earlier receipt, and a new head only a new receipt states")
+        if answer["stage"] == "committed" and answer["local_effect"] != "committed":
+            self.fail(name, f"a committed answer states local_effect 'committed', not "
+                            f"{answer['local_effect']!r}")
+        if head in self.specs and head not in answer["returns"]:
+            self.fail(name, f"names the record {head} as its head, and the answer does not "
+                            "return it")
+        result_name, receipt_name = f"{name}_result", f"{name}_receipt"
+        for generated in (result_name, receipt_name):
+            if generated in self.specs:
+                self.fail(name, f"{generated} is the name of a record this step generates")
+        # The receipt comes first, so a record the answer returns can name its own step's receipt.
+        receipts = []
+        if reused is not None:
+            if f"{reused}_receipt" not in self.built or reused not in self.results:
+                self.fail(name, f"answers with the receipt of {reused}, which no earlier "
+                                "committed step wrote")
+            receipt_name = f"{reused}_receipt"
+        elif answer["stage"] == "committed":
+            self.receipt(receipt_name, row["request"], request, head or f"{name}_head", name,
+                         stored=head in answer["returns"])
+            receipts = [receipt_name]
         for returned in answer["returns"]:
             kind = self.record(returned).get("kind")
             if kind not in returns:
@@ -369,19 +440,9 @@ class _Scenario:
             found = _violations(self.built[returned], STORED, self.schemas)
             if found:
                 self.fail(name, f"{returned} is not a record its owner could store: {found}")
-        head = answer.get("head")
-        if head is not None and answer["stage"] != "committed":
-            self.fail(name, "names a head, and only a committed answer moves one")
-        result_name, receipt_name = f"{name}_result", f"{name}_receipt"
-        for generated in (result_name, receipt_name):
-            if generated in self.specs:
-                self.fail(name, f"{generated} is the name of a record this step generates")
         self.uses[result_name] = set()
         outcome = {"stage": answer["stage"], "material_gaps": answer["gaps"]}
-        receipts = []
         if answer["stage"] == "committed":
-            self.receipt(receipt_name, row["request"], request, head or f"{name}_head", name)
-            receipts = [receipt_name]
             outcome["receipt_digest"] = self.value(f"#{receipt_name}", result_name,
                                                    "/outcome/receipt_digest")
         result = {"kind": "operation_result", "schema": 1, "request_id": request["request_id"],
@@ -407,7 +468,8 @@ class _Scenario:
         return ({**self.placed(row), "request": row["request"], "carries": row["carries"],
                  **({"submits": submits} if submits else {}),
                  "result": result_name, "returns": answer["returns"],
-                 **({"head": head} if head else {})}, sorted(minted_here))
+                 **({"head": head} if head else {}),
+                 **({"receipt_of": reused} if reused else {})}, sorted(minted_here))
 
 
 def generate(spec_bytes: bytes, schemas: dict | None = None) -> dict:
@@ -428,8 +490,18 @@ def generate(spec_bytes: bytes, schemas: dict | None = None) -> dict:
         built.fail("steps", "two steps share a name")
     world = spec.get("world", {})
     placed(built, world, spec["steps"], names)
+    during = {pair["step"]: pair["runs"] for pair in world.get("during", [])}
+    minted_by: dict[str, set[str]] = {}
     for row in spec["steps"]:
         step, minted = built.step(row, table, defined, result_schema)
+        minted_by[row["name"]] = set(minted) - defined
+        if row["name"] in during:
+            # Its request was sent before the step running during it started.
+            sent = set().union(*(built.uses[n] for n in [row["request"], *row["carries"]]))
+            early = sorted(sent & minted_by[during[row["name"]]])
+            if early:
+                built.fail(row["name"], f"its request was sent before {during[row['name']]} ran, "
+                                        f"and uses {early}, which that step mints")
         steps.append(step)
         definitions.extend({"name": m, "shape": built.minted[m], "step": row["name"]}
                            for m in minted if m not in defined)
@@ -473,15 +545,32 @@ def placed(built: _Scenario, world: dict, steps: list[dict], names: list[str]) -
                 built.fail("world", f"partitions from or until {end}, which is no step")
         if len(ends) == 2 and names.index(ends[0]) >= names.index(ends[1]):
             built.fail("world", f"a partition ends at {ends[1]} before it starts")
-    answered = {row["name"] for row in steps if "answer" in row}
+    answered = {row["name"]: row for row in steps if "answer" in row}
     faulted = [fault["step"] for fault in world.get("faults", [])]
     for fault in world.get("faults", []):
         if fault["step"] not in answered:
             built.fail("world", f"faults {fault['step']}, which is no answered step")
         if fault["point"] not in b03.FAULT_POINTS:
             built.fail("world", f"{fault['point']} is no fault point B03 declares")
+        seen = fault.get("observed_by")
+        if seen is not None and (seen not in answered or names.index(seen) <= names.index(
+                fault["step"]) or f"{fault['step']}_result" not in answered[seen]["answer"][
+                "returns"]):
+            built.fail("world", f"{fault['step']} is observed by {seen}, which is no later "
+                                f"answered step returning {fault['step']}_result")
     if len(set(faulted)) != len(faulted):
         built.fail("world", "two faults kill one step")
+    inner = [pair["runs"] for pair in world.get("during", [])]
+    for pair in world.get("during", []):
+        if pair["step"] not in answered or pair["runs"] not in answered:
+            built.fail("world", f"{pair['runs']} runs during {pair['step']}, and both must be "
+                                "answered steps")
+        if names.index(pair["runs"]) + 1 != names.index(pair["step"]):
+            built.fail("world", f"{pair['runs']} runs during {pair['step']}, and must be listed "
+                                "immediately before it")
+    if len(set(inner)) != len(inner) or set(inner) & {p["step"] for p in world.get("during", [])}:
+        built.fail("world", "a step runs during two steps, or both runs during one and has one "
+                            "run during it")
 
 
 def render(scenario: dict) -> bytes:

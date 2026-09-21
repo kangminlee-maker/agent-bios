@@ -1,6 +1,6 @@
 {
  "case": "N15-ATTEMPT-NEG",
- "says": "Alice binds her device key, authors and selects a personal Instructions source, opens a link to her working conversation and composes a preparation bound to it; the installed claude-code client is probed for native user events; she publishes two conflicting choices and the use of that concern waits on a sealed question. Four delivery attempts follow on that link, each answered by a delivery_attempt the owner writes. The body attempt names the preparation and its one body, and its receipt names exactly that body. The question attempt names the question id and version and still waits. After her verified answer is recorded, a retry of the same use and question version sees that answer, naming the answer evidence for that question. A resume attempt carrying that evidence and the chosen record's body receives exactly that body. Held against its own request, each attempt sees an answer only when it delivered a question and receives only bodies it asked to deliver; the rule's fixture holds an answer seen for a body delivery, a receipt for a question and a body nobody asked to deliver, which the owner must never write.",
+ "says": "Alice binds her device key, authors and selects a personal Instructions source, opens a link to her working conversation and composes a preparation for delivery on it; the installed claude-code client is probed for native user events; she publishes two conflicting choices and the use of that concern waits on a sealed question. Four delivery attempts follow on that link, each answered by a delivery_attempt the owner writes. The body attempt names the preparation and its one body, and its receipt names exactly that body. The question attempt names the question id and version and still waits. After her verified answer is recorded, a retry of the same use and question version sees that answer, naming the answer evidence for that question. A resume attempt carrying that evidence and the chosen record's body receives exactly that body. Held against its own request, each attempt sees an answer only when it delivered a question and receives only bodies it asked to deliver; the rule's fixture holds an answer seen for a body delivery, a receipt for a question and a body nobody asked to deliver, which the owner must never write.",
  "ids": [
   {
    "name": "alice",
@@ -49,10 +49,6 @@
   {
    "name": "decisions",
    "prefix": "src"
-  },
-  {
-   "name": "decisions_collection",
-   "prefix": "col"
   },
   {
    "name": "register_decisions_id",
@@ -581,6 +577,10 @@
     {
      "pointer": "/basis/scopes/0/principal_id",
      "value": "@alice"
+    },
+    {
+     "pointer": "/declared_operation/name",
+     "value": "recipient.delivery.attempt"
     }
    ]
   },
@@ -608,7 +608,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -690,7 +690,7 @@
     },
     {
      "pointer": "/collections/0/head_digest",
-     "value": "$digest:collection_head"
+     "value": "#rules_selection"
     },
     {
      "pointer": "/collections/0/state",
@@ -773,7 +773,7 @@
     },
     {
      "pointer": "/action",
-     "value": "read"
+     "value": "local_profile"
     },
     {
      "pointer": "/effect_class",
@@ -875,6 +875,16 @@
    ]
   },
   {
+   "name": "host_config",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:probed_at"
+    }
+   ]
+  },
+  {
    "name": "decisions_home",
    "from": "sources/home_of_a_managed_collection.json",
    "drop": [
@@ -892,10 +902,6 @@
     {
      "pointer": "/acceptance_authority/principal_id",
      "value": "@alice"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@decisions_collection"
     },
     {
      "pointer": "/role",
@@ -928,7 +934,7 @@
     },
     {
      "pointer": "/action",
-     "value": "local_profile"
+     "value": "contribute"
     },
     {
      "pointer": "/effect_class",
@@ -1812,7 +1818,7 @@
     },
     {
      "pointer": "/action",
-     "value": "decide"
+     "value": "use"
     },
     {
      "pointer": "/effect_class",
@@ -1882,7 +1888,7 @@
     },
     {
      "pointer": "/measured_configuration_digest",
-     "value": "$digest:verified_answer_configuration"
+     "value": "#choice_config"
     },
     {
      "pointer": "/observed_at",
@@ -1895,6 +1901,16 @@
     {
      "pointer": "/origin/separation_evidence_digest",
      "value": "#probe_that_worked"
+    }
+   ]
+  },
+  {
+   "name": "choice_config",
+   "from": "host_config",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:verified_answer_at"
     }
    ]
   },
@@ -2170,7 +2186,7 @@
     "returns": [
      "rules_selection"
     ],
-    "head": "collection_head"
+    "head": "rules_selection"
    }
   },
   {
@@ -2181,7 +2197,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2197,7 +2213,7 @@
     "preparation_request"
    ],
    "answer": {
-    "stage": "committed",
+    "stage": "previewed",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
@@ -2215,13 +2231,14 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
      "probe_that_worked",
-     "host_profile"
+     "host_profile",
+     "host_config"
     ]
    }
   },
@@ -2312,7 +2329,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2329,7 +2346,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2346,12 +2363,13 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "verified_answer"
+     "verified_answer",
+     "choice_config"
     ]
    }
   },
@@ -2363,7 +2381,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2380,7 +2398,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],

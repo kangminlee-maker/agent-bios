@@ -1,6 +1,6 @@
 {
  "case": "N05-CRASH-NEG",
- "says": "Alice's private notes source on her laptop is committed once, then committed eight more times, the process being killed at a different B03 fault point during each commit — before staging, after the member write before sync, after staging before rename, after rename before the directory sync, after that sync before the transaction begins, inside the transaction before commit, after commit before the answer returns, and during the checkpoint that follows — and once more during the backup taken after the last commit. After each restart the same request is answered once: a kill before the transaction commits left the prior head and no receipt, so the same request then commits exactly once; a kill after it commits returns the recorded result. Each next commit expects exactly the head the previous one moved to and is accepted, so no staged member was counted as committed and no request moved a head twice. The killed caller never saw the answer of the commit killed inside its transaction; querying that request id settles it with the original result and its receipt. Submitting that request id again with other bytes (another revision) is refused with request_id_conflict and writes nothing. What must not happen: a head naming staged members without a receipt, a second receipt for one request, or the conflicting bytes replacing the original.",
+ "says": "Alice registers a private notes source on her laptop, which makes its first head, and commits it once on that head; she then commits eight more times, the process being killed at a different B03 fault point during each commit — before staging, after the member write before sync, after staging before rename, after rename before the directory sync, after that sync before the transaction begins, inside the transaction before commit, after commit before the answer returns, and during the checkpoint that follows — and once more during the backup taken after the last commit. A kill before the transaction commits leaves the prior head and no receipt, so the same request, sent again after the restart, commits exactly once; each next commit expects exactly the head the previous one moved to and is accepted, so no staged member was counted as committed and no request moved a head twice. The kill after commit and before the answer leaves Alice without a reply: the outcome is unknown to her, and querying that request id settles it with the original result and its receipt, whose head the next commit then expects. A later query of the commit killed inside its transaction returns the one result and receipt its resubmission wrote. Submitting the settled request id again with other bytes (another revision) is refused with request_id_conflict and writes nothing. What must not happen: a head naming staged members without a receipt, a second receipt for one request, or the conflicting bytes replacing the original.",
  "ids": [
   {
    "name": "alice",
@@ -17,10 +17,6 @@
   {
    "name": "notes_source",
    "prefix": "src"
-  },
-  {
-   "name": "notes_collection",
-   "prefix": "col"
   },
   {
    "name": "bind_request",
@@ -76,6 +72,10 @@
   },
   {
    "name": "settle_request",
+   "prefix": "req"
+  },
+  {
+   "name": "settle_request_7",
    "prefix": "req"
   }
  ],
@@ -182,10 +182,6 @@
      "value": "@alice"
     },
     {
-     "pointer": "/home/collection_id",
-     "value": "@notes_collection"
-    },
-    {
      "pointer": "/role",
      "value": "knowledge"
     },
@@ -213,7 +209,7 @@
     },
     {
      "pointer": "/action",
-     "value": "local_profile"
+     "value": "contribute"
     },
     {
      "pointer": "/effect_class",
@@ -327,11 +323,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#revision_0"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:home_head"
     }
    ]
   },
@@ -948,6 +948,70 @@
    ]
   },
   {
+   "name": "settle_query_7",
+   "from": "c03/query_by_request_id.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_request_7"
+    }
+   ]
+  },
+  {
+   "name": "settle_7",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@settle_request_7"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.query"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@commit_request_7"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#settle_query_7"
+    }
+   ]
+  },
+  {
    "name": "revision_8",
    "from": "sources/revision_submitted.json",
    "set": [
@@ -1278,56 +1342,6 @@
    ]
   },
   {
-   "name": "receipt_6",
-   "from": "c03/commit_receipt.json",
-   "drop": [
-    "/owner/team_id",
-    "/target/base"
-   ],
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@commit_request_6"
-    },
-    {
-     "pointer": "/request_digest",
-     "value": "#commit_6"
-    },
-    {
-     "pointer": "/owner/layer",
-     "value": "personal"
-    },
-    {
-     "pointer": "/owner/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@notes_source"
-    },
-    {
-     "pointer": "/head_digest",
-     "value": "$digest:head_6"
-    },
-    {
-     "pointer": "/sequence",
-     "value": "$integer:sequence_6"
-    },
-    {
-     "pointer": "/committed_at",
-     "value": "$instant:committed_at_6"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "head"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:head_5"
-    }
-   ]
-  },
-  {
    "name": "other_bytes",
    "from": "sources/revision_submitted.json",
    "set": [
@@ -1343,7 +1357,7 @@
   },
   {
    "name": "same_id_other_bytes",
-   "from": "commit_6",
+   "from": "commit_7",
    "set": [
     {
      "pointer": "/payload_digest",
@@ -1384,7 +1398,8 @@
     "recovery": [],
     "returns": [
      "stored_home"
-    ]
+    ],
+    "head": "home_head"
    }
   },
   {
@@ -1532,6 +1547,24 @@
    }
   },
   {
+   "name": "settle_the_commit_killed_before_its_answer",
+   "request": "settle_7",
+   "carries": [
+    "settle_query_7"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "commit_revision_7_result",
+     "commit_revision_7_receipt"
+    ]
+   }
+  },
+  {
    "name": "commit_revision_8",
    "request": "commit_8",
    "carries": [
@@ -1583,7 +1616,7 @@
    }
   },
   {
-   "name": "settle_the_commit_killed_in_its_transaction",
+   "name": "query_the_commit_killed_in_its_transaction",
    "request": "settle",
    "carries": [
     "settle_query"
@@ -1596,7 +1629,7 @@
     "recovery": [],
     "returns": [
      "commit_revision_6_result",
-     "receipt_6"
+     "commit_revision_6_receipt"
     ]
    }
   },
@@ -1650,7 +1683,8 @@
    },
    {
     "step": "commit_revision_7",
-    "point": "after_commit_before_return"
+    "point": "after_commit_before_return",
+    "observed_by": "settle_the_commit_killed_before_its_answer"
    },
    {
     "step": "commit_revision_8",

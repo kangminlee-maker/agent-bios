@@ -10,7 +10,8 @@
     "bootstrap",
     "atomic",
     "cases",
-    "selects"
+    "selects",
+    "covers"
   ],
   "properties": {
     "schema": {
@@ -36,7 +37,7 @@
       }
     },
     "atomic": {
-      "description": "Every atomic case of the catalog. Its meaning and prerequisites are the catalog's; this adds what it drives and reads.",
+      "description": "Every atomic case of the catalog. Its meaning and prerequisites are the catalog's; its scenario states what it drives.",
       "type": "array",
       "minItems": 1,
       "items": {
@@ -51,11 +52,19 @@
       }
     },
     "selects": {
-      "description": "Which new cases each profile runs. Atomic and bootstrap selection stays in the catalog.",
+      "description": "Which new cases each profile runs, and catalog atomic cases it runs beyond its required ones. Required atomic and bootstrap selection stays in the catalog.",
       "type": "array",
       "minItems": 1,
       "items": {
         "$ref": "#/$defs/selection"
+      }
+    },
+    "covers": {
+      "description": "What realizes each done_when item of every open profile's node.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/coverage"
       }
     }
   },
@@ -171,24 +180,8 @@
       "type": "string",
       "pattern": "^(?:[BC][0-9]{2}|runner)$"
     },
-    "contracts": {
-      "type": "array",
-      "minItems": 1,
-      "uniqueItems": true,
-      "items": {
-        "$ref": "#/$defs/contract"
-      }
-    },
-    "operations": {
-      "type": "array",
-      "uniqueItems": true,
-      "items": {
-        "type": "string",
-        "pattern": "^[a-z]+(?:_[a-z]+)*(?:\\.[a-z]+(?:_[a-z]+)*)+$"
-      }
-    },
     "fixtures": {
-      "description": "Files or directories (a trailing slash) under the two fixture roots, or the entrance dispositions. A directory stands for every file under it.",
+      "description": "Files or directories (a trailing slash) under the two fixture roots, or the entrance dispositions, that a case reads besides its scenario. A directory stands for every file under it.",
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
@@ -201,23 +194,14 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "id",
-        "contracts",
-        "operations",
-        "fixtures"
+        "id"
       ],
       "properties": {
         "id": {
           "type": "string",
           "pattern": "^[A-Z]+(?:-[A-Z0-9]+)+$"
         },
-        "contracts": {
-          "$ref": "#/$defs/contracts"
-        },
-        "operations": {
-          "$ref": "#/$defs/operations"
-        },
-        "fixtures": {
+        "reads": {
           "$ref": "#/$defs/fixtures"
         }
       }
@@ -228,9 +212,6 @@
       "required": [
         "id",
         "oracle",
-        "contracts",
-        "operations",
-        "fixtures",
         "asserts"
       ],
       "properties": {
@@ -244,25 +225,24 @@
           "type": "integer",
           "minimum": 0
         },
-        "contracts": {
-          "$ref": "#/$defs/contracts"
-        },
-        "operations": {
-          "$ref": "#/$defs/operations"
-        },
-        "fixtures": {
-          "$ref": "#/$defs/fixtures"
-        },
         "asserts": {
-          "description": "What the driver checks, in terms of the named contracts and fixtures.",
+          "description": "What the driver checks over the case's scenario.",
           "type": "string",
           "minLength": 1,
           "maxLength": 1200
         },
-        "rule": {
-          "description": "A runtime rule a contract module declares, which this case checks over what the owner writes.",
-          "type": "string",
-          "pattern": "^C[0-9]{2}/[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        "rules": {
+          "description": "Runtime rules contract modules declare, which this case checks over what the owner writes.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^C[0-9]{2}/[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+          }
+        },
+        "reads": {
+          "$ref": "#/$defs/fixtures"
         }
       }
     },
@@ -283,7 +263,57 @@
           "uniqueItems": true,
           "items": {
             "type": "string",
-            "pattern": "^N[0-9]{2}(?:-[A-Z0-9]+)+-(?:POS|NEG)$"
+            "pattern": "^(?:N[0-9]{2}(?:-[A-Z0-9]+)+-(?:POS|NEG)|[A-Z]+(?:-[A-Z0-9]+)+)$"
+          }
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile",
+        "done_when"
+      ],
+      "properties": {
+        "profile": {
+          "$ref": "#/$defs/profile"
+        },
+        "done_when": {
+          "description": "One list per done_when item of the profile's node, in order: the cases that realize it.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9-]+$"
+            }
+          }
+        },
+        "elsewhere": {
+          "description": "Each contract the node implements that none of its bound cases can drive, and why.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "contract",
+              "reason"
+            ],
+            "properties": {
+              "contract": {
+                "$ref": "#/$defs/contract"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              }
+            }
           }
         }
       }

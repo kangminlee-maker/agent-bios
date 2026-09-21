@@ -1,6 +1,6 @@
 {
  "case": "N16-HOME-POS",
- "says": "alice binds her laptop key and founds the Team Platform. She registers a knowledge source whose home is a managed collection in the Team's scope, whose revisions the Team accepts, and which applies where the repository is payments; she commits its first revision, and reference.resolve returns that revision with provenance saying it was authored here from her personal scope. The source's authoring view (W03), opened from the Studio hub, shows the authoring home, the revision owner, the home scope, the applicability and the provenance origin as five distinct elements, each referring to the home, the Team scope or the provenance of that one source. The effective view is a separate choice marked derived; focusing it does not turn it into the home, and no frame shows an effective or derived view in the home's place.",
+ "says": "alice binds her laptop key and founds the Team Platform. She registers a knowledge source whose home is a managed collection in the Team's scope, whose revisions the Team accepts, and which applies where the repository is payments; she commits its first revision against the head the registration moved to, and reference.resolve returns that revision with provenance saying it was authored here from her personal scope. The source's authoring view (W03), opened from the Studio hub, shows the authoring home, the revision owner, the home scope, the applicability and the provenance origin as five distinct elements, each referring to that one source by its id. The effective view is a separate choice marked derived; focusing it does not turn it into the home, and no frame shows an effective or derived view in the home's place.",
  "ids": [
   {
    "name": "alice",
@@ -29,10 +29,6 @@
   {
    "name": "rules",
    "prefix": "src"
-  },
-  {
-   "name": "rules_collection",
-   "prefix": "col"
   },
   {
    "name": "home_request",
@@ -181,6 +177,20 @@
    ]
   },
   {
+   "name": "team_sealed_proposal",
+   "from": "founding",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_founding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
    "name": "found",
    "from": "c03/history_request.json",
    "drop": [
@@ -239,15 +249,11 @@
   },
   {
    "name": "team_active",
-   "from": "c08/team_closed_for_good.json",
+   "from": "c08/active_team.json",
    "set": [
     {
      "pointer": "/since",
      "value": "$instant:founded_at"
-    },
-    {
-     "pointer": "/state",
-     "value": "active"
     },
     {
      "pointer": "/team_id",
@@ -340,6 +346,54 @@
    ]
   },
   {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:founded_head"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
    "name": "home",
    "from": "sources/home_submitted.json",
    "drop": [
@@ -360,10 +414,6 @@
     {
      "pointer": "/applicability/conditions/0/value",
      "value": "payments"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@rules_collection"
     },
     {
      "pointer": "/home/mode",
@@ -484,10 +534,6 @@
      "value": "team"
     },
     {
-     "pointer": "/home/collection_id",
-     "value": "@rules_collection"
-    },
-    {
      "pointer": "/home/markdown_view/path",
      "value": "views/review-rules.md"
     },
@@ -547,7 +593,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/actor/principal_id",
@@ -593,11 +639,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#revision"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:rules_registered"
     }
    ]
   },
@@ -875,14 +925,6 @@
      "value": "detail"
     },
     {
-     "pointer": "/frames/0/elements/0/refers_to/ref",
-     "value": "record"
-    },
-    {
-     "pointer": "/frames/0/elements/0/refers_to/digest",
-     "value": "#stored_home"
-    },
-    {
      "pointer": "/frames/0/elements/1/element_id",
      "value": "home.revision_owner"
     },
@@ -893,18 +935,6 @@
     {
      "pointer": "/frames/0/elements/1/role",
      "value": "detail"
-    },
-    {
-     "pointer": "/frames/0/elements/1/refers_to/ref",
-     "value": "scope"
-    },
-    {
-     "pointer": "/frames/0/elements/1/refers_to/scope/layer",
-     "value": "team"
-    },
-    {
-     "pointer": "/frames/0/elements/1/refers_to/scope/team_id",
-     "value": "@team"
     },
     {
      "pointer": "/frames/0/elements/2/element_id",
@@ -931,18 +961,6 @@
      "value": "none"
     },
     {
-     "pointer": "/frames/0/elements/2/refers_to/ref",
-     "value": "scope"
-    },
-    {
-     "pointer": "/frames/0/elements/2/refers_to/scope/layer",
-     "value": "team"
-    },
-    {
-     "pointer": "/frames/0/elements/2/refers_to/scope/team_id",
-     "value": "@team"
-    },
-    {
      "pointer": "/frames/0/elements/3/element_id",
      "value": "home.applicability"
     },
@@ -963,14 +981,6 @@
      "value": "none"
     },
     {
-     "pointer": "/frames/0/elements/3/refers_to/ref",
-     "value": "record"
-    },
-    {
-     "pointer": "/frames/0/elements/3/refers_to/digest",
-     "value": "#stored_home"
-    },
-    {
      "pointer": "/frames/0/elements/4/element_id",
      "value": "home.provenance"
     },
@@ -985,14 +995,6 @@
     {
      "pointer": "/frames/0/elements/4/role",
      "value": "detail"
-    },
-    {
-     "pointer": "/frames/0/elements/4/refers_to/ref",
-     "value": "record"
-    },
-    {
-     "pointer": "/frames/0/elements/4/refers_to/digest",
-     "value": "#rules_provenance"
     },
     {
      "pointer": "/frames/0/elements/5/element_id",
@@ -1125,14 +1127,6 @@
      "value": "detail"
     },
     {
-     "pointer": "/frames/1/elements/0/refers_to/ref",
-     "value": "record"
-    },
-    {
-     "pointer": "/frames/1/elements/0/refers_to/digest",
-     "value": "#stored_home"
-    },
-    {
      "pointer": "/frames/1/elements/1/element_id",
      "value": "home.revision_owner"
     },
@@ -1143,18 +1137,6 @@
     {
      "pointer": "/frames/1/elements/1/role",
      "value": "detail"
-    },
-    {
-     "pointer": "/frames/1/elements/1/refers_to/ref",
-     "value": "scope"
-    },
-    {
-     "pointer": "/frames/1/elements/1/refers_to/scope/layer",
-     "value": "team"
-    },
-    {
-     "pointer": "/frames/1/elements/1/refers_to/scope/team_id",
-     "value": "@team"
     },
     {
      "pointer": "/frames/1/elements/2/element_id",
@@ -1175,18 +1157,6 @@
     {
      "pointer": "/frames/1/elements/2/selection",
      "value": "none"
-    },
-    {
-     "pointer": "/frames/1/elements/2/refers_to/ref",
-     "value": "scope"
-    },
-    {
-     "pointer": "/frames/1/elements/2/refers_to/scope/layer",
-     "value": "team"
-    },
-    {
-     "pointer": "/frames/1/elements/2/refers_to/scope/team_id",
-     "value": "@team"
     },
     {
      "pointer": "/frames/1/elements/3/element_id",
@@ -1213,14 +1183,6 @@
      "value": "none"
     },
     {
-     "pointer": "/frames/1/elements/3/refers_to/ref",
-     "value": "record"
-    },
-    {
-     "pointer": "/frames/1/elements/3/refers_to/digest",
-     "value": "#stored_home"
-    },
-    {
      "pointer": "/frames/1/elements/4/element_id",
      "value": "home.provenance"
     },
@@ -1235,14 +1197,6 @@
     {
      "pointer": "/frames/1/elements/4/role",
      "value": "detail"
-    },
-    {
-     "pointer": "/frames/1/elements/4/refers_to/ref",
-     "value": "record"
-    },
-    {
-     "pointer": "/frames/1/elements/4/refers_to/digest",
-     "value": "#rules_provenance"
     },
     {
      "pointer": "/frames/1/elements/5/element_id",
@@ -1370,6 +1324,86 @@
     {
      "pointer": "/script_digest",
      "value": "#authoring_keys"
+    },
+    {
+     "pointer": "/frames/0/elements/0/refers_to/ref",
+     "value": "source"
+    },
+    {
+     "pointer": "/frames/0/elements/0/refers_to/source_id",
+     "value": "@rules"
+    },
+    {
+     "pointer": "/frames/0/elements/1/refers_to/ref",
+     "value": "source"
+    },
+    {
+     "pointer": "/frames/0/elements/1/refers_to/source_id",
+     "value": "@rules"
+    },
+    {
+     "pointer": "/frames/0/elements/2/refers_to/ref",
+     "value": "source"
+    },
+    {
+     "pointer": "/frames/0/elements/2/refers_to/source_id",
+     "value": "@rules"
+    },
+    {
+     "pointer": "/frames/0/elements/3/refers_to/ref",
+     "value": "source"
+    },
+    {
+     "pointer": "/frames/0/elements/3/refers_to/source_id",
+     "value": "@rules"
+    },
+    {
+     "pointer": "/frames/0/elements/4/refers_to/ref",
+     "value": "source"
+    },
+    {
+     "pointer": "/frames/0/elements/4/refers_to/source_id",
+     "value": "@rules"
+    },
+    {
+     "pointer": "/frames/1/elements/0/refers_to/ref",
+     "value": "source"
+    },
+    {
+     "pointer": "/frames/1/elements/0/refers_to/source_id",
+     "value": "@rules"
+    },
+    {
+     "pointer": "/frames/1/elements/1/refers_to/ref",
+     "value": "source"
+    },
+    {
+     "pointer": "/frames/1/elements/1/refers_to/source_id",
+     "value": "@rules"
+    },
+    {
+     "pointer": "/frames/1/elements/2/refers_to/ref",
+     "value": "source"
+    },
+    {
+     "pointer": "/frames/1/elements/2/refers_to/source_id",
+     "value": "@rules"
+    },
+    {
+     "pointer": "/frames/1/elements/3/refers_to/ref",
+     "value": "source"
+    },
+    {
+     "pointer": "/frames/1/elements/3/refers_to/source_id",
+     "value": "@rules"
+    },
+    {
+     "pointer": "/frames/1/elements/4/refers_to/ref",
+     "value": "source"
+    },
+    {
+     "pointer": "/frames/1/elements/4/refers_to/source_id",
+     "value": "@rules"
     }
    ]
   }
@@ -1406,10 +1440,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
+     "team_policy",
+     "team_founder_membership",
+     "founder_grant",
      "team_active",
      "team_named",
-     "team_policy",
-     "founder_grant"
+     "team_founding_epoch"
     ],
     "head": "founded_head"
    },
@@ -1431,7 +1468,8 @@
     "recovery": [],
     "returns": [
      "stored_home"
-    ]
+    ],
+    "head": "rules_registered"
    }
   },
   {

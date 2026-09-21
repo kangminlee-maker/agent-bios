@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C01 source revision manifest",
-  "description": "One immutable revision, by member and hash. The revision digest other records reference is the sha256 of these bytes, so there is no field for it here: a manifest that stated its own digest could not be the bytes that digest was taken over.",
+  "description": "One immutable revision, by member and hash, and the companion sources its members are read with. The revision digest other records reference is the sha256 of these bytes, so there is no field for it here: a manifest that stated its own digest could not be the bytes that digest was taken over.",
   "required": [
     "kind",
     "schema",
@@ -30,6 +30,15 @@
       "uniqueItems": true,
       "items": {
         "$ref": "#/$defs/member"
+      }
+    },
+    "companions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "Other sources this revision's members are read with — a table's notes, a model's glossary — as the revision's author declares them. A reader that needs one this installation does not hold says so (`companion_unavailable`); declaring one reads nothing of it and grants no access to it.",
+      "items": {
+        "$ref": "#/$defs/source_id"
       }
     },
     "produced_at": {

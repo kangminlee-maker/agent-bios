@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C06 reader envelope",
-  "description": "One envelope for all three roles: what work this is for, which subjects are required, the reader's role and view, what is being asked, and a budget. `retains` is the caller's own declaration that it still holds a body and its qualifications, which is the only thing that lets the answer leave that body out; a digest or a past receipt is not that declaration. The budget bounds what may be examined as well as what may be returned, and `history` says whether superseded and withdrawn material is asked for.",
+  "description": "One envelope for all three roles: what work this is for, which subjects are required, the reader's role and view, what is being asked, and a budget. `retains` is the caller's own declaration that it still holds a body and its qualifications, which is the only thing that lets the answer leave that body out; a digest or a past receipt is not that declaration. The budget bounds what may be examined as well as what may be returned, and `history` says whether superseded and withdrawn material is asked for. `candidates` selects the person's own memory candidates by exact version, which come back as support nobody has accepted.",
   "required": [
     "kind",
     "schema",
@@ -45,6 +45,15 @@
       "items": {
         "$ref": "#/$defs/retained_claim"
       }
+    },
+    "candidates": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/candidate_version"
+      },
+      "description": "The person's own memory candidates this work may use as support, each at an exact version. Selecting one neither publishes nor adopts it."
     },
     "budget": {
       "$ref": "#/$defs/budget"
@@ -360,6 +369,28 @@
           "$ref": "#/$defs/digest"
         }
       }
+    },
+    "candidate_version": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One version of a memory candidate, by its id and version number.",
+      "required": [
+        "candidate_id",
+        "version"
+      ],
+      "properties": {
+        "candidate_id": {
+          "$ref": "#/$defs/candidate_id"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "candidate_id": {
+      "type": "string",
+      "pattern": "^cnd_[0-9a-f]{32}$"
     }
   }
 }

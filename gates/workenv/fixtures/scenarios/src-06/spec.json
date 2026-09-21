@@ -75,10 +75,6 @@
    "prefix": "req"
   },
   {
-   "name": "team_a_rates_managed",
-   "prefix": "col"
-  },
-  {
    "name": "team_a_rates_register_id",
    "prefix": "req"
   },
@@ -492,6 +488,90 @@
    ]
   },
   {
+   "name": "team_a_sealed_proposal",
+   "from": "team_a_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_a_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_a_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_a_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_a_founder_membership_id"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_a_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_a_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_a_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:team_a_founded_at"
+    },
+    {
+     "pointer": "/name",
+     "value": "Billing"
+    },
+    {
+     "pointer": "/purpose",
+     "value": "The standards this group works to."
+    }
+   ]
+  },
+  {
+   "name": "team_a_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@me_dev"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_a_founded"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_a_founded_at"
+    }
+   ]
+  },
+  {
    "name": "team_b_policy_draft",
    "from": "c08/policy_as_submitted.json",
    "set": [
@@ -685,6 +765,90 @@
     {
      "pointer": "/since",
      "value": "$instant:team_b_since"
+    }
+   ]
+  },
+  {
+   "name": "team_b_sealed_proposal",
+   "from": "team_b_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_b_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_b_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_b_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_b_founder_membership_id"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_b_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_b_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_b_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:team_b_founded_at"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/purpose",
+     "value": "The standards this group works to."
+    }
+   ]
+  },
+  {
+   "name": "team_b_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@bob_dev"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_b_founded"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_b_founded_at"
     }
    ]
   },
@@ -981,10 +1145,6 @@
     {
      "pointer": "/acceptance_authority/team_id",
      "value": "@team_a"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@team_a_rates_managed"
     }
    ]
   },
@@ -1460,7 +1620,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "pure_preview"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/action",
@@ -1476,15 +1636,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@repo_notes"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "head"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:repo_notes_rev"
+     "value": "@me"
     },
     {
      "pointer": "/payload_digest",
@@ -1608,7 +1760,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "pure_preview"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/action",
@@ -1624,15 +1776,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@team_a_rates"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "head"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:team_a_rates_rev"
+     "value": "@me"
     },
     {
      "pointer": "/payload_digest",
@@ -1752,15 +1896,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@team_b_rules"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "head"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:team_b_rules_rev"
+     "value": "@bob"
     },
     {
      "pointer": "/payload_digest",
@@ -1870,15 +2006,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@team_b_rules"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "head"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:team_b_rules_rev"
+     "value": "@me"
     },
     {
      "pointer": "/payload_digest",
@@ -1942,7 +2070,7 @@
     },
     {
      "pointer": "/action",
-     "value": "local_profile"
+     "value": "use"
     },
     {
      "pointer": "/owner/layer",
@@ -2140,9 +2268,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_a_sealed_proposal",
      "team_a_policy",
+     "team_a_founder_membership",
      "team_a_owner_grant",
-     "team_a_state"
+     "team_a_state",
+     "team_a_profile",
+     "team_a_founding_epoch"
     ],
     "head": "team_a_founded"
    },
@@ -2164,9 +2296,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_b_sealed_proposal",
      "team_b_policy",
+     "team_b_founder_membership",
      "team_b_owner_grant",
-     "team_b_state"
+     "team_b_state",
+     "team_b_profile",
+     "team_b_founding_epoch"
     ],
     "head": "team_b_founded"
    },
@@ -2290,7 +2426,7 @@
    ],
    "answer": {
     "stage": "previewed",
-    "local_effect": "none",
+    "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2307,7 +2443,7 @@
    ],
    "answer": {
     "stage": "previewed",
-    "local_effect": "none",
+    "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],

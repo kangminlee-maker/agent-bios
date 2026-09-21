@@ -1,6 +1,6 @@
 {
  "case": "N22-E2E-POS",
- "says": "Three isolated processes, Alice's laptop, desktop and home server, each with its own store, run a week under the harness's clock (from Monday 09:00 UTC) and network policy; the user's clock is never set. On Monday the laptop founds the Team, commits a first revision of its knowledge source and sends it by peer to the desktop and the home server, which verify and commit it; the home server undertakes custody of it at storage generation 1 and acknowledges it. From Tuesday to Sunday the three cannot reach each other: the laptop commits two more revisions, the desktop is locked overnight and unlocked at its terminal the next morning, moving its access generation from 7 to 9, and the home server re-acknowledges what it keeps. On Sunday the network returns: the laptop stages one incremental package naming its Monday baseline and the home server's acknowledgment, the desktop (at its new access generation) and the home server both verify and commit it, and the home server acknowledges again. Every committed step leaves its receipt. What must not happen: any exchange while partitioned, the desktop acting on its old generation after the unlock, an increment without its baseline or acknowledgment, or the harness clock reaching the user's clock.",
+ "says": "Three isolated processes, Alice's laptop, desktop and home server, each with its own store, run a week under the harness's clock (from Monday 09:00 UTC) and network policy; the user's clock is never set. On Monday the laptop founds the Team, which returns the Team's founding continuity epoch, commits a first revision of its knowledge source and stages it by peer for the desktop and the home server — each staging a draft in its outbox with no receipt, the package carrying the founding epoch as a member because neither recipient holds it yet; both verify and commit it, each committed stage naming its accept's receipt, and the home server undertakes custody of it at storage generation 1 and acknowledges it. From Tuesday to Sunday the three cannot reach each other: the laptop commits two more revisions, the desktop is locked overnight and unlocked at its terminal the next morning, moving its access generation from 7 to 9, and the home server re-acknowledges what it keeps. On Sunday the network returns: the laptop stages one incremental package naming its Monday baseline and the home server's Monday acknowledgment, the last one it could receive; the desktop (at its new access generation) and the home server, which now hold the epoch, both verify and commit it, and the home server acknowledges again. Every committed step leaves its receipt and every staging none. What must not happen: any exchange while partitioned, the desktop acting on its old generation after the unlock, an increment without its baseline or acknowledgment, or the harness clock reaching the user's clock.",
  "ids": [
   {
    "name": "desktop_peer",
@@ -41,10 +41,6 @@
   {
    "name": "knowledge_source",
    "prefix": "src"
-  },
-  {
-   "name": "knowledge_collection",
-   "prefix": "col"
   },
   {
    "name": "home_request",
@@ -368,7 +364,7 @@
     },
     {
      "pointer": "/committed_at",
-     "value": "$instant:policy_committed_at"
+     "value": "$instant:team_founded_at"
     }
    ]
   },
@@ -386,7 +382,7 @@
     },
     {
      "pointer": "/since",
-     "value": "$instant:team_active_since"
+     "value": "$instant:team_founded_at"
     }
    ]
   },
@@ -420,10 +416,6 @@
      "value": "@team"
     },
     {
-     "pointer": "/home/collection_id",
-     "value": "@knowledge_collection"
-    },
-    {
      "pointer": "/role",
      "value": "knowledge"
     },
@@ -455,7 +447,7 @@
     },
     {
      "pointer": "/action",
-     "value": "publish"
+     "value": "contribute"
     },
     {
      "pointer": "/effect_class",
@@ -565,11 +557,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#first_revision"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:home_head"
     }
    ]
   },
@@ -782,6 +778,120 @@
     {
      "pointer": "/finalizer/device_id",
      "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "founding",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:team_founder_grant"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "publish",
+      "adopt",
+      "grant",
+      "policy",
+      "transfer",
+      "retain_delete"
+     ]
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 2
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/purpose",
+     "value": "The standards this group works to."
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:team_founded_at"
     }
    ]
   },
@@ -833,6 +943,22 @@
     {
      "pointer": "/inventory/0/object_kind",
      "value": "source_manifest"
+    },
+    {
+     "pointer": "/inventory/1/path",
+     "value": "continuity/0001.json"
+    },
+    {
+     "pointer": "/inventory/1/digest",
+     "value": "#founding_epoch"
+    },
+    {
+     "pointer": "/inventory/1/size",
+     "value": 512
+    },
+    {
+     "pointer": "/inventory/1/object_kind",
+     "value": "authority_continuity"
     }
    ]
   },
@@ -858,7 +984,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1044,7 +1170,7 @@
     },
     {
      "pointer": "/receipt_digest",
-     "value": "$digest:accept_monday_desktop_receipt"
+     "value": "#accept_monday_desktop_receipt"
     },
     {
      "pointer": "/at",
@@ -1074,7 +1200,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1260,7 +1386,7 @@
     },
     {
      "pointer": "/receipt_digest",
-     "value": "$digest:accept_monday_server_receipt"
+     "value": "#accept_monday_server_receipt"
     },
     {
      "pointer": "/at",
@@ -1944,22 +2070,6 @@
      "value": "source_manifest"
     },
     {
-     "pointer": "/inventory/1/path",
-     "value": "objects/0002.json"
-    },
-    {
-     "pointer": "/inventory/1/digest",
-     "value": "#thursday_stored"
-    },
-    {
-     "pointer": "/inventory/1/size",
-     "value": 4096
-    },
-    {
-     "pointer": "/inventory/1/object_kind",
-     "value": "source_manifest"
-    },
-    {
      "pointer": "/completeness/baseline/source_id",
      "value": "@knowledge_source"
     },
@@ -2011,7 +2121,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -2205,7 +2315,7 @@
     },
     {
      "pointer": "/receipt_digest",
-     "value": "$digest:accept_sunday_desktop_receipt"
+     "value": "#accept_sunday_desktop_receipt"
     },
     {
      "pointer": "/at",
@@ -2235,7 +2345,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -2425,7 +2535,7 @@
     },
     {
      "pointer": "/receipt_digest",
-     "value": "$digest:accept_sunday_server_receipt"
+     "value": "#accept_sunday_server_receipt"
     },
     {
      "pointer": "/at",
@@ -2561,8 +2671,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
-     "team_active"
+     "team_founder_membership",
+     "team_founder_grant",
+     "team_active",
+     "team_profile",
+     "founding_epoch"
     ],
     "head": "team_head"
    },
@@ -2585,7 +2700,8 @@
     "recovery": [],
     "returns": [
      "stored_home"
-    ]
+    ],
+    "head": "home_head"
    },
    "process": "laptop"
   },
@@ -2651,8 +2767,8 @@
     "full_envelope"
    ],
    "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
+    "stage": "draft",
+    "local_effect": "objects_staged",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2694,8 +2810,8 @@
     "full_envelope"
    ],
    "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
+    "stage": "draft",
+    "local_effect": "objects_staged",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2872,8 +2988,8 @@
     "sunday_envelope"
    ],
    "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
+    "stage": "draft",
+    "local_effect": "objects_staged",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2888,8 +3004,7 @@
    "name": "accept_sunday_desktop",
    "request": "accept_sunday_desktop",
    "carries": [
-    "sunday_envelope",
-    "founding_epoch"
+    "sunday_envelope"
    ],
    "answer": {
     "stage": "committed",
@@ -2915,8 +3030,8 @@
     "sunday_envelope"
    ],
    "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
+    "stage": "draft",
+    "local_effect": "objects_staged",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2931,8 +3046,7 @@
    "name": "accept_sunday_server",
    "request": "accept_sunday_server",
    "carries": [
-    "sunday_envelope",
-    "founding_epoch"
+    "sunday_envelope"
    ],
    "answer": {
     "stage": "committed",

@@ -1,6 +1,6 @@
 {
  "case": "TUI-ENTRY-REPO-NO-ENV",
- "says": "A person with a local principal binds an existing checkout (repository.bind: a clone, observed at main 0123456), writing a note with it. The entry browses the checkout (source.observe of README.md: previewed, nothing written) and reads the repository's recent history (operation.history.read): no request entries, and one dated checkpoint — the binding record — carrying the old note as history. The entry (surface.drive) shows the observed location and revision, the checkpoint labelled as a note from when it was written, no environment and no Team, empty repository and personal instructions, and one start action. Enter dispatches one preparation.compose request over the repository and personal scopes with no pins and no work_request; the owner commits a preparation that keeps the observed branch, commit and working bytes and whose task support is not requested, and route.select answers for that request with it. Negative: browsing writes nothing and nothing is uploaded; no step creates a Team, a membership or an adoption; the old note is never the start's work_request; and a start whose basis names an environment for this folder without adoption evidence is refused at admission (variant_mismatch /basis).",
+ "says": "A person with a local principal binds an existing checkout (repository.bind: a clone, observed at main 0123456), writing a note with it. The entry browses the checkout (source.observe of README.md: previewed, nothing written) and reads the repository's recent history (operation.history.read): no request entries, and one dated checkpoint — the binding record — carrying the old note as history. The entry (surface.drive) shows the observed location and revision, the checkpoint labelled as a note from when it was written, no environment and no Team, empty repository and personal instructions, and one start action. Enter dispatches one preparation.compose request over the repository and personal scopes with no pins and no work_request; the owner stores a preparation, as the requester's own record with no receipt, that keeps the observed branch, commit and working bytes and whose task support is not requested, and route.select answers for that request with it. Negative: browsing writes nothing and nothing is uploaded; no step creates a Team, a membership or an adoption; the old note is never the start's work_request; and a start whose basis names an environment for this folder without adoption evidence is refused at admission (variant_mismatch /basis).",
  "ids": [
   {
    "name": "me",
@@ -210,6 +210,10 @@
     {
      "pointer": "/roots/0/place/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/roots/0/permits/destinations/0/repository_id",
+     "value": "@repo"
     }
    ]
   },
@@ -356,7 +360,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@repo"
+     "value": "@profile"
     }
    ]
   },
@@ -438,7 +442,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@laptop"
+     "value": "@profile"
     }
    ]
   },
@@ -533,7 +537,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@me"
+     "value": "@profile"
     }
    ]
   },
@@ -607,7 +611,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@me"
+     "value": "@profile"
     }
    ]
   },
@@ -1235,6 +1239,10 @@
     {
      "pointer": "/target/resource_id",
      "value": "@me"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
     }
    ]
   },
@@ -1319,7 +1327,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "use"
+     "value": "read"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1351,7 +1359,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@me"
+     "value": "@profile"
     }
    ]
   },
@@ -1422,6 +1430,10 @@
     {
      "pointer": "/target/resource_id",
      "value": "@me"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
     }
    ]
   }
@@ -1435,7 +1447,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1452,7 +1464,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1503,7 +1515,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1520,7 +1532,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1553,7 +1565,7 @@
     "start_basis"
    ],
    "answer": {
-    "stage": "committed",
+    "stage": "previewed",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
@@ -1571,7 +1583,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],

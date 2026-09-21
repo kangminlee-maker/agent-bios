@@ -1,6 +1,6 @@
 {
  "case": "SRC-10",
- "says": "One person has two checkouts of repository W on their laptop: a clone on main and a worktree on a feature branch. Each is observed and bound with repository.bind; both bindings name the same repository id W, each with the working_bytes_digest of its own observation. The ADR directory of W is registered as a memory source, a workstream is opened, and memory.record.publish records the journal-mode choice from 0001-journal-mode.md as that source's first revision. A fork of W is observed and bound with its own repository id, naming W as the original it reads and the clone's binding as its authority evidence. Resolving the ADR source from the fork as if it were W is refused with repository_binding_required, and registering a second home for the same source in the fork (a copied manifest taking over as another writer) is refused with source_home_conflict; neither writes anything. Then the clone switches to a branch where 0001-journal-mode.md is absent and a new observation no longer lists it; memory.state.resolve for the workstream still reports the choice as current from the ADR source at the head it was published at: a file missing from a checkout or a branch switch is not a withdrawal.",
+ "says": "One person has two checkouts of repository W on their laptop: a clone on main at /home/ana/work and a worktree on a feature branch at /home/ana/work-feature-backups; each observation's selection names its own checkout. Each is observed and bound with repository.bind; both bindings name the same repository id W, each with the working_bytes_digest of its own observation. The ADR directory of W is registered as a memory source, a workstream is opened, and memory.record.publish records the journal-mode choice from 0001-journal-mode.md as that source's first revision. A fork of W is observed and bound with its own repository id, naming W as the original it reads and the clone's binding as its authority evidence. Resolving the ADR source from the fork as if it were W is refused with repository_binding_required, and registering a second home for the same source in the fork (a copied manifest taking over as another writer) is refused with source_home_conflict; neither writes anything. Then the clone switches to a branch where 0001-journal-mode.md is absent and a new observation no longer lists it; memory.state.resolve for the workstream still reports the choice as current from the ADR source at the head it was published at: a file missing from a checkout or a branch switch is not a withdrawal.",
  "ids": [
   {
    "name": "me",
@@ -81,6 +81,10 @@
   {
    "name": "resolve_state_request",
    "prefix": "req"
+  },
+  {
+   "name": "concern",
+   "prefix": "cnc"
   }
  ],
  "records": [
@@ -163,6 +167,10 @@
     },
     {
      "pointer": "/roots/1/place/repository_id",
+     "value": "@work"
+    },
+    {
+     "pointer": "/roots/0/permits/destinations/0/repository_id",
      "value": "@work"
     }
    ]
@@ -324,6 +332,18 @@
     {
      "pointer": "/roots/1/place/repository_id",
      "value": "@work"
+    },
+    {
+     "pointer": "/roots/0/permits/destinations/0/repository_id",
+     "value": "@work"
+    },
+    {
+     "pointer": "/roots/0/place/checkout",
+     "value": "/home/ana/work-feature-backups"
+    },
+    {
+     "pointer": "/roots/1/place/checkout",
+     "value": "/home/ana/work-feature-backups"
     }
    ]
   },
@@ -785,6 +805,18 @@
     {
      "pointer": "/roots/1/place/repository_id",
      "value": "@fork"
+    },
+    {
+     "pointer": "/roots/0/permits/destinations/0/repository_id",
+     "value": "@fork"
+    },
+    {
+     "pointer": "/roots/0/place/checkout",
+     "value": "/home/ana/work-fork"
+    },
+    {
+     "pointer": "/roots/1/place/checkout",
+     "value": "/home/ana/work-fork"
     }
    ]
   },
@@ -1182,15 +1214,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@decisions"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "head"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:decisions_head"
+     "value": "@concern"
     },
     {
      "pointer": "/payload_digest",

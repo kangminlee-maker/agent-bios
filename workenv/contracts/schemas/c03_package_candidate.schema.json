@@ -1,6 +1,6 @@
 {
   "title": "C03 package candidate",
-  "description": "One immutable candidate package built from one commit of the integrated source: its tarball, and every member with the source path it was copied from or the fact that it was made at pack time. That per-member origin is the source-to-package mapping, so a member with no source and no pack-time origin cannot be listed. A cutover names the candidate it installs by this record's digest; the required object closure is held over these members by the package gate.",
+  "description": "One immutable candidate package built from one commit of the integrated source: its tarball, and every member with the source path it was copied from or the fact that it was made at pack time. That per-member origin is the source-to-package mapping, so a member with no source and no pack-time origin cannot be listed. A cutover names the candidate it installs by this record's digest, and only one its owner registered. Registering it holds its closure over these members: a path a member `reaches` that no member provides is `runtime_path_missing` at the place naming that path, and a member copied from a path the integrated source declares author-side is `author_side_member` at its `copied_from`.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -68,7 +68,7 @@
     "package_member": {
       "type": "object",
       "additionalProperties": false,
-      "description": "One file of the package: where it sits, its bytes, and where they came from.",
+      "description": "One file of the package: where it sits, its bytes, where they came from, and the paths it reaches when it runs.",
       "required": [
         "path",
         "digest",
@@ -88,6 +88,15 @@
         },
         "origin": {
           "$ref": "#/$defs/member_origin"
+        },
+        "reaches": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/source_path"
+          },
+          "description": "The package paths this member's bytes name for the installed target to read when it runs — an installer's or an assembler's references — as the build found them. Each is another member's path. The owner reads the references again from the bytes it holds; one that is not a member is `runtime_path_missing`, at its place here, or at this list when the list leaves it out."
         }
       }
     },

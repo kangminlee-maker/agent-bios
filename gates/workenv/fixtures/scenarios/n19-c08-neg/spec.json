@@ -1,6 +1,6 @@
 {
  "case": "N19-C08-NEG",
- "says": "The founder and Bora found Team A together. The founder is its only owner and its finalizer. The founder keeps one draft as a candidate on the laptop. The founder's own leave, even with the draft handed to Bora, is refused with last_owner_removal_refused, because it would remove the last owner and sole finalizer. A close whose plan names Bora as surviving owner, when no stewardship transfer to Bora has happened, is refused with succession_incomplete: naming an intended successor does not settle succession. A read then returns the same active state and both grants. The Team is archived. A continuation that names only a work scope and no existing work has no spelling and is refused at admission. A rename of the archived Team is refused with team_archived. The founder then closes it properly: the plan names the founder as surviving owner and keeps the draft on the laptop. The owner writes a closed state. On the closed Team, a recovery whose purpose is reopen is refused at admission, and a restore is refused with team_terminal. A read returns the closed state. Separately, the founder proposes Team B and cancels that unused founding. Bora's late acceptance of B's founding request is refused with team_terminal, and a read of B returns only its founding_cancelled state. No refused step returns a record, moves a head or changes a grant, and the draft stays with the laptop throughout.",
+ "says": "The founder and Bora found Team A together: the reviewed founding waits in review with its sealed proposal, Bora accepts the exact founding request, and it commits admitting the founder by founding and Bora by nomination. The founder is its only owner and its finalizer. The founder keeps one draft as a candidate on the laptop. The founder's own leave (team.membership.leave), even with the draft handed to Bora, is refused with last_owner_removal_refused, because it would remove the last owner and sole finalizer. A close whose plan names Bora as surviving owner, when no stewardship transfer to Bora has happened, is refused with succession_incomplete: naming an intended successor does not settle succession. A read then returns the same active state, both memberships and both grants. The Team is archived. A continuation (team.continuation.record) that names only a work scope and no existing work has no spelling and is refused at admission. A rename of the archived Team is refused with team_archived. The founder then closes it properly: the plan names the founder as surviving owner and keeps the draft on the laptop. The owner writes a closed state. On the closed Team, a recovery (team.retention.apply) whose purpose is reopen is refused at admission, and a restore is refused with team_terminal. A read returns the closed state. Separately, the founder proposes Team B and cancels that unused founding. Bora's late acceptance of B's founding request is refused with team_terminal, and a read of B returns only its founding_cancelled state. No refused step returns a record, moves a head or changes a grant, and the draft stays with the laptop throughout.",
  "ids": [
   {
    "name": "founder",
@@ -169,6 +169,98 @@
     {
      "pointer": "/recovery/0/principal_id",
      "value": "@bora"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_sealed_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:proposed_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership_id"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@founder"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_bora_nominee_membership",
+   "from": "c08/nominee_admitted_by_accepting_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_bora_membership_id"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@bora"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/standing/acceptance_digest",
+     "value": "#acceptance_stored"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:founded"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:founded_at"
     }
    ]
   },
@@ -536,7 +628,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "durable_candidate"
+     "value": "owner_commit"
     },
     {
      "pointer": "/actor/principal_id",
@@ -639,11 +731,11 @@
     },
     {
      "pointer": "/operation",
-     "value": "team.lifecycle.apply"
+     "value": "team.membership.leave"
     },
     {
      "pointer": "/action",
-     "value": "policy"
+     "value": "local_profile"
     },
     {
      "pointer": "/effect_class",
@@ -969,11 +1061,11 @@
     },
     {
      "pointer": "/operation",
-     "value": "team.lifecycle.apply"
+     "value": "team.continuation.record"
     },
     {
      "pointer": "/action",
-     "value": "policy"
+     "value": "contribute"
     },
     {
      "pointer": "/effect_class",
@@ -1250,11 +1342,11 @@
     },
     {
      "pointer": "/operation",
-     "value": "team.lifecycle.apply"
+     "value": "team.retention.apply"
     },
     {
      "pointer": "/action",
-     "value": "policy"
+     "value": "retain_delete"
     },
     {
      "pointer": "/effect_class",
@@ -1490,6 +1582,20 @@
     {
      "pointer": "/recovery/0/principal_id",
      "value": "@bora"
+    }
+   ]
+  },
+  {
+   "name": "b_sealed_proposal",
+   "from": "b_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:b_sealed_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:b_proposed_at"
     }
    ]
   },
@@ -1810,12 +1916,17 @@
     "stage": "in_review",
     "local_effect": "candidate_stored",
     "provider_effect": "not_applicable",
-    "gaps": [],
+    "gaps": [
+     {
+      "code": "approval_threshold_unmet"
+     }
+    ],
     "recovery": [
      "query_same_request",
      "retry_same_request"
     ],
     "returns": [
+     "team_sealed_proposal",
      "founding_state"
     ]
    },
@@ -1854,11 +1965,15 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
+     "team_founder_membership",
+     "team_bora_nominee_membership",
      "founder_grant",
      "bora_grant",
      "active_state",
-     "first_profile"
+     "first_profile",
+     "team_founding_epoch"
     ],
     "head": "founded"
    },
@@ -1939,6 +2054,8 @@
      "active_state",
      "first_profile",
      "team_policy",
+     "team_founder_membership",
+     "team_bora_nominee_membership",
      "founder_grant",
      "bora_grant"
     ]
@@ -2062,6 +2179,8 @@
      "closed_state",
      "first_profile",
      "team_policy",
+     "team_founder_membership",
+     "team_bora_nominee_membership",
      "founder_grant",
      "bora_grant"
     ]
@@ -2078,12 +2197,17 @@
     "stage": "in_review",
     "local_effect": "candidate_stored",
     "provider_effect": "not_applicable",
-    "gaps": [],
+    "gaps": [
+     {
+      "code": "approval_threshold_unmet"
+     }
+    ],
     "recovery": [
      "query_same_request",
      "retry_same_request"
     ],
     "returns": [
+     "b_sealed_proposal",
      "b_founding_state"
     ]
    },

@@ -1,0 +1,37 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C03 request not covered",
+  "description": "What a query for a request id returns when the owner does not hold it and its state was restored from a backup. The request may have been received after that backup was taken, so the owner can say neither that it never received it nor what it did: the record names the id and, as `restore_digest`, the restore report of the owner's latest restore, whose covered frontier bounds what the owner holds — and nothing else. On its strength nothing may treat the request as absent, failed or safe to start again under a new id.",
+  "x-runtime-owned": true,
+  "required": [
+    "kind",
+    "schema",
+    "request_id",
+    "restore_digest"
+  ],
+  "properties": {
+    "kind": {
+      "const": "request_not_covered"
+    },
+    "schema": {
+      "const": 1
+    },
+    "request_id": {
+      "$ref": "#/$defs/request_id"
+    },
+    "restore_digest": {
+      "$ref": "#/$defs/digest"
+    }
+  },
+  "$defs": {
+    "request_id": {
+      "type": "string",
+      "pattern": "^req_[0-9a-f]{32}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

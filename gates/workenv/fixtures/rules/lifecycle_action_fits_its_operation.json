@@ -1,0 +1,48 @@
+{
+  "rule": "C08/lifecycle_action_fits_its_operation",
+  "holds": [
+    {
+      "what": "leaving, carried by the member's own operation",
+      "record": "workenv/contracts/examples/c08/leave_with_its_continuity_disposition.json",
+      "context": {
+        "request": "workenv/contracts/examples/c08/leave_request.json"
+      }
+    },
+    {
+      "what": "forgetting, carried by this device's operation",
+      "record": "workenv/contracts/examples/c08/forget_on_this_device.json",
+      "context": {
+        "request": "workenv/contracts/examples/c08/forget_request.json"
+      }
+    },
+    {
+      "what": "a restore, carried by the Team's governance",
+      "record": "workenv/contracts/examples/c08/restore.json",
+      "context": {
+        "request": "workenv/contracts/examples/c08/restore_request.json"
+      }
+    }
+  ],
+  "breaks": [
+    {
+      "what": "an archive carried by the operation a member leaves through",
+      "record": "workenv/contracts/examples/c08/archive.json",
+      "context": {
+        "request": "workenv/contracts/examples/c08/leave_request.json"
+      },
+      "at": [
+        "/action/does"
+      ]
+    },
+    {
+      "what": "a purge carried by the Team's governance instead of its retention authority",
+      "record": "workenv/contracts/examples/c08/purge_with_per_owner_outcomes.json",
+      "context": {
+        "request": "workenv/contracts/examples/c08/restore_request.json"
+      },
+      "at": [
+        "/action/does"
+      ]
+    }
+  ]
+}

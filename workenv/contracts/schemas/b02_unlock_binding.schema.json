@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "B02 unlock binding",
-  "description": "The person unlocks at OpenSSH's own prompt into an agent this runtime owns, and agent-bios never holds the passphrase. Two consts carry what the spike cost: the public half is stored apart from the private key, because a signing call falls back to a private key sitting beside the public one and prompts the person again outside the unlock; and `-U` is not relied on, because two of the five observed OpenSSH versions ignore it for signing. With no terminal the result is the access gap, not an error and not a pass.",
+  "description": "The person unlocks at OpenSSH's own prompt into an agent this runtime owns, and agent-bios never holds the passphrase. Two consts carry what the spike cost: the public half is stored apart from the private key, because a signing call falls back to a private key sitting beside the public one and prompts the person again outside the unlock; and `-U` is not relied on, because two of the five observed OpenSSH versions ignore it for signing. With no terminal the result is the access gap, not an error and not a pass. With no agent the runtime can start and own, the result is `keystore_missing`: protected use is unsupported on that system, and no plaintext or mocked key stands in for the device key.",
   "required": [
     "kind",
     "schema",

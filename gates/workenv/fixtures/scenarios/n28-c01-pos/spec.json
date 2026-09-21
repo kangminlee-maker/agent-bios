@@ -1,6 +1,6 @@
 {
  "case": "N28-C01-POS",
- "says": "In the Team slice: a person binds this device's key and the checkout, founds a solo Team whose policy requires no independent review, and registers the Team's decision collection as a Team memory source whose acceptance authority is the Team. The owner reads records 12 to 18 of one session transcript whose own permission lets its text reach this repository and this Team. A packaged local adapter captures one memory entry from those bytes for the Team source: the capture is stored as a draft naming the observation, the span bytes, the adapter and its extraction run, and nothing is accepted. A candidate choice extracted from it is stored as a draft candidate naming that capture and those bytes as its origin, and still nothing is accepted. Only the Team's own publication of the choice at the Team memory source commits: its answer names a receipt, returns the committed choice record and the revision holding it, and returns the candidate promoted with that receipt. Neither the capture nor the candidate step names a receipt or moves the source's head.",
+ "says": "In the Team slice: a person binds this device's key and the checkout, founds a solo Team whose policy requires no independent review (the founding makes them its first member and grants them what the Team allows), and registers the Team's decision collection as a Team memory source whose acceptance authority is the Team. The owner reads records 12 to 18 of one session transcript taken in this repository, whose selection permits its text to reach this repository and this Team. A packaged local adapter captures one memory entry from those bytes for the Team source, stating the widening from the repository with the founder's grant as the authority for it: the capture is stored as a draft naming the observation, the span bytes, the adapter and its extraction run, and nothing is accepted. A candidate choice extracted from it is stored as a draft candidate naming that capture and those bytes as its origin, and still nothing is accepted. Only the Team's own publication of the choice at the Team memory source, on the head its registration committed and stating the candidate version it promotes, commits: its answer names a receipt, returns the committed choice record and the revision holding it, and returns the candidate promoted with that receipt. Neither the capture nor the candidate step names a receipt or moves the source's head.",
  "ids": [
   {
    "name": "alice",
@@ -37,10 +37,6 @@
   {
    "name": "team_memory",
    "prefix": "src"
-  },
-  {
-   "name": "team_memory_collection",
-   "prefix": "col"
   },
   {
    "name": "register_team_memory_home_rid",
@@ -215,7 +211,7 @@
    ]
   },
   {
-   "name": "founding_proposal",
+   "name": "team_proposal",
    "from": "c08/proposal_as_submitted.json",
    "drop": [
     "/founding_mode/nominees"
@@ -230,14 +226,6 @@
      "value": "@alice"
     },
     {
-     "pointer": "/finalizer/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/policy_digest",
-     "value": "#team_policy_submitted"
-    },
-    {
      "pointer": "/founding_mode/mode",
      "value": "self_founded"
     },
@@ -246,8 +234,16 @@
      "value": true
     },
     {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
      "pointer": "/recovery/0/principal_id",
      "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#team_policy_submitted"
     },
     {
      "pointer": "/carriers",
@@ -258,20 +254,12 @@
    ]
   },
   {
-   "name": "found_team_request",
-   "from": "c08/governed_change_request.json",
+   "name": "team_found_request",
+   "from": "c08/founding_request.json",
    "set": [
     {
      "pointer": "/request_id",
      "value": "@found_team_rid"
-    },
-    {
-     "pointer": "/operation",
-     "value": "team.found"
-    },
-    {
-     "pointer": "/action",
-     "value": "policy"
     },
     {
      "pointer": "/actor/principal_id",
@@ -294,16 +282,22 @@
      "value": "@team"
     },
     {
-     "pointer": "/target/base/expects",
-     "value": "absent"
-    },
-    {
-     "pointer": "/policy_digests",
-     "value": []
-    },
-    {
      "pointer": "/payload_digest",
-     "value": "#founding_proposal"
+     "value": "#team_proposal"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "team_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_proposal_at"
     }
    ]
   },
@@ -326,7 +320,73 @@
    ]
   },
   {
-   "name": "team_active",
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_membership_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:team_founder_grant"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "grant",
+      "policy"
+     ]
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_granted_at"
+    }
+   ]
+  },
+  {
+   "name": "team_state",
    "from": "c08/archived_team.json",
    "set": [
     {
@@ -340,6 +400,46 @@
     {
      "pointer": "/since",
      "value": "$instant:team_active_at"
+    }
+   ]
+  },
+  {
+   "name": "team_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:team_profile_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_epoch_at"
     }
    ]
   },
@@ -376,10 +476,6 @@
     {
      "pointer": "/acceptance_authority/team_id",
      "value": "@team"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@team_memory_collection"
     },
     {
      "pointer": "/home/markdown_view/path",
@@ -482,7 +578,21 @@
   },
   {
    "name": "span_selection",
-   "from": "c01/selection_of_a_transcript_span.json"
+   "from": "c01/selection_of_a_transcript_span.json",
+   "set": [
+    {
+     "pointer": "/roots/0/permits/destinations/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/roots/0/permits/destinations/1/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/roots/0/permits/processing",
+     "value": "local_processing"
+    }
+   ]
   },
   {
    "name": "observe_span_request",
@@ -538,7 +648,7 @@
   },
   {
    "name": "team_capture",
-   "from": "sources/capture_of_memory_material_submitted.json",
+   "from": "c01/capture_proposed_for_a_wider_scope.json",
    "set": [
     {
      "pointer": "/destination_source_id",
@@ -561,13 +671,20 @@
      "value": "@entry"
     },
     {
-     "pointer": "/processing/inputs/0/permits/destinations/1/layer",
-     "value": "team"
-    },
-    {
      "pointer": "/processing/inputs/0/permits/destinations/1/team_id",
      "value": "@team"
+    },
+    {
+     "pointer": "/widens/from_scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/widens/authority_evidence_digest",
+     "value": "#team_founder_grant"
     }
+   ],
+   "drop": [
+    "/revision_digest"
    ]
   },
   {
@@ -607,7 +724,7 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
@@ -618,6 +735,10 @@
      "value": [
       "#team_policy"
      ]
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_team_memory_home_head"
     }
    ]
   },
@@ -754,6 +875,14 @@
     {
      "pointer": "/workstream_ids",
      "value": []
+    },
+    {
+     "pointer": "/promotes/candidate_id",
+     "value": "$cnd:team_candidate"
+    },
+    {
+     "pointer": "/promotes/version",
+     "value": 1
     }
    ]
   },
@@ -792,7 +921,7 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/policy_digests",
@@ -811,6 +940,10 @@
      "value": [
       "#team_policy"
      ]
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_team_memory_home_head"
     }
    ]
   },
@@ -867,7 +1000,7 @@
     },
     {
      "pointer": "/standing/receipt_digest",
-     "value": "$digest:publish_at_the_team_receipt"
+     "value": "#publish_at_the_team_receipt"
     },
     {
      "pointer": "/created_at",
@@ -913,9 +1046,12 @@
   },
   {
    "name": "found_team",
-   "request": "found_team_request",
+   "request": "team_found_request",
    "carries": [
-    "founding_proposal",
+    "team_proposal",
+    "team_policy_submitted"
+   ],
+   "submits": [
     "team_policy_submitted"
    ],
    "answer": {
@@ -925,14 +1061,16 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
-     "team_active"
+     "team_founder_membership",
+     "team_founder_grant",
+     "team_state",
+     "team_profile",
+     "team_founding_epoch"
     ],
     "head": "team_head"
-   },
-   "submits": [
-    "team_policy_submitted"
-   ]
+   }
   },
   {
    "name": "register_team_memory_home",

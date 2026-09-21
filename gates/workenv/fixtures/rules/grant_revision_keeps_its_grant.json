@@ -1,0 +1,129 @@
+{
+  "rule": "C08/grant_revision_keeps_its_grant",
+  "holds": [
+    {
+      "what": "a revocation that keeps the grant's id and holder and is its next revision",
+      "record": "workenv/contracts/examples/c08/grant_revoked_by_its_next_revision.json",
+      "context": {
+        "revised": "workenv/contracts/examples/c08/grant_to_a_person.json"
+      }
+    },
+    {
+      "what": "a new grant, which revises nothing and is revision 1",
+      "record": "workenv/contracts/examples/c08/grant_to_a_person.json",
+      "context": {}
+    }
+  ],
+  "breaks": [
+    {
+      "what": "a revision that moves the grant to another holder",
+      "record": {
+        "actions": [
+          "read",
+          "use",
+          "contribute"
+        ],
+        "created_at": "2026-09-21T09:00:00Z",
+        "delegation_ceiling": 1,
+        "grant_id": "gra_a7937b64b8caa58f03721bb6bacf5c78",
+        "grant_revision": 2,
+        "holder": {
+          "principal_id": "prn_df381eb4bb572dafc91d47e4206ea60d",
+          "to": "principal"
+        },
+        "issuer_principal_id": "prn_9b7a3ca97dd53c3e9b699fedac1b91a7",
+        "kind": "grant_record",
+        "revises_digest": "673624c7a09852c9869f85ff2f59d1da0a2c911e2e9fbe87141a14ec86eca6cf",
+        "schema": 1,
+        "scope": {
+          "layer": "team",
+          "team_id": "tem_28a7d54d15acfd44101660fdde3bebe5"
+        },
+        "standing": "revoked",
+        "team_id": "tem_28a7d54d15acfd44101660fdde3bebe5"
+      },
+      "context": {
+        "revised": "workenv/contracts/examples/c08/grant_to_a_person.json"
+      },
+      "at": [
+        "/holder"
+      ]
+    },
+    {
+      "what": "a revision that skips a revision number and takes another id",
+      "record": {
+        "actions": [
+          "read",
+          "use",
+          "contribute"
+        ],
+        "created_at": "2026-09-21T09:00:00Z",
+        "delegation_ceiling": 1,
+        "grant_id": "gra_11111111111111111111111111111111",
+        "grant_revision": 3,
+        "holder": {
+          "principal_id": "prn_3a1ab70ba2da594e6c183931bf86caf2",
+          "to": "principal"
+        },
+        "issuer_principal_id": "prn_9b7a3ca97dd53c3e9b699fedac1b91a7",
+        "kind": "grant_record",
+        "revises_digest": "673624c7a09852c9869f85ff2f59d1da0a2c911e2e9fbe87141a14ec86eca6cf",
+        "schema": 1,
+        "scope": {
+          "layer": "team",
+          "team_id": "tem_28a7d54d15acfd44101660fdde3bebe5"
+        },
+        "standing": "revoked",
+        "team_id": "tem_28a7d54d15acfd44101660fdde3bebe5"
+      },
+      "context": {
+        "revised": "workenv/contracts/examples/c08/grant_to_a_person.json"
+      },
+      "at": [
+        "/grant_id",
+        "/grant_revision"
+      ]
+    },
+    {
+      "what": "a revision naming a grant the store does not hold as current",
+      "record": "workenv/contracts/examples/c08/grant_revoked_by_its_next_revision.json",
+      "context": {
+        "revised": "workenv/contracts/examples/c08/child_grant_naming_its_parent.json"
+      },
+      "at": [
+        "/revises_digest"
+      ]
+    },
+    {
+      "what": "a grant that names no revision it replaces yet is not revision 1",
+      "record": {
+        "actions": [
+          "read",
+          "use",
+          "contribute"
+        ],
+        "created_at": "2026-09-20T09:00:00Z",
+        "delegation_ceiling": 1,
+        "grant_id": "gra_a7937b64b8caa58f03721bb6bacf5c78",
+        "grant_revision": 2,
+        "holder": {
+          "principal_id": "prn_3a1ab70ba2da594e6c183931bf86caf2",
+          "to": "principal"
+        },
+        "issuer_principal_id": "prn_9b7a3ca97dd53c3e9b699fedac1b91a7",
+        "kind": "grant_record",
+        "schema": 1,
+        "scope": {
+          "layer": "team",
+          "team_id": "tem_28a7d54d15acfd44101660fdde3bebe5"
+        },
+        "standing": "current",
+        "team_id": "tem_28a7d54d15acfd44101660fdde3bebe5"
+      },
+      "context": {},
+      "at": [
+        "/grant_revision"
+      ]
+    }
+  ]
+}

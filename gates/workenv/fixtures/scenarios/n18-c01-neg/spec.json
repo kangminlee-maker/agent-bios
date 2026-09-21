@@ -1,6 +1,6 @@
 {
  "case": "N18-C01-NEG",
- "says": "Alice has founded a Team and configured a Google connection trusting one hosted domain, and begins two attempts to link her Google identity. Callbacks for the first attempt from another issuer, for another audience, for another hosted domain, and carrying the second attempt's nonce are each refused (claim_not_expected, or callback_not_bound for the nonce) and verify and link nothing. The genuine callback then links her identity, and replaying it is refused with callback_not_bound. An admission sign-in whose identity shares Alice's e-mail address but not her subject returns only its evidence: no binding, and nothing merged into Alice. A membership through a provider claim that names no policy admitting it is refused at admission. A fresh check whose provider never answered is blocked with provider_unreachable. Finally she begins another link, signs out, and its callback is refused with access_signed_out; a read under the old generation stays refused. What must not happen: any of these writing a binding, a membership or a grant, merging identities by e-mail, or a callback overriding the sign-out.",
+ "says": "Alice's laptop first reads its fresh profile (active at generation 1). She has founded a Team, becoming its member, and configured a Google connection trusting one hosted domain, and begins two attempts to link her Google identity. Callbacks for the first attempt from another issuer, for another audience, for another hosted domain, and carrying the second attempt's nonce are each refused (claim_not_expected, or callback_not_bound for the nonce) and verify and link nothing. The genuine callback then links her identity, and replaying it is refused with callback_not_bound. An admission sign-in whose identity shares Alice's e-mail address but not her subject returns only its evidence: no binding, and nothing merged into Alice. A membership through a provider claim that names no policy admitting it is refused at admission. A fresh check whose provider never answered is blocked with provider_unreachable. Finally she begins another link and signs out (generation 2); its callback, issued under generation 1, is refused with access_signed_out and access_generation_moved; a read under the old generation stays refused. What must not happen: any of these writing a binding, a membership or a grant, merging identities by e-mail, or a callback overriding the sign-out.",
  "ids": [
   {
    "name": "alice",
@@ -101,9 +101,83 @@
   {
    "name": "still_out_request_id",
    "prefix": "req"
+  },
+  {
+   "name": "read_profile_request_id",
+   "prefix": "req"
   }
  ],
  "records": [
+  {
+   "name": "read_profile_request",
+   "from": "c02/profile_read_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@read_profile_request_id"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    }
+   ]
+  },
+  {
+   "name": "read_profile_profile",
+   "from": "c02/profile_written_at_first_use.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:read_profile_profile_at"
+    }
+   ]
+  },
+  {
+   "name": "read_profile_state",
+   "from": "c02/active_at_first_use.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:read_profile_state_at"
+    }
+   ]
+  },
   {
    "name": "alice_laptop_key",
    "from": "c01/binding_as_submitted.json",
@@ -249,6 +323,68 @@
     {
      "pointer": "/policy_digest",
      "value": "#team_policy_draft"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "team_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_proposal_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_membership_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_epoch_at"
     }
    ]
   },
@@ -1944,7 +2080,7 @@
     },
     {
      "pointer": "/action",
-     "value": "read"
+     "value": "local_profile"
     },
     {
      "pointer": "/effect_class",
@@ -1983,6 +2119,22 @@
  ],
  "steps": [
   {
+   "name": "read_profile",
+   "request": "read_profile_request",
+   "carries": [],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "read_profile_profile",
+     "read_profile_state"
+    ]
+   }
+  },
+  {
    "name": "bind_key",
    "request": "bind_alice_laptop",
    "carries": [
@@ -2013,10 +2165,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
+     "team_founder_membership",
      "team_founder_grant",
      "team_state",
-     "team_profile"
+     "team_profile",
+     "team_founding_epoch"
     ],
     "head": "team_head"
    },
@@ -2050,7 +2205,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2067,7 +2222,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2212,7 +2367,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2260,7 +2415,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2298,7 +2453,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2315,7 +2470,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2337,6 +2492,9 @@
     "gaps": [
      {
       "code": "access_signed_out"
+     },
+     {
+      "code": "access_generation_moved"
      }
     ],
     "recovery": [

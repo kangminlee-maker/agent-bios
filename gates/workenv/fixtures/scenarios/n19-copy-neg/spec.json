@@ -1,6 +1,6 @@
 {
  "case": "N19-COPY-NEG",
- "says": "The founder founds Team A for review with Bora as reviewer; Bora accepts and it commits. Under Team A the founder commits a source and sets that source's own rights to allow read and use only, not derive (source.rights.set). The founder then asks for a new Team derived from Team A (team.found with derived_from selecting that source's stored revision and Team A's policy). The owner refuses the founding with source_right_not_overridable: the source's own rights do not allow derivation, and no Team founding can widen them. The refusal writes nothing and returns no record, so no copy Team, policy, grant or state exists. A read of Team A at the head its founding moved to returns the same state, policy and two grants as before.",
+ "says": "The founder founds Team A for review with Bora as reviewer; Bora accepts and it commits, admitting both. Under Team A the founder registers a source home, commits a revision to it and sets that source's own rights to allow read and use only, not derive (source.rights.set), each commit expecting the source head the one before it moved to. The founder then asks for a new Team derived from Team A (team.found with derived_from selecting that source's stored revision and Team A's policy). The owner refuses the founding with source_right_not_overridable: the source's own rights do not allow derivation, and no Team founding can widen them. The refusal writes nothing and returns no record, so no copy Team, policy, membership, grant or state exists. A read of Team A at the head its founding moved to returns the same state, policy, two memberships and two grants as before.",
  "ids": [
   {
    "name": "founder",
@@ -29,6 +29,10 @@
   {
    "name": "source",
    "prefix": "src"
+  },
+  {
+   "name": "register_source_request_id",
+   "prefix": "req"
   },
   {
    "name": "team_a",
@@ -125,6 +129,98 @@
     {
      "pointer": "/recovery/0/principal_id",
      "value": "@bora"
+    }
+   ]
+  },
+  {
+   "name": "a_sealed_proposal",
+   "from": "proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:a_sealed_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:proposed_at"
+    }
+   ]
+  },
+  {
+   "name": "a_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:a_founder_membership_id"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@founder"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#a_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "a_bora_nominee_membership",
+   "from": "c08/nominee_admitted_by_accepting_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:a_bora_membership_id"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@bora"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#a_sealed_proposal"
+    },
+    {
+     "pointer": "/standing/acceptance_digest",
+     "value": "#acceptance_stored"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "a_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:founded"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:founded_at"
     }
    ]
   },
@@ -457,6 +553,99 @@
    ]
   },
   {
+   "name": "source_home",
+   "from": "sources/home_of_a_managed_collection.json",
+   "drop": [
+    "/registered_at",
+    "/acceptance_authority/principal_id",
+    "/applicability/conditions",
+    "/home/markdown_view/path",
+    "/retention/until",
+    "/scope/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/acceptance_authority/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/acceptance_authority/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/applicability/states",
+     "value": "unstated"
+    },
+    {
+     "pointer": "/disclosure",
+     "value": "team"
+    },
+    {
+     "pointer": "/home/markdown_view/view",
+     "value": "none"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    },
+    {
+     "pointer": "/retention/keep",
+     "value": "until_withdrawn"
+    },
+    {
+     "pointer": "/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@source"
+    }
+   ]
+  },
+  {
+   "name": "register_source_request",
+   "from": "source_request",
+   "drop": [
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_source_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#source_home"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    }
+   ]
+  },
+  {
+   "name": "source_home_stored",
+   "from": "source_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:source_registered_at"
+    }
+   ]
+  },
+  {
    "name": "source_revision",
    "from": "sources/revision_submitted.json",
    "set": [
@@ -483,7 +672,7 @@
     },
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/effect_class",
@@ -519,11 +708,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#source_revision"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:source_head_1"
     }
    ]
   },
@@ -610,7 +803,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:source_v1"
+     "value": "$digest:source_head_2"
     },
     {
      "pointer": "/payload_digest",
@@ -854,12 +1047,17 @@
     "stage": "in_review",
     "local_effect": "candidate_stored",
     "provider_effect": "not_applicable",
-    "gaps": [],
+    "gaps": [
+     {
+      "code": "approval_threshold_unmet"
+     }
+    ],
     "recovery": [
      "query_same_request",
      "retry_same_request"
     ],
     "returns": [
+     "a_sealed_proposal",
      "founding_state"
     ]
    },
@@ -898,17 +1096,39 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "a_sealed_proposal",
      "team_policy",
+     "a_founder_membership",
+     "a_bora_nominee_membership",
      "founder_grant",
      "bora_grant",
      "active_state",
-     "first_profile"
+     "first_profile",
+     "a_founding_epoch"
     ],
     "head": "founded"
    },
    "submits": [
     "proposed_policy"
    ]
+  },
+  {
+   "name": "register_source",
+   "request": "register_source_request",
+   "carries": [
+    "source_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "source_home_stored"
+    ],
+    "head": "source_head_1"
+   }
   },
   {
    "name": "commit_source",
@@ -925,7 +1145,7 @@
     "returns": [
      "source_stored"
     ],
-    "head": "source_v1"
+    "head": "source_head_2"
    }
   },
   {
@@ -942,7 +1162,8 @@
     "recovery": [],
     "returns": [
      "rights_stored"
-    ]
+    ],
+    "head": "source_head_3"
    }
   },
   {
@@ -984,6 +1205,8 @@
      "active_state",
      "first_profile",
      "team_policy",
+     "a_founder_membership",
+     "a_bora_nominee_membership",
      "founder_grant",
      "bora_grant"
     ]

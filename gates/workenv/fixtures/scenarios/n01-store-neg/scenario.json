@@ -18,10 +18,6 @@
    "name": "notes_source"
   },
   {
-   "id": "col_c7a12c311c339d7b18625b25219941ba",
-   "name": "notes_collection"
-  },
-  {
    "id": "req_ea3667b1264694a8d5212fa1da9d97f9",
    "name": "bind_request"
   },
@@ -73,16 +69,6 @@
    "record": "bind_key"
   },
   {
-   "minted": "alice_binding",
-   "pointer": "/binding_id",
-   "record": "stored_key"
-  },
-  {
-   "minted": "bound_at",
-   "pointer": "/created_at",
-   "record": "stored_key"
-  },
-  {
    "digest_of": "bind_key",
    "pointer": "/request_digest",
    "record": "bind_device_key_receipt"
@@ -101,6 +87,16 @@
    "minted": "bind_device_key_committed_at",
    "pointer": "/committed_at",
    "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "alice_binding",
+   "pointer": "/binding_id",
+   "record": "stored_key"
+  },
+  {
+   "minted": "bound_at",
+   "pointer": "/created_at",
+   "record": "stored_key"
   },
   {
    "digest_of": "bind_device_key_receipt",
@@ -123,17 +119,12 @@
    "record": "register_home"
   },
   {
-   "minted": "registered_at",
-   "pointer": "/registered_at",
-   "record": "stored_home"
-  },
-  {
    "digest_of": "register_home",
    "pointer": "/request_digest",
    "record": "register_notes_home_receipt"
   },
   {
-   "minted": "register_notes_home_head",
+   "minted": "notes_head_0",
    "pointer": "/head_digest",
    "record": "register_notes_home_receipt"
   },
@@ -146,6 +137,11 @@
    "minted": "register_notes_home_committed_at",
    "pointer": "/committed_at",
    "record": "register_notes_home_receipt"
+  },
+  {
+   "minted": "registered_at",
+   "pointer": "/registered_at",
+   "record": "stored_home"
   },
   {
    "digest_of": "register_notes_home_receipt",
@@ -173,17 +169,17 @@
    "record": "commit_dated"
   },
   {
+   "minted": "notes_head_0",
+   "pointer": "/target/base/head_digest",
+   "record": "commit_dated"
+  },
+  {
    "digest_of": "revision",
    "pointer": "/inventory/0/digest",
    "record": "package_with_its_key"
   },
   {
-   "digest_of": "stored_home",
-   "pointer": "/checkpoint_digest",
-   "record": "founding_epoch"
-  },
-  {
-   "digest_of": "founding_epoch",
+   "digest_of": "stored_key",
    "pointer": "/continuity_evidence_digests/0",
    "record": "package_with_its_key"
   },
@@ -213,6 +209,11 @@
    "record": "commit_signed"
   },
   {
+   "minted": "notes_head_0",
+   "pointer": "/target/base/head_digest",
+   "record": "commit_signed"
+  },
+  {
    "digest_of": "revision",
    "pointer": "/payload_digest",
    "record": "commit_with_token"
@@ -220,6 +221,11 @@
   {
    "digest_of": "signature",
    "pointer": "/proof_digests/0",
+   "record": "commit_with_token"
+  },
+  {
+   "minted": "notes_head_0",
+   "pointer": "/target/base/head_digest",
    "record": "commit_with_token"
   },
   {
@@ -235,6 +241,11 @@
   {
    "digest_of": "signature",
    "pointer": "/proof_digests/0",
+   "record": "commit_altered"
+  },
+  {
+   "minted": "notes_head_0",
+   "pointer": "/target/base/head_digest",
    "record": "commit_altered"
   },
   {
@@ -273,11 +284,6 @@
    "record": "query_the_self_named_binding_result"
   },
   {
-   "minted": "produced_at",
-   "pointer": "/produced_at",
-   "record": "stored_revision"
-  },
-  {
    "digest_of": "commit_signed",
    "pointer": "/request_digest",
    "record": "commit_the_revision_as_signed_receipt"
@@ -296,6 +302,16 @@
    "minted": "commit_the_revision_as_signed_committed_at",
    "pointer": "/committed_at",
    "record": "commit_the_revision_as_signed_receipt"
+  },
+  {
+   "minted": "notes_head_0",
+   "pointer": "/target/base/head_digest",
+   "record": "commit_the_revision_as_signed_receipt"
+  },
+  {
+   "minted": "produced_at",
+   "pointer": "/produced_at",
+   "record": "stored_revision"
   },
   {
    "digest_of": "commit_the_revision_as_signed_receipt",
@@ -340,13 +356,13 @@
    "step": "bind_device_key"
   },
   {
-   "name": "register_notes_home_committed_at",
-   "shape": "instant",
+   "name": "notes_head_0",
+   "shape": "digest",
    "step": "register_notes_home"
   },
   {
-   "name": "register_notes_home_head",
-   "shape": "digest",
+   "name": "register_notes_home_committed_at",
+   "shape": "instant",
    "step": "register_notes_home"
   },
   {
@@ -428,25 +444,6 @@
    }
   },
   {
-   "digest": "1f673a3fcb4ad143e0eefe22133c50aa7ed5003a54c0faa37a883a7983b8dd81",
-   "name": "stored_key",
-   "record": {
-    "binding_id": "bnd_9e57f67d05fce4f5ea1faa552f69b1b3",
-    "created_at": "2000-01-01T00:00:00Z",
-    "credential": {
-     "credential": "device_key",
-     "device_id": "dev_539e467db3d9e45d74f4326e1437e5af",
-     "key_generation": 1,
-     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
-    },
-    "established_by": "local_creation",
-    "evidence_digests": [],
-    "kind": "principal_binding",
-    "principal_id": "prn_94afb8c6afb957798da20c7e36ba3250",
-    "schema": 1
-   }
-  },
-  {
    "digest": "c00086c7e657f06351c27ae66f0e3710b69beeb2b80fa75555d189ce52f83577",
    "name": "bind_device_key_receipt",
    "record": {
@@ -464,6 +461,25 @@
     "target": {
      "resource_id": "prn_94afb8c6afb957798da20c7e36ba3250"
     }
+   }
+  },
+  {
+   "digest": "1f673a3fcb4ad143e0eefe22133c50aa7ed5003a54c0faa37a883a7983b8dd81",
+   "name": "stored_key",
+   "record": {
+    "binding_id": "bnd_9e57f67d05fce4f5ea1faa552f69b1b3",
+    "created_at": "2000-01-01T00:00:00Z",
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_539e467db3d9e45d74f4326e1437e5af",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_94afb8c6afb957798da20c7e36ba3250",
+    "schema": 1
    }
   },
   {
@@ -491,7 +507,7 @@
    }
   },
   {
-   "digest": "7a0078f566c45342076a4ead0e56c6c50472ac4798d7914d4cf7dda480cb120a",
+   "digest": "57ce5856674ccb6e453d8ac0601ecb9d37620b156ee2e0c0254872eca598e5d1",
    "name": "notes_home",
    "record": {
     "acceptance_authority": {
@@ -510,7 +526,6 @@
     "disclosure": "private",
     "format_version": 1,
     "home": {
-     "collection_id": "col_c7a12c311c339d7b18625b25219941ba",
      "markdown_view": {
       "path": "views/collection.md",
       "view": "derived"
@@ -533,10 +548,10 @@
    }
   },
   {
-   "digest": "cbc5ceee7c5842da20e2fa4a4a4bd07b506f4e387c11af765e0e4be206fba6a2",
+   "digest": "ce204f1c74e5a2d5bbf0462d56362b0b932854ef6685869e3e4d2a4e5032f3f9",
    "name": "register_home",
    "record": {
-    "action": "local_profile",
+    "action": "contribute",
     "actor": {
      "device_id": "dev_539e467db3d9e45d74f4326e1437e5af",
      "principal_id": "prn_94afb8c6afb957798da20c7e36ba3250",
@@ -551,7 +566,7 @@
      "layer": "personal",
      "principal_id": "prn_94afb8c6afb957798da20c7e36ba3250"
     },
-    "payload_digest": "7a0078f566c45342076a4ead0e56c6c50472ac4798d7914d4cf7dda480cb120a",
+    "payload_digest": "57ce5856674ccb6e453d8ac0601ecb9d37620b156ee2e0c0254872eca598e5d1",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_6588e8729ea5900510d10de0d15173be",
@@ -565,7 +580,30 @@
    }
   },
   {
-   "digest": "5fe704b594f351db272d4098e706e3b25e021bb1e0a023745faad8485689ab60",
+   "digest": "873d5c1bc7887a6e4e902faa8694fde2de6645d70ce1a8e2ed17b95221e84412",
+   "name": "register_notes_home_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "44da66f5f18970da443a5a1595e0baea5ac40ec7e8759ee2036a83c245678492",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_94afb8c6afb957798da20c7e36ba3250"
+    },
+    "request_digest": "ce204f1c74e5a2d5bbf0462d56362b0b932854ef6685869e3e4d2a4e5032f3f9",
+    "request_id": "req_6588e8729ea5900510d10de0d15173be",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_2c27f514d488a176f86f2ec3d32b56d5"
+    }
+   }
+  },
+  {
+   "digest": "4cd880b9a1955b582151eca996fbe25d671bede133c722000112514815b613f4",
    "name": "stored_home",
    "record": {
     "acceptance_authority": {
@@ -584,7 +622,6 @@
     "disclosure": "private",
     "format_version": 1,
     "home": {
-     "collection_id": "col_c7a12c311c339d7b18625b25219941ba",
      "markdown_view": {
       "path": "views/collection.md",
       "view": "derived"
@@ -608,47 +645,24 @@
    }
   },
   {
-   "digest": "b8b7f8c14a5c689aaa1ac454dd6e1b91dba1b97ab05d0f265dd8c292a2128506",
-   "name": "register_notes_home_receipt",
-   "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "27c1de3acc08b7c029dbc79ad61d47841f7a02c0749f07de411ba516d38df3dc",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "personal",
-     "principal_id": "prn_94afb8c6afb957798da20c7e36ba3250"
-    },
-    "request_digest": "cbc5ceee7c5842da20e2fa4a4a4bd07b506f4e387c11af765e0e4be206fba6a2",
-    "request_id": "req_6588e8729ea5900510d10de0d15173be",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "base": {
-      "expects": "absent"
-     },
-     "resource_id": "src_2c27f514d488a176f86f2ec3d32b56d5"
-    }
-   }
-  },
-  {
-   "digest": "76e8056fb7882f427fe231adb73777d78f349b6e41446d44f96e1fafe501f0a2",
+   "digest": "eebc275b9fb03cd84e22b5b7b37099e342aa762e9fa75f2da4ad960be62cd8ea",
    "name": "register_notes_home_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "b8b7f8c14a5c689aaa1ac454dd6e1b91dba1b97ab05d0f265dd8c292a2128506",
+     "receipt_digest": "873d5c1bc7887a6e4e902faa8694fde2de6645d70ce1a8e2ed17b95221e84412",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "5fe704b594f351db272d4098e706e3b25e021bb1e0a023745faad8485689ab60",
+      "digest": "4cd880b9a1955b582151eca996fbe25d671bede133c722000112514815b613f4",
       "kind": "source_home"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "cbc5ceee7c5842da20e2fa4a4a4bd07b506f4e387c11af765e0e4be206fba6a2",
+    "request_digest": "ce204f1c74e5a2d5bbf0462d56362b0b932854ef6685869e3e4d2a4e5032f3f9",
     "request_id": "req_6588e8729ea5900510d10de0d15173be",
     "schema": 1,
     "supported_recovery": []
@@ -725,7 +739,7 @@
    }
   },
   {
-   "digest": "aa16ec76e66edd4ff14fcdda969b65bcf2a9b38e4ab136598426bced3a0a6acb",
+   "digest": "3abc9146a9f49d98ff3cfe6f8ff62c376d8f8ca3040c17487212031cd8abdd95",
    "name": "commit_dated",
    "record": {
     "action": "publish",
@@ -750,7 +764,8 @@
     "schema": 1,
     "target": {
      "base": {
-      "expects": "absent"
+      "expects": "head",
+      "head_digest": "44da66f5f18970da443a5a1595e0baea5ac40ec7e8759ee2036a83c245678492"
      },
      "resource_id": "src_2c27f514d488a176f86f2ec3d32b56d5"
     }
@@ -779,29 +794,7 @@
    }
   },
   {
-   "digest": "b7c94208ef1801d650c7380302223dcebb9af527f49f14dc6cfd4994fd909dc9",
-   "name": "founding_epoch",
-   "record": {
-    "authority": {
-     "layer": "personal",
-     "principal_id": "prn_94afb8c6afb957798da20c7e36ba3250"
-    },
-    "checkpoint_digest": "5fe704b594f351db272d4098e706e3b25e021bb1e0a023745faad8485689ab60",
-    "epoch": 1,
-    "finalizer": {
-     "device_id": "dev_539e467db3d9e45d74f4326e1437e5af",
-     "runs_on": "member_device"
-    },
-    "kind": "authority_continuity",
-    "recorded_at": "2026-09-20T09:00:00Z",
-    "schema": 1,
-    "succession": {
-     "from": "founding"
-    }
-   }
-  },
-  {
-   "digest": "24b8a03bdc8a490e845e3cc3109461252890f77afdc327136e105c7b589dd827",
+   "digest": "fa222cc0093e8e08fbd2de27b320b227913504846787670474bc4c916282e1bb",
    "name": "package_with_its_key",
    "record": {
     "authority": {
@@ -813,7 +806,7 @@
     },
     "confidentiality": "at_rest",
     "continuity_evidence_digests": [
-     "b7c94208ef1801d650c7380302223dcebb9af527f49f14dc6cfd4994fd909dc9"
+     "1f673a3fcb4ad143e0eefe22133c50aa7ed5003a54c0faa37a883a7983b8dd81"
     ],
     "inventory": [
      {
@@ -847,7 +840,7 @@
    }
   },
   {
-   "digest": "ebd25328668a39692aad24ea770d080d41b92769466edbad5d98e17cb9bf84a8",
+   "digest": "dcc0fea3cc58f6c0efb7163fabfb39e53919fe143bcb31351ccaf685d5d45f65",
    "name": "stage_with_key",
    "record": {
     "action": "transfer",
@@ -865,7 +858,7 @@
      "layer": "personal",
      "principal_id": "prn_94afb8c6afb957798da20c7e36ba3250"
     },
-    "payload_digest": "24b8a03bdc8a490e845e3cc3109461252890f77afdc327136e105c7b589dd827",
+    "payload_digest": "fa222cc0093e8e08fbd2de27b320b227913504846787670474bc4c916282e1bb",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_b3812e0c4ca046542d1ee3cb39af2c89",
@@ -888,7 +881,7 @@
    }
   },
   {
-   "digest": "4a173d8874ee19a288260ffe105a2717285c51dc23caacda9e661e1a1646822b",
+   "digest": "28dfd9da4ace5598cc71de4884933eed4a5c52adac9c9ef05957a3d3e5110f5f",
    "name": "commit_signed",
    "record": {
     "action": "publish",
@@ -915,14 +908,15 @@
     "schema": 1,
     "target": {
      "base": {
-      "expects": "absent"
+      "expects": "head",
+      "head_digest": "44da66f5f18970da443a5a1595e0baea5ac40ec7e8759ee2036a83c245678492"
      },
      "resource_id": "src_2c27f514d488a176f86f2ec3d32b56d5"
     }
    }
   },
   {
-   "digest": "1cc1ed1a93095aff1c29e56b887e888651abfa5b350fdf0cd3527955623e5d1b",
+   "digest": "c7f7f92c9325f60cd1fd8ce97b02919cf88b9afb7edd44537677ca33fab22310",
    "name": "commit_with_token",
    "record": {
     "access_token": "tok-not-a-field",
@@ -950,7 +944,8 @@
     "schema": 1,
     "target": {
      "base": {
-      "expects": "absent"
+      "expects": "head",
+      "head_digest": "44da66f5f18970da443a5a1595e0baea5ac40ec7e8759ee2036a83c245678492"
      },
      "resource_id": "src_2c27f514d488a176f86f2ec3d32b56d5"
     }
@@ -1057,7 +1052,7 @@
    }
   },
   {
-   "digest": "4007d14eb88247539a0c9b0eecd91ba63bd018306ea4531ed3f0a4b9e6814404",
+   "digest": "26cebd1f3507db497fd5160c3c9f486cefcb99c4e01a74569b405d309785867f",
    "name": "commit_altered",
    "record": {
     "action": "publish",
@@ -1084,14 +1079,15 @@
     "schema": 1,
     "target": {
      "base": {
-      "expects": "absent"
+      "expects": "head",
+      "head_digest": "44da66f5f18970da443a5a1595e0baea5ac40ec7e8759ee2036a83c245678492"
      },
      "resource_id": "src_2c27f514d488a176f86f2ec3d32b56d5"
     }
    }
   },
   {
-   "digest": "24d1548d7b6b47c9dbdfd94cff5d8be79d3267b5edf9a0a6159438685f9ce1ce",
+   "digest": "c324529cb093e2c212cd5e033e9d9d314459d09a89dcc7934c3329454604d017",
    "name": "commit_bytes_altered_after_signing_result",
    "record": {
     "kind": "operation_result",
@@ -1107,7 +1103,7 @@
     },
     "outputs": [],
     "provider_effect": "not_applicable",
-    "request_digest": "4007d14eb88247539a0c9b0eecd91ba63bd018306ea4531ed3f0a4b9e6814404",
+    "request_digest": "26cebd1f3507db497fd5160c3c9f486cefcb99c4e01a74569b405d309785867f",
     "request_id": "req_61187d0f9003827aca3d4f453de7603b",
     "schema": 1,
     "supported_recovery": [
@@ -1256,6 +1252,30 @@
    }
   },
   {
+   "digest": "aee6a6a63a4ca902389cad7047a087c4a6b069a8cf699f3fd3e4ea2198bc6bef",
+   "name": "commit_the_revision_as_signed_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "49447681045ea8db0f5fbc8649c235ec4dbfb4f412e8068d3271c6b4a08ced21",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_94afb8c6afb957798da20c7e36ba3250"
+    },
+    "request_digest": "28dfd9da4ace5598cc71de4884933eed4a5c52adac9c9ef05957a3d3e5110f5f",
+    "request_id": "req_66bd340f2dfa4fd5208868c336826e27",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "44da66f5f18970da443a5a1595e0baea5ac40ec7e8759ee2036a83c245678492"
+     },
+     "resource_id": "src_2c27f514d488a176f86f2ec3d32b56d5"
+    }
+   }
+  },
+  {
    "digest": "2c1ab242399886cacaf3024329f0dc677bea645e4bccce81735ab9884cf87125",
    "name": "stored_revision",
    "record": {
@@ -1279,37 +1299,14 @@
    }
   },
   {
-   "digest": "6df14895e0e4d013ecc9870dabd70a88aff99a85cd1bcf170339f9101bf4c186",
-   "name": "commit_the_revision_as_signed_receipt",
-   "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "49447681045ea8db0f5fbc8649c235ec4dbfb4f412e8068d3271c6b4a08ced21",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "personal",
-     "principal_id": "prn_94afb8c6afb957798da20c7e36ba3250"
-    },
-    "request_digest": "4a173d8874ee19a288260ffe105a2717285c51dc23caacda9e661e1a1646822b",
-    "request_id": "req_66bd340f2dfa4fd5208868c336826e27",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "base": {
-      "expects": "absent"
-     },
-     "resource_id": "src_2c27f514d488a176f86f2ec3d32b56d5"
-    }
-   }
-  },
-  {
-   "digest": "c793e238879a86be9fa5552329996c93ecb7153d907d2220aef85c3aee8331ac",
+   "digest": "7991752eb63f33d9cdd18d26ed9590c3a0aa4de4fc4f552ba15b918d62ed1968",
    "name": "commit_the_revision_as_signed_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "6df14895e0e4d013ecc9870dabd70a88aff99a85cd1bcf170339f9101bf4c186",
+     "receipt_digest": "aee6a6a63a4ca902389cad7047a087c4a6b069a8cf699f3fd3e4ea2198bc6bef",
      "stage": "committed"
     },
     "outputs": [
@@ -1319,15 +1316,15 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "4a173d8874ee19a288260ffe105a2717285c51dc23caacda9e661e1a1646822b",
+    "request_digest": "28dfd9da4ace5598cc71de4884933eed4a5c52adac9c9ef05957a3d3e5110f5f",
     "request_id": "req_66bd340f2dfa4fd5208868c336826e27",
     "schema": 1,
     "supported_recovery": []
    }
   }
  ],
- "says": "Alice binds her laptop key and registers a private notes source, then submits records the owner must refuse at admission, each refused with exactly the code and pointer its contract states and nothing written: a key binding that names its own binding_id (runtime_owned_field /binding_id, a C01 kind), a revision that dates itself (runtime_owned_field /produced_at, C01), a package envelope carrying the key it asks to be trusted by (unknown_field /package_public_key, C09), a commit request carrying an access token (unknown_field /access_token, C03), and a backup set naming one member twice (duplicate_item /members/4, C03). Then a revision signed with her key is altered after signing and committed with that signature among its proofs: the owner verifies the signature against the altered bytes and refuses with signature_invalid at /proof_digests/0. Querying two of the admission-refused request ids returns request_not_held, and committing the revision exactly as signed, expecting the source to have no head yet, is accepted — so no refused submission stored a record or moved the head. What must not happen: a refused record stored, a refusal with another code or pointer, or the altered bytes accepted under the original signature.",
- "spec_sha256": "60dd68f22aa92d543be07d6f2acd604040dd64d63e040fd88a318891a17c46e0",
+ "says": "Alice binds her laptop key and registers a private notes source, then submits records the owner must refuse at admission, each refused with exactly the code and pointer its contract states and nothing written: a key binding that names its own binding_id (runtime_owned_field /binding_id, a C01 kind), a revision that dates itself (runtime_owned_field /produced_at, C01), a package envelope that names Alice's enrolment binding as its trust yet carries the key it asks to be trusted by (unknown_field /package_public_key, C09), a commit request carrying an access token (unknown_field /access_token, C03), and a backup set naming one member twice (duplicate_item /members/4, C03). Then a revision signed with her key is altered after signing and committed with that signature among its proofs: the owner verifies the signature against the altered bytes and refuses with signature_invalid at /proof_digests/0. Querying two of the admission-refused request ids returns request_not_held, and committing the revision exactly as signed, still expecting the head the registration made, is accepted — so no refused submission stored a record or moved the head. What must not happen: a refused record stored, a refusal with another code or pointer, or the altered bytes accepted under the original signature.",
+ "spec_sha256": "36d4f71e2e5940d3a9cf7c54c9ee1dbdac51ff1ee302cbff39c6d2352d5bdd42",
  "steps": [
   {
    "carries": [
@@ -1344,6 +1341,7 @@
    "carries": [
     "notes_home"
    ],
+   "head": "notes_head_0",
    "name": "register_notes_home",
    "request": "register_home",
    "result": "register_notes_home_result",

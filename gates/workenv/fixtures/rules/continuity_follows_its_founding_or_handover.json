@@ -1,0 +1,165 @@
+{
+  "rule": "C08/continuity_follows_its_founding_or_handover",
+  "holds": [
+    {
+      "what": "a Team's founding epoch with its proposal's finalizer",
+      "record": "workenv/contracts/examples/c09/founding_epoch_of_an_authority.json",
+      "context": {
+        "payload": "workenv/contracts/examples/c08/sealed_founding_proposal.json"
+      }
+    },
+    {
+      "what": "the successor a finalizer handover writes, fencing the founding finalizer",
+      "record": "workenv/contracts/examples/c09/successor_that_fences_the_old_finalizer.json",
+      "context": {
+        "payload": {
+          "from_principal_id": "prn_9b7a3ca97dd53c3e9b699fedac1b91a7",
+          "handover": {
+            "duty": "finalizer",
+            "finalizer": {
+              "runs_on": "internal_service"
+            }
+          },
+          "kind": "stewardship_transfer",
+          "schema": 1,
+          "team_id": "tem_28a7d54d15acfd44101660fdde3bebe5",
+          "to_principal_id": "prn_3a1ab70ba2da594e6c183931bf86caf2",
+          "transferred_at": "2026-09-20T09:00:00Z"
+        },
+        "predecessor": "workenv/contracts/examples/c09/founding_epoch_of_an_authority.json"
+      }
+    }
+  ],
+  "breaks": [
+    {
+      "what": "a founding epoch whose finalizer is not the one the founder sealed",
+      "record": {
+        "authority": {
+          "layer": "team",
+          "team_id": "tem_28a7d54d15acfd44101660fdde3bebe5"
+        },
+        "checkpoint_digest": "a024398b9672844d656025705196d8b8fd3067c8edcc87c5362a7a15e90b8b35",
+        "epoch": 1,
+        "finalizer": {
+          "runs_on": "internal_service"
+        },
+        "kind": "authority_continuity",
+        "recorded_at": "2026-09-20T09:00:00Z",
+        "schema": 1,
+        "succession": {
+          "from": "founding"
+        }
+      },
+      "context": {
+        "payload": "workenv/contracts/examples/c08/sealed_founding_proposal.json"
+      },
+      "at": [
+        "/finalizer"
+      ]
+    },
+    {
+      "what": "a founding epoch numbered as if it succeeded another",
+      "record": {
+        "authority": {
+          "layer": "team",
+          "team_id": "tem_28a7d54d15acfd44101660fdde3bebe5"
+        },
+        "checkpoint_digest": "a024398b9672844d656025705196d8b8fd3067c8edcc87c5362a7a15e90b8b35",
+        "epoch": 2,
+        "finalizer": {
+          "device_id": "dev_24ff1173e361da5ac3cffe1bdc1543b6",
+          "runs_on": "member_device"
+        },
+        "kind": "authority_continuity",
+        "recorded_at": "2026-09-20T09:00:00Z",
+        "schema": 1,
+        "succession": {
+          "from": "founding"
+        }
+      },
+      "context": {
+        "payload": "workenv/contracts/examples/c08/sealed_founding_proposal.json"
+      },
+      "at": [
+        "/epoch"
+      ]
+    },
+    {
+      "what": "a successor that fences a finalizer its predecessor never had",
+      "record": {
+        "authority": {
+          "layer": "team",
+          "team_id": "tem_28a7d54d15acfd44101660fdde3bebe5"
+        },
+        "checkpoint_digest": "cd8201db85b6292d7c9333a83893410f9280ccaa6abce4f9022e01f9a3c26889",
+        "epoch": 2,
+        "finalizer": {
+          "runs_on": "internal_service"
+        },
+        "kind": "authority_continuity",
+        "recorded_at": "2026-09-21T09:00:00Z",
+        "schema": 1,
+        "succession": {
+          "fences": {
+            "device_id": "dev_5c2b1e9f0a7d4b3c8e6f1a2d9c0b7e4f",
+            "runs_on": "member_device"
+          },
+          "from": "succession",
+          "predecessor_digest": "6eaf5fada51bce028b699ff412c88b331b4db3d844907f8c9cf41fe821d86471"
+        }
+      },
+      "context": {
+        "payload": {
+          "from_principal_id": "prn_9b7a3ca97dd53c3e9b699fedac1b91a7",
+          "handover": {
+            "duty": "finalizer",
+            "finalizer": {
+              "runs_on": "internal_service"
+            }
+          },
+          "kind": "stewardship_transfer",
+          "schema": 1,
+          "team_id": "tem_28a7d54d15acfd44101660fdde3bebe5",
+          "to_principal_id": "prn_3a1ab70ba2da594e6c183931bf86caf2",
+          "transferred_at": "2026-09-20T09:00:00Z"
+        },
+        "predecessor": "workenv/contracts/examples/c09/founding_epoch_of_an_authority.json"
+      },
+      "at": [
+        "/succession/fences"
+      ]
+    },
+    {
+      "what": "a successor carrying a finalizer the handover did not name",
+      "record": "workenv/contracts/examples/c09/successor_that_fences_the_old_finalizer.json",
+      "context": {
+        "payload": "workenv/contracts/examples/c08/finalizer_handover_recorded.json",
+        "predecessor": "workenv/contracts/examples/c09/founding_epoch_of_an_authority.json"
+      },
+      "at": [
+        "/finalizer"
+      ]
+    },
+    {
+      "what": "a successor written by a handover of a duty other than finalization",
+      "record": "workenv/contracts/examples/c09/successor_that_fences_the_old_finalizer.json",
+      "context": {
+        "payload": {
+          "from_principal_id": "prn_9b7a3ca97dd53c3e9b699fedac1b91a7",
+          "handover": {
+            "duty": "owner"
+          },
+          "kind": "stewardship_transfer",
+          "schema": 1,
+          "team_id": "tem_28a7d54d15acfd44101660fdde3bebe5",
+          "to_principal_id": "prn_3a1ab70ba2da594e6c183931bf86caf2",
+          "transferred_at": "2026-09-21T09:00:00Z"
+        },
+        "predecessor": "workenv/contracts/examples/c09/founding_epoch_of_an_authority.json"
+      },
+      "at": [
+        "/succession"
+      ]
+    }
+  ]
+}

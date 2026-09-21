@@ -1,6 +1,6 @@
 {
  "case": "N17-C09-POS",
- "says": "Alice founds two Teams on her laptop, Platform and Research, each selecting GitHub beside local and peer; Platform registers a knowledge source and commits a revision, and her desktop is enrolled. Each Team explicitly binds its own repository (account, repository id, namespace, read and write effects, credential held on the laptop) and provisions it; each provisioning reports the repository id its binding names. Platform stages a package through its bound repository and the desktop receives it by that carrier route, verifies controls then bodies and commits it. Platform then disconnects its carrier: the repository and the credential are kept. Afterwards Platform's next package still travels by peer and the desktop commits it, and Research still exports through its own binding. What must not happen: a transfer through a carrier that was only selected, the disconnect deleting the repository or revoking the credential, peer exchange depending on the carrier, or Platform's disconnect changing Research's binding.",
+ "says": "Alice founds two Teams on her laptop, Platform and Research, each selecting GitHub beside local and peer; each founding returns that Team's founding continuity epoch. Platform registers a knowledge source and commits a revision, and her desktop is enrolled. Each Team explicitly binds its own repository (account, repository id, namespace, read and write effects, credential held on the laptop) and provisions it; each provisioning reports the repository id its binding names, and each carrier commit moves its Team's head, which the Team's next request expects. Platform stages a package through its bound repository — a draft in its outbox with no receipt, carrying Platform's founding epoch as a member because the desktop does not hold it — and the desktop receives it by that carrier route, verifies controls then bodies and commits it under a receipt. Platform then disconnects its carrier: the repository and the credential are kept. Afterwards Platform's next package still travels by peer and the desktop, which now holds the epoch, commits it, and Research still stages through its own binding. What must not happen: a transfer through a carrier that was only selected, a staging that claims a receipt, the disconnect deleting the repository or revoking the credential, peer exchange depending on the carrier, or Platform's disconnect changing Research's binding.",
  "ids": [
   {
    "name": "desktop_peer",
@@ -45,10 +45,6 @@
   {
    "name": "knowledge_source",
    "prefix": "src"
-  },
-  {
-   "name": "knowledge_collection",
-   "prefix": "col"
   },
   {
    "name": "home_request",
@@ -337,7 +333,7 @@
     },
     {
      "pointer": "/committed_at",
-     "value": "$instant:a_policy_committed_at"
+     "value": "$instant:platform_founded_at"
     }
    ]
   },
@@ -355,7 +351,7 @@
     },
     {
      "pointer": "/since",
-     "value": "$instant:a_team_active_since"
+     "value": "$instant:platform_founded_at"
     }
    ]
   },
@@ -419,6 +415,10 @@
       "peer",
       "github"
      ]
+    },
+    {
+     "pointer": "/name",
+     "value": "Research"
     }
    ]
   },
@@ -494,7 +494,7 @@
     },
     {
      "pointer": "/committed_at",
-     "value": "$instant:b_policy_committed_at"
+     "value": "$instant:research_founded_at"
     }
    ]
   },
@@ -512,7 +512,7 @@
     },
     {
      "pointer": "/since",
-     "value": "$instant:b_team_active_since"
+     "value": "$instant:research_founded_at"
     }
    ]
   },
@@ -546,10 +546,6 @@
      "value": "@platform"
     },
     {
-     "pointer": "/home/collection_id",
-     "value": "@knowledge_collection"
-    },
-    {
      "pointer": "/role",
      "value": "knowledge"
     },
@@ -581,7 +577,7 @@
     },
     {
      "pointer": "/action",
-     "value": "publish"
+     "value": "contribute"
     },
     {
      "pointer": "/effect_class",
@@ -691,11 +687,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#first_revision"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:home_head"
     }
    ]
   },
@@ -816,6 +816,119 @@
     {
      "pointer": "/finalizer/device_id",
      "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:platform_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "platform_sealed_proposal",
+   "from": "a_founding",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:platform_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:platform_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "platform_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:platform_founder_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#platform_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:platform_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "platform_founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:platform_founder_grant"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "publish",
+      "adopt",
+      "grant",
+      "policy",
+      "transfer"
+     ]
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 2
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:platform_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "platform_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/purpose",
+     "value": "The standards this group works to."
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:platform_founded_at"
     }
    ]
   },
@@ -834,6 +947,119 @@
     {
      "pointer": "/finalizer/device_id",
      "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:research_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "research_sealed_proposal",
+   "from": "b_founding",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:research_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:research_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "research_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:research_founder_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@research"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#research_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:research_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "research_founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:research_founder_grant"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@research"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "publish",
+      "adopt",
+      "grant",
+      "policy",
+      "transfer"
+     ]
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 2
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@research"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:research_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "research_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@research"
+    },
+    {
+     "pointer": "/name",
+     "value": "Research"
+    },
+    {
+     "pointer": "/purpose",
+     "value": "The standards this group works to."
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:research_founded_at"
     }
    ]
   },
@@ -1319,6 +1545,22 @@
     {
      "pointer": "/inventory/0/object_kind",
      "value": "source_manifest"
+    },
+    {
+     "pointer": "/inventory/1/path",
+     "value": "continuity/0001.json"
+    },
+    {
+     "pointer": "/inventory/1/digest",
+     "value": "#a_founding_epoch"
+    },
+    {
+     "pointer": "/inventory/1/size",
+     "value": 512
+    },
+    {
+     "pointer": "/inventory/1/object_kind",
+     "value": "authority_continuity"
     }
    ]
   },
@@ -1344,7 +1586,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1530,7 +1772,7 @@
     },
     {
      "pointer": "/receipt_digest",
-     "value": "$digest:accept_carried_package_receipt"
+     "value": "#accept_carried_package_receipt"
     },
     {
      "pointer": "/at",
@@ -1687,7 +1929,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1877,7 +2119,7 @@
     },
     {
      "pointer": "/receipt_digest",
-     "value": "$digest:accept_peer_package_receipt"
+     "value": "#accept_peer_package_receipt"
     },
     {
      "pointer": "/at",
@@ -1933,6 +2175,22 @@
     {
      "pointer": "/inventory/0/object_kind",
      "value": "governing_policy"
+    },
+    {
+     "pointer": "/inventory/1/path",
+     "value": "continuity/0001.json"
+    },
+    {
+     "pointer": "/inventory/1/digest",
+     "value": "#b_founding_epoch"
+    },
+    {
+     "pointer": "/inventory/1/size",
+     "value": 512
+    },
+    {
+     "pointer": "/inventory/1/object_kind",
+     "value": "authority_continuity"
     }
    ]
   },
@@ -1958,7 +2216,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -2050,8 +2308,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "platform_sealed_proposal",
      "a_team_policy",
-     "a_team_active"
+     "platform_founder_membership",
+     "platform_founder_grant",
+     "a_team_active",
+     "platform_profile",
+     "a_founding_epoch"
     ],
     "head": "a_team_head"
    },
@@ -2074,8 +2337,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "research_sealed_proposal",
      "b_team_policy",
-     "b_team_active"
+     "research_founder_membership",
+     "research_founder_grant",
+     "b_team_active",
+     "research_profile",
+     "b_founding_epoch"
     ],
     "head": "b_team_head"
    },
@@ -2098,7 +2366,8 @@
     "recovery": [],
     "returns": [
      "stored_home"
-    ]
+    ],
+    "head": "home_head"
    },
    "process": "laptop"
   },
@@ -2228,8 +2497,8 @@
     "carried_envelope"
    ],
    "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
+    "stage": "draft",
+    "local_effect": "objects_staged",
     "provider_effect": "committed",
     "gaps": [],
     "recovery": [],
@@ -2291,8 +2560,8 @@
     "peer_envelope"
    ],
    "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
+    "stage": "draft",
+    "local_effect": "objects_staged",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2307,8 +2576,7 @@
    "name": "accept_peer_package",
    "request": "accept_peer",
    "carries": [
-    "peer_envelope",
-    "a_founding_epoch"
+    "peer_envelope"
    ],
    "answer": {
     "stage": "committed",
@@ -2334,8 +2602,8 @@
     "research_envelope"
    ],
    "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
+    "stage": "draft",
+    "local_effect": "objects_staged",
     "provider_effect": "committed",
     "gaps": [],
     "recovery": [],

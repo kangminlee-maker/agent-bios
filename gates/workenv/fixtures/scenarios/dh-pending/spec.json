@@ -1,6 +1,6 @@
 {
  "case": "DH-PENDING",
- "says": "Two concerns are in conflict for this person: the test runner (the repository says pytest, their own decisions say unittest) and the journal mode (WAL against a rollback journal). In an attended Claude Code conversation whose ordinary-message route is qualified by a real probe, they were asked about the test runner, chose pytest and kept it until the choices change: the owner recorded the verified answer, admitted the use and recorded the keep preference over both runner records. The journal use then arises in a headless Codex CLI run, whose real probe declined with nobody present. The owner seals the journal question and stores it pending before asking; the process is killed after that commit and restarted, and the same request returns the same pending question. Asking through the headless run is recorded with no channel and answer_origin_unverified; ten minutes later its reply is a timeout, which the owner records as a timed_out non-answer, and resuming with it is refused with answer_not_from_a_person, so no default and no first option is chosen. Preparing the same use again finds the same question version and use rather than minting another; an attempt under a question id nobody sealed is recorded as retry_under_a_new_id_refused; routing the question to the agent-bios management screen is recorded as management_detour_refused. Meanwhile an independent use of the test-runner concern is admitted on the kept preference without a new question. When the person reconnects in a new Claude Code conversation, the same question version is asked there, they choose WAL, the owner records a verified answer, and resuming admits the original journal use under its existing identity.",
+ "says": "Two concerns are in conflict for this person: the test runner (the repository says pytest, their own decisions say unittest) and the journal mode (WAL against a rollback journal). In an attended Claude Code conversation whose ordinary-message route is qualified by a real probe, with its one hook disabled in every configuration the owner measures, they were asked about the test runner and chose pytest, kept until the choices change: the owner recorded the verified answer, admitted the use and, from the same resume request, recorded the keep preference over both runner records. The journal use then arises in a headless Codex CLI run, whose real probe declined with nobody present. The owner seals the journal question and stores it pending before asking; the process is killed after that commit and restarted, and the same request returns the same pending question. Asking through the headless run is recorded with no channel and answer_origin_unverified; ten minutes later its reply is a timeout, recorded as a timed_out non-answer, and resuming with it is blocked with answer_not_from_a_person: the use stays pending_user on the same question version, and no default or first option is chosen. Preparing that same use again, by its id, finds its one question version rather than minting another use or question; an attempt under a question id nobody sealed is recorded as retry_under_a_new_id_refused; routing the question to the agent-bios management screen is recorded as management_detour_refused. Meanwhile an independent use of the test-runner concern is admitted on the kept preference without a new question. When the person reconnects in a new Claude Code conversation, the same question version is asked there, they choose WAL, the owner records a verified answer, and resuming admits the original journal use under its existing identity.",
  "ids": [
   {
    "name": "alice",
@@ -880,6 +880,35 @@
    ]
   },
   {
+   "name": "claude_configuration_at_message_probe",
+   "from": "c12/a_host_measured_with_a_hook_that_answers_questions.json",
+   "drop": [
+    "/hooks/1"
+   ],
+   "set": [
+    {
+     "pointer": "/hooks/0/enabled",
+     "value": false
+    },
+    {
+     "pointer": "/hooks/0/event",
+     "value": "UserPromptSubmit"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:claude_configuration_at_message_probe_at"
+    }
+   ]
+  },
+  {
    "name": "claude_profile",
    "from": "c12/four_capabilities_qualified_one_at_a_time.json",
    "drop": [
@@ -1279,7 +1308,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice"
+     "value": "$lnk:chat_link"
     },
     {
      "pointer": "/payload_digest",
@@ -1385,7 +1414,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice"
+     "value": "$qst:runner_question"
     },
     {
      "pointer": "/payload_digest",
@@ -1415,7 +1444,7 @@
     },
     {
      "pointer": "/measured_configuration_digest",
-     "value": "$digest:runner_reply_evidence_configuration"
+     "value": "#claude_configuration_at_runner_answer"
     },
     {
      "pointer": "/observed_at",
@@ -1452,6 +1481,35 @@
     {
      "pointer": "/origin/answer/mode",
      "value": "keep_until_change"
+    }
+   ]
+  },
+  {
+   "name": "claude_configuration_at_runner_answer",
+   "from": "c12/a_host_measured_with_a_hook_that_answers_questions.json",
+   "drop": [
+    "/hooks/1"
+   ],
+   "set": [
+    {
+     "pointer": "/hooks/0/enabled",
+     "value": false
+    },
+    {
+     "pointer": "/hooks/0/event",
+     "value": "UserPromptSubmit"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:claude_configuration_at_runner_answer_at"
     }
    ]
   },
@@ -1515,7 +1573,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@runner_concern"
+     "value": "$use:runner_use"
     },
     {
      "pointer": "/payload_digest",
@@ -1595,9 +1653,6 @@
   {
    "name": "record_runner_preference",
    "from": "c05/memory_use_request.json",
-   "drop": [
-    "/payload_digest"
-   ],
    "set": [
     {
      "pointer": "/request_id",
@@ -1636,10 +1691,8 @@
      "value": "@runner_concern"
     },
     {
-     "pointer": "/proof_digests",
-     "value": [
-      "#runner_reply_evidence"
-     ]
+     "pointer": "/payload_digest",
+     "value": "#resume_runner_submitted"
     }
    ]
   },
@@ -1925,6 +1978,24 @@
     {
      "pointer": "/at",
      "value": "$instant:headless_probe_at"
+    }
+   ]
+  },
+  {
+   "name": "codex_configuration_at_headless_probe",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/client/name",
+     "value": "codex-cli"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.155.1"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:codex_configuration_at_headless_probe_at"
     }
    ]
   },
@@ -2327,7 +2398,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice"
+     "value": "$lnk:headless_link"
     },
     {
      "pointer": "/payload_digest",
@@ -2429,7 +2500,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice"
+     "value": "$qst:journal_question"
     },
     {
      "pointer": "/payload_digest",
@@ -2463,7 +2534,7 @@
     },
     {
      "pointer": "/measured_configuration_digest",
-     "value": "$digest:timeout_reply_evidence_configuration"
+     "value": "#codex_configuration_at_timeout"
     },
     {
      "pointer": "/observed_at",
@@ -2488,6 +2559,24 @@
     {
      "pointer": "/origin/origin",
      "value": "timed_out"
+    }
+   ]
+  },
+  {
+   "name": "codex_configuration_at_timeout",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/client/name",
+     "value": "codex-cli"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.155.1"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:codex_configuration_at_timeout_at"
     }
    ]
   },
@@ -2551,11 +2640,25 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@journal_concern"
+     "value": "$use:journal_use"
     },
     {
      "pointer": "/payload_digest",
      "value": "#resume_with_timeout_submitted"
+    }
+   ]
+  },
+  {
+   "name": "journal_still_waiting_after_the_timeout",
+   "from": "journal_waiting",
+   "set": [
+    {
+     "pointer": "/material_gaps/0/code",
+     "value": "choice_conflict_unresolved"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:journal_still_waiting_after_the_timeout_at"
     }
    ]
   },
@@ -2597,7 +2700,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@journal_concern"
+     "value": "$use:journal_use"
     },
     {
      "pointer": "/payload_digest",
@@ -2711,7 +2814,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice"
+     "value": "$lnk:headless_link"
     },
     {
      "pointer": "/payload_digest",
@@ -2902,7 +3005,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice"
+     "value": "$lnk:studio_link"
     },
     {
      "pointer": "/payload_digest",
@@ -3208,7 +3311,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice"
+     "value": "$lnk:reconnected_link"
     },
     {
      "pointer": "/payload_digest",
@@ -3314,7 +3417,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice"
+     "value": "$qst:journal_question"
     },
     {
      "pointer": "/payload_digest",
@@ -3344,7 +3447,7 @@
     },
     {
      "pointer": "/measured_configuration_digest",
-     "value": "$digest:journal_reply_evidence_configuration"
+     "value": "#claude_configuration_at_journal_answer"
     },
     {
      "pointer": "/observed_at",
@@ -3381,6 +3484,35 @@
     {
      "pointer": "/origin/answer/mode",
      "value": "keep_until_change"
+    }
+   ]
+  },
+  {
+   "name": "claude_configuration_at_journal_answer",
+   "from": "c12/a_host_measured_with_a_hook_that_answers_questions.json",
+   "drop": [
+    "/hooks/1"
+   ],
+   "set": [
+    {
+     "pointer": "/hooks/0/enabled",
+     "value": false
+    },
+    {
+     "pointer": "/hooks/0/event",
+     "value": "UserPromptSubmit"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:claude_configuration_at_journal_answer_at"
     }
    ]
   },
@@ -3444,7 +3576,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@journal_concern"
+     "value": "$use:journal_use"
     },
     {
      "pointer": "/payload_digest",
@@ -3620,7 +3752,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -3643,7 +3775,8 @@
     "recovery": [],
     "returns": [
      "message_probe",
-     "claude_profile"
+     "claude_profile",
+     "claude_configuration_at_message_probe"
     ]
    }
   },
@@ -3678,7 +3811,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -3695,12 +3828,13 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "runner_reply_evidence"
+     "runner_reply_evidence",
+     "claude_configuration_at_runner_answer"
     ]
    }
   },
@@ -3724,10 +3858,12 @@
   {
    "name": "keep_the_runner_choice",
    "request": "record_runner_preference",
-   "carries": [],
+   "carries": [
+    "resume_runner_submitted"
+   ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -3744,7 +3880,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -3767,7 +3903,8 @@
     "recovery": [],
     "returns": [
      "headless_probe",
-     "codex_profile"
+     "codex_profile",
+     "codex_configuration_at_headless_probe"
     ]
    }
   },
@@ -3802,7 +3939,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -3819,12 +3956,13 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "timeout_reply_evidence"
+     "timeout_reply_evidence",
+     "codex_configuration_at_timeout"
     ]
    },
    "advance_seconds": 600
@@ -3836,7 +3974,7 @@
     "resume_with_timeout_submitted"
    ],
    "answer": {
-    "stage": "refused",
+    "stage": "blocked",
     "local_effect": "none",
     "provider_effect": "not_applicable",
     "gaps": [
@@ -3845,7 +3983,9 @@
      }
     ],
     "recovery": [],
-    "returns": []
+    "returns": [
+     "journal_still_waiting_after_the_timeout"
+    ]
    }
   },
   {
@@ -3866,8 +4006,7 @@
     "recovery": [],
     "returns": [
      "journal_waiting_again",
-     "journal_question",
-     "journal_basis"
+     "journal_question"
     ]
    }
   },
@@ -3879,7 +4018,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -3896,7 +4035,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -3913,7 +4052,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -3947,7 +4086,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -3965,7 +4104,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -3982,12 +4121,13 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "journal_reply_evidence"
+     "journal_reply_evidence",
+     "claude_configuration_at_journal_answer"
     ]
    }
   },

@@ -1,6 +1,6 @@
 {
   "title": "C12 surface trace",
-  "description": "What the client rendered and did, frame by frame, while a surface script drove it: every element with its role, label, marks, focus, selection and state, where navigation stood, the requests it dispatched and the owner operations it called. Written by the runtime; a fixture-driven trace names its fixture. A trace is state and geometry, never comprehension, and a script's typed text is never evidence of input-method composition.",
+  "description": "What the client rendered and did, frame by frame, while a surface script drove it: every element with its role, label, marks, focus, selection and state, where navigation stood, the requests it dispatched and the owner operations it called. Written by the runtime; a fixture-driven trace names its fixture. An element refers to what it shows: a whole record by digest, one part of a record by the id that record gives it, or a source by its id, so a model node shown as a row and the same node drawn in a graph are one reference. A trace is state and geometry, never comprehension, and a script's typed text is never evidence of input-method composition.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -230,6 +230,8 @@
         "access.bridge.serve",
         "access.connection.configure",
         "access.control.record",
+        "access.handle.issue",
+        "access.profile.read",
         "access.profile.rename",
         "access.sign_in.begin",
         "access.sign_in.complete",
@@ -253,6 +255,7 @@
         "knowledge.member.prepare",
         "knowledge.question.ask",
         "knowledge.view.open",
+        "memory.candidate.read",
         "memory.candidate.reject",
         "memory.candidate.store",
         "memory.lifecycle.apply",
@@ -297,6 +300,8 @@
         "surface.protocol.record",
         "team.approval.record",
         "team.consent.record",
+        "team.continuation.record",
+        "team.device.forget",
         "team.device.retire",
         "team.found",
         "team.grant.change",
@@ -304,10 +309,13 @@
         "team.invitation.issue",
         "team.lifecycle.apply",
         "team.membership.change",
+        "team.membership.leave",
         "team.policy.set",
         "team.profile.set",
+        "team.retention.apply",
         "team.state.read",
         "team.stewardship.transfer",
+        "team.verification.record",
         "transfer.accept",
         "transfer.stage",
         "validation.run",
@@ -496,7 +504,7 @@
     "surface_element": {
       "type": "object",
       "additionalProperties": false,
-      "description": "One thing the client rendered, by what it is rather than where it is drawn. The id is the client's own and does not change with the locale; the label is what the screen showed. Focus, selection and execution are three facts.",
+      "description": "One thing the client rendered, by what it is rather than where it is drawn. The id is the client's own and does not change with the locale; the label is what the screen showed. Focus, selection and execution are three facts. `stale` is something shown against a basis that has since moved, such as an approval under a policy since superseded, and `closed` is a Team whose lifecycle has ended.",
       "required": [
         "element_id",
         "role",
@@ -576,7 +584,9 @@
             "pending",
             "draft_saved",
             "published",
-            "adopted"
+            "adopted",
+            "stale",
+            "closed"
           ]
         },
         "shown": {
@@ -617,6 +627,12 @@
         },
         {
           "$ref": "#/$defs/record_ref"
+        },
+        {
+          "$ref": "#/$defs/part_ref"
+        },
+        {
+          "$ref": "#/$defs/source_ref"
         },
         {
           "$ref": "#/$defs/route_ref"
@@ -663,6 +679,52 @@
           "$ref": "#/$defs/digest"
         }
       }
+    },
+    "part_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One part of a record: the record by digest and the part by the id the record gives it, such as a node or relation of a knowledge model or a field of a form profile.",
+      "required": [
+        "ref",
+        "digest",
+        "part_id"
+      ],
+      "properties": {
+        "ref": {
+          "const": "part"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "part_id": {
+          "$ref": "#/$defs/model_id"
+        }
+      }
+    },
+    "source_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A source by its id, apart from any revision or view of it the screen shows.",
+      "required": [
+        "ref",
+        "source_id"
+      ],
+      "properties": {
+        "ref": {
+          "const": "source"
+        },
+        "source_id": {
+          "$ref": "#/$defs/source_id"
+        }
+      }
+    },
+    "model_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+    },
+    "source_id": {
+      "type": "string",
+      "pattern": "^src_[0-9a-f]{32}$"
     },
     "route_ref": {
       "type": "object",

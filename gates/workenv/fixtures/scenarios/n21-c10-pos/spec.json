@@ -1,6 +1,6 @@
 {
  "case": "N21-C10-POS",
- "says": "Alice founds a Team on her laptop, registers its knowledge source and commits a revision, and her enrolled desktop imports it by peer, so the revision has a copy on each device. A read scoped to the Team and to that source delivers its one unit with the frontier it read at. The derivation map of the revision names two distinct derivatives, an excerpt and an index. A retention plan promises the revision and lists the index as evictable, apart from it. One batch then removes the excerpt and the index on the laptop and sends the plan to the desktop by peer; its result states each item's own outcome under its carrier, local and peer, with a receipt each. Finally removing the revision returns a removal_outcome with one row per copy (laptop and desktop, each confirmed with its tombstone) and each derivative's own rows. What must not happen: the read reaching past the Team's scope or the named source, the two derivatives counted as one, the batch summarised into one outcome across carriers, or a removal stated once for all copies.",
+ "says": "Alice founds a Team on her laptop, which returns the Team's founding epoch, registers its knowledge source and commits a revision, and her enrolled desktop imports it by peer (staged on the laptop as a draft with no receipt, carrying the epoch as a member), so the revision has a copy on each device. A read scoped to the Team and to that source delivers its one unit with the frontier it read at. The derivation map of the revision, read in the Team's scope, names two distinct derivatives, an excerpt and an index. A retention plan promises the Team's continuity record — its founding epoch — and lists the index as evictable, apart from it; nothing promises the revision. One batch asks each holder to undertake custody of what the plan promises, the laptop through its own store and the desktop by peer; its result states each item's own outcome under its carrier, with a receipt each. Finally removing the revision in the Team's scope, which no plan still promises, returns a removal_outcome with one row per copy (laptop and desktop, each confirmed with its tombstone) and each derivative's own rows, and moves the Team head. What must not happen: the read reaching past the Team's scope or the named source, the two derivatives counted as one, the batch summarised into one outcome across carriers, or a removal stated once for all copies.",
  "ids": [
   {
    "name": "desktop_peer",
@@ -37,10 +37,6 @@
   {
    "name": "knowledge_source",
    "prefix": "src"
-  },
-  {
-   "name": "knowledge_collection",
-   "prefix": "col"
   },
   {
    "name": "home_request",
@@ -83,15 +79,11 @@
    "prefix": "req"
   },
   {
-   "name": "remove_excerpt_request",
+   "name": "laptop_custody_request",
    "prefix": "req"
   },
   {
-   "name": "remove_index_request",
-   "prefix": "req"
-  },
-  {
-   "name": "stage_plan_request",
+   "name": "desktop_custody_request",
    "prefix": "req"
   },
   {
@@ -328,7 +320,7 @@
     },
     {
      "pointer": "/committed_at",
-     "value": "$instant:policy_committed_at"
+     "value": "$instant:team_founded_at"
     }
    ]
   },
@@ -346,7 +338,7 @@
     },
     {
      "pointer": "/since",
-     "value": "$instant:team_active_since"
+     "value": "$instant:team_founded_at"
     }
    ]
   },
@@ -380,10 +372,6 @@
      "value": "@team"
     },
     {
-     "pointer": "/home/collection_id",
-     "value": "@knowledge_collection"
-    },
-    {
      "pointer": "/role",
      "value": "knowledge"
     },
@@ -415,7 +403,7 @@
     },
     {
      "pointer": "/action",
-     "value": "publish"
+     "value": "contribute"
     },
     {
      "pointer": "/effect_class",
@@ -525,11 +513,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#first_revision"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:home_head"
     }
    ]
   },
@@ -650,6 +642,120 @@
     {
      "pointer": "/finalizer/device_id",
      "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "founding",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:team_founder_grant"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "publish",
+      "adopt",
+      "grant",
+      "policy",
+      "transfer",
+      "retain_delete"
+     ]
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 2
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/purpose",
+     "value": "The standards this group works to."
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:team_founded_at"
     }
    ]
   },
@@ -701,6 +807,22 @@
     {
      "pointer": "/inventory/0/object_kind",
      "value": "source_manifest"
+    },
+    {
+     "pointer": "/inventory/1/path",
+     "value": "continuity/0001.json"
+    },
+    {
+     "pointer": "/inventory/1/digest",
+     "value": "#founding_epoch"
+    },
+    {
+     "pointer": "/inventory/1/size",
+     "value": 512
+    },
+    {
+     "pointer": "/inventory/1/object_kind",
+     "value": "authority_continuity"
     }
    ]
   },
@@ -726,7 +848,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -890,7 +1012,7 @@
     },
     {
      "pointer": "/receipt_digest",
-     "value": "$digest:accept_full_package_receipt"
+     "value": "#accept_full_package_receipt"
     },
     {
      "pointer": "/at",
@@ -1094,7 +1216,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@knowledge_source"
+     "value": "@team"
     },
     {
      "pointer": "/target/base/expects",
@@ -1102,7 +1224,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:source_head"
+     "value": "$digest:team_head"
     },
     {
      "pointer": "/payload_digest",
@@ -1142,7 +1264,7 @@
     },
     {
      "pointer": "/promised/0/digest",
-     "value": "#stored_revision"
+     "value": "#founding_epoch"
     },
     {
      "pointer": "/evictable/0/digest",
@@ -1151,6 +1273,14 @@
     {
      "pointer": "/cleanup/governed_by",
      "value": "#team_policy"
+    },
+    {
+     "pointer": "/promised/0/object_kind",
+     "value": "authority_continuity"
+    },
+    {
+     "pointer": "/promised/0/size",
+     "value": 512
     }
    ]
   },
@@ -1217,202 +1347,40 @@
    ]
   },
   {
-   "name": "remove_excerpt_payload",
-   "from": "c10/removal_of_one_object.json",
-   "set": [
-    {
-     "pointer": "/object_digest",
-     "value": "$digest:excerpt"
-    }
-   ]
-  },
-  {
-   "name": "remove_excerpt",
-   "from": "bindings/storing_request.json",
+   "name": "laptop_commitment",
+   "from": "c10/commitment_as_submitted.json",
    "drop": [
-    "/owner/team_id",
-    "/target/base"
+    "/promised/1"
    ],
    "set": [
     {
-     "pointer": "/request_id",
-     "value": "@remove_excerpt_request"
-    },
-    {
-     "pointer": "/operation",
-     "value": "removal.execute"
-    },
-    {
-     "pointer": "/action",
-     "value": "retain_delete"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "owner_commit"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/actor/device_id",
+     "pointer": "/holder/device_id",
      "value": "@laptop"
     },
     {
-     "pointer": "/actor/profile_id",
-     "value": "@alice_laptop"
-    },
-    {
-     "pointer": "/owner/layer",
-     "value": "team"
-    },
-    {
-     "pointer": "/owner/team_id",
+     "pointer": "/scope/team_id",
      "value": "@team"
     },
     {
-     "pointer": "/target/resource_id",
-     "value": "@knowledge_source"
+     "pointer": "/storage_generation",
+     "value": 1
     },
     {
-     "pointer": "/target/base/expects",
-     "value": "head"
+     "pointer": "/promised/0/digest",
+     "value": "#founding_epoch"
     },
     {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:source_head"
+     "pointer": "/promised/0/object_kind",
+     "value": "authority_continuity"
     },
     {
-     "pointer": "/payload_digest",
-     "value": "#remove_excerpt_payload"
-    }
-   ]
-  },
-  {
-   "name": "remove_index_payload",
-   "from": "c10/removal_of_one_object.json",
-   "set": [
-    {
-     "pointer": "/object_digest",
-     "value": "$digest:index"
-    }
-   ]
-  },
-  {
-   "name": "remove_index",
-   "from": "bindings/storing_request.json",
-   "drop": [
-    "/owner/team_id",
-    "/target/base"
-   ],
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@remove_index_request"
-    },
-    {
-     "pointer": "/operation",
-     "value": "removal.execute"
-    },
-    {
-     "pointer": "/action",
-     "value": "retain_delete"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "owner_commit"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@alice_laptop"
-    },
-    {
-     "pointer": "/owner/layer",
-     "value": "team"
-    },
-    {
-     "pointer": "/owner/team_id",
-     "value": "@team"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@knowledge_source"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "head"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:source_head"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#remove_index_payload"
-    }
-   ]
-  },
-  {
-   "name": "plan_envelope",
-   "from": "c09/complete_transfer.json",
-   "drop": [
-    "/recipient/permitted_scope/repository_id"
-   ],
-   "set": [
-    {
-     "pointer": "/authority/team_id",
-     "value": "@team"
-    },
-    {
-     "pointer": "/namespace/team_id",
-     "value": "@team"
-    },
-    {
-     "pointer": "/recipient/permitted_scope/layer",
-     "value": "team"
-    },
-    {
-     "pointer": "/recipient/permitted_scope/team_id",
-     "value": "@team"
-    },
-    {
-     "pointer": "/continuity_evidence_digests",
-     "value": [
-      "#founding_epoch"
-     ]
-    },
-    {
-     "pointer": "/recipient/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/inventory/0/path",
-     "value": "retention/plan.json"
-    },
-    {
-     "pointer": "/inventory/0/digest",
-     "value": "#retention"
-    },
-    {
-     "pointer": "/inventory/0/size",
+     "pointer": "/promised/0/size",
      "value": 512
-    },
-    {
-     "pointer": "/inventory/0/object_kind",
-     "value": "retention_plan"
     }
    ]
   },
   {
-   "name": "stage_plan",
+   "name": "commit_laptop_custody",
    "from": "bindings/storing_request.json",
    "drop": [
     "/owner/team_id",
@@ -1421,15 +1389,15 @@
    "set": [
     {
      "pointer": "/request_id",
-     "value": "@stage_plan_request"
+     "value": "@laptop_custody_request"
     },
     {
      "pointer": "/operation",
-     "value": "transfer.stage"
+     "value": "custody.commit"
     },
     {
      "pointer": "/action",
-     "value": "transfer"
+     "value": "retain_delete"
     },
     {
      "pointer": "/effect_class",
@@ -1457,19 +1425,98 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@team"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "head"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:team_head_2"
+     "value": "@laptop"
     },
     {
      "pointer": "/payload_digest",
-     "value": "#plan_envelope"
+     "value": "#laptop_commitment"
+    }
+   ]
+  },
+  {
+   "name": "desktop_commitment",
+   "from": "c10/commitment_as_submitted.json",
+   "drop": [
+    "/promised/1"
+   ],
+   "set": [
+    {
+     "pointer": "/holder/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/storage_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/promised/0/digest",
+     "value": "#founding_epoch"
+    },
+    {
+     "pointer": "/promised/0/object_kind",
+     "value": "authority_continuity"
+    },
+    {
+     "pointer": "/promised/0/size",
+     "value": 512
+    }
+   ]
+  },
+  {
+   "name": "commit_desktop_custody",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@desktop_custody_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "custody.commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "retain_delete"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_laptop"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#desktop_commitment"
     }
    ]
   },
@@ -1478,7 +1525,8 @@
    "from": "c03/batch_across_three_carriers.json",
    "drop": [
     "/items/4",
-    "/items/3"
+    "/items/3",
+    "/items/2"
    ],
    "set": [
     {
@@ -1487,23 +1535,15 @@
     },
     {
      "pointer": "/items/0/request_digest",
-     "value": "#remove_excerpt"
+     "value": "#commit_laptop_custody"
     },
     {
      "pointer": "/items/1/carrier",
-     "value": "local"
-    },
-    {
-     "pointer": "/items/1/request_digest",
-     "value": "#remove_index"
-    },
-    {
-     "pointer": "/items/2/carrier",
      "value": "peer"
     },
     {
-     "pointer": "/items/2/request_digest",
-     "value": "#stage_plan"
+     "pointer": "/items/1/request_digest",
+     "value": "#commit_desktop_custody"
     }
    ]
   },
@@ -1525,7 +1565,7 @@
     },
     {
      "pointer": "/action",
-     "value": "retain_delete"
+     "value": "local_profile"
     },
     {
      "pointer": "/effect_class",
@@ -1567,7 +1607,7 @@
    "drop": [
     "/items/4",
     "/items/3",
-    "/items/2/outcome/material_gaps"
+    "/items/2"
    ],
    "set": [
     {
@@ -1580,59 +1620,31 @@
     },
     {
      "pointer": "/items/0/request_digest",
-     "value": "#remove_excerpt"
+     "value": "#commit_laptop_custody"
     },
     {
      "pointer": "/items/0/request_id",
-     "value": "@remove_excerpt_request"
-    },
-    {
-     "pointer": "/items/0/outcome/is",
-     "value": "committed"
+     "value": "@laptop_custody_request"
     },
     {
      "pointer": "/items/0/outcome/receipt_digest",
-     "value": "$digest:remove_excerpt_receipt"
+     "value": "$digest:laptop_custody_receipt"
     },
     {
      "pointer": "/items/1/carrier",
-     "value": "local"
-    },
-    {
-     "pointer": "/items/1/request_digest",
-     "value": "#remove_index"
-    },
-    {
-     "pointer": "/items/1/request_id",
-     "value": "@remove_index_request"
-    },
-    {
-     "pointer": "/items/1/outcome/is",
-     "value": "committed"
-    },
-    {
-     "pointer": "/items/1/outcome/receipt_digest",
-     "value": "$digest:remove_index_receipt"
-    },
-    {
-     "pointer": "/items/2/carrier",
      "value": "peer"
     },
     {
-     "pointer": "/items/2/request_digest",
-     "value": "#stage_plan"
+     "pointer": "/items/1/request_digest",
+     "value": "#commit_desktop_custody"
     },
     {
-     "pointer": "/items/2/request_id",
-     "value": "@stage_plan_request"
+     "pointer": "/items/1/request_id",
+     "value": "@desktop_custody_request"
     },
     {
-     "pointer": "/items/2/outcome/is",
-     "value": "committed"
-    },
-    {
-     "pointer": "/items/2/outcome/receipt_digest",
-     "value": "$digest:stage_plan_receipt"
+     "pointer": "/items/1/outcome/receipt_digest",
+     "value": "$digest:desktop_custody_receipt"
     }
    ]
   },
@@ -1692,7 +1704,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@knowledge_source"
+     "value": "@team"
     },
     {
      "pointer": "/target/base/expects",
@@ -1700,7 +1712,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:source_head"
+     "value": "$digest:team_head_2"
     },
     {
      "pointer": "/payload_digest",
@@ -1808,8 +1820,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
-     "team_active"
+     "team_founder_membership",
+     "team_founder_grant",
+     "team_active",
+     "team_profile",
+     "founding_epoch"
     ],
     "head": "team_head"
    },
@@ -1832,7 +1849,8 @@
     "recovery": [],
     "returns": [
      "stored_home"
-    ]
+    ],
+    "head": "home_head"
    },
    "process": "laptop"
   },
@@ -1880,8 +1898,8 @@
     "full_envelope"
    ],
    "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
+    "stage": "draft",
+    "local_effect": "objects_staged",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1978,9 +1996,8 @@
    "request": "submit_batch",
    "carries": [
     "batch",
-    "remove_excerpt",
-    "remove_index",
-    "stage_plan"
+    "commit_laptop_custody",
+    "commit_desktop_custody"
    ],
    "answer": {
     "stage": "committed",
@@ -2010,7 +2027,7 @@
     "returns": [
      "revision_removed"
     ],
-    "head": "source_head_2"
+    "head": "team_head_3"
    },
    "process": "laptop",
    "advance_seconds": 60

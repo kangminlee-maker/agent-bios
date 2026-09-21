@@ -26,19 +26,15 @@
    "prefix": "src"
   },
   {
-   "name": "lane",
-   "prefix": "wst"
-  },
-  {
-   "name": "measured_source",
-   "prefix": "src"
-  },
-  {
    "name": "entry",
    "prefix": "ent"
   },
   {
    "name": "found_request",
+   "prefix": "req"
+  },
+  {
+   "name": "register_decisions_request",
    "prefix": "req"
   },
   {
@@ -80,7 +76,7 @@
  ],
  "records": [
   {
-   "name": "policy",
+   "name": "team_policy_submitted",
    "from": "c08/policy_as_submitted.json",
    "set": [
     {
@@ -98,7 +94,7 @@
    ]
   },
   {
-   "name": "proposal",
+   "name": "team_proposal",
    "from": "c08/proposal_as_submitted.json",
    "drop": [
     "/founding_mode/nominees"
@@ -113,10 +109,6 @@
      "value": "@me"
     },
     {
-     "pointer": "/finalizer/device_id",
-     "value": "@laptop"
-    },
-    {
      "pointer": "/founding_mode/mode",
      "value": "self_founded"
     },
@@ -125,18 +117,22 @@
      "value": true
     },
     {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
      "pointer": "/recovery/0/principal_id",
      "value": "@me"
     },
     {
      "pointer": "/policy_digest",
-     "value": "#policy"
+     "value": "#team_policy_submitted"
     }
    ]
   },
   {
-   "name": "found_submit",
-   "from": "c08/governed_change_request.json",
+   "name": "team_found_request",
+   "from": "c08/founding_request.json",
    "set": [
     {
      "pointer": "/request_id",
@@ -155,14 +151,6 @@
      "value": "@local_profile"
     },
     {
-     "pointer": "/operation",
-     "value": "team.found"
-    },
-    {
-     "pointer": "/action",
-     "value": "policy"
-    },
-    {
      "pointer": "/owner/team_id",
      "value": "@team"
     },
@@ -171,26 +159,32 @@
      "value": "@team"
     },
     {
-     "pointer": "/target/base/expects",
-     "value": "absent"
-    },
-    {
      "pointer": "/payload_digest",
-     "value": "#proposal"
-    },
-    {
-     "pointer": "/policy_digests",
-     "value": []
+     "value": "#team_proposal"
     }
    ]
   },
   {
-   "name": "stored_policy",
-   "from": "policy",
+   "name": "team_sealed_proposal",
+   "from": "team_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_proposal_at"
+    }
+   ]
+  },
+  {
+   "name": "team_policy",
+   "from": "team_policy_submitted",
    "set": [
     {
      "pointer": "/policy_id",
-     "value": "$pol:policy"
+     "value": "$pol:team_policy"
     },
     {
      "pointer": "/policy_version",
@@ -198,24 +192,54 @@
     },
     {
      "pointer": "/committed_at",
-     "value": "$instant:founded_at"
+     "value": "$instant:team_policy_at"
     }
    ]
   },
   {
-   "name": "founder_grant",
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_membership_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_grant",
    "from": "c08/grant_to_a_person.json",
    "set": [
     {
      "pointer": "/grant_id",
-     "value": "$gra:founder_grant"
+     "value": "$gra:team_founder_grant"
     },
     {
-     "pointer": "/holder/principal_id",
-     "value": "@me"
+     "pointer": "/team_id",
+     "value": "@team"
     },
     {
      "pointer": "/issuer_principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/holder/principal_id",
      "value": "@me"
     },
     {
@@ -223,12 +247,18 @@
      "value": "@team"
     },
     {
-     "pointer": "/team_id",
-     "value": "@team"
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "grant",
+      "policy"
+     ]
     },
     {
      "pointer": "/created_at",
-     "value": "$instant:founded_at"
+     "value": "$instant:team_granted_at"
     }
    ]
   },
@@ -246,7 +276,7 @@
     },
     {
      "pointer": "/since",
-     "value": "$instant:founded_at"
+     "value": "$instant:team_active_at"
     }
    ]
   },
@@ -264,13 +294,159 @@
     },
     {
      "pointer": "/updated_at",
-     "value": "$instant:founded_at"
+     "value": "$instant:team_profile_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_epoch_at"
+    }
+   ]
+  },
+  {
+   "name": "decisions_home_submitted",
+   "from": "sources/home_of_a_managed_collection.json",
+   "drop": [
+    "/registered_at",
+    "/scope/principal_id",
+    "/acceptance_authority/principal_id",
+    "/retention/until"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/acceptance_authority/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/acceptance_authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/home/markdown_view/path",
+     "value": "views/decisions.md"
+    },
+    {
+     "pointer": "/applicability/conditions/0/dimension",
+     "value": "team"
+    },
+    {
+     "pointer": "/applicability/conditions/0/value",
+     "value": "this team"
+    },
+    {
+     "pointer": "/disclosure",
+     "value": "team"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    },
+    {
+     "pointer": "/retention/keep",
+     "value": "until_withdrawn"
+    }
+   ]
+  },
+  {
+   "name": "decisions_home_request",
+   "from": "sources/request_to_register_a_home.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_decisions_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#decisions_home_submitted"
+    }
+   ]
+  },
+  {
+   "name": "decisions_home",
+   "from": "decisions_home_submitted",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:decisions_registered_at"
     }
    ]
   },
   {
    "name": "selection",
-   "from": "c01/selection_of_a_transcript_span.json"
+   "from": "c01/selection_of_a_transcript_span.json",
+   "set": [
+    {
+     "pointer": "/roots/0/permits/destinations/1/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/roots/0/permits/destinations/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/roots/0/permits/processing",
+     "value": "local_processing"
+    }
+   ]
   },
   {
    "name": "observe",
@@ -358,8 +534,11 @@
     },
     {
      "pointer": "/widens/authority_evidence_digest",
-     "value": "#founder_grant"
+     "value": "#team_founder_grant"
     }
+   ],
+   "drop": [
+    "/revision_digest"
    ]
   },
   {
@@ -396,7 +575,7 @@
     {
      "pointer": "/policy_digests",
      "value": [
-      "#stored_policy"
+      "#team_policy"
      ]
     },
     {
@@ -406,6 +585,14 @@
     {
      "pointer": "/payload_digest",
      "value": "#wide_capture"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_team_decisions_head"
     }
    ]
   },
@@ -458,24 +645,21 @@
      "value": "@team"
     },
     {
-     "pointer": "/proposed/workstream_ids/0",
-     "value": "@lane"
-    },
-    {
-     "pointer": "/proposed/basis/0/source_id",
-     "value": "@measured_source"
-    },
-    {
      "pointer": "/proposed/applicability/conditions/0/dimension",
      "value": "storage"
     },
     {
      "pointer": "/proposed/applicability/conditions/0/value",
      "value": "a shared network volume"
+    },
+    {
+     "pointer": "/proposed/workstream_ids",
+     "value": []
     }
    ],
    "drop": [
-    "/proposed/home/repository_id"
+    "/proposed/home/repository_id",
+    "/proposed/basis"
    ]
   },
   {
@@ -587,7 +771,7 @@
     {
      "pointer": "/policy_digests",
      "value": [
-      "#stored_policy"
+      "#team_policy"
      ]
     },
     {
@@ -656,7 +840,7 @@
     },
     {
      "pointer": "/cleanup/governed_by",
-     "value": "#stored_policy"
+     "value": "#team_policy"
     }
    ]
   },
@@ -707,7 +891,7 @@
     {
      "pointer": "/policy_digests",
      "value": [
-      "#stored_policy"
+      "#team_policy"
      ]
     },
     {
@@ -822,7 +1006,7 @@
     {
      "pointer": "/policy_digests",
      "value": [
-      "#stored_policy"
+      "#team_policy"
      ]
     },
     {
@@ -934,10 +1118,13 @@
  "steps": [
   {
    "name": "found_team",
-   "request": "found_submit",
+   "request": "team_found_request",
    "carries": [
-    "proposal",
-    "policy"
+    "team_proposal",
+    "team_policy_submitted"
+   ],
+   "submits": [
+    "team_policy_submitted"
    ],
    "answer": {
     "stage": "committed",
@@ -946,16 +1133,33 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "stored_policy",
-     "founder_grant",
+     "team_sealed_proposal",
+     "team_policy",
+     "team_founder_membership",
+     "team_founder_grant",
      "team_state",
-     "team_profile"
+     "team_profile",
+     "team_founding_epoch"
     ],
     "head": "team_head"
-   },
-   "submits": [
-    "policy"
-   ]
+   }
+  },
+  {
+   "name": "register_team_decisions",
+   "request": "decisions_home_request",
+   "carries": [
+    "decisions_home_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "decisions_home"
+    ]
+   }
   },
   {
    "name": "observe_span",
@@ -1108,5 +1312,5 @@
    }
   }
  ],
- "says": "A person founds a Team alone (team.found), selects one transcript span (source.observe), captures a memory entry from it for a Team decision source with the widening and its authority stated (source.capture.record), and stores a candidate from that capture (memory.candidate.store). Reading what the store derived from the capture (retention.derivations.read) returns its derivation map: an excerpt, an index and the candidate, each by digest. The person sets the Team's retention plan (retention.plan.set): the capture is promised, only the rebuildable index is evictable, and cleanup of candidates, prompts and excerpts is governed by the Team's committed policy. Two plans are refused at admission and write nothing: one whose cleanup names no governing policy (missing_field at /cleanup/governed_by) and one offering the candidate for eviction (value_not_allowed at /evictable/0/object_kind). The person then removes the capture (removal.execute). The removal outcome names the laptop's copy as confirmed with its tombstone and, under derived_copies, every object the derivation map named, each confirmed with its own tombstone, and states erasure_not_promised; nothing names a replacement proof. Reading the derivations of the removed capture afterwards returns an empty map, so no excerpt, index or candidate is silently kept."
+ "says": "A person founds a Team alone (team.found, whose founding grants them what the Team allows) and registers the Team's decision source (source.home.register), selects one transcript span whose selection permits results in the repository and the Team (source.observe), captures a memory entry from it for that Team decision source, at the head its registration committed, with the widening and its authority stated (source.capture.record), and stores a candidate from that capture (memory.candidate.store). Reading what the store derived from the capture (retention.derivations.read) returns its derivation map: an excerpt, an index and the candidate, each by digest. The person sets the Team's retention plan (retention.plan.set): the capture is promised, only the rebuildable index is evictable, and cleanup of candidates, prompts and excerpts is governed by the Team's committed policy. Two plans are refused at admission and write nothing: one whose cleanup names no governing policy (missing_field at /cleanup/governed_by) and one offering the candidate for eviction (value_not_allowed at /evictable/0/object_kind). The person then removes the capture (removal.execute). The removal outcome names the laptop's copy as confirmed with its tombstone and, under derived_copies, every object the derivation map named, each confirmed with its own tombstone, and states erasure_not_promised; nothing names a replacement proof. Reading the derivations of the removed capture afterwards returns an empty map, so no excerpt, index or candidate is silently kept."
 }

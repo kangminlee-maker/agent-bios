@@ -1,6 +1,6 @@
 {
  "case": "SRC-12",
- "says": "One person works in repository work, keeps personal sources, and founds a Team (team.found). Each of the three scopes holds its own Instructions source with a review rule keyed review.approval (source.home.register, source.revision.commit), and the repository and the Team each hold a knowledge rate table. The repository and the Team each hold a decision on which journal mode to use: the repository chose WAL and the Team, published later, chose a rollback journal (memory.record.publish). Each scope selects its rule in its own Instructions position (collection.change); the Team's unit is marked required at startup. Composing the session (preparation.compose) must apply the order repository, personal, Team: the repository rule wins, the personal and Team rules are named as shadowed by it, and the Team's required rule is not a gate on the start. A projection of the three Instructions sources (role.project) shows the same order, and a knowledge question (knowledge.question.ask) prefers the repository table and keeps the Team table beside it with its own evidence. The decision conflict is different: memory.state.resolve over both scopes must return both records unresolved with choice_conflict_unresolved. Neither the repository scope nor the later Team record picks a winner. The actual use (memory.use.prepare) must return pending_user with a stored question offering both alternatives, never a chosen one. The person answers in the working host (recipient.link.open, recipient.answer.record), the use resumes on that verified answer (reader.use.resume), and the application is kept (memory.preference.record). Afterwards both choices must still be recorded in their own sources, neither withdrawn nor superseded (memory.state.resolve again).",
+ "says": "One person works in repository work, keeps personal sources, and founds a Team (team.found). Each of the three scopes holds its own Instructions source with a review rule keyed review.approval (source.home.register, source.revision.commit), and the repository and the Team each hold a knowledge rate table. The repository and the Team each hold a decision on which journal mode to use: the repository chose WAL and the Team, published later, chose a rollback journal (memory.record.publish). Each scope selects its rule in its own Instructions position (collection.change); the Team's unit is marked required at startup. Composing the session (preparation.compose) must apply the order repository, personal, Team: the repository rule wins, the personal and Team rules are named as shadowed by it, and the Team's required rule is not a gate on the start. A projection of the three Instructions sources (role.project) shows the same order, and a knowledge question (knowledge.question.ask) prefers the repository table and keeps the Team table beside it with its own evidence. The decision conflict is different: memory.state.resolve over both scopes must return both records unresolved with choice_conflict_unresolved. Neither the repository scope nor the later Team record picks a winner. The actual use (memory.use.prepare) must return pending_user with a stored question offering both alternatives, never a chosen one. The working host is first probed for a real user event (capability.probe); the person answers there (recipient.link.open, recipient.answer.record), and the answer evidence names that probe and the host configuration the owner measured. The use resumes on that verified answer (reader.use.resume), and the same resume request keeps the application for the concern (memory.preference.record). Afterwards both choices must still be recorded in their own sources, neither withdrawn nor superseded (memory.state.resolve again).",
  "ids": [
   {
    "name": "me",
@@ -67,20 +67,12 @@
    "prefix": "req"
   },
   {
-   "name": "personal_rules_managed",
-   "prefix": "col"
-  },
-  {
    "name": "personal_rules_register_id",
    "prefix": "req"
   },
   {
    "name": "personal_rules_commit_id",
    "prefix": "req"
-  },
-  {
-   "name": "team_rules_managed",
-   "prefix": "col"
   },
   {
    "name": "team_rules_register_id",
@@ -99,10 +91,6 @@
    "prefix": "req"
   },
   {
-   "name": "team_kb_managed",
-   "prefix": "col"
-  },
-  {
    "name": "team_kb_register_id",
    "prefix": "req"
   },
@@ -113,10 +101,6 @@
   {
    "name": "repo_decisions_register_id",
    "prefix": "req"
-  },
-  {
-   "name": "team_decisions_managed",
-   "prefix": "col"
   },
   {
    "name": "team_decisions_register_id",
@@ -171,7 +155,7 @@
    "prefix": "req"
   },
   {
-   "name": "use_concern",
+   "name": "concern",
    "prefix": "cnc"
   },
   {
@@ -196,6 +180,10 @@
   },
   {
    "name": "resolve_again_id",
+   "prefix": "req"
+  },
+  {
+   "name": "probe_id",
    "prefix": "req"
   }
  ],
@@ -481,6 +469,90 @@
     {
      "pointer": "/since",
      "value": "$instant:team_since"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "team_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership_id"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:team_founded_at"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/purpose",
+     "value": "The standards this group works to."
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@me_dev"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_founded"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_founded_at"
     }
    ]
   },
@@ -777,10 +849,6 @@
     {
      "pointer": "/acceptance_authority/principal_id",
      "value": "@me"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@personal_rules_managed"
     }
    ]
   },
@@ -1004,10 +1072,6 @@
     {
      "pointer": "/acceptance_authority/team_id",
      "value": "@team"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@team_rules_managed"
     }
    ]
   },
@@ -1471,10 +1535,6 @@
     {
      "pointer": "/acceptance_authority/team_id",
      "value": "@team"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@team_kb_managed"
     }
    ]
   },
@@ -1840,10 +1900,6 @@
     {
      "pointer": "/acceptance_authority/team_id",
      "value": "@team"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@team_decisions_managed"
     }
    ]
   },
@@ -2566,7 +2622,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "pure_preview"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/action",
@@ -2574,15 +2630,15 @@
     },
     {
      "pointer": "/owner/layer",
-     "value": "repository"
+     "value": "personal"
     },
     {
-     "pointer": "/owner/repository_id",
-     "value": "@repo"
+     "pointer": "/owner/principal_id",
+     "value": "@me"
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@repo"
+     "value": "@me"
     },
     {
      "pointer": "/payload_digest",
@@ -2650,7 +2706,7 @@
     },
     {
      "pointer": "/collections/0/head_digest",
-     "value": "$digest:repo_col_head"
+     "value": "#repo_col_stored"
     },
     {
      "pointer": "/collections/0/state",
@@ -2662,7 +2718,7 @@
     },
     {
      "pointer": "/collections/1/head_digest",
-     "value": "$digest:personal_col_head"
+     "value": "#personal_col_stored"
     },
     {
      "pointer": "/collections/1/state",
@@ -2674,7 +2730,7 @@
     },
     {
      "pointer": "/collections/2/head_digest",
-     "value": "$digest:team_col_head"
+     "value": "#team_col_stored"
     },
     {
      "pointer": "/collections/2/state",
@@ -2870,15 +2926,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@repo_rules"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "head"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:repo_rules_rev"
+     "value": "@me"
     },
     {
      "pointer": "/payload_digest",
@@ -3051,7 +3099,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "pure_preview"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/action",
@@ -3067,15 +3115,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@repo_kb"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "head"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:repo_kb_rev"
+     "value": "@me"
     },
     {
      "pointer": "/payload_digest",
@@ -3207,15 +3247,15 @@
     },
     {
      "pointer": "/owner/layer",
-     "value": "repository"
+     "value": "personal"
     },
     {
-     "pointer": "/owner/repository_id",
-     "value": "@repo"
+     "pointer": "/owner/principal_id",
+     "value": "@me"
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@repo"
+     "value": "@concern"
     },
     {
      "pointer": "/payload_digest",
@@ -3349,7 +3389,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@use_concern"
+     "value": "@concern"
     },
     {
      "pointer": "/payload_digest",
@@ -3364,6 +3404,10 @@
     {
      "pointer": "/prepared_at",
      "value": "$instant:use_state_at"
+    },
+    {
+     "pointer": "/question_digest",
+     "value": "#use_envelope"
     }
    ]
   },
@@ -3537,10 +3581,100 @@
    ]
   },
   {
+   "name": "probe_payload",
+   "from": "c12/probe_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/capability",
+     "value": "user_event"
+    }
+   ]
+  },
+  {
+   "name": "probe",
+   "from": "c01/observe_request.json",
+   "drop": [
+    "/owner",
+    "/target",
+    "/payload_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@probe_id"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@me_dev"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@me_prf"
+    },
+    {
+     "pointer": "/operation",
+     "value": "capability.probe"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@me_prf"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#probe_payload"
+    }
+   ]
+  },
+  {
+   "name": "probe_worked",
+   "from": "c12/a_user_event_probe_that_worked.json",
+   "set": [
+    {
+     "pointer": "/probe_id",
+     "value": "$prb:user_event_probe"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:probed_at"
+    }
+   ]
+  },
+  {
+   "name": "host_config",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:measured_at"
+    }
+   ]
+  },
+  {
    "name": "link",
    "from": "c11/link_as_submitted.json",
    "drop": [
-    "/work_scope"
+    "/work_scope",
+    "/rights_digest"
    ],
    "set": [
     {
@@ -3592,7 +3726,7 @@
     },
     {
      "pointer": "/action",
-     "value": "local_profile"
+     "value": "use"
     },
     {
      "pointer": "/owner/layer",
@@ -3645,6 +3779,10 @@
     {
      "pointer": "/reply/answer/selected/record_id",
      "value": "$rec:repo_decisions_record"
+    },
+    {
+     "pointer": "/reply/separation_evidence_digest",
+     "value": "#probe_worked"
     }
    ]
   },
@@ -3683,7 +3821,7 @@
     },
     {
      "pointer": "/action",
-     "value": "decide"
+     "value": "use"
     },
     {
      "pointer": "/owner/layer",
@@ -3730,6 +3868,14 @@
     {
      "pointer": "/origin/answer/selected/record_id",
      "value": "$rec:repo_decisions_record"
+    },
+    {
+     "pointer": "/origin/separation_evidence_digest",
+     "value": "#probe_worked"
+    },
+    {
+     "pointer": "/measured_configuration_digest",
+     "value": "#host_config"
     }
    ]
   },
@@ -3914,7 +4060,11 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "$qst:question"
+     "value": "@concern"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#resume_payload"
     }
    ]
   },
@@ -4040,15 +4190,15 @@
     },
     {
      "pointer": "/owner/layer",
-     "value": "repository"
+     "value": "personal"
     },
     {
-     "pointer": "/owner/repository_id",
-     "value": "@repo"
+     "pointer": "/owner/principal_id",
+     "value": "@me"
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@repo"
+     "value": "@concern"
     },
     {
      "pointer": "/payload_digest",
@@ -4103,9 +4253,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
+     "team_founder_membership",
      "team_owner_grant",
-     "team_state"
+     "team_state",
+     "team_profile",
+     "team_founding_epoch"
     ],
     "head": "team_founded"
    },
@@ -4382,7 +4536,7 @@
     "returns": [
      "repo_col_stored"
     ],
-    "head": "repo_col_head"
+    "head": "repo_col_stored"
    }
   },
   {
@@ -4400,7 +4554,7 @@
     "returns": [
      "personal_col_stored"
     ],
-    "head": "personal_col_head"
+    "head": "personal_col_stored"
    }
   },
   {
@@ -4418,7 +4572,7 @@
     "returns": [
      "team_col_stored"
     ],
-    "head": "team_col_head"
+    "head": "team_col_stored"
    }
   },
   {
@@ -4429,7 +4583,7 @@
    ],
    "answer": {
     "stage": "previewed",
-    "local_effect": "none",
+    "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -4463,7 +4617,7 @@
    ],
    "answer": {
     "stage": "previewed",
-    "local_effect": "none",
+    "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -4496,16 +4650,37 @@
     "use_envelope"
    ],
    "answer": {
-    "stage": "previewed",
+    "stage": "blocked",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
-    "gaps": [],
+    "gaps": [
+     {
+      "code": "choice_conflict_unresolved"
+     }
+    ],
     "recovery": [],
     "returns": [
      "waiting",
      "question",
      "basis",
      "use_state"
+    ]
+   }
+  },
+  {
+   "name": "probe_the_working_host",
+   "request": "probe",
+   "carries": [
+    "probe_payload"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "probe_worked"
     ]
    }
   },
@@ -4539,7 +4714,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "evidence"
+     "evidence",
+     "host_config"
     ]
    }
   },
@@ -4563,7 +4739,9 @@
   {
    "name": "keep_application",
    "request": "keep",
-   "carries": [],
+   "carries": [
+    "resume_payload"
+   ],
    "answer": {
     "stage": "committed",
     "local_effect": "committed",

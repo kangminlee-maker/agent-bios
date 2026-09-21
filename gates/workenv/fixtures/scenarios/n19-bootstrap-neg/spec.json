@@ -1,6 +1,6 @@
 {
  "case": "N19-BOOTSTRAP-NEG",
- "says": "The founder proposes Team A for review (team.found, left in review) with Bora nominated as reviewer, then revises it before anyone accepts: version 2 changes the purpose and is its own founding request. Bora's acceptance of the version 1 request, arriving after the revision, is refused with acceptances_void_after_revision. Bora accepts the version 2 request, and that same request commits Team A: a policy, a grant for each of them, an active state. After the commit, a late acceptance of the version 1 request, the version 2 request resubmitted, and a new version 3 founding for the same team_id are each refused with bootstrap_already_committed. The founder then proposes Team B for review and cancels that unused founding (team.lifecycle.apply cancel_founding, naming the exact proposal and stating that no unique draft is held); the owner writes a founding_cancelled team_state. Bora's late acceptance of B's founding request, B's founding request resubmitted, and a new version 2 founding for the same team_id are each refused with team_terminal. Refused steps return no record and grant nothing: a team.state.read of A returns only the two grants its version 2 founding committed, and a read of B returns only the founding_cancelled state, with no policy and no grant.",
+ "says": "The founder proposes Team A for review (team.found, left in review with its sealed proposal) with Bora nominated as reviewer, then revises it before anyone accepts: version 2 changes the purpose and is its own founding request, also held in review. Bora's acceptance of the version 1 request, arriving after the revision, is refused with acceptances_void_after_revision. Bora accepts the version 2 request, and that same request commits Team A: the sealed proposal, a policy, the founder's membership by founding and Bora's by nomination naming that acceptance, a grant for each of them, an active state and the founding epoch. After the commit, a late acceptance of the version 1 request, the version 2 proposal resubmitted under a new request id, and a new version 3 founding for the same team_id are each refused with bootstrap_already_committed; the identical version 2 request sent again only returns its original result and receipt. The founder then proposes Team B for review and cancels that unused founding (team.lifecycle.apply cancel_founding, naming the exact proposal and stating that no unique draft is held); the owner writes a founding_cancelled team_state. Bora's late acceptance of B's founding request, B's founding request resubmitted, and a new version 2 founding for the same team_id are each refused with team_terminal. Refused steps return no record and grant nothing: a team.state.read of A returns only the two memberships and two grants its version 2 founding committed, and a read of B returns only the founding_cancelled state, with no policy, membership or grant.",
  "ids": [
   {
    "name": "founder",
@@ -36,6 +36,10 @@
   },
   {
    "name": "found_v2_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "found_v2_again_request_id",
    "prefix": "req"
   },
   {
@@ -145,6 +149,20 @@
     {
      "pointer": "/recovery/0/principal_id",
      "value": "@bora"
+    }
+   ]
+  },
+  {
+   "name": "a_sealed_proposal_v1",
+   "from": "proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:a_sealed_proposal_v1_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:a_proposed_at"
     }
    ]
   },
@@ -394,6 +412,98 @@
    ]
   },
   {
+   "name": "a_sealed_proposal",
+   "from": "proposal_v2",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:a_sealed_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:a_revised_at"
+    }
+   ]
+  },
+  {
+   "name": "a_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:a_founder_membership_id"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@founder"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#a_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "a_bora_nominee_membership",
+   "from": "c08/nominee_admitted_by_accepting_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:a_bora_membership_id"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@bora"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#a_sealed_proposal"
+    },
+    {
+     "pointer": "/standing/acceptance_digest",
+     "value": "#acceptance_stored"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "a_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:a_founded"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
    "name": "found_v2_request",
    "from": "c08/founding_cancellation_request.json",
    "drop": [
@@ -451,6 +561,16 @@
     {
      "pointer": "/payload_digest",
      "value": "#proposal_v2"
+    }
+   ]
+  },
+  {
+   "name": "found_v2_again_request",
+   "from": "found_v2_request",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@found_v2_again_request_id"
     }
    ]
   },
@@ -878,6 +998,20 @@
    ]
   },
   {
+   "name": "b_sealed_proposal",
+   "from": "b_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:b_sealed_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:b_proposed_at"
+    }
+   ]
+  },
+  {
    "name": "b_found_request",
    "from": "c08/founding_cancellation_request.json",
    "drop": [
@@ -1265,12 +1399,17 @@
     "stage": "in_review",
     "local_effect": "candidate_stored",
     "provider_effect": "not_applicable",
-    "gaps": [],
+    "gaps": [
+     {
+      "code": "approval_threshold_unmet"
+     }
+    ],
     "recovery": [
      "query_same_request",
      "retry_same_request"
     ],
     "returns": [
+     "a_sealed_proposal_v1",
      "a_founding_state"
     ]
    },
@@ -1289,12 +1428,17 @@
     "stage": "in_review",
     "local_effect": "candidate_stored",
     "provider_effect": "not_applicable",
-    "gaps": [],
+    "gaps": [
+     {
+      "code": "approval_threshold_unmet"
+     }
+    ],
     "recovery": [
      "query_same_request",
      "retry_same_request"
     ],
     "returns": [
+     "a_sealed_proposal",
      "a_founding_state"
     ]
    },
@@ -1354,11 +1498,15 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "a_sealed_proposal",
      "team_policy",
+     "a_founder_membership",
+     "a_bora_nominee_membership",
      "founder_grant",
      "bora_grant",
      "active_state",
-     "first_profile"
+     "first_profile",
+     "a_founding_epoch"
     ],
     "head": "a_founded"
    },
@@ -1388,8 +1536,20 @@
    }
   },
   {
-   "name": "resubmit_v2_after_commit",
+   "name": "found_v2_sent_again",
    "request": "found_v2_request",
+   "carries": [
+    "proposal_v2",
+    "proposed_policy"
+   ],
+   "submits": [
+    "proposed_policy"
+   ],
+   "replays": "found_v2"
+  },
+  {
+   "name": "resubmit_v2_after_commit",
+   "request": "found_v2_again_request",
    "carries": [
     "proposal_v2",
     "proposed_policy"
@@ -1451,6 +1611,8 @@
      "active_state",
      "first_profile",
      "team_policy",
+     "a_founder_membership",
+     "a_bora_nominee_membership",
      "founder_grant",
      "bora_grant"
     ]
@@ -1467,12 +1629,17 @@
     "stage": "in_review",
     "local_effect": "candidate_stored",
     "provider_effect": "not_applicable",
-    "gaps": [],
+    "gaps": [
+     {
+      "code": "approval_threshold_unmet"
+     }
+    ],
     "recovery": [
      "query_same_request",
      "retry_same_request"
     ],
     "returns": [
+     "b_sealed_proposal",
      "b_founding_state"
     ]
    },

@@ -1,6 +1,6 @@
 {
  "case": "N04-C03-POS",
- "says": "Five entrances are traced and recorded with the guard each reaches kept state through: setup is a choke point of the projection owner admitting role.project and session.routing.activate; session start and a maintenance command, both with roots the caller chooses, are routed through the projection owner; the decision CLI and the studio hub are choke points of the source store admitting source and memory writes. A repository's rules revision is then projected for the executor view through each entrance whose guard is the projection owner - setup, session start and maintenance - and each projection succeeds with the rules body; for setup, the access owner first answers that exact request as allowed. The memory write the decision CLI's store admits, publishing a choice to the repository's memory, succeeds as well. Nothing is projected through the store's entrances, because their dispositions do not admit role.project, and no entrance is asked for an operation its disposition does not name.",
+ "says": "Five entrances are traced and recorded on Alice's profile with the guard each reaches kept state through: setup is a choke point of the projection owner admitting role.project and session.routing.activate; session start and a maintenance command, both with roots the caller chooses, are routed through the projection owner; the decision CLI and the studio hub are choke points of the source store admitting source and memory writes. The access owner then issues Alice a handle through each entrance she will ask through - setup, session start, maintenance and the decision CLI - and every later request names the handle of the entrance it came through among its proofs. A repository's rules revision is projected for the executor view through each entrance whose guard is the projection owner - setup, session start and maintenance - and each projection succeeds with the rules body; for setup, the access owner first answers that exact request, under the setup handle at the current generation, as allowed. The memory write the decision CLI's store admits, publishing a choice to the repository's memory under the decision CLI's handle, succeeds as well. Nothing is projected through the store's entrances, because their dispositions do not admit role.project, and no entrance is asked for an operation its disposition does not name.",
  "ids": [
   {
    "name": "alice",
@@ -35,43 +35,39 @@
    "prefix": "req"
   },
   {
-   "name": "setup_entrance",
-   "prefix": "ent"
-  },
-  {
    "name": "trace_setup_request_req",
    "prefix": "req"
-  },
-  {
-   "name": "session_start_entrance",
-   "prefix": "ent"
   },
   {
    "name": "trace_session_start_request_req",
    "prefix": "req"
   },
   {
-   "name": "maintenance_entrance",
-   "prefix": "ent"
-  },
-  {
    "name": "trace_maintenance_request_req",
    "prefix": "req"
-  },
-  {
-   "name": "decision_cli_entrance",
-   "prefix": "ent"
   },
   {
    "name": "trace_decision_cli_request_req",
    "prefix": "req"
   },
   {
-   "name": "studio_hub_entrance",
-   "prefix": "ent"
+   "name": "trace_studio_hub_request_req",
+   "prefix": "req"
   },
   {
-   "name": "trace_studio_hub_request_req",
+   "name": "issue_decision_cli_handle_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "issue_maintenance_handle_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "issue_session_start_handle_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "issue_setup_handle_request_req",
    "prefix": "req"
   },
   {
@@ -89,10 +85,6 @@
   {
    "name": "project_via_maintenance_request_req",
    "prefix": "req"
-  },
-  {
-   "name": "storage_work",
-   "prefix": "wst"
   },
   {
    "name": "open_storage_work_request_req",
@@ -448,7 +440,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "policy"
+     "value": "local_profile"
     },
     {
      "pointer": "/actor/device_id",
@@ -488,7 +480,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@setup_entrance"
+     "value": "@profile"
     },
     {
      "pointer": "/payload_digest",
@@ -531,7 +523,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "policy"
+     "value": "local_profile"
     },
     {
      "pointer": "/actor/device_id",
@@ -571,7 +563,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@session_start_entrance"
+     "value": "@profile"
     },
     {
      "pointer": "/payload_digest",
@@ -614,7 +606,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "policy"
+     "value": "local_profile"
     },
     {
      "pointer": "/actor/device_id",
@@ -654,7 +646,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@maintenance_entrance"
+     "value": "@profile"
     },
     {
      "pointer": "/payload_digest",
@@ -685,7 +677,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "policy"
+     "value": "local_profile"
     },
     {
      "pointer": "/actor/device_id",
@@ -725,7 +717,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@decision_cli_entrance"
+     "value": "@profile"
     },
     {
      "pointer": "/payload_digest",
@@ -775,7 +767,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "policy"
+     "value": "local_profile"
     },
     {
      "pointer": "/actor/device_id",
@@ -815,11 +807,415 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@studio_hub_entrance"
+     "value": "@profile"
     },
     {
      "pointer": "/payload_digest",
      "value": "#studio_hub_disposition"
+    }
+   ]
+  },
+  {
+   "name": "decision_cli_handle_asked",
+   "from": "c02/handle_asked_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "decision_cli"
+    }
+   ]
+  },
+  {
+   "name": "issue_decision_cli_handle_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.handle.issue"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@issue_decision_cli_handle_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#decision_cli_handle_asked"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    }
+   ]
+  },
+  {
+   "name": "decision_cli_handle",
+   "from": "c02/handle_issued_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/handle_id",
+     "value": "$hdl:decision_cli_handle_id"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "decision_cli"
+    },
+    {
+     "pointer": "/issued_at",
+     "value": "$instant:decision_cli_handle_at"
+    }
+   ]
+  },
+  {
+   "name": "maintenance_handle_asked",
+   "from": "c02/handle_asked_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "maintenance"
+    }
+   ]
+  },
+  {
+   "name": "issue_maintenance_handle_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.handle.issue"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@issue_maintenance_handle_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#maintenance_handle_asked"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    }
+   ]
+  },
+  {
+   "name": "maintenance_handle",
+   "from": "c02/handle_issued_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/handle_id",
+     "value": "$hdl:maintenance_handle_id"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "maintenance"
+    },
+    {
+     "pointer": "/issued_at",
+     "value": "$instant:maintenance_handle_at"
+    }
+   ]
+  },
+  {
+   "name": "session_start_handle_asked",
+   "from": "c02/handle_asked_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "session_start"
+    }
+   ]
+  },
+  {
+   "name": "issue_session_start_handle_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.handle.issue"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@issue_session_start_handle_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#session_start_handle_asked"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    }
+   ]
+  },
+  {
+   "name": "session_start_handle",
+   "from": "c02/handle_issued_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/handle_id",
+     "value": "$hdl:session_start_handle_id"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "session_start"
+    },
+    {
+     "pointer": "/issued_at",
+     "value": "$instant:session_start_handle_at"
+    }
+   ]
+  },
+  {
+   "name": "setup_handle_asked",
+   "from": "c02/handle_asked_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "setup"
+    }
+   ]
+  },
+  {
+   "name": "issue_setup_handle_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.handle.issue"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@issue_setup_handle_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#setup_handle_asked"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    }
+   ]
+  },
+  {
+   "name": "setup_handle",
+   "from": "c02/handle_issued_through_the_cli.json",
+   "set": [
+    {
+     "pointer": "/handle_id",
+     "value": "$hdl:setup_handle_id"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "setup"
+    },
+    {
+     "pointer": "/issued_at",
+     "value": "$instant:setup_handle_at"
     }
    ]
   },
@@ -893,7 +1289,8 @@
     "/rationale",
     "/recipient_digest",
     "/work_scope",
-    "/owner/team_id"
+    "/owner/team_id",
+    "/target/base"
    ],
    "set": [
     {
@@ -934,7 +1331,9 @@
     },
     {
      "pointer": "/proof_digests",
-     "value": []
+     "value": [
+      "#setup_handle"
+     ]
     },
     {
      "pointer": "/request_id",
@@ -942,11 +1341,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@repo_rules"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:repo_rules_head"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
@@ -967,7 +1362,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "use"
+     "value": "local_profile"
     },
     {
      "pointer": "/actor/device_id",
@@ -1011,7 +1406,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@project_via_setup_request_req"
+     "value": "@profile"
     },
     {
      "pointer": "/payload_digest",
@@ -1099,7 +1494,8 @@
     "/rationale",
     "/recipient_digest",
     "/work_scope",
-    "/owner/team_id"
+    "/owner/team_id",
+    "/target/base"
    ],
    "set": [
     {
@@ -1140,7 +1536,9 @@
     },
     {
      "pointer": "/proof_digests",
-     "value": []
+     "value": [
+      "#session_start_handle"
+     ]
     },
     {
      "pointer": "/request_id",
@@ -1148,11 +1546,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@repo_rules"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:repo_rules_head"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
@@ -1230,7 +1624,8 @@
     "/rationale",
     "/recipient_digest",
     "/work_scope",
-    "/owner/team_id"
+    "/owner/team_id",
+    "/target/base"
    ],
    "set": [
     {
@@ -1271,7 +1666,9 @@
     },
     {
      "pointer": "/proof_digests",
-     "value": []
+     "value": [
+      "#maintenance_handle"
+     ]
     },
     {
      "pointer": "/request_id",
@@ -1279,11 +1676,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@repo_rules"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:repo_rules_head"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
@@ -1354,7 +1747,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@storage_work"
+     "value": "@repo"
     },
     {
      "pointer": "/payload_digest",
@@ -1547,7 +1940,9 @@
     },
     {
      "pointer": "/proof_digests",
-     "value": []
+     "value": [
+      "#decision_cli_handle"
+     ]
     },
     {
      "pointer": "/request_id",
@@ -1767,6 +2162,74 @@
     "recovery": [],
     "returns": [
      "studio_hub_disposition"
+    ]
+   }
+  },
+  {
+   "name": "issue_setup_handle",
+   "request": "issue_setup_handle_request",
+   "carries": [
+    "setup_handle_asked"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "setup_handle"
+    ]
+   }
+  },
+  {
+   "name": "issue_session_start_handle",
+   "request": "issue_session_start_handle_request",
+   "carries": [
+    "session_start_handle_asked"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "session_start_handle"
+    ]
+   }
+  },
+  {
+   "name": "issue_maintenance_handle",
+   "request": "issue_maintenance_handle_request",
+   "carries": [
+    "maintenance_handle_asked"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "maintenance_handle"
+    ]
+   }
+  },
+  {
+   "name": "issue_decision_cli_handle",
+   "request": "issue_decision_cli_handle_request",
+   "carries": [
+    "decision_cli_handle_asked"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "decision_cli_handle"
     ]
    }
   },

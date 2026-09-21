@@ -1,6 +1,6 @@
 {
  "case": "N28-C01-NEG",
- "says": "A person binds this device's key and the checkout, founds a solo Team, registers the Team's decision collection as a Team memory source and has the owner read records 12 to 18 of one session transcript taken in this repository, whose own permission lets its text reach the repository and the Team. A memory capture that also carries behavioural units, promoting itself into the Instructions role, is refused at admission: a memory capture has no field for a unit. A capture of the span for the Team source that states its widening from the repository and the evidence of the authority for it is stored, as a draft only. A candidate extracted from it and submitted as already promoted, claiming acceptance with no destination receipt, is refused at admission because its standing is the runtime's to write. The same repository span sent to the Team source without stating the widening is refused by the owner with widening_unstated, and one stating a widening with no evidence of the authority to widen is refused at admission. None of the refused submissions writes anything: a capture cannot promote itself into another role, claim acceptance without a receipt or widen what the Team has authorised.",
+ "says": "A person binds this device's key and the checkout, founds a solo Team (its founding makes them the first member and grants them what the Team allows), registers the Team's decision collection as a Team memory source and has the owner read records 12 to 18 of one session transcript taken in this repository, whose selection permits its text to reach the repository and the Team. A memory capture that also carries behavioural units, promoting itself into the Instructions role, is refused at admission: a memory capture has no field for a unit. A capture of the span for the Team source that states its widening from the repository and the founder's grant as evidence of the authority for it is stored at the head the source's registration committed, as a draft only. A candidate extracted from it and submitted as already promoted, claiming acceptance with no destination receipt, is refused at admission because its standing is the runtime's to write. The same repository span sent to the Team source without stating the widening is refused by the owner with widening_unstated, and one stating a widening with no evidence of the authority to widen is refused at admission. None of the refused submissions writes anything: a capture cannot promote itself into another role, claim acceptance without a receipt or widen what the Team has authorised.",
  "ids": [
   {
    "name": "alice",
@@ -37,10 +37,6 @@
   {
    "name": "team_memory",
    "prefix": "src"
-  },
-  {
-   "name": "team_memory_collection",
-   "prefix": "col"
   },
   {
    "name": "register_team_memory_home_rid",
@@ -227,7 +223,7 @@
    ]
   },
   {
-   "name": "founding_proposal",
+   "name": "team_proposal",
    "from": "c08/proposal_as_submitted.json",
    "drop": [
     "/founding_mode/nominees"
@@ -242,14 +238,6 @@
      "value": "@alice"
     },
     {
-     "pointer": "/finalizer/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/policy_digest",
-     "value": "#team_policy_submitted"
-    },
-    {
      "pointer": "/founding_mode/mode",
      "value": "self_founded"
     },
@@ -258,8 +246,16 @@
      "value": true
     },
     {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
      "pointer": "/recovery/0/principal_id",
      "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#team_policy_submitted"
     },
     {
      "pointer": "/carriers",
@@ -270,20 +266,12 @@
    ]
   },
   {
-   "name": "found_team_request",
-   "from": "c08/governed_change_request.json",
+   "name": "team_found_request",
+   "from": "c08/founding_request.json",
    "set": [
     {
      "pointer": "/request_id",
      "value": "@found_team_rid"
-    },
-    {
-     "pointer": "/operation",
-     "value": "team.found"
-    },
-    {
-     "pointer": "/action",
-     "value": "policy"
     },
     {
      "pointer": "/actor/principal_id",
@@ -306,16 +294,22 @@
      "value": "@team"
     },
     {
-     "pointer": "/target/base/expects",
-     "value": "absent"
-    },
-    {
-     "pointer": "/policy_digests",
-     "value": []
-    },
-    {
      "pointer": "/payload_digest",
-     "value": "#founding_proposal"
+     "value": "#team_proposal"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "team_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_proposal_at"
     }
    ]
   },
@@ -338,7 +332,73 @@
    ]
   },
   {
-   "name": "team_active",
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_membership_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:team_founder_grant"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "grant",
+      "policy"
+     ]
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_granted_at"
+    }
+   ]
+  },
+  {
+   "name": "team_state",
    "from": "c08/archived_team.json",
    "set": [
     {
@@ -352,6 +412,46 @@
     {
      "pointer": "/since",
      "value": "$instant:team_active_at"
+    }
+   ]
+  },
+  {
+   "name": "team_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:team_profile_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_epoch_at"
     }
    ]
   },
@@ -388,10 +488,6 @@
     {
      "pointer": "/acceptance_authority/team_id",
      "value": "@team"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@team_memory_collection"
     },
     {
      "pointer": "/home/markdown_view/path",
@@ -494,7 +590,21 @@
   },
   {
    "name": "span_selection",
-   "from": "c01/selection_of_a_transcript_span.json"
+   "from": "c01/selection_of_a_transcript_span.json",
+   "set": [
+    {
+     "pointer": "/roots/0/permits/destinations/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/roots/0/permits/destinations/1/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/roots/0/permits/processing",
+     "value": "local_processing"
+    }
+   ]
   },
   {
    "name": "observe_span_request",
@@ -552,7 +662,8 @@
    "name": "capture_with_units",
    "from": "sources/memory_capture_carrying_behavioural_units.json",
    "drop": [
-    "/captured_at"
+    "/captured_at",
+    "/revision_digest"
    ],
    "set": [
     {
@@ -626,7 +737,7 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
@@ -637,6 +748,10 @@
      "value": [
       "#team_policy"
      ]
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_team_memory_home_head"
     }
    ]
   },
@@ -672,6 +787,9 @@
      "pointer": "/processing/inputs/0/permits/destinations/1/team_id",
      "value": "@team"
     }
+   ],
+   "drop": [
+    "/revision_digest"
    ]
   },
   {
@@ -712,8 +830,11 @@
     },
     {
      "pointer": "/widens/authority_evidence_digest",
-     "value": "#team_policy"
+     "value": "#team_founder_grant"
     }
+   ],
+   "drop": [
+    "/revision_digest"
    ]
   },
   {
@@ -753,7 +874,7 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
@@ -764,6 +885,10 @@
      "value": [
       "#team_policy"
      ]
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_team_memory_home_head"
     }
    ]
   },
@@ -900,7 +1025,7 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
@@ -911,6 +1036,10 @@
      "value": [
       "#team_policy"
      ]
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_team_memory_home_head"
     }
    ]
   },
@@ -958,7 +1087,7 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
@@ -969,6 +1098,10 @@
      "value": [
       "#team_policy"
      ]
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_team_memory_home_head"
     }
    ]
   }
@@ -1010,9 +1143,12 @@
   },
   {
    "name": "found_team",
-   "request": "found_team_request",
+   "request": "team_found_request",
    "carries": [
-    "founding_proposal",
+    "team_proposal",
+    "team_policy_submitted"
+   ],
+   "submits": [
     "team_policy_submitted"
    ],
    "answer": {
@@ -1022,14 +1158,16 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
-     "team_active"
+     "team_founder_membership",
+     "team_founder_grant",
+     "team_state",
+     "team_profile",
+     "team_founding_epoch"
     ],
     "head": "team_head"
-   },
-   "submits": [
-    "team_policy_submitted"
-   ]
+   }
   },
   {
    "name": "register_team_memory_home",

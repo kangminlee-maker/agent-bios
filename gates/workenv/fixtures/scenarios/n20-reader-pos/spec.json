@@ -1,6 +1,6 @@
 {
  "case": "N20-READER-POS",
- "says": "A repository knowledge source with a rate table and its prose is registered and committed. The editor loads the bodies it will edit with reader.body.read in the knowledge role and the contributor view; the result delivers both units with their bodies and names the source's frontier, the head the commit moved to. The author corrects the table and the editor saves it with source.revision.commit whose base expects exactly that frontier as the head, and the owner commits the second revision on it. The saved revision's base is the frontier the read returned, not a head the editor assumed.",
+ "says": "A repository knowledge source with a rate table and its prose is registered, and its first revision is committed on the head the registration moved to. The editor loads the bodies it will edit with reader.body.read in the knowledge role and the contributor view; the result delivers both units with their bodies and names the source's frontier, the head the commit moved to. The author corrects the table and the editor saves it with source.revision.commit whose base expects exactly that frontier as the head, and the owner commits the second revision on it. The saved revision's base is the frontier the read returned, not a head the editor assumed.",
  "ids": [
   {
    "name": "rates",
@@ -216,9 +216,6 @@
   {
    "name": "commit_rates_rev1",
    "from": "c04/model_check_request.json",
-   "drop": [
-    "/target/base/head_digest"
-   ],
    "set": [
     {
      "pointer": "/request_id",
@@ -254,7 +251,7 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
@@ -263,6 +260,10 @@
     {
      "pointer": "/owner/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:rates_registered"
     }
    ]
   },
@@ -568,7 +569,8 @@
     "recovery": [],
     "returns": [
      "rates_home_stored"
-    ]
+    ],
+    "head": "rates_registered"
    }
   },
   {

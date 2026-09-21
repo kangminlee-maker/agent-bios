@@ -18,20 +18,12 @@
    "name": "trials"
   },
   {
-   "id": "col_d9c87f66645ae558ac41c5eddc264d43",
-   "name": "trials_store"
-  },
-  {
    "id": "tem_0f985ade6bfe09df0c9c380a6cbcac48",
    "name": "team_x"
   },
   {
    "id": "src_1231ba609dc1f5f8f7dea0d3ccdfb76d",
    "name": "team_kb"
-  },
-  {
-   "id": "col_05b8a62892deee4b9b00d3dd3e3d8881",
-   "name": "team_kb_store"
   },
   {
    "id": "req_855f7ed6cbbafffbcd6f8347727a99a0",
@@ -64,6 +56,10 @@
   {
    "id": "req_a15208f10f2af11c2d6b0376608ae8d0",
    "name": "capture_to_team_request"
+  },
+  {
+   "id": "req_d7d42d9fadf3328fed5b79eb1ac01675",
+   "name": "project_request"
   }
  ],
  "joins": [
@@ -71,11 +67,6 @@
    "digest_of": "trials_home",
    "pointer": "/payload_digest",
    "record": "register_trials"
-  },
-  {
-   "minted": "trials_registered_at",
-   "pointer": "/registered_at",
-   "record": "stored_trials_home"
   },
   {
    "digest_of": "register_trials",
@@ -96,6 +87,11 @@
    "minted": "register_new_domain_source_committed_at",
    "pointer": "/committed_at",
    "record": "register_new_domain_source_receipt"
+  },
+  {
+   "minted": "trials_registered_at",
+   "pointer": "/registered_at",
+   "record": "stored_trials_home"
   },
   {
    "digest_of": "register_new_domain_source_receipt",
@@ -123,11 +119,6 @@
    "record": "commit_trials"
   },
   {
-   "minted": "trials_rev1_at",
-   "pointer": "/produced_at",
-   "record": "stored_trials_rev1"
-  },
-  {
    "digest_of": "commit_trials",
    "pointer": "/request_digest",
    "record": "commit_first_revision_receipt"
@@ -151,6 +142,11 @@
    "minted": "trials_registered",
    "pointer": "/target/base/head_digest",
    "record": "commit_first_revision_receipt"
+  },
+  {
+   "minted": "trials_rev1_at",
+   "pointer": "/produced_at",
+   "record": "stored_trials_rev1"
   },
   {
    "digest_of": "commit_first_revision_receipt",
@@ -293,6 +289,21 @@
    "record": "capture_as_instructions_submit"
   },
   {
+   "digest_of": "stored_trials_rev1",
+   "pointer": "/source_pins/0/revision_digest",
+   "record": "trials_plan"
+  },
+  {
+   "digest_of": "trials_plan",
+   "pointer": "/payload_digest",
+   "record": "project_as_instructions"
+  },
+  {
+   "digest_of": "project_as_instructions",
+   "pointer": "/request_digest",
+   "record": "refuse_projection_as_instructions_result"
+  },
+  {
    "digest_of": "tx_policy",
    "pointer": "/policy_digest",
    "record": "tx_proposal"
@@ -301,31 +312,6 @@
    "digest_of": "tx_proposal",
    "pointer": "/payload_digest",
    "record": "tx_found"
-  },
-  {
-   "minted": "tx_policy",
-   "pointer": "/policy_id",
-   "record": "tx_stored_policy"
-  },
-  {
-   "minted": "tx_policy_at",
-   "pointer": "/committed_at",
-   "record": "tx_stored_policy"
-  },
-  {
-   "minted": "tx_founded_at",
-   "pointer": "/since",
-   "record": "tx_state"
-  },
-  {
-   "minted": "tx_founder_grant",
-   "pointer": "/grant_id",
-   "record": "tx_founder_grant"
-  },
-  {
-   "minted": "tx_grant_at",
-   "pointer": "/created_at",
-   "record": "tx_founder_grant"
   },
   {
    "digest_of": "tx_found",
@@ -348,6 +334,76 @@
    "record": "found_tx_receipt"
   },
   {
+   "digest_of": "tx_policy",
+   "pointer": "/policy_digest",
+   "record": "tx_sealed_proposal"
+  },
+  {
+   "minted": "tx_proposal_id",
+   "pointer": "/proposal_id",
+   "record": "tx_sealed_proposal"
+  },
+  {
+   "minted": "tx_founded_at",
+   "pointer": "/created_at",
+   "record": "tx_sealed_proposal"
+  },
+  {
+   "minted": "tx_policy",
+   "pointer": "/policy_id",
+   "record": "tx_stored_policy"
+  },
+  {
+   "minted": "tx_policy_at",
+   "pointer": "/committed_at",
+   "record": "tx_stored_policy"
+  },
+  {
+   "minted": "tx_founder_membership_id",
+   "pointer": "/membership_id",
+   "record": "tx_founder_membership"
+  },
+  {
+   "digest_of": "tx_sealed_proposal",
+   "pointer": "/standing/proposal_digest",
+   "record": "tx_founder_membership"
+  },
+  {
+   "minted": "tx_founded_at",
+   "pointer": "/created_at",
+   "record": "tx_founder_membership"
+  },
+  {
+   "minted": "tx_founder_grant",
+   "pointer": "/grant_id",
+   "record": "tx_founder_grant"
+  },
+  {
+   "minted": "tx_grant_at",
+   "pointer": "/created_at",
+   "record": "tx_founder_grant"
+  },
+  {
+   "minted": "tx_founded_at",
+   "pointer": "/since",
+   "record": "tx_state"
+  },
+  {
+   "minted": "tx_founded_at",
+   "pointer": "/updated_at",
+   "record": "tx_profile"
+  },
+  {
+   "minted": "tx_founded",
+   "pointer": "/checkpoint_digest",
+   "record": "tx_founding_epoch"
+  },
+  {
+   "minted": "tx_founded_at",
+   "pointer": "/recorded_at",
+   "record": "tx_founding_epoch"
+  },
+  {
    "digest_of": "found_tx_receipt",
    "pointer": "/outcome/receipt_digest",
    "record": "found_tx_result"
@@ -358,29 +414,44 @@
    "record": "found_tx_result"
   },
   {
-   "digest_of": "tx_stored_policy",
+   "digest_of": "tx_sealed_proposal",
    "pointer": "/outputs/0/digest",
    "record": "found_tx_result"
   },
   {
-   "digest_of": "tx_state",
+   "digest_of": "tx_stored_policy",
    "pointer": "/outputs/1/digest",
    "record": "found_tx_result"
   },
   {
-   "digest_of": "tx_founder_grant",
+   "digest_of": "tx_founder_membership",
    "pointer": "/outputs/2/digest",
+   "record": "found_tx_result"
+  },
+  {
+   "digest_of": "tx_founder_grant",
+   "pointer": "/outputs/3/digest",
+   "record": "found_tx_result"
+  },
+  {
+   "digest_of": "tx_state",
+   "pointer": "/outputs/4/digest",
+   "record": "found_tx_result"
+  },
+  {
+   "digest_of": "tx_profile",
+   "pointer": "/outputs/5/digest",
+   "record": "found_tx_result"
+  },
+  {
+   "digest_of": "tx_founding_epoch",
+   "pointer": "/outputs/6/digest",
    "record": "found_tx_result"
   },
   {
    "digest_of": "team_kb_home",
    "pointer": "/payload_digest",
    "record": "register_team_kb"
-  },
-  {
-   "minted": "team_kb_registered_at",
-   "pointer": "/registered_at",
-   "record": "stored_team_kb_home"
   },
   {
    "digest_of": "register_team_kb",
@@ -401,6 +472,11 @@
    "minted": "register_team_knowledge_committed_at",
    "pointer": "/committed_at",
    "record": "register_team_knowledge_receipt"
+  },
+  {
+   "minted": "team_kb_registered_at",
+   "pointer": "/registered_at",
+   "record": "stored_team_kb_home"
   },
   {
    "digest_of": "register_team_knowledge_receipt",
@@ -540,6 +616,11 @@
    "step": "found_tx"
   },
   {
+   "name": "tx_founder_membership_id",
+   "shape": "mbr",
+   "step": "found_tx"
+  },
+  {
    "name": "tx_grant_at",
    "shape": "instant",
    "step": "found_tx"
@@ -552,6 +633,11 @@
   {
    "name": "tx_policy_at",
    "shape": "instant",
+   "step": "found_tx"
+  },
+  {
+   "name": "tx_proposal_id",
+   "shape": "fnd",
    "step": "found_tx"
   },
   {
@@ -577,7 +663,7 @@
  ],
  "records": [
   {
-   "digest": "741e3f7d393ae6e396991864f419fbfdab13f9bc7ec5710cbc4b61de1ca2a67d",
+   "digest": "d5f4d586594fd74412c4f688c562c14dbab4c54bafd6c930f38fa5b24c4a747c",
    "name": "trials_home",
    "record": {
     "acceptance_authority": {
@@ -587,7 +673,7 @@
     "applicability": {
      "conditions": [
       {
-       "dimension": "domain",
+       "dimension": "subject_area",
        "value": "clinical trial protocols"
       }
      ],
@@ -596,20 +682,15 @@
     "disclosure": "private",
     "format_version": 1,
     "home": {
-     "collection_id": "col_d9c87f66645ae558ac41c5eddc264d43",
      "markdown_view": {
-      "path": "views/clinical-trials.md",
-      "view": "derived"
+      "view": "none"
      },
      "mode": "managed"
     },
     "kind": "source_home",
-    "publication_evidence_digests": [
-     "bf2b44803955ba2ca424161b8960dc6f3c7afa433a8738b8b121aa07ecef8e0e"
-    ],
+    "publication_evidence_digests": [],
     "retention": {
-     "keep": "until",
-     "until": "2027-01-01T00:00:00Z"
+     "keep": "until_withdrawn"
     },
     "role": "knowledge",
     "schema": 1,
@@ -621,7 +702,7 @@
    }
   },
   {
-   "digest": "f1c402945e8cd7a662191c89a4bf753c1b6938a0f500c43caa037897dadbd65f",
+   "digest": "b6f673c0fc783c25be258e3b394da3578be7af3079787b3853b461b12a742f94",
    "name": "register_trials",
    "record": {
     "action": "contribute",
@@ -639,7 +720,7 @@
      "layer": "personal",
      "principal_id": "prn_c265280762f3a0df99ee808e3fb484ec"
     },
-    "payload_digest": "741e3f7d393ae6e396991864f419fbfdab13f9bc7ec5710cbc4b61de1ca2a67d",
+    "payload_digest": "d5f4d586594fd74412c4f688c562c14dbab4c54bafd6c930f38fa5b24c4a747c",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_855f7ed6cbbafffbcd6f8347727a99a0",
@@ -653,52 +734,7 @@
    }
   },
   {
-   "digest": "99d97e2b1107f68a5774b2180ed970b3ad26e548e44b92ee89a3f1b61254b750",
-   "name": "stored_trials_home",
-   "record": {
-    "acceptance_authority": {
-     "layer": "personal",
-     "principal_id": "prn_c265280762f3a0df99ee808e3fb484ec"
-    },
-    "applicability": {
-     "conditions": [
-      {
-       "dimension": "domain",
-       "value": "clinical trial protocols"
-      }
-     ],
-     "states": "stated"
-    },
-    "disclosure": "private",
-    "format_version": 1,
-    "home": {
-     "collection_id": "col_d9c87f66645ae558ac41c5eddc264d43",
-     "markdown_view": {
-      "path": "views/clinical-trials.md",
-      "view": "derived"
-     },
-     "mode": "managed"
-    },
-    "kind": "source_home",
-    "publication_evidence_digests": [
-     "bf2b44803955ba2ca424161b8960dc6f3c7afa433a8738b8b121aa07ecef8e0e"
-    ],
-    "registered_at": "2000-01-01T00:00:00Z",
-    "retention": {
-     "keep": "until",
-     "until": "2027-01-01T00:00:00Z"
-    },
-    "role": "knowledge",
-    "schema": 1,
-    "scope": {
-     "layer": "personal",
-     "principal_id": "prn_c265280762f3a0df99ee808e3fb484ec"
-    },
-    "source_id": "src_34514fc224165d24ce12cfd544cca214"
-   }
-  },
-  {
-   "digest": "71bb05dfca81aa65930a41f2bed9221f7ec7c6a0f6e025bb3ffe5ec35e1b13b5",
+   "digest": "b23fea76c5241ae24064e08a2ef204955ea3c1b85e311ffc0c2d81a3bb6fdf6a",
    "name": "register_new_domain_source_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -708,7 +744,7 @@
      "layer": "personal",
      "principal_id": "prn_c265280762f3a0df99ee808e3fb484ec"
     },
-    "request_digest": "f1c402945e8cd7a662191c89a4bf753c1b6938a0f500c43caa037897dadbd65f",
+    "request_digest": "b6f673c0fc783c25be258e3b394da3578be7af3079787b3853b461b12a742f94",
     "request_id": "req_855f7ed6cbbafffbcd6f8347727a99a0",
     "schema": 1,
     "sequence": 1,
@@ -721,24 +757,64 @@
    }
   },
   {
-   "digest": "a5113361f53c8fc55e398fcc71e577250bdcde17ea8d31c7ec59084912ef0d6d",
+   "digest": "4708332a8f2dde83d7c107e0750a8ebddd944515a5090aa7791defce0cb2731a",
+   "name": "stored_trials_home",
+   "record": {
+    "acceptance_authority": {
+     "layer": "personal",
+     "principal_id": "prn_c265280762f3a0df99ee808e3fb484ec"
+    },
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "subject_area",
+       "value": "clinical trial protocols"
+      }
+     ],
+     "states": "stated"
+    },
+    "disclosure": "private",
+    "format_version": 1,
+    "home": {
+     "markdown_view": {
+      "view": "none"
+     },
+     "mode": "managed"
+    },
+    "kind": "source_home",
+    "publication_evidence_digests": [],
+    "registered_at": "2000-01-01T00:00:00Z",
+    "retention": {
+     "keep": "until_withdrawn"
+    },
+    "role": "knowledge",
+    "schema": 1,
+    "scope": {
+     "layer": "personal",
+     "principal_id": "prn_c265280762f3a0df99ee808e3fb484ec"
+    },
+    "source_id": "src_34514fc224165d24ce12cfd544cca214"
+   }
+  },
+  {
+   "digest": "4e4fed33856e23c5c39325afc634e65c8621cc854ae9ed313ed1b3bab595931f",
    "name": "register_new_domain_source_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "71bb05dfca81aa65930a41f2bed9221f7ec7c6a0f6e025bb3ffe5ec35e1b13b5",
+     "receipt_digest": "b23fea76c5241ae24064e08a2ef204955ea3c1b85e311ffc0c2d81a3bb6fdf6a",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "99d97e2b1107f68a5774b2180ed970b3ad26e548e44b92ee89a3f1b61254b750",
+      "digest": "4708332a8f2dde83d7c107e0750a8ebddd944515a5090aa7791defce0cb2731a",
       "kind": "source_home"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "f1c402945e8cd7a662191c89a4bf753c1b6938a0f500c43caa037897dadbd65f",
+    "request_digest": "b6f673c0fc783c25be258e3b394da3578be7af3079787b3853b461b12a742f94",
     "request_id": "req_855f7ed6cbbafffbcd6f8347727a99a0",
     "schema": 1,
     "supported_recovery": []
@@ -795,24 +871,6 @@
    }
   },
   {
-   "digest": "fcce29c97def6a5b8b54ca0fbcbb60cb99ea542df21ad96e194a3d614e210119",
-   "name": "stored_trials_rev1",
-   "record": {
-    "format_version": 1,
-    "kind": "source_manifest",
-    "members": [
-     {
-      "digest": "c4933a82770781b42504ac60a6252bfd06ccfce66170394620ba473ade98365d",
-      "path": "index.md",
-      "size": 212
-     }
-    ],
-    "produced_at": "2000-01-01T00:00:00Z",
-    "schema": 1,
-    "source_id": "src_34514fc224165d24ce12cfd544cca214"
-   }
-  },
-  {
    "digest": "58f8a0f9594a454f929ddabd2408a5a121fe7e2bc5029cb0be5af291586299a4",
    "name": "commit_first_revision_receipt",
    "record": {
@@ -834,6 +892,24 @@
      },
      "resource_id": "src_34514fc224165d24ce12cfd544cca214"
     }
+   }
+  },
+  {
+   "digest": "fcce29c97def6a5b8b54ca0fbcbb60cb99ea542df21ad96e194a3d614e210119",
+   "name": "stored_trials_rev1",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "c4933a82770781b42504ac60a6252bfd06ccfce66170394620ba473ade98365d",
+      "path": "index.md",
+      "size": 212
+     }
+    ],
+    "produced_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "source_id": "src_34514fc224165d24ce12cfd544cca214"
    }
   },
   {
@@ -861,13 +937,23 @@
    }
   },
   {
-   "digest": "a3e8794e9772e96357b42282364d5953d753bb3520aa0bc600d0e4d96fd5ca25",
+   "digest": "1fbd0993e1e88f45cfefa2fe143bcf772b245ea7925955e5facf2ad81e8fd93e",
    "name": "selection",
    "record": {
     "kind": "source_selection",
     "roots": [
      {
       "need": "required",
+      "permits": {
+       "destinations": [
+        {
+         "layer": "personal",
+         "principal_id": "prn_c265280762f3a0df99ee808e3fb484ec"
+        }
+       ],
+       "processing": "local_processing",
+       "prompt_log": "not_kept"
+      },
       "place": {
        "first_record": 12,
        "from": "session_transcript",
@@ -886,7 +972,7 @@
    }
   },
   {
-   "digest": "ac0096fcd7ef36fd581fc05b7a5596349a7077fe8c2905dceb5591033583aa8a",
+   "digest": "4e907e865d6753cde47d3d0c62fb38b79873bee3af0a7cffc6ff20d9706966fc",
    "name": "observe",
    "record": {
     "action": "read",
@@ -904,7 +990,7 @@
      "layer": "personal",
      "principal_id": "prn_c265280762f3a0df99ee808e3fb484ec"
     },
-    "payload_digest": "a3e8794e9772e96357b42282364d5953d753bb3520aa0bc600d0e4d96fd5ca25",
+    "payload_digest": "1fbd0993e1e88f45cfefa2fe143bcf772b245ea7925955e5facf2ad81e8fd93e",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_623bacf15857569720d19d5c0e230e25",
@@ -915,7 +1001,7 @@
    }
   },
   {
-   "digest": "f18e2f37716c465a71fb60d44b2131e00b4dedb8de63f85b114fdf1accf27b6a",
+   "digest": "a46abd23ba4eba55c7f9c79fd6ddf27ad1a53f88a5ffd18a52d6a2f80998ce58",
    "name": "observation",
    "record": {
     "kind": "source_observation",
@@ -932,11 +1018,11 @@
      }
     ],
     "schema": 1,
-    "selection_digest": "a3e8794e9772e96357b42282364d5953d753bb3520aa0bc600d0e4d96fd5ca25"
+    "selection_digest": "1fbd0993e1e88f45cfefa2fe143bcf772b245ea7925955e5facf2ad81e8fd93e"
    }
   },
   {
-   "digest": "1fffad9e66416179e532fe1ab755ec05f02748c9fb4d2d54a4400cf5fcfc83bc",
+   "digest": "52daea9239a8fc3d633a08cd6d47ad3c2fa472324a077814632936e6de2cd6b2",
    "name": "observe_span_result",
    "record": {
     "kind": "operation_result",
@@ -947,19 +1033,19 @@
     },
     "outputs": [
      {
-      "digest": "f18e2f37716c465a71fb60d44b2131e00b4dedb8de63f85b114fdf1accf27b6a",
+      "digest": "a46abd23ba4eba55c7f9c79fd6ddf27ad1a53f88a5ffd18a52d6a2f80998ce58",
       "kind": "source_observation"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "ac0096fcd7ef36fd581fc05b7a5596349a7077fe8c2905dceb5591033583aa8a",
+    "request_digest": "4e907e865d6753cde47d3d0c62fb38b79873bee3af0a7cffc6ff20d9706966fc",
     "request_id": "req_623bacf15857569720d19d5c0e230e25",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "907e16f2f4a3664c2994ecf95c5830253bbbafab53b38b23266a4476b73fb696",
+   "digest": "f49642287d862101187ca6d36c234bd624c9adec32be30b41208f254bc95cfbb",
    "name": "capture",
    "record": {
     "destination_source_id": "src_34514fc224165d24ce12cfd544cca214",
@@ -971,7 +1057,7 @@
       "size": 4120
      }
     ],
-    "observation_digest": "f18e2f37716c465a71fb60d44b2131e00b4dedb8de63f85b114fdf1accf27b6a",
+    "observation_digest": "a46abd23ba4eba55c7f9c79fd6ddf27ad1a53f88a5ffd18a52d6a2f80998ce58",
     "processing": {
      "adapter": {
       "digest": "446b029fe11ff71ac8f57cc61d1e686b5cd9b9f987ffe56f8a2190d3b959a2e4",
@@ -1013,7 +1099,7 @@
    }
   },
   {
-   "digest": "fa84645fafcc64f6667455aedf3fb88b4df182ef16e706deb062bab9379d9f7c",
+   "digest": "f0f4f668a202c8931a06cff2eba9eb717ff942c573c41c2e14267ac97f3f0e14",
    "name": "capture_submit",
    "record": {
     "action": "contribute",
@@ -1031,7 +1117,7 @@
      "layer": "personal",
      "principal_id": "prn_c265280762f3a0df99ee808e3fb484ec"
     },
-    "payload_digest": "907e16f2f4a3664c2994ecf95c5830253bbbafab53b38b23266a4476b73fb696",
+    "payload_digest": "f49642287d862101187ca6d36c234bd624c9adec32be30b41208f254bc95cfbb",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_32219c93545a989f166cdccdd9a5e920",
@@ -1046,7 +1132,7 @@
    }
   },
   {
-   "digest": "911d0bdeecb73a7e3528ad11e6cec726f45e93ed4c116fbfe296fd29f61f317d",
+   "digest": "b782b97e0ed5b36b2bc34840b0e0287d82de98ac140b03daec12e47efdc5b1cc",
    "name": "stored_capture",
    "record": {
     "captured_at": "2000-01-01T00:00:00Z",
@@ -1059,7 +1145,7 @@
       "size": 4120
      }
     ],
-    "observation_digest": "f18e2f37716c465a71fb60d44b2131e00b4dedb8de63f85b114fdf1accf27b6a",
+    "observation_digest": "a46abd23ba4eba55c7f9c79fd6ddf27ad1a53f88a5ffd18a52d6a2f80998ce58",
     "processing": {
      "adapter": {
       "digest": "446b029fe11ff71ac8f57cc61d1e686b5cd9b9f987ffe56f8a2190d3b959a2e4",
@@ -1131,7 +1217,7 @@
    }
   },
   {
-   "digest": "fe82291cc459283350c2b187b542c9961ed5a83ca5e710ec0b3aa04652170b78",
+   "digest": "b84b46d0fed95bec885bbc31a028ebf9aab16c62a2d81348af60fe3dde671c39",
    "name": "capture_candidate_result",
    "record": {
     "kind": "operation_result",
@@ -1142,7 +1228,7 @@
     },
     "outputs": [
      {
-      "digest": "911d0bdeecb73a7e3528ad11e6cec726f45e93ed4c116fbfe296fd29f61f317d",
+      "digest": "b782b97e0ed5b36b2bc34840b0e0287d82de98ac140b03daec12e47efdc5b1cc",
       "kind": "knowledge_capture"
      },
      {
@@ -1151,14 +1237,14 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "fa84645fafcc64f6667455aedf3fb88b4df182ef16e706deb062bab9379d9f7c",
+    "request_digest": "f0f4f668a202c8931a06cff2eba9eb717ff942c573c41c2e14267ac97f3f0e14",
     "request_id": "req_32219c93545a989f166cdccdd9a5e920",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "827f5ec8c7d7148b53a9eeab73d34738f837009bf1fbf8feed77db5743a3c53a",
+   "digest": "72a23958e6c26e3e0985ce23257da9b9e33d73c88e359c68e85ee6dd4e9c1141",
    "name": "capture_as_instructions",
    "record": {
     "destination_source_id": "src_34514fc224165d24ce12cfd544cca214",
@@ -1170,7 +1256,7 @@
       "size": 4120
      }
     ],
-    "observation_digest": "f18e2f37716c465a71fb60d44b2131e00b4dedb8de63f85b114fdf1accf27b6a",
+    "observation_digest": "a46abd23ba4eba55c7f9c79fd6ddf27ad1a53f88a5ffd18a52d6a2f80998ce58",
     "processing": {
      "adapter": {
       "digest": "446b029fe11ff71ac8f57cc61d1e686b5cd9b9f987ffe56f8a2190d3b959a2e4",
@@ -1212,7 +1298,7 @@
    }
   },
   {
-   "digest": "7272f91c53a9a87b407a01bf9593c1045c4efb8bd9f7ae3dfb5225096c858063",
+   "digest": "243c6d73a50a1ce169906786a12a784696f8e69ccb0ba4ede0782f5aa643cf13",
    "name": "capture_as_instructions_submit",
    "record": {
     "action": "contribute",
@@ -1230,7 +1316,7 @@
      "layer": "personal",
      "principal_id": "prn_c265280762f3a0df99ee808e3fb484ec"
     },
-    "payload_digest": "827f5ec8c7d7148b53a9eeab73d34738f837009bf1fbf8feed77db5743a3c53a",
+    "payload_digest": "72a23958e6c26e3e0985ce23257da9b9e33d73c88e359c68e85ee6dd4e9c1141",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_fec0276c24722ad75dcc600ebb244d0f",
@@ -1242,6 +1328,79 @@
      },
      "resource_id": "src_34514fc224165d24ce12cfd544cca214"
     }
+   }
+  },
+  {
+   "digest": "a24973992d9e59739400881e572a75147f900c485dbd09088a9326a6951f8204",
+   "name": "trials_plan",
+   "record": {
+    "entrance": {
+     "name": "session_start",
+     "root_origin": "owner"
+    },
+    "kind": "projection_plan",
+    "recipient_view": "executor",
+    "role": "instructions",
+    "schema": 1,
+    "source_pins": [
+     {
+      "revision_digest": "fcce29c97def6a5b8b54ca0fbcbb60cb99ea542df21ad96e194a3d614e210119",
+      "source_id": "src_34514fc224165d24ce12cfd544cca214"
+     }
+    ]
+   }
+  },
+  {
+   "digest": "b6d44e01a871cfc2a7c624fa8e338996194c2d44af5ed5374a27e16df76006fa",
+   "name": "project_as_instructions",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_c0a0cb7024327b141215be77d745e77a",
+     "principal_id": "prn_c265280762f3a0df99ee808e3fb484ec",
+     "profile_id": "prf_1052c8c928b6b7df500b72d821e107e7"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "role.project",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_c265280762f3a0df99ee808e3fb484ec"
+    },
+    "payload_digest": "a24973992d9e59739400881e572a75147f900c485dbd09088a9326a6951f8204",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_d7d42d9fadf3328fed5b79eb1ac01675",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_c265280762f3a0df99ee808e3fb484ec"
+    }
+   }
+  },
+  {
+   "digest": "3b30a93032c79ce03ac8fa42bf75cb633fed68fac16ab3580bc14ddc09e810f6",
+   "name": "refuse_projection_as_instructions_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [
+      {
+       "code": "role_promotion_refused"
+      }
+     ],
+     "stage": "refused"
+    },
+    "outputs": [],
+    "provider_effect": "not_applicable",
+    "request_digest": "b6d44e01a871cfc2a7c624fa8e338996194c2d44af5ed5374a27e16df76006fa",
+    "request_id": "req_d7d42d9fadf3328fed5b79eb1ac01675",
+    "schema": 1,
+    "supported_recovery": [
+     "new_governed_request"
+    ]
    }
   },
   {
@@ -1335,6 +1494,64 @@
    }
   },
   {
+   "digest": "8c8c70dcb74206cbea387d7eab891b0407ab704904d6fb9ebbfd8f877a5761c4",
+   "name": "found_tx_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "910fb695cead833a24dfc6c9f010b5ee7d131539703db2fd84c05abfeaa1ff1e",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_0f985ade6bfe09df0c9c380a6cbcac48"
+    },
+    "request_digest": "76c052795481d1a07119ed2b9e67a0c73cf8e2190dd85ad31dd24db74f42681c",
+    "request_id": "req_974c2d7ca799623780d29750be6b3f7d",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "tem_0f985ade6bfe09df0c9c380a6cbcac48"
+    }
+   }
+  },
+  {
+   "digest": "ecde78ec71388792d2921cb088f7128d74dda9d8959fdf90ac1dec4d3aee365f",
+   "name": "tx_sealed_proposal",
+   "record": {
+    "carriers": [
+     "local",
+     "peer"
+    ],
+    "created_at": "2000-01-01T00:00:00Z",
+    "custody_target": 3,
+    "finalizer": {
+     "device_id": "dev_c0a0cb7024327b141215be77d745e77a",
+     "runs_on": "member_device"
+    },
+    "founder_principal_id": "prn_c265280762f3a0df99ee808e3fb484ec",
+    "founding_mode": {
+     "acknowledged_self_reviewed": true,
+     "mode": "self_founded"
+    },
+    "kind": "founding_proposal",
+    "name": "Platform",
+    "policy_digest": "d73d9696bf5506604fa70e0a96dea89f20684feab6df7bf6041658ab7d246141",
+    "proposal_id": "fnd_8281e8e3f63a36cf2c894c64f960925d",
+    "proposal_version": 1,
+    "purpose": "The standards this group works to.",
+    "recovery": [
+     {
+      "duty": "recovery",
+      "principal_id": "prn_c265280762f3a0df99ee808e3fb484ec"
+     }
+    ],
+    "schema": 1,
+    "team_id": "tem_0f985ade6bfe09df0c9c380a6cbcac48"
+   }
+  },
+  {
    "digest": "4ba8ab324d9c38ba526784710df82eaffa62d2a966f0d3f6478d0ef3aaff7cdc",
    "name": "tx_stored_policy",
    "record": {
@@ -1363,13 +1580,19 @@
    }
   },
   {
-   "digest": "dbe8dc8500142b4f1b51a8cccb40b4fa7b033fe7b502f1bd445d89e8a82075dd",
-   "name": "tx_state",
+   "digest": "7804ca148047ff0cb985ed29b7dc2fd9fbc14a01c16697658123f0916e9b7b27",
+   "name": "tx_founder_membership",
    "record": {
-    "kind": "team_state",
+    "created_at": "2000-01-01T00:00:00Z",
+    "kind": "membership_record",
+    "membership_id": "mbr_62b0f60e6d4fa5d445ade9f8970ae750",
+    "principal_id": "prn_c265280762f3a0df99ee808e3fb484ec",
     "schema": 1,
-    "since": "2000-01-01T00:00:00Z",
-    "state": "active",
+    "standing": {
+     "how": "founding",
+     "is": "active",
+     "proposal_digest": "ecde78ec71388792d2921cb088f7128d74dda9d8959fdf90ac1dec4d3aee365f"
+    },
     "team_id": "tem_0f985ade6bfe09df0c9c380a6cbcac48"
    }
   },
@@ -1402,30 +1625,52 @@
    }
   },
   {
-   "digest": "8c8c70dcb74206cbea387d7eab891b0407ab704904d6fb9ebbfd8f877a5761c4",
-   "name": "found_tx_receipt",
+   "digest": "dbe8dc8500142b4f1b51a8cccb40b4fa7b033fe7b502f1bd445d89e8a82075dd",
+   "name": "tx_state",
    "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "910fb695cead833a24dfc6c9f010b5ee7d131539703db2fd84c05abfeaa1ff1e",
-    "kind": "operation_receipt",
-    "owner": {
+    "kind": "team_state",
+    "schema": 1,
+    "since": "2000-01-01T00:00:00Z",
+    "state": "active",
+    "team_id": "tem_0f985ade6bfe09df0c9c380a6cbcac48"
+   }
+  },
+  {
+   "digest": "e2321052659d89dab57679e5a118d922811f5a957a0d845d1f18d1a5d598e9d3",
+   "name": "tx_profile",
+   "record": {
+    "kind": "team_profile",
+    "name": "Platform",
+    "purpose": "The standards this group works to.",
+    "schema": 1,
+    "team_id": "tem_0f985ade6bfe09df0c9c380a6cbcac48",
+    "updated_at": "2000-01-01T00:00:00Z"
+   }
+  },
+  {
+   "digest": "668625eccecc77c04f6f2242657cdeac0e0df43f31f7b973c8e4809de81c5abc",
+   "name": "tx_founding_epoch",
+   "record": {
+    "authority": {
      "layer": "team",
      "team_id": "tem_0f985ade6bfe09df0c9c380a6cbcac48"
     },
-    "request_digest": "76c052795481d1a07119ed2b9e67a0c73cf8e2190dd85ad31dd24db74f42681c",
-    "request_id": "req_974c2d7ca799623780d29750be6b3f7d",
+    "checkpoint_digest": "910fb695cead833a24dfc6c9f010b5ee7d131539703db2fd84c05abfeaa1ff1e",
+    "epoch": 1,
+    "finalizer": {
+     "device_id": "dev_c0a0cb7024327b141215be77d745e77a",
+     "runs_on": "member_device"
+    },
+    "kind": "authority_continuity",
+    "recorded_at": "2000-01-01T00:00:00Z",
     "schema": 1,
-    "sequence": 1,
-    "target": {
-     "base": {
-      "expects": "absent"
-     },
-     "resource_id": "tem_0f985ade6bfe09df0c9c380a6cbcac48"
+    "succession": {
+     "from": "founding"
     }
    }
   },
   {
-   "digest": "7390018ff0952b2241f5d9b3ff50aa0eee08946a00e520daac23524c22d9ff61",
+   "digest": "11ee96802bf13bb996eb386f4eae9a988c60b58281acd16700b4a82dfe11d4bc",
    "name": "found_tx_result",
    "record": {
     "kind": "operation_result",
@@ -1437,16 +1682,32 @@
     },
     "outputs": [
      {
+      "digest": "ecde78ec71388792d2921cb088f7128d74dda9d8959fdf90ac1dec4d3aee365f",
+      "kind": "founding_proposal"
+     },
+     {
       "digest": "4ba8ab324d9c38ba526784710df82eaffa62d2a966f0d3f6478d0ef3aaff7cdc",
       "kind": "governing_policy"
+     },
+     {
+      "digest": "7804ca148047ff0cb985ed29b7dc2fd9fbc14a01c16697658123f0916e9b7b27",
+      "kind": "membership_record"
+     },
+     {
+      "digest": "9444e5008fba7a37de1b0e8fee3b8e6b2256f53ce3b7765cc7777395a08a3fdb",
+      "kind": "grant_record"
      },
      {
       "digest": "dbe8dc8500142b4f1b51a8cccb40b4fa7b033fe7b502f1bd445d89e8a82075dd",
       "kind": "team_state"
      },
      {
-      "digest": "9444e5008fba7a37de1b0e8fee3b8e6b2256f53ce3b7765cc7777395a08a3fdb",
-      "kind": "grant_record"
+      "digest": "e2321052659d89dab57679e5a118d922811f5a957a0d845d1f18d1a5d598e9d3",
+      "kind": "team_profile"
+     },
+     {
+      "digest": "668625eccecc77c04f6f2242657cdeac0e0df43f31f7b973c8e4809de81c5abc",
+      "kind": "authority_continuity"
      }
     ],
     "provider_effect": "not_applicable",
@@ -1457,7 +1718,7 @@
    }
   },
   {
-   "digest": "41e11a81e852a8d20ed812191b533c24ad4205daa9d064851b455ef7320d4748",
+   "digest": "6db65be6bd3a22a8be70d8e40673b6462f074d73ffd9f91c3638c7be419ac15e",
    "name": "team_kb_home",
    "record": {
     "acceptance_authority": {
@@ -1476,7 +1737,6 @@
     "disclosure": "team",
     "format_version": 1,
     "home": {
-     "collection_id": "col_05b8a62892deee4b9b00d3dd3e3d8881",
      "markdown_view": {
       "path": "views/team-knowledge.md",
       "view": "derived"
@@ -1501,7 +1761,7 @@
    }
   },
   {
-   "digest": "4f4eb4ecd07c6ef54d86528f9a97be0b1472d71e4b90f90fc3ea6ed8876d71db",
+   "digest": "7eaec0345c9515fc886b7ac1d123e5116501bde50530edca2e99a2b404a98934",
    "name": "register_team_kb",
    "record": {
     "action": "contribute",
@@ -1519,7 +1779,7 @@
      "layer": "team",
      "team_id": "tem_0f985ade6bfe09df0c9c380a6cbcac48"
     },
-    "payload_digest": "41e11a81e852a8d20ed812191b533c24ad4205daa9d064851b455ef7320d4748",
+    "payload_digest": "6db65be6bd3a22a8be70d8e40673b6462f074d73ffd9f91c3638c7be419ac15e",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_1e4e59939d4dcc85448165b23b9c0271",
@@ -1533,7 +1793,30 @@
    }
   },
   {
-   "digest": "3997291a598e53ffa159f943f6112a4f483397284df57561b2217f1b61715986",
+   "digest": "35513900cb29a4086bd3c1bc4c64cdd561fe77820afda30fe23be26bc4a2f10d",
+   "name": "register_team_knowledge_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "2981adc5491808639ee5d7f1782cc6d60eae8d63873f1b885322b95e42af7d2c",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_0f985ade6bfe09df0c9c380a6cbcac48"
+    },
+    "request_digest": "7eaec0345c9515fc886b7ac1d123e5116501bde50530edca2e99a2b404a98934",
+    "request_id": "req_1e4e59939d4dcc85448165b23b9c0271",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_1231ba609dc1f5f8f7dea0d3ccdfb76d"
+    }
+   }
+  },
+  {
+   "digest": "9dba601ecae0a752a6ec205390037933c97216149415aa9809798e83b702e221",
    "name": "stored_team_kb_home",
    "record": {
     "acceptance_authority": {
@@ -1552,7 +1835,6 @@
     "disclosure": "team",
     "format_version": 1,
     "home": {
-     "collection_id": "col_05b8a62892deee4b9b00d3dd3e3d8881",
      "markdown_view": {
       "path": "views/team-knowledge.md",
       "view": "derived"
@@ -1578,54 +1860,31 @@
    }
   },
   {
-   "digest": "327546fbcbbd75697ce9d4e61d92827c0e0b72919b4c3593f0476d5d0f5e09b5",
-   "name": "register_team_knowledge_receipt",
-   "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "2981adc5491808639ee5d7f1782cc6d60eae8d63873f1b885322b95e42af7d2c",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "team",
-     "team_id": "tem_0f985ade6bfe09df0c9c380a6cbcac48"
-    },
-    "request_digest": "4f4eb4ecd07c6ef54d86528f9a97be0b1472d71e4b90f90fc3ea6ed8876d71db",
-    "request_id": "req_1e4e59939d4dcc85448165b23b9c0271",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "base": {
-      "expects": "absent"
-     },
-     "resource_id": "src_1231ba609dc1f5f8f7dea0d3ccdfb76d"
-    }
-   }
-  },
-  {
-   "digest": "8fcc80f5c08219c39e36da34c7218d65460f3dd1b11be1ececcf8e77ca1111a3",
+   "digest": "5017981043988a97cdb34d5787c1bd0094263b7e83ce7038a32bc9f2fa2ee9e3",
    "name": "register_team_knowledge_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "327546fbcbbd75697ce9d4e61d92827c0e0b72919b4c3593f0476d5d0f5e09b5",
+     "receipt_digest": "35513900cb29a4086bd3c1bc4c64cdd561fe77820afda30fe23be26bc4a2f10d",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "3997291a598e53ffa159f943f6112a4f483397284df57561b2217f1b61715986",
+      "digest": "9dba601ecae0a752a6ec205390037933c97216149415aa9809798e83b702e221",
       "kind": "source_home"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "4f4eb4ecd07c6ef54d86528f9a97be0b1472d71e4b90f90fc3ea6ed8876d71db",
+    "request_digest": "7eaec0345c9515fc886b7ac1d123e5116501bde50530edca2e99a2b404a98934",
     "request_id": "req_1e4e59939d4dcc85448165b23b9c0271",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "b4367ed272d030d6ddd0da65571d536d523415edb40970986b717f7a007f7b99",
+   "digest": "9bcaa4ecd6e04f6ffb1fd8147770dd774d3c95a9ac9827605c5c8e90247ce3f4",
    "name": "capture_to_team",
    "record": {
     "destination_source_id": "src_1231ba609dc1f5f8f7dea0d3ccdfb76d",
@@ -1637,7 +1896,7 @@
       "size": 4120
      }
     ],
-    "observation_digest": "f18e2f37716c465a71fb60d44b2131e00b4dedb8de63f85b114fdf1accf27b6a",
+    "observation_digest": "a46abd23ba4eba55c7f9c79fd6ddf27ad1a53f88a5ffd18a52d6a2f80998ce58",
     "processing": {
      "adapter": {
       "digest": "446b029fe11ff71ac8f57cc61d1e686b5cd9b9f987ffe56f8a2190d3b959a2e4",
@@ -1679,7 +1938,7 @@
    }
   },
   {
-   "digest": "50fd94b35fe513712ffa09fee2021c8191c6ada6e5ce5c6e71559f8903a85981",
+   "digest": "01c455d6ecf6f43e061495aba88936f80827983e657f8cb666fe84ffcd1b1c97",
    "name": "capture_to_team_submit",
    "record": {
     "action": "contribute",
@@ -1697,7 +1956,7 @@
      "layer": "team",
      "team_id": "tem_0f985ade6bfe09df0c9c380a6cbcac48"
     },
-    "payload_digest": "b4367ed272d030d6ddd0da65571d536d523415edb40970986b717f7a007f7b99",
+    "payload_digest": "9bcaa4ecd6e04f6ffb1fd8147770dd774d3c95a9ac9827605c5c8e90247ce3f4",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_a15208f10f2af11c2d6b0376608ae8d0",
@@ -1712,7 +1971,7 @@
    }
   },
   {
-   "digest": "f6372bcc05601fc25661b754ea0dcf3da7d9588a0eefee1702bea176d20eb435",
+   "digest": "a962c87419c64b7f19ee8bc443d1c42d6bbbd42c74e624c1a3f4b267a466198c",
    "name": "refuse_silent_team_capture_result",
    "record": {
     "kind": "operation_result",
@@ -1728,15 +1987,15 @@
     },
     "outputs": [],
     "provider_effect": "not_applicable",
-    "request_digest": "50fd94b35fe513712ffa09fee2021c8191c6ada6e5ce5c6e71559f8903a85981",
+    "request_digest": "01c455d6ecf6f43e061495aba88936f80827983e657f8cb666fe84ffcd1b1c97",
     "request_id": "req_a15208f10f2af11c2d6b0376608ae8d0",
     "schema": 1,
     "supported_recovery": []
    }
   }
  ],
- "says": "A person starts material in a domain none of their sources covers, clinical trial protocols. They register a new managed knowledge source in their personal scope whose applicability states that domain and whose acceptance authority is themselves (source.home.register), commit its first revision, select records 12 to 18 of one session transcript (source.observe, nothing written) and capture one knowledge member from exactly those bytes into the new source (source.capture.record): the owner stores a draft capture naming the observation, the span evidence and the personal destination it permits, with the extraction run that made it, and commits nothing. The same capture resubmitted as Instructions is refused at admission (the knowledge capture's role cannot be instructions), so a new category of knowledge cannot become behavioural text or add an Instructions domain. With a Team the person founded and its own Team knowledge source registered, the same capture aimed at the Team source without stating a widening and its authority is refused with widening_unstated: new-domain material never lands in, or is adopted as, Team content by default, and the Team source stays at its registration head.",
- "spec_sha256": "477f023864397aab2ad093c4fe2f6fd4d16587410595f6f859df5d5238346daf",
+ "says": "A person starts material in a subject area none of their sources covers, clinical trial protocols. They register a new managed knowledge source in their personal scope whose applicability states that new category as its subject_area condition and whose acceptance authority is themselves (source.home.register), commit its first revision, select records 12 to 18 of one session transcript permitting local processing, no kept prompt log and only their personal scope as destination (source.observe, nothing written), and capture one knowledge member from exactly those bytes into the new source (source.capture.record): the owner stores a draft capture naming the observation, the span evidence and the personal destination it permits, with the extraction run that made it, and commits nothing. The same capture resubmitted as Instructions is refused at admission (a knowledge capture's role cannot be instructions), and projecting the new source's revision as Instructions (role.project) is refused with role_promotion_refused: a new category of knowledge cannot become behavioural text or add an Instructions domain. With a Team the person founded and its own Team knowledge source registered, the same capture aimed at the Team source without stating a widening and its authority is refused with widening_unstated: new-subject material never lands in, or is adopted as, Team content by default, and the Team source stays at its registration head.",
+ "spec_sha256": "3d419427aef32ab068e56d5ba09d32404098deb9ce8b652fb9997140fc865ef0",
  "steps": [
   {
    "carries": [
@@ -1801,6 +2060,15 @@
   },
   {
    "carries": [
+    "trials_plan"
+   ],
+   "name": "refuse_projection_as_instructions",
+   "request": "project_as_instructions",
+   "result": "refuse_projection_as_instructions_result",
+   "returns": []
+  },
+  {
+   "carries": [
     "tx_proposal",
     "tx_policy"
    ],
@@ -1809,9 +2077,13 @@
    "request": "tx_found",
    "result": "found_tx_result",
    "returns": [
+    "tx_sealed_proposal",
     "tx_stored_policy",
+    "tx_founder_membership",
+    "tx_founder_grant",
     "tx_state",
-    "tx_founder_grant"
+    "tx_profile",
+    "tx_founding_epoch"
    ],
    "submits": [
     "tx_policy"

@@ -2,7 +2,7 @@
 
 Record kinds: `capability_profile`, `capability_probe`, `route_outcome`,
 `route_offer`, `route_selection`, `surface_script`, `surface_trace`, `validation_request`,
-`validation_run`.
+`validation_run`, `host_configuration`.
 
 Read, question, user event, resume, a provider callback and a validator are qualified one
 at a time, against the installed client
@@ -14,6 +14,12 @@ against a fixture names it, so a mocked provider or key qualifies nothing; that 
 rests only on probes that ran for real relates the profile to its probes, which a schema
 cannot state, so the runtime owner keeps it and P01's cases check it.
 
+A host is qualified under the configuration it runs, so what of that configuration can act for a
+person is measured and kept: `host_configuration` lists every hook the host would run, on which
+event, by the digest of its handler, and whether it is enabled, and an empty list is a host with
+no hook. A probe returns the configuration it ran under, and C11 names the one a reply was
+classified against.
+
 A run is real or it names its fixture. A real run has nowhere to put a fixture digest, so a
 fixture standing in for a real result cannot be written down; an unsupported route says so with
 its reason instead of returning an empty success.
@@ -24,33 +30,45 @@ left on the screen — every element by role, label, marks, focus, selection and
 where navigation stood, what it dispatched, and which owner operations it called and
 what each read, so a task-specific query during entry is seen. Focus,
 a suggested default and a selection are three facts, and colour has no field. A trace is
-state and geometry: it establishes no comprehension and no input-method composition.
+state and geometry: it establishes no comprehension and no input-method composition. An element
+refers to a whole record by digest, to one part of a record by the id the record gives it — a
+node or relation of a knowledge model — or to a source by its id; something shown against a
+basis that has moved is `stale`, and a Team whose lifecycle ended is `closed`.
 
 An offered route that acts on material names the collection position it targets and
-whether that is the original or the effective view.
+whether that is the original or the effective view. A selection that opens a read-only view
+expects `view_opened`, which writes nothing.
 
-Validation is pinned: exact targets, lenses by digest, the package the questions belong
-to. A run is clean or has findings only over checks that all ran; anything else is
-unverified. That a run covers every pinned target and lens relates it to its request,
-which the runtime owner keeps and P01's cases check.
+Validation is pinned: exact targets, lenses by digest, and the package the questions belong
+to by the `source_manifest` of its source revision. A run is clean or has findings only over
+checks that all ran; anything else is unverified. That a run covers every pinned target and
+lens relates it to its request, which the runtime owner keeps and P01's cases check.
 """
 CONTRACT = "C12"
 RECORD_KINDS = ("capability_profile", "capability_probe", "route_outcome",
                 "route_offer", "route_selection", "surface_script", "surface_trace",
-                "validation_request", "validation_run")
+                "validation_request", "validation_run", "host_configuration")
 IN_RESULTS = True
 
 # The operations of this contract that travel in a C03 sealed request. `takes` is the
 # record kinds its payload may be, and none means the request names no payload;
-# `returns` is the kinds its result may name in `outputs`. The union across the
-# contract modules is the closed list a request may name.
+# `returns` is the kinds its result may name in `outputs`. `effect`, `action` and `targets`
+# are what every request for it states: its effect class, the one grant action it needs and
+# the id prefixes its target may carry. The union across the contract modules is the closed
+# list a request may name.
 OPERATIONS = {
     "capability.probe": {"takes": ("capability_probe",),
-                         "returns": ("capability_probe", "capability_profile")},
-    "route.offer": {"takes": ("route_offer",), "returns": ("route_offer",)},
-    "route.select": {"takes": ("route_selection",), "returns": ("route_outcome",)},
-    "surface.drive": {"takes": ("surface_script",), "returns": ("surface_trace",)},
-    "validation.run": {"takes": ("validation_request",), "returns": ("validation_run",)},
+                         "returns": ("capability_probe", "capability_profile",
+                                     "host_configuration"),
+                         "effect": "owner_commit", "action": "local_profile", "targets": ("prf",)},
+    "route.offer": {"takes": ("route_offer",), "returns": ("route_offer",),
+                    "effect": "owner_commit", "action": "read", "targets": ("prf",)},
+    "route.select": {"takes": ("route_selection",), "returns": ("route_outcome",),
+                     "effect": "owner_commit", "action": "read", "targets": ("prf",)},
+    "surface.drive": {"takes": ("surface_script",), "returns": ("surface_trace",),
+                      "effect": "pure_preview", "action": "read", "targets": ("prf",)},
+    "validation.run": {"takes": ("validation_request",), "returns": ("validation_run",),
+                       "effect": "owner_commit", "action": "review", "targets": ("rep", "prn")},
 }
 
 # Rules that relate one element of a record to another, which a schema cannot state. The

@@ -1,6 +1,6 @@
 {
  "case": "TUI-ENTRY-LOCKED",
- "says": "A person with a bound repository and a committed instructions source has a read of that source sealed at access generation 7 when they lock the profile (access.transition lock: locked, generation 8). The locked entry (surface.drive from the locked scope entrance) shows only that the profile is locked, how to unlock at a terminal, and an unlock action; Down, Tab and Enter move nothing and unlock nothing, and every frame stays access locked with nothing dispatched or called. The read arriving late is not admitted (access.admission.decide: access_locked). An unlock naming no explicit method is refused at admission (variant_mismatch /change). The person unlocks explicitly with the device key at a terminal (active, generation 9); the late read, still sealed at generation 7, is again not admitted (access_generation_moved) rather than delivered into the reopened session, while the same read sealed afresh at generation 9 for the same actor and repository is allowed. Negative: no frame shows the source's path, title, counts or repository name while locked; navigation never changes access; and the late read never becomes admitted under the new generation.",
+ "says": "Reading the profile first (access.profile.read) shows it active at access generation 7, opened by the device key. A person with a bound repository and a committed instructions source has a read of that source sealed at that generation when they lock the profile (access.transition lock: locked, generation 8). The locked entry (surface.drive from the locked scope entrance) shows only that the profile is locked, how to unlock at a terminal, and an unlock action; Down, Tab and Enter move nothing and unlock nothing, and every frame stays access locked with nothing dispatched or called. The read arriving late is not admitted (access.admission.decide: access_locked). An unlock naming no explicit method is refused at admission (variant_mismatch /change). The person unlocks explicitly with the device key at a terminal (active again, still generation 8: only a restriction moves the generation); the late read, still sealed at generation 7, is again not admitted (access_generation_moved) rather than delivered into the reopened session, while the same read sealed afresh at generation 8 for the same actor and repository is allowed. Negative: no frame shows the source's path, title, counts or repository name while locked; navigation never changes access; and the late read never becomes admitted under the new generation.",
  "ids": [
   {
    "name": "me",
@@ -73,9 +73,83 @@
   {
    "name": "fresh_decide",
    "prefix": "req"
+  },
+  {
+   "name": "profile_read_rid",
+   "prefix": "req"
   }
  ],
  "records": [
+  {
+   "name": "read_profile_request",
+   "from": "c02/profile_read_request.json",
+   "set": [
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@profile_read_rid"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    }
+   ]
+  },
+  {
+   "name": "profile_held",
+   "from": "c02/profile_written_at_first_use.json",
+   "set": [
+    {
+     "pointer": "/created_at",
+     "value": "$instant:profile_created_at"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    }
+   ]
+  },
+  {
+   "name": "access_before_the_lock",
+   "from": "c02/unlocked_with_the_device_key.json",
+   "set": [
+    {
+     "pointer": "/access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:last_unlocked_at"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    }
+   ]
+  },
   {
    "name": "my_key",
    "from": "c01/binding_as_submitted.json",
@@ -214,6 +288,10 @@
     {
      "pointer": "/roots/0/place/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/roots/0/permits/destinations/0/repository_id",
+     "value": "@repo"
     }
    ]
   },
@@ -335,7 +413,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/actor/principal_id",
@@ -589,7 +667,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@me"
+     "value": "@profile"
     }
    ]
   },
@@ -910,7 +988,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "read"
+     "value": "local_profile"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1086,12 +1164,8 @@
   },
   {
    "name": "unlock_state",
-   "from": "c02/locked_state.json",
+   "from": "c02/unlocked_with_the_device_key.json",
    "set": [
-    {
-     "pointer": "/access_generation",
-     "value": 9
-    },
     {
      "pointer": "/changed_at",
      "value": "$instant:unlock_at"
@@ -1099,14 +1173,6 @@
     {
      "pointer": "/profile_id",
      "value": "@profile"
-    },
-    {
-     "pointer": "/state/is",
-     "value": "active"
-    },
-    {
-     "pointer": "/state/because",
-     "value": "unlock"
     }
    ]
   },
@@ -1116,7 +1182,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "read"
+     "value": "local_profile"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1136,7 +1202,7 @@
     },
     {
      "pointer": "/local_access_generation",
-     "value": 9
+     "value": 8
     },
     {
      "pointer": "/operation",
@@ -1166,7 +1232,7 @@
    "set": [
     {
      "pointer": "/access_generation",
-     "value": 9
+     "value": 8
     },
     {
      "pointer": "/outcome/material_gaps/0/code",
@@ -1188,7 +1254,7 @@
    "set": [
     {
      "pointer": "/local_access_generation",
-     "value": 9
+     "value": 8
     },
     {
      "pointer": "/request_id",
@@ -1202,7 +1268,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "read"
+     "value": "local_profile"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1222,7 +1288,7 @@
     },
     {
      "pointer": "/local_access_generation",
-     "value": 9
+     "value": 8
     },
     {
      "pointer": "/operation",
@@ -1255,7 +1321,7 @@
    "set": [
     {
      "pointer": "/access_generation",
-     "value": 9
+     "value": 8
     },
     {
      "pointer": "/outcome/admission",
@@ -1274,6 +1340,22 @@
  ],
  "steps": [
   {
+   "name": "read_the_profile",
+   "request": "read_profile_request",
+   "carries": [],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "profile_held",
+     "access_before_the_lock"
+    ]
+   }
+  },
+  {
    "name": "bind_device_key",
    "request": "my_key_request",
    "carries": [
@@ -1281,7 +1363,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1298,7 +1380,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1350,7 +1432,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1416,7 +1498,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],

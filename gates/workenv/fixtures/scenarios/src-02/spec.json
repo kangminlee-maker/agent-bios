@@ -1,6 +1,6 @@
 {
  "case": "SRC-02",
- "says": "A person selects two places in the checkout of repository W: docs/adr (required) and README.md (optional). source.observe reads only files under those two roots and writes nothing. A selection whose root climbs out of the checkout into a neighbouring repository (../neighbouring-repository/docs) is refused at admission and nothing is read. A selection whose required root docs/decisions is absent returns an observation that lists that root as missing, with ref_unavailable at /roots/0, instead of an empty read. With the checkout bound and a decisions source registered and committed, a capture of an ADR the observation read is stored as a draft; a capture that names the same observation but claims its input came from records 12 to 18 of a session transcript that no selection named is refused with input_not_observed at /processing/inputs/0 and nothing is stored. No step reads a path, repository, transcript or companion file outside what the person selected.",
+ "says": "A person selects two places in the checkout /home/ana/work of repository W: docs/adr (required, permitting local processing, no kept prompt log and W as the only destination) and README.md (optional, permitting nothing). source.observe reads only files under those two roots and writes nothing. A selection whose root climbs out of the checkout into a neighbouring repository (../neighbouring-repository/docs) is refused at admission and nothing is read. A selection whose required root docs/decisions is absent returns an observation that lists that root as missing, with ref_unavailable at /roots/0, instead of an empty read. With the checkout bound and a decisions source registered, its revision is committed declaring the neighbouring repository V's notes source as the companion its members are read with. A capture of an ADR the observation read is stored as a draft. Captures that name the same observation but claim input from records 12 to 18 of a session transcript nobody selected, from a file in V's own checkout, or from the hidden companion file docs/adr-notes/0001-journal-mode.notes.md beside the selected directory are each refused with input_not_observed at /processing/inputs/0, and nothing is stored. Resolving V's companion revision is refused with ref_unavailable: declaring a companion does not read it. No step reads a path, repository, transcript or companion outside what the person selected.",
  "ids": [
   {
    "name": "me",
@@ -60,6 +60,26 @@
   },
   {
    "name": "capture_unselected_request",
+   "prefix": "req"
+  },
+  {
+   "name": "neighbour",
+   "prefix": "rep"
+  },
+  {
+   "name": "neighbour_notes",
+   "prefix": "src"
+  },
+  {
+   "name": "capture_neighbour_request",
+   "prefix": "req"
+  },
+  {
+   "name": "capture_hidden_request",
+   "prefix": "req"
+  },
+  {
+   "name": "resolve_companion_request",
    "prefix": "req"
   }
  ],
@@ -143,6 +163,10 @@
     },
     {
      "pointer": "/roots/1/place/repository_id",
+     "value": "@work"
+    },
+    {
+     "pointer": "/roots/0/permits/destinations/0/repository_id",
      "value": "@work"
     }
    ]
@@ -503,6 +527,10 @@
     {
      "pointer": "/members/1/size",
      "value": 2211
+    },
+    {
+     "pointer": "/companions/-",
+     "value": "@neighbour_notes"
     }
    ]
   },
@@ -536,7 +564,7 @@
     },
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/owner/layer",
@@ -737,6 +765,158 @@
      "value": "#unselected_capture"
     }
    ]
+  },
+  {
+   "name": "neighbour_capture",
+   "from": "capture",
+   "set": [
+    {
+     "pointer": "/processing/inputs/0/from/checkout",
+     "value": "/home/ana/neighbouring-repository"
+    },
+    {
+     "pointer": "/processing/inputs/0/from/repository_id",
+     "value": "@neighbour"
+    },
+    {
+     "pointer": "/processing/inputs/0/from/path",
+     "value": "docs/design/storage.md"
+    }
+   ]
+  },
+  {
+   "name": "capture_neighbour",
+   "from": "capture_submit",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@capture_neighbour_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#neighbour_capture"
+    }
+   ]
+  },
+  {
+   "name": "hidden_capture",
+   "from": "capture",
+   "set": [
+    {
+     "pointer": "/processing/inputs/0/from/path",
+     "value": "docs/adr-notes/0001-journal-mode.notes.md"
+    }
+   ]
+  },
+  {
+   "name": "capture_hidden",
+   "from": "capture_submit",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@capture_hidden_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#hidden_capture"
+    }
+   ]
+  },
+  {
+   "name": "neighbour_ref",
+   "from": "c01/exact_member_of_a_revision.json",
+   "drop": [
+    "/member",
+    "/scope/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@neighbour_notes"
+    },
+    {
+     "pointer": "/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/scope/repository_id",
+     "value": "@neighbour"
+    },
+    {
+     "pointer": "/revision_digest",
+     "value": "af9355b2606351e919b6645677d349043fadf6ede372509d2b9ffe8db1385c80"
+    }
+   ]
+  },
+  {
+   "name": "resolve_companion",
+   "from": "c01/resolve_request.json",
+   "drop": [
+    "/owner",
+    "/target"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@resolve_companion_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@neighbour"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@neighbour_notes"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#neighbour_ref"
+    }
+   ]
   }
  ],
  "steps": [
@@ -894,6 +1074,65 @@
      {
       "code": "input_not_observed",
       "pointer": "/processing/inputs/0"
+     }
+    ],
+    "recovery": [],
+    "returns": []
+   }
+  },
+  {
+   "name": "refuse_a_file_of_the_neighbouring_repository",
+   "request": "capture_neighbour",
+   "carries": [
+    "neighbour_capture"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "input_not_observed",
+      "pointer": "/processing/inputs/0"
+     }
+    ],
+    "recovery": [],
+    "returns": []
+   }
+  },
+  {
+   "name": "refuse_a_hidden_companion_file",
+   "request": "capture_hidden",
+   "carries": [
+    "hidden_capture"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "input_not_observed",
+      "pointer": "/processing/inputs/0"
+     }
+    ],
+    "recovery": [],
+    "returns": []
+   }
+  },
+  {
+   "name": "resolve_the_declared_companion",
+   "request": "resolve_companion",
+   "carries": [
+    "neighbour_ref"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "none",
+    "gaps": [
+     {
+      "code": "ref_unavailable"
      }
     ],
     "recovery": [],

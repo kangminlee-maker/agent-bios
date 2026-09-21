@@ -1,6 +1,6 @@
 {
  "case": "N23-VALIDATOR-NEG",
- "says": "A person commits a domain package with the pinned lens table_consistency version 2 and two revisions of a rates table. With no validator installed, a real probe of the validation capability finds nothing offered: the probe is stored unsupported and the profile says not_offered, and a validation of the first revision is answered with a run whose verdict is unverified because the validator is absent, with its one check not run and no output. The validator is then installed and qualified by a real probe. A validation of both revisions finishes one check and times out on the other: the owner writes it unverified (partial_run, timed_out) and names each check's status. A validation pinned to lens version 3, which the installed runner does not support, is unverified with unsupported_lens. A caller that submits its own clean validation_run is refused as runtime-owned. No run in this case is written clean or with findings, because none rests only on checks that ran.",
+ "says": "A person registers a managed home for a domain package source and for a rates table source, then commits a domain package with the pinned lens table_consistency version 2 and two revisions of a rates table. With no validator installed, a real probe of the validation capability finds nothing offered: the probe is stored unsupported and the profile says not_offered, and a validation of the first revision is answered with a run whose verdict is unverified because the validator is absent, with its one check not run and no output. The validator is then installed and qualified by a real probe. A validation of both revisions finishes one check and times out on the other: the owner writes it unverified (partial_run, timed_out) and names each check's status. A validation pinned to lens version 3, which the installed runner does not support, is unverified with unsupported_lens. A caller that submits its own clean validation_run is refused as runtime-owned. Every validation request targets Alice and pins its revisions in its payload. No run in this case is written clean or with findings, because none rests only on checks that ran.",
  "ids": [
   {
    "name": "alice",
@@ -60,6 +60,14 @@
   },
   {
    "name": "submit_forged_run_id",
+   "prefix": "req"
+  },
+  {
+   "name": "register_package_source_id",
+   "prefix": "req"
+  },
+  {
+   "name": "register_rates_source_id",
    "prefix": "req"
   }
  ],
@@ -214,11 +222,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#package_manifest"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:package_source_h0"
     }
    ]
   },
@@ -284,11 +296,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#rates_manifest"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:rates_source_h0"
     }
    ]
   },
@@ -605,15 +621,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@rates_source"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "head"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:rates_head_v2"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
@@ -832,15 +840,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@rates_source"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "head"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:rates_head_v2"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
@@ -964,15 +964,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@rates_source"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "head"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:rates_head_v2"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
@@ -1067,19 +1059,189 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@rates_source"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "head"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:rates_head_v2"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
      "value": "#forged_clean_run"
+    }
+   ]
+  },
+  {
+   "name": "register_package_source_home",
+   "from": "sources/home_of_a_managed_collection.json",
+   "drop": [
+    "/registered_at"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@package_source"
+    },
+    {
+     "pointer": "/scope/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/acceptance_authority/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    }
+   ]
+  },
+  {
+   "name": "register_package_source_stored_home",
+   "from": "register_package_source_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:register_package_source_at"
+    }
+   ]
+  },
+  {
+   "name": "register_package_source_request",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_package_source_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@package_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#register_package_source_home"
+    }
+   ]
+  },
+  {
+   "name": "register_rates_source_home",
+   "from": "sources/home_of_a_managed_collection.json",
+   "drop": [
+    "/registered_at"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@rates_source"
+    },
+    {
+     "pointer": "/scope/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/acceptance_authority/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    }
+   ]
+  },
+  {
+   "name": "register_rates_source_stored_home",
+   "from": "register_rates_source_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:register_rates_source_at"
+    }
+   ]
+  },
+  {
+   "name": "register_rates_source_request",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_rates_source_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@rates_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#register_rates_source_home"
     }
    ]
   }
@@ -1103,6 +1265,24 @@
    }
   },
   {
+   "name": "register_package_source",
+   "request": "register_package_source_request",
+   "carries": [
+    "register_package_source_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "register_package_source_stored_home"
+    ],
+    "head": "package_source_h0"
+   }
+  },
+  {
    "name": "commit_the_domain_package",
    "request": "commit_package",
    "carries": [
@@ -1118,6 +1298,24 @@
      "stored_package"
     ],
     "head": "package_head"
+   }
+  },
+  {
+   "name": "register_rates_source",
+   "request": "register_rates_source_request",
+   "carries": [
+    "register_rates_source_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "register_rates_source_stored_home"
+    ],
+    "head": "rates_source_h0"
    }
   },
   {

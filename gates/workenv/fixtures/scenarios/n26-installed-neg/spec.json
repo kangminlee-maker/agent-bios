@@ -1,6 +1,6 @@
 {
  "case": "N26-INSTALLED-NEG",
- "says": "The conductor registers the installed candidate and records the protocol before any trial. Novice P3 meets the candidate for the first time: asked to share a note with the team, P3 picks Save draft predicting the team can read it now, asks whether the note is visible to others, and ends with a draft the team cannot see. The trial is recorded with that confusion and the unresolved critical misinterpretation (saving a draft taken for publishing, an action on the wrong scope). Asked to start prepared work, P3 needs a hint to recover after choosing setup; the hint is recorded with what was said, and a recovery hint whose content is not said is refused at admission. Synthetic and prototype evidence qualifies nothing: an observation of a prototype rendering is recorded as establishing neither product nor human evidence; an observation of the candidate whose only answer the host generated is recorded as not qualifying; and submissions that would let them count — a prototype claiming terminal support, a host-generated answer offered as qualifying evidence, an observation called deterministic — are refused at admission. What must not happen: a confusion, wrong-scope action or recovery error left out of a trial, or a usability claim resting on synthetic clicks or a prototype.",
+ "says": "The conductor registers the installed candidate and records the protocol before any trial. The installed candidate is probed for the participant's own keypresses: the user_event probe ran for real and worked, and every observation offered as human evidence names that probe as what separated the person from the host's automation. Novice P3 meets the candidate for the first time: asked to share a note with the team, P3 picks Save draft predicting the team can read it now, asks whether the note is visible to others, and ends with a draft the team cannot see. The trial is recorded with that confusion and the unresolved critical misinterpretation (saving a draft taken for publishing, an action on the wrong scope). Asked to start prepared work, P3 needs a hint to recover after choosing setup; the hint is recorded with what was said, and a recovery hint whose content is not said is refused at admission. Synthetic and prototype evidence qualifies nothing: an observation of a prototype rendering is recorded as establishing neither product nor human evidence; an observation of the candidate whose only answer the host generated is recorded as not qualifying; and submissions that would let them count — a prototype claiming terminal support, a host-generated answer offered as qualifying evidence, an observation called deterministic — are refused at admission. What must not happen: a confusion, wrong-scope action or recovery error left out of a trial, or a usability claim resting on synthetic clicks or a prototype.",
  "ids": [
   {
    "name": "alice",
@@ -20,6 +20,10 @@
   },
   {
    "name": "record_protocol_id",
+   "prefix": "req"
+  },
+  {
+   "name": "probe_candidate_id",
    "prefix": "req"
   },
   {
@@ -292,6 +296,168 @@
    ]
   },
   {
+   "name": "user_event_probe",
+   "from": "c12/probe_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/capability",
+     "value": "user_event"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "agent-bios"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.20.0"
+    }
+   ]
+  },
+  {
+   "name": "probe_candidate",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@probe_candidate_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "capability.probe"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#user_event_probe"
+    }
+   ]
+  },
+  {
+   "name": "user_event_worked",
+   "from": "c12/a_user_event_probe_that_worked.json",
+   "set": [
+    {
+     "pointer": "/client/name",
+     "value": "agent-bios"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.20.0"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:user_event_probed_at"
+    },
+    {
+     "pointer": "/probe_id",
+     "value": "$prb:candidate_user_event"
+    },
+    {
+     "pointer": "/observed",
+     "value": "In the installed candidate on Apple Terminal, only a key the person pressed produced a user event; a scripted keystroke and a hook produced none."
+    }
+   ]
+  },
+  {
+   "name": "candidate_profile",
+   "from": "c12/four_capabilities_qualified_one_at_a_time.json",
+   "drop": [
+    "/capabilities/3",
+    "/capabilities/2",
+    "/capabilities/1"
+   ],
+   "set": [
+    {
+     "pointer": "/capabilities/0/capability",
+     "value": "user_event"
+    },
+    {
+     "pointer": "/capabilities/0/state/probe_digest",
+     "value": "#user_event_worked"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "agent-bios"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.20.0"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:user_event_probed_at"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "$cap:candidate_profile"
+    }
+   ]
+  },
+  {
+   "name": "candidate_configuration",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/client/name",
+     "value": "agent-bios"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.20.0"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:user_event_probed_at"
+    }
+   ]
+  },
+  {
    "name": "p3_session_submitted",
    "from": "routes/observation_submitted.json",
    "drop": [
@@ -319,6 +485,10 @@
     {
      "pointer": "/observed_in/rows",
      "value": 24
+    },
+    {
+     "pointer": "/subject/evidence/origin/separation_evidence_digest",
+     "value": "#user_event_worked"
     }
    ]
   },
@@ -528,7 +698,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "$obs:p3_session"
+     "value": "@alice_profile"
     },
     {
      "pointer": "/owner/layer",
@@ -677,7 +847,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "$obs:p3_session"
+     "value": "@alice_profile"
     },
     {
      "pointer": "/owner/layer",
@@ -820,7 +990,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "$obs:p3_session"
+     "value": "@alice_profile"
     },
     {
      "pointer": "/owner/layer",
@@ -1179,6 +1349,10 @@
     {
      "pointer": "/subject/candidate_digest",
      "value": "#candidate"
+    },
+    {
+     "pointer": "/subject/evidence/origin/separation_evidence_digest",
+     "value": "#user_event_worked"
     }
    ]
   },
@@ -1280,6 +1454,25 @@
     "recovery": [],
     "returns": [
      "stored_protocol"
+    ]
+   }
+  },
+  {
+   "name": "probe_the_candidate_for_user_events",
+   "request": "probe_candidate",
+   "carries": [
+    "user_event_probe"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "user_event_worked",
+     "candidate_profile",
+     "candidate_configuration"
     ]
    }
   },

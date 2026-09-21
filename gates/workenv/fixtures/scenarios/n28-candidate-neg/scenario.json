@@ -22,12 +22,16 @@
    "name": "decisions"
   },
   {
-   "id": "wst_2089a19762cb574651f219ebb470dc41",
-   "name": "lane"
+   "id": "req_c434756e37c1aa516362576d2c8ff640",
+   "name": "bind_key_rid"
   },
   {
-   "id": "src_c6c0b54ef0ca98bb74386d5a885e4b47",
-   "name": "measured_source"
+   "id": "req_697c502aa15bb72f4b4e2e2bf0568730",
+   "name": "bind_repo_rid"
+  },
+  {
+   "id": "req_b899180604a217c1eb7cb428cec504f3",
+   "name": "register_home_rid"
   },
   {
    "id": "ent_942ea8efd254889d34f9c8e9191040f8",
@@ -50,11 +54,161 @@
    "name": "edit_request"
   },
   {
-   "id": "req_86615f57d0e426c0fdbb87bd96b72be6",
-   "name": "reject_request"
+   "id": "req_bb7e794841464f0260a3a581372c8920",
+   "name": "publish_request"
   }
  ],
  "joins": [
+  {
+   "digest_of": "key_submitted",
+   "pointer": "/payload_digest",
+   "record": "bind_key_request"
+  },
+  {
+   "digest_of": "bind_key_request",
+   "pointer": "/request_digest",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "bind_device_key_head",
+   "pointer": "/head_digest",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "bind_device_key_sequence",
+   "pointer": "/sequence",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "bind_device_key_committed_at",
+   "pointer": "/committed_at",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "key_binding",
+   "pointer": "/binding_id",
+   "record": "key"
+  },
+  {
+   "minted": "bound_at",
+   "pointer": "/created_at",
+   "record": "key"
+  },
+  {
+   "digest_of": "bind_device_key_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "bind_device_key_result"
+  },
+  {
+   "digest_of": "bind_key_request",
+   "pointer": "/request_digest",
+   "record": "bind_device_key_result"
+  },
+  {
+   "digest_of": "key",
+   "pointer": "/outputs/0/digest",
+   "record": "bind_device_key_result"
+  },
+  {
+   "digest_of": "repo_binding_submitted",
+   "pointer": "/payload_digest",
+   "record": "bind_repo_request"
+  },
+  {
+   "digest_of": "bind_repo_request",
+   "pointer": "/request_digest",
+   "record": "bind_repository_receipt"
+  },
+  {
+   "minted": "bind_repository_head",
+   "pointer": "/head_digest",
+   "record": "bind_repository_receipt"
+  },
+  {
+   "minted": "bind_repository_sequence",
+   "pointer": "/sequence",
+   "record": "bind_repository_receipt"
+  },
+  {
+   "minted": "bind_repository_committed_at",
+   "pointer": "/committed_at",
+   "record": "bind_repository_receipt"
+  },
+  {
+   "minted": "checkout_bytes",
+   "pointer": "/observed/working_bytes_digest",
+   "record": "repo_binding"
+  },
+  {
+   "digest_of": "bind_repository_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "bind_repository_result"
+  },
+  {
+   "digest_of": "bind_repo_request",
+   "pointer": "/request_digest",
+   "record": "bind_repository_result"
+  },
+  {
+   "digest_of": "repo_binding",
+   "pointer": "/outputs/0/digest",
+   "record": "bind_repository_result"
+  },
+  {
+   "digest_of": "repo_binding",
+   "pointer": "/home/binding_evidence_digest",
+   "record": "home_submitted"
+  },
+  {
+   "digest_of": "home_submitted",
+   "pointer": "/payload_digest",
+   "record": "home_request"
+  },
+  {
+   "digest_of": "home_request",
+   "pointer": "/request_digest",
+   "record": "register_decisions_home_receipt"
+  },
+  {
+   "minted": "register_decisions_home_head",
+   "pointer": "/head_digest",
+   "record": "register_decisions_home_receipt"
+  },
+  {
+   "minted": "register_decisions_home_sequence",
+   "pointer": "/sequence",
+   "record": "register_decisions_home_receipt"
+  },
+  {
+   "minted": "register_decisions_home_committed_at",
+   "pointer": "/committed_at",
+   "record": "register_decisions_home_receipt"
+  },
+  {
+   "digest_of": "repo_binding",
+   "pointer": "/home/binding_evidence_digest",
+   "record": "home"
+  },
+  {
+   "minted": "registered_at",
+   "pointer": "/registered_at",
+   "record": "home"
+  },
+  {
+   "digest_of": "register_decisions_home_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "register_decisions_home_result"
+  },
+  {
+   "digest_of": "home_request",
+   "pointer": "/request_digest",
+   "record": "register_decisions_home_result"
+  },
+  {
+   "digest_of": "home",
+   "pointer": "/outputs/0/digest",
+   "record": "register_decisions_home_result"
+  },
   {
    "digest_of": "selection",
    "pointer": "/payload_digest",
@@ -98,6 +252,11 @@
   {
    "digest_of": "capture",
    "pointer": "/payload_digest",
+   "record": "capture_submit"
+  },
+  {
+   "minted": "register_decisions_home_head",
+   "pointer": "/target/base/head_digest",
    "record": "capture_submit"
   },
   {
@@ -236,42 +395,187 @@
    "record": "edit_candidate_result"
   },
   {
+   "minted": "register_decisions_home_head",
+   "pointer": "/target/base/head_digest",
+   "record": "publish_submit"
+  },
+  {
    "minted": "candidate",
-   "pointer": "/target/resource_id",
-   "record": "reject_submit"
+   "pointer": "/promotes/candidate_id",
+   "record": "promoting_choice"
+  },
+  {
+   "digest_of": "promoting_choice",
+   "pointer": "/payload_digest",
+   "record": "publish_submit"
+  },
+  {
+   "digest_of": "publish_submit",
+   "pointer": "/request_digest",
+   "record": "publish_choice_receipt"
+  },
+  {
+   "minted": "decisions_head",
+   "pointer": "/head_digest",
+   "record": "publish_choice_receipt"
+  },
+  {
+   "minted": "publish_choice_sequence",
+   "pointer": "/sequence",
+   "record": "publish_choice_receipt"
+  },
+  {
+   "minted": "publish_choice_committed_at",
+   "pointer": "/committed_at",
+   "record": "publish_choice_receipt"
+  },
+  {
+   "minted": "register_decisions_home_head",
+   "pointer": "/target/base/head_digest",
+   "record": "publish_choice_receipt"
+  },
+  {
+   "minted": "candidate",
+   "pointer": "/promotes/candidate_id",
+   "record": "stored_choice"
+  },
+  {
+   "minted": "journal_choice",
+   "pointer": "/record_id",
+   "record": "stored_choice"
+  },
+  {
+   "minted": "published_at",
+   "pointer": "/recorded_at",
+   "record": "stored_choice"
+  },
+  {
+   "digest_of": "stored_choice",
+   "pointer": "/members/0/digest",
+   "record": "decisions_revision"
+  },
+  {
+   "minted": "revision_at",
+   "pointer": "/produced_at",
+   "record": "decisions_revision"
   },
   {
    "digest_of": "stored_capture",
    "pointer": "/origin/capture_digest",
-   "record": "stored_rejection"
+   "record": "stored_promotion"
   },
   {
    "minted": "span_bytes",
    "pointer": "/origin/evidence_digests/0",
-   "record": "stored_rejection"
+   "record": "stored_promotion"
   },
   {
    "minted": "candidate",
    "pointer": "/candidate_id",
-   "record": "stored_rejection"
+   "record": "stored_promotion"
   },
   {
-   "minted": "rejected_at",
+   "digest_of": "publish_choice_receipt",
+   "pointer": "/standing/receipt_digest",
+   "record": "stored_promotion"
+  },
+  {
+   "minted": "promoted_at",
    "pointer": "/created_at",
-   "record": "stored_rejection"
+   "record": "stored_promotion"
   },
   {
-   "digest_of": "reject_submit",
+   "digest_of": "publish_choice_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "publish_choice_result"
+  },
+  {
+   "digest_of": "publish_submit",
    "pointer": "/request_digest",
-   "record": "reject_candidate_result"
+   "record": "publish_choice_result"
   },
   {
-   "digest_of": "stored_rejection",
+   "digest_of": "stored_choice",
    "pointer": "/outputs/0/digest",
-   "record": "reject_candidate_result"
+   "record": "publish_choice_result"
+  },
+  {
+   "digest_of": "decisions_revision",
+   "pointer": "/outputs/1/digest",
+   "record": "publish_choice_result"
+  },
+  {
+   "digest_of": "stored_promotion",
+   "pointer": "/outputs/2/digest",
+   "record": "publish_choice_result"
   }
  ],
  "minted": [
+  {
+   "name": "bind_device_key_committed_at",
+   "shape": "instant",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "bind_device_key_head",
+   "shape": "digest",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "bind_device_key_sequence",
+   "shape": "integer",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "bound_at",
+   "shape": "instant",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "key_binding",
+   "shape": "bnd",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "bind_repository_committed_at",
+   "shape": "instant",
+   "step": "bind_repository"
+  },
+  {
+   "name": "bind_repository_head",
+   "shape": "digest",
+   "step": "bind_repository"
+  },
+  {
+   "name": "bind_repository_sequence",
+   "shape": "integer",
+   "step": "bind_repository"
+  },
+  {
+   "name": "checkout_bytes",
+   "shape": "digest",
+   "step": "bind_repository"
+  },
+  {
+   "name": "register_decisions_home_committed_at",
+   "shape": "instant",
+   "step": "register_decisions_home"
+  },
+  {
+   "name": "register_decisions_home_head",
+   "shape": "digest",
+   "step": "register_decisions_home"
+  },
+  {
+   "name": "register_decisions_home_sequence",
+   "shape": "integer",
+   "step": "register_decisions_home"
+  },
+  {
+   "name": "registered_at",
+   "shape": "instant",
+   "step": "register_decisions_home"
+  },
   {
    "name": "observed_at",
    "shape": "instant",
@@ -313,20 +617,418 @@
    "step": "edit_candidate"
   },
   {
-   "name": "rejected_at",
+   "name": "decisions_head",
+   "shape": "digest",
+   "step": "publish_choice"
+  },
+  {
+   "name": "journal_choice",
+   "shape": "rec",
+   "step": "publish_choice"
+  },
+  {
+   "name": "promoted_at",
    "shape": "instant",
-   "step": "reject_candidate"
+   "step": "publish_choice"
+  },
+  {
+   "name": "publish_choice_committed_at",
+   "shape": "instant",
+   "step": "publish_choice"
+  },
+  {
+   "name": "publish_choice_sequence",
+   "shape": "integer",
+   "step": "publish_choice"
+  },
+  {
+   "name": "published_at",
+   "shape": "instant",
+   "step": "publish_choice"
+  },
+  {
+   "name": "revision_at",
+   "shape": "instant",
+   "step": "publish_choice"
   }
  ],
  "records": [
   {
-   "digest": "a3e8794e9772e96357b42282364d5953d753bb3520aa0bc600d0e4d96fd5ca25",
+   "digest": "dacba1a2239706a5d0152c9eff69edbd96bae512bbd438dfbd827a5ea7fb54c5",
+   "name": "key_submitted",
+   "record": {
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_8889c507c61b1cc5c2f1703532f047ec",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_1357c2ea0eb49548ed4c94bbc6e57786",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "9efec24e2576a2cdeed3609660b953ad765a5a3792f54b00860b1b94c700ea56",
+   "name": "bind_key_request",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_8889c507c61b1cc5c2f1703532f047ec",
+     "principal_id": "prn_1357c2ea0eb49548ed4c94bbc6e57786",
+     "profile_id": "prf_2117496da92018f202484001241fb731"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "identity.binding.add",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_1357c2ea0eb49548ed4c94bbc6e57786"
+    },
+    "payload_digest": "dacba1a2239706a5d0152c9eff69edbd96bae512bbd438dfbd827a5ea7fb54c5",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_c434756e37c1aa516362576d2c8ff640",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_1357c2ea0eb49548ed4c94bbc6e57786"
+    }
+   }
+  },
+  {
+   "digest": "7e9128aa70d68a9b92dfb64129f87b4291620c89128f33916a8eb96b2c941927",
+   "name": "bind_device_key_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "893a7971fc400778453cd64b17f662570a6ca10fcbb4a04955645fb907da7779",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_1357c2ea0eb49548ed4c94bbc6e57786"
+    },
+    "request_digest": "9efec24e2576a2cdeed3609660b953ad765a5a3792f54b00860b1b94c700ea56",
+    "request_id": "req_c434756e37c1aa516362576d2c8ff640",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prn_1357c2ea0eb49548ed4c94bbc6e57786"
+    }
+   }
+  },
+  {
+   "digest": "c6c415e64a328587dc0b21f53de89caf94871979b294a37705c669bb91ea9d5b",
+   "name": "key",
+   "record": {
+    "binding_id": "bnd_f4a7ca67771377a569bb9c4fe47c4edf",
+    "created_at": "2000-01-01T00:00:00Z",
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_8889c507c61b1cc5c2f1703532f047ec",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_1357c2ea0eb49548ed4c94bbc6e57786",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "5221f2b22df3be7524ea3295c25d79f2f7a64e4b89f039ad8f8d69fe7eeaef18",
+   "name": "bind_device_key_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "7e9128aa70d68a9b92dfb64129f87b4291620c89128f33916a8eb96b2c941927",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "c6c415e64a328587dc0b21f53de89caf94871979b294a37705c669bb91ea9d5b",
+      "kind": "principal_binding"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "9efec24e2576a2cdeed3609660b953ad765a5a3792f54b00860b1b94c700ea56",
+    "request_id": "req_c434756e37c1aa516362576d2c8ff640",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "a1e90cb7ebe63c2dac6659b344c08a8ca216a3b540312ff5b0de0317a6e80fe8",
+   "name": "repo_binding_submitted",
+   "record": {
+    "kind": "repository_binding",
+    "relation": {
+     "how": "clone"
+    },
+    "repository_id": "rep_a8d1d081f666400057d00ecdbb668a07",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "808af496987c8c77edc1643f10fce25b5f6d27e5d0ecaf7cda14947402c844c5",
+   "name": "bind_repo_request",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_8889c507c61b1cc5c2f1703532f047ec",
+     "principal_id": "prn_1357c2ea0eb49548ed4c94bbc6e57786",
+     "profile_id": "prf_2117496da92018f202484001241fb731"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "repository.bind",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_1357c2ea0eb49548ed4c94bbc6e57786"
+    },
+    "payload_digest": "a1e90cb7ebe63c2dac6659b344c08a8ca216a3b540312ff5b0de0317a6e80fe8",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_697c502aa15bb72f4b4e2e2bf0568730",
+    "schema": 1,
+    "target": {
+     "resource_id": "rep_a8d1d081f666400057d00ecdbb668a07"
+    }
+   }
+  },
+  {
+   "digest": "a4539490d6a8df9325935002d6b5ccbe8d4a9ffd4a644ff9af60cfe45c9fe533",
+   "name": "bind_repository_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "a0fcd713729a0aceb0557857a10dc906a19c49a69bed73a4720668bfa9018893",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_1357c2ea0eb49548ed4c94bbc6e57786"
+    },
+    "request_digest": "808af496987c8c77edc1643f10fce25b5f6d27e5d0ecaf7cda14947402c844c5",
+    "request_id": "req_697c502aa15bb72f4b4e2e2bf0568730",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "rep_a8d1d081f666400057d00ecdbb668a07"
+    }
+   }
+  },
+  {
+   "digest": "29799380b63a0e371fa4085b677d1ae301b0500400a6e8afa7c62c1ccd5c2886",
+   "name": "repo_binding",
+   "record": {
+    "kind": "repository_binding",
+    "observed": {
+     "branch": "main",
+     "commit": "0123456789abcdef0123456789abcdef01234567",
+     "locator": "git@github.com:example/work.git",
+     "working_bytes_digest": "1a97e41b350fb287900a1107dcdad15a6305a08ebbce00ea14089d3460839003"
+    },
+    "relation": {
+     "how": "clone"
+    },
+    "repository_id": "rep_a8d1d081f666400057d00ecdbb668a07",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "7605806cc797e24ba420e492d7d774021e551d25464e836479199a1a52fa957f",
+   "name": "bind_repository_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "a4539490d6a8df9325935002d6b5ccbe8d4a9ffd4a644ff9af60cfe45c9fe533",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "29799380b63a0e371fa4085b677d1ae301b0500400a6e8afa7c62c1ccd5c2886",
+      "kind": "repository_binding"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "808af496987c8c77edc1643f10fce25b5f6d27e5d0ecaf7cda14947402c844c5",
+    "request_id": "req_697c502aa15bb72f4b4e2e2bf0568730",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "4c6f3ef31506bdd5e7f79573128306a149d44c5a662c2d1c6ea25ccbae3e9232",
+   "name": "home_submitted",
+   "record": {
+    "acceptance_authority": {
+     "layer": "repository",
+     "repository_id": "rep_a8d1d081f666400057d00ecdbb668a07"
+    },
+    "applicability": {
+     "states": "unstated"
+    },
+    "disclosure": "private",
+    "format_version": 1,
+    "home": {
+     "binding_evidence_digest": "29799380b63a0e371fa4085b677d1ae301b0500400a6e8afa7c62c1ccd5c2886",
+     "document_root": "docs/adr",
+     "mode": "repository_authored",
+     "repository_id": "rep_a8d1d081f666400057d00ecdbb668a07"
+    },
+    "kind": "source_home",
+    "publication_evidence_digests": [],
+    "retention": {
+     "keep": "until_withdrawn"
+    },
+    "role": "memory",
+    "schema": 1,
+    "scope": {
+     "layer": "repository",
+     "repository_id": "rep_a8d1d081f666400057d00ecdbb668a07"
+    },
+    "source_id": "src_6a6d231742e0f7c368cdad3bb4a340ff"
+   }
+  },
+  {
+   "digest": "e8cc13af8a02ae0702e054e95f75aaecb9ad64408b15ca234335efefec07d216",
+   "name": "home_request",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_8889c507c61b1cc5c2f1703532f047ec",
+     "principal_id": "prn_1357c2ea0eb49548ed4c94bbc6e57786",
+     "profile_id": "prf_2117496da92018f202484001241fb731"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "source.home.register",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_a8d1d081f666400057d00ecdbb668a07"
+    },
+    "payload_digest": "4c6f3ef31506bdd5e7f79573128306a149d44c5a662c2d1c6ea25ccbae3e9232",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_b899180604a217c1eb7cb428cec504f3",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_6a6d231742e0f7c368cdad3bb4a340ff"
+    }
+   }
+  },
+  {
+   "digest": "0419ed8267853fa91fb3e61f7ba9250c35a1be5b86ed547175ccb5ef5d8df47a",
+   "name": "register_decisions_home_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "96c46ad4a06c88d8512538b33358d46d26bfa1c8e6b84d154738bc3410f89e94",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_a8d1d081f666400057d00ecdbb668a07"
+    },
+    "request_digest": "e8cc13af8a02ae0702e054e95f75aaecb9ad64408b15ca234335efefec07d216",
+    "request_id": "req_b899180604a217c1eb7cb428cec504f3",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_6a6d231742e0f7c368cdad3bb4a340ff"
+    }
+   }
+  },
+  {
+   "digest": "beb72dc31b4e78e3824d4e84cb7e27698bc5b950b8cbfa642a2bd364876b5f45",
+   "name": "home",
+   "record": {
+    "acceptance_authority": {
+     "layer": "repository",
+     "repository_id": "rep_a8d1d081f666400057d00ecdbb668a07"
+    },
+    "applicability": {
+     "states": "unstated"
+    },
+    "disclosure": "private",
+    "format_version": 1,
+    "home": {
+     "binding_evidence_digest": "29799380b63a0e371fa4085b677d1ae301b0500400a6e8afa7c62c1ccd5c2886",
+     "document_root": "docs/adr",
+     "mode": "repository_authored",
+     "repository_id": "rep_a8d1d081f666400057d00ecdbb668a07"
+    },
+    "kind": "source_home",
+    "publication_evidence_digests": [],
+    "registered_at": "2000-01-01T00:00:00Z",
+    "retention": {
+     "keep": "until_withdrawn"
+    },
+    "role": "memory",
+    "schema": 1,
+    "scope": {
+     "layer": "repository",
+     "repository_id": "rep_a8d1d081f666400057d00ecdbb668a07"
+    },
+    "source_id": "src_6a6d231742e0f7c368cdad3bb4a340ff"
+   }
+  },
+  {
+   "digest": "1cf8dbbfce64ff84b760c7479bb981f07d6f4a0bf3aef8e32e765a6f3ae1aea3",
+   "name": "register_decisions_home_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "0419ed8267853fa91fb3e61f7ba9250c35a1be5b86ed547175ccb5ef5d8df47a",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "beb72dc31b4e78e3824d4e84cb7e27698bc5b950b8cbfa642a2bd364876b5f45",
+      "kind": "source_home"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "e8cc13af8a02ae0702e054e95f75aaecb9ad64408b15ca234335efefec07d216",
+    "request_id": "req_b899180604a217c1eb7cb428cec504f3",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "e3167b8fc0c3abbfde0b96c465ca56488ec34c830477a9e743489513cd6115de",
    "name": "selection",
    "record": {
     "kind": "source_selection",
     "roots": [
      {
       "need": "required",
+      "permits": {
+       "destinations": [
+        {
+         "layer": "repository",
+         "repository_id": "rep_a8d1d081f666400057d00ecdbb668a07"
+        }
+       ],
+       "processing": "local_processing",
+       "prompt_log": "not_kept"
+      },
       "place": {
        "first_record": 12,
        "from": "session_transcript",
@@ -345,7 +1047,7 @@
    }
   },
   {
-   "digest": "e0d9c5e3dd82ca2e379d58d91073df785ec9aceebac01cfa40ddd2ec39a0a031",
+   "digest": "f715c3309c1ead751fbc8f5ee31b92dca0abe74f41cbafafd363b53599f82ac0",
    "name": "observe",
    "record": {
     "action": "read",
@@ -363,7 +1065,7 @@
      "layer": "repository",
      "repository_id": "rep_a8d1d081f666400057d00ecdbb668a07"
     },
-    "payload_digest": "a3e8794e9772e96357b42282364d5953d753bb3520aa0bc600d0e4d96fd5ca25",
+    "payload_digest": "e3167b8fc0c3abbfde0b96c465ca56488ec34c830477a9e743489513cd6115de",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_c53656ff06269ea6ecb87b75089ff085",
@@ -374,7 +1076,7 @@
    }
   },
   {
-   "digest": "09cc1d04dacf515134d473d6a28a86eb6356a5cf5a0d2222924dc07ac37e332d",
+   "digest": "0dc585331a7aea5b27d3525388063c999504b1c4cc80bf66f6783d4b4748fc52",
    "name": "observation",
    "record": {
     "kind": "source_observation",
@@ -391,11 +1093,11 @@
      }
     ],
     "schema": 1,
-    "selection_digest": "a3e8794e9772e96357b42282364d5953d753bb3520aa0bc600d0e4d96fd5ca25"
+    "selection_digest": "e3167b8fc0c3abbfde0b96c465ca56488ec34c830477a9e743489513cd6115de"
    }
   },
   {
-   "digest": "5d6aac91f41cb43ea527e022434959da361e89ae97cd74bf828f0330928b7df0",
+   "digest": "7ef6be7cfea8c61f72dd1532d978782a0d9b18c59617de63289709510b41e7d8",
    "name": "observe_span_result",
    "record": {
     "kind": "operation_result",
@@ -406,19 +1108,19 @@
     },
     "outputs": [
      {
-      "digest": "09cc1d04dacf515134d473d6a28a86eb6356a5cf5a0d2222924dc07ac37e332d",
+      "digest": "0dc585331a7aea5b27d3525388063c999504b1c4cc80bf66f6783d4b4748fc52",
       "kind": "source_observation"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "e0d9c5e3dd82ca2e379d58d91073df785ec9aceebac01cfa40ddd2ec39a0a031",
+    "request_digest": "f715c3309c1ead751fbc8f5ee31b92dca0abe74f41cbafafd363b53599f82ac0",
     "request_id": "req_c53656ff06269ea6ecb87b75089ff085",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "477c3e519c0fb41e272210a77e154f298c2d3075721a2cf1db7da0e204baf4c4",
+   "digest": "8f082822e95cb596a16174f57eba259a16cc847e338c3e4d8048769d5d34d0a0",
    "name": "capture",
    "record": {
     "destination_source_id": "src_6a6d231742e0f7c368cdad3bb4a340ff",
@@ -429,7 +1131,7 @@
      }
     ],
     "kind": "memory_capture",
-    "observation_digest": "09cc1d04dacf515134d473d6a28a86eb6356a5cf5a0d2222924dc07ac37e332d",
+    "observation_digest": "0dc585331a7aea5b27d3525388063c999504b1c4cc80bf66f6783d4b4748fc52",
     "processing": {
      "adapter": {
       "digest": "446b029fe11ff71ac8f57cc61d1e686b5cd9b9f987ffe56f8a2190d3b959a2e4",
@@ -465,13 +1167,12 @@
      "prompt_log": "not_kept",
      "runs": "local"
     },
-    "revision_digest": "e75372be62c10ffe1ee0757f4f3b52025a9ef87fb285ea492edd01edfe6e15d0",
     "role": "memory",
     "schema": 1
    }
   },
   {
-   "digest": "4516acd6d2e6d99aa9a2eb62e5d48a42e347687f579c13cda28a82b05bf80b11",
+   "digest": "22e22e3bc921ec4a4fde586a936497b6a141fb5b6bb99deb0712f77021b72260",
    "name": "capture_submit",
    "record": {
     "action": "contribute",
@@ -489,21 +1190,22 @@
      "layer": "repository",
      "repository_id": "rep_a8d1d081f666400057d00ecdbb668a07"
     },
-    "payload_digest": "477c3e519c0fb41e272210a77e154f298c2d3075721a2cf1db7da0e204baf4c4",
+    "payload_digest": "8f082822e95cb596a16174f57eba259a16cc847e338c3e4d8048769d5d34d0a0",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_0a7b955a75070bca42ba19fab971859c",
     "schema": 1,
     "target": {
      "base": {
-      "expects": "absent"
+      "expects": "head",
+      "head_digest": "96c46ad4a06c88d8512538b33358d46d26bfa1c8e6b84d154738bc3410f89e94"
      },
      "resource_id": "src_6a6d231742e0f7c368cdad3bb4a340ff"
     }
    }
   },
   {
-   "digest": "6d584fefa6e416d1956bd6c8a40822202a4212b6c309f1f81ef296006e2affe2",
+   "digest": "2b7473169015bab7c4c308a212b76778a0d34d089832098e32324af2c188af27",
    "name": "stored_capture",
    "record": {
     "captured_at": "2000-01-01T00:00:00Z",
@@ -515,7 +1217,7 @@
      }
     ],
     "kind": "memory_capture",
-    "observation_digest": "09cc1d04dacf515134d473d6a28a86eb6356a5cf5a0d2222924dc07ac37e332d",
+    "observation_digest": "0dc585331a7aea5b27d3525388063c999504b1c4cc80bf66f6783d4b4748fc52",
     "processing": {
      "adapter": {
       "digest": "446b029fe11ff71ac8f57cc61d1e686b5cd9b9f987ffe56f8a2190d3b959a2e4",
@@ -551,7 +1253,6 @@
      "prompt_log": "not_kept",
      "runs": "local"
     },
-    "revision_digest": "e75372be62c10ffe1ee0757f4f3b52025a9ef87fb285ea492edd01edfe6e15d0",
     "role": "memory",
     "schema": 1
    }
@@ -587,7 +1288,7 @@
    }
   },
   {
-   "digest": "5f6d1b61aa0715dcdef8ab0fc7a9f216216ae6691068f1aa6698eef834ca744d",
+   "digest": "74bd90d976ea55eff6df92b22f22d0cfdde2c668c9313a24c05d10524234b0b2",
    "name": "capture_span_result",
    "record": {
     "kind": "operation_result",
@@ -598,7 +1299,7 @@
     },
     "outputs": [
      {
-      "digest": "6d584fefa6e416d1956bd6c8a40822202a4212b6c309f1f81ef296006e2affe2",
+      "digest": "2b7473169015bab7c4c308a212b76778a0d34d089832098e32324af2c188af27",
       "kind": "memory_capture"
      },
      {
@@ -607,20 +1308,20 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "4516acd6d2e6d99aa9a2eb62e5d48a42e347687f579c13cda28a82b05bf80b11",
+    "request_digest": "22e22e3bc921ec4a4fde586a936497b6a141fb5b6bb99deb0712f77021b72260",
     "request_id": "req_0a7b955a75070bca42ba19fab971859c",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "4ca5748b5525ef2ee254a1832a5861327d74ec5cf00da780b68bd621c0f94e4b",
+   "digest": "00ebcbcf97c09b207f7eb4aaceef7274aae3cb9682eb9ec13fbb48ad25d87463",
    "name": "candidate",
    "record": {
     "destination_source_id": "src_6a6d231742e0f7c368cdad3bb4a340ff",
     "kind": "memory_candidate",
     "origin": {
-     "capture_digest": "6d584fefa6e416d1956bd6c8a40822202a4212b6c309f1f81ef296006e2affe2",
+     "capture_digest": "2b7473169015bab7c4c308a212b76778a0d34d089832098e32324af2c188af27",
      "evidence_digests": [
       "91ae1e62feeb572475da2d8447ec336bfc7aa93133061f7741a5034f07a9fe62"
      ],
@@ -645,14 +1346,6 @@
       },
       "states": "stated"
      },
-     "basis": [
-      {
-       "as_stated": "WAL+FULL 4.11 ms per commit; DELETE+EXTRA 11.76 ms.",
-       "relies_on": "source",
-       "revision_digest": "e9c834651141b77832359c8fb5ae757f3424dcf615b1f00cdac1748edefdf15b",
-       "source_id": "src_c6c0b54ef0ca98bb74386d5a885e4b47"
-      }
-     ],
      "choice": "WAL, with synchronous FULL.",
      "context": "Measured on APFS with fullfsync on.",
      "expected_consequences": "A checkpoint fault point has to be tested.",
@@ -664,15 +1357,13 @@
      "question": "Which journal mode does the local state database use?",
      "reason": "4.11 ms per commit against 11.76, and readers are not blocked.",
      "revisit_condition": "A filesystem that does not honour fullfsync.",
-     "workstream_ids": [
-      "wst_2089a19762cb574651f219ebb470dc41"
-     ]
+     "workstream_ids": []
     },
     "schema": 1
    }
   },
   {
-   "digest": "a6a4ec66e600ac1bc79d13704b9ea0c4fc1ecff14b02abf9b8c31413fd8c185a",
+   "digest": "77f96a5cbb24bf63350c75c174861eac417fe9a00cb7600f4b7556dd222a3331",
    "name": "candidate_submit",
    "record": {
     "action": "contribute",
@@ -690,7 +1381,7 @@
      "layer": "personal",
      "principal_id": "prn_1357c2ea0eb49548ed4c94bbc6e57786"
     },
-    "payload_digest": "4ca5748b5525ef2ee254a1832a5861327d74ec5cf00da780b68bd621c0f94e4b",
+    "payload_digest": "00ebcbcf97c09b207f7eb4aaceef7274aae3cb9682eb9ec13fbb48ad25d87463",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_4900abf7d8e29340f47d3fe2d70ee36e",
@@ -701,7 +1392,7 @@
    }
   },
   {
-   "digest": "3fcf9b524ef74eac54ac1b8aa5ee151b88d17858539bec13ade1f3846aaee03c",
+   "digest": "2f9c11b0e4ff9c0df70fb2fb4a37af2adf56a3be519b812085ab2d72aa01b081",
    "name": "stored_candidate",
    "record": {
     "candidate_id": "cnd_536c0157ca49e6e6e41921a7b7db3610",
@@ -709,7 +1400,7 @@
     "destination_source_id": "src_6a6d231742e0f7c368cdad3bb4a340ff",
     "kind": "memory_candidate",
     "origin": {
-     "capture_digest": "6d584fefa6e416d1956bd6c8a40822202a4212b6c309f1f81ef296006e2affe2",
+     "capture_digest": "2b7473169015bab7c4c308a212b76778a0d34d089832098e32324af2c188af27",
      "evidence_digests": [
       "91ae1e62feeb572475da2d8447ec336bfc7aa93133061f7741a5034f07a9fe62"
      ],
@@ -734,14 +1425,6 @@
       },
       "states": "stated"
      },
-     "basis": [
-      {
-       "as_stated": "WAL+FULL 4.11 ms per commit; DELETE+EXTRA 11.76 ms.",
-       "relies_on": "source",
-       "revision_digest": "e9c834651141b77832359c8fb5ae757f3424dcf615b1f00cdac1748edefdf15b",
-       "source_id": "src_c6c0b54ef0ca98bb74386d5a885e4b47"
-      }
-     ],
      "choice": "WAL, with synchronous FULL.",
      "context": "Measured on APFS with fullfsync on.",
      "expected_consequences": "A checkpoint fault point has to be tested.",
@@ -753,9 +1436,7 @@
      "question": "Which journal mode does the local state database use?",
      "reason": "4.11 ms per commit against 11.76, and readers are not blocked.",
      "revisit_condition": "A filesystem that does not honour fullfsync.",
-     "workstream_ids": [
-      "wst_2089a19762cb574651f219ebb470dc41"
-     ]
+     "workstream_ids": []
     },
     "schema": 1,
     "standing": {
@@ -765,7 +1446,7 @@
    }
   },
   {
-   "digest": "9720683826b459d5b327a5078cc706f137f77b6be94b640b5d0026f2a7b81153",
+   "digest": "abfa06bd87c72f434b384c1dae5fc9b09eac9cba83e0d272f04dbc1e9b77460d",
    "name": "store_candidate_result",
    "record": {
     "kind": "operation_result",
@@ -776,25 +1457,25 @@
     },
     "outputs": [
      {
-      "digest": "3fcf9b524ef74eac54ac1b8aa5ee151b88d17858539bec13ade1f3846aaee03c",
+      "digest": "2f9c11b0e4ff9c0df70fb2fb4a37af2adf56a3be519b812085ab2d72aa01b081",
       "kind": "memory_candidate"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "a6a4ec66e600ac1bc79d13704b9ea0c4fc1ecff14b02abf9b8c31413fd8c185a",
+    "request_digest": "77f96a5cbb24bf63350c75c174861eac417fe9a00cb7600f4b7556dd222a3331",
     "request_id": "req_4900abf7d8e29340f47d3fe2d70ee36e",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "df3c32c9a4847f3496165513a7518a5b1ce44ef3af47defd534f55f61488a17b",
+   "digest": "3a5a6a0f0d5367b932362ba5df564c62f32ef7a21fcd011ca6c867fc064c07d5",
    "name": "edited_candidate",
    "record": {
     "destination_source_id": "src_6a6d231742e0f7c368cdad3bb4a340ff",
     "kind": "memory_candidate",
     "origin": {
-     "capture_digest": "6d584fefa6e416d1956bd6c8a40822202a4212b6c309f1f81ef296006e2affe2",
+     "capture_digest": "2b7473169015bab7c4c308a212b76778a0d34d089832098e32324af2c188af27",
      "evidence_digests": [
       "91ae1e62feeb572475da2d8447ec336bfc7aa93133061f7741a5034f07a9fe62"
      ],
@@ -819,14 +1500,6 @@
       },
       "states": "stated"
      },
-     "basis": [
-      {
-       "as_stated": "WAL+FULL 4.11 ms per commit; DELETE+EXTRA 11.76 ms.",
-       "relies_on": "source",
-       "revision_digest": "e9c834651141b77832359c8fb5ae757f3424dcf615b1f00cdac1748edefdf15b",
-       "source_id": "src_c6c0b54ef0ca98bb74386d5a885e4b47"
-      }
-     ],
      "choice": "WAL, with synchronous NORMAL.",
      "context": "Measured on APFS with fullfsync on.",
      "expected_consequences": "A checkpoint fault point has to be tested.",
@@ -838,15 +1511,13 @@
      "question": "Which journal mode does the local state database use?",
      "reason": "4.11 ms per commit against 11.76, and readers are not blocked.",
      "revisit_condition": "A filesystem that does not honour fullfsync.",
-     "workstream_ids": [
-      "wst_2089a19762cb574651f219ebb470dc41"
-     ]
+     "workstream_ids": []
     },
     "schema": 1
    }
   },
   {
-   "digest": "f6f1b20a08b74ce45501a51926345c759196e6afea051a74b0ed1df5007a3ff5",
+   "digest": "154935966e7db0f6e1105060e80e4bc224ef7d8ba63f513dbcc4f1df2e3d0e37",
    "name": "edit_submit",
    "record": {
     "action": "contribute",
@@ -864,7 +1535,7 @@
      "layer": "personal",
      "principal_id": "prn_1357c2ea0eb49548ed4c94bbc6e57786"
     },
-    "payload_digest": "df3c32c9a4847f3496165513a7518a5b1ce44ef3af47defd534f55f61488a17b",
+    "payload_digest": "3a5a6a0f0d5367b932362ba5df564c62f32ef7a21fcd011ca6c867fc064c07d5",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_5eb27b783350dd45a6ff84da79d14c47",
@@ -875,7 +1546,7 @@
    }
   },
   {
-   "digest": "8a6b739937d159932d89d811fcef9becbdc7e69528b0cea8503c1b72d29fd65c",
+   "digest": "1cb80c63923696cb3479a043af2fcbfd220270f6c73e9b597560aa6a7230c7ee",
    "name": "stored_edit",
    "record": {
     "candidate_id": "cnd_536c0157ca49e6e6e41921a7b7db3610",
@@ -883,7 +1554,7 @@
     "destination_source_id": "src_6a6d231742e0f7c368cdad3bb4a340ff",
     "kind": "memory_candidate",
     "origin": {
-     "capture_digest": "6d584fefa6e416d1956bd6c8a40822202a4212b6c309f1f81ef296006e2affe2",
+     "capture_digest": "2b7473169015bab7c4c308a212b76778a0d34d089832098e32324af2c188af27",
      "evidence_digests": [
       "91ae1e62feeb572475da2d8447ec336bfc7aa93133061f7741a5034f07a9fe62"
      ],
@@ -908,14 +1579,6 @@
       },
       "states": "stated"
      },
-     "basis": [
-      {
-       "as_stated": "WAL+FULL 4.11 ms per commit; DELETE+EXTRA 11.76 ms.",
-       "relies_on": "source",
-       "revision_digest": "e9c834651141b77832359c8fb5ae757f3424dcf615b1f00cdac1748edefdf15b",
-       "source_id": "src_c6c0b54ef0ca98bb74386d5a885e4b47"
-      }
-     ],
      "choice": "WAL, with synchronous NORMAL.",
      "context": "Measured on APFS with fullfsync on.",
      "expected_consequences": "A checkpoint fault point has to be tested.",
@@ -927,9 +1590,7 @@
      "question": "Which journal mode does the local state database use?",
      "reason": "4.11 ms per commit against 11.76, and readers are not blocked.",
      "revisit_condition": "A filesystem that does not honour fullfsync.",
-     "workstream_ids": [
-      "wst_2089a19762cb574651f219ebb470dc41"
-     ]
+     "workstream_ids": []
     },
     "schema": 1,
     "standing": {
@@ -939,7 +1600,7 @@
    }
   },
   {
-   "digest": "d5d353b6fea056acd454d070bb37867c04f094e0bb728d35ab8ef732501922f2",
+   "digest": "ae7c8095d78cf16521838e1b52fd28626cbf20a56d4f5adc517888b78c77dce6",
    "name": "edit_candidate_result",
    "record": {
     "kind": "operation_result",
@@ -950,55 +1611,186 @@
     },
     "outputs": [
      {
-      "digest": "8a6b739937d159932d89d811fcef9becbdc7e69528b0cea8503c1b72d29fd65c",
+      "digest": "1cb80c63923696cb3479a043af2fcbfd220270f6c73e9b597560aa6a7230c7ee",
       "kind": "memory_candidate"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "f6f1b20a08b74ce45501a51926345c759196e6afea051a74b0ed1df5007a3ff5",
+    "request_digest": "154935966e7db0f6e1105060e80e4bc224ef7d8ba63f513dbcc4f1df2e3d0e37",
     "request_id": "req_5eb27b783350dd45a6ff84da79d14c47",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "0cb35fde0f29141d770d3d75c68c642f54f0aa38137531ade9212a1e21b66f98",
-   "name": "reject_submit",
+   "digest": "def90161395bcf3bf7a5ac04d5e4170bea371b31e62758bab5f5c4a04f8df107",
+   "name": "promoting_choice",
    "record": {
-    "action": "review",
+    "alternatives": [
+     {
+      "choice": "A rollback journal with EXTRA",
+      "reason": "One read waited 766 ms during a commit burst."
+     }
+    ],
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "jurisdiction",
+       "value": "KR"
+      }
+     ],
+     "period": {
+      "effective_from": "2026-01-01"
+     },
+     "states": "stated"
+    },
+    "choice": "WAL, with synchronous NORMAL.",
+    "context": "Measured on APFS with fullfsync on.",
+    "expected_consequences": "A checkpoint fault point has to be tested.",
+    "home": {
+     "layer": "repository",
+     "repository_id": "rep_a8d1d081f666400057d00ecdbb668a07"
+    },
+    "kind": "choice_record",
+    "promotes": {
+     "candidate_id": "cnd_536c0157ca49e6e6e41921a7b7db3610",
+     "version": 2
+    },
+    "question": "Which journal mode does the local state database use?",
+    "reason": "4.11 ms per commit against 11.76, and readers are not blocked.",
+    "revisit_condition": "A filesystem that does not honour fullfsync.",
+    "schema": 1,
+    "workstream_ids": []
+   }
+  },
+  {
+   "digest": "b9e9e0100f372c70bd2bda25bba6ead70dc92dff59466480bce229350cf435f4",
+   "name": "publish_submit",
+   "record": {
+    "action": "publish",
     "actor": {
      "device_id": "dev_8889c507c61b1cc5c2f1703532f047ec",
      "principal_id": "prn_1357c2ea0eb49548ed4c94bbc6e57786",
      "profile_id": "prf_2117496da92018f202484001241fb731"
     },
     "control_digests": [],
-    "effect_class": "durable_candidate",
+    "effect_class": "owner_commit",
     "kind": "operation_request",
     "local_access_generation": 7,
-    "operation": "memory.candidate.reject",
+    "operation": "memory.record.publish",
     "owner": {
-     "layer": "personal",
-     "principal_id": "prn_1357c2ea0eb49548ed4c94bbc6e57786"
+     "layer": "repository",
+     "repository_id": "rep_a8d1d081f666400057d00ecdbb668a07"
     },
+    "payload_digest": "def90161395bcf3bf7a5ac04d5e4170bea371b31e62758bab5f5c4a04f8df107",
     "policy_digests": [],
     "proof_digests": [],
-    "request_id": "req_86615f57d0e426c0fdbb87bd96b72be6",
+    "request_id": "req_bb7e794841464f0260a3a581372c8920",
     "schema": 1,
     "target": {
-     "resource_id": "cnd_536c0157ca49e6e6e41921a7b7db3610"
+     "base": {
+      "expects": "head",
+      "head_digest": "96c46ad4a06c88d8512538b33358d46d26bfa1c8e6b84d154738bc3410f89e94"
+     },
+     "resource_id": "src_6a6d231742e0f7c368cdad3bb4a340ff"
     }
    }
   },
   {
-   "digest": "6b9784ea63513aa377160becc6f166909d51903a6c9d72e1e54bd20b8843ef98",
-   "name": "stored_rejection",
+   "digest": "8e67fc148509730fd9e9dfd53bd118acb522432f88268737b92b10d9ecc22c72",
+   "name": "publish_choice_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "b68e60bd2b351a2fafe0cc753900411e22808af8cd206fbe4c34ca57b6c77fe4",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_a8d1d081f666400057d00ecdbb668a07"
+    },
+    "request_digest": "b9e9e0100f372c70bd2bda25bba6ead70dc92dff59466480bce229350cf435f4",
+    "request_id": "req_bb7e794841464f0260a3a581372c8920",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "96c46ad4a06c88d8512538b33358d46d26bfa1c8e6b84d154738bc3410f89e94"
+     },
+     "resource_id": "src_6a6d231742e0f7c368cdad3bb4a340ff"
+    }
+   }
+  },
+  {
+   "digest": "b623d7240ec85c6d853720c5dbfca713152c84c566f4ffeac7c8c4e3a3a305c2",
+   "name": "stored_choice",
+   "record": {
+    "alternatives": [
+     {
+      "choice": "A rollback journal with EXTRA",
+      "reason": "One read waited 766 ms during a commit burst."
+     }
+    ],
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "jurisdiction",
+       "value": "KR"
+      }
+     ],
+     "period": {
+      "effective_from": "2026-01-01"
+     },
+     "states": "stated"
+    },
+    "choice": "WAL, with synchronous NORMAL.",
+    "context": "Measured on APFS with fullfsync on.",
+    "expected_consequences": "A checkpoint fault point has to be tested.",
+    "home": {
+     "layer": "repository",
+     "repository_id": "rep_a8d1d081f666400057d00ecdbb668a07"
+    },
+    "kind": "choice_record",
+    "promotes": {
+     "candidate_id": "cnd_536c0157ca49e6e6e41921a7b7db3610",
+     "version": 2
+    },
+    "question": "Which journal mode does the local state database use?",
+    "reason": "4.11 ms per commit against 11.76, and readers are not blocked.",
+    "record_id": "rec_ad52304c4fbb77cb134fe58bcb2c5e22",
+    "recorded_at": "2000-01-01T00:00:00Z",
+    "revisit_condition": "A filesystem that does not honour fullfsync.",
+    "schema": 1,
+    "workstream_ids": []
+   }
+  },
+  {
+   "digest": "0b467f84beb01052fbcabcdc0170a515531b98d9b6dea1d98b599a206a8ee190",
+   "name": "decisions_revision",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "b623d7240ec85c6d853720c5dbfca713152c84c566f4ffeac7c8c4e3a3a305c2",
+      "path": "decisions/0001.json",
+      "size": 4120
+     }
+    ],
+    "produced_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "source_id": "src_6a6d231742e0f7c368cdad3bb4a340ff"
+   }
+  },
+  {
+   "digest": "c9fa8b9535f83569391634a63a41c34d462edc1b08d47d5505630d96240b5619",
+   "name": "stored_promotion",
    "record": {
     "candidate_id": "cnd_536c0157ca49e6e6e41921a7b7db3610",
     "created_at": "2000-01-01T00:00:00Z",
     "destination_source_id": "src_6a6d231742e0f7c368cdad3bb4a340ff",
     "kind": "memory_candidate",
     "origin": {
-     "capture_digest": "6d584fefa6e416d1956bd6c8a40822202a4212b6c309f1f81ef296006e2affe2",
+     "capture_digest": "2b7473169015bab7c4c308a212b76778a0d34d089832098e32324af2c188af27",
      "evidence_digests": [
       "91ae1e62feeb572475da2d8447ec336bfc7aa93133061f7741a5034f07a9fe62"
      ],
@@ -1023,14 +1815,6 @@
       },
       "states": "stated"
      },
-     "basis": [
-      {
-       "as_stated": "WAL+FULL 4.11 ms per commit; DELETE+EXTRA 11.76 ms.",
-       "relies_on": "source",
-       "revision_digest": "e9c834651141b77832359c8fb5ae757f3424dcf615b1f00cdac1748edefdf15b",
-       "source_id": "src_c6c0b54ef0ca98bb74386d5a885e4b47"
-      }
-     ],
      "choice": "WAL, with synchronous NORMAL.",
      "context": "Measured on APFS with fullfsync on.",
      "expected_consequences": "A checkpoint fault point has to be tested.",
@@ -1042,44 +1826,85 @@
      "question": "Which journal mode does the local state database use?",
      "reason": "4.11 ms per commit against 11.76, and readers are not blocked.",
      "revisit_condition": "A filesystem that does not honour fullfsync.",
-     "workstream_ids": [
-      "wst_2089a19762cb574651f219ebb470dc41"
-     ]
+     "workstream_ids": []
     },
     "schema": 1,
     "standing": {
-     "is": "rejected"
+     "is": "promoted",
+     "receipt_digest": "8e67fc148509730fd9e9dfd53bd118acb522432f88268737b92b10d9ecc22c72"
     },
     "version": 3
    }
   },
   {
-   "digest": "5d03783d7e12981fd6e74cafbcd8b42892d6c51047d88449a986058a5d727b3b",
-   "name": "reject_candidate_result",
+   "digest": "f86ad6902019c7daf5f0888969fb4fe2c04ffaf33b6232630797ceedead9eab5",
+   "name": "publish_choice_result",
    "record": {
     "kind": "operation_result",
-    "local_effect": "candidate_stored",
+    "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "stage": "rejected"
+     "receipt_digest": "8e67fc148509730fd9e9dfd53bd118acb522432f88268737b92b10d9ecc22c72",
+     "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "6b9784ea63513aa377160becc6f166909d51903a6c9d72e1e54bd20b8843ef98",
+      "digest": "b623d7240ec85c6d853720c5dbfca713152c84c566f4ffeac7c8c4e3a3a305c2",
+      "kind": "choice_record"
+     },
+     {
+      "digest": "0b467f84beb01052fbcabcdc0170a515531b98d9b6dea1d98b599a206a8ee190",
+      "kind": "source_manifest"
+     },
+     {
+      "digest": "c9fa8b9535f83569391634a63a41c34d462edc1b08d47d5505630d96240b5619",
       "kind": "memory_candidate"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "0cb35fde0f29141d770d3d75c68c642f54f0aa38137531ade9212a1e21b66f98",
-    "request_id": "req_86615f57d0e426c0fdbb87bd96b72be6",
+    "request_digest": "b9e9e0100f372c70bd2bda25bba6ead70dc92dff59466480bce229350cf435f4",
+    "request_id": "req_bb7e794841464f0260a3a581372c8920",
     "schema": 1,
     "supported_recovery": []
    }
   }
  ],
- "says": "A person captures the memory of one selected transcript span (source.observe, then source.capture.record) and stores a candidate choice extracted from that capture (memory.candidate.store), which the owner writes as version 1 naming the capture and the exact span bytes as its origin. The person then edits the proposal, changing the chosen synchronous mode, and submits it under the same candidate id; the owner writes version 2, and its origin is the origin of version 1, byte for byte. The person then rejects the candidate (memory.candidate.reject); the owner writes version 3 standing rejected, and its origin is still that of version 2. Every memory_candidate the owner returns keeps the origin of the version it replaces: none restates the captured candidate as written by hand and none names another capture, which are the breaking records of the rule fixture candidate_keeps_its_origin. Neither the edit nor the rejection changes the capture, the observed span or any destination source.",
- "spec_sha256": "7e2f9bd3df34f8e675e089415a5a0ea53c22b9ae67024e26296c244f705c38fe",
+ "says": "A person binds this device's key and the checkout, registers the repository's decisions source, captures the memory of one selected transcript span (source.observe, then source.capture.record) and stores a candidate choice extracted from that capture (memory.candidate.store), which the owner writes as version 1 naming the capture and the exact span bytes as its origin. The person then edits the proposal, changing the chosen synchronous mode, and submits it under the same candidate id; the owner writes version 2, and its origin is the origin of version 1, byte for byte. The destination then publishes that choice at the decisions source, on the head its registration committed, stating that it promotes version 2 of the candidate (memory.record.publish); the commit returns the choice record, the revision holding it, and version 3 standing promoted with the commit's receipt, whose proposal is exactly what the choice record states and whose origin is still that of version 2. Every memory_candidate the owner returns keeps the origin of the version it replaces, and the record promoting it names the version before the promoted one: none restates the captured candidate as written by hand, names another capture, proposes something other than what was published or follows another version than the one published, which are the breaking records of the rule fixtures candidate_keeps_its_origin and promotion_states_its_candidate. Neither the edit nor the promotion changes the capture or the observed span.",
+ "spec_sha256": "807f8c3388cd30cd256a37cf7da62f6d60c5d5deaa059651ae054bb95685555e",
  "steps": [
+  {
+   "carries": [
+    "key_submitted"
+   ],
+   "name": "bind_device_key",
+   "request": "bind_key_request",
+   "result": "bind_device_key_result",
+   "returns": [
+    "key"
+   ]
+  },
+  {
+   "carries": [
+    "repo_binding_submitted"
+   ],
+   "name": "bind_repository",
+   "request": "bind_repo_request",
+   "result": "bind_repository_result",
+   "returns": [
+    "repo_binding"
+   ]
+  },
+  {
+   "carries": [
+    "home_submitted"
+   ],
+   "name": "register_decisions_home",
+   "request": "home_request",
+   "result": "register_decisions_home_result",
+   "returns": [
+    "home"
+   ]
+  },
   {
    "carries": [
     "selection"
@@ -1126,12 +1951,17 @@
    ]
   },
   {
-   "carries": [],
-   "name": "reject_candidate",
-   "request": "reject_submit",
-   "result": "reject_candidate_result",
+   "carries": [
+    "promoting_choice"
+   ],
+   "head": "decisions_head",
+   "name": "publish_choice",
+   "request": "publish_submit",
+   "result": "publish_choice_result",
    "returns": [
-    "stored_rejection"
+    "stored_choice",
+    "decisions_revision",
+    "stored_promotion"
    ]
   }
  ]

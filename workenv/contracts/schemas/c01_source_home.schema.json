@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C01 source home",
-  "description": "One source, one authoring home. The namespace scope the source sits in and the authority that accepts its revisions are separate fields, because a source kept in a team's namespace is not thereby accepted by that team. Applicability is a required choice between stated conditions and none, so a source that states none says so instead of reading as applying everywhere.",
+  "description": "One source, one authoring home. The namespace scope the source sits in and the authority that accepts its revisions are separate fields, because a source kept in a team's namespace is not thereby accepted by that team. Applicability is a required choice between stated conditions and none, so a source that states none says so instead of reading as applying everywhere. Its conditions — applicability, disclosure and retention — are this record's: registering the same home again changes them and moves the source's head, while every revision's bytes stay what they were.",
   "required": [
     "kind",
     "schema",
@@ -307,18 +307,14 @@
     "managed_home": {
       "type": "object",
       "additionalProperties": false,
-      "description": "A managed collection. The Markdown it can produce is a derived view and has no acceptance field, so it cannot become a second owner of the state a repository document already owns.",
+      "description": "A managed source, kept by its scope's namespace in the collection of its role, which the home's `scope` and `role` already name. The Markdown it can produce is a derived view and has no acceptance field, so it cannot become a second owner of the state a repository document already owns.",
       "required": [
         "mode",
-        "collection_id",
         "markdown_view"
       ],
       "properties": {
         "mode": {
           "const": "managed"
-        },
-        "collection_id": {
-          "$ref": "#/$defs/collection_id"
         },
         "markdown_view": {
           "oneOf": [
@@ -363,10 +359,6 @@
           "const": "none"
         }
       }
-    },
-    "collection_id": {
-      "type": "string",
-      "pattern": "^col_[0-9a-f]{32}$"
     },
     "repository_home": {
       "type": "object",

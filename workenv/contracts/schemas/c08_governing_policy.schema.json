@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C08 governing policy",
-  "description": "What a Team requires before a shared change commits. The three exclusions that make a review independent are fixed, not configured: a policy cannot be written that counts the requester, a recorded author, or an agent acting under their sponsorship. The threshold above them is the Team's to set, and zero is a Team that requires no independent review, stated rather than implied. A Team submits the rules; the runtime assigns the id and the version and stamps the commit. A provider claim admits a member only where `admission` names its connection, claim and value; a login, an e-mail address or a workspace membership admits nobody by itself, and what such an admission grants stops at reading, using and contributing.",
+  "description": "What a Team requires before a shared change commits. The three exclusions that make a review independent are fixed, not configured: a policy cannot be written that counts the requester, a recorded author, or an agent acting under their sponsorship. The threshold above them is the Team's to set, and zero is a Team that requires no independent review, stated rather than implied. A Team submits the rules; the runtime assigns the id and the version and stamps the commit. A provider claim admits a member only where `admission` names its connection, claim and value; a login, an e-mail address or a workspace membership admits nobody by itself, and what such an admission grants stops at reading, using and contributing. An action `fresh_checks` names is taken only under `fresh_check` sign-in evidence from that connection, obtained in the current local access session: a device-key unlock does not supply it (`fresh_auth_required`), and while the provider is unreachable only those actions wait.",
   "required": [
     "kind",
     "schema",
@@ -72,6 +72,14 @@
       "uniqueItems": true,
       "items": {
         "$ref": "#/$defs/claim_admission"
+      }
+    },
+    "fresh_checks": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/fresh_check"
       }
     }
   },
@@ -193,6 +201,45 @@
     "connection_id": {
       "type": "string",
       "pattern": "^con_[0-9a-f]{32}$"
+    },
+    "fresh_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Team actions a request may take only under `fresh_check` sign-in evidence from this connection, obtained in the current local access session. Personal work has no value here, because a Team policy does not govern it.",
+      "required": [
+        "connection_id",
+        "actions"
+      ],
+      "properties": {
+        "connection_id": {
+          "$ref": "#/$defs/connection_id"
+        },
+        "actions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/checked_action"
+          }
+        }
+      }
+    },
+    "checked_action": {
+      "enum": [
+        "read",
+        "use",
+        "contribute",
+        "review",
+        "publish",
+        "adopt",
+        "decide",
+        "grant",
+        "policy",
+        "transfer",
+        "suspend",
+        "retain_delete",
+        "export"
+      ]
     }
   }
 }

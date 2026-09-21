@@ -1,6 +1,6 @@
 {
  "case": "N21-DERIVED-NEG",
- "says": "Alice founds a Team on her laptop, registers its knowledge source and commits two revisions. The store has derived an excerpt and an index from the first revision and nothing from the second. Reading the derivation map of the first returns both derivatives, and removing the first revision returns a removal_outcome that removes the revision on the laptop and each derivative the map named, every copy with its tombstone. Reading the map of the second returns no derivatives, and its removal names no derived copies. Each removal_outcome is held to C10/removal_covers_derivatives against the map read just before it. What must not happen: a removal whose derived copies leave out an object the map names, such as the excerpt removed and the index kept (the rule fixture's breaking records), or a derivative kept because the evidence it came from was removed first.",
+ "says": "Alice founds a Team on her laptop, registers its knowledge source and commits two revisions. The store has derived an excerpt and an index from the first revision and nothing from the second. Both the map reads and the removals target the Team, whose holders keep the copies, and each removal is a Team commit that moves the Team head the next request expects. Reading the derivation map of the first returns both derivatives, and removing the first revision returns a removal_outcome that removes the revision on the laptop and each derivative the map named, every copy with its tombstone. Reading the map of the second returns no derivatives, and its removal names no derived copies. Each removal_outcome is held to C10/removal_covers_derivatives against the map read just before it. What must not happen: a removal whose derived copies leave out an object the map names, such as the excerpt removed and the index kept (the rule fixture's breaking records), or a derivative kept because the evidence it came from was removed first.",
  "ids": [
   {
    "name": "alice",
@@ -29,10 +29,6 @@
   {
    "name": "knowledge_source",
    "prefix": "src"
-  },
-  {
-   "name": "knowledge_collection",
-   "prefix": "col"
   },
   {
    "name": "home_request",
@@ -288,7 +284,7 @@
     },
     {
      "pointer": "/committed_at",
-     "value": "$instant:policy_committed_at"
+     "value": "$instant:team_founded_at"
     }
    ]
   },
@@ -306,7 +302,138 @@
     },
     {
      "pointer": "/since",
-     "value": "$instant:team_active_since"
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "founding",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:team_founder_grant"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "publish",
+      "adopt",
+      "grant",
+      "policy",
+      "retain_delete"
+     ]
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 2
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/purpose",
+     "value": "The standards this group works to."
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_founded_at"
     }
    ]
   },
@@ -340,10 +467,6 @@
      "value": "@team"
     },
     {
-     "pointer": "/home/collection_id",
-     "value": "@knowledge_collection"
-    },
-    {
      "pointer": "/role",
      "value": "knowledge"
     },
@@ -375,7 +498,7 @@
     },
     {
      "pointer": "/action",
-     "value": "publish"
+     "value": "contribute"
     },
     {
      "pointer": "/effect_class",
@@ -485,11 +608,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#first_revision"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:home_head"
     }
    ]
   },
@@ -641,7 +768,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@knowledge_source"
+     "value": "@team"
     },
     {
      "pointer": "/target/base/expects",
@@ -649,7 +776,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:source_head_2"
+     "value": "$digest:team_head"
     },
     {
      "pointer": "/payload_digest",
@@ -743,7 +870,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@knowledge_source"
+     "value": "@team"
     },
     {
      "pointer": "/target/base/expects",
@@ -751,7 +878,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:source_head_2"
+     "value": "$digest:team_head"
     },
     {
      "pointer": "/payload_digest",
@@ -865,7 +992,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@knowledge_source"
+     "value": "@team"
     },
     {
      "pointer": "/target/base/expects",
@@ -873,7 +1000,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:source_head_3"
+     "value": "$digest:team_head_2"
     },
     {
      "pointer": "/payload_digest",
@@ -951,7 +1078,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@knowledge_source"
+     "value": "@team"
     },
     {
      "pointer": "/target/base/expects",
@@ -959,7 +1086,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:source_head_3"
+     "value": "$digest:team_head_2"
     },
     {
      "pointer": "/payload_digest",
@@ -1026,8 +1153,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
-     "team_active"
+     "team_founder_membership",
+     "team_founder_grant",
+     "team_active",
+     "team_profile",
+     "team_founding_epoch"
     ],
     "head": "team_head"
    },
@@ -1049,7 +1181,8 @@
     "recovery": [],
     "returns": [
      "stored_home"
-    ]
+    ],
+    "head": "home_head"
    }
   },
   {
@@ -1120,7 +1253,7 @@
     "returns": [
      "first_removed"
     ],
-    "head": "source_head_3"
+    "head": "team_head_2"
    }
   },
   {
@@ -1155,7 +1288,7 @@
     "returns": [
      "second_removed"
     ],
-    "head": "source_head_4"
+    "head": "team_head_3"
    }
   }
  ]

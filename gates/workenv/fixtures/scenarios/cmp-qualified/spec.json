@@ -1,6 +1,6 @@
 {
  "case": "CMP-QUALIFIED",
- "says": "The repository and the Team each select an Instructions source whose review.md answers review.approval as a required startup unit; the Team's knowledge position selects two sources that both answer tax.rate with no precedence between them. The repository's revision is committed, but its review.md bytes are not held on this device. The first session start must name the repository unit as the winner with no body and the gap role_body_unavailable at that unit, and the Team unit for the same concern shadowed by it: a lower layer does not silently satisfy an inaccessible winner. The two tax.rate units are named unresolved, each with same_layer_unordered, and work support reads not_requested because no task was asked for. alice explicitly deselects the repository source (switches it off); the next start names that unit disabled, the Team unit wins, and the session is activated on it although tax.rate is still unresolved: an ambiguity no actual question needs holds nothing back and asks nothing at startup. The Team then states an explicit precedence between its two tax.rate sources, and the last start names the first winning and the second shadowed, with no gap. What must not happen: the Team unit reported as satisfying review.approval while the repository winner is unavailable, or the unrelated tax.rate ambiguity becoming a startup question.",
+ "says": "The repository and the Team each select an Instructions source whose review.md answers review.approval as a required startup unit; the Team's knowledge position selects two sources that both answer tax.rate with no precedence between them. The repository's revision is committed, but its review.md bytes are not held on this device. The first session start must name the repository unit as the winner with no body and the gap role_body_unavailable at that unit, and the Team unit for the same concern shadowed by it: a lower layer does not silently satisfy an inaccessible winner. The two tax.rate units are named unresolved, each with same_layer_unordered, and work support reads not_requested because no task was asked for. alice explicitly deselects the repository source (switches it off); the next start names that unit disabled, the Team unit wins, and the session is activated on it although tax.rate is still unresolved (the activation returns the instructions projection it routed: the Team unit winning, the repository unit disabled): an ambiguity no actual question needs holds nothing back and asks nothing at startup. The Team then states an explicit precedence between its two tax.rate sources, and the last start names the first winning and the second shadowed, with no gap. What must not happen: the Team unit reported as satisfying review.approval while the repository winner is unavailable, or the unrelated tax.rate ambiguity becoming a startup question.",
  "ids": [
   {
    "name": "alice",
@@ -51,10 +51,6 @@
    "prefix": "src"
   },
   {
-   "name": "team_rules_store",
-   "prefix": "col"
-  },
-  {
    "name": "register_team_rules_rid",
    "prefix": "req"
   },
@@ -67,10 +63,6 @@
    "prefix": "src"
   },
   {
-   "name": "rates_a_store",
-   "prefix": "col"
-  },
-  {
    "name": "register_rates_a_rid",
    "prefix": "req"
   },
@@ -81,10 +73,6 @@
   {
    "name": "rates_b",
    "prefix": "src"
-  },
-  {
-   "name": "rates_b_store",
-   "prefix": "col"
   },
   {
    "name": "register_rates_b_rid",
@@ -446,19 +434,95 @@
   },
   {
    "name": "team_active",
-   "from": "c08/archived_team.json",
+   "from": "c08/active_team.json",
    "set": [
     {
      "pointer": "/since",
      "value": "$instant:founded_at"
     },
     {
-     "pointer": "/state",
-     "value": "active"
+     "pointer": "/team_id",
+     "value": "@platform"
+    }
+   ]
+  },
+  {
+   "name": "platform_sealed_proposal",
+   "from": "founding",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:platform_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "platform_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:platform_founder"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
     },
     {
      "pointer": "/team_id",
      "value": "@platform"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#platform_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "platform_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:platform_h1"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "platform_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:founded_at"
     }
    ]
   },
@@ -604,7 +668,7 @@
     },
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/owner/layer",
@@ -669,10 +733,6 @@
     {
      "pointer": "/disclosure",
      "value": "team"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@team_rules_store"
     },
     {
      "pointer": "/home/markdown_view/view",
@@ -807,7 +867,7 @@
     },
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/owner/team_id",
@@ -868,10 +928,6 @@
     {
      "pointer": "/disclosure",
      "value": "team"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@rates_a_store"
     },
     {
      "pointer": "/home/markdown_view/view",
@@ -1010,7 +1066,7 @@
     },
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/owner/team_id",
@@ -1071,10 +1127,6 @@
     {
      "pointer": "/disclosure",
      "value": "team"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@rates_b_store"
     },
     {
      "pointer": "/home/markdown_view/view",
@@ -1213,7 +1265,7 @@
     },
     {
      "pointer": "/action",
-     "value": "contribute"
+     "value": "publish"
     },
     {
      "pointer": "/owner/team_id",
@@ -1586,7 +1638,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "pure_preview"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1610,7 +1662,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@work_repo"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
@@ -1633,7 +1685,7 @@
     },
     {
      "pointer": "/collections/0/head_digest",
-     "value": "$digest:repo_instr_h1"
+     "value": "#repo_instr_v1_stored"
     },
     {
      "pointer": "/collections/1/collection_id",
@@ -1641,7 +1693,7 @@
     },
     {
      "pointer": "/collections/1/head_digest",
-     "value": "$digest:team_instr_h1"
+     "value": "#team_instr_v1_stored"
     },
     {
      "pointer": "/collections/2/collection_id",
@@ -1649,7 +1701,7 @@
     },
     {
      "pointer": "/collections/2/head_digest",
-     "value": "$digest:team_know_h1"
+     "value": "#team_know_v1_stored"
     },
     {
      "pointer": "/collections/2/state",
@@ -1888,7 +1940,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:repo_instr_h1"
+     "value": "#repo_instr_v1_stored"
     },
     {
      "pointer": "/payload_digest",
@@ -1949,7 +2001,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "pure_preview"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1973,7 +2025,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@work_repo"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
@@ -1997,7 +2049,7 @@
     },
     {
      "pointer": "/collections/0/head_digest",
-     "value": "$digest:repo_instr_h2"
+     "value": "#repo_instr_v2_stored"
     },
     {
      "pointer": "/collections/1/collection_id",
@@ -2005,7 +2057,7 @@
     },
     {
      "pointer": "/collections/1/head_digest",
-     "value": "$digest:team_instr_h1"
+     "value": "#team_instr_v1_stored"
     },
     {
      "pointer": "/collections/2/collection_id",
@@ -2013,7 +2065,7 @@
     },
     {
      "pointer": "/collections/2/head_digest",
-     "value": "$digest:team_know_h1"
+     "value": "#team_know_v1_stored"
     },
     {
      "pointer": "/collections/2/state",
@@ -2212,7 +2264,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "durable_candidate"
+     "value": "owner_commit"
     },
     {
      "pointer": "/actor/principal_id",
@@ -2255,6 +2307,85 @@
     {
      "pointer": "/session/profile_id",
      "value": "@alice_profile"
+    },
+    {
+     "pointer": "/delivery/projections",
+     "value": [
+      "#start_the_session_projection"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "start_the_session_projection",
+   "from": "c04/projection_keeps_a_shadowed_unit_attributable.json",
+   "drop": [
+    "/units/1/shadowed_by"
+   ],
+   "set": [
+    {
+     "pointer": "/projection_id",
+     "value": "$prj:start_the_session_projection"
+    },
+    {
+     "pointer": "/plan_digest",
+     "value": "$digest:start_the_session_projection_plan"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:start_the_session_at"
+    },
+    {
+     "pointer": "/units/0/unit_id",
+     "value": "$unt:b_team_review"
+    },
+    {
+     "pointer": "/units/0/source_id",
+     "value": "@team_rules"
+    },
+    {
+     "pointer": "/units/0/revision_digest",
+     "value": "#team_rules_r1_stored"
+    },
+    {
+     "pointer": "/units/0/body_digest",
+     "value": "fb6db4128999030f0293ae8d761adde410f2bfc33d2cf528fe7e7f566cc42431"
+    },
+    {
+     "pointer": "/units/0/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/units/0/standing",
+     "value": "winning"
+    },
+    {
+     "pointer": "/units/0/concern",
+     "value": "review.approval"
+    },
+    {
+     "pointer": "/units/1/unit_id",
+     "value": "$unt:b_repo_review"
+    },
+    {
+     "pointer": "/units/1/source_id",
+     "value": "@repo_rules"
+    },
+    {
+     "pointer": "/units/1/revision_digest",
+     "value": "#repo_rules_r1_stored"
+    },
+    {
+     "pointer": "/units/1/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/units/1/standing",
+     "value": "disabled"
+    },
+    {
+     "pointer": "/units/1/concern",
+     "value": "review.approval"
     }
    ]
   },
@@ -2365,7 +2496,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:team_know_h1"
+     "value": "#team_know_v1_stored"
     },
     {
      "pointer": "/payload_digest",
@@ -2426,7 +2557,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "pure_preview"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -2450,7 +2581,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@work_repo"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
@@ -2474,7 +2605,7 @@
     },
     {
      "pointer": "/collections/0/head_digest",
-     "value": "$digest:repo_instr_h2"
+     "value": "#repo_instr_v2_stored"
     },
     {
      "pointer": "/collections/1/collection_id",
@@ -2482,7 +2613,7 @@
     },
     {
      "pointer": "/collections/1/head_digest",
-     "value": "$digest:team_instr_h1"
+     "value": "#team_instr_v1_stored"
     },
     {
      "pointer": "/collections/2/collection_id",
@@ -2490,7 +2621,7 @@
     },
     {
      "pointer": "/collections/2/head_digest",
-     "value": "$digest:team_know_h2"
+     "value": "#team_know_v2_stored"
     },
     {
      "pointer": "/collections/2/state",
@@ -2696,9 +2827,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "platform_sealed_proposal",
      "team_policy",
+     "platform_founder_membership",
      "alice_team_grant",
-     "team_active"
+     "team_active",
+     "platform_profile",
+     "platform_founding_epoch"
     ],
     "head": "platform_h1"
    },
@@ -2865,7 +3000,7 @@
     "returns": [
      "repo_instr_v1_stored"
     ],
-    "head": "repo_instr_h1"
+    "head": "repo_instr_v1_stored"
    }
   },
   {
@@ -2883,7 +3018,7 @@
     "returns": [
      "team_instr_v1_stored"
     ],
-    "head": "team_instr_h1"
+    "head": "team_instr_v1_stored"
    }
   },
   {
@@ -2901,7 +3036,7 @@
     "returns": [
      "team_know_v1_stored"
     ],
-    "head": "team_know_h1"
+    "head": "team_know_v1_stored"
    }
   },
   {
@@ -2912,7 +3047,7 @@
    ],
    "answer": {
     "stage": "previewed",
-    "local_effect": "none",
+    "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [
      {
@@ -2949,7 +3084,7 @@
     "returns": [
      "repo_instr_v2_stored"
     ],
-    "head": "repo_instr_h2"
+    "head": "repo_instr_v2_stored"
    }
   },
   {
@@ -2960,7 +3095,7 @@
    ],
    "answer": {
     "stage": "previewed",
-    "local_effect": "none",
+    "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [
      {
@@ -2986,12 +3121,13 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "start_the_session_routed"
+     "start_the_session_routed",
+     "start_the_session_projection"
     ]
    }
   },
@@ -3010,7 +3146,7 @@
     "returns": [
      "team_know_v2_stored"
     ],
-    "head": "team_know_h2"
+    "head": "team_know_v2_stored"
    }
   },
   {
@@ -3021,7 +3157,7 @@
    ],
    "answer": {
     "stage": "previewed",
-    "local_effect": "none",
+    "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],

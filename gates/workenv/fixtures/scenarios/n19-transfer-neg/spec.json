@@ -1,6 +1,6 @@
 {
  "case": "N19-TRANSFER-NEG",
- "says": "A person founds a Team alone on their laptop, so they are its only owner, recovery holder and finalizer, and keeps one draft purpose on the laptop as a candidate. A handover of the owner duty that names no recipient has no spelling and is refused at admission. Leaving the Team (team.lifecycle.apply leave), even with the draft settled, would take away the last holder of every required duty with nobody to receive them, and the owner refuses it with last_owner_removal_refused. Retiring the laptop (team.device.retire) with a disposition that lists no item, while the laptop holds the draft and nowhere else does, is refused with unique_outbox_at_risk; a retirement that omits its disposition altogether is refused at admission. None of the refused steps returns a record or moves the head: a last team.state.read at the head the founding moved to returns the same active state, profile, policy and grant as before.",
+ "says": "A person founds a Team alone on their laptop, so they are its only owner, recovery holder and finalizer, and keeps one draft purpose on the laptop as a candidate. A handover of the owner duty that names no recipient has no spelling and is refused at admission. Leaving the Team (team.membership.leave), even with the draft settled, would take away the last holder of every required duty with nobody to receive them, and the owner refuses it with last_owner_removal_refused. Retiring the laptop from the Team (team.device.retire, on the Team at its current head) with a disposition that lists no item, while the laptop holds the draft and nowhere else does, is refused with unique_outbox_at_risk; a retirement that omits its disposition altogether is refused at admission. None of the refused steps returns a record or moves the head: a last team.state.read at the head the founding moved to returns the same active state, profile, policy, membership and grant as before.",
  "ids": [
   {
    "name": "founder",
@@ -112,6 +112,68 @@
     {
      "pointer": "/recovery/0/principal_id",
      "value": "@founder"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership_id"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@founder"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:founded"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:founded_at"
     }
    ]
   },
@@ -325,7 +387,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "durable_candidate"
+     "value": "owner_commit"
     },
     {
      "pointer": "/actor/principal_id",
@@ -510,11 +572,11 @@
     },
     {
      "pointer": "/operation",
-     "value": "team.lifecycle.apply"
+     "value": "team.membership.leave"
     },
     {
      "pointer": "/action",
-     "value": "policy"
+     "value": "local_profile"
     },
     {
      "pointer": "/effect_class",
@@ -629,11 +691,19 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@laptop"
+     "value": "@team"
     },
     {
      "pointer": "/payload_digest",
      "value": "#bare_retirement"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:founded"
     }
    ]
   },
@@ -702,11 +772,19 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@laptop"
+     "value": "@team"
     },
     {
      "pointer": "/payload_digest",
      "value": "#retirement_without_drafts"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:founded"
     }
    ]
   },
@@ -785,10 +863,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
+     "team_founder_membership",
      "founder_grant",
      "active_state",
-     "first_profile"
+     "first_profile",
+     "team_founding_epoch"
     ],
     "head": "founded"
    },
@@ -897,6 +978,7 @@
      "active_state",
      "first_profile",
      "team_policy",
+     "team_founder_membership",
      "founder_grant"
     ]
    }

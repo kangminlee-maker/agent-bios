@@ -1,6 +1,6 @@
 {
  "case": "N05-AVAILABLE-NEG",
- "says": "Alice's desktop and laptop are two isolated runtimes. On the desktop she binds its key, registers her private notes source and commits a revision, then stages the package that carries that revision for her laptop: the desktop records it exported. On the laptop, after binding the laptop's key, the same package is staged and recorded received. Querying that staging request on the laptop returns its original result: objects staged, stage draft, no receipt. The revision's member is readable on the laptop — resolving a reference to it returns the revision — but the resolution is a preview, not an acceptance. Only accepting the package through her authority, whose founding epoch names the laptop as its finalizer, commits it with a receipt and records the package committed; querying the accept returns that result. What must not happen: an exported or received package, or members written without a receipt, reported as accepted or committed — no result before the accept names a receipt or a settled stage.",
+ "says": "Alice's desktop and laptop are two isolated runtimes. On the desktop she binds its key, registers her private notes source and commits a revision on the head the registration made, then stages the package that carries that revision and its home for her laptop, trusted by the desktop's enrolment binding, which travels with it: the desktop records it exported. On the laptop, after binding the laptop's key, the same package is staged and recorded received. Querying that staging request on the laptop returns its original result: objects staged, stage draft, no receipt. The revision's member is readable on the laptop — resolving a reference to it returns the revision and its home — but the resolution is a preview on a source whose head the laptop still does not hold, not an acceptance. Only accepting the package commits it with a receipt and records the package committed, naming that receipt; querying the accept returns that result. What must not happen: an exported or received package, or members written without a receipt, reported as accepted or committed — no result before the accept names a receipt or a settled stage.",
  "ids": [
   {
    "name": "alice",
@@ -25,10 +25,6 @@
   {
    "name": "notes_source",
    "prefix": "src"
-  },
-  {
-   "name": "notes_collection",
-   "prefix": "col"
   },
   {
    "name": "bind_desktop_request",
@@ -174,10 +170,6 @@
      "value": "@alice"
     },
     {
-     "pointer": "/home/collection_id",
-     "value": "@notes_collection"
-    },
-    {
      "pointer": "/role",
      "value": "knowledge"
     },
@@ -205,7 +197,7 @@
     },
     {
      "pointer": "/action",
-     "value": "local_profile"
+     "value": "contribute"
     },
     {
      "pointer": "/effect_class",
@@ -319,11 +311,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#revision"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:notes_head_0"
     }
    ]
   },
@@ -334,31 +330,6 @@
     {
      "pointer": "/produced_at",
      "value": "$instant:produced_at"
-    }
-   ]
-  },
-  {
-   "name": "founding_epoch",
-   "from": "c09/founding_epoch_of_an_authority.json",
-   "drop": [
-    "/authority/team_id"
-   ],
-   "set": [
-    {
-     "pointer": "/authority/layer",
-     "value": "personal"
-    },
-    {
-     "pointer": "/authority/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/finalizer/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/checkpoint_digest",
-     "value": "#stored_revision"
     }
    ]
   },
@@ -400,13 +371,57 @@
      "value": "@alice"
     },
     {
+     "pointer": "/inventory/0/path",
+     "value": "objects/0000.json"
+    },
+    {
      "pointer": "/inventory/0/digest",
      "value": "#stored_revision"
     },
     {
+     "pointer": "/inventory/0/size",
+     "value": 4121
+    },
+    {
+     "pointer": "/inventory/0/object_kind",
+     "value": "source_manifest"
+    },
+    {
+     "pointer": "/inventory/1/path",
+     "value": "objects/0001.json"
+    },
+    {
+     "pointer": "/inventory/1/digest",
+     "value": "#stored_home"
+    },
+    {
+     "pointer": "/inventory/1/size",
+     "value": 1024
+    },
+    {
+     "pointer": "/inventory/1/object_kind",
+     "value": "source_home"
+    },
+    {
+     "pointer": "/inventory/2/path",
+     "value": "continuity/0002.json"
+    },
+    {
+     "pointer": "/inventory/2/digest",
+     "value": "#stored_desktop_key"
+    },
+    {
+     "pointer": "/inventory/2/size",
+     "value": 412
+    },
+    {
+     "pointer": "/inventory/2/object_kind",
+     "value": "principal_binding"
+    },
+    {
      "pointer": "/continuity_evidence_digests",
      "value": [
-      "#founding_epoch"
+      "#stored_desktop_key"
      ]
     }
    ]
@@ -859,7 +874,7 @@
     },
     {
      "pointer": "/receipt_digest",
-     "value": "$digest:accept_on_the_laptop_receipt"
+     "value": "#accept_on_the_laptop_receipt"
     }
    ]
   },
@@ -961,7 +976,8 @@
     "recovery": [],
     "returns": [
      "stored_home"
-    ]
+    ],
+    "head": "notes_head_0"
    },
    "process": "desktop"
   },
@@ -990,7 +1006,8 @@
    "carries": [
     "package",
     "stored_revision",
-    "founding_epoch"
+    "stored_home",
+    "stored_desktop_key"
    ],
    "answer": {
     "stage": "draft",
@@ -1028,7 +1045,8 @@
    "carries": [
     "package",
     "stored_revision",
-    "founding_epoch"
+    "stored_home",
+    "stored_desktop_key"
    ],
    "answer": {
     "stage": "draft",
@@ -1073,7 +1091,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "stored_revision"
+     "stored_revision",
+     "stored_home"
     ]
    },
    "process": "laptop"
@@ -1084,7 +1103,8 @@
    "carries": [
     "package",
     "stored_revision",
-    "founding_epoch"
+    "stored_home",
+    "stored_desktop_key"
    ],
    "answer": {
     "stage": "committed",

@@ -1,6 +1,6 @@
 {
  "case": "N17-DISCONNECT-NEG",
- "says": "Alice founds two Teams on her laptop, Platform and Research, each binding its own GitHub repository; Research's provisioning completes. Platform's provisioning is killed inside its transaction, before its result is durable; after the restart the same request is answered unknown with the binding in doubt, and querying it by its id settles it as partial: the repository was created and write access is missing, both named. Platform's disconnect is then killed after it committed and before it answered; after the restart the same request returns its committed result, the binding disconnected with the repository and the credential kept, and a query by its id returns that same result and its receipt. Research then still exports through its own binding. What must not happen: a binding left half-written between two states, the partial provisioning reported as provisioned or its created repository forgotten, the disconnect run twice, the repository deleted or the credential revoked, or Research's binding changed.",
+ "says": "Alice founds two Teams on her laptop, Platform and Research, each founding returning its founding continuity epoch, and each Team binds its own GitHub repository; Research's provisioning completes. Platform's provisioning is killed inside its transaction, before its result is durable; after the restart the same request is answered unknown with the binding in doubt, and querying it by its id settles it as partial: the repository was created and write access is missing, both named. Platform's disconnect is then killed after it committed and before it answered, so no reply reaches Alice; after the restart she queries the request by its id and learns its committed result — the binding disconnected with the repository and the credential kept — and its receipt. Research then still stages a package through its own binding, a draft with no receipt carrying Research's founding epoch as a member. What must not happen: a binding left half-written between two states, the partial provisioning reported as provisioned or its created repository forgotten, the disconnect run twice, the repository deleted or the credential revoked, or Research's binding changed.",
  "ids": [
   {
    "name": "alice",
@@ -293,7 +293,7 @@
     },
     {
      "pointer": "/committed_at",
-     "value": "$instant:a_policy_committed_at"
+     "value": "$instant:platform_founded_at"
     }
    ]
   },
@@ -311,7 +311,137 @@
     },
     {
      "pointer": "/since",
-     "value": "$instant:a_team_active_since"
+     "value": "$instant:platform_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "a_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:a_team_head"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:platform_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "platform_sealed_proposal",
+   "from": "a_founding",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:platform_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:platform_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "platform_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:platform_founder_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#platform_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:platform_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "platform_founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:platform_founder_grant"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "publish",
+      "adopt",
+      "grant",
+      "policy"
+     ]
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 2
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:platform_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "platform_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/purpose",
+     "value": "The standards this group works to."
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:platform_founded_at"
     }
    ]
   },
@@ -375,6 +505,10 @@
       "peer",
       "github"
      ]
+    },
+    {
+     "pointer": "/name",
+     "value": "Research"
     }
    ]
   },
@@ -450,7 +584,7 @@
     },
     {
      "pointer": "/committed_at",
-     "value": "$instant:b_policy_committed_at"
+     "value": "$instant:research_founded_at"
     }
    ]
   },
@@ -468,7 +602,7 @@
     },
     {
      "pointer": "/since",
-     "value": "$instant:b_team_active_since"
+     "value": "$instant:research_founded_at"
     }
    ]
   },
@@ -487,6 +621,119 @@
     {
      "pointer": "/finalizer/device_id",
      "value": "@laptop"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:research_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "research_sealed_proposal",
+   "from": "b_founding",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:research_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:research_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "research_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:research_founder_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@research"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#research_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:research_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "research_founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:research_founder_grant"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@research"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "publish",
+      "adopt",
+      "grant",
+      "policy",
+      "transfer"
+     ]
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 2
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@research"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:research_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "research_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@research"
+    },
+    {
+     "pointer": "/name",
+     "value": "Research"
+    },
+    {
+     "pointer": "/purpose",
+     "value": "The standards this group works to."
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:research_founded_at"
     }
    ]
   },
@@ -1221,6 +1468,22 @@
     {
      "pointer": "/inventory/0/object_kind",
      "value": "governing_policy"
+    },
+    {
+     "pointer": "/inventory/1/path",
+     "value": "continuity/0001.json"
+    },
+    {
+     "pointer": "/inventory/1/digest",
+     "value": "#b_founding_epoch"
+    },
+    {
+     "pointer": "/inventory/1/size",
+     "value": 512
+    },
+    {
+     "pointer": "/inventory/1/object_kind",
+     "value": "authority_continuity"
     }
    ]
   },
@@ -1246,7 +1509,7 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "durable_candidate"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1337,8 +1600,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "platform_sealed_proposal",
      "a_team_policy",
-     "a_team_active"
+     "platform_founder_membership",
+     "platform_founder_grant",
+     "a_team_active",
+     "platform_profile",
+     "a_founding_epoch"
     ],
     "head": "a_team_head"
    },
@@ -1360,8 +1628,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "research_sealed_proposal",
      "b_team_policy",
-     "b_team_active"
+     "research_founder_membership",
+     "research_founder_grant",
+     "b_team_active",
+     "research_profile",
+     "b_founding_epoch"
     ],
     "head": "b_team_head"
    },
@@ -1515,8 +1788,8 @@
     "research_envelope"
    ],
    "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
+    "stage": "draft",
+    "local_effect": "objects_staged",
     "provider_effect": "committed",
     "gaps": [],
     "recovery": [],
@@ -1538,7 +1811,8 @@
    },
    {
     "step": "disconnect_platform_carrier",
-    "point": "after_commit_before_return"
+    "point": "after_commit_before_return",
+    "observed_by": "query_platform_disconnect"
    }
   ]
  }

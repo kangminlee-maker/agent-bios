@@ -1,6 +1,6 @@
 {
  "case": "N04-ROUTER-NEG",
- "says": "Alice's managed session is activated with a preparation that selected only memory, and the repository's memory and her personal memory each hold a current choice for the same journal-mode question, so a use that relies on it is held and a sealed question is asked through the host's native form. A hook configured on the host answers the form by itself, picking the repository's choice. The owner records that reply as evidence whose origin is hook_generated, carrying no choice, and resuming the use with that evidence leaves it held for the person - refused as answer_not_from_a_person - so no use is admitted and no choice is applied. Observing delivery names only the managed session's preparation and the host session it activated; it has no field for, and makes no claim about, anything the agent did with memory outside this managed route, such as reading the raw text of a memory file.",
+ "says": "Alice opens a link to her host session and starts a managed session whose preparation selected only memory; the composition records the session selected only, and activating it returns a routing with no projection and the usage contract. The repository's memory and her personal memory each hold a current choice for the same journal-mode question, so a use that relies on it is held and a sealed question is asked through the host's native form on that link. A hook configured on the host answers the form by itself, picking the repository's choice. The owner records that reply as evidence whose origin is hook_generated, carrying no choice, beside the host configuration measured when it arrived - its Elicitation hook enabled - and resuming the use with that evidence is blocked as answer_not_from_a_person: the use stays pending on the same question, so no use is admitted and no choice is applied. Observing delivery names only the managed session's preparation and the link it was started on; it has no field for, and makes no claim about, anything the agent did with memory outside this managed route, such as reading the raw text of a memory file.",
  "ids": [
   {
    "name": "alice",
@@ -25,10 +25,6 @@
   {
    "name": "bind_repository_request_req",
    "prefix": "req"
-  },
-  {
-   "name": "storage_work",
-   "prefix": "wst"
   },
   {
    "name": "open_storage_work_request_req",
@@ -337,7 +333,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@storage_work"
+     "value": "@repo"
     },
     {
      "pointer": "/payload_digest",
@@ -974,6 +970,24 @@
     {
      "pointer": "/request_digest",
      "value": "#memory_only"
+    },
+    {
+     "pointer": "/recipient/recipient_digest",
+     "value": "#form_link_stored"
+    }
+   ]
+  },
+  {
+   "name": "managed_selected_only",
+   "from": "session/selected_and_never_activated_delivers_nothing.json",
+   "set": [
+    {
+     "pointer": "/session/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/routed_at",
+     "value": "$instant:managed_preparation_at"
     }
    ]
   },
@@ -982,7 +996,6 @@
    "from": "c03/commit_request.json",
    "drop": [
     "/rationale",
-    "/recipient_digest",
     "/work_scope",
     "/owner/team_id",
     "/target/base"
@@ -1035,6 +1048,14 @@
     {
      "pointer": "/payload_digest",
      "value": "#memory_only"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
+    },
+    {
+     "pointer": "/recipient_digest",
+     "value": "#form_link_stored"
     }
    ]
   },
@@ -1117,10 +1138,6 @@
    "name": "managed_routing",
    "from": "session/activated_with_a_projection.json",
    "set": [
-    {
-     "pointer": "/delivery/memory_usage/guide/digest",
-     "value": "$digest:memory_use_guide"
-    },
     {
      "pointer": "/delivery/projections",
      "value": []
@@ -1527,7 +1544,7 @@
    "set": [
     {
      "pointer": "/action",
-     "value": "decide"
+     "value": "use"
     },
     {
      "pointer": "/actor/device_id",
@@ -1589,7 +1606,7 @@
     },
     {
      "pointer": "/measured_configuration_digest",
-     "value": "$digest:measured_configuration"
+     "value": "#hook_configuration"
     },
     {
      "pointer": "/observed_at",
@@ -1606,6 +1623,23 @@
     {
      "pointer": "/use_id",
      "value": "$use:journal_use_id"
+    }
+   ]
+  },
+  {
+   "name": "hook_configuration",
+   "from": "c12/a_host_measured_with_a_hook_that_answers_questions.json",
+   "drop": [
+    "/hooks/1"
+   ],
+   "set": [
+    {
+     "pointer": "/hooks/0/enabled",
+     "value": true
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:reply_observed_at"
     }
    ]
   },
@@ -1728,7 +1762,7 @@
     },
     {
      "pointer": "/requested/recipient_digest",
-     "value": "#activate_managed_activation"
+     "value": "#form_link_stored"
     }
    ]
   },
@@ -1787,6 +1821,10 @@
     {
      "pointer": "/target/resource_id",
      "value": "$prp:managed_preparation_id"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
     }
    ]
   }
@@ -1918,19 +1956,37 @@
    }
   },
   {
+   "name": "open_link",
+   "request": "open_link_request",
+   "carries": [
+    "form_link"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "form_link_stored"
+    ]
+   }
+  },
+  {
    "name": "compose_managed",
    "request": "compose_managed_request",
    "carries": [
     "memory_only"
    ],
    "answer": {
-    "stage": "committed",
+    "stage": "previewed",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "managed_preparation"
+     "managed_preparation",
+     "managed_selected_only"
     ]
    }
   },
@@ -1942,29 +1998,12 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
      "managed_routing"
-    ]
-   }
-  },
-  {
-   "name": "open_link",
-   "request": "open_link_request",
-   "carries": [
-    "form_link"
-   ],
-   "answer": {
-    "stage": "committed",
-    "local_effect": "private_state_written",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "form_link_stored"
     ]
    }
   },
@@ -1995,12 +2034,13 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "hook_evidence"
+     "hook_evidence",
+     "hook_configuration"
     ]
    }
   },
@@ -2030,7 +2070,7 @@
    "request": "observe_managed_request",
    "carries": [],
    "answer": {
-    "stage": "committed",
+    "stage": "previewed",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],

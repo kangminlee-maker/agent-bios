@@ -117,6 +117,11 @@ class Generator(unittest.TestCase):
             spec["steps"][0]["answer"]["gaps"] = [{"code": "stale_base"}]
         self.refused("no result the contract permits", change)
 
+    def test_a_committed_answer_states_a_committed_local_effect(self):
+        def change(spec):
+            spec["steps"][0]["answer"]["local_effect"] = "private_state_written"
+        self.refused("a committed answer states local_effect 'committed'", change)
+
     def test_a_payload_its_schema_refuses_in_an_answered_step(self):
         def change(spec):
             self.record(spec, "first_key")["set"].append(
@@ -220,15 +225,18 @@ class Generator(unittest.TestCase):
 
     def test_a_later_request_can_expect_the_head_a_commit_moved_to(self):
         spec = copy.deepcopy(BASE)
+        # An adoption takes no payload and targets an environment, which keeps a head.
         spec["ids"] += [{"name": "again_request", "prefix": "req"},
-                        {"name": "team", "prefix": "tem"}]
-        spec["records"].append({"name": "bind_again", "from": "bind", "set": [
+                        {"name": "environment", "prefix": "env"}]
+        spec["records"].append({"name": "bind_again", "from": "bind", "drop": ["/payload_digest"],
+                                "set": [
             {"pointer": "/request_id", "value": "@again_request"},
-            {"pointer": "/target/resource_id", "value": "@team"},
+            {"pointer": "/operation", "value": "environment.adopt"},
+            {"pointer": "/action", "value": "adopt"},
+            {"pointer": "/target/resource_id", "value": "@environment"},
             {"pointer": "/target/base/expects", "value": "head"},
             {"pointer": "/target/base/head_digest", "value": "$digest:first_head"}]})
-        spec["steps"].append({"name": "bind_again", "request": "bind_again",
-                              "carries": ["first_key"],
+        spec["steps"].append({"name": "bind_again", "request": "bind_again", "carries": [],
                               "answer": {**spec["steps"][0]["answer"], "returns": []}})
         with self.assertRaises(scenarios.ScenarioError) as caught:
             self.generate(spec)
@@ -240,7 +248,19 @@ class Generator(unittest.TestCase):
         self.assertIn({"record": "bind_again_receipt", "pointer": "/target/base/head_digest",
                        "minted": "first_head"}, built["joins"])
         spec["steps"][0]["answer"]["stage"] = "previewed"
-        self.refused_spec("only a committed answer moves one", spec)
+        self.refused_spec("only a committed answer has one", spec)
+
+    def test_a_head_that_names_a_returned_record_is_that_records_digest(self):
+        spec = copy.deepcopy(BASE)
+        spec["steps"][0]["answer"]["head"] = "stored_key"
+        built = self.generate(spec)
+        by_name = {row["name"]: row for row in built["records"]}
+        self.assertEqual(by_name["bind_first_key_receipt"]["record"]["head_digest"],
+                         by_name["stored_key"]["digest"])
+        self.assertIn({"record": "bind_first_key_receipt", "pointer": "/head_digest",
+                       "digest_of": "stored_key"}, built["joins"])
+        spec["steps"][0]["answer"]["head"] = "first_key"
+        self.refused_spec("the answer does not return it", spec)
 
     def test_an_index_one_past_the_end_appends_an_object(self):
         spec = {"case": "N21-C10-POS", "says": "A plan item is added in the spec.", "ids": [],
@@ -263,9 +283,8 @@ class Generator(unittest.TestCase):
                 "records": [{"name": "policy", "from": "c08/policy_as_submitted.json"},
                             {"name": "proposal", "from": "c08/proposal_as_submitted.json",
                              "set": [{"pointer": "/policy_digest", "value": "#policy"}]},
-                            {"name": "found", "from": "c01/link_request.json",
-                             "set": [{"pointer": "/operation", "value": "team.found"},
-                                     {"pointer": "/payload_digest", "value": "#proposal"}]}],
+                            {"name": "found", "from": "c08/founding_request.json",
+                             "set": [{"pointer": "/payload_digest", "value": "#proposal"}]}],
                 "steps": [{"name": "found_team", "request": "found",
                            "carries": ["proposal", "policy"],
                            "answer": {"stage": "committed", "local_effect": "committed",
@@ -305,10 +324,63 @@ class Generator(unittest.TestCase):
         spec["steps"][1].update(request="bind_other", replays="bind_first_key")
         self.refused_spec("with other request bytes", spec)
 
+    def test_a_returned_record_can_name_its_own_steps_receipt(self):
+        spec = copy.deepcopy(BASE)
+        self.record(spec, "stored_key")["set"].append(
+            {"pointer": "/evidence_digests/-", "value": "#bind_first_key_receipt"})
+        built = self.generate(spec)
+        by_name = {row["name"]: row for row in built["records"]}
+        self.assertEqual(by_name["stored_key"]["record"]["evidence_digests"],
+                         [by_name["bind_first_key_receipt"]["digest"]])
+        self.assertIn({"record": "stored_key", "pointer": "/evidence_digests/0",
+                       "digest_of": "bind_first_key_receipt"}, built["joins"])
+
+    def test_a_duplicate_under_a_new_id_states_the_earlier_receipt(self):
+        spec = copy.deepcopy(BASE)
+        spec["ids"].append({"name": "again_request", "prefix": "req"})
+        spec["records"].append({"name": "bind_other", "from": "bind",
+                                "set": [{"pointer": "/request_id", "value": "@again_request"}]})
+        spec["steps"].append({"name": "bind_again", "request": "bind_other",
+                              "carries": ["first_key"],
+                              "answer": {"stage": "committed", "local_effect": "committed",
+                                         "provider_effect": "not_applicable", "gaps": [],
+                                         "recovery": [], "returns": [],
+                                         "receipt_of": "bind_first_key"}})
+        built = self.generate(spec)
+        by_name = {row["name"]: row for row in built["records"]}
+        self.assertNotIn("bind_again_receipt", by_name)
+        self.assertEqual(by_name["bind_again_result"]["record"]["outcome"]["receipt_digest"],
+                         by_name["bind_first_key_receipt"]["digest"])
+        self.assertEqual(built["steps"][1]["receipt_of"], "bind_first_key")
+        spec["steps"][1]["answer"]["receipt_of"] = "never_ran"
+        self.refused_spec("which no earlier committed step wrote", spec)
+        spec["steps"][1]["answer"].update(receipt_of="bind_first_key", head="again_head")
+        self.refused_spec("names an earlier receipt", spec)
+
     def refused_spec(self, fragment, spec):
         with self.assertRaises(scenarios.ScenarioError) as caught:
             self.generate(spec)
         self.assertIn(fragment, str(caught.exception))
+
+
+QUERY = [{"name": "ask", "from": "c03/query_by_request_id.json",
+          "set": [{"pointer": "/request_id", "value": "@bind_request"}]},
+         {"name": "query", "from": "bind",
+          "set": [{"pointer": "/request_id", "value": "@query_request"},
+                  {"pointer": "/operation", "value": "operation.query"},
+                  {"pointer": "/action", "value": "read"},
+                  {"pointer": "/effect_class", "value": "pure_preview"},
+                  {"pointer": "/target/resource_id", "value": "@bind_request"},
+                  {"pointer": "/payload_digest", "value": "#ask"}]}]
+SECOND = [{"name": "second_key", "from": "c01/binding_as_submitted.json",
+           "set": [{"pointer": "/principal_id", "value": "@alice"},
+                   {"pointer": "/credential/device_id", "value": "@desktop"}]},
+          {"name": "bind_second", "from": "bind",
+           "set": [{"pointer": "/request_id", "value": "@second_request"},
+                   {"pointer": "/payload_digest", "value": "#second_key"}]},
+          {"name": "stored_second", "from": "stored_key",
+           "set": [{"pointer": "/binding_id", "value": "$bnd:second_binding"},
+                   {"pointer": "/evidence_digests/-", "value": "$digest:second_evidence"}]}]
 
 
 class World(unittest.TestCase):
@@ -365,6 +437,37 @@ class World(unittest.TestCase):
             {"faults": [{"step": "bind_first_key", "point": "after_lunch"}]}))
         self.refused("no answered step", self.spec(
             {"faults": [{"step": "later", "point": "before_stage"}]}))
+
+    def test_a_fault_can_leave_the_answer_to_a_later_query(self):
+        spec = self.spec({"faults": [{"step": "bind_first_key", "observed_by": "ask_after",
+                                      "point": "after_commit_before_return"}]})
+        spec["ids"].append({"name": "query_request", "prefix": "req"})
+        spec["records"].extend(copy.deepcopy(QUERY))
+        spec["steps"].append({"name": "ask_after", "request": "query", "carries": ["ask"],
+                              "answer": {"stage": "previewed", "local_effect": "none",
+                                         "provider_effect": "not_applicable", "gaps": [],
+                                         "recovery": [], "returns": ["bind_first_key_result",
+                                                                     "bind_first_key_receipt"]}})
+        self.assertEqual(self.generate(spec)["world"]["faults"][0]["observed_by"], "ask_after")
+        spec["steps"][1]["answer"]["returns"] = ["bind_first_key_receipt"]
+        self.refused("returning bind_first_key_result", spec)
+
+    def test_a_step_can_run_while_another_is_in_flight(self):
+        spec = self.spec({"during": [{"step": "bind_first_key", "runs": "bind_second_key"}]})
+        spec["ids"] += [{"name": "desktop", "prefix": "dev"},
+                        {"name": "second_request", "prefix": "req"}]
+        spec["records"].extend(copy.deepcopy(SECOND))
+        spec["steps"].insert(0, {"name": "bind_second_key", "request": "bind_second",
+                                 "carries": ["second_key"],
+                                 "answer": {**spec["steps"][0]["answer"],
+                                            "returns": ["stored_second"]}})
+        self.assertEqual(self.generate(spec)["world"]["during"][0]["runs"], "bind_second_key")
+        mixed = copy.deepcopy(spec)
+        mixed["steps"].reverse()
+        self.refused("must be listed immediately before it", mixed)
+        next(r for r in spec["records"] if r["name"] == "first_key")["set"].append(
+            {"pointer": "/evidence_digests/-", "value": "$digest:second_evidence"})
+        self.refused("which that step mints", spec)
 
     def test_a_runner_step_names_a_situation_of_its_own_case(self):
         spec = {"case": "RUN-MODE", "says": "A runner refused unattended dispatches nothing.",

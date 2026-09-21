@@ -1,6 +1,6 @@
 {
  "case": "BKP-RESTORE",
- "says": "On her laptop Alice commits a revision of her private notes source (a receipt and the head it moved), keeps a hand-written choice as a draft candidate, and exports a package to her desktop over a peer route while the two cannot reach each other, so the export stays in her outbox with an unknown outcome. She then takes a backup, which names the database snapshot and each member beside it: the draft, the outbox package, the unknown operation and the control sequence. The laptop's live database is then lost: on a rebuilt runtime that never held it, a query for the commit's request id first answers request_not_held — nothing survived to be restarted. Restoring the backup there reports the receipt sequence and instant the backup covers, work after it not known and authority passive. Afterwards the same queries return exactly the originals: the commit's result and its receipt naming its request and head, the draft candidate's result, and the export's unknown result with its query-the-same-request recovery. What must not count as this proof: a surviving database restarted in place, or the desktop's copy of the exported package standing in for the laptop's draft, outbox, unknown operation and control mappings; nothing here is rebuilt from a peer.",
+ "says": "On her laptop Alice registers her private notes source and commits a revision on the head the registration made (a receipt and the head it moved), keeps a hand-written choice as a draft candidate whose id the owner assigns, and exports a package carrying the revision, trusted by the binding that enrolled the laptop, to her desktop over a peer route while the two cannot reach each other, so the export stays in her outbox with an unknown outcome. She then takes a backup, which names the database snapshot and each member beside it: the draft, the outbox package, the unknown operation and the control sequence. The laptop's live database is then lost: on a rebuilt runtime that never held it, a query for the commit's request id first answers request_not_held — nothing survived to be restarted. Restoring the backup there reports the receipt sequence and instant the backup covers, work after it not known and authority passive. Afterwards the same queries return exactly the originals: the commit's result and its receipt naming its request and head, the draft candidate's result, and the export's unknown result with its query-the-same-request recovery. What must not count as this proof: a surviving database restarted in place, or the desktop's copy of the exported package standing in for the laptop's draft, outbox, unknown operation and control mappings; nothing here is rebuilt from a peer.",
  "ids": [
   {
    "name": "alice",
@@ -19,10 +19,6 @@
    "prefix": "src"
   },
   {
-   "name": "notes_collection",
-   "prefix": "col"
-  },
-  {
    "name": "bind_request",
    "prefix": "req"
   },
@@ -37,10 +33,6 @@
   {
    "name": "desktop_peer",
    "prefix": "per"
-  },
-  {
-   "name": "draft_candidate",
-   "prefix": "cnd"
   },
   {
    "name": "commit_request",
@@ -182,10 +174,6 @@
      "value": "@alice"
     },
     {
-     "pointer": "/home/collection_id",
-     "value": "@notes_collection"
-    },
-    {
      "pointer": "/role",
      "value": "knowledge"
     },
@@ -213,7 +201,7 @@
     },
     {
      "pointer": "/action",
-     "value": "local_profile"
+     "value": "contribute"
     },
     {
      "pointer": "/effect_class",
@@ -412,11 +400,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
      "value": "#revision"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:notes_head_0"
     }
    ]
   },
@@ -514,7 +506,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@draft_candidate"
+     "value": "@alice"
     },
     {
      "pointer": "/payload_digest",
@@ -528,7 +520,7 @@
    "set": [
     {
      "pointer": "/candidate_id",
-     "value": "@draft_candidate"
+     "value": "$cnd:draft_candidate"
     },
     {
      "pointer": "/version",
@@ -541,31 +533,6 @@
     {
      "pointer": "/created_at",
      "value": "$instant:draft_at"
-    }
-   ]
-  },
-  {
-   "name": "founding_epoch",
-   "from": "c09/founding_epoch_of_an_authority.json",
-   "drop": [
-    "/authority/team_id"
-   ],
-   "set": [
-    {
-     "pointer": "/authority/layer",
-     "value": "personal"
-    },
-    {
-     "pointer": "/authority/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/finalizer/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/checkpoint_digest",
-     "value": "#stored_revision"
     }
    ]
   },
@@ -607,13 +574,41 @@
      "value": "@alice"
     },
     {
+     "pointer": "/inventory/0/path",
+     "value": "objects/0000.json"
+    },
+    {
      "pointer": "/inventory/0/digest",
      "value": "#stored_revision"
     },
     {
+     "pointer": "/inventory/0/size",
+     "value": 4121
+    },
+    {
+     "pointer": "/inventory/0/object_kind",
+     "value": "source_manifest"
+    },
+    {
+     "pointer": "/inventory/1/path",
+     "value": "continuity/0001.json"
+    },
+    {
+     "pointer": "/inventory/1/digest",
+     "value": "#stored_key"
+    },
+    {
+     "pointer": "/inventory/1/size",
+     "value": 412
+    },
+    {
+     "pointer": "/inventory/1/object_kind",
+     "value": "principal_binding"
+    },
+    {
      "pointer": "/continuity_evidence_digests",
      "value": [
-      "#founding_epoch"
+      "#stored_key"
      ]
     }
    ]
@@ -988,52 +983,6 @@
    ]
   },
   {
-   "name": "commit_receipt",
-   "from": "c03/commit_receipt.json",
-   "drop": [
-    "/owner/team_id",
-    "/target/base"
-   ],
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@commit_request"
-    },
-    {
-     "pointer": "/request_digest",
-     "value": "#commit"
-    },
-    {
-     "pointer": "/owner/layer",
-     "value": "personal"
-    },
-    {
-     "pointer": "/owner/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@notes_source"
-    },
-    {
-     "pointer": "/head_digest",
-     "value": "$digest:notes_head"
-    },
-    {
-     "pointer": "/sequence",
-     "value": "$integer:commit_sequence"
-    },
-    {
-     "pointer": "/committed_at",
-     "value": "$instant:commit_committed_at"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "absent"
-    }
-   ]
-  },
-  {
    "name": "draft_query",
    "from": "c03/query_by_request_id.json",
    "set": [
@@ -1195,7 +1144,8 @@
     "recovery": [],
     "returns": [
      "stored_home"
-    ]
+    ],
+    "head": "notes_head_0"
    },
    "process": "laptop"
   },
@@ -1260,7 +1210,7 @@
    "carries": [
     "package",
     "stored_revision",
-    "founding_epoch"
+    "stored_key"
    ],
    "answer": {
     "stage": "unknown",
@@ -1346,7 +1296,7 @@
     "recovery": [],
     "returns": [
      "commit_a_revision_result",
-     "commit_receipt"
+     "commit_a_revision_receipt"
     ]
    },
    "process": "rebuilt"

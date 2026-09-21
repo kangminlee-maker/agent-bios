@@ -1,6 +1,6 @@
 {
  "case": "N07-PREFERENCE-NEG",
- "says": "Alice answers the WAL-or-rollback conflict with WAL and keep-until-change; the application_preference the owner records is active, and the record her verified answer selects (WAL) is a participant its list marks applicable. The WAL choice is then withdrawn. When the application is recorded again for the same answer, the owner does not write an active preference whose selected record is no longer applicable: it writes the preference invalidated because a participant changed, with WAL kept as an ended participant (withdrawn, not applicable) and the rollback choice still live.",
+ "says": "Alice's host is probed for native user events: the probe ran for real and worked. She answers the WAL-or-rollback conflict with WAL and keep-until-change in a verified answer naming that probe and the host configuration measured when the reply was classified, and the resume admits her use. memory.preference.record, given the resume request that carried the answer and targeting the concern, records an active application_preference in which the record her verified answer selects (WAL) is a participant its list marks applicable. The WAL choice is then withdrawn. When the application is recorded again from the same resume request, the owner does not write an active preference whose selected record is no longer applicable: it writes the preference invalidated because a participant changed, with WAL kept as an ended participant (withdrawn, not applicable) and the rollback choice still live.",
  "ids": [
   {
    "name": "alice",
@@ -37,10 +37,6 @@
   {
    "name": "personal_memory",
    "prefix": "src"
-  },
-  {
-   "name": "personal_notes",
-   "prefix": "col"
   },
   {
    "name": "register_personal_memory_id",
@@ -84,6 +80,10 @@
   },
   {
    "name": "record_the_application_again_id",
+   "prefix": "req"
+  },
+  {
+   "name": "probe_the_host_id",
    "prefix": "req"
   }
  ],
@@ -155,6 +155,104 @@
     {
      "pointer": "/payload_digest",
      "value": "#alice_key"
+    }
+   ]
+  },
+  {
+   "name": "user_event_probe",
+   "from": "c12/probe_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/capability",
+     "value": "user_event"
+    }
+   ]
+  },
+  {
+   "name": "probe_that_worked",
+   "from": "c12/a_user_event_probe_that_worked.json",
+   "set": [
+    {
+     "pointer": "/probe_id",
+     "value": "$prb:user_event_probe"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:probed_at"
+    }
+   ]
+  },
+  {
+   "name": "host_profile",
+   "from": "c12/four_capabilities_qualified_one_at_a_time.json",
+   "drop": [
+    "/capabilities/3",
+    "/capabilities/1",
+    "/capabilities/0",
+    "/capabilities/0/state/because"
+   ],
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "$cap:host_profile"
+    },
+    {
+     "pointer": "/capabilities/0/state/qualified",
+     "value": "yes"
+    },
+    {
+     "pointer": "/capabilities/0/state/probe_digest",
+     "value": "#probe_that_worked"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:probed_at"
+    }
+   ]
+  },
+  {
+   "name": "probe_the_host",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@probe_the_host_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "capability.probe"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#user_event_probe"
     }
    ]
   },
@@ -311,7 +409,7 @@
     },
     {
      "pointer": "/action",
-     "value": "publish"
+     "value": "contribute"
     },
     {
      "pointer": "/owner/layer",
@@ -360,10 +458,6 @@
      "value": "@alice"
     },
     {
-     "pointer": "/home/collection_id",
-     "value": "@personal_notes"
-    },
-    {
      "pointer": "/home/markdown_view/path",
      "value": "views/decisions.md"
     },
@@ -392,10 +486,6 @@
     {
      "pointer": "/acceptance_authority/principal_id",
      "value": "@alice"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@personal_notes"
     },
     {
      "pointer": "/registered_at",
@@ -429,7 +519,7 @@
     },
     {
      "pointer": "/action",
-     "value": "publish"
+     "value": "contribute"
     },
     {
      "pointer": "/owner/principal_id",
@@ -803,6 +893,10 @@
     {
      "pointer": "/payload_digest",
      "value": "#alice_link"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
     }
    ]
   },
@@ -1128,6 +1222,20 @@
     {
      "pointer": "/reply/answer/selected/record_id",
      "value": "$rec:wal"
+    },
+    {
+     "pointer": "/reply/separation_evidence_digest",
+     "value": "#probe_that_worked"
+    }
+   ]
+  },
+  {
+   "name": "alice_answer_configuration",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:alice_answer_measured_at"
     }
    ]
   },
@@ -1153,7 +1261,7 @@
     },
     {
      "pointer": "/measured_configuration_digest",
-     "value": "$digest:alice_answer_configuration"
+     "value": "#alice_answer_configuration"
     },
     {
      "pointer": "/origin/answer/selected/record_id",
@@ -1162,6 +1270,10 @@
     {
      "pointer": "/observed_at",
      "value": "$instant:alice_answer_at"
+    },
+    {
+     "pointer": "/origin/separation_evidence_digest",
+     "value": "#probe_that_worked"
     }
    ]
   },
@@ -1191,7 +1303,7 @@
     },
     {
      "pointer": "/action",
-     "value": "decide"
+     "value": "use"
     },
     {
      "pointer": "/owner/principal_id",
@@ -1417,9 +1529,6 @@
   {
    "name": "record_the_application",
    "from": "c01/link_request.json",
-   "drop": [
-    "/payload_digest"
-   ],
    "set": [
     {
      "pointer": "/request_id",
@@ -1451,13 +1560,11 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "$qst:journal_question"
+     "value": "@journal_concern"
     },
     {
-     "pointer": "/proof_digests",
-     "value": [
-      "#alice_answer"
-     ]
+     "pointer": "/payload_digest",
+     "value": "#resume_with_her_answer_payload"
     }
    ]
   },
@@ -1680,9 +1787,6 @@
   {
    "name": "record_the_application_again",
    "from": "c01/link_request.json",
-   "drop": [
-    "/payload_digest"
-   ],
    "set": [
     {
      "pointer": "/request_id",
@@ -1714,13 +1818,11 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "$qst:journal_question"
+     "value": "@journal_concern"
     },
     {
-     "pointer": "/proof_digests",
-     "value": [
-      "#alice_answer"
-     ]
+     "pointer": "/payload_digest",
+     "value": "#resume_with_her_answer_payload"
     }
    ]
   }
@@ -1740,6 +1842,24 @@
     "recovery": [],
     "returns": [
      "alice_key_stored"
+    ]
+   }
+  },
+  {
+   "name": "probe_the_host",
+   "request": "probe_the_host",
+   "carries": [
+    "user_event_probe"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "probe_that_worked",
+     "host_profile"
     ]
    }
   },
@@ -1842,7 +1962,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1858,7 +1978,7 @@
     "use_envelope"
    ],
    "answer": {
-    "stage": "previewed",
+    "stage": "blocked",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [
@@ -1883,12 +2003,13 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "alice_answer"
+     "alice_answer",
+     "alice_answer_configuration"
     ]
    }
   },
@@ -1912,10 +2033,12 @@
   {
    "name": "record_the_application",
    "request": "record_the_application",
-   "carries": [],
+   "carries": [
+    "resume_with_her_answer_payload"
+   ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1946,10 +2069,12 @@
   {
    "name": "record_the_application_again",
    "request": "record_the_application_again",
-   "carries": [],
+   "carries": [
+    "resume_with_her_answer_payload"
+   ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],

@@ -1,6 +1,6 @@
 {
  "case": "N18-C01-POS",
- "says": "Alice founds a Team and configures a Google connection for it that trusts one hosted domain, then sets the Team's policy so that a verified Google identity in that domain is admitted to read and use. Bob, on his own laptop with his own device key and no account, begins linking his Google identity to his principal. The callback matches the attempt's state and nonce and the connection's issuer, audience and domain: the answer is the sign-in evidence and an external-identity binding for Bob's principal, established by governed link. Bob is admitted as a member through the provider claim under the policy that admits it. Later Bob loses his laptop. On a new desktop he explicitly begins a recovery sign-in for his principal; the verified evidence is what a new device key is then bound on, established by governed recovery, to the same principal id. What must not happen: the link or the membership landing on any principal but Bob's, a membership without the policy that admits the claim, or the recovery minting a new principal.",
+ "says": "Three isolated runtimes: Alice's laptop, Bob's laptop and, later, a new desktop of Bob's. Alice founds a Team (becoming its member and issuing authority) and configures a Google connection for it that trusts one hosted domain, then sets the Team's policy so that a verified Google identity in that domain is admitted to read and use. Bob, on his own laptop with his own device key and no account, begins linking his Google identity to his principal. The callback matches the attempt's state and nonce and the connection's issuer, audience and domain: the answer is the sign-in evidence and an external-identity binding for Bob's principal, established by governed link. Alice, as the Team's authority on its finalizer laptop, admits Bob as a member through his provider claim, naming his sign-in evidence, under the policy that admits it. Later Bob loses his laptop. On a new desktop he explicitly begins a recovery sign-in for his principal; the verified evidence is what a new device key is then bound on, established by governed recovery, to the same principal id. What must not happen: the link or the membership landing on any principal but Bob's, a membership without the policy that admits the claim, or the recovery minting a new principal.",
  "ids": [
   {
    "name": "alice",
@@ -229,6 +229,68 @@
     {
      "pointer": "/policy_digest",
      "value": "#team_policy_draft"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "team_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_proposal_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_membership_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_epoch_at"
     }
    ]
   },
@@ -993,15 +1055,15 @@
     },
     {
      "pointer": "/actor/principal_id",
-     "value": "@bob"
+     "value": "@alice"
     },
     {
      "pointer": "/actor/device_id",
-     "value": "@bob_laptop"
+     "value": "@laptop"
     },
     {
      "pointer": "/actor/profile_id",
-     "value": "@bob_profile"
+     "value": "@alice_profile"
     },
     {
      "pointer": "/local_access_generation",
@@ -1372,7 +1434,8 @@
     "returns": [
      "alice_laptop_binding"
     ]
-   }
+   },
+   "process": "alice_laptop"
   },
   {
    "name": "found_team",
@@ -1388,16 +1451,20 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
+     "team_founder_membership",
      "team_founder_grant",
      "team_state",
-     "team_profile"
+     "team_profile",
+     "team_founding_epoch"
     ],
     "head": "team_head"
    },
    "submits": [
     "team_policy_draft"
-   ]
+   ],
+   "process": "alice_laptop"
   },
   {
    "name": "configure_google",
@@ -1415,7 +1482,8 @@
      "google_stored"
     ],
     "head": "team_head_2"
-   }
+   },
+   "process": "alice_laptop"
   },
   {
    "name": "admit_the_domain",
@@ -1433,7 +1501,8 @@
      "admitting_policy"
     ],
     "head": "team_head_3"
-   }
+   },
+   "process": "alice_laptop"
   },
   {
    "name": "bind_bob_key",
@@ -1450,7 +1519,8 @@
     "returns": [
      "bob_laptop_binding"
     ]
-   }
+   },
+   "process": "bob_laptop"
   },
   {
    "name": "begin_bob_link",
@@ -1460,14 +1530,15 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
      "bob_attempt_begun"
     ]
-   }
+   },
+   "process": "bob_laptop"
   },
   {
    "name": "complete_bob_link",
@@ -1485,7 +1556,8 @@
      "bob_evidence",
      "bob_google_binding"
     ]
-   }
+   },
+   "process": "bob_laptop"
   },
   {
    "name": "admit_bob_by_claim",
@@ -1503,7 +1575,8 @@
      "bob_membership"
     ],
     "head": "team_head_4"
-   }
+   },
+   "process": "alice_laptop"
   },
   {
    "name": "begin_bob_recovery",
@@ -1513,14 +1586,16 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
      "recovery_attempt_begun"
     ]
-   }
+   },
+   "process": "bob_desktop",
+   "advance_seconds": 1800
   },
   {
    "name": "complete_bob_recovery",
@@ -1537,7 +1612,8 @@
     "returns": [
      "recovery_evidence"
     ]
-   }
+   },
+   "process": "bob_desktop"
   },
   {
    "name": "bind_recovered_key",
@@ -1554,12 +1630,18 @@
     "returns": [
      "bob_desktop_binding"
     ]
-   }
+   },
+   "process": "bob_desktop"
   }
  ],
  "world": {
   "clock": {
    "start": "2026-09-21T09:00:00Z"
-  }
+  },
+  "processes": [
+   "alice_laptop",
+   "bob_laptop",
+   "bob_desktop"
+  ]
  }
 }

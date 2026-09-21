@@ -40,6 +40,10 @@
   {
    "id": "req_3edf2b6e090eee576ef2dd278c5b866c",
    "name": "resolve_request"
+  },
+  {
+   "id": "cnc_1666504f0dbe984b7fa2c3ec5244debd",
+   "name": "concern"
   }
  ],
  "joins": [
@@ -79,11 +83,6 @@
    "record": "bind"
   },
   {
-   "digest_of": "observation",
-   "pointer": "/observed/working_bytes_digest",
-   "record": "stored_binding"
-  },
-  {
    "digest_of": "bind",
    "pointer": "/request_digest",
    "record": "bind_checkout_receipt"
@@ -102,6 +101,11 @@
    "minted": "bind_checkout_committed_at",
    "pointer": "/committed_at",
    "record": "bind_checkout_receipt"
+  },
+  {
+   "digest_of": "observation",
+   "pointer": "/observed/working_bytes_digest",
+   "record": "stored_binding"
   },
   {
    "digest_of": "bind_checkout_receipt",
@@ -129,16 +133,6 @@
    "record": "register"
   },
   {
-   "digest_of": "stored_binding",
-   "pointer": "/home/binding_evidence_digest",
-   "record": "stored_home"
-  },
-  {
-   "minted": "registered_at",
-   "pointer": "/registered_at",
-   "record": "stored_home"
-  },
-  {
    "digest_of": "register",
    "pointer": "/request_digest",
    "record": "register_adr_home_receipt"
@@ -157,6 +151,16 @@
    "minted": "register_adr_home_committed_at",
    "pointer": "/committed_at",
    "record": "register_adr_home_receipt"
+  },
+  {
+   "digest_of": "stored_binding",
+   "pointer": "/home/binding_evidence_digest",
+   "record": "stored_home"
+  },
+  {
+   "minted": "registered_at",
+   "pointer": "/registered_at",
+   "record": "stored_home"
   },
   {
    "digest_of": "register_adr_home_receipt",
@@ -184,26 +188,6 @@
    "record": "publish"
   },
   {
-   "minted": "adr_choice",
-   "pointer": "/record_id",
-   "record": "stored_choice"
-  },
-  {
-   "minted": "recorded_at",
-   "pointer": "/recorded_at",
-   "record": "stored_choice"
-  },
-  {
-   "minted": "adr_bytes",
-   "pointer": "/members/0/digest",
-   "record": "stored_manifest"
-  },
-  {
-   "minted": "produced_at",
-   "pointer": "/produced_at",
-   "record": "stored_manifest"
-  },
-  {
    "digest_of": "publish",
    "pointer": "/request_digest",
    "record": "publish_adr_receipt"
@@ -227,6 +211,26 @@
    "minted": "adr_registered",
    "pointer": "/target/base/head_digest",
    "record": "publish_adr_receipt"
+  },
+  {
+   "minted": "adr_choice",
+   "pointer": "/record_id",
+   "record": "stored_choice"
+  },
+  {
+   "minted": "recorded_at",
+   "pointer": "/recorded_at",
+   "record": "stored_choice"
+  },
+  {
+   "minted": "adr_bytes",
+   "pointer": "/members/0/digest",
+   "record": "stored_manifest"
+  },
+  {
+   "minted": "produced_at",
+   "pointer": "/produced_at",
+   "record": "stored_manifest"
   },
   {
    "digest_of": "publish_adr_receipt",
@@ -368,14 +372,25 @@
  ],
  "records": [
   {
-   "digest": "391ff9e4a83d06600422a471d400a659f36e4d2dcda56c6c800e50ab0729dc05",
+   "digest": "fae2c21f78c1a42d757f99d399c0d9b789eaa5e201f9247f9b4f011b0043c5c2",
    "name": "selection",
    "record": {
     "kind": "source_selection",
     "roots": [
      {
       "need": "required",
+      "permits": {
+       "destinations": [
+        {
+         "layer": "repository",
+         "repository_id": "rep_f1c61a92b90cc73cd1e866144139a1a1"
+        }
+       ],
+       "processing": "local_processing",
+       "prompt_log": "not_kept"
+      },
       "place": {
+       "checkout": "/home/ana/work",
        "from": "working_tree",
        "path": "docs/adr/0007-journal-mode.md",
        "repository_id": "rep_f1c61a92b90cc73cd1e866144139a1a1"
@@ -386,7 +401,7 @@
    }
   },
   {
-   "digest": "31c7313d2c802414b1c6696e19bd8f1e057a396e9af58a1271105a880eb6c663",
+   "digest": "eda3f97cc4548fb76465def28d18491749eb280be0aed4fe8f035c99457a22e6",
    "name": "observe",
    "record": {
     "action": "read",
@@ -404,7 +419,7 @@
      "layer": "repository",
      "repository_id": "rep_f1c61a92b90cc73cd1e866144139a1a1"
     },
-    "payload_digest": "391ff9e4a83d06600422a471d400a659f36e4d2dcda56c6c800e50ab0729dc05",
+    "payload_digest": "fae2c21f78c1a42d757f99d399c0d9b789eaa5e201f9247f9b4f011b0043c5c2",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_6db64bdfd8a9c259a25e1e1f0eccc347",
@@ -415,7 +430,7 @@
    }
   },
   {
-   "digest": "e1cbf60714e15a4be0e8301f887a2c69beaabb907b608ca98c6e838c62601546",
+   "digest": "97820183ca6a8c4f53961d521ecc3fd191d5b6b643fa950a0a9be837a9e266f3",
    "name": "observation",
    "record": {
     "kind": "source_observation",
@@ -432,11 +447,11 @@
      }
     ],
     "schema": 1,
-    "selection_digest": "391ff9e4a83d06600422a471d400a659f36e4d2dcda56c6c800e50ab0729dc05"
+    "selection_digest": "fae2c21f78c1a42d757f99d399c0d9b789eaa5e201f9247f9b4f011b0043c5c2"
    }
   },
   {
-   "digest": "1fc1d9b1d53b3fde7db03276b7c2651b68a23a8655c7eb43fa7d87a31a9dc8d2",
+   "digest": "4f4f22f7d314428c627c3e4b6c5409aad6232d133bf0b479d4106e551bd9facf",
    "name": "observe_adr_result",
    "record": {
     "kind": "operation_result",
@@ -447,12 +462,12 @@
     },
     "outputs": [
      {
-      "digest": "e1cbf60714e15a4be0e8301f887a2c69beaabb907b608ca98c6e838c62601546",
+      "digest": "97820183ca6a8c4f53961d521ecc3fd191d5b6b643fa950a0a9be837a9e266f3",
       "kind": "source_observation"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "31c7313d2c802414b1c6696e19bd8f1e057a396e9af58a1271105a880eb6c663",
+    "request_digest": "eda3f97cc4548fb76465def28d18491749eb280be0aed4fe8f035c99457a22e6",
     "request_id": "req_6db64bdfd8a9c259a25e1e1f0eccc347",
     "schema": 1,
     "supported_recovery": []
@@ -500,24 +515,6 @@
    }
   },
   {
-   "digest": "aed1973d52ab43126ec0af620a5f88070bfac2230cf5ace2e8a0d2f5bc9b9031",
-   "name": "stored_binding",
-   "record": {
-    "kind": "repository_binding",
-    "observed": {
-     "branch": "main",
-     "commit": "0123456789abcdef0123456789abcdef01234567",
-     "locator": "git@github.com:example/work.git",
-     "working_bytes_digest": "e1cbf60714e15a4be0e8301f887a2c69beaabb907b608ca98c6e838c62601546"
-    },
-    "relation": {
-     "how": "origin"
-    },
-    "repository_id": "rep_f1c61a92b90cc73cd1e866144139a1a1",
-    "schema": 1
-   }
-  },
-  {
    "digest": "b8dc3aeb3ff8a49471042cd6932764b077ff1e25ff79f6abe8515fc17d8fa367",
    "name": "bind_checkout_receipt",
    "record": {
@@ -538,7 +535,25 @@
    }
   },
   {
-   "digest": "7280a7a17c83786cc05108251ad25f578d50a624caa5e2493795c3c6607e04d3",
+   "digest": "9f2bf07064bf899dfdfc0f6115cb73d3f06f4191c9c2a47865d3dce770bf8ab1",
+   "name": "stored_binding",
+   "record": {
+    "kind": "repository_binding",
+    "observed": {
+     "branch": "main",
+     "commit": "0123456789abcdef0123456789abcdef01234567",
+     "locator": "git@github.com:example/work.git",
+     "working_bytes_digest": "97820183ca6a8c4f53961d521ecc3fd191d5b6b643fa950a0a9be837a9e266f3"
+    },
+    "relation": {
+     "how": "origin"
+    },
+    "repository_id": "rep_f1c61a92b90cc73cd1e866144139a1a1",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "7b369187f8d1460c3f77d015a5a9b4e174aa4fa8c2b83eafbb2ae731f8f7741b",
    "name": "bind_checkout_result",
    "record": {
     "kind": "operation_result",
@@ -550,7 +565,7 @@
     },
     "outputs": [
      {
-      "digest": "aed1973d52ab43126ec0af620a5f88070bfac2230cf5ace2e8a0d2f5bc9b9031",
+      "digest": "9f2bf07064bf899dfdfc0f6115cb73d3f06f4191c9c2a47865d3dce770bf8ab1",
       "kind": "repository_binding"
      }
     ],
@@ -562,7 +577,7 @@
    }
   },
   {
-   "digest": "0873b4e4a1e50e73928ae5884e6133165b7f9ff5759063d23d857e378d5561d9",
+   "digest": "c74d1456cd801941ee7f67746a8da384f6fd69d1749a6beda08071264d86f71a",
    "name": "home",
    "record": {
     "acceptance_authority": {
@@ -575,7 +590,7 @@
     "disclosure": "private",
     "format_version": 1,
     "home": {
-     "binding_evidence_digest": "aed1973d52ab43126ec0af620a5f88070bfac2230cf5ace2e8a0d2f5bc9b9031",
+     "binding_evidence_digest": "9f2bf07064bf899dfdfc0f6115cb73d3f06f4191c9c2a47865d3dce770bf8ab1",
      "document_root": "docs/adr",
      "mode": "repository_authored",
      "repository_id": "rep_f1c61a92b90cc73cd1e866144139a1a1"
@@ -595,7 +610,7 @@
    }
   },
   {
-   "digest": "12f0957b4ca6fdb814c72b5eb8a9699cd2a7187b9539d5e2cdfa3371dda07f27",
+   "digest": "d42979ee426a4d8025079a773db9556b82d80517f3af47a1e561ee7efe49dc30",
    "name": "register",
    "record": {
     "action": "contribute",
@@ -613,7 +628,7 @@
      "layer": "repository",
      "repository_id": "rep_f1c61a92b90cc73cd1e866144139a1a1"
     },
-    "payload_digest": "0873b4e4a1e50e73928ae5884e6133165b7f9ff5759063d23d857e378d5561d9",
+    "payload_digest": "c74d1456cd801941ee7f67746a8da384f6fd69d1749a6beda08071264d86f71a",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_a7e44d0e92f566bb847026aea9f1470e",
@@ -627,7 +642,30 @@
    }
   },
   {
-   "digest": "1940b1d07d1e80a944b091df2cce5aa36103d3d4c76fe0931dc38951409ea350",
+   "digest": "37c11fd5a9ea231d748e57f88bccf713a5a85a9f3d0c034e828d7f5aa2d9d574",
+   "name": "register_adr_home_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "75536cb8993a8e54115fce98d545c380a3825e981263c944b2abf59c639c523a",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_f1c61a92b90cc73cd1e866144139a1a1"
+    },
+    "request_digest": "d42979ee426a4d8025079a773db9556b82d80517f3af47a1e561ee7efe49dc30",
+    "request_id": "req_a7e44d0e92f566bb847026aea9f1470e",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_d77ece4cfb3cb492245f4de19fd9f60b"
+    }
+   }
+  },
+  {
+   "digest": "73d593c81715ecf21306a2ea344841f39fbf9beee744123f449ce9afbed3b38f",
    "name": "stored_home",
    "record": {
     "acceptance_authority": {
@@ -640,7 +678,7 @@
     "disclosure": "private",
     "format_version": 1,
     "home": {
-     "binding_evidence_digest": "aed1973d52ab43126ec0af620a5f88070bfac2230cf5ace2e8a0d2f5bc9b9031",
+     "binding_evidence_digest": "9f2bf07064bf899dfdfc0f6115cb73d3f06f4191c9c2a47865d3dce770bf8ab1",
      "document_root": "docs/adr",
      "mode": "repository_authored",
      "repository_id": "rep_f1c61a92b90cc73cd1e866144139a1a1"
@@ -661,47 +699,24 @@
    }
   },
   {
-   "digest": "823e2c5fa967572dfdcb3b0d15cb9f53924532036714b9e90fb155cb5cb877dd",
-   "name": "register_adr_home_receipt",
-   "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "75536cb8993a8e54115fce98d545c380a3825e981263c944b2abf59c639c523a",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "repository",
-     "repository_id": "rep_f1c61a92b90cc73cd1e866144139a1a1"
-    },
-    "request_digest": "12f0957b4ca6fdb814c72b5eb8a9699cd2a7187b9539d5e2cdfa3371dda07f27",
-    "request_id": "req_a7e44d0e92f566bb847026aea9f1470e",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "base": {
-      "expects": "absent"
-     },
-     "resource_id": "src_d77ece4cfb3cb492245f4de19fd9f60b"
-    }
-   }
-  },
-  {
-   "digest": "81ff0451c2e498e357ac8e5e9f0121df14db8e883524ff9e184f056976235f0e",
+   "digest": "f95c131e8a7e2adbb61ad2f99f6f5eb6b3854a110fcc45a8ec3718a1c869d1ee",
    "name": "register_adr_home_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "823e2c5fa967572dfdcb3b0d15cb9f53924532036714b9e90fb155cb5cb877dd",
+     "receipt_digest": "37c11fd5a9ea231d748e57f88bccf713a5a85a9f3d0c034e828d7f5aa2d9d574",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "1940b1d07d1e80a944b091df2cce5aa36103d3d4c76fe0931dc38951409ea350",
+      "digest": "73d593c81715ecf21306a2ea344841f39fbf9beee744123f449ce9afbed3b38f",
       "kind": "source_home"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "12f0957b4ca6fdb814c72b5eb8a9699cd2a7187b9539d5e2cdfa3371dda07f27",
+    "request_digest": "d42979ee426a4d8025079a773db9556b82d80517f3af47a1e561ee7efe49dc30",
     "request_id": "req_a7e44d0e92f566bb847026aea9f1470e",
     "schema": 1,
     "supported_recovery": []
@@ -783,6 +798,30 @@
    }
   },
   {
+   "digest": "7c5750e495924e6e6b9ad69d6d509742c21ba013b36c7ae3e283a8e6eee22c99",
+   "name": "publish_adr_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "bd1780bc17e6c9f982937d679069e3def6237dd3629f485dca4b0d2344975dfa",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_f1c61a92b90cc73cd1e866144139a1a1"
+    },
+    "request_digest": "e20cd9cfeb419c388362af66b59855e0acf886a4f5b58df5c4feb6a4b3f930b9",
+    "request_id": "req_a05edd61295e69e80dd68455f71e639f",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "75536cb8993a8e54115fce98d545c380a3825e981263c944b2abf59c639c523a"
+     },
+     "resource_id": "src_d77ece4cfb3cb492245f4de19fd9f60b"
+    }
+   }
+  },
+  {
    "digest": "9683b1b8d9a5b57d24712ada4a5dfed19c14e0176bf80fea4034e9c33475c3a1",
    "name": "stored_choice",
    "record": {
@@ -840,30 +879,6 @@
    }
   },
   {
-   "digest": "7c5750e495924e6e6b9ad69d6d509742c21ba013b36c7ae3e283a8e6eee22c99",
-   "name": "publish_adr_receipt",
-   "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "bd1780bc17e6c9f982937d679069e3def6237dd3629f485dca4b0d2344975dfa",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "repository",
-     "repository_id": "rep_f1c61a92b90cc73cd1e866144139a1a1"
-    },
-    "request_digest": "e20cd9cfeb419c388362af66b59855e0acf886a4f5b58df5c4feb6a4b3f930b9",
-    "request_id": "req_a05edd61295e69e80dd68455f71e639f",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "base": {
-      "expects": "head",
-      "head_digest": "75536cb8993a8e54115fce98d545c380a3825e981263c944b2abf59c639c523a"
-     },
-     "resource_id": "src_d77ece4cfb3cb492245f4de19fd9f60b"
-    }
-   }
-  },
-  {
    "digest": "140f5936d5d20fd80369a5f4f74bc158954b9f6cabc0e0a6f9bc5a41a089f5fc",
    "name": "publish_adr_result",
    "record": {
@@ -916,7 +931,7 @@
    }
   },
   {
-   "digest": "297bb929e09fe291dc81b54bffd48c44cd9e95416c83beb7494c002834119ae7",
+   "digest": "35fb838ccd50dac1729fb4c3bacc83486ee600f113c2bf0342b6690cfe60309e",
    "name": "resolve",
    "record": {
     "action": "read",
@@ -940,7 +955,7 @@
     "request_id": "req_3edf2b6e090eee576ef2dd278c5b866c",
     "schema": 1,
     "target": {
-     "resource_id": "rep_f1c61a92b90cc73cd1e866144139a1a1"
+     "resource_id": "cnc_1666504f0dbe984b7fa2c3ec5244debd"
     }
    }
   },
@@ -973,7 +988,7 @@
    }
   },
   {
-   "digest": "8821c0c6b99d257aab461ac444669e81aaaa5aa168fc4384d3fc5ffccd33813c",
+   "digest": "4c5c52efbfa178d6edbbdfd05dfc024df2c7021c1875d145ad6b58da6d161cd2",
    "name": "resolve_state_result",
    "record": {
     "kind": "operation_result",
@@ -989,7 +1004,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "297bb929e09fe291dc81b54bffd48c44cd9e95416c83beb7494c002834119ae7",
+    "request_digest": "35fb838ccd50dac1729fb4c3bacc83486ee600f113c2bf0342b6690cfe60309e",
     "request_id": "req_3edf2b6e090eee576ef2dd278c5b866c",
     "schema": 1,
     "supported_recovery": []
@@ -997,7 +1012,7 @@
   }
  ],
  "says": "A person works in a repository whose docs/adr directory holds ADR 0007, a Markdown decision record. The owner reads exactly that file from the working tree (source.observe: one committed tree read, nothing written), binds the checkout to its repository id with the observation's digest (repository.bind), and registers the ADR directory as a repository-authored memory source whose binding evidence is that repository binding (source.home.register). The person then publishes the ADR's decision into that source (memory.record.publish): the owner commits a choice_record homed in the repository scope and a source_manifest of the ADR source whose one member is docs/adr/0007-journal-mode.md with the exact digest and size the observation read, so the manifest is the observed Markdown bytes and not a managed copy. Asked which journal mode applies (memory.state.resolve over the repository scope), the owner answers with a qualified_state whose one current entry is that record and names the ADR source, and whose frontier is that source at the head the publication moved it to. No Team, provider or second home is involved.",
- "spec_sha256": "4ac543fd535a6ba6efe7c8f9713c5c6ea021c64c0f7e1e220ef0733dd4aa97cc",
+ "spec_sha256": "6b3fde8be5f55278ce3736d028e62a44b0aa3f32153e63d8ebe76caee7cde44d",
  "steps": [
   {
    "carries": [

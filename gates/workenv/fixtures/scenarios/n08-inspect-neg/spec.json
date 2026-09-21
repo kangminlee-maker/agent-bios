@@ -1,6 +1,6 @@
 {
  "case": "N08-INSPECT-NEG",
- "says": "A workstream and a repository memory source are set up, and two choices on the local journal mode are published there: first a rollback journal, then WAL, which replaces the first whole. An inspection (reader.body.read, role memory, reviewer view, history included) returns the current WAL choice as the winning required unit and the replaced choice as a shadowed optional unit with what shadows it, and its result carries no use: reading it admitted nothing. The reader then offers what it inspected as a use (memory.use.prepare with an envelope declaring it retains the inspected body and that result's qualifications). The owner refuses it with use_not_admitted: no pending question, qualified state or admitted use is returned, and nothing is written.",
+ "says": "The reader binds their device key and their checkout of the repository, opens a workstream and registers a repository memory source named by that checkout binding, and two choices on the local journal mode are published there: first a rollback journal, then WAL, which replaces the first whole. An inspection (reader.body.read, role memory, reviewer view, history included) returns the current WAL choice as the winning required unit and the replaced choice as an optional unit marked superseded, each body carrying the alternatives its choice weighed, and its result carries no use: reading it admitted nothing. The reader then offers what it inspected as a use of the journal-mode concern (memory.use.prepare targeting the concern, with an envelope declaring it retains the inspected body and that result's qualifications). The owner refuses it with use_not_admitted: no pending question, qualified state or admitted use is returned, no use is started, and nothing is written.",
  "ids": [
   {
    "name": "repo",
@@ -45,9 +45,144 @@
   {
    "name": "use_request_id",
    "prefix": "req"
+  },
+  {
+   "name": "bind_my_key_id",
+   "prefix": "req"
+  },
+  {
+   "name": "bind_my_checkout_id",
+   "prefix": "req"
+  },
+  {
+   "name": "journal_concern",
+   "prefix": "cnc"
   }
  ],
  "records": [
+  {
+   "name": "my_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "my_key_stored",
+   "from": "my_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:my_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:my_key_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "bind_my_key",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_my_key_id"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#my_key"
+    }
+   ]
+  },
+  {
+   "name": "my_checkout",
+   "from": "c01/repository_binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "my_checkout_bound",
+   "from": "c01/clone_shares_the_repository_id.json",
+   "drop": [
+    "/observed/working_bytes_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "bind_my_checkout",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_my_checkout_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "repository.bind"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#my_checkout"
+    }
+   ]
+  },
   {
    "name": "lane",
    "from": "c05/workstream_as_submitted.json",
@@ -163,7 +298,7 @@
     },
     {
      "pointer": "/home/binding_evidence_digest",
-     "value": "47a017af61158bae8401475d7156faf45fe1f355b9b2c2f9fc8ebc54de98a9e4"
+     "value": "#my_checkout_bound"
     },
     {
      "pointer": "/acceptance_authority/layer",
@@ -329,9 +464,7 @@
   {
    "name": "publish_rollback_journal",
    "from": "c04/model_check_request.json",
-   "drop": [
-    "/target/base/head_digest"
-   ],
+   "drop": [],
    "set": [
     {
      "pointer": "/request_id",
@@ -367,7 +500,7 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
@@ -376,6 +509,10 @@
     {
      "pointer": "/owner/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:decisions_registered"
     }
    ]
   },
@@ -642,7 +779,7 @@
     },
     {
      "pointer": "/outcome/units/1/standing",
-     "value": "shadowed"
+     "value": "superseded"
     },
     {
      "pointer": "/outcome/units/1/need",
@@ -651,11 +788,10 @@
     {
      "pointer": "/outcome/units/1/body_digest",
      "value": "#rollback_journal_stored"
-    },
-    {
-     "pointer": "/outcome/units/1/shadowed_by",
-     "value": "$unt:wal_unit"
     }
+   ],
+   "drop": [
+    "/outcome/units/1/shadowed_by"
    ]
   },
   {
@@ -802,7 +938,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@repo"
+     "value": "@journal_concern"
     },
     {
      "pointer": "/payload_digest",
@@ -816,6 +952,40 @@
   }
  ],
  "steps": [
+  {
+   "name": "bind_my_key",
+   "request": "bind_my_key",
+   "carries": [
+    "my_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "my_key_stored"
+    ]
+   }
+  },
+  {
+   "name": "bind_my_checkout",
+   "request": "bind_my_checkout",
+   "carries": [
+    "my_checkout"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "my_checkout_bound"
+    ]
+   }
+  },
   {
    "name": "open_the_workstream",
    "request": "open_lane",
@@ -847,7 +1017,8 @@
     "recovery": [],
     "returns": [
      "decisions_home_stored"
-    ]
+    ],
+    "head": "decisions_registered"
    }
   },
   {

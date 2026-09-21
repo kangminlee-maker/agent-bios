@@ -1,6 +1,6 @@
 {
  "case": "N24-CANDIDATE-NEG",
- "says": "Alice binds her device key and registers a package candidate. She then submits a cutover whose candidate_digest names a candidate that differs from the registered one in one member's bytes and was never registered: the owner refuses it with ref_unavailable at candidate_digest and writes nothing. She submits a second cutover naming the registered candidate, but the tarball present on the target no longer hashes to what was registered: the owner refuses it with object_digest_mismatch at candidate_digest. A query by that second request id returns the same refused result and no receipt. What must not happen: either cutover installing a package, switching ownership, or committing on the strength of a candidate whose bytes the owner does not hold exactly as registered.",
+ "says": "Alice binds her device key and registers a package candidate. She then submits a cutover whose candidate_digest names a candidate that differs from the registered one in one member's bytes and was never registered: bytes on disk without a registration receipt are not a candidate, so the owner refuses it with candidate_not_registered at candidate_digest and writes nothing. She submits a second cutover naming the registered candidate, but the tarball present on the target no longer hashes to what was registered: the owner refuses it with object_digest_mismatch at candidate_digest. A query by that second request id returns the same refused result and no receipt. What must not happen: either cutover installing a package, switching ownership, or committing on the strength of a candidate whose bytes the owner does not hold exactly as registered.",
  "ids": [
   {
    "name": "alice",
@@ -196,10 +196,6 @@
    "name": "unregistered_plan",
    "from": "c03/a_cutover_to_a_fresh_start.json",
    "set": [
-    {
-     "pointer": "/candidate_digest",
-     "value": "#candidate"
-    },
     {
      "pointer": "/candidate_digest",
      "value": "#unregistered_candidate"
@@ -436,7 +432,7 @@
     "provider_effect": "not_applicable",
     "gaps": [
      {
-      "code": "ref_unavailable",
+      "code": "candidate_not_registered",
       "pointer": "/candidate_digest"
      }
     ],

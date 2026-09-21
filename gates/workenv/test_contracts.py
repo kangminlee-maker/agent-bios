@@ -1141,7 +1141,7 @@ class RouteAndExposure(NamedExamples, unittest.TestCase):
         self.assertRefused("/expected/stage", "routes/selection_expecting_an_undeclared_effect")
         stages = self.defs("route_selection")["expected_effect"]["properties"]["stage"]["enum"]
         self.assertEqual(sorted(stages), ["adopted", "configured", "delivered", "draft_saved",
-                                          "installed", "prepared", "published"])
+                                          "installed", "prepared", "published", "view_opened"])
         # SSOT: saving a draft does not publish or adopt, so it is an effect of its own.
         self.assertAccepted("routes/selection_expecting_a_saved_draft")
 
@@ -1257,11 +1257,23 @@ class ClosedNames(NamedExamples, unittest.TestCase):
 
     def test_every_operation_says_what_it_takes_and_returns(self):
         # A payload is a record a caller may submit; a returned record is one some contract owns.
+        # A request for it states its effect class, the grant action it needs and a target of
+        # one of its kinds; the row says which, so every caller states the same.
         kinds = records.registry(self.schemas)
         owned = {kind for module in errors.OWNERS for kind in getattr(module, "RECORD_KINDS", ())}
+        request = self.schemas[kinds["operation_request"][1]]
+        effects = request.document["properties"]["effect_class"]["enum"]
+        prefixes = {prefix for target in ("plain_target", "head_target") for prefix in re.search(
+            r"\(\?:([a-z|]+)\)", request.defs[target]["properties"]["resource_id"]["pattern"]
+        ).group(1).split("|")}
         for operations in self.contracts.values():
             for operation, row in operations.items():
-                self.assertEqual(set(row), {"takes", "returns"}, operation)
+                self.assertEqual(set(row), {"takes", "returns", "effect", "action", "targets"},
+                                 operation)
+                self.assertIn(row["effect"], effects, operation)
+                self.assertIn(row["action"], request.defs["action"]["enum"], operation)
+                self.assertTrue(row["targets"], operation)
+                self.assertLessEqual(set(row["targets"]), prefixes, operation)
                 for kind in row["takes"] + row["returns"]:
                     self.assertIn(kind, owned, f"{operation} names {kind}, which no module owns")
                 for kind in row["takes"]:

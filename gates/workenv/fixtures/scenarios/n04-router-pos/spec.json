@@ -1,6 +1,6 @@
 {
  "case": "N04-ROUTER-POS",
- "says": "Alice works in a bound repository and has selected her personal recognition router - the compact Instructions unit that tells the agent when to reach for decision memory. The repository's memory and her personal memory each hold a current choice for the same journal-mode question. Her preparation pins the router's exact revision, and projecting that revision for her executor view returns the router's compact body. Activating her session with the preparation returns a routing that carries that projection and the usage contract with its guide pointer. No hook is configured on this host. When a use of memory then asks which journal mode applies, memory.use.prepare still applies the owner's rule without any hook: both choices apply, so the use is held for the person as pending, with a sealed question naming both alternatives and the comparison basis it was sealed against, and no choice is made for her. Observing the session shows the router unit that arrived.",
+ "says": "Alice works in a bound repository and has selected her personal recognition router - the compact Instructions unit that tells the agent when to reach for decision memory. The repository's memory and her personal memory each hold a current choice for the same journal-mode question. She opens a link to her host session and composes its start pinning the router's exact revision; the owner returns the preparation and records the session selected only. Activating the session with that preparation returns an activated routing whose projections name the router projection the activation returns beside it - the router's compact body for her executor view - and the usage contract with its guide pointer. Probing the host's question route measures the configuration it runs under: no hook is configured. When a use of memory then asks which journal mode applies, memory.use.prepare still applies the owner's rule without any hook: both choices apply, so the use is held for the person as pending, with a sealed question naming both alternatives and the comparison basis it was sealed against, and no choice is made for her. Observing the session shows the router unit that arrived on that link.",
  "ids": [
   {
    "name": "alice",
@@ -27,16 +27,16 @@
    "prefix": "req"
   },
   {
+   "name": "open_link_request_req",
+   "prefix": "req"
+  },
+  {
    "name": "router",
    "prefix": "src"
   },
   {
    "name": "author_router_request_req",
    "prefix": "req"
-  },
-  {
-   "name": "storage_work",
-   "prefix": "wst"
   },
   {
    "name": "open_storage_work_request_req",
@@ -71,11 +71,11 @@
    "prefix": "req"
   },
   {
-   "name": "project_router_request_req",
+   "name": "activate_session_request_req",
    "prefix": "req"
   },
   {
-   "name": "activate_session_request_req",
+   "name": "probe_host_request_req",
    "prefix": "req"
   },
   {
@@ -275,6 +275,102 @@
    ]
   },
   {
+   "name": "work_link_submitted",
+   "from": "c11/link_as_submitted.json",
+   "drop": [
+    "/rights_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/work_scope/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "open_work_link_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.link.open"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@open_link_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#work_link_submitted"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    }
+   ]
+  },
+  {
+   "name": "work_link",
+   "from": "work_link_submitted",
+   "set": [
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:work_link_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:work_link_at"
+    }
+   ]
+  },
+  {
    "name": "router_request",
    "from": "sources/request_to_author_here.json",
    "drop": [
@@ -456,7 +552,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@storage_work"
+     "value": "@repo"
     },
     {
      "pointer": "/payload_digest",
@@ -1133,6 +1229,24 @@
     {
      "pointer": "/units/0/startup",
      "value": "required"
+    },
+    {
+     "pointer": "/recipient/recipient_digest",
+     "value": "#work_link"
+    }
+   ]
+  },
+  {
+   "name": "router_selected_only",
+   "from": "session/selected_and_never_activated_delivers_nothing.json",
+   "set": [
+    {
+     "pointer": "/session/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/routed_at",
+     "value": "$instant:router_preparation_at"
     }
    ]
   },
@@ -1141,7 +1255,6 @@
    "from": "c03/commit_request.json",
    "drop": [
     "/rationale",
-    "/recipient_digest",
     "/work_scope",
     "/owner/team_id",
     "/target/base"
@@ -1194,133 +1307,14 @@
     {
      "pointer": "/payload_digest",
      "value": "#router_selected"
-    }
-   ]
-  },
-  {
-   "name": "router_plan",
-   "from": "c04/plan_for_one_source.json",
-   "set": [
-    {
-     "pointer": "/source_pins/0/revision_digest",
-     "value": "#router_rev"
-    },
-    {
-     "pointer": "/source_pins/0/source_id",
-     "value": "@router"
-    }
-   ]
-  },
-  {
-   "name": "project_router_request",
-   "from": "c03/commit_request.json",
-   "drop": [
-    "/rationale",
-    "/recipient_digest",
-    "/work_scope",
-    "/owner/team_id"
-   ],
-   "set": [
-    {
-     "pointer": "/action",
-     "value": "use"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@profile"
     },
     {
      "pointer": "/effect_class",
-     "value": "pure_preview"
+     "value": "durable_candidate"
     },
     {
-     "pointer": "/operation",
-     "value": "role.project"
-    },
-    {
-     "pointer": "/owner/layer",
-     "value": "personal"
-    },
-    {
-     "pointer": "/owner/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/policy_digests",
-     "value": []
-    },
-    {
-     "pointer": "/proof_digests",
-     "value": []
-    },
-    {
-     "pointer": "/request_id",
-     "value": "@project_router_request_req"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@router"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:router_head"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#router_plan"
-    }
-   ]
-  },
-  {
-   "name": "router_projection",
-   "from": "c04/projection_keeps_a_shadowed_unit_attributable.json",
-   "drop": [
-    "/units/1"
-   ],
-   "set": [
-    {
-     "pointer": "/plan_digest",
-     "value": "#router_plan"
-    },
-    {
-     "pointer": "/prepared_at",
-     "value": "$instant:router_projected_at"
-    },
-    {
-     "pointer": "/projection_id",
-     "value": "$prj:router_projection_id"
-    },
-    {
-     "pointer": "/units/0/body_digest",
-     "value": "$digest:router_recognition_router_body"
-    },
-    {
-     "pointer": "/units/0/layer",
-     "value": "personal"
-    },
-    {
-     "pointer": "/units/0/revision_digest",
-     "value": "#router_rev"
-    },
-    {
-     "pointer": "/units/0/source_id",
-     "value": "@router"
-    },
-    {
-     "pointer": "/units/0/standing",
-     "value": "layered"
-    },
-    {
-     "pointer": "/units/0/unit_id",
-     "value": "$unt:router_unit"
+     "pointer": "/recipient_digest",
+     "value": "#work_link"
     }
    ]
   },
@@ -1400,13 +1394,58 @@
    ]
   },
   {
+   "name": "router_projection",
+   "from": "c04/projection_keeps_a_shadowed_unit_attributable.json",
+   "drop": [
+    "/units/1"
+   ],
+   "set": [
+    {
+     "pointer": "/plan_digest",
+     "value": "$digest:router_activation_plan"
+    },
+    {
+     "pointer": "/projection_id",
+     "value": "$prj:router_projection_id"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:router_routing_at"
+    },
+    {
+     "pointer": "/units/0/unit_id",
+     "value": "$unt:router_unit"
+    },
+    {
+     "pointer": "/units/0/source_id",
+     "value": "@router"
+    },
+    {
+     "pointer": "/units/0/revision_digest",
+     "value": "#router_rev"
+    },
+    {
+     "pointer": "/units/0/source_role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/units/0/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/units/0/standing",
+     "value": "layered"
+    },
+    {
+     "pointer": "/units/0/body_digest",
+     "value": "$digest:router_recognition_router_body"
+    }
+   ]
+  },
+  {
    "name": "router_routing",
    "from": "session/activated_with_a_projection.json",
    "set": [
-    {
-     "pointer": "/delivery/memory_usage/guide/digest",
-     "value": "$digest:memory_use_guide"
-    },
     {
      "pointer": "/delivery/projections",
      "value": [
@@ -1420,6 +1459,126 @@
     {
      "pointer": "/session/profile_id",
      "value": "@profile"
+    }
+   ]
+  },
+  {
+   "name": "host_probe_submitted",
+   "from": "c12/probe_as_submitted.json"
+  },
+  {
+   "name": "probe_host_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "capability.probe"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@probe_host_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#host_probe_submitted"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    }
+   ]
+  },
+  {
+   "name": "host_probe",
+   "from": "c12/a_probe_that_worked.json",
+   "set": [
+    {
+     "pointer": "/probe_id",
+     "value": "$prb:host_probe_id"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:host_probed_at"
+    }
+   ]
+  },
+  {
+   "name": "host_capabilities",
+   "from": "c12/four_capabilities_qualified_one_at_a_time.json",
+   "drop": [
+    "/capabilities/3",
+    "/capabilities/2",
+    "/capabilities/1"
+   ],
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "$cap:host_capabilities_id"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:host_probed_at"
+    },
+    {
+     "pointer": "/capabilities/0/capability",
+     "value": "question"
+    },
+    {
+     "pointer": "/capabilities/0/state/probe_digest",
+     "value": "#host_probe"
+    }
+   ]
+  },
+  {
+   "name": "host_configuration",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:host_probed_at"
     }
    ]
   },
@@ -1708,7 +1867,7 @@
     },
     {
      "pointer": "/requested/recipient_digest",
-     "value": "#activate_session_activation"
+     "value": "#work_link"
     }
    ]
   },
@@ -1767,6 +1926,10 @@
     {
      "pointer": "/target/resource_id",
      "value": "$prp:router_preparation_id"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
     }
    ]
   }
@@ -1803,6 +1966,23 @@
     "recovery": [],
     "returns": [
      "repo_binding"
+    ]
+   }
+  },
+  {
+   "name": "open_work_link",
+   "request": "open_work_link_request",
+   "carries": [
+    "work_link_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "work_link"
     ]
    }
   },
@@ -1922,30 +2102,14 @@
     "router_selected"
    ],
    "answer": {
-    "stage": "committed",
+    "stage": "previewed",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "router_preparation"
-    ]
-   }
-  },
-  {
-   "name": "project_router",
-   "request": "project_router_request",
-   "carries": [
-    "router_plan"
-   ],
-   "answer": {
-    "stage": "previewed",
-    "local_effect": "none",
-    "provider_effect": "none",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "router_projection"
+     "router_preparation",
+     "router_selected_only"
     ]
    }
   },
@@ -1957,12 +2121,32 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "router_routing"
+     "router_routing",
+     "router_projection"
+    ]
+   }
+  },
+  {
+   "name": "probe_the_host",
+   "request": "probe_host_request",
+   "carries": [
+    "host_probe_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "none",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "host_probe",
+     "host_capabilities",
+     "host_configuration"
     ]
    }
   },
@@ -1990,7 +2174,7 @@
    "request": "observe_session_request",
    "carries": [],
    "answer": {
-    "stage": "committed",
+    "stage": "previewed",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [],

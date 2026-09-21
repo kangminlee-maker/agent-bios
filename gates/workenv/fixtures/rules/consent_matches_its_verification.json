@@ -1,0 +1,68 @@
+{
+  "rule": "C08/consent_matches_its_verification",
+  "holds": [
+    {
+      "what": "a consent naming the verification of its own invitation and binding",
+      "record": {
+        "binding_digest": "3b59eab59952c19c4afe635aa91d8843e00927fd72aa83795165fae97b0610cf",
+        "consented_at": "2026-09-20T09:00:00Z",
+        "invitation_digest": "eb143cccede8fd5e544ed3f775b9b74f452791955d57930759cf11811d9def12",
+        "kind": "membership_consent",
+        "principal_id": "prn_3a1ab70ba2da594e6c183931bf86caf2",
+        "schema": 1,
+        "verification_digest": "d96134608ff0bee0e585ac23d1044ebc8ce9a4b8cf563ffbcdaa3f984e767919"
+      },
+      "context": {
+        "verification": "workenv/contracts/examples/c08/participant_verified_in_person.json"
+      }
+    }
+  ],
+  "breaks": [
+    {
+      "what": "a consent to another invitation than the one the verification covers",
+      "record": {
+        "binding_digest": "3b59eab59952c19c4afe635aa91d8843e00927fd72aa83795165fae97b0610cf",
+        "consented_at": "2026-09-20T09:00:00Z",
+        "invitation_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+        "kind": "membership_consent",
+        "principal_id": "prn_3a1ab70ba2da594e6c183931bf86caf2",
+        "schema": 1,
+        "verification_digest": "d96134608ff0bee0e585ac23d1044ebc8ce9a4b8cf563ffbcdaa3f984e767919"
+      },
+      "context": {
+        "verification": "workenv/contracts/examples/c08/participant_verified_in_person.json"
+      },
+      "at": [
+        "/invitation_digest"
+      ]
+    },
+    {
+      "what": "a consent resting on the verification of another device credential",
+      "record": {
+        "binding_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+        "consented_at": "2026-09-20T09:00:00Z",
+        "invitation_digest": "eb143cccede8fd5e544ed3f775b9b74f452791955d57930759cf11811d9def12",
+        "kind": "membership_consent",
+        "principal_id": "prn_3a1ab70ba2da594e6c183931bf86caf2",
+        "schema": 1,
+        "verification_digest": "d96134608ff0bee0e585ac23d1044ebc8ce9a4b8cf563ffbcdaa3f984e767919"
+      },
+      "context": {
+        "verification": "workenv/contracts/examples/c08/participant_verified_in_person.json"
+      },
+      "at": [
+        "/binding_digest"
+      ]
+    },
+    {
+      "what": "a consent naming a verification the store does not hold",
+      "record": "workenv/contracts/examples/c08/consent_to_one_exact_invitation.json",
+      "context": {
+        "verification": "workenv/contracts/examples/c08/participant_verified_in_person.json"
+      },
+      "at": [
+        "/verification_digest"
+      ]
+    }
+  ]
+}

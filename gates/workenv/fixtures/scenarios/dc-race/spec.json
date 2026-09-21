@@ -1,6 +1,6 @@
 {
  "case": "DC-RACE",
- "says": "Alice's first use of the conflicting journal-mode concern waits on question version 1, sealed against comparison basis generation 1. Before she answers, the rollback alternative is corrected by a lifecycle event, so the basis moves. Her answer to the version still on her screen is recorded as evidence for version 1, but resuming the use with it is answered stale with resume_stale and nothing is applied. Preparing the use again refreshes the prompt: the same question at version 2, sealed against generation 2 where the rollback participant is corrected, and version 1 is returned as superseded. She answers version 2. A resume that reuses the request id of the stale resume with the new payload is refused with request_id_conflict, so one outer request id cannot carry a new decision; the resume under its own request id admits the use on her version 2 answer.",
+ "says": "Alice's host is probed for native user events: the probe ran for real and worked. Her first use of the conflicting journal-mode concern waits on question version 1, sealed against comparison basis generation 1. Before she answers, the rollback alternative is corrected by a lifecycle event, so the basis moves. Her answer to the version still on her screen is recorded as verified evidence for version 1, naming the probe and the host configuration measured when it was classified, but resuming the use with it is answered stale with resume_stale and nothing is applied. Preparing the same use again, a request that targets the use, refreshes the prompt: the same question at version 2, sealed against generation 2 where the rollback participant is corrected, and version 1 is returned as superseded. She answers version 2. A resume that reuses the request id of the stale resume with the new payload is refused with request_id_conflict, so one outer request id cannot carry a new decision; the resume under its own request id admits the use on her version 2 answer. On her desktop Alice then founds a Team, with the desktop as its finalizer, and publishes to the Team's decisions source a third journal-mode choice that applies to this repository. Her next use on the laptop requires that source beside the other two. While the laptop and the desktop are partitioned, the prepare cannot reach the Team source: it is blocked with comparison_incomplete and returns a result that names the Team source as unread (remote_unknown), with no question sealed over the other two and no use admitted, so the unreachable participant is read neither as empty nor as approved. Once the partition ends, the same request proceeds and the use waits on a question over all three. Alice answers it; the partition returns before the resume, whose recheck before admission cannot reach the Team source and is blocked the same way; once reached, the same resume admits the use on her answer.",
  "ids": [
   {
    "name": "alice",
@@ -37,10 +37,6 @@
   {
    "name": "personal_memory",
    "prefix": "src"
-  },
-  {
-   "name": "personal_notes",
-   "prefix": "col"
   },
   {
    "name": "register_personal_memory_id",
@@ -88,6 +84,54 @@
   },
   {
    "name": "resume_on_the_new_version_id",
+   "prefix": "req"
+  },
+  {
+   "name": "probe_the_host_id",
+   "prefix": "req"
+  },
+  {
+   "name": "desktop",
+   "prefix": "dev"
+  },
+  {
+   "name": "alice_desktop_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "team",
+   "prefix": "tem"
+  },
+  {
+   "name": "team_decisions",
+   "prefix": "src"
+  },
+  {
+   "name": "bind_alice_desktop_key_id",
+   "prefix": "req"
+  },
+  {
+   "name": "found_team_id",
+   "prefix": "req"
+  },
+  {
+   "name": "register_team_decisions_id",
+   "prefix": "req"
+  },
+  {
+   "name": "publish_team_choice_id",
+   "prefix": "req"
+  },
+  {
+   "name": "next_use_id",
+   "prefix": "req"
+  },
+  {
+   "name": "alice_answers_the_team_question_id",
+   "prefix": "req"
+  },
+  {
+   "name": "resume_next_use_id",
    "prefix": "req"
   }
  ],
@@ -159,6 +203,104 @@
     {
      "pointer": "/payload_digest",
      "value": "#alice_key"
+    }
+   ]
+  },
+  {
+   "name": "user_event_probe",
+   "from": "c12/probe_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/capability",
+     "value": "user_event"
+    }
+   ]
+  },
+  {
+   "name": "probe_that_worked",
+   "from": "c12/a_user_event_probe_that_worked.json",
+   "set": [
+    {
+     "pointer": "/probe_id",
+     "value": "$prb:user_event_probe"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:probed_at"
+    }
+   ]
+  },
+  {
+   "name": "host_profile",
+   "from": "c12/four_capabilities_qualified_one_at_a_time.json",
+   "drop": [
+    "/capabilities/3",
+    "/capabilities/1",
+    "/capabilities/0",
+    "/capabilities/0/state/because"
+   ],
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "$cap:host_profile"
+    },
+    {
+     "pointer": "/capabilities/0/state/qualified",
+     "value": "yes"
+    },
+    {
+     "pointer": "/capabilities/0/state/probe_digest",
+     "value": "#probe_that_worked"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:probed_at"
+    }
+   ]
+  },
+  {
+   "name": "probe_the_host",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@probe_the_host_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "capability.probe"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#user_event_probe"
     }
    ]
   },
@@ -315,7 +457,7 @@
     },
     {
      "pointer": "/action",
-     "value": "publish"
+     "value": "contribute"
     },
     {
      "pointer": "/owner/layer",
@@ -364,10 +506,6 @@
      "value": "@alice"
     },
     {
-     "pointer": "/home/collection_id",
-     "value": "@personal_notes"
-    },
-    {
      "pointer": "/home/markdown_view/path",
      "value": "views/decisions.md"
     },
@@ -396,10 +534,6 @@
     {
      "pointer": "/acceptance_authority/principal_id",
      "value": "@alice"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@personal_notes"
     },
     {
      "pointer": "/registered_at",
@@ -433,7 +567,7 @@
     },
     {
      "pointer": "/action",
-     "value": "publish"
+     "value": "contribute"
     },
     {
      "pointer": "/owner/principal_id",
@@ -807,6 +941,10 @@
     {
      "pointer": "/payload_digest",
      "value": "#alice_link"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
     }
    ]
   },
@@ -1259,6 +1397,20 @@
     {
      "pointer": "/reply/answer/selected/record_id",
      "value": "$rec:wal"
+    },
+    {
+     "pointer": "/reply/separation_evidence_digest",
+     "value": "#probe_that_worked"
+    }
+   ]
+  },
+  {
+   "name": "stale_answer_configuration",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:stale_answer_measured_at"
     }
    ]
   },
@@ -1284,7 +1436,7 @@
     },
     {
      "pointer": "/measured_configuration_digest",
-     "value": "$digest:stale_answer_configuration"
+     "value": "#stale_answer_configuration"
     },
     {
      "pointer": "/origin/answer/selected/record_id",
@@ -1293,6 +1445,10 @@
     {
      "pointer": "/observed_at",
      "value": "$instant:stale_answer_at"
+    },
+    {
+     "pointer": "/origin/separation_evidence_digest",
+     "value": "#probe_that_worked"
     }
    ]
   },
@@ -1322,7 +1478,7 @@
     },
     {
      "pointer": "/action",
-     "value": "decide"
+     "value": "use"
     },
     {
      "pointer": "/owner/principal_id",
@@ -1733,7 +1889,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@journal_concern"
+     "value": "$use:first_use"
     },
     {
      "pointer": "/payload_digest",
@@ -1764,6 +1920,20 @@
     {
      "pointer": "/reply/answer/selected/record_id",
      "value": "$rec:wal"
+    },
+    {
+     "pointer": "/reply/separation_evidence_digest",
+     "value": "#probe_that_worked"
+    }
+   ]
+  },
+  {
+   "name": "current_answer_configuration",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:current_answer_measured_at"
     }
    ]
   },
@@ -1793,7 +1963,7 @@
     },
     {
      "pointer": "/measured_configuration_digest",
-     "value": "$digest:current_answer_configuration"
+     "value": "#current_answer_configuration"
     },
     {
      "pointer": "/origin/answer/selected/record_id",
@@ -1802,6 +1972,10 @@
     {
      "pointer": "/observed_at",
      "value": "$instant:current_answer_at"
+    },
+    {
+     "pointer": "/origin/separation_evidence_digest",
+     "value": "#probe_that_worked"
     }
    ]
   },
@@ -1831,7 +2005,7 @@
     },
     {
      "pointer": "/action",
-     "value": "decide"
+     "value": "use"
     },
     {
      "pointer": "/owner/principal_id",
@@ -2021,6 +2195,1048 @@
      "value": "#resume_on_the_new_version_payload"
     }
    ]
+  },
+  {
+   "name": "alice_desktop_key",
+   "from": "alice_key",
+   "set": [
+    {
+     "pointer": "/credential/device_id",
+     "value": "@desktop"
+    }
+   ]
+  },
+  {
+   "name": "alice_desktop_key_stored",
+   "from": "alice_desktop_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:alice_desktop_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:alice_desktop_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "bind_alice_desktop_key",
+   "from": "bind_alice_key",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_alice_desktop_key_id"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_desktop_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#alice_desktop_key"
+    }
+   ]
+  },
+  {
+   "name": "team_policy_submitted",
+   "from": "c08/policy_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/threshold",
+     "value": 0
+    }
+   ]
+  },
+  {
+   "name": "team_proposal",
+   "from": "c08/proposal_as_submitted.json",
+   "drop": [
+    "/founding_mode/nominees"
+   ],
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/founder_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/founding_mode/mode",
+     "value": "self_founded"
+    },
+    {
+     "pointer": "/founding_mode/acknowledged_self_reviewed",
+     "value": true
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/recovery/0/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#team_policy_submitted"
+    },
+    {
+     "pointer": "/carriers",
+     "value": [
+      "local"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "found_team",
+   "from": "c08/founding_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@found_team_id"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_desktop_profile"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_proposal"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "team_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_policy",
+   "from": "team_policy_submitted",
+   "set": [
+    {
+     "pointer": "/policy_id",
+     "value": "$pol:team_policy"
+    },
+    {
+     "pointer": "/policy_version",
+     "value": 1
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "alice_team_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:alice_team_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "alice_team_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:alice_team_grant"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "publish",
+      "grant",
+      "policy"
+     ]
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_state",
+   "from": "c08/archived_team.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/state",
+     "value": "active"
+    },
+    {
+     "pointer": "/since",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_decisions_home",
+   "from": "sources/home_of_a_managed_collection.json",
+   "drop": [
+    "/registered_at",
+    "/scope/principal_id",
+    "/acceptance_authority/principal_id",
+    "/retention/until"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/acceptance_authority/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/acceptance_authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/home/markdown_view/path",
+     "value": "views/decisions.md"
+    },
+    {
+     "pointer": "/applicability/conditions/0/dimension",
+     "value": "team"
+    },
+    {
+     "pointer": "/applicability/conditions/0/value",
+     "value": "this team"
+    },
+    {
+     "pointer": "/disclosure",
+     "value": "team"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    },
+    {
+     "pointer": "/retention/keep",
+     "value": "until_withdrawn"
+    }
+   ]
+  },
+  {
+   "name": "team_decisions_registered",
+   "from": "team_decisions_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:team_decisions_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "register_team_decisions",
+   "from": "c01/capture_request.json",
+   "drop": [
+    "/owner/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_team_decisions_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_desktop_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_decisions_home"
+    }
+   ]
+  },
+  {
+   "name": "team_choice",
+   "from": "c05/choice_as_submitted.json",
+   "drop": [
+    "/home/repository_id",
+    "/basis",
+    "/context",
+    "/expected_consequences",
+    "/revisit_condition",
+    "/applicability/period"
+   ],
+   "set": [
+    {
+     "pointer": "/home/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/home/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/workstream_ids",
+     "value": []
+    },
+    {
+     "pointer": "/question",
+     "value": "Which journal mode does the local state database use?"
+    },
+    {
+     "pointer": "/applicability/conditions/0/dimension",
+     "value": "repository"
+    },
+    {
+     "pointer": "/applicability/conditions/0/value",
+     "value": "this one"
+    },
+    {
+     "pointer": "/choice",
+     "value": "WAL with synchronous NORMAL on every member's checkout."
+    }
+   ]
+  },
+  {
+   "name": "team_choice_stored",
+   "from": "team_choice",
+   "set": [
+    {
+     "pointer": "/record_id",
+     "value": "$rec:team_choice"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_choice_recorded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_decisions_manifest_2",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "memory/records.jsonl"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:team_decisions_bytes_2"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": "$integer:team_decisions_size_2"
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:team_decisions_produced_2"
+    }
+   ]
+  },
+  {
+   "name": "publish_team_choice",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@publish_team_choice_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.record.publish"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_desktop_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_decisions_head_1"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_choice"
+    }
+   ]
+  },
+  {
+   "name": "team_use_envelope",
+   "from": "use_envelope",
+   "set": [
+    {
+     "pointer": "/required/2/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/required/2/source_id",
+     "value": "@team_decisions"
+    }
+   ]
+  },
+  {
+   "name": "next_use",
+   "from": "first_use",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@next_use_id"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_use_envelope"
+    }
+   ]
+  },
+  {
+   "name": "unreachable_result",
+   "from": "c06/result_naming_what_it_did_not_check.json",
+   "drop": [
+    "/outcome/unread_sources/1"
+   ],
+   "set": [
+    {
+     "pointer": "/envelope_digest",
+     "value": "#team_use_envelope"
+    },
+    {
+     "pointer": "/outcome/standing",
+     "value": "unresolved"
+    },
+    {
+     "pointer": "/outcome/frontiers/0/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/outcome/frontiers/0/checkpoint_digest",
+     "value": "$digest:repo_memory_head_2"
+    },
+    {
+     "pointer": "/outcome/frontiers/1/source_id",
+     "value": "@personal_memory"
+    },
+    {
+     "pointer": "/outcome/frontiers/1/checkpoint_digest",
+     "value": "$digest:personal_memory_head_3"
+    },
+    {
+     "pointer": "/outcome/unread_sources/0/source_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/outcome/unread_sources/0/state",
+     "value": "remote_unknown"
+    },
+    {
+     "pointer": "/outcome/consumed/examined",
+     "value": 2
+    },
+    {
+     "pointer": "/material_gaps/0/code",
+     "value": "comparison_incomplete"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:unreachable_result_at"
+    }
+   ]
+  },
+  {
+   "name": "next_use_basis",
+   "from": "second_basis",
+   "set": [
+    {
+     "pointer": "/scopes/2/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/scopes/2/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/participants/2/source_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/participants/2/record_id",
+     "value": "$rec:team_choice"
+    },
+    {
+     "pointer": "/participants/2/revision_digest",
+     "value": "#team_choice_stored"
+    },
+    {
+     "pointer": "/participants/2/lifecycle",
+     "value": "accepted"
+    },
+    {
+     "pointer": "/participants/2/applicable",
+     "value": true
+    },
+    {
+     "pointer": "/coverage/compared",
+     "value": 3
+    },
+    {
+     "pointer": "/generation",
+     "value": 3
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:next_use_basis_at"
+    }
+   ]
+  },
+  {
+   "name": "next_use_question",
+   "from": "first_use_question",
+   "set": [
+    {
+     "pointer": "/question_id",
+     "value": "$qst:next_question"
+    },
+    {
+     "pointer": "/use_id",
+     "value": "$use:next_use"
+    },
+    {
+     "pointer": "/alternatives/2/record_id",
+     "value": "$rec:team_choice"
+    },
+    {
+     "pointer": "/alternatives/2/source_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/alternatives/2/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/alternatives/2/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/alternatives/2/summary",
+     "value": "WAL with synchronous NORMAL on every member's checkout."
+    },
+    {
+     "pointer": "/basis_digest",
+     "value": "#next_use_basis"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:next_use_question_at"
+    }
+   ]
+  },
+  {
+   "name": "next_use_state",
+   "from": "refreshed_state",
+   "set": [
+    {
+     "pointer": "/question_digest",
+     "value": "#team_use_envelope"
+    },
+    {
+     "pointer": "/frontiers/2/source_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/frontiers/2/checkpoint_digest",
+     "value": "$digest:team_decisions_head_2"
+    },
+    {
+     "pointer": "/entries/2/record_id",
+     "value": "$rec:team_choice"
+    },
+    {
+     "pointer": "/entries/2/source_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/entries/2/standing",
+     "value": "unresolved"
+    },
+    {
+     "pointer": "/material_gaps/2/code",
+     "value": "choice_conflict_unresolved"
+    },
+    {
+     "pointer": "/material_gaps/2/pointer",
+     "value": "/entries/2"
+    },
+    {
+     "pointer": "/comparison/compared",
+     "value": 3
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:next_use_state_at"
+    }
+   ]
+  },
+  {
+   "name": "next_use_waiting",
+   "from": "refreshed_waiting",
+   "set": [
+    {
+     "pointer": "/envelope_digest",
+     "value": "#team_use_envelope"
+    },
+    {
+     "pointer": "/outcome/frontiers/2/source_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/outcome/frontiers/2/checkpoint_digest",
+     "value": "$digest:team_decisions_head_2"
+    },
+    {
+     "pointer": "/outcome/use/use_id",
+     "value": "$use:next_use"
+    },
+    {
+     "pointer": "/outcome/use/question_id",
+     "value": "$qst:next_question"
+    },
+    {
+     "pointer": "/outcome/use/question_version",
+     "value": 1
+    },
+    {
+     "pointer": "/outcome/consumed/examined",
+     "value": 3
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:next_use_waiting_at"
+    }
+   ]
+  },
+  {
+   "name": "next_answer_reply",
+   "from": "current_answer_reply",
+   "set": [
+    {
+     "pointer": "/use_id",
+     "value": "$use:next_use"
+    },
+    {
+     "pointer": "/question_id",
+     "value": "$qst:next_question"
+    },
+    {
+     "pointer": "/question_version",
+     "value": 1
+    },
+    {
+     "pointer": "/reply/answer/selected/record_id",
+     "value": "$rec:team_choice"
+    },
+    {
+     "pointer": "/reply/separation_evidence_digest",
+     "value": "#probe_that_worked"
+    }
+   ]
+  },
+  {
+   "name": "next_answer_configuration",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:next_answer_measured_at"
+    }
+   ]
+  },
+  {
+   "name": "next_answer",
+   "from": "current_answer",
+   "set": [
+    {
+     "pointer": "/evidence_id",
+     "value": "$ans:next_answer"
+    },
+    {
+     "pointer": "/use_id",
+     "value": "$use:next_use"
+    },
+    {
+     "pointer": "/question_id",
+     "value": "$qst:next_question"
+    },
+    {
+     "pointer": "/question_version",
+     "value": 1
+    },
+    {
+     "pointer": "/origin/answer/selected/record_id",
+     "value": "$rec:team_choice"
+    },
+    {
+     "pointer": "/measured_configuration_digest",
+     "value": "#next_answer_configuration"
+    },
+    {
+     "pointer": "/observed_at",
+     "value": "$instant:next_answer_at"
+    },
+    {
+     "pointer": "/origin/separation_evidence_digest",
+     "value": "#probe_that_worked"
+    }
+   ]
+  },
+  {
+   "name": "alice_answers_the_team_question",
+   "from": "answer_the_new_version",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@alice_answers_the_team_question_id"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$qst:next_question"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#next_answer_reply"
+    }
+   ]
+  },
+  {
+   "name": "resume_next_use_payload",
+   "from": "resume_on_the_new_version_payload",
+   "set": [
+    {
+     "pointer": "/use_id",
+     "value": "$use:next_use"
+    },
+    {
+     "pointer": "/question_id",
+     "value": "$qst:next_question"
+    },
+    {
+     "pointer": "/question_version",
+     "value": 1
+    },
+    {
+     "pointer": "/answer_evidence_digest",
+     "value": "#next_answer"
+    }
+   ]
+  },
+  {
+   "name": "resume_next_use",
+   "from": "resume_on_the_new_version",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@resume_next_use_id"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$use:next_use"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#resume_next_use_payload"
+    }
+   ]
+  },
+  {
+   "name": "resume_unreachable_result",
+   "from": "unreachable_result",
+   "set": [
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:resume_unreachable_result_at"
+    }
+   ]
+  },
+  {
+   "name": "next_use_admitted",
+   "from": "first_use_admitted",
+   "set": [
+    {
+     "pointer": "/envelope_digest",
+     "value": "#team_use_envelope"
+    },
+    {
+     "pointer": "/outcome/frontiers/2/source_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/outcome/frontiers/2/checkpoint_digest",
+     "value": "$digest:team_decisions_head_2"
+    },
+    {
+     "pointer": "/outcome/units/0/unit_id",
+     "value": "$unt:next_use_unit"
+    },
+    {
+     "pointer": "/outcome/units/0/source_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/outcome/units/0/revision_digest",
+     "value": "#team_choice_stored"
+    },
+    {
+     "pointer": "/outcome/units/0/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/outcome/units/0/body_digest",
+     "value": "#team_choice_stored"
+    },
+    {
+     "pointer": "/outcome/use/use_id",
+     "value": "$use:next_use"
+    },
+    {
+     "pointer": "/outcome/use/state_digest",
+     "value": "#next_use_state"
+    },
+    {
+     "pointer": "/outcome/consumed/examined",
+     "value": 3
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:next_use_admitted_at"
+    }
+   ]
   }
  ],
  "steps": [
@@ -2039,7 +3255,27 @@
     "returns": [
      "alice_key_stored"
     ]
-   }
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "probe_the_host",
+   "request": "probe_the_host",
+   "carries": [
+    "user_event_probe"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "probe_that_worked",
+     "host_profile"
+    ]
+   },
+   "process": "laptop"
   },
   {
    "name": "bind_alice_checkout",
@@ -2056,7 +3292,8 @@
     "returns": [
      "alice_checkout_bound"
     ]
-   }
+   },
+   "process": "laptop"
   },
   {
    "name": "register_repo_memory",
@@ -2074,7 +3311,8 @@
      "repo_memory_registered"
     ],
     "head": "repo_memory_head_1"
-   }
+   },
+   "process": "laptop"
   },
   {
    "name": "register_personal_memory",
@@ -2092,7 +3330,8 @@
      "personal_memory_registered"
     ],
     "head": "personal_memory_head_1"
-   }
+   },
+   "process": "laptop"
   },
   {
    "name": "publish_wal",
@@ -2111,7 +3350,8 @@
      "repo_memory_manifest_2"
     ],
     "head": "repo_memory_head_2"
-   }
+   },
+   "process": "laptop"
   },
   {
    "name": "publish_rollback",
@@ -2130,7 +3370,8 @@
      "personal_memory_manifest_2"
     ],
     "head": "personal_memory_head_2"
-   }
+   },
+   "process": "laptop"
   },
   {
    "name": "open_alice_link",
@@ -2140,14 +3381,15 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
      "alice_link_open"
     ]
-   }
+   },
+   "process": "laptop"
   },
   {
    "name": "first_use",
@@ -2156,7 +3398,7 @@
     "use_envelope"
    ],
    "answer": {
-    "stage": "previewed",
+    "stage": "blocked",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [
@@ -2171,7 +3413,8 @@
      "first_basis",
      "first_use_state"
     ]
-   }
+   },
+   "process": "laptop"
   },
   {
    "name": "correct_before_the_answer",
@@ -2190,7 +3433,8 @@
      "personal_memory_manifest_3"
     ],
     "head": "personal_memory_head_3"
-   }
+   },
+   "process": "laptop"
   },
   {
    "name": "answer_the_old_screen",
@@ -2200,14 +3444,16 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "stale_answer"
+     "stale_answer",
+     "stale_answer_configuration"
     ]
-   }
+   },
+   "process": "laptop"
   },
   {
    "name": "resume_on_the_old_version",
@@ -2228,7 +3474,8 @@
      "new_governed_request"
     ],
     "returns": []
-   }
+   },
+   "process": "laptop"
   },
   {
    "name": "refresh_the_prompt",
@@ -2237,7 +3484,7 @@
     "use_envelope"
    ],
    "answer": {
-    "stage": "previewed",
+    "stage": "blocked",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
     "gaps": [
@@ -2253,7 +3500,8 @@
      "second_basis",
      "refreshed_state"
     ]
-   }
+   },
+   "process": "laptop"
   },
   {
    "name": "answer_the_new_version",
@@ -2263,14 +3511,16 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "current_answer"
+     "current_answer",
+     "current_answer_configuration"
     ]
-   }
+   },
+   "process": "laptop"
   },
   {
    "name": "resume_under_the_old_request_id",
@@ -2291,7 +3541,8 @@
      "query_same_request"
     ],
     "returns": []
-   }
+   },
+   "process": "laptop"
   },
   {
    "name": "resume_on_the_new_version",
@@ -2308,7 +3559,228 @@
     "returns": [
      "first_use_admitted"
     ]
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "bind_alice_desktop_key",
+   "process": "desktop",
+   "request": "bind_alice_desktop_key",
+   "carries": [
+    "alice_desktop_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "alice_desktop_key_stored"
+    ]
+   }
+  },
+  {
+   "name": "found_team",
+   "process": "desktop",
+   "request": "found_team",
+   "carries": [
+    "team_proposal",
+    "team_policy_submitted"
+   ],
+   "submits": [
+    "team_policy_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_sealed_proposal",
+     "team_policy",
+     "alice_team_membership",
+     "alice_team_grant",
+     "team_state",
+     "team_profile",
+     "team_founding_epoch"
+    ],
+    "head": "team_head"
+   }
+  },
+  {
+   "name": "register_team_decisions",
+   "process": "desktop",
+   "request": "register_team_decisions",
+   "carries": [
+    "team_decisions_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_decisions_registered"
+    ],
+    "head": "team_decisions_head_1"
+   }
+  },
+  {
+   "name": "publish_team_choice",
+   "process": "desktop",
+   "request": "publish_team_choice",
+   "carries": [
+    "team_choice"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_choice_stored",
+     "team_decisions_manifest_2"
+    ],
+    "head": "team_decisions_head_2"
+   }
+  },
+  {
+   "name": "next_use_while_unreachable",
+   "process": "laptop",
+   "request": "next_use",
+   "carries": [
+    "team_use_envelope"
+   ],
+   "answer": {
+    "stage": "blocked",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "comparison_incomplete"
+     }
+    ],
+    "recovery": [
+     "retry_same_request"
+    ],
+    "returns": [
+     "unreachable_result"
+    ]
+   }
+  },
+  {
+   "name": "next_use_once_reached",
+   "process": "laptop",
+   "request": "next_use",
+   "carries": [
+    "team_use_envelope"
+   ],
+   "answer": {
+    "stage": "blocked",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "choice_conflict_unresolved"
+     }
+    ],
+    "recovery": [],
+    "returns": [
+     "next_use_waiting",
+     "next_use_question",
+     "next_use_basis",
+     "next_use_state"
+    ]
+   }
+  },
+  {
+   "name": "alice_answers_the_team_question",
+   "process": "laptop",
+   "request": "alice_answers_the_team_question",
+   "carries": [
+    "next_answer_reply"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "next_answer",
+     "next_answer_configuration"
+    ]
+   }
+  },
+  {
+   "name": "resume_while_unreachable",
+   "process": "laptop",
+   "request": "resume_next_use",
+   "carries": [
+    "resume_next_use_payload"
+   ],
+   "answer": {
+    "stage": "blocked",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "comparison_incomplete"
+     }
+    ],
+    "recovery": [
+     "retry_same_request"
+    ],
+    "returns": [
+     "resume_unreachable_result"
+    ]
+   }
+  },
+  {
+   "name": "resume_once_reached",
+   "process": "laptop",
+   "request": "resume_next_use",
+   "carries": [
+    "resume_next_use_payload"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "next_use_admitted"
+    ]
    }
   }
- ]
+ ],
+ "world": {
+  "processes": [
+   "laptop",
+   "desktop"
+  ],
+  "partitions": [
+   {
+    "between": [
+     "laptop",
+     "desktop"
+    ],
+    "from": "next_use_while_unreachable",
+    "until": "next_use_once_reached"
+   },
+   {
+    "between": [
+     "laptop",
+     "desktop"
+    ],
+    "from": "resume_while_unreachable",
+    "until": "resume_once_reached"
+   }
+  ]
+ }
 }

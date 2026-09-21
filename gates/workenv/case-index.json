@@ -59,1265 +59,231 @@
   ],
   "atomic": [
     {
-      "id": "BKP-RESTORE",
-      "contracts": [
-        "C03",
-        "B03"
-      ],
-      "operations": [
-        "store.backup.create",
-        "store.backup.restore",
-        "operation.query"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c03/restore_request.json",
-        "workenv/contracts/examples/bindings/storage.json",
-        "workenv/contracts/examples/c03/candidate_stored.json",
-        "workenv/contracts/examples/c03/outcome_unknown.json",
-        "workenv/contracts/examples/c03/commit_receipt.json",
-        "workenv/contracts/examples/c03/query_by_request_id.json",
-        "workenv/contracts/examples/c03/restore_after_losing_the_live_database.json"
-      ]
+      "id": "BKP-RESTORE"
     },
     {
-      "id": "BKP-INTEGRITY",
-      "contracts": [
-        "C03",
-        "B03"
-      ],
-      "operations": [
-        "store.backup.create",
-        "store.backup.restore"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/bindings/storing_request.json",
-        "workenv/contracts/examples/bindings/storing_backup_set_incomplete.json",
-        "workenv/contracts/examples/bindings/storing_backup_set_damaged.json",
-        "workenv/contracts/examples/c03/restore_after_losing_the_live_database.json"
-      ]
+      "id": "BKP-INTEGRITY"
     },
     {
-      "id": "BKP-COVERAGE",
-      "contracts": [
-        "C03",
-        "B03"
-      ],
-      "operations": [
-        "store.backup.restore"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c03/restore_after_losing_the_live_database.json",
-        "workenv/contracts/examples/c03/restore_that_claims_work_after_its_backup.json",
-        "workenv/contracts/examples/c10/the_only_copy_of_an_outbox.json"
-      ]
+      "id": "BKP-COVERAGE"
     },
     {
-      "id": "BKP-PASSIVE",
-      "contracts": [
-        "C03",
-        "C02",
-        "C08"
-      ],
-      "operations": [
-        "store.backup.restore",
-        "access.transition"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c03/restore_after_losing_the_live_database.json",
-        "workenv/contracts/examples/c03/restore_that_reactivates_authority.json",
-        "workenv/contracts/examples/c02/recovery_that_restores_access.json",
-        "workenv/contracts/examples/c02/locked_state.json",
-        "workenv/contracts/examples/c08/founding_reentered_after_its_commit.json"
-      ]
+      "id": "BKP-PASSIVE"
     },
     {
-      "id": "DC-DURABLE",
-      "contracts": [
-        "C05",
-        "C06",
-        "B03"
-      ],
-      "operations": [
-        "memory.preference.record",
-        "reader.question.answer",
-        "memory.use.prepare"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c05/kept_until_the_choices_change.json",
-        "workenv/contracts/examples/c05/invalidated_when_a_participant_moved.json",
-        "workenv/contracts/examples/c05/use_whose_stored_application_no_longer_holds.json",
-        "workenv/contracts/examples/c06/question_sealed_against_its_basis.json",
-        "workenv/contracts/examples/c05/a_withdrawn_participant_kept_as_history.json",
-        "workenv/contracts/examples/bindings/storage.json"
-      ]
+      "id": "DC-DURABLE"
     },
     {
-      "id": "DC-SET",
-      "contracts": [
-        "C05"
-      ],
-      "operations": [
-        "memory.state.resolve"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c05/state_question_over_three_scopes.json",
-        "workenv/contracts/examples/c05/state_whose_conflict_waits_for_the_person.json",
-        "workenv/contracts/examples/c05/state_with_one_current_choice.json",
-        "workenv/contracts/examples/c05/withdrawal_is_an_entry_that_no_filter_can_drop.json",
-        "workenv/contracts/examples/c05/state_whose_lifecycle_assertions_disagree.json"
-      ]
+      "id": "DC-SET"
     },
     {
-      "id": "DC-CHOICE",
-      "contracts": [
-        "C05",
-        "C06",
-        "C11"
-      ],
-      "operations": [
-        "memory.use.prepare",
-        "reader.question.answer",
-        "memory.preference.record",
-        "recipient.answer.record"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c06/result_waiting_on_the_person.json",
-        "workenv/contracts/examples/c06/question_sealed_against_its_basis.json",
-        "workenv/contracts/examples/c11/an_answer_that_names_what_separated_a_person_from_the_automation.json",
-        "workenv/contracts/examples/c11/a_tool_permission_is_not_an_answer.json",
-        "workenv/contracts/examples/c11/the_person_cancelled.json",
-        "workenv/contracts/examples/c07/session_start_without_a_task.json"
-      ]
+      "id": "DC-CHOICE"
     },
     {
-      "id": "DC-KEEP",
-      "contracts": [
-        "C05",
-        "C06",
-        "C02"
-      ],
-      "operations": [
-        "memory.use.prepare",
-        "memory.preference.record"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c05/kept_until_the_choices_change.json",
-        "workenv/contracts/examples/c05/use_prepared_on_a_kept_application.json",
-        "workenv/contracts/examples/c05/preference_keyed_by_a_session.json",
-        "workenv/contracts/examples/c02/allowed.json",
-        "workenv/contracts/examples/c02/body_for_another_recipient.json"
-      ]
+      "id": "DC-KEEP"
     },
     {
-      "id": "DC-ASK",
-      "contracts": [
-        "C05",
-        "C06",
-        "C11"
-      ],
-      "operations": [
-        "memory.use.prepare",
-        "reader.question.answer",
-        "reader.use.resume"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c06/resume_with_the_answer_named_by_digest.json",
-        "workenv/contracts/examples/c06/question_sealed_against_its_basis.json",
-        "workenv/contracts/examples/c11/retry_that_minted_a_new_id.json"
-      ]
+      "id": "DC-ASK"
     },
     {
-      "id": "DC-CHANGE",
-      "contracts": [
-        "C05",
-        "C06"
-      ],
-      "operations": [
-        "memory.use.prepare",
-        "memory.lifecycle.apply",
-        "memory.record.publish"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c05/invalidated_when_a_participant_moved.json",
-        "workenv/contracts/examples/c05/use_whose_stored_application_no_longer_holds.json",
-        "workenv/contracts/examples/c05/a_withdrawn_participant_kept_as_history.json",
-        "workenv/contracts/examples/c05/kept_until_the_choices_change.json"
-      ]
+      "id": "DC-CHANGE"
     },
     {
-      "id": "DC-RACE",
-      "contracts": [
-        "C06",
-        "C11",
-        "C03"
-      ],
-      "operations": [
-        "reader.question.answer",
-        "reader.use.resume",
-        "memory.use.prepare"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c06/question_superseded_by_a_new_version.json",
-        "workenv/contracts/examples/c06/question_sealed_against_its_basis.json",
-        "workenv/contracts/examples/c11/the_response_was_lost.json",
-        "workenv/contracts/examples/c03/approval_bound_to_another_request.json",
-        "workenv/contracts/examples/c06/resume_without_the_version_it_answers.json"
-      ]
+      "id": "DC-RACE"
     },
     {
-      "id": "DEL-PERSONAL",
-      "contracts": [
-        "C07",
-        "C11",
-        "C02"
-      ],
-      "operations": [
-        "preparation.compose",
-        "recipient.link.open",
-        "recipient.delivery.attempt",
-        "delivery.observe"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c07/preparation_for_a_requested_task.json",
-        "workenv/contracts/examples/c07/delivery_observed.json",
-        "workenv/contracts/examples/c11/link_to_the_conversation_the_work_is_in.json",
-        "workenv/contracts/examples/c11/destination_nobody_supplied.json",
-        "workenv/contracts/examples/c11/link_this_runtime_does_not_know.json",
-        "workenv/contracts/examples/c02/body_for_another_recipient.json"
-      ]
+      "id": "DEL-PERSONAL"
     },
     {
-      "id": "DEL-TEAM",
-      "contracts": [
-        "C07",
-        "C11",
-        "C08"
-      ],
-      "operations": [
-        "preparation.compose",
-        "preparation.assess",
-        "recipient.delivery.attempt",
-        "delivery.observe"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c07/preparation_from_an_adopted_environment.json",
-        "workenv/contracts/examples/c07/delivery_observed.json",
-        "workenv/contracts/examples/c08/revoked_grant.json",
-        "workenv/contracts/examples/c07/child_delivery_the_parents_receipt_does_not_prove.json",
-        "workenv/contracts/examples/c07/actor_may_not_act.json",
-        "workenv/contracts/examples/c02/body_for_another_recipient.json"
-      ]
+      "id": "DEL-TEAM"
     },
     {
-      "id": "CMP-PINS",
-      "contracts": [
-        "C07"
-      ],
-      "operations": [
-        "preparation.compose",
-        "environment.publish"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c07/an_edition_derived_from_its_parent.json",
-        "workenv/contracts/examples/c07/preparation_that_cannot_reproduce_an_old_rendering.json",
-        "workenv/contracts/examples/c07/delivery_observed.json",
-        "workenv/contracts/examples/c07/an_edition_following_its_parent_by_name.json"
-      ]
+      "id": "CMP-PINS"
     },
     {
-      "id": "DC-HOST",
-      "contracts": [
-        "C11",
-        "C06",
-        "B05"
-      ],
-      "operations": [
-        "recipient.answer.record",
-        "reader.question.answer",
-        "reader.use.resume"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c11/question_asked_and_answered.json",
-        "workenv/contracts/examples/c11/question_routed_through_a_management_screen.json",
-        "workenv/contracts/examples/c11/the_model_quoted_the_person.json",
-        "workenv/contracts/examples/c11/no_channel_this_host_qualifies.json",
-        "workenv/contracts/examples/bindings/host_claude_code.json",
-        "workenv/contracts/examples/bindings/host_codex.json",
-        "workenv/contracts/examples/bindings/hosting_host_not_qualified.json"
-      ]
+      "id": "DC-HOST"
     },
     {
-      "id": "TUI-ENTRY-OPTIONS",
-      "contracts": [
-        "C12",
-        "C07"
-      ],
-      "operations": [
-        "route.offer",
-        "route.select",
-        "preparation.compose"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/routes/offer_from_a_host_launcher.json",
-        "workenv/contracts/examples/routes/selection_of_a_prepared_route.json",
-        "workenv/contracts/examples/routes/selection_expecting_an_undeclared_effect.json",
-        "workenv/contracts/examples/routes/offer_whose_route_is_qualified_by_nothing.json",
-        "workenv/contracts/examples/c12/a_confirmation_the_person_never_saw.json"
-      ]
+      "id": "TUI-ENTRY-OPTIONS"
     },
     {
-      "id": "TUI-ENTRY-FOCUS",
-      "contracts": [
-        "C12"
-      ],
-      "operations": [
-        "route.offer",
-        "route.select"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/routes/selection_of_a_prepared_route.json",
-        "workenv/contracts/examples/routes/selection_that_only_focused.json",
-        "workenv/contracts/examples/routes/selection_of_a_route_named_by_its_label.json"
-      ]
+      "id": "TUI-ENTRY-FOCUS"
     },
     {
-      "id": "TUI-ENTRY-STATE",
-      "contracts": [
-        "C12",
-        "C07"
-      ],
-      "operations": [
-        "route.offer",
-        "route.select",
-        "preparation.compose",
-        "delivery.observe"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/routes/selection_expecting_a_saved_draft.json",
-        "workenv/contracts/examples/routes/selection_expecting_a_stage_that_is_not_one.json",
-        "workenv/contracts/examples/c07/start_whose_task_support_is_not_assessed.json",
-        "workenv/contracts/examples/c07/session_start_without_a_task.json",
-        "workenv/contracts/examples/c07/activation_observed.json",
-        "workenv/contracts/examples/c07/work_support_that_is_both.json"
-      ]
+      "id": "TUI-ENTRY-STATE"
     },
     {
-      "id": "TUI-ENTRY-ACCOUNT-FREE",
-      "contracts": [
-        "C12",
-        "C07",
-        "C01"
-      ],
-      "operations": [
-        "route.offer",
-        "preparation.compose",
-        "identity.binding.add"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/routes/offer_submitted.json",
-        "workenv/contracts/examples/c07/personal_preparation_with_nothing_selected.json",
-        "workenv/contracts/examples/c01/device_key_binding.json",
-        "workenv/contracts/examples/c07/session_start_without_a_task.json"
-      ]
+      "id": "TUI-ENTRY-ACCOUNT-FREE"
     },
     {
-      "id": "TUI-ENTRY-REPO-NO-ENV",
-      "contracts": [
-        "C12",
-        "C07",
-        "C01"
-      ],
-      "operations": [
-        "route.offer",
-        "preparation.compose"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/routes/offer_from_a_host_launcher.json",
-        "workenv/contracts/examples/c07/session_start_without_a_task.json",
-        "workenv/contracts/examples/c01/repository_binding_as_submitted.json",
-        "workenv/contracts/examples/c07/preparation_offline_against_permitted_evidence.json",
-        "workenv/contracts/examples/c07/preparation_whose_working_bytes_have_since_moved.json"
-      ]
+      "id": "TUI-ENTRY-REPO-NO-ENV"
     },
     {
-      "id": "TUI-ENTRY-LOCAL-OFFLINE",
-      "contracts": [
-        "C12",
-        "C07",
-        "C06",
-        "C02"
-      ],
-      "operations": [
-        "route.offer",
-        "preparation.compose",
-        "reader.body.read"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c07/preparation_offline_against_permitted_evidence.json",
-        "workenv/contracts/examples/c06/unavailable_is_not_denied.json",
-        "workenv/contracts/examples/c06/denied_is_not_empty.json",
-        "workenv/contracts/examples/c06/legitimate_empty_result.json",
-        "workenv/contracts/examples/c02/blocked_on_an_unreachable_carrier.json"
-      ]
+      "id": "TUI-ENTRY-LOCAL-OFFLINE"
     },
     {
-      "id": "TUI-ENTRY-LOCKED",
-      "contracts": [
-        "C12",
-        "C02",
-        "B04"
-      ],
-      "operations": [
-        "route.offer",
-        "access.admission.decide"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c02/locked_state.json",
-        "workenv/contracts/examples/c02/old_handle_after_sign_out.json",
-        "workenv/contracts/examples/c06/denied_is_not_empty.json",
-        "workenv/contracts/examples/bindings/bridging_client_token_unknown.json",
-        "workenv/contracts/examples/bindings/bridge.json"
-      ]
+      "id": "TUI-ENTRY-LOCKED"
     },
     {
-      "id": "TUI-ENTRY-UNKNOWN",
-      "contracts": [
-        "C12",
-        "C03"
-      ],
-      "operations": [
-        "route.select",
-        "operation.query",
-        "operation.history.read"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c03/outcome_unknown.json",
-        "workenv/contracts/examples/c03/query_by_request_id.json",
-        "workenv/contracts/examples/c03/query_for_a_request_never_received.json",
-        "workenv/contracts/examples/routes/selection_submitted.json",
-        "workenv/contracts/examples/c03/history_request.json"
-      ]
+      "id": "TUI-ENTRY-UNKNOWN"
     },
     {
       "id": "TUI-ENTRY-80X24",
-      "contracts": [
-        "C12"
-      ],
-      "operations": [
-        "route.offer",
-        "route.select",
-        "surface.drive"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/routes/offer_from_a_host_launcher.json",
-        "workenv/contracts/examples/routes/selection_of_a_prepared_route.json",
+      "reads": [
         "gates/workenv/fixtures/text/terminal.json"
       ]
     },
     {
       "id": "TUI-ENTRY-KO-STATE",
-      "contracts": [
-        "C12",
-        "C11"
-      ],
-      "operations": [
-        "route.offer",
-        "route.select"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/routes/offer_from_a_host_launcher.json",
-        "workenv/contracts/examples/routes/observation_in_a_locale_the_product_has_no_text_for.json",
+      "reads": [
         "gates/workenv/fixtures/text/korean.json"
       ]
     },
     {
-      "id": "TUI-ENTRY-TEAM-SCOPE",
-      "contracts": [
-        "C12",
-        "C08",
-        "C07"
-      ],
-      "operations": [
-        "route.offer",
-        "route.select",
-        "preparation.compose"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c08/active_membership.json",
-        "workenv/contracts/examples/c08/sealed_founding_proposal.json",
-        "workenv/contracts/examples/c07/preparation_from_an_adopted_environment.json",
-        "workenv/contracts/examples/routes/offer_from_a_host_launcher.json"
-      ]
+      "id": "TUI-ENTRY-TEAM-SCOPE"
     },
     {
-      "id": "TUI-ENTRY-SHARED-UNKNOWN",
-      "contracts": [
-        "C12",
-        "C03",
-        "C08"
-      ],
-      "operations": [
-        "route.select",
-        "operation.query",
-        "team.lifecycle.apply"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c03/outcome_unknown.json",
-        "workenv/contracts/examples/c08/closure_whose_stewardship_is_unfinished.json",
-        "workenv/contracts/examples/c08/continue_existing_archived_work.json",
-        "workenv/contracts/examples/c03/query_by_request_id.json"
-      ]
+      "id": "TUI-ENTRY-SHARED-UNKNOWN"
     },
     {
-      "id": "CMP-UI",
-      "contracts": [
-        "C12",
-        "C06",
-        "C04"
-      ],
-      "operations": [
-        "route.offer",
-        "reader.body.read",
-        "role.project"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c06/body_delivered_with_the_shadowed_unit_named.json",
-        "workenv/contracts/examples/c04/projection_keeps_a_shadowed_unit_attributable.json",
-        "workenv/contracts/examples/c05/state_whose_conflict_waits_for_the_person.json",
-        "workenv/contracts/examples/routes/selection_of_a_prepared_route.json"
-      ]
+      "id": "CMP-UI"
     },
     {
-      "id": "DH-FORM",
-      "contracts": [
-        "C11",
-        "C12",
-        "B05"
-      ],
-      "operations": [
-        "recipient.answer.record",
-        "capability.probe"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c11/an_answer_that_names_what_separated_a_person_from_the_automation.json",
-        "workenv/contracts/examples/c11/the_host_declined_with_nobody_present.json",
-        "workenv/contracts/examples/c11/the_person_cancelled.json",
-        "workenv/contracts/examples/c12/a_client_that_offers_and_refuses.json",
-        "workenv/contracts/examples/c12/support_claimed_from_the_specification_alone.json",
-        "workenv/contracts/examples/bindings/host_claude_code.json",
-        "workenv/contracts/examples/bindings/host_codex.json"
-      ]
+      "id": "DH-FORM"
     },
     {
-      "id": "DH-CONVERSATION",
-      "contracts": [
-        "C11",
-        "C12",
-        "B05"
-      ],
-      "operations": [
-        "recipient.answer.record",
-        "capability.probe"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c11/an_answer_that_names_what_separated_a_person_from_the_automation.json",
-        "workenv/contracts/examples/c11/the_model_quoted_the_person.json",
-        "workenv/contracts/examples/c11/a_tool_permission_is_not_an_answer.json",
-        "workenv/contracts/examples/c11/answer_that_did_not_come_from_a_person.json",
-        "workenv/contracts/examples/bindings/host_claude_code.json",
-        "workenv/contracts/examples/bindings/host_codex.json"
-      ]
+      "id": "DH-CONVERSATION"
     },
     {
-      "id": "DH-PENDING",
-      "contracts": [
-        "C06",
-        "C11",
-        "B05"
-      ],
-      "operations": [
-        "memory.use.prepare",
-        "recipient.delivery.attempt",
-        "reader.use.resume"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c06/result_waiting_on_the_person.json",
-        "workenv/contracts/examples/c11/no_channel_this_host_qualifies.json",
-        "workenv/contracts/examples/c11/a_supported_route_nobody_answered_on.json",
-        "workenv/contracts/examples/c11/the_person_cancelled.json",
-        "workenv/contracts/examples/c05/use_prepared_on_a_kept_application.json",
-        "workenv/contracts/examples/bindings/hosting_host_not_qualified.json"
-      ]
+      "id": "DH-PENDING"
     },
     {
-      "id": "DH-REVALIDATE",
-      "contracts": [
-        "C06",
-        "C11",
-        "B05"
-      ],
-      "operations": [
-        "reader.question.answer",
-        "reader.use.resume",
-        "memory.use.prepare"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c06/question_superseded_by_a_new_version.json",
-        "workenv/contracts/examples/c06/question_sealed_against_its_basis.json",
-        "workenv/contracts/examples/c11/the_response_was_lost.json",
-        "workenv/contracts/examples/bindings/host_claude_code.json"
-      ]
+      "id": "DH-REVALIDATE"
     },
     {
-      "id": "DH-REACH",
-      "contracts": [
-        "C04",
-        "C06",
-        "C07",
-        "B05"
-      ],
-      "operations": [
-        "session.routing.activate",
-        "memory.use.prepare",
-        "delivery.observe"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/session/activated_with_nothing_selected_still_carries_the_contract.json",
-        "workenv/contracts/examples/session/selected_and_never_activated_delivers_nothing.json",
-        "workenv/contracts/examples/session/a_route_that_writes_a_native_global_file.json",
-        "workenv/contracts/examples/c07/child_delivery_the_parents_receipt_does_not_prove.json",
-        "workenv/contracts/examples/c06/unsupported_child_route.json"
-      ]
+      "id": "DH-REACH"
     },
     {
-      "id": "RUN-DEPENDENCIES",
-      "contracts": [
-        "runner"
-      ],
-      "operations": [],
-      "fixtures": [
-        "gates/workenv/fixtures/runner/preflight.json"
-      ]
+      "id": "RUN-DEPENDENCIES"
     },
     {
-      "id": "RUN-RESUME",
-      "contracts": [
-        "runner"
-      ],
-      "operations": [],
-      "fixtures": [
-        "gates/workenv/fixtures/runner/preflight.json"
-      ]
+      "id": "RUN-RESUME"
     },
     {
-      "id": "RUN-OWNERSHIP",
-      "contracts": [
-        "runner"
-      ],
-      "operations": [],
-      "fixtures": [
-        "gates/workenv/fixtures/runner/preflight.json"
-      ]
+      "id": "RUN-OWNERSHIP"
     },
     {
-      "id": "RUN-MODE",
-      "contracts": [
-        "runner"
-      ],
-      "operations": [],
-      "fixtures": [
-        "gates/workenv/fixtures/runner/preflight.json"
-      ]
+      "id": "RUN-MODE"
     },
     {
-      "id": "TUI-OBS-ENTRY-COMPREHENSION",
-      "contracts": [
-        "C11",
-        "C12"
-      ],
-      "operations": [
-        "surface.observe",
-        "route.offer",
-        "route.select"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/routes/a_trial_that_mistook_a_draft_for_publication.json",
-        "workenv/contracts/examples/routes/first_exposure_of_the_candidate.json",
-        "workenv/contracts/examples/routes/first_exposure_the_host_answered_for.json",
-        "workenv/contracts/examples/routes/observation_of_a_prototype.json",
-        "workenv/contracts/examples/routes/help_given_without_saying_what.json",
-        "workenv/contracts/examples/routes/a_trial_without_a_prediction.json"
-      ]
+      "id": "TUI-OBS-ENTRY-COMPREHENSION"
     },
     {
       "id": "TUI-OBS-KOREAN-TERMINAL",
-      "contracts": [
-        "C11",
-        "C12"
-      ],
-      "operations": [
-        "surface.observe"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/routes/first_exposure_of_the_candidate.json",
-        "workenv/contracts/examples/routes/observation_claiming_a_terminal_nobody_listed.json",
-        "workenv/contracts/examples/routes/observation_in_a_locale_the_product_has_no_text_for.json",
+      "reads": [
         "gates/workenv/fixtures/text/korean.json",
         "gates/workenv/fixtures/text/terminal.json"
       ]
     },
     {
-      "id": "SRC-01",
-      "contracts": [
-        "C01",
-        "C07"
-      ],
-      "operations": [
-        "source.capture.record",
-        "preparation.compose"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c07/preparation_for_a_requested_task.json",
-        "workenv/contracts/examples/c07/preparation_whose_working_bytes_have_since_moved.json",
-        "workenv/contracts/examples/c07/preparation_without_the_bytes_it_observed.json",
-        "workenv/contracts/examples/c01/repository_binding_as_submitted.json"
-      ]
+      "id": "SRC-01"
     },
     {
-      "id": "SRC-02",
-      "contracts": [
-        "C01",
-        "C04"
-      ],
-      "operations": [
-        "source.capture.record",
-        "role.project",
-        "source.observe"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c01/member_path_climbs_out.json",
-        "workenv/contracts/examples/c04/projection_reached_through_a_root_the_caller_chose.json",
-        "workenv/contracts/examples/sources/capture_without_the_evidence_behind_it.json",
-        "workenv/contracts/examples/c01/bytes_not_held_here.json",
-        "workenv/contracts/examples/c01/observe_request.json"
-      ]
+      "id": "SRC-02"
     },
     {
-      "id": "SRC-03",
-      "contracts": [
-        "C01",
-        "C08"
-      ],
-      "operations": [
-        "source.home.register",
-        "team.found",
-        "repository.bind",
-        "source.observe"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c01/repository_binding_as_submitted.json",
-        "workenv/contracts/examples/sources/home_of_a_repository_document.json",
-        "workenv/contracts/examples/c08/proposal_as_submitted.json",
-        "workenv/contracts/examples/c01/repository_bind_request.json"
-      ]
+      "id": "SRC-03"
     },
     {
-      "id": "SRC-04",
-      "contracts": [
-        "C01"
-      ],
-      "operations": [
-        "source.revision.admit"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/sources/request_to_add_a_published_package.json",
-        "workenv/contracts/examples/sources/provenance_of_a_supplied_package.json",
-        "workenv/contracts/examples/sources/home_of_a_published_package.json",
-        "workenv/contracts/examples/sources/revision_of_a_published_package.json"
-      ]
+      "id": "SRC-04"
     },
     {
-      "id": "SRC-05",
-      "contracts": [
-        "C01"
-      ],
-      "operations": [
-        "source.revision.admit",
-        "source.revision.commit"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/sources/request_to_extend_a_supplied_source.json",
-        "workenv/contracts/examples/sources/request_to_extend_by_editing_the_installed_bytes.json",
-        "workenv/contracts/examples/sources/sourcing_publisher_bytes_modified.json",
-        "workenv/contracts/examples/sources/sourcing_request.json"
-      ]
+      "id": "SRC-05"
     },
     {
-      "id": "SRC-06",
-      "contracts": [
-        "C04",
-        "C06",
-        "C02"
-      ],
-      "operations": [
-        "role.project",
-        "reader.body.read"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c04/projection_of_a_source_this_actor_may_not_use.json",
-        "workenv/contracts/examples/c02/body_for_another_recipient.json",
-        "workenv/contracts/examples/c04/view_whose_source_states_no_applicability.json",
-        "workenv/contracts/examples/c06/denied_is_not_empty.json"
-      ]
+      "id": "SRC-06"
     },
     {
-      "id": "SRC-07",
-      "contracts": [
-        "C01",
-        "C06",
-        "C07"
-      ],
-      "operations": [
-        "reference.resolve",
-        "reader.body.read",
-        "preparation.compose"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c06/unavailable_is_not_denied.json",
-        "workenv/contracts/examples/c07/preparation_offline_against_permitted_evidence.json",
-        "workenv/contracts/examples/c01/resolved_to_exact_bytes.json",
-        "workenv/contracts/examples/c01/bytes_not_held_here.json"
-      ]
+      "id": "SRC-07"
     },
     {
-      "id": "SRC-08",
-      "contracts": [
-        "C01"
-      ],
-      "operations": [
-        "source.home.register",
-        "source.capture.record"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/sources/request_to_author_here.json",
-        "workenv/contracts/examples/sources/home_of_a_managed_collection.json",
-        "workenv/contracts/examples/sources/capture_of_domain_material_submitted.json",
-        "workenv/contracts/examples/sources/request_for_a_role_the_table_does_not_hold.json"
-      ]
+      "id": "SRC-08"
     },
     {
-      "id": "SRC-09",
-      "contracts": [
-        "C01"
-      ],
-      "operations": [
-        "source.home.register",
-        "source.revision.commit"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/sources/home_of_a_repository_document.json",
-        "workenv/contracts/examples/sources/home_of_a_managed_collection.json",
-        "workenv/contracts/examples/sources/home_of_two_modes.json",
-        "workenv/contracts/examples/sources/sourcing_source_home_conflict.json"
-      ]
+      "id": "SRC-09"
     },
     {
-      "id": "SRC-10",
-      "contracts": [
-        "C01"
-      ],
-      "operations": [
-        "reference.resolve",
-        "identity.binding.add"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c01/clone_shares_the_repository_id.json",
-        "workenv/contracts/examples/c01/fork_names_its_original.json",
-        "workenv/contracts/examples/c01/fork_read_as_its_original.json",
-        "workenv/contracts/examples/c01/fork_without_its_original.json",
-        "workenv/contracts/examples/c01/branch_in_place_of_a_revision.json"
-      ]
+      "id": "SRC-10"
     },
     {
-      "id": "SRC-11",
-      "contracts": [
-        "C01",
-        "C05"
-      ],
-      "operations": [
-        "reference.resolve",
-        "memory.record.publish"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c01/exact_member_of_a_revision.json",
-        "workenv/contracts/examples/c01/same_id_other_bytes.json",
-        "workenv/contracts/examples/c05/state_where_one_id_held_other_bytes.json",
-        "workenv/contracts/examples/c05/home_layer_with_the_wrong_id.json"
-      ]
+      "id": "SRC-11"
     },
     {
-      "id": "SRC-12",
-      "contracts": [
-        "C04",
-        "C05",
-        "C06"
-      ],
-      "operations": [
-        "role.project",
-        "memory.use.prepare"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c04/plan_over_three_layers_in_a_stated_order.json",
-        "workenv/contracts/examples/c04/projection_keeps_a_shadowed_unit_attributable.json",
-        "workenv/contracts/examples/c05/state_whose_conflict_waits_for_the_person.json"
-      ]
+      "id": "SRC-12"
     },
     {
-      "id": "CMP-STORAGE",
-      "contracts": [
-        "C01",
-        "C07"
-      ],
-      "operations": [
-        "source.home.register",
-        "preparation.compose",
-        "collection.read"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/sources/home_of_a_managed_collection.json",
-        "workenv/contracts/examples/sources/home_of_a_repository_document.json",
-        "workenv/contracts/examples/c07/unit_layer_outside_the_three.json",
-        "workenv/contracts/examples/c04/projection_keeps_a_shadowed_unit_attributable.json"
-      ]
+      "id": "CMP-STORAGE"
     },
     {
-      "id": "CMP-ORDER",
-      "contracts": [
-        "C04",
-        "C07"
-      ],
-      "operations": [
-        "role.project",
-        "preparation.compose"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c04/plan_over_three_layers_in_a_stated_order.json",
-        "workenv/contracts/examples/c04/projection_keeps_a_shadowed_unit_attributable.json",
-        "workenv/contracts/examples/c06/body_delivered_with_the_shadowed_unit_named.json"
-      ]
+      "id": "CMP-ORDER"
     },
     {
-      "id": "CMP-SELECT",
-      "contracts": [
-        "C07",
-        "C04"
-      ],
-      "operations": [
-        "preparation.compose",
-        "role.project",
-        "collection.change"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c07/personal_preparation_with_nothing_selected.json",
-        "workenv/contracts/examples/c07/preparation_whose_selected_source_is_unknown.json",
-        "workenv/contracts/examples/c04/plan_for_one_source.json",
-        "workenv/contracts/examples/c07/collection_change_request.json"
-      ]
+      "id": "CMP-SELECT"
     },
     {
-      "id": "CMP-LOCAL",
-      "contracts": [
-        "C04",
-        "C07",
-        "C08"
-      ],
-      "operations": [
-        "role.project",
-        "preparation.compose",
-        "preparation.assess"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c04/projection_keeps_a_shadowed_unit_attributable.json",
-        "workenv/contracts/examples/c08/team_policy_over_a_sources_own_rights.json",
-        "workenv/contracts/examples/c07/actor_may_act.json"
-      ]
+      "id": "CMP-LOCAL"
     },
     {
-      "id": "CMP-QUALIFIED",
-      "contracts": [
-        "C07",
-        "C04"
-      ],
-      "operations": [
-        "preparation.compose",
-        "role.project"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c07/preparation_whose_selected_source_is_unknown.json",
-        "workenv/contracts/examples/c04/projection_whose_winning_body_is_not_held.json",
-        "workenv/contracts/examples/c07/start_whose_task_support_is_not_assessed.json"
-      ]
+      "id": "CMP-QUALIFIED"
     },
     {
-      "id": "CMP-MEANING",
-      "contracts": [
-        "C04",
-        "C05"
-      ],
-      "operations": [
-        "knowledge.view.open",
-        "memory.state.resolve"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c04/view_with_the_evidence_behind_it.json",
-        "workenv/contracts/examples/c05/choice_with_its_alternatives_and_premises.json",
-        "workenv/contracts/examples/c05/state_whose_conflict_waits_for_the_person.json"
-      ]
+      "id": "CMP-MEANING"
     },
     {
-      "id": "CMP-RIGHTS",
-      "contracts": [
-        "C02",
-        "C04",
-        "C08"
-      ],
-      "operations": [
-        "role.project",
-        "access.admission.decide",
-        "source.rights.set"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c04/projection_of_a_source_this_actor_may_not_use.json",
-        "workenv/contracts/examples/c08/team_policy_over_a_sources_own_rights.json",
-        "workenv/contracts/examples/c02/body_for_another_recipient.json"
-      ]
+      "id": "CMP-RIGHTS"
     },
     {
-      "id": "CAP-01",
-      "contracts": [
-        "C01"
-      ],
-      "operations": [
-        "source.capture.record"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/sources/capture_of_memory_material_submitted.json",
-        "workenv/contracts/examples/sources/capture_selected_by_hand.json",
-        "workenv/contracts/examples/sources/provenance_of_a_record_set_captured_from_a_session.json",
-        "workenv/contracts/examples/sources/capture_without_the_evidence_behind_it.json",
-        "workenv/contracts/examples/sources/capture_by_a_local_model_nobody_named.json",
-        "workenv/contracts/examples/sources/capture_naming_one_span_twice.json"
-      ]
+      "id": "CAP-01"
     },
     {
-      "id": "CAP-02",
-      "contracts": [
-        "C01",
-        "C12"
-      ],
-      "operations": [
-        "source.capture.record",
-        "capability.probe"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/sources/capture_sent_to_a_provider_its_source_permits.json",
-        "workenv/contracts/examples/sources/capture_sent_to_a_provider_from_a_span_kept_local.json",
-        "workenv/contracts/examples/sources/capture_of_memory_material_submitted.json"
-      ]
+      "id": "CAP-02"
     },
     {
-      "id": "CAP-03",
-      "contracts": [
-        "C01",
-        "C04"
-      ],
-      "operations": [
-        "source.capture.record",
-        "role.project"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/sources/capture_of_domain_members.json",
-        "workenv/contracts/examples/sources/behavioural_units_relabelled_as_knowledge.json",
-        "workenv/contracts/examples/sources/knowledge_capture_carrying_behavioural_units.json",
-        "workenv/contracts/examples/c04/knowledge_unit_inside_a_behaviour_projection.json"
-      ]
+      "id": "CAP-03"
     },
     {
-      "id": "CAP-04",
-      "contracts": [
-        "C01",
-        "C05"
-      ],
-      "operations": [
-        "memory.candidate.store",
-        "source.capture.record"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/sources/capture_of_memory_entries.json",
-        "workenv/contracts/examples/c03/candidate_stored.json",
-        "workenv/contracts/examples/sources/provenance_of_a_record_set_captured_from_a_session.json"
-      ]
+      "id": "CAP-04"
     },
     {
-      "id": "CAP-05",
-      "contracts": [
-        "C05"
-      ],
-      "operations": [
-        "memory.candidate.store",
-        "memory.record.publish",
-        "memory.candidate.reject"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c05/choice_whose_reason_nobody_wrote_down.json",
-        "workenv/contracts/examples/c05/unrecorded_naming_something_else.json"
-      ]
+      "id": "CAP-05"
     },
     {
-      "id": "CAP-06",
-      "contracts": [
-        "C01",
-        "C08"
-      ],
-      "operations": [
-        "source.revision.admit"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/sources/provenance_of_an_imported_package.json",
-        "workenv/contracts/examples/sources/provenance_that_claims_priority_from_its_origin.json",
-        "workenv/contracts/examples/c08/typed_name_offered_as_authorization.json"
-      ]
+      "id": "CAP-06"
     },
     {
-      "id": "CAP-07",
-      "contracts": [
-        "C01",
-        "C03",
-        "C07"
-      ],
-      "operations": [
-        "source.revision.commit",
-        "environment.adopt"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c03/commit_receipt.json",
-        "workenv/contracts/examples/sources/provenance_accepted_without_a_receipt.json",
-        "workenv/contracts/examples/c07/adopted_basis_without_its_adoption_evidence.json"
-      ]
+      "id": "CAP-07"
     },
     {
-      "id": "CAP-08",
-      "contracts": [
-        "C07",
-        "C05"
-      ],
-      "operations": [
-        "preparation.compose",
-        "memory.candidate.store"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c07/preparation_from_an_environment_with_no_adoption_evidence.json",
-        "workenv/contracts/examples/c03/candidate_stored.json"
-      ]
+      "id": "CAP-08"
     },
     {
-      "id": "CAP-09",
-      "contracts": [
-        "C01",
-        "C08"
-      ],
-      "operations": [
-        "source.capture.record",
-        "team.approval.record"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/sources/request_to_import_without_its_conditions.json",
-        "workenv/contracts/examples/c08/team_policy_over_a_sources_own_rights.json"
-      ]
+      "id": "CAP-09"
     },
     {
-      "id": "CAP-10",
-      "contracts": [
-        "C03",
-        "C01"
-      ],
-      "operations": [
-        "operation.query",
-        "source.capture.record"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c03/outcome_unknown.json",
-        "workenv/contracts/examples/c03/same_id_other_payload.json",
-        "workenv/contracts/examples/c03/query_by_request_id.json",
-        "workenv/contracts/examples/c01/same_id_other_bytes.json"
-      ]
+      "id": "CAP-10"
     },
     {
-      "id": "CAP-11",
-      "contracts": [
-        "C02",
-        "C03",
-        "C01"
-      ],
-      "operations": [
-        "access.admission.decide",
-        "source.capture.record"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c02/old_handle_after_sign_out.json",
-        "workenv/contracts/examples/c02/revoked_credential_and_old_controls.json",
-        "workenv/contracts/examples/c03/approval_bound_to_another_request.json"
-      ]
+      "id": "CAP-11"
     },
     {
-      "id": "CAP-12",
-      "contracts": [
-        "C10"
-      ],
-      "operations": [
-        "retention.plan.set",
-        "removal.execute",
-        "retention.derivations.read"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c10/promised_and_evictable_are_two_lists.json",
-        "workenv/contracts/examples/c10/cleanup_with_no_governing_policy.json",
-        "workenv/contracts/examples/c10/one_copy_confirmed_one_unreachable.json"
-      ]
+      "id": "CAP-12"
     },
     {
-      "id": "CAP-13",
-      "contracts": [
-        "C05",
-        "C06"
-      ],
-      "operations": [
-        "memory.state.resolve",
-        "reader.body.read",
-        "memory.state.prove"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c05/state_from_a_proof_about_other_subjects.json",
-        "workenv/contracts/examples/c06/denied_is_not_empty.json",
-        "workenv/contracts/examples/c06/alternative_whose_reasons_are_withheld.json"
-      ]
+      "id": "CAP-13"
     },
     {
       "id": "CAP-14",
-      "contracts": [
-        "C12",
-        "C03",
-        "C01"
-      ],
-      "operations": [
-        "capability.probe",
-        "source.capture.record"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/sources/capture_of_memory_entries.json",
-        "workenv/contracts/examples/c12/a_real_run_that_produced_a_result.json",
-        "workenv/contracts/examples/c12/a_fixture_result_reported_as_a_real_run.json",
-        "workenv/contracts/examples/c12/a_fixture_offered_where_a_real_run_was_required.json",
+      "reads": [
         "gates/workenv/entrances.jsonl"
       ]
     }
@@ -1326,1520 +292,761 @@
     {
       "id": "N01-STORE-POS",
       "oracle": 0,
-      "contracts": [
-        "C01",
-        "C03",
-        "C09"
-      ],
-      "operations": [
-        "source.revision.commit",
-        "reference.resolve",
-        "transfer.stage",
-        "operation.query"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c01/",
-        "workenv/contracts/examples/c03/",
-        "workenv/contracts/examples/c09/",
-        "workenv/contracts/examples/sources/"
-      ],
-      "asserts": "Every example of a C01, C03 or C09 kind whose expectation is accepted, written through the owner and read back, returns the same canonical bytes under the same id and digest."
+      "asserts": "Every accepted example of a C01, C03 or C09 kind is submitted through the owner in submit mode and stored as one sealed record: its submitted fields are unchanged after canonicalization, and the runtime-owned fields (such as binding_id and created_at) are the owner's. Reading it back by that id returns the same sealed canonical bytes and digest every time."
     },
     {
       "id": "N01-STORE-NEG",
       "oracle": 1,
-      "contracts": [
-        "C01",
-        "C03",
-        "C09",
-        "B01"
-      ],
-      "operations": [
-        "source.revision.commit",
-        "transfer.accept"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c01/",
-        "workenv/contracts/examples/c03/",
-        "workenv/contracts/examples/c09/",
-        "workenv/contracts/examples/encoding/",
-        "workenv/contracts/examples/bindings/signing_signature_invalid.json",
-        "workenv/contracts/examples/c01/same_id_other_bytes.json"
-      ],
       "asserts": "Every refused example reaches the owner's admission and is refused with the code and pointer its expectation states; a signed byte altered after signing fails verification; nothing refused is stored."
     },
     {
       "id": "N02-C01-POS",
       "oracle": 0,
-      "contracts": [
-        "C01",
-        "C02"
-      ],
-      "operations": [
-        "identity.binding.add",
-        "identity.binding.revoke",
-        "access.transition",
-        "access.profile.rename"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c01/binding_as_submitted.json",
-        "workenv/contracts/examples/c01/device_key_binding.json",
-        "workenv/contracts/examples/c02/unlock_at_a_terminal.json",
-        "workenv/contracts/examples/c02/locked_state.json",
-        "workenv/contracts/examples/c01/link_request.json",
-        "workenv/contracts/examples/c02/rename_request.json"
-      ],
       "asserts": "With no Team, account or network, a local principal is bound to a device key and unlocked at a terminal; after a second key is bound and the first revoked, the principal_id and every record naming it are unchanged."
     },
     {
       "id": "N02-C01-NEG",
       "oracle": 1,
-      "contracts": [
-        "C01",
-        "C08"
-      ],
-      "operations": [
-        "identity.binding.add",
-        "team.approval.record"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c01/name_in_place_of_a_principal_id.json",
-        "workenv/contracts/examples/c01/email_is_not_an_identity.json",
-        "workenv/contracts/examples/c01/credential_already_bound_to_another_principal.json",
-        "workenv/contracts/examples/c01/link_without_proof_of_control.json",
-        "workenv/contracts/examples/c08/approval_from_somebody_not_independent.json"
-      ],
       "asserts": "A name, an e-mail, a host or task id is refused where a principal id is required; a second key offered without proof of control, or already bound elsewhere, binds nothing; a second key of one principal does not count as an independent person."
     },
     {
       "id": "N03-C02-POS",
       "oracle": 0,
-      "contracts": [
-        "C02",
-        "B02"
-      ],
-      "operations": [
-        "access.transition",
-        "access.admission.decide"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c02/lock.json",
-        "workenv/contracts/examples/c02/lock_request.json",
-        "workenv/contracts/examples/c02/unlock_at_a_terminal.json",
-        "workenv/contracts/examples/c02/unlock_request.json",
-        "workenv/contracts/examples/c02/locked_state.json",
-        "workenv/contracts/examples/c02/allowed.json",
-        "workenv/contracts/examples/bindings/unlock.json"
-      ],
       "asserts": "After a durable lock or sign-out moves the access generation, an explicit unlock at a terminal with the local key admits the same principal's permitted scope offline, at the new generation."
     },
     {
       "id": "N03-C02-NEG",
       "oracle": 1,
-      "contracts": [
-        "C02",
-        "C03"
-      ],
-      "operations": [
-        "access.admission.decide",
-        "access.transition",
-        "operation.query",
-        "access.control.record"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c02/old_handle_after_sign_out.json",
-        "workenv/contracts/examples/c02/sign_after_lock.json",
-        "workenv/contracts/examples/c02/expired_offline_evidence.json",
-        "workenv/contracts/examples/c02/revoked_credential_and_old_controls.json",
-        "workenv/contracts/examples/c02/silent_refresh_is_not_a_transition.json",
-        "workenv/contracts/examples/c02/lock_that_could_not_be_made_durable.json",
-        "workenv/contracts/examples/c02/unlock_with_no_terminal.json",
-        "workenv/contracts/examples/c03/committed.json",
-        "workenv/contracts/examples/c03/query_by_request_id.json",
-        "workenv/contracts/examples/c02/control_record_request.json"
-      ],
       "asserts": "A handle from before the generation moved, a restart, a refresh without a transition, a late response and expired offline evidence are each refused with their gap and reopen nothing; a commit dispatched before the lock answers a query with its original result."
     },
     {
       "id": "N03-BRIDGE-NEG",
       "oracle": 1,
-      "contracts": [
-        "C02",
-        "C06",
-        "B04"
-      ],
-      "operations": [
-        "access.admission.decide",
-        "reader.body.read",
-        "access.bridge.serve"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/bindings/bridge.json",
-        "workenv/contracts/examples/bindings/bridging_request.json",
-        "workenv/contracts/examples/bindings/bridging_client_token_unknown.json",
-        "workenv/contracts/examples/bindings/bridging_client_token_missing.json",
-        "workenv/contracts/examples/c02/old_handle_after_sign_out.json",
-        "workenv/contracts/examples/bindings/bridge_serve_request.json"
-      ],
       "asserts": "A Studio or TUI client whose request was issued before the access generation moved receives no body, and a client token the current launch did not issue is refused; the bridge rereads the generation before writing a body."
     },
     {
       "id": "N03-PROVIDER-NEG",
       "oracle": 1,
-      "contracts": [
-        "C02",
-        "C01"
-      ],
-      "operations": [
-        "access.transition",
-        "identity.binding.add",
-        "access.sign_in.complete"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c01/external_identity_binding.json",
-        "workenv/contracts/examples/c02/old_handle_after_sign_out.json",
-        "workenv/contracts/examples/c02/silent_refresh_is_not_a_transition.json",
-        "workenv/contracts/examples/c02/locked_state.json",
-        "workenv/contracts/examples/c02/callback_request.json"
-      ],
       "asserts": "A provider login, token refresh or callback arriving while the profile is locked or signed out does not reopen access; only an explicit local transition does."
     },
     {
       "id": "N04-C03-POS",
       "oracle": 0,
-      "contracts": [
-        "C03",
-        "C04",
-        "C02"
-      ],
-      "operations": [
-        "role.project",
-        "access.admission.decide",
-        "entrance.disposition.record"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c03/the_store_admits_what_it_owns.json",
-        "workenv/contracts/examples/c03/a_caller_rooted_writer_routed_through_the_store.json",
-        "workenv/contracts/examples/c03/a_bridge_reaches_only_through_its_owner.json",
-        "workenv/contracts/examples/c04/projection_request.json",
-        "workenv/contracts/examples/c04/projection_prepared.json",
-        "workenv/contracts/examples/c02/allowed.json",
+      "asserts": "Each entrance whose disposition reaches kept state does so only through the guard its disposition names. A permitted request succeeds through that guard only for an operation that entrance's disposition admits (role.project where the entrance admits it, the admitted source or memory write where it admits those), and no entrance is required to serve an operation its disposition does not admit.",
+      "reads": [
         "gates/workenv/entrances.jsonl"
-      ],
-      "asserts": "Each entrance whose disposition reaches kept state does so only through the guard its disposition names, and a permitted role-specific projection through it succeeds."
+      ]
     },
     {
       "id": "N04-C03-NEG",
       "oracle": 1,
-      "contracts": [
-        "C03",
-        "C04",
-        "C02"
-      ],
-      "operations": [
-        "role.project",
-        "access.admission.decide"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c04/projection_of_a_source_this_actor_may_not_use.json",
-        "workenv/contracts/examples/c04/projection_reached_through_a_root_the_caller_chose.json",
-        "workenv/contracts/examples/c02/body_for_another_recipient.json",
-        "workenv/contracts/examples/c03/a_compatibility_route_names_its_successor.json",
+      "asserts": "Through every entrance the dispositions list as reaching kept state, including with --repo or AGENT_BIOS_STATE_DIR set to another root, a request for a denied protected resource is refused with source_not_authorized or protected_root_bypass; a retired route names its successor and falls through to nothing.",
+      "reads": [
         "gates/workenv/entrances.jsonl"
-      ],
-      "asserts": "Through every entrance the dispositions list as reaching kept state, including with --repo or AGENT_BIOS_STATE_DIR set to another root, a request for a denied protected resource is refused with source_not_authorized or protected_root_bypass; a retired route names its successor and falls through to nothing."
+      ]
     },
     {
       "id": "N05-CONTROL-POS",
       "oracle": 0,
-      "contracts": [
-        "C08",
-        "C03",
-        "B03"
-      ],
-      "operations": [
-        "team.found",
-        "team.membership.change",
-        "team.grant.change",
-        "operation.query"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c08/sealed_founding_proposal.json",
-        "workenv/contracts/examples/c08/governed_change_request.json",
-        "workenv/contracts/examples/c03/commit_receipt.json",
-        "workenv/contracts/examples/c03/committed.json",
-        "workenv/contracts/examples/c03/query_by_request_id.json",
-        "workenv/contracts/examples/bindings/storage.json"
-      ],
       "asserts": "A Team control commit - founding, membership, grant - and its receipt survive process restart; querying its request id afterwards returns the original result and receipt."
     },
     {
       "id": "N05-CONTROL-NEG",
       "oracle": 1,
-      "contracts": [
-        "C08",
-        "C03",
-        "B03"
-      ],
-      "operations": [
-        "team.grant.change",
-        "operation.query",
-        "operation.cancel"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c03/cancel_request.json",
-        "workenv/contracts/examples/c03/cancel_too_late.json",
-        "workenv/contracts/examples/c03/same_id_other_payload.json",
-        "workenv/contracts/examples/c03/commit_request_same_id_other_payload.json",
-        "workenv/contracts/examples/c03/stale_base.json",
-        "workenv/contracts/examples/c03/outcome_unknown.json",
-        "workenv/contracts/examples/c08/founding_reentered_after_its_commit.json",
-        "workenv/contracts/examples/bindings/storing_connection_profile_mismatch.json"
-      ],
       "asserts": "A crash at each durable boundary of a control commit, the same request id with other bytes, or an advanced base yields no duplicate control and no falsely committed state; an unknown outcome is settled by querying the same id; a cancellation that reaches the owner after the commit changes nothing and says so."
     },
     {
       "id": "N06-C04-POS",
       "oracle": 0,
-      "contracts": [
-        "C04"
-      ],
-      "operations": [
-        "knowledge.question.ask",
-        "knowledge.view.open"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c04/question_with_the_conditions_that_change_its_answer.json",
-        "workenv/contracts/examples/c04/view_with_the_evidence_behind_it.json",
-        "workenv/contracts/examples/c04/question_without_conditions.json"
-      ],
       "asserts": "A question with the conditions that change its answer gets a view carrying the members, conditions, evidence and exact revisions that support it, including a later correction without losing the earlier reference."
     },
     {
       "id": "N06-C04-NEG",
       "oracle": 1,
-      "contracts": [
-        "C04"
-      ],
-      "operations": [
-        "knowledge.view.open"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c04/view_whose_companion_is_not_held.json",
-        "workenv/contracts/examples/c04/view_whose_source_states_no_applicability.json",
-        "workenv/contracts/examples/c04/view_for_a_condition_the_sources_do_not_cover.json",
-        "workenv/contracts/examples/c04/view_member_without_its_digest.json"
-      ],
-      "asserts": "Missing applicability, a missing companion and an uncovered condition stay qualifications on the view; choosing a higher layer drops none of them and certifies nothing."
+      "asserts": "Missing applicability, a missing companion and an uncovered condition stay qualifications on the view; choosing a higher layer drops none of them and certifies nothing.",
+      "rules": [
+        "C04/view_names_declared_companions"
+      ]
     },
     {
       "id": "N07-C05-POS",
       "oracle": 0,
-      "contracts": [
-        "C05"
-      ],
-      "operations": [
-        "workstream.open",
-        "memory.record.publish",
-        "memory.lifecycle.apply",
-        "memory.state.resolve"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c05/workstream_as_submitted.json",
-        "workenv/contracts/examples/c05/choice_with_its_alternatives_and_premises.json",
-        "workenv/contracts/examples/c05/choice_that_replaces_another_whole.json",
-        "workenv/contracts/examples/c05/correction_of_an_earlier_event.json",
-        "workenv/contracts/examples/c05/state_with_one_current_choice.json",
-        "workenv/contracts/examples/c05/withdrawal_is_an_entry_that_no_filter_can_drop.json"
-      ],
       "asserts": "Choices across two workstreams keep their stated basis and typed outcomes; a correction recorded in one lane changes the current state the other lane reads."
     },
     {
       "id": "N07-C05-NEG",
       "oracle": 1,
-      "contracts": [
-        "C05"
-      ],
-      "operations": [
-        "memory.state.resolve"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c05/state_whose_premise_names_a_record_that_is_absent.json",
-        "workenv/contracts/examples/c05/state_whose_premises_close_on_themselves.json",
-        "workenv/contracts/examples/c05/state_with_two_successors_to_one_choice.json",
-        "workenv/contracts/examples/c05/state_whose_lifecycle_assertions_disagree.json",
-        "workenv/contracts/examples/c05/state_where_one_id_held_other_bytes.json"
-      ],
       "asserts": "A missing target, a cycle, competing replacements and contradicting lifecycle events each leave the affected entries unresolved with their gap; no ranking selects a winner."
     },
     {
       "id": "N07-PREFERENCE-NEG",
       "oracle": 1,
-      "contracts": [
-        "C05"
-      ],
-      "operations": [
-        "memory.preference.record"
-      ],
-      "fixtures": [
-        "gates/workenv/fixtures/rules/selected_participant_applicable.json"
-      ],
       "asserts": "Every application_preference the owner writes satisfies the rule's oracle (gates/workenv/conformance/rules.py); the fixture's breaking records are what it must never write.",
-      "rule": "C05/selected_participant_applicable"
+      "rules": [
+        "C05/selected_participant_applicable"
+      ]
     },
     {
       "id": "N07-STATE-GAP-NEG",
       "oracle": 1,
-      "contracts": [
-        "C05"
-      ],
-      "operations": [
-        "memory.state.resolve"
-      ],
-      "fixtures": [
-        "gates/workenv/fixtures/rules/gap_named_entry_not_current.json"
-      ],
       "asserts": "Every qualified_state the owner writes satisfies the rule's oracle; an entry a gap names is never current.",
-      "rule": "C05/gap_named_entry_not_current"
+      "rules": [
+        "C05/gap_named_entry_not_current"
+      ]
     },
     {
       "id": "N07-STATE-SOURCE-NEG",
       "oracle": 1,
-      "contracts": [
-        "C05"
-      ],
-      "operations": [
-        "memory.state.resolve"
-      ],
-      "fixtures": [
-        "gates/workenv/fixtures/rules/entry_from_named_source.json"
-      ],
       "asserts": "Every qualified_state the owner writes names, for each entry, a source among its frontiers, and the source the store committed that record to as its publish and apply results state.",
-      "rule": "C05/entry_from_named_source"
+      "rules": [
+        "C05/entry_from_named_source"
+      ]
     },
     {
       "id": "N08-C06-POS",
       "oracle": 0,
-      "contracts": [
-        "C06"
-      ],
-      "operations": [
-        "reader.body.read",
-        "memory.use.prepare"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c06/envelope_asking_about_a_concern.json",
-        "workenv/contracts/examples/c06/envelope_asking_for_exact_units.json",
-        "workenv/contracts/examples/c06/envelope_continuing_from_a_cursor.json",
-        "workenv/contracts/examples/c06/truncated_with_a_continuation.json",
-        "workenv/contracts/examples/c06/result_with_an_expansion_reference.json",
-        "workenv/contracts/examples/c06/legitimate_empty_result.json"
-      ],
       "asserts": "A bounded read returns required meaning before optional ranking, stops at its budget with a continuation, and the continuation resumes from the exact frontier it was taken at."
     },
     {
       "id": "N08-C06-NEG",
       "oracle": 1,
-      "contracts": [
-        "C06"
-      ],
-      "operations": [
-        "reader.body.read"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c06/page_whose_basis_moved_under_it.json",
-        "workenv/contracts/examples/c06/cursor_a_revocation_invalidated.json",
-        "workenv/contracts/examples/c06/denied_is_not_empty.json",
-        "workenv/contracts/examples/c06/unavailable_is_not_denied.json",
-        "workenv/contracts/examples/c06/retained_body_claimed_by_digest_alone.json",
-        "workenv/contracts/examples/c06/delta_without_a_retained_baseline.json",
-        "workenv/contracts/examples/c06/unsupported_child_route.json"
-      ],
       "asserts": "A cursor whose scope, frontier or access moved is refused; empty, denied, unavailable and truncated stay four answers; a digest alone never stands for a retained body."
     },
     {
       "id": "N08-READER-GAP-NEG",
       "oracle": 1,
-      "contracts": [
-        "C06"
-      ],
-      "operations": [
-        "reader.body.read"
-      ],
-      "fixtures": [
-        "gates/workenv/fixtures/rules/gap_named_frontier_not_returned.json"
-      ],
       "asserts": "Every reader_result the owner writes satisfies the rule's oracle.",
-      "rule": "C06/gap_named_frontier_not_returned"
+      "rules": [
+        "C06/gap_named_frontier_not_returned"
+      ]
     },
     {
       "id": "N09-C07-POS",
       "oracle": 0,
-      "contracts": [
-        "C07",
-        "C01"
-      ],
-      "operations": [
-        "preparation.compose",
-        "preparation.assess"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c07/personal_preparation_with_nothing_selected.json",
-        "workenv/contracts/examples/c07/session_start_without_a_task.json",
-        "workenv/contracts/examples/c07/preparation_for_a_task_that_was_actually_requested.json",
-        "workenv/contracts/examples/c07/start_whose_task_support_is_not_assessed.json",
-        "workenv/contracts/examples/c01/repository_binding_as_submitted.json"
-      ],
       "asserts": "Projectless, personal and unadopted preparation composes from the exact selected sources and names no Team, session or host id it was not given."
     },
     {
       "id": "N09-C07-NEG",
       "oracle": 1,
-      "contracts": [
-        "C07",
-        "C04",
-        "C05"
-      ],
-      "operations": [
-        "preparation.compose",
-        "role.project"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c07/preparation_whose_working_bytes_have_since_moved.json",
-        "workenv/contracts/examples/c07/preparation_without_the_bytes_it_observed.json",
-        "workenv/contracts/examples/c07/request_stating_what_the_runtime_observes.json",
-        "workenv/contracts/examples/c04/knowledge_unit_inside_a_behaviour_projection.json",
-        "workenv/contracts/examples/c05/choice_whose_reason_nobody_wrote_down.json"
-      ],
       "asserts": "A dirty or untracked byte change after observation invalidates the preparation resting on it; a missing reason stays missing; knowledge and memory never become behavioural text."
     },
     {
       "id": "N10-C08-POS",
       "oracle": 0,
-      "contracts": [
-        "C08",
-        "C01"
-      ],
-      "operations": [
-        "team.found",
-        "team.membership.change",
-        "identity.binding.add",
-        "team.invitation.issue",
-        "team.consent.record",
-        "team.invitation.cancel"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c08/proposal_as_submitted.json",
-        "workenv/contracts/examples/c08/sealed_founding_proposal.json",
-        "workenv/contracts/examples/c08/invited_before_consent.json",
-        "workenv/contracts/examples/c08/consent_recorded_before_registration.json",
-        "workenv/contracts/examples/c08/active_membership.json",
-        "workenv/contracts/examples/c08/solo_team_that_says_it_reviewed_itself.json",
-        "workenv/contracts/examples/c08/consent_request.json"
-      ],
-      "asserts": "An exact founding proposal, invitation, consent and control commit enrol a second device's principal with no external identity provider."
+      "asserts": "An exact founding proposal, invitation, consent and control commit enrol a second device's principal with no external identity provider.",
+      "rules": [
+        "C08/consent_matches_its_verification"
+      ]
     },
     {
       "id": "N10-C08-NEG",
       "oracle": 1,
-      "contracts": [
-        "C08"
-      ],
-      "operations": [
-        "team.found",
-        "team.membership.change"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c08/acceptances_of_a_proposal_that_has_since_changed.json",
-        "workenv/contracts/examples/c08/founding_reentered_after_its_commit.json",
-        "workenv/contracts/examples/c08/invitation_admission_without_consent.json",
-        "workenv/contracts/examples/c08/reviewed_founding_with_no_nominee.json",
-        "workenv/contracts/examples/c08/solo_team_selected_by_having_no_reviewer.json",
-        "workenv/contracts/examples/c08/proposal_that_authorizes_itself.json"
-      ],
       "asserts": "Acceptances of a changed proposal, a re-entered founding, an admission without consent, a missing independent nominee and a second Team with the same name each grant nothing."
     },
     {
       "id": "N10-PROVIDER-POS",
       "oracle": 0,
-      "contracts": [
-        "C08",
-        "C01"
-      ],
-      "operations": [
-        "team.membership.change",
-        "identity.binding.add"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c08/admitted_under_a_teams_own_delegation_policy.json",
-        "workenv/contracts/examples/c01/external_identity_binding.json"
-      ],
       "asserts": "A verified provider claim admits a member only where the Team's own delegation policy names that provider and claim."
     },
     {
       "id": "N10-PROVIDER-NEG",
       "oracle": 1,
-      "contracts": [
-        "C08",
-        "C01"
-      ],
-      "operations": [
-        "team.membership.change"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c08/provider_claim_without_the_policy_that_admits_it.json",
-        "workenv/contracts/examples/c01/email_is_not_an_identity.json"
-      ],
       "asserts": "A verified login or a matching e-mail domain without the policy that admits it grants no membership."
     },
     {
       "id": "N11-C08-POS",
       "oracle": 0,
-      "contracts": [
-        "C08",
-        "C07"
-      ],
-      "operations": [
-        "team.grant.change",
-        "team.approval.record",
-        "team.policy.set",
-        "preparation.assess"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c08/grant_to_a_person.json",
-        "workenv/contracts/examples/c08/grant_to_a_group_names_the_connection_behind_it.json",
-        "workenv/contracts/examples/c08/child_grant_naming_its_parent.json",
-        "workenv/contracts/examples/c08/independent_person_approves.json",
-        "workenv/contracts/examples/c08/policy_requiring_one_independent_review.json",
-        "workenv/contracts/examples/c07/actor_may_act.json"
-      ],
       "asserts": "Scoped grants, group delegation and one independent approval let contribution, review, publication and adoption proceed within the source's own ceilings."
     },
     {
       "id": "N11-C08-NEG",
       "oracle": 1,
-      "contracts": [
-        "C08",
-        "C03",
-        "C07"
-      ],
-      "operations": [
-        "team.grant.change",
-        "team.approval.record"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c08/group_that_would_add_itself.json",
-        "workenv/contracts/examples/c08/approval_from_somebody_not_independent.json",
-        "workenv/contracts/examples/c08/too_few_independent_approvals.json",
-        "workenv/contracts/examples/c08/grant_beyond_the_ceiling_it_was_issued_under.json",
-        "workenv/contracts/examples/c08/team_policy_over_a_sources_own_rights.json",
-        "workenv/contracts/examples/c03/approval_bound_to_another_request.json",
-        "workenv/contracts/examples/c03/stale_base.json",
-        "workenv/contracts/examples/c07/actor_may_not_act.json"
-      ],
-      "asserts": "Self-addition, requester or author self-review, a revoked reviewer, a stale policy or base and a replayed request are each refused by the owner's operation result, not only by a screen."
+      "asserts": "Each of these is refused by the owner's operation result, not only by a screen: self-addition, requester or author self-review (an author named in the request's accountable_authors), a revoked reviewer's approval, a stale policy or base, a request id resubmitted with other bytes (request_id_conflict), and an approval replayed against a different request (request_mismatch). An identical resubmission of an already committed request is not a refusal: it returns the original result and receipt and commits nothing new.",
+      "rules": [
+        "C08/grant_revision_keeps_its_grant"
+      ]
     },
     {
       "id": "N12-C07-POS",
       "oracle": 0,
-      "contracts": [
-        "C07",
-        "C05",
-        "C01"
-      ],
-      "operations": [
-        "environment.publish",
-        "environment.adopt",
-        "preparation.compose",
-        "source.revision.publish"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c07/an_edition_derived_from_its_parent.json",
-        "workenv/contracts/examples/c07/preparation_from_an_adopted_environment.json",
-        "workenv/contracts/examples/c05/adoption.json",
-        "workenv/contracts/examples/bindings/signing_request.json"
-      ],
       "asserts": "A source revision is published, an edition is published from an exact parent, and the Team adopts it as a separate step; each keeps its own source and effective-result identity, and preparation from it names the adoption."
     },
     {
       "id": "N12-C07-NEG",
       "oracle": 1,
-      "contracts": [
-        "C07"
-      ],
-      "operations": [
-        "environment.publish",
-        "environment.adopt",
-        "preparation.compose"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c07/an_edition_following_its_parent_by_name.json",
-        "workenv/contracts/examples/c07/a_first_edition_that_changes_something.json",
-        "workenv/contracts/examples/c07/an_edition_pinning_one_source_twice.json",
-        "workenv/contracts/examples/c07/adopted_basis_without_its_adoption_evidence.json",
-        "workenv/contracts/examples/c07/preparation_from_an_environment_with_no_adoption_evidence.json"
-      ],
       "asserts": "A floating parent, a same-source double pin, adoption without its evidence or a partial publication does not alter an existing recipient's state."
     },
     {
       "id": "N13-C09-POS",
       "oracle": 0,
-      "contracts": [
-        "C09"
-      ],
-      "operations": [
-        "transfer.stage",
-        "transfer.accept",
-        "contribution.return"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c09/complete_transfer.json",
-        "workenv/contracts/examples/c09/incremental_transfer_naming_its_baseline.json",
-        "workenv/contracts/examples/c09/return_of_a_contribution.json",
-        "workenv/contracts/examples/c09/received_but_not_yet_verified.json",
-        "workenv/contracts/examples/c09/verified.json",
-        "workenv/contracts/examples/c09/committed.json",
-        "workenv/contracts/examples/c09/contribution_accepted.json",
-        "workenv/contracts/examples/c09/duplicate_import_is_idempotent.json"
-      ],
       "asserts": "Full, incremental and return packages verify control first, then the permitted required bodies, and keep their acknowledgments; importing the same package twice changes nothing."
     },
     {
       "id": "N13-C09-NEG",
       "oracle": 1,
-      "contracts": [
-        "C09",
-        "B01"
-      ],
-      "operations": [
-        "transfer.accept"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c09/incremental_transfer_without_a_baseline.json",
-        "workenv/contracts/examples/c09/baseline_this_installation_does_not_hold.json",
-        "workenv/contracts/examples/c09/continuity_that_does_not_verify.json",
-        "workenv/contracts/examples/c09/addressed_to_another_audience.json",
-        "workenv/contracts/examples/c09/package_carrying_something_executable.json",
-        "workenv/contracts/examples/c09/control_a_newer_one_has_superseded.json",
-        "workenv/contracts/examples/c09/inventory_whose_body_is_absent.json",
-        "workenv/contracts/examples/c09/transfer_trusting_the_key_it_carries.json",
-        "workenv/contracts/examples/c01/member_path_climbs_out.json",
-        "workenv/contracts/examples/bindings/signing_signature_invalid.json"
-      ],
       "asserts": "Truncation, a missing baseline, altered bytes, the wrong audience, a traversal or executable member and a superseded control each stop the import at the stage its record names, with nothing half-applied."
     },
     {
       "id": "N14-C10-POS",
       "oracle": 0,
-      "contracts": [
-        "C10",
-        "C09"
-      ],
-      "operations": [
-        "custody.commit",
-        "custody.acknowledge",
-        "transfer.stage",
-        "transfer.accept"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c10/what_one_device_undertook_to_keep.json",
-        "workenv/contracts/examples/c10/holder_observed_everything_it_promised.json",
-        "workenv/contracts/examples/c10/commitment_on_a_peer_with_no_limit.json",
-        "workenv/contracts/examples/c09/complete_transfer.json"
-      ],
       "asserts": "Two isolated real stores exchange and reconstruct the exact permitted inventory with no carrier, and each custody commitment names the storage generation it assumes."
     },
     {
       "id": "N14-C10-NEG",
       "oracle": 1,
-      "contracts": [
-        "C10",
-        "C09",
-        "C08"
-      ],
-      "operations": [
-        "custody.acknowledge",
-        "transfer.accept",
-        "team.found"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c10/holder_whose_storage_was_reset.json",
-        "workenv/contracts/examples/c10/holder_that_no_longer_has_part_of_it.json",
-        "workenv/contracts/examples/c10/the_only_copy_of_an_outbox.json",
-        "workenv/contracts/examples/c09/two_authoritative_successors.json",
-        "workenv/contracts/examples/c09/inventory_whose_body_is_absent.json",
-        "workenv/contracts/examples/c08/finalizer_out_of_reach.json"
-      ],
       "asserts": "A lost finalizer leaves its operations blocked, never finalized elsewhere; copied keys, an old-disk rollback, a storage reset, a missing full package and two successors never produce authority or a complete copy."
     },
     {
       "id": "N15-C11-POS",
       "oracle": 0,
-      "contracts": [
-        "C11",
-        "C07"
-      ],
-      "operations": [
-        "recipient.link.open",
-        "recipient.delivery.attempt",
-        "delivery.observe"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c11/link_to_the_conversation_the_work_is_in.json",
-        "workenv/contracts/examples/c07/delivery_observed.json",
-        "workenv/contracts/examples/c07/activation_observed.json",
-        "workenv/contracts/examples/c11/question_asked_and_answered.json"
-      ],
       "asserts": "A new, current, child or rehydrated recipient the client supports receives the bounded bodies, with delivery evidence naming exactly what arrived."
     },
     {
       "id": "N15-C11-NEG",
       "oracle": 1,
-      "contracts": [
-        "C11",
-        "C07"
-      ],
-      "operations": [
-        "recipient.delivery.attempt",
-        "delivery.observe"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c11/link_this_runtime_does_not_know.json",
-        "workenv/contracts/examples/c11/the_response_was_lost.json",
-        "workenv/contracts/examples/c11/retry_that_minted_a_new_id.json",
-        "workenv/contracts/examples/c11/a_hash_that_cannot_rehydrate_a_body.json",
-        "workenv/contracts/examples/c07/child_delivery_the_parents_receipt_does_not_prove.json",
-        "workenv/contracts/examples/c11/link_whose_isolation_is_unproven.json",
-        "workenv/contracts/examples/c07/observed_use_claimed_as_a_delivery.json"
-      ],
       "asserts": "An unsupported resume, an unknown link, a lost response and an access change never claim delivery and never repeat an effect."
     },
     {
       "id": "N15-ANSWER-NEG",
       "oracle": 1,
-      "contracts": [
-        "C11"
-      ],
-      "operations": [
-        "recipient.answer.record"
-      ],
-      "fixtures": [
-        "gates/workenv/fixtures/rules/answer_selects_an_offered_alternative.json"
-      ],
       "asserts": "Every answer_evidence the owner writes satisfies the rule's oracle against the question version it answers; the fixture's breaking record is what it must never write.",
-      "rule": "C11/answer_selects_an_offered_alternative"
+      "rules": [
+        "C11/answer_selects_an_offered_alternative",
+        "C11/answer_separated_on_its_own_host"
+      ]
     },
     {
       "id": "N16-C12-POS",
       "oracle": 0,
-      "contracts": [
-        "C12",
-        "C07"
-      ],
-      "operations": [
-        "route.offer",
-        "route.select",
-        "preparation.compose"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/routes/offer_from_a_host_launcher.json",
-        "workenv/contracts/examples/routes/selection_of_a_prepared_route.json",
-        "workenv/contracts/examples/routes/selection_expecting_a_saved_draft.json",
-        "workenv/contracts/examples/c12/a_real_run_that_produced_a_result.json"
-      ],
       "asserts": "One actor, Team and preparation traverse personal start, the wireframes W01-W10, direct links and returns through real operation adapters, each selection naming its expected effect."
     },
     {
       "id": "N16-C12-NEG",
       "oracle": 1,
-      "contracts": [
-        "C12",
-        "C03",
-        "C08"
-      ],
-      "operations": [
-        "route.select",
-        "team.approval.record"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/routes/selection_that_only_focused.json",
-        "workenv/contracts/examples/c12/navigation_that_would_have_changed_state.json",
-        "workenv/contracts/examples/c12/a_confirmation_the_person_never_saw.json",
-        "workenv/contracts/examples/c03/approval_bound_to_another_request.json",
-        "workenv/contracts/examples/c08/closure_whose_stewardship_is_unfinished.json"
-      ],
       "asserts": "A review-only save, a body cleared by navigation, a stale approval and a closed Team's revival are refused both through the visible control and by direct submission."
     },
     {
       "id": "N17-C09-POS",
       "oracle": 0,
-      "contracts": [
-        "C09",
-        "C08",
-        "C12"
-      ],
-      "operations": [
-        "transfer.stage",
-        "transfer.accept",
-        "capability.probe",
-        "carrier.bind",
-        "carrier.provision",
-        "carrier.disconnect"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c09/complete_transfer.json",
-        "workenv/contracts/examples/c08/sealed_founding_proposal.json",
-        "workenv/contracts/examples/c12/a_probe_that_worked.json",
-        "workenv/contracts/examples/c09/carrier_provision_request.json"
-      ],
       "asserts": "An explicitly bound repository carrier exchanges a permitted package; peer exchange keeps working without it; disconnecting one Team's carrier leaves the others."
     },
     {
       "id": "N17-C09-NEG",
       "oracle": 1,
-      "contracts": [
-        "C09",
-        "C02",
-        "C12",
-        "C03"
-      ],
-      "operations": [
-        "transfer.stage",
-        "operation.query",
-        "carrier.provision"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c02/blocked_on_an_unreachable_carrier.json",
-        "workenv/contracts/examples/c09/addressed_to_another_audience.json",
-        "workenv/contracts/examples/c12/support_claimed_from_the_specification_alone.json",
-        "workenv/contracts/examples/c03/outcome_unknown.json",
-        "workenv/contracts/examples/c09/carrier_provision_request_again.json"
-      ],
       "asserts": "A preference alone causes no network call, sign-in or upload; repository rights are not Team grants; an unknown provisioning outcome is queried, never repeated."
     },
     {
       "id": "N18-C01-POS",
       "oracle": 0,
-      "contracts": [
-        "C01",
-        "C08",
-        "C12",
-        "C02"
-      ],
-      "operations": [
-        "identity.binding.add",
-        "team.membership.change",
-        "capability.probe",
-        "access.connection.configure",
-        "access.sign_in.begin",
-        "access.sign_in.complete"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c01/external_identity_binding.json",
-        "workenv/contracts/examples/c01/link_request.json",
-        "workenv/contracts/examples/c08/admitted_under_a_teams_own_delegation_policy.json",
-        "workenv/contracts/examples/c02/configure_request.json",
-        "workenv/contracts/examples/c02/sign_in_request.json",
-        "workenv/contracts/examples/c02/callback_request.json"
-      ],
       "asserts": "A verified provider claim links the intended principal under the Team's configured policy, with explicit recovery."
     },
     {
       "id": "N18-C01-NEG",
       "oracle": 1,
-      "contracts": [
-        "C01",
-        "C08",
-        "C02"
-      ],
-      "operations": [
-        "identity.binding.add",
-        "team.membership.change"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c01/link_without_proof_of_control.json",
-        "workenv/contracts/examples/c01/credential_already_bound_to_another_principal.json",
-        "workenv/contracts/examples/c01/email_is_not_an_identity.json",
-        "workenv/contracts/examples/c08/provider_claim_without_the_policy_that_admits_it.json",
-        "workenv/contracts/examples/c02/old_handle_after_sign_out.json"
-      ],
       "asserts": "A wrong issuer, audience, workspace or nonce, a replay, an e-mail merge and a provider outage create no binding or right and cannot override a sign-out."
     },
     {
       "id": "N19-C08-POS",
       "oracle": 0,
-      "contracts": [
-        "C08",
-        "C10"
-      ],
-      "operations": [
-        "team.lifecycle.apply",
-        "custody.commit",
-        "team.profile.set",
-        "team.state.read",
-        "team.stewardship.transfer",
-        "team.device.retire"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c08/archive.json",
-        "workenv/contracts/examples/c08/restore.json",
-        "workenv/contracts/examples/c08/continue_existing_archived_work.json",
-        "workenv/contracts/examples/c08/leave_with_its_continuity_disposition.json",
-        "workenv/contracts/examples/c08/forget_on_this_device.json",
-        "workenv/contracts/examples/c08/close_naming_the_surviving_stewardship.json",
-        "workenv/contracts/examples/c08/purge_with_per_owner_outcomes.json"
-      ],
-      "asserts": "Archive, continue, restore, leave, forget here, close and purge each have their own effect and carry the disposition that effect requires."
+      "asserts": "Archive, continue, restore, leave, forget here, close and purge each have their own effect and carry the disposition that effect requires.",
+      "rules": [
+        "C08/lifecycle_action_fits_its_operation"
+      ]
     },
     {
       "id": "N19-C08-NEG",
       "oracle": 1,
-      "contracts": [
-        "C08",
-        "C10"
-      ],
-      "operations": [
-        "team.lifecycle.apply",
-        "team.membership.change"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c08/removal_of_the_last_owner.json",
-        "workenv/contracts/examples/c08/closure_whose_stewardship_is_unfinished.json",
-        "workenv/contracts/examples/c08/close_that_only_names_an_intended_successor.json",
-        "workenv/contracts/examples/c08/leave_without_a_disposition.json",
-        "workenv/contracts/examples/c08/purge_promising_one_global_outcome.json",
-        "workenv/contracts/examples/c10/the_only_copy_of_an_outbox.json",
-        "workenv/contracts/examples/c08/founding_reentered_after_its_commit.json"
-      ],
       "asserts": "Removing the last custodian or finalizer, an unfinished handoff, a cancelled founding and closed evidence keep authority and unique work where they were."
     },
     {
       "id": "N20-C04-POS",
       "oracle": 0,
-      "contracts": [
-        "C04",
-        "C05",
-        "C01",
-        "C12"
-      ],
-      "operations": [
-        "source.revision.commit",
-        "knowledge.question.ask",
-        "memory.record.publish",
-        "knowledge.member.prepare",
-        "validation.run"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/sources/request_to_author_here.json",
-        "workenv/contracts/examples/c04/question_with_the_conditions_that_change_its_answer.json",
-        "workenv/contracts/examples/c05/choice_as_submitted.json",
-        "workenv/contracts/examples/c05/event_as_submitted.json",
-        "workenv/contracts/examples/c04/model_check_request.json",
-        "workenv/contracts/examples/c04/form_check_request.json"
-      ],
       "asserts": "Behavioural sources, knowledge tables, forms and questions, and choice and event editors each produce an owned revision or event whose validation is pinned."
     },
     {
       "id": "N20-C04-NEG",
       "oracle": 1,
-      "contracts": [
-        "C04",
-        "C12",
-        "C05",
-        "C01"
-      ],
-      "operations": [
-        "source.revision.commit",
-        "capability.probe"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c12/a_fixture_offered_where_a_real_run_was_required.json",
-        "workenv/contracts/examples/c12/route_the_client_does_not_qualify.json",
-        "workenv/contracts/examples/c05/state_whose_premise_names_a_record_that_is_absent.json"
-      ],
       "asserts": "A dangling graph, a lost form exception, an arbitrary validator, a partial or empty lens result and a changed target never become accepted clean state."
     },
     {
       "id": "N21-C10-POS",
       "oracle": 0,
-      "contracts": [
-        "C10",
-        "C06",
-        "C01",
-        "C03"
-      ],
-      "operations": [
-        "reader.body.read",
-        "retention.plan.set",
-        "removal.execute",
-        "source.revision.admit",
-        "operation.batch.submit"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c06/envelope_asking_about_a_concern.json",
-        "workenv/contracts/examples/sources/request_to_extend_a_supplied_source.json",
-        "workenv/contracts/examples/c10/promised_and_evictable_are_two_lists.json",
-        "workenv/contracts/examples/c10/every_copy_confirmed.json",
-        "workenv/contracts/examples/c03/batch_request.json"
-      ],
       "asserts": "Scoped search and distinct permitted derivatives lead to provider-scoped bulk results and a retention outcome per copy."
     },
     {
       "id": "N21-C10-NEG",
       "oracle": 1,
-      "contracts": [
-        "C10",
-        "C06",
-        "C03"
-      ],
-      "operations": [
-        "removal.execute",
-        "reader.body.read"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c10/one_copy_confirmed_one_unreachable.json",
-        "workenv/contracts/examples/c10/removal_promising_one_global_outcome.json",
-        "workenv/contracts/examples/c10/cleanup_that_would_remove_a_promised_body.json",
-        "workenv/contracts/examples/c06/denied_is_not_empty.json",
-        "workenv/contracts/examples/c03/outcome_partial.json"
-      ],
       "asserts": "Restricted metadata, required old choices, a mixed-batch retry and a held or unknown removal each stay visible behind any summary."
     },
     {
       "id": "N22-E2E-POS",
       "oracle": 0,
-      "contracts": [
-        "C02",
-        "C09",
-        "C10",
-        "C03"
-      ],
-      "operations": [
-        "transfer.stage",
-        "transfer.accept",
-        "custody.acknowledge",
-        "access.transition"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c09/complete_transfer.json",
-        "workenv/contracts/examples/c10/holder_observed_everything_it_promised.json",
-        "workenv/contracts/examples/c02/lock.json",
-        "workenv/contracts/examples/c03/committed.json"
-      ],
       "asserts": "Three isolated processes under a controlled test clock and network policy run a week of offline work with real durable stores and proofs, without touching the user's clock."
     },
     {
       "id": "N22-E2E-NEG",
       "oracle": 1,
-      "contracts": [
-        "C02",
-        "C09",
-        "C10",
-        "C03"
-      ],
-      "operations": [
-        "transfer.accept",
-        "operation.query"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c09/baseline_this_installation_does_not_hold.json",
-        "workenv/contracts/examples/c02/old_handle_after_sign_out.json",
-        "workenv/contracts/examples/c03/committed.json",
-        "workenv/contracts/examples/c09/control_a_newer_one_has_superseded.json",
-        "workenv/contracts/examples/c10/the_only_copy_of_an_outbox.json"
-      ],
-      "asserts": "A missed exchange, a sign-out beside a committed write, partial restrictions, finalizer loss and its recovery each end in the exact result their records state."
+      "asserts": "A missed exchange, a sign-out beside a committed write, partial restrictions, finalizer loss and its recovery each end in the exact result their records state.",
+      "rules": [
+        "C08/continuity_follows_its_founding_or_handover"
+      ]
     },
     {
       "id": "N23-PROVIDER-POS",
       "oracle": 0,
-      "contracts": [
-        "C12",
-        "C01"
-      ],
-      "operations": [
-        "capability.probe",
-        "identity.binding.add"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c12/a_probe_that_worked.json",
-        "workenv/contracts/examples/c12/four_capabilities_qualified_one_at_a_time.json",
-        "workenv/contracts/examples/c01/external_identity_binding.json"
-      ],
       "asserts": "A configured provider callback is observed end to end on the installed candidate at the evidence level it claims."
     },
     {
       "id": "N23-PROVIDER-NEG",
       "oracle": 1,
-      "contracts": [
-        "C12"
-      ],
-      "operations": [
-        "capability.probe"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c12/support_claimed_from_the_specification_alone.json",
-        "workenv/contracts/examples/c12/a_client_that_never_offered.json"
-      ],
       "asserts": "A missing or unreachable provider is recorded as unsupported or unverified; a mocked provider certifies nothing."
     },
     {
       "id": "N23-VALIDATOR-POS",
       "oracle": 0,
-      "contracts": [
-        "C12"
-      ],
-      "operations": [
-        "capability.probe"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c12/a_real_run_that_produced_a_result.json",
-        "workenv/contracts/examples/c12/a_probe_that_worked.json"
-      ],
       "asserts": "Pinned validation runs through a real supported adapter and names the output it produced."
     },
     {
       "id": "N23-VALIDATOR-NEG",
       "oracle": 1,
-      "contracts": [
-        "C12"
-      ],
-      "operations": [
-        "capability.probe"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c12/a_fixture_offered_where_a_real_run_was_required.json",
-        "workenv/contracts/examples/c12/route_the_client_does_not_qualify.json"
-      ],
       "asserts": "A validator that is absent, partial or unsupported leaves its result unverified, never clean."
     },
     {
       "id": "N23-SECRET-POS",
       "oracle": 0,
-      "contracts": [
-        "B02",
-        "B03",
-        "C02"
-      ],
-      "operations": [
-        "access.transition"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/bindings/unlock.json",
-        "workenv/contracts/examples/bindings/storage.json",
-        "workenv/contracts/examples/c02/unlock_at_a_terminal.json"
-      ],
       "asserts": "On the installed candidate, the platform's key protection and the storage binding are observed as the bindings state."
     },
     {
       "id": "N23-SECRET-NEG",
       "oracle": 1,
-      "contracts": [
-        "B02",
-        "B03",
-        "C02"
-      ],
-      "operations": [
-        "access.transition"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/bindings/unlocking_private_key_beside_public.json",
-        "workenv/contracts/examples/bindings/unlocking_agent_not_owned_here.json",
-        "workenv/contracts/examples/bindings/committed_on_an_unencrypted_volume.json",
-        "workenv/contracts/examples/c02/unlock_with_no_terminal.json"
-      ],
       "asserts": "A missing keystore or an unobserved protection is recorded as such; a mocked key certifies no production assurance."
     },
     {
       "id": "N24-C03-POS",
       "oracle": 0,
-      "contracts": [
-        "C03"
-      ],
-      "operations": [
-        "entrance.cutover.commit",
-        "entrance.disposition.record",
-        "package.candidate.register"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c03/one_cutover_sealed_verified_and_committed_once.json",
-        "gates/workenv/entrances.jsonl",
-        "workenv/contracts/examples/c03/candidate_register_request.json"
-      ],
-      "asserts": "A fresh target install, or one explicit transfer of selected data, verifies before ownership changes; the packaged runtime, assets and tests are the ones the candidate names."
+      "asserts": "A fresh target install, or one explicit transfer of selected data, verifies before ownership changes; the packaged runtime, assets and tests are the ones the candidate names.",
+      "reads": [
+        "gates/workenv/entrances.jsonl"
+      ]
     },
     {
       "id": "N24-C03-NEG",
       "oracle": 2,
-      "contracts": [
-        "C03"
-      ],
-      "operations": [
-        "entrance.cutover.commit"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/c03/a_cutover_starting_with_an_operation_in_flight.json",
-        "workenv/contracts/examples/c03/a_cutover_verified_with_a_writer_left_unrouted.json",
-        "workenv/contracts/examples/c03/a_cutover_abortable_past_its_commit.json",
-        "workenv/contracts/examples/c03/a_cutover_that_would_commit_twice.json"
-      ],
       "asserts": "A source edit or a new outbox item between the first conversion and writer shutdown stops the switch until the final quiesced revision is captured and verified; an unfinished transfer keeps the source."
     },
     {
       "id": "N26-INSTALLED-POS",
       "oracle": 0,
-      "contracts": [
-        "C11"
-      ],
-      "operations": [
-        "surface.observe",
-        "surface.protocol.record"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/routes/first_exposure_of_the_candidate.json",
-        "workenv/contracts/examples/routes/a_trial_that_mistook_a_draft_for_publication.json"
-      ],
-      "asserts": "Actual participants perform the declared tasks on the installed package in each supported terminal, locale and input route."
+      "asserts": "Under a study_protocol recorded before any trial, actual novice and maintainer participants perform each declared task on the installed package. Every protocol cell (task, participant class, terminal, locale and input routes, including keyboard, IME, paste, SSH and screen reader wherever support is claimed) has at least its minimum_trials exposure_trials naming that protocol and task. A cell with fewer is reported missing, never averaged, and an environment no cell covers is not claimed as supported."
     },
     {
       "id": "N26-INSTALLED-NEG",
       "oracle": 1,
-      "contracts": [
-        "C11"
-      ],
-      "operations": [
-        "surface.observe"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/routes/observation_of_a_prototype.json",
-        "workenv/contracts/examples/routes/prototype_observation_that_qualifies_for_nothing.json",
-        "workenv/contracts/examples/routes/observation_qualifying_on_an_answer_the_host_generated.json"
-      ],
       "asserts": "Confusion, wrong-scope actions and recovery errors are recorded; synthetic clicks and prototypes support no usability claim."
     },
     {
       "id": "N27-C01-POS",
       "oracle": 0,
-      "contracts": [
-        "C01",
-        "C07"
-      ],
-      "operations": [
-        "source.home.register",
-        "source.revision.commit",
-        "preparation.compose"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/sources/home_of_a_repository_document.json",
-        "workenv/contracts/examples/sources/home_of_a_managed_collection.json",
-        "workenv/contracts/examples/c07/preparation_from_an_adopted_environment.json"
-      ],
       "asserts": "Within its declared source and authority scope, each source the node composes, searches or packages keeps one home, one revision owner and its repository binding."
     },
     {
       "id": "N27-C01-NEG",
       "oracle": 1,
-      "contracts": [
-        "C01",
-        "C04"
-      ],
-      "operations": [
-        "source.revision.commit",
-        "role.project"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/sources/sourcing_source_home_conflict.json",
-        "workenv/contracts/examples/sources/sourcing_publisher_bytes_modified.json",
-        "workenv/contracts/examples/c04/projection_of_a_source_this_actor_may_not_use.json"
-      ],
       "asserts": "A second home, publisher bytes edited in place and an unauthorised source are refused without changing unrelated or unaccepted state."
     },
     {
       "id": "N28-C01-POS",
       "oracle": 0,
-      "contracts": [
-        "C01",
-        "C05"
-      ],
-      "operations": [
-        "source.capture.record",
-        "memory.candidate.store"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/sources/capture_of_memory_material_submitted.json",
-        "workenv/contracts/examples/sources/capture_of_domain_material_submitted.json",
-        "workenv/contracts/examples/c03/candidate_stored.json"
-      ],
       "asserts": "In the Team slice, typed captures enter their destination's candidate path with their exact provenance, and acceptance happens only at the destination owner."
     },
     {
       "id": "N28-C01-NEG",
       "oracle": 1,
-      "contracts": [
-        "C01",
-        "C08"
-      ],
-      "operations": [
-        "source.capture.record",
-        "team.approval.record"
-      ],
-      "fixtures": [
-        "workenv/contracts/examples/sources/memory_capture_carrying_behavioural_units.json",
-        "workenv/contracts/examples/sources/provenance_accepted_without_a_receipt.json",
-        "workenv/contracts/examples/c08/team_policy_over_a_sources_own_rights.json"
-      ],
       "asserts": "A capture cannot promote itself into another role, claim acceptance without a receipt or widen a Team's authority."
     },
     {
       "id": "N27-SELECTION-NEG",
       "oracle": 1,
-      "contracts": [
-        "C01"
-      ],
-      "operations": [
-        "source.observe"
-      ],
-      "fixtures": [
-        "gates/workenv/fixtures/rules/read_within_selection.json"
-      ],
       "asserts": "Every source_observation the owner writes satisfies the rule's oracle against the selection it observed; the fixture's breaking records are what it must never write.",
-      "rule": "C01/read_within_selection"
+      "rules": [
+        "C01/read_within_selection"
+      ]
     },
     {
       "id": "N06-MODEL-NEG",
       "oracle": 1,
-      "contracts": [
-        "C04"
-      ],
-      "operations": [
-        "knowledge.member.prepare"
-      ],
-      "fixtures": [
-        "gates/workenv/fixtures/rules/relation_endpoints_are_nodes.json"
-      ],
       "asserts": "Every knowledge_model the owner writes satisfies the rule's oracle; the fixture's breaking records are what it must never write.",
-      "rule": "C04/relation_endpoints_are_nodes"
+      "rules": [
+        "C04/relation_endpoints_are_nodes"
+      ]
     },
     {
       "id": "N28-CANDIDATE-NEG",
       "oracle": 1,
-      "contracts": [
-        "C05"
-      ],
-      "operations": [
-        "memory.candidate.store"
-      ],
-      "fixtures": [
-        "gates/workenv/fixtures/rules/candidate_keeps_its_origin.json"
-      ],
-      "asserts": "Every memory_candidate the owner writes satisfies the rule's oracle against the version it replaces; the fixture's breaking records are what it must never write.",
-      "rule": "C05/candidate_keeps_its_origin"
+      "asserts": "Every memory_candidate the owner writes keeps its origin against the version it replaces, and every record it promotes from a candidate states that candidate's version; the fixtures' breaking records are what it must never write.",
+      "rules": [
+        "C05/candidate_keeps_its_origin",
+        "C05/promotion_states_its_candidate"
+      ]
     },
     {
       "id": "N09-UNITS-NEG",
       "oracle": 1,
-      "contracts": [
-        "C07"
-      ],
-      "operations": [
-        "preparation.compose"
-      ],
-      "fixtures": [
-        "gates/workenv/fixtures/rules/unit_reference_names_a_winning_unit.json"
-      ],
       "asserts": "Every preparation the owner writes satisfies the rule's oracle; the fixture's breaking records are what it must never write.",
-      "rule": "C07/unit_reference_names_a_winning_unit"
+      "rules": [
+        "C07/unit_reference_names_a_winning_unit"
+      ]
     },
     {
       "id": "N09-UNIT-GAP-NEG",
       "oracle": 1,
-      "contracts": [
-        "C07"
-      ],
-      "operations": [
-        "preparation.compose"
-      ],
-      "fixtures": [
-        "gates/workenv/fixtures/rules/gap_names_no_losing_unit.json"
-      ],
       "asserts": "Every preparation the owner writes satisfies the rule's oracle; the fixture's breaking records are what it must never write.",
-      "rule": "C07/gap_names_no_losing_unit"
+      "rules": [
+        "C07/gap_names_no_losing_unit"
+      ]
     },
     {
       "id": "N27-RIGHTS-NEG",
       "oracle": 1,
-      "contracts": [
-        "C08"
-      ],
-      "operations": [
-        "source.rights.set"
-      ],
-      "fixtures": [
-        "gates/workenv/fixtures/rules/derivative_within_base_rights.json"
-      ],
       "asserts": "Every source_rights the owner writes satisfies the rule's oracle against the rights of every base it carries; the fixture's breaking records are what it must never write.",
-      "rule": "C08/derivative_within_base_rights"
+      "rules": [
+        "C08/derivative_within_base_rights"
+      ]
     },
     {
       "id": "N21-DERIVED-NEG",
       "oracle": 1,
-      "contracts": [
-        "C10"
-      ],
-      "operations": [
-        "retention.derivations.read",
-        "removal.execute"
-      ],
-      "fixtures": [
-        "gates/workenv/fixtures/rules/removal_covers_derivatives.json"
-      ],
       "asserts": "Every removal_outcome the owner writes satisfies the rule's oracle against the derivation map of the object it removed; the fixture's breaking records are what it must never write.",
-      "rule": "C10/removal_covers_derivatives"
+      "rules": [
+        "C10/removal_covers_derivatives"
+      ]
     },
     {
       "id": "N15-ATTEMPT-NEG",
       "oracle": 1,
-      "contracts": [
-        "C11"
-      ],
-      "operations": [
-        "recipient.delivery.attempt"
-      ],
-      "fixtures": [
-        "gates/workenv/fixtures/rules/attempt_outcome_fits_its_request.json"
-      ],
       "asserts": "Every delivery_attempt the owner writes satisfies the rule's oracle; the fixture's breaking records are what it must never write.",
-      "rule": "C11/attempt_outcome_fits_its_request"
+      "rules": [
+        "C11/attempt_outcome_fits_its_request"
+      ]
     },
     {
       "id": "N23-PROBE-NEG",
       "oracle": 1,
-      "contracts": [
-        "C12"
-      ],
-      "operations": [
-        "capability.probe"
-      ],
-      "fixtures": [
-        "gates/workenv/fixtures/rules/qualified_only_by_a_real_probe.json"
-      ],
       "asserts": "Every capability_profile the owner writes satisfies the rule's oracle against the probes the store holds; the fixture's breaking records are what it must never write.",
-      "rule": "C12/qualified_only_by_a_real_probe"
+      "rules": [
+        "C12/qualified_only_by_a_real_probe"
+      ]
     },
     {
       "id": "N20-VALIDATION-NEG",
       "oracle": 1,
-      "contracts": [
-        "C12"
-      ],
-      "operations": [
-        "validation.run"
-      ],
-      "fixtures": [
-        "gates/workenv/fixtures/rules/validation_covers_its_request.json"
-      ],
       "asserts": "Every validation_run the owner writes satisfies the rule's oracle against the validation request it answers; the fixture's breaking records are what it must never write.",
-      "rule": "C12/validation_covers_its_request"
+      "rules": [
+        "C12/validation_covers_its_request"
+      ]
+    },
+    {
+      "id": "N03-ENTRANCES-NEG",
+      "oracle": 1,
+      "asserts": "Through each entrance that calls the access owner (decision_cli, decision_mcp, and a child reader started under the parent's handle), a handle issued before the access generation moved is refused with access_generation_moved and returns no body or result.",
+      "rules": [
+        "C02/admitted_only_under_a_current_handle",
+        "C02/child_handle_carries_its_parents_generation"
+      ]
+    },
+    {
+      "id": "N03-PROVIDER-OUTAGE-POS",
+      "oracle": 0,
+      "asserts": "With a provider connection configured and the provider unreachable, a device-key unlock at a terminal re-admits the principal's permitted local and offline scope. Only operations that need fresh provider evidence are refused, with provider_unreachable or fresh_auth_required."
+    },
+    {
+      "id": "N03-SECRET-NEG",
+      "oracle": 1,
+      "asserts": "An unlock or signing layout whose public key has its private half beside it is refused with private_key_beside_public, and a signing agent the runtime does not own is refused with agent_not_owned_here; after a lock, a signature is refused with access_locked and no passphrase prompt occurs outside access.transition."
+    },
+    {
+      "id": "N04-ACTIVATION-NEG",
+      "oracle": 1,
+      "asserts": "A session whose preparation only selected the memory source, with no session.routing.activate, is recorded as selected only and receives no usage contract; no routing adds to the always surface or writes a native global file, and no observation claims an inactive or plain session."
+    },
+    {
+      "id": "N04-ACTIVATION-POS",
+      "oracle": 0,
+      "asserts": "session.routing.activate naming a preparation with zero business Instructions returns an activated session_routing whose projections is empty and whose memory_usage carries the runtime-written usage-contract text and a reachable guide pointer; always_surface is unchanged or reduced and native_files is preserved."
+    },
+    {
+      "id": "N04-ROUTER-NEG",
+      "oracle": 1,
+      "asserts": "A hook reply is recorded as hook_generated and admits no use; a delivery_observation names only the managed session it observed and claims no coverage of an unmanaged or raw-text use."
+    },
+    {
+      "id": "N04-ROUTER-POS",
+      "oracle": 0,
+      "asserts": "session.routing.activate for a session whose preparation selected the recognition router returns a session_routing whose projections carry the router's compact body with a reachable guide; with hooks absent, memory.use.prepare still admits or holds a conflicting use by the owner's rule."
+    },
+    {
+      "id": "N05-AVAILABLE-NEG",
+      "oracle": 1,
+      "asserts": "An object that is staged or received (transfer_stage_record stage exported or received, or members written without a receipt) is readable locally but is never reported accepted or committed; only a receipt from the owning authority moves it to accepted."
+    },
+    {
+      "id": "N05-CRASH-NEG",
+      "oracle": 1,
+      "asserts": "With the process killed at each B03 FAULT_POINT during a source.revision.commit, after restart the head is either the prior head with no receipt or the new head with its receipt, never staged members counted as committed; an unknown outcome is settled by operation.query of the same id, and the same id with other bytes is request_id_conflict."
+    },
+    {
+      "id": "N05-LINEAGE-NEG",
+      "oracle": 1,
+      "asserts": "A commit whose expected base is no longer the head is stale_base, and a transfer.accept carrying a second authority_continuity successor of one predecessor is refused with fork_evidence; neither successor becomes the head."
+    },
+    {
+      "id": "N05-RESTART-POS",
+      "oracle": 0,
+      "asserts": "A source.revision.commit and its operation_receipt survive killing and restarting the process; operation.query by the same request_id afterwards returns the original result and the receipt naming that request_digest and head."
+    },
+    {
+      "id": "N05-WAIT-POS",
+      "oracle": 0,
+      "asserts": "While a memory.use.prepare result is pending_user with its question stored, an independent source.revision.commit and memory.record.publish on the same store commit with receipts before any answer arrives; after a restart the same question_id and use_id are still pending."
+    },
+    {
+      "id": "N07-PROOF-NEG",
+      "oracle": 1,
+      "asserts": "A state_proof that does not verify, is older than the newest verified proof shown for that source, or concerns another subject or audience leaves the entry unresolved with state_proof_invalid, state_proof_stale or state_proof_out_of_scope; no entry becomes current from it."
+    },
+    {
+      "id": "N07-PROOF-POS",
+      "oracle": 1,
+      "asserts": "Where the records behind a correction are restricted, memory.state.resolve with a verified state_proof issued by their authority for this audience and question reports the proof's reduced state for that entry and names what it withholds, disclosing none of the restricted records.",
+      "rules": [
+        "C05/proof_answers_its_request"
+      ]
+    },
+    {
+      "id": "N08-INSPECT-NEG",
+      "oracle": 1,
+      "asserts": "A reader.body.read inspection returns history and alternatives with no admitted use; offering its result as a use is refused with use_not_admitted."
+    },
+    {
+      "id": "N08-PENDING-NEG",
+      "oracle": 1,
+      "asserts": "With no qualified reply route, memory.use.prepare on a conflicting use returns pending_user naming its stored question and use, never a chosen alternative; a reader.use.resume whose answer_evidence origin is a non-answer leaves it pending, and a reader.body.read of an unrelated source completes while it waits."
+    },
+    {
+      "id": "N09-FIRSTUSE-POS",
+      "oracle": 0,
+      "asserts": "A principal created at first use with no Team founds a Team through team.found; the founding's membership and grant records name that same principal_id, and preparations composed before and after name it with no new or synthetic id.",
+      "rules": [
+        "C08/founding_standing_names_its_founding",
+        "C08/continuity_follows_its_founding_or_handover"
+      ]
+    },
+    {
+      "id": "N11-ACCESS-NEG",
+      "oracle": 1,
+      "asserts": "A team.approval.record or team.grant.change submitted under an access generation that has since moved, or by an actor whose credential a recorded control revoked, is refused at the owner with access_generation_moved or credential_revoked, and nothing is committed."
+    },
+    {
+      "id": "N11-CEILING-NEG",
+      "oracle": 0,
+      "asserts": "A grant beyond the scope, actions or depth its parent allows is refused with delegation_ceiling_exceeded, and a Team policy applied over a source owner's rights is refused with source_right_not_overridable; nothing is committed."
+    },
+    {
+      "id": "N11-GROUP-NEG",
+      "oracle": 1,
+      "asserts": "Adding a principal to a group nobody delegated is group_membership_escalation; a principal removed from an approved set, or whose claim is not from the delegated connection, is refused with grant_not_held even where an older member list names them."
+    },
+    {
+      "id": "N11-GROUP-POS",
+      "oracle": 0,
+      "asserts": "A group grant whose membership is an approved_set with current evidence lets each listed member act within the grant; one whose membership is provider_delegation to a named connection admits a verified claim from that connection only."
+    },
+    {
+      "id": "N12-POLICY-POS",
+      "oracle": 0,
+      "asserts": "environment.publish stores an edition whose memory_policy and exact Instructions and knowledge pins read back byte-identical; preparation.compose from its adoption applies that policy and carries no memory record from the edition."
+    },
+    {
+      "id": "N12-READINESS-NEG",
+      "oracle": 1,
+      "asserts": "An environment.adopt that commits for a Team leaves every existing recipient's preparation and delivery unchanged; a preparation composed from it names the adoption, but no delivery_observation exists for any recipient until one is activated, and adoption evidence never stands for delivery."
+    },
+    {
+      "id": "N13-RESUME-POS",
+      "oracle": 0,
+      "asserts": "After a transfer.accept interrupted at its body stage, accepting the same envelope again keeps the controls already verified in force, reuses bodies already verified, and completes to accepted with one receipt."
+    },
+    {
+      "id": "N16-CAPABILITY-NEG",
+      "oracle": 1,
+      "asserts": "A route whose operation this client does not implement is offered as not qualified (not_offered) or answered with an unsupported route and its reason. No frame marks it complete or dispatches a request for it, from the visible control or from a direct submission."
+    },
+    {
+      "id": "N16-CAPABILITY-POS",
+      "oracle": 0,
+      "asserts": "Every Team or advanced view the client implements is reached from the same shell through route.offer and route.select, and each offered route carries the qualification its capability_profile probe gave it."
+    },
+    {
+      "id": "N16-DASHBOARD-POS",
+      "oracle": 0,
+      "asserts": "The dashboard shows each signal for a failed, partial or unknown operation with the coverage it was computed over, and never shows zero for scopes it could not check. Following a signal opens that same request_id in its own Team scope with the recovery its history entry names, and starts no new request."
+    },
+    {
+      "id": "N16-ENTRANCES-POS",
+      "oracle": 0,
+      "asserts": "The entry flow driven from studio_hub, host_launcher and setup each reaches one start action whose route_selection names that entrance's own scope. The environment choice and the tool/execution choice are separate elements, and selecting one never changes the other's value."
+    },
+    {
+      "id": "N16-HOME-POS",
+      "oracle": 0,
+      "asserts": "A source's authoring view shows its authoring home, revision owner, home scope, applicability scope and provenance origin as distinct elements referring to one source_id. An effective or derived view is never shown as the home."
+    },
+    {
+      "id": "N16-PENDING-VIEW-NEG",
+      "oracle": 1,
+      "asserts": "While a use waits on a person's answer, the Studio/TUI shows it as pending and offers only source inspection. No frame calls reader.question.answer, recipient.answer.record or memory.preference.record, and the use resumes in the working host without the surface being opened."
+    },
+    {
+      "id": "N17-DISCONNECT-NEG",
+      "oracle": 1,
+      "asserts": "A carrier.disconnect or carrier.provision interrupted before its result is durable is settled after restart by operation.query of the same request. The binding ends bound, partial (naming what exists), disconnected or in doubt, never half-written; the repository and credential are kept, and other Teams' bindings are unchanged."
+    },
+    {
+      "id": "N17-IDENTITY-NEG",
+      "oracle": 1,
+      "asserts": "A provisioning whose provider-reported repository identity does not match the binding's repository is not recorded as provisioned, and no object is written through that binding.",
+      "rules": [
+        "C09/provisioned_against_its_binding"
+      ]
+    },
+    {
+      "id": "N18-EXCHANGE-NEG",
+      "oracle": 1,
+      "asserts": "The provider secret and token exchange stay at the connection's declared exchange location. No provider_connection, sign_in_evidence, client-visible record or staged transfer package carries a secret or token."
+    },
+    {
+      "id": "N19-BOOTSTRAP-NEG",
+      "oracle": 1,
+      "asserts": "After a founding is cancelled or committed, a late acceptance, a resubmitted proposal or a new founding for the same team_id is refused (team_terminal, bootstrap_already_committed or acceptances_void_after_revision) and grants nothing."
+    },
+    {
+      "id": "N19-COPY-NEG",
+      "oracle": 1,
+      "asserts": "A derived founding that selects a source whose source_rights do not allow derive is refused and founds nothing; the original Team is unchanged."
+    },
+    {
+      "id": "N19-COPY-POS",
+      "oracle": 0,
+      "asserts": "A founding with derived_from gets a new team_id and starts with only the sources and settings its derivation selects. No member, grant, credential, approval or history of the original Team is present afterwards."
+    },
+    {
+      "id": "N19-CRUD-POS",
+      "oracle": 0,
+      "asserts": "A Team founded by team.found is read back by team.state.read, renamed by team.profile.set keeping its team_id, and closed by team.lifecycle.apply. The read after each step shows exactly that step's change under its own receipt."
+    },
+    {
+      "id": "N19-EVIDENCE-NEG",
+      "oracle": 1,
+      "asserts": "After recover_evidence on a closed Team, any ordinary mutation, adoption or new work on that team_id is refused with team_terminal or resurrection_refused, and no team_state other than closed is written."
+    },
+    {
+      "id": "N19-EVIDENCE-POS",
+      "oracle": 0,
+      "asserts": "On a closed Team, recover_evidence with purpose read, preserve or clean_up acts only on the named evidence digests, and team_state stays closed afterwards."
+    },
+    {
+      "id": "N19-TRANSFER-NEG",
+      "oracle": 1,
+      "asserts": "Handing away the last holder of a required duty with no recipient, or retiring a device with an unsettled unique item, is refused (last_owner_removal_refused, unique_outbox_at_risk or succession_incomplete) and changes nothing."
+    },
+    {
+      "id": "N19-TRANSFER-POS",
+      "oracle": 0,
+      "asserts": "team.stewardship.transfer hands one duty to another principal and names where finalization runs next. team.device.retire settles each unique draft, outbox entry and unknown operation one named way before the device leaves, and neither removes a duty nor revokes other credentials."
+    },
+    {
+      "id": "N20-GRAPH-TABLE-POS",
+      "oracle": 0,
+      "asserts": "Every node and relation of a knowledge_model the editor shows as a graph also appears as keyboard-reachable surface elements carrying the same node ids and relation endpoints. An edit made there produces the same versioned model as the graph edit."
+    },
+    {
+      "id": "N20-READER-POS",
+      "oracle": 0,
+      "asserts": "The editor loads the bodies it edits through reader.body.read with role_view contributor, and the revision it saves names as its base the frontier that read returned."
+    },
+    {
+      "id": "N21-HISTORY-POS",
+      "oracle": 0,
+      "asserts": "With history excluded, the scoped search returns only current units and the state resolution each entry's current standing, a withdrawal included. With history included, the search also returns superseded and withdrawn units and the resolution the entries they superseded, each marked with its standing; neither run widens the scope.",
+      "rules": [
+        "C06/history_only_when_asked"
+      ]
+    },
+    {
+      "id": "N22-OUTBOX-POS",
+      "oracle": 1,
+      "asserts": "A transfer staged (stage exported) before the sending process is killed is still staged after restart under the same envelope digest and is sent once the peer is reachable; the receiver's transfer.accept of a resend of that envelope changes nothing."
+    },
+    {
+      "id": "N24-CANDIDATE-NEG",
+      "oracle": 1,
+      "asserts": "A cutover whose candidate_digest names no registered package_candidate, or whose candidate's tarball or a member differs from the registered bytes, is refused (object_digest_mismatch where bytes differ) and nothing is installed or switched."
+    },
+    {
+      "id": "N24-CANDIDATE-POS",
+      "oracle": 1,
+      "asserts": "package.candidate.register for the built tarball records its digest and one member per packed file. Each member names the source path at source_commit it was copied from or that it was made at pack time, and rebuilding the same commit gives the same tarball digest."
+    },
+    {
+      "id": "N24-CLOSURE-NEG",
+      "oracle": 1,
+      "asserts": "A candidate that lacks a runtime path the installer or assembler reaches, carries an author-side file, or lists a member with neither a source path nor a pack-time origin fails by that path's name. Building and checking the candidate leaves the source checkout and the user's installed state byte-identical.",
+      "rules": [
+        "C03/reached_paths_are_members"
+      ]
+    },
+    {
+      "id": "N24-RECOVERY-POS",
+      "oracle": 1,
+      "asserts": "After the cutover commits and the target then commits a control change (a grant revoked), recovering the target from a backup the target took after that change keeps the revocation in force, and each request id the backup covers answers its original result and receipt; no retired route becomes a writer again: a disposition giving a retired route reach, or a request proved by a handle issued through it, is refused with route_retired."
+    },
+    {
+      "id": "N24-WRITERS-NEG",
+      "oracle": 1,
+      "asserts": "A cutover plan that starts with an operation in flight, seals fewer than all three owners, is verified with a writer left unrouted, or drops an operation the old runtime left unknown commits nothing, and state ownership stays with the source."
+    },
+    {
+      "id": "N27-ADR-POS",
+      "oracle": 0,
+      "asserts": "A repository ADR read by source.observe and published by memory.record.publish yields a choice_record whose source is the repository home and whose manifest member digest equals the observed Markdown bytes; memory.state.resolve names that source for the entry."
+    },
+    {
+      "id": "N27-IMPORT-POS",
+      "oracle": 0,
+      "asserts": "source.revision.admit with an import_external_route records the external package as a knowledge source with its own home, its exact manifest and provenance naming the package; the result adopts nothing for a Team and ranks it above no existing layer."
+    },
+    {
+      "id": "N27-PACKAGE-POS",
+      "oracle": 0,
+      "asserts": "The knowledge package shipped in the product installs through add_published_route and resolves to its exact manifest and member bytes; its provenance states its content-review claims as claims, and no Team adoption or priority results."
+    },
+    {
+      "id": "N28-NO-TEAM-POS",
+      "oracle": 0,
+      "asserts": "On a profile with no Team, provider connection or carrier binding, capturing a selected local transcript range yields a typed capture and candidate whose destination_source_id is the one requested. No network, sign-in or Team operation is called."
+    },
+    {
+      "id": "N28-PRODUCER-POS",
+      "oracle": 0,
+      "asserts": "Each producer adapter run on a fixed selected input records an extraction_run naming the adapter and the inputs it loaded. Its captures keep each decision's date, condition and stated reason as in the input, and list a reason the input lacks under unrecorded.",
+      "rules": [
+        "C01/input_within_its_root"
+      ]
+    },
+    {
+      "id": "N28-REJECT-POS",
+      "oracle": 0,
+      "asserts": "A rejected memory_candidate keeps every version with its origin, and both compared versions remain readable. No destination receipt, choice_record or lifecycle_event is written for it."
     }
   ],
   "selects": [
@@ -2849,7 +1056,9 @@
         "N02-C01-POS",
         "N02-C01-NEG",
         "N03-C02-POS",
-        "N03-C02-NEG"
+        "N03-C02-NEG",
+        "N03-ENTRANCES-NEG",
+        "N03-SECRET-NEG"
       ]
     },
     {
@@ -2857,7 +1066,12 @@
       "cases": [
         "N01-STORE-POS",
         "N01-STORE-NEG",
-        "N27-SELECTION-NEG"
+        "N27-SELECTION-NEG",
+        "N05-AVAILABLE-NEG",
+        "N05-CRASH-NEG",
+        "N05-LINEAGE-NEG",
+        "N05-RESTART-POS",
+        "N05-WAIT-POS"
       ]
     },
     {
@@ -2868,7 +1082,10 @@
         "N08-C06-POS",
         "N08-C06-NEG",
         "N08-READER-GAP-NEG",
-        "N06-MODEL-NEG"
+        "N06-MODEL-NEG",
+        "N27-IMPORT-POS",
+        "N27-PACKAGE-POS",
+        "SRC-05"
       ]
     },
     {
@@ -2882,7 +1099,10 @@
         "N08-C06-POS",
         "N08-C06-NEG",
         "N08-READER-GAP-NEG",
-        "N28-CANDIDATE-NEG"
+        "N28-CANDIDATE-NEG",
+        "N07-PROOF-NEG",
+        "N07-PROOF-POS",
+        "N27-ADR-POS"
       ]
     },
     {
@@ -2895,7 +1115,13 @@
         "N09-C07-POS",
         "N09-C07-NEG",
         "N09-UNITS-NEG",
-        "N09-UNIT-GAP-NEG"
+        "N09-UNIT-GAP-NEG",
+        "N04-ACTIVATION-NEG",
+        "N04-ACTIVATION-POS",
+        "N04-ROUTER-NEG",
+        "N04-ROUTER-POS",
+        "N08-INSPECT-NEG",
+        "N08-PENDING-NEG"
       ]
     },
     {
@@ -2906,7 +1132,11 @@
         "N10-C08-POS",
         "N10-C08-NEG",
         "N11-C08-POS",
-        "N11-C08-NEG"
+        "N11-C08-NEG",
+        "N11-ACCESS-NEG",
+        "N11-CEILING-NEG",
+        "N11-GROUP-NEG",
+        "N11-GROUP-POS"
       ]
     },
     {
@@ -2920,7 +1150,10 @@
         "N12-C07-NEG",
         "N27-C01-POS",
         "N27-C01-NEG",
-        "N27-RIGHTS-NEG"
+        "N27-RIGHTS-NEG",
+        "N09-FIRSTUSE-POS",
+        "N12-POLICY-POS",
+        "N12-READINESS-NEG"
       ]
     },
     {
@@ -2931,14 +1164,21 @@
         "N14-C10-POS",
         "N14-C10-NEG",
         "N22-E2E-POS",
-        "N22-E2E-NEG"
+        "N22-E2E-NEG",
+        "N13-RESUME-POS",
+        "N22-OUTBOX-POS"
       ]
     },
     {
       "profile": "P10",
       "cases": [
         "N04-C03-POS",
-        "N04-C03-NEG"
+        "N04-C03-NEG",
+        "N15-C11-POS",
+        "N15-C11-NEG",
+        "N15-ANSWER-NEG",
+        "N23-PROBE-NEG",
+        "DEL-PERSONAL"
       ]
     },
     {
@@ -2952,7 +1192,11 @@
         "N15-C11-POS",
         "N15-C11-NEG",
         "N15-ANSWER-NEG",
-        "N15-ATTEMPT-NEG"
+        "N15-ATTEMPT-NEG",
+        "N16-CAPABILITY-NEG",
+        "N16-CAPABILITY-POS",
+        "N16-ENTRANCES-POS",
+        "N16-PENDING-VIEW-NEG"
       ]
     },
     {
@@ -2963,7 +1207,9 @@
         "N14-C10-POS",
         "N14-C10-NEG",
         "N17-C09-POS",
-        "N17-C09-NEG"
+        "N17-C09-NEG",
+        "N17-DISCONNECT-NEG",
+        "N17-IDENTITY-NEG"
       ]
     },
     {
@@ -2980,7 +1226,9 @@
         "N18-C01-NEG",
         "N23-PROVIDER-POS",
         "N23-PROVIDER-NEG",
-        "N23-PROBE-NEG"
+        "N23-PROBE-NEG",
+        "N03-PROVIDER-OUTAGE-POS",
+        "N18-EXCHANGE-NEG"
       ]
     },
     {
@@ -2991,7 +1239,15 @@
         "N14-C10-POS",
         "N14-C10-NEG",
         "N19-C08-POS",
-        "N19-C08-NEG"
+        "N19-C08-NEG",
+        "N19-BOOTSTRAP-NEG",
+        "N19-COPY-NEG",
+        "N19-COPY-POS",
+        "N19-CRUD-POS",
+        "N19-EVIDENCE-NEG",
+        "N19-EVIDENCE-POS",
+        "N19-TRANSFER-NEG",
+        "N19-TRANSFER-POS"
       ]
     },
     {
@@ -3008,7 +1264,12 @@
         "N23-VALIDATOR-POS",
         "N23-VALIDATOR-NEG",
         "N06-MODEL-NEG",
-        "N20-VALIDATION-NEG"
+        "N20-VALIDATION-NEG",
+        "N16-HOME-POS",
+        "N20-GRAPH-TABLE-POS",
+        "N20-READER-POS",
+        "N28-REJECT-POS",
+        "N28-CANDIDATE-NEG"
       ]
     },
     {
@@ -3024,7 +1285,9 @@
         "N21-C10-NEG",
         "N27-C01-POS",
         "N27-C01-NEG",
-        "N21-DERIVED-NEG"
+        "N21-DERIVED-NEG",
+        "N16-DASHBOARD-POS",
+        "N21-HISTORY-POS"
       ]
     },
     {
@@ -3053,7 +1316,9 @@
       "profile": "P18",
       "cases": [
         "N24-C03-POS",
-        "N24-C03-NEG"
+        "N24-C03-NEG",
+        "N24-CANDIDATE-POS",
+        "N24-CLOSURE-NEG"
       ]
     },
     {
@@ -3064,7 +1329,10 @@
         "N08-C06-POS",
         "N08-C06-NEG",
         "N09-C07-POS",
-        "N09-C07-NEG"
+        "N09-C07-NEG",
+        "N28-NO-TEAM-POS",
+        "N28-PRODUCER-POS",
+        "N28-CANDIDATE-NEG"
       ]
     },
     {
@@ -3075,7 +1343,8 @@
         "N03-C02-POS",
         "N03-C02-NEG",
         "N04-C03-POS",
-        "N04-C03-NEG"
+        "N04-C03-NEG",
+        "N27-C01-POS"
       ]
     },
     {
@@ -3107,7 +1376,13 @@
         "N20-C04-POS",
         "N20-C04-NEG",
         "N21-C10-POS",
-        "N21-C10-NEG"
+        "N21-C10-NEG",
+        "N16-C12-POS",
+        "N16-C12-NEG",
+        "N23-PROVIDER-POS",
+        "N23-PROVIDER-NEG",
+        "N23-VALIDATOR-POS",
+        "N23-VALIDATOR-NEG"
       ]
     },
     {
@@ -3122,7 +1397,774 @@
         "N26-INSTALLED-POS",
         "N26-INSTALLED-NEG",
         "N27-C01-POS",
-        "N27-C01-NEG"
+        "N27-C01-NEG",
+        "N24-CANDIDATE-NEG",
+        "N24-RECOVERY-POS",
+        "N24-WRITERS-NEG"
+      ]
+    }
+  ],
+  "covers": [
+    {
+      "profile": "P01",
+      "done_when": [
+        [
+          "P01-contract-positive",
+          "P01-contract-negative"
+        ],
+        [
+          "P01-contract-positive",
+          "P01-contract-negative"
+        ],
+        [
+          "P01-contract-positive",
+          "P01-contract-negative"
+        ],
+        [
+          "P01-contract-positive",
+          "P01-contract-negative"
+        ],
+        [
+          "P01-contract-positive",
+          "P01-contract-negative"
+        ],
+        [
+          "P01-contract-positive",
+          "P01-contract-negative"
+        ],
+        [
+          "P01-contract-positive",
+          "P01-contract-negative"
+        ],
+        [
+          "P01-contract-positive",
+          "P01-contract-negative"
+        ]
+      ],
+      "elsewhere": [
+        {
+          "contract": "C01",
+          "reason": "P01 freezes the contracts; its bootstrap cases run the contract suite over every module"
+        },
+        {
+          "contract": "C02",
+          "reason": "P01 freezes the contracts; its bootstrap cases run the contract suite over every module"
+        },
+        {
+          "contract": "C03",
+          "reason": "P01 freezes the contracts; its bootstrap cases run the contract suite over every module"
+        },
+        {
+          "contract": "C04",
+          "reason": "P01 freezes the contracts; its bootstrap cases run the contract suite over every module"
+        },
+        {
+          "contract": "C05",
+          "reason": "P01 freezes the contracts; its bootstrap cases run the contract suite over every module"
+        },
+        {
+          "contract": "C06",
+          "reason": "P01 freezes the contracts; its bootstrap cases run the contract suite over every module"
+        },
+        {
+          "contract": "C07",
+          "reason": "P01 freezes the contracts; its bootstrap cases run the contract suite over every module"
+        },
+        {
+          "contract": "C08",
+          "reason": "P01 freezes the contracts; its bootstrap cases run the contract suite over every module"
+        },
+        {
+          "contract": "C09",
+          "reason": "P01 freezes the contracts; its bootstrap cases run the contract suite over every module"
+        },
+        {
+          "contract": "C10",
+          "reason": "P01 freezes the contracts; its bootstrap cases run the contract suite over every module"
+        },
+        {
+          "contract": "C11",
+          "reason": "P01 freezes the contracts; its bootstrap cases run the contract suite over every module"
+        },
+        {
+          "contract": "C12",
+          "reason": "P01 freezes the contracts; its bootstrap cases run the contract suite over every module"
+        }
+      ]
+    },
+    {
+      "profile": "P02",
+      "done_when": [
+        [
+          "N02-C01-POS",
+          "N03-C02-POS",
+          "N03-C02-NEG"
+        ],
+        [
+          "N03-C02-NEG",
+          "N03-C02-POS",
+          "N03-SECRET-NEG",
+          "N03-ENTRANCES-NEG"
+        ]
+      ]
+    },
+    {
+      "profile": "P03",
+      "done_when": [
+        [
+          "N01-STORE-POS",
+          "N01-STORE-NEG",
+          "BKP-RESTORE",
+          "N05-RESTART-POS"
+        ],
+        [
+          "SRC-10",
+          "N05-RESTART-POS",
+          "N05-CRASH-NEG",
+          "N05-LINEAGE-NEG",
+          "N05-AVAILABLE-NEG"
+        ],
+        [
+          "N01-STORE-POS",
+          "N01-STORE-NEG",
+          "SRC-09",
+          "SRC-10",
+          "BKP-INTEGRITY",
+          "N05-CRASH-NEG"
+        ],
+        [
+          "BKP-RESTORE",
+          "BKP-INTEGRITY",
+          "BKP-COVERAGE",
+          "BKP-PASSIVE"
+        ],
+        [
+          "CMP-STORAGE",
+          "SRC-09"
+        ],
+        [
+          "DC-DURABLE"
+        ],
+        [
+          "DC-DURABLE",
+          "N05-WAIT-POS"
+        ]
+      ]
+    },
+    {
+      "profile": "P04",
+      "done_when": [
+        [
+          "N06-C04-POS",
+          "N06-C04-NEG",
+          "N06-MODEL-NEG"
+        ],
+        [
+          "N06-C04-POS",
+          "N08-C06-POS",
+          "N08-C06-NEG",
+          "N08-READER-GAP-NEG"
+        ],
+        [
+          "SRC-04",
+          "SRC-05",
+          "N27-IMPORT-POS",
+          "N27-PACKAGE-POS"
+        ]
+      ]
+    },
+    {
+      "profile": "P05",
+      "done_when": [
+        [
+          "N07-C05-POS",
+          "N07-C05-NEG",
+          "DC-SET",
+          "N07-STATE-SOURCE-NEG"
+        ],
+        [
+          "N07-C05-NEG",
+          "N07-STATE-GAP-NEG",
+          "N07-PROOF-POS",
+          "N07-PROOF-NEG"
+        ],
+        [
+          "SRC-09",
+          "SRC-11",
+          "CAP-06",
+          "SRC-04",
+          "N27-ADR-POS"
+        ],
+        [
+          "DC-SET",
+          "N07-PREFERENCE-NEG"
+        ]
+      ]
+    },
+    {
+      "profile": "P06",
+      "done_when": [
+        [
+          "N09-C07-POS",
+          "SRC-03",
+          "CAP-08",
+          "SRC-01"
+        ],
+        [
+          "N09-C07-NEG",
+          "N04-C03-NEG"
+        ],
+        [
+          "CMP-ORDER",
+          "SRC-12",
+          "DC-CHOICE",
+          "CAP-08",
+          "CMP-QUALIFIED",
+          "SRC-07"
+        ],
+        [
+          "CMP-ORDER",
+          "CMP-SELECT",
+          "CMP-LOCAL",
+          "N09-UNIT-GAP-NEG",
+          "N09-UNITS-NEG",
+          "N04-C03-NEG"
+        ],
+        [
+          "DC-CHOICE",
+          "DC-KEEP",
+          "DC-ASK",
+          "DC-CHANGE",
+          "DC-RACE"
+        ],
+        [
+          "DC-CHOICE",
+          "DC-ASK",
+          "DC-RACE",
+          "N08-INSPECT-NEG",
+          "N08-PENDING-NEG"
+        ],
+        [
+          "N04-ROUTER-POS",
+          "N04-ROUTER-NEG"
+        ],
+        [
+          "N04-ACTIVATION-POS",
+          "N04-ACTIVATION-NEG"
+        ]
+      ]
+    },
+    {
+      "profile": "P07",
+      "done_when": [
+        [
+          "N10-C08-POS",
+          "N10-C08-NEG",
+          "N11-C08-POS",
+          "N11-C08-NEG",
+          "N11-GROUP-POS",
+          "N11-GROUP-NEG",
+          "N11-ACCESS-NEG"
+        ],
+        [
+          "N05-CONTROL-POS",
+          "N05-CONTROL-NEG",
+          "N11-CEILING-NEG"
+        ]
+      ]
+    },
+    {
+      "profile": "P08",
+      "done_when": [
+        [
+          "N12-C07-POS",
+          "N12-C07-NEG",
+          "N27-RIGHTS-NEG",
+          "N27-C01-NEG",
+          "N12-POLICY-POS"
+        ],
+        [
+          "N12-C07-POS",
+          "N11-C08-POS",
+          "N12-READINESS-NEG",
+          "N09-FIRSTUSE-POS"
+        ]
+      ]
+    },
+    {
+      "profile": "P09",
+      "done_when": [
+        [
+          "N13-C09-POS",
+          "N14-C10-POS",
+          "N22-OUTBOX-POS"
+        ],
+        [
+          "N13-C09-NEG",
+          "N13-C09-POS",
+          "N14-C10-NEG",
+          "N22-E2E-NEG",
+          "N13-RESUME-POS"
+        ]
+      ]
+    },
+    {
+      "profile": "P10",
+      "done_when": [
+        [
+          "CMP-PINS",
+          "DH-REACH",
+          "N15-C11-POS",
+          "DEL-PERSONAL"
+        ],
+        [
+          "N04-C03-POS",
+          "N04-C03-NEG",
+          "DH-FORM",
+          "DH-CONVERSATION",
+          "N15-C11-NEG",
+          "N23-PROBE-NEG"
+        ],
+        [
+          "DC-HOST",
+          "DH-FORM",
+          "DH-CONVERSATION",
+          "DH-REVALIDATE",
+          "N15-ANSWER-NEG"
+        ],
+        [
+          "DH-FORM",
+          "DH-CONVERSATION",
+          "DH-PENDING",
+          "DH-REACH",
+          "DC-HOST",
+          "N23-PROBE-NEG"
+        ]
+      ]
+    },
+    {
+      "profile": "P11",
+      "done_when": [
+        [
+          "TUI-ENTRY-ACCOUNT-FREE",
+          "N09-C07-POS",
+          "N15-C11-POS",
+          "N03-C02-POS",
+          "N03-C02-NEG",
+          "TUI-ENTRY-LOCKED"
+        ],
+        [
+          "N16-CAPABILITY-POS",
+          "N16-CAPABILITY-NEG"
+        ],
+        [
+          "TUI-ENTRY-OPTIONS",
+          "TUI-ENTRY-FOCUS",
+          "TUI-ENTRY-STATE",
+          "N16-ENTRANCES-POS"
+        ],
+        [
+          "TUI-ENTRY-FOCUS",
+          "TUI-ENTRY-STATE",
+          "TUI-ENTRY-80X24",
+          "TUI-ENTRY-KO-STATE",
+          "TUI-ENTRY-OPTIONS",
+          "RUN-OWNERSHIP"
+        ],
+        [
+          "TUI-ENTRY-REPO-NO-ENV",
+          "TUI-ENTRY-STATE",
+          "TUI-ENTRY-ACCOUNT-FREE"
+        ],
+        [
+          "TUI-ENTRY-OPTIONS",
+          "TUI-ENTRY-UNKNOWN"
+        ],
+        [
+          "CMP-UI"
+        ],
+        [
+          "CMP-UI",
+          "N16-PENDING-VIEW-NEG"
+        ]
+      ]
+    },
+    {
+      "profile": "P12",
+      "done_when": [
+        [
+          "N17-C09-POS",
+          "N17-C09-NEG",
+          "N17-IDENTITY-NEG"
+        ],
+        [
+          "N14-C10-POS",
+          "N17-C09-POS",
+          "N17-C09-NEG",
+          "N17-DISCONNECT-NEG"
+        ]
+      ]
+    },
+    {
+      "profile": "P13",
+      "done_when": [
+        [
+          "N18-C01-POS",
+          "N18-C01-NEG",
+          "N10-PROVIDER-POS",
+          "N23-PROVIDER-POS",
+          "N23-PROBE-NEG",
+          "N18-EXCHANGE-NEG"
+        ],
+        [
+          "N18-C01-NEG",
+          "N10-PROVIDER-NEG",
+          "N03-PROVIDER-NEG",
+          "N03-PROVIDER-OUTAGE-POS"
+        ]
+      ]
+    },
+    {
+      "profile": "P14",
+      "done_when": [
+        [
+          "N19-C08-POS",
+          "N19-CRUD-POS",
+          "N19-COPY-POS",
+          "N19-COPY-NEG",
+          "N19-TRANSFER-POS",
+          "N19-TRANSFER-NEG",
+          "N19-EVIDENCE-POS"
+        ],
+        [
+          "N19-C08-POS",
+          "N19-C08-NEG",
+          "N14-C10-NEG",
+          "N19-BOOTSTRAP-NEG",
+          "N19-EVIDENCE-NEG"
+        ]
+      ]
+    },
+    {
+      "profile": "P15",
+      "done_when": [
+        [
+          "N20-C04-POS",
+          "N20-C04-NEG",
+          "N06-MODEL-NEG",
+          "N07-C05-POS",
+          "CAP-07",
+          "N20-READER-POS"
+        ],
+        [
+          "N23-VALIDATOR-POS",
+          "N23-VALIDATOR-NEG",
+          "N20-VALIDATION-NEG",
+          "N20-C04-NEG",
+          "N20-GRAPH-TABLE-POS"
+        ],
+        [
+          "CAP-04",
+          "CAP-07",
+          "CAP-11",
+          "N28-CANDIDATE-NEG",
+          "N16-HOME-POS",
+          "N28-REJECT-POS"
+        ]
+      ]
+    },
+    {
+      "profile": "P16",
+      "done_when": [
+        [
+          "N21-C10-POS",
+          "N21-C10-NEG",
+          "N21-DERIVED-NEG",
+          "CAP-12",
+          "N13-C09-POS",
+          "N13-C09-NEG",
+          "N27-C01-POS",
+          "N21-HISTORY-POS"
+        ],
+        [
+          "N16-DASHBOARD-POS"
+        ]
+      ]
+    },
+    {
+      "profile": "P17",
+      "done_when": [
+        [
+          "DEL-TEAM",
+          "N22-E2E-POS",
+          "N22-E2E-NEG",
+          "RUN-DEPENDENCIES"
+        ],
+        [
+          "RUN-DEPENDENCIES",
+          "RUN-OWNERSHIP"
+        ],
+        [
+          "TUI-OBS-ENTRY-COMPREHENSION",
+          "TUI-OBS-KOREAN-TERMINAL"
+        ],
+        [
+          "DH-FORM",
+          "DH-CONVERSATION",
+          "DH-PENDING",
+          "DC-HOST",
+          "DH-REVALIDATE",
+          "DH-REACH"
+        ]
+      ]
+    },
+    {
+      "profile": "P18",
+      "done_when": [
+        [
+          "N24-C03-POS",
+          "N24-CANDIDATE-POS"
+        ],
+        [
+          "N24-CLOSURE-NEG"
+        ]
+      ],
+      "elsewhere": [
+        {
+          "contract": "C02",
+          "reason": "P18 only packages (its one family is N24); M4 drives this contract on the installed candidate"
+        },
+        {
+          "contract": "C07",
+          "reason": "P18 only packages (its one family is N24); M4 drives this contract on the installed candidate"
+        },
+        {
+          "contract": "C09",
+          "reason": "P18 only packages (its one family is N24); M4 drives this contract on the installed candidate"
+        },
+        {
+          "contract": "C11",
+          "reason": "P18 only packages (its one family is N24); M4 drives this contract on the installed candidate"
+        },
+        {
+          "contract": "C12",
+          "reason": "P18 only packages (its one family is N24); M4 drives this contract on the installed candidate"
+        }
+      ]
+    },
+    {
+      "profile": "P19",
+      "done_when": [
+        [
+          "CAP-01",
+          "SRC-02",
+          "CAP-02",
+          "CAP-03",
+          "CAP-11",
+          "SRC-08",
+          "N28-NO-TEAM-POS"
+        ],
+        [
+          "CAP-05",
+          "CAP-03",
+          "SRC-02",
+          "CAP-02",
+          "CAP-10",
+          "CAP-06",
+          "N28-PRODUCER-POS"
+        ],
+        [
+          "CAP-08",
+          "CAP-04",
+          "N28-CANDIDATE-NEG"
+        ]
+      ],
+      "elsewhere": [
+        {
+          "contract": "C12",
+          "reason": "P19's done_when puts the full candidate UI in the later M3, P15 and P17 profiles and its profile excludes GUI and external adapter qualification; capability probes qualify host clients, not capture adapters or model providers, so C12 is driven by those profiles' cases"
+        }
+      ]
+    },
+    {
+      "profile": "M1",
+      "done_when": [
+        [
+          "N02-C01-POS",
+          "N02-C01-NEG",
+          "TUI-ENTRY-ACCOUNT-FREE",
+          "N03-C02-POS",
+          "N03-C02-NEG",
+          "TUI-ENTRY-LOCKED",
+          "DEL-PERSONAL",
+          "CMP-PINS",
+          "TUI-ENTRY-REPO-NO-ENV",
+          "CMP-LOCAL",
+          "TUI-ENTRY-LOCAL-OFFLINE",
+          "CMP-ORDER",
+          "CMP-SELECT",
+          "CMP-QUALIFIED",
+          "N04-C03-POS",
+          "N04-C03-NEG",
+          "TUI-ENTRY-OPTIONS",
+          "TUI-ENTRY-FOCUS",
+          "TUI-ENTRY-STATE",
+          "TUI-ENTRY-UNKNOWN",
+          "TUI-ENTRY-80X24",
+          "TUI-ENTRY-KO-STATE",
+          "CMP-UI",
+          "DC-SET",
+          "DC-CHOICE",
+          "DC-KEEP",
+          "DC-ASK",
+          "DC-CHANGE",
+          "DC-RACE",
+          "DC-DURABLE",
+          "DH-FORM",
+          "DH-CONVERSATION",
+          "DH-PENDING",
+          "DC-HOST",
+          "N27-C01-POS"
+        ],
+        [
+          "RUN-DEPENDENCIES",
+          "RUN-OWNERSHIP"
+        ]
+      ]
+    },
+    {
+      "profile": "M2",
+      "done_when": [
+        [
+          "N10-C08-POS",
+          "N10-C08-NEG",
+          "N11-C08-POS",
+          "N11-C08-NEG",
+          "N12-C07-POS",
+          "N12-C07-NEG",
+          "N13-C09-POS",
+          "N13-C09-NEG",
+          "N14-C10-POS",
+          "N14-C10-NEG",
+          "DEL-TEAM",
+          "CMP-PINS",
+          "DC-HOST",
+          "DH-REVALIDATE",
+          "DC-SET",
+          "DC-CHOICE",
+          "DC-KEEP",
+          "DC-ASK",
+          "DC-CHANGE",
+          "DC-RACE",
+          "SRC-06",
+          "CMP-RIGHTS",
+          "SRC-10",
+          "SRC-11",
+          "SRC-12",
+          "CMP-MEANING",
+          "CMP-ORDER",
+          "CMP-SELECT",
+          "CMP-LOCAL",
+          "CMP-QUALIFIED",
+          "CMP-UI",
+          "TUI-ENTRY-TEAM-SCOPE",
+          "N28-C01-POS",
+          "N28-C01-NEG"
+        ],
+        [
+          "RUN-DEPENDENCIES",
+          "RUN-OWNERSHIP"
+        ]
+      ]
+    },
+    {
+      "profile": "M3",
+      "done_when": [
+        [
+          "N17-C09-POS",
+          "N17-C09-NEG",
+          "N18-C01-POS",
+          "N18-C01-NEG",
+          "N19-C08-POS",
+          "N19-C08-NEG",
+          "N20-C04-POS",
+          "N20-C04-NEG",
+          "N21-C10-POS",
+          "N21-C10-NEG",
+          "SRC-05",
+          "SRC-06",
+          "SRC-09",
+          "SRC-12",
+          "CMP-STORAGE",
+          "CAP-02",
+          "CAP-07",
+          "CAP-08",
+          "CAP-09",
+          "CAP-10",
+          "CAP-13",
+          "CMP-UI",
+          "DH-PENDING",
+          "DC-HOST",
+          "DC-CHOICE",
+          "DC-RACE",
+          "CMP-RIGHTS",
+          "CMP-MEANING",
+          "TUI-ENTRY-SHARED-UNKNOWN",
+          "N16-C12-POS",
+          "N16-C12-NEG",
+          "N23-PROVIDER-POS",
+          "N23-PROVIDER-NEG",
+          "N23-VALIDATOR-POS",
+          "N23-VALIDATOR-NEG"
+        ],
+        [
+          "RUN-DEPENDENCIES",
+          "RUN-OWNERSHIP"
+        ]
+      ]
+    },
+    {
+      "profile": "M4",
+      "done_when": [
+        [
+          "N24-C03-POS",
+          "CAP-14",
+          "N23-SECRET-POS",
+          "N23-SECRET-NEG",
+          "N26-INSTALLED-POS",
+          "N26-INSTALLED-NEG",
+          "N22-E2E-POS",
+          "N22-E2E-NEG",
+          "N27-C01-POS",
+          "N27-C01-NEG",
+          "N24-C03-NEG",
+          "N24-CANDIDATE-NEG",
+          "N24-WRITERS-NEG",
+          "N24-RECOVERY-POS",
+          "RUN-DEPENDENCIES"
+        ],
+        [
+          "CAP-14",
+          "N24-C03-POS",
+          "RUN-OWNERSHIP"
+        ]
+      ]
+    },
+    {
+      "profile": "R0",
+      "done_when": [
+        [
+          "RUN-DEPENDENCIES",
+          "RUN-RESUME",
+          "RUN-OWNERSHIP",
+          "RUN-MODE"
+        ],
+        [
+          "RUN-DEPENDENCIES",
+          "RUN-RESUME",
+          "RUN-OWNERSHIP",
+          "RUN-MODE"
+        ]
       ]
     }
   ]

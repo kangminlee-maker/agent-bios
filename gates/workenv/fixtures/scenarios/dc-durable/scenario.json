@@ -1,0 +1,6385 @@
+{
+ "case": "DC-DURABLE",
+ "ids": [
+  {
+   "id": "prn_7e75beae822b46b022b55a87e2fc011a",
+   "name": "alice"
+  },
+  {
+   "id": "dev_45da4c0b5ae0975a4707144d1679f2f8",
+   "name": "laptop"
+  },
+  {
+   "id": "prf_e7d946ca23ed8197a79be77ba3071367",
+   "name": "alice_profile"
+  },
+  {
+   "id": "src_bfbe1392707737a4e3e36aab5d171870",
+   "name": "decisions"
+  },
+  {
+   "id": "cnc_04972becfbc4b6c2c975a682d4af9951",
+   "name": "concern"
+  },
+  {
+   "id": "req_31d0b1799e028b8b2074fcd0c2b484ad",
+   "name": "bind_key_id"
+  },
+  {
+   "id": "req_4ea0b3c13f4db778689e1f68cdf25639",
+   "name": "probe_host_id"
+  },
+  {
+   "id": "req_3806cf14c22474c91c2faca913370ee2",
+   "name": "register_decisions_id"
+  },
+  {
+   "id": "req_ee76c00e4eed28b665c2699ba3d5e6bd",
+   "name": "publish_choice_a_id"
+  },
+  {
+   "id": "req_c24fee3a29cc2724bd8b55cd40425bfd",
+   "name": "publish_choice_b_id"
+  },
+  {
+   "id": "req_580a3147a45daff2563f6bce3e9d6238",
+   "name": "open_link_id"
+  },
+  {
+   "id": "req_9e57012151a49d6acc8d8f2a5e25e4d5",
+   "name": "prepare_first_id"
+  },
+  {
+   "id": "req_a0f5da54e5eaa4f9c277931abde7813a",
+   "name": "attempt_ask_id"
+  },
+  {
+   "id": "req_0c1cde861d4bd24463c459f407cf48b4",
+   "name": "record_reply_id"
+  },
+  {
+   "id": "req_4d5ca74990a01201c6ea53ab646d29e5",
+   "name": "record_application_id"
+  },
+  {
+   "id": "req_11a203d43f997c7f9b44a76d8859aa4d",
+   "name": "resume_first_id"
+  },
+  {
+   "id": "req_b4c212c361f2afe588b7754a613691cb",
+   "name": "take_backup_id"
+  },
+  {
+   "id": "req_93b5146a8629a7e33db9bfb1d5acc11e",
+   "name": "publish_choice_a2_id"
+  },
+  {
+   "id": "req_c96625f71f59e0c7faf9c61508e271fa",
+   "name": "prepare_second_id"
+  },
+  {
+   "id": "req_dd7f1b648908ea26eac2acda75d935c9",
+   "name": "publish_choice_a3_id"
+  },
+  {
+   "id": "req_1be280a2ee795e85c4dd940df7aa74fc",
+   "name": "prepare_second_again_id"
+  },
+  {
+   "id": "req_8b248d521c311bb63a3410902dfcc683",
+   "name": "restore_id"
+  },
+  {
+   "id": "req_3f715150c0f4e1b20f7e06eea3593753",
+   "name": "prepare_restored_id"
+  },
+  {
+   "id": "req_4f8fe062ba130df45e883463e139e6a3",
+   "name": "read_profile_id"
+  },
+  {
+   "id": "req_fd2950c51a8ce80bfd1ed4910d70f389",
+   "name": "unlock_id"
+  },
+  {
+   "id": "req_edece516f3419c388a9723050ed8908b",
+   "name": "ask_answer_id"
+  },
+  {
+   "id": "req_55f327851d7ff21c8b8603cb287996ff",
+   "name": "ask_application_id"
+  },
+  {
+   "id": "req_efc641a844a8e01d97e83048451fa335",
+   "name": "prepare_after_restore_id"
+  },
+  {
+   "id": "req_327292f5f426c5300d939e6d5a92e183",
+   "name": "ask_choice_id"
+  }
+ ],
+ "joins": [
+  {
+   "digest_of": "device_key",
+   "pointer": "/payload_digest",
+   "record": "bind_key"
+  },
+  {
+   "digest_of": "bind_key",
+   "pointer": "/request_digest",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "bind_device_key_head",
+   "pointer": "/head_digest",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "bind_device_key_sequence",
+   "pointer": "/sequence",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "bind_device_key_committed_at",
+   "pointer": "/committed_at",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "alice_binding",
+   "pointer": "/binding_id",
+   "record": "stored_key"
+  },
+  {
+   "minted": "bound_at",
+   "pointer": "/created_at",
+   "record": "stored_key"
+  },
+  {
+   "digest_of": "bind_device_key_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "bind_device_key_result"
+  },
+  {
+   "digest_of": "bind_key",
+   "pointer": "/request_digest",
+   "record": "bind_device_key_result"
+  },
+  {
+   "digest_of": "stored_key",
+   "pointer": "/outputs/0/digest",
+   "record": "bind_device_key_result"
+  },
+  {
+   "digest_of": "probe",
+   "pointer": "/payload_digest",
+   "record": "probe_host"
+  },
+  {
+   "digest_of": "probe_host",
+   "pointer": "/request_digest",
+   "record": "probe_the_host_receipt"
+  },
+  {
+   "minted": "probe_the_host_head",
+   "pointer": "/head_digest",
+   "record": "probe_the_host_receipt"
+  },
+  {
+   "minted": "probe_the_host_sequence",
+   "pointer": "/sequence",
+   "record": "probe_the_host_receipt"
+  },
+  {
+   "minted": "probe_the_host_committed_at",
+   "pointer": "/committed_at",
+   "record": "probe_the_host_receipt"
+  },
+  {
+   "minted": "user_event_probe",
+   "pointer": "/probe_id",
+   "record": "probe_that_worked"
+  },
+  {
+   "minted": "probed_at",
+   "pointer": "/at",
+   "record": "probe_that_worked"
+  },
+  {
+   "minted": "host_profile",
+   "pointer": "/profile_id",
+   "record": "host_profile"
+  },
+  {
+   "digest_of": "probe_that_worked",
+   "pointer": "/capabilities/0/state/probe_digest",
+   "record": "host_profile"
+  },
+  {
+   "minted": "probed_at",
+   "pointer": "/measured_at",
+   "record": "host_profile"
+  },
+  {
+   "minted": "probed_at",
+   "pointer": "/measured_at",
+   "record": "host_config"
+  },
+  {
+   "digest_of": "probe_the_host_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "probe_the_host_result"
+  },
+  {
+   "digest_of": "probe_host",
+   "pointer": "/request_digest",
+   "record": "probe_the_host_result"
+  },
+  {
+   "digest_of": "probe_that_worked",
+   "pointer": "/outputs/0/digest",
+   "record": "probe_the_host_result"
+  },
+  {
+   "digest_of": "host_profile",
+   "pointer": "/outputs/1/digest",
+   "record": "probe_the_host_result"
+  },
+  {
+   "digest_of": "host_config",
+   "pointer": "/outputs/2/digest",
+   "record": "probe_the_host_result"
+  },
+  {
+   "digest_of": "decisions_home",
+   "pointer": "/payload_digest",
+   "record": "register_decisions"
+  },
+  {
+   "digest_of": "register_decisions",
+   "pointer": "/request_digest",
+   "record": "register_the_decisions_source_receipt"
+  },
+  {
+   "minted": "decisions_head_0",
+   "pointer": "/head_digest",
+   "record": "register_the_decisions_source_receipt"
+  },
+  {
+   "minted": "register_the_decisions_source_sequence",
+   "pointer": "/sequence",
+   "record": "register_the_decisions_source_receipt"
+  },
+  {
+   "minted": "register_the_decisions_source_committed_at",
+   "pointer": "/committed_at",
+   "record": "register_the_decisions_source_receipt"
+  },
+  {
+   "minted": "registered_at",
+   "pointer": "/registered_at",
+   "record": "stored_home"
+  },
+  {
+   "digest_of": "register_the_decisions_source_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "register_the_decisions_source_result"
+  },
+  {
+   "digest_of": "register_decisions",
+   "pointer": "/request_digest",
+   "record": "register_the_decisions_source_result"
+  },
+  {
+   "digest_of": "stored_home",
+   "pointer": "/outputs/0/digest",
+   "record": "register_the_decisions_source_result"
+  },
+  {
+   "digest_of": "choice_a",
+   "pointer": "/payload_digest",
+   "record": "publish_choice_a"
+  },
+  {
+   "minted": "decisions_head_0",
+   "pointer": "/target/base/head_digest",
+   "record": "publish_choice_a"
+  },
+  {
+   "digest_of": "publish_choice_a",
+   "pointer": "/request_digest",
+   "record": "publish_choice_a_receipt"
+  },
+  {
+   "minted": "decisions_head_1",
+   "pointer": "/head_digest",
+   "record": "publish_choice_a_receipt"
+  },
+  {
+   "minted": "publish_choice_a_sequence",
+   "pointer": "/sequence",
+   "record": "publish_choice_a_receipt"
+  },
+  {
+   "minted": "publish_choice_a_committed_at",
+   "pointer": "/committed_at",
+   "record": "publish_choice_a_receipt"
+  },
+  {
+   "minted": "decisions_head_0",
+   "pointer": "/target/base/head_digest",
+   "record": "publish_choice_a_receipt"
+  },
+  {
+   "minted": "choice_a",
+   "pointer": "/record_id",
+   "record": "stored_choice_a"
+  },
+  {
+   "minted": "choice_a_at",
+   "pointer": "/recorded_at",
+   "record": "stored_choice_a"
+  },
+  {
+   "minted": "decisions_1_at",
+   "pointer": "/produced_at",
+   "record": "decisions_1"
+  },
+  {
+   "digest_of": "stored_choice_a",
+   "pointer": "/members/0/digest",
+   "record": "decisions_1"
+  },
+  {
+   "digest_of": "publish_choice_a_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "publish_choice_a_result"
+  },
+  {
+   "digest_of": "publish_choice_a",
+   "pointer": "/request_digest",
+   "record": "publish_choice_a_result"
+  },
+  {
+   "digest_of": "stored_choice_a",
+   "pointer": "/outputs/0/digest",
+   "record": "publish_choice_a_result"
+  },
+  {
+   "digest_of": "decisions_1",
+   "pointer": "/outputs/1/digest",
+   "record": "publish_choice_a_result"
+  },
+  {
+   "digest_of": "choice_b",
+   "pointer": "/payload_digest",
+   "record": "publish_choice_b"
+  },
+  {
+   "minted": "decisions_head_1",
+   "pointer": "/target/base/head_digest",
+   "record": "publish_choice_b"
+  },
+  {
+   "digest_of": "publish_choice_b",
+   "pointer": "/request_digest",
+   "record": "publish_choice_b_receipt"
+  },
+  {
+   "minted": "decisions_head_2",
+   "pointer": "/head_digest",
+   "record": "publish_choice_b_receipt"
+  },
+  {
+   "minted": "publish_choice_b_sequence",
+   "pointer": "/sequence",
+   "record": "publish_choice_b_receipt"
+  },
+  {
+   "minted": "publish_choice_b_committed_at",
+   "pointer": "/committed_at",
+   "record": "publish_choice_b_receipt"
+  },
+  {
+   "minted": "decisions_head_1",
+   "pointer": "/target/base/head_digest",
+   "record": "publish_choice_b_receipt"
+  },
+  {
+   "minted": "choice_b",
+   "pointer": "/record_id",
+   "record": "stored_choice_b"
+  },
+  {
+   "minted": "choice_b_at",
+   "pointer": "/recorded_at",
+   "record": "stored_choice_b"
+  },
+  {
+   "minted": "decisions_2_at",
+   "pointer": "/produced_at",
+   "record": "decisions_2"
+  },
+  {
+   "digest_of": "stored_choice_a",
+   "pointer": "/members/0/digest",
+   "record": "decisions_2"
+  },
+  {
+   "digest_of": "stored_choice_b",
+   "pointer": "/members/1/digest",
+   "record": "decisions_2"
+  },
+  {
+   "digest_of": "publish_choice_b_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "publish_choice_b_result"
+  },
+  {
+   "digest_of": "publish_choice_b",
+   "pointer": "/request_digest",
+   "record": "publish_choice_b_result"
+  },
+  {
+   "digest_of": "stored_choice_b",
+   "pointer": "/outputs/0/digest",
+   "record": "publish_choice_b_result"
+  },
+  {
+   "digest_of": "decisions_2",
+   "pointer": "/outputs/1/digest",
+   "record": "publish_choice_b_result"
+  },
+  {
+   "digest_of": "link_submitted",
+   "pointer": "/payload_digest",
+   "record": "open_link"
+  },
+  {
+   "digest_of": "open_link",
+   "pointer": "/request_digest",
+   "record": "open_the_working_conversation_receipt"
+  },
+  {
+   "minted": "open_the_working_conversation_head",
+   "pointer": "/head_digest",
+   "record": "open_the_working_conversation_receipt"
+  },
+  {
+   "minted": "open_the_working_conversation_sequence",
+   "pointer": "/sequence",
+   "record": "open_the_working_conversation_receipt"
+  },
+  {
+   "minted": "open_the_working_conversation_committed_at",
+   "pointer": "/committed_at",
+   "record": "open_the_working_conversation_receipt"
+  },
+  {
+   "minted": "work_link",
+   "pointer": "/link_id",
+   "record": "work_link"
+  },
+  {
+   "minted": "work_link_at",
+   "pointer": "/created_at",
+   "record": "work_link"
+  },
+  {
+   "digest_of": "open_the_working_conversation_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "open_the_working_conversation_result"
+  },
+  {
+   "digest_of": "open_link",
+   "pointer": "/request_digest",
+   "record": "open_the_working_conversation_result"
+  },
+  {
+   "digest_of": "work_link",
+   "pointer": "/outputs/0/digest",
+   "record": "open_the_working_conversation_result"
+  },
+  {
+   "digest_of": "envelope",
+   "pointer": "/payload_digest",
+   "record": "prepare_first"
+  },
+  {
+   "digest_of": "envelope",
+   "pointer": "/envelope_digest",
+   "record": "first_waiting"
+  },
+  {
+   "minted": "decisions_head_2",
+   "pointer": "/outcome/frontiers/0/checkpoint_digest",
+   "record": "first_waiting"
+  },
+  {
+   "minted": "first_question",
+   "pointer": "/outcome/use/question_id",
+   "record": "first_waiting"
+  },
+  {
+   "minted": "first_use",
+   "pointer": "/outcome/use/use_id",
+   "record": "first_waiting"
+  },
+  {
+   "minted": "first_waiting_at",
+   "pointer": "/prepared_at",
+   "record": "first_waiting"
+  },
+  {
+   "minted": "first_question",
+   "pointer": "/question_id",
+   "record": "first_question"
+  },
+  {
+   "minted": "first_use",
+   "pointer": "/use_id",
+   "record": "first_question"
+  },
+  {
+   "minted": "first_basis_at",
+   "pointer": "/prepared_at",
+   "record": "first_basis"
+  },
+  {
+   "minted": "choice_a",
+   "pointer": "/participants/0/record_id",
+   "record": "first_basis"
+  },
+  {
+   "digest_of": "decisions_2",
+   "pointer": "/participants/0/revision_digest",
+   "record": "first_basis"
+  },
+  {
+   "minted": "choice_b",
+   "pointer": "/participants/1/record_id",
+   "record": "first_basis"
+  },
+  {
+   "digest_of": "decisions_2",
+   "pointer": "/participants/1/revision_digest",
+   "record": "first_basis"
+  },
+  {
+   "digest_of": "first_basis",
+   "pointer": "/basis_digest",
+   "record": "first_question"
+  },
+  {
+   "minted": "first_question_at",
+   "pointer": "/created_at",
+   "record": "first_question"
+  },
+  {
+   "minted": "choice_a",
+   "pointer": "/alternatives/0/record_id",
+   "record": "first_question"
+  },
+  {
+   "minted": "choice_b",
+   "pointer": "/alternatives/1/record_id",
+   "record": "first_question"
+  },
+  {
+   "digest_of": "envelope",
+   "pointer": "/question_digest",
+   "record": "first_state"
+  },
+  {
+   "minted": "decisions_head_2",
+   "pointer": "/frontiers/0/checkpoint_digest",
+   "record": "first_state"
+  },
+  {
+   "minted": "first_state_at",
+   "pointer": "/prepared_at",
+   "record": "first_state"
+  },
+  {
+   "minted": "choice_a",
+   "pointer": "/entries/0/record_id",
+   "record": "first_state"
+  },
+  {
+   "minted": "choice_b",
+   "pointer": "/entries/1/record_id",
+   "record": "first_state"
+  },
+  {
+   "digest_of": "prepare_first",
+   "pointer": "/request_digest",
+   "record": "prepare_the_first_use_result"
+  },
+  {
+   "digest_of": "first_waiting",
+   "pointer": "/outputs/0/digest",
+   "record": "prepare_the_first_use_result"
+  },
+  {
+   "digest_of": "first_question",
+   "pointer": "/outputs/1/digest",
+   "record": "prepare_the_first_use_result"
+  },
+  {
+   "digest_of": "first_basis",
+   "pointer": "/outputs/2/digest",
+   "record": "prepare_the_first_use_result"
+  },
+  {
+   "digest_of": "first_state",
+   "pointer": "/outputs/3/digest",
+   "record": "prepare_the_first_use_result"
+  },
+  {
+   "minted": "work_link",
+   "pointer": "/target/resource_id",
+   "record": "attempt_ask"
+  },
+  {
+   "minted": "work_link",
+   "pointer": "/link_id",
+   "record": "ask_submitted"
+  },
+  {
+   "minted": "first_use",
+   "pointer": "/use_id",
+   "record": "ask_submitted"
+  },
+  {
+   "minted": "first_question",
+   "pointer": "/requested/question_id",
+   "record": "ask_submitted"
+  },
+  {
+   "digest_of": "ask_submitted",
+   "pointer": "/payload_digest",
+   "record": "attempt_ask"
+  },
+  {
+   "digest_of": "attempt_ask",
+   "pointer": "/request_digest",
+   "record": "deliver_the_question_receipt"
+  },
+  {
+   "minted": "deliver_the_question_head",
+   "pointer": "/head_digest",
+   "record": "deliver_the_question_receipt"
+  },
+  {
+   "minted": "deliver_the_question_sequence",
+   "pointer": "/sequence",
+   "record": "deliver_the_question_receipt"
+  },
+  {
+   "minted": "deliver_the_question_committed_at",
+   "pointer": "/committed_at",
+   "record": "deliver_the_question_receipt"
+  },
+  {
+   "minted": "work_link",
+   "pointer": "/target/resource_id",
+   "record": "deliver_the_question_receipt"
+  },
+  {
+   "minted": "work_link",
+   "pointer": "/link_id",
+   "record": "question_waiting"
+  },
+  {
+   "minted": "first_use",
+   "pointer": "/use_id",
+   "record": "question_waiting"
+  },
+  {
+   "minted": "first_question",
+   "pointer": "/requested/question_id",
+   "record": "question_waiting"
+  },
+  {
+   "minted": "question_waiting_at",
+   "pointer": "/at",
+   "record": "question_waiting"
+  },
+  {
+   "digest_of": "deliver_the_question_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "deliver_the_question_result"
+  },
+  {
+   "digest_of": "attempt_ask",
+   "pointer": "/request_digest",
+   "record": "deliver_the_question_result"
+  },
+  {
+   "digest_of": "question_waiting",
+   "pointer": "/outputs/0/digest",
+   "record": "deliver_the_question_result"
+  },
+  {
+   "minted": "first_question",
+   "pointer": "/target/resource_id",
+   "record": "record_reply"
+  },
+  {
+   "minted": "work_link",
+   "pointer": "/link_id",
+   "record": "choice_reply"
+  },
+  {
+   "minted": "first_use",
+   "pointer": "/use_id",
+   "record": "choice_reply"
+  },
+  {
+   "minted": "first_question",
+   "pointer": "/question_id",
+   "record": "choice_reply"
+  },
+  {
+   "minted": "choice_a",
+   "pointer": "/reply/answer/selected/record_id",
+   "record": "choice_reply"
+  },
+  {
+   "digest_of": "probe_that_worked",
+   "pointer": "/reply/separation_evidence_digest",
+   "record": "choice_reply"
+  },
+  {
+   "digest_of": "choice_reply",
+   "pointer": "/payload_digest",
+   "record": "record_reply"
+  },
+  {
+   "digest_of": "record_reply",
+   "pointer": "/request_digest",
+   "record": "record_her_answer_receipt"
+  },
+  {
+   "minted": "record_her_answer_head",
+   "pointer": "/head_digest",
+   "record": "record_her_answer_receipt"
+  },
+  {
+   "minted": "record_her_answer_sequence",
+   "pointer": "/sequence",
+   "record": "record_her_answer_receipt"
+  },
+  {
+   "minted": "record_her_answer_committed_at",
+   "pointer": "/committed_at",
+   "record": "record_her_answer_receipt"
+  },
+  {
+   "minted": "first_question",
+   "pointer": "/target/resource_id",
+   "record": "record_her_answer_receipt"
+  },
+  {
+   "minted": "verified_answer",
+   "pointer": "/evidence_id",
+   "record": "verified_answer"
+  },
+  {
+   "minted": "work_link",
+   "pointer": "/link_id",
+   "record": "verified_answer"
+  },
+  {
+   "minted": "first_use",
+   "pointer": "/use_id",
+   "record": "verified_answer"
+  },
+  {
+   "minted": "first_question",
+   "pointer": "/question_id",
+   "record": "verified_answer"
+  },
+  {
+   "minted": "answered_at",
+   "pointer": "/measured_at",
+   "record": "answer_config"
+  },
+  {
+   "digest_of": "answer_config",
+   "pointer": "/measured_configuration_digest",
+   "record": "verified_answer"
+  },
+  {
+   "minted": "answered_at",
+   "pointer": "/observed_at",
+   "record": "verified_answer"
+  },
+  {
+   "minted": "choice_a",
+   "pointer": "/origin/answer/selected/record_id",
+   "record": "verified_answer"
+  },
+  {
+   "digest_of": "probe_that_worked",
+   "pointer": "/origin/separation_evidence_digest",
+   "record": "verified_answer"
+  },
+  {
+   "digest_of": "record_her_answer_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "record_her_answer_result"
+  },
+  {
+   "digest_of": "record_reply",
+   "pointer": "/request_digest",
+   "record": "record_her_answer_result"
+  },
+  {
+   "digest_of": "verified_answer",
+   "pointer": "/outputs/0/digest",
+   "record": "record_her_answer_result"
+  },
+  {
+   "digest_of": "answer_config",
+   "pointer": "/outputs/1/digest",
+   "record": "record_her_answer_result"
+  },
+  {
+   "minted": "first_use",
+   "pointer": "/use_id",
+   "record": "resume_payload"
+  },
+  {
+   "minted": "first_question",
+   "pointer": "/question_id",
+   "record": "resume_payload"
+  },
+  {
+   "digest_of": "verified_answer",
+   "pointer": "/answer_evidence_digest",
+   "record": "resume_payload"
+  },
+  {
+   "digest_of": "resume_payload",
+   "pointer": "/payload_digest",
+   "record": "record_application"
+  },
+  {
+   "digest_of": "record_application",
+   "pointer": "/request_digest",
+   "record": "record_the_application_receipt"
+  },
+  {
+   "minted": "record_the_application_head",
+   "pointer": "/head_digest",
+   "record": "record_the_application_receipt"
+  },
+  {
+   "minted": "record_the_application_sequence",
+   "pointer": "/sequence",
+   "record": "record_the_application_receipt"
+  },
+  {
+   "minted": "record_the_application_committed_at",
+   "pointer": "/committed_at",
+   "record": "record_the_application_receipt"
+  },
+  {
+   "minted": "journal_application",
+   "pointer": "/preference_id",
+   "record": "application"
+  },
+  {
+   "minted": "application_lineage",
+   "pointer": "/lineage_digest",
+   "record": "application"
+  },
+  {
+   "digest_of": "verified_answer",
+   "pointer": "/answer_evidence_digest",
+   "record": "application"
+  },
+  {
+   "minted": "application_at",
+   "pointer": "/created_at",
+   "record": "application"
+  },
+  {
+   "minted": "choice_a",
+   "pointer": "/standing/participants/0/record_id",
+   "record": "application"
+  },
+  {
+   "digest_of": "decisions_2",
+   "pointer": "/standing/participants/0/revision_digest",
+   "record": "application"
+  },
+  {
+   "minted": "choice_b",
+   "pointer": "/standing/participants/1/record_id",
+   "record": "application"
+  },
+  {
+   "digest_of": "decisions_2",
+   "pointer": "/standing/participants/1/revision_digest",
+   "record": "application"
+  },
+  {
+   "digest_of": "record_the_application_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "record_the_application_result"
+  },
+  {
+   "digest_of": "record_application",
+   "pointer": "/request_digest",
+   "record": "record_the_application_result"
+  },
+  {
+   "digest_of": "application",
+   "pointer": "/outputs/0/digest",
+   "record": "record_the_application_result"
+  },
+  {
+   "minted": "first_use",
+   "pointer": "/target/resource_id",
+   "record": "resume_first"
+  },
+  {
+   "digest_of": "resume_payload",
+   "pointer": "/payload_digest",
+   "record": "resume_first"
+  },
+  {
+   "digest_of": "envelope",
+   "pointer": "/envelope_digest",
+   "record": "first_admitted"
+  },
+  {
+   "minted": "decisions_head_2",
+   "pointer": "/outcome/frontiers/0/checkpoint_digest",
+   "record": "first_admitted"
+  },
+  {
+   "minted": "first_unit",
+   "pointer": "/outcome/units/0/unit_id",
+   "record": "first_admitted"
+  },
+  {
+   "digest_of": "decisions_2",
+   "pointer": "/outcome/units/0/revision_digest",
+   "record": "first_admitted"
+  },
+  {
+   "digest_of": "stored_choice_a",
+   "pointer": "/outcome/units/0/body_digest",
+   "record": "first_admitted"
+  },
+  {
+   "minted": "first_use",
+   "pointer": "/outcome/use/use_id",
+   "record": "first_admitted"
+  },
+  {
+   "digest_of": "first_state",
+   "pointer": "/outcome/use/state_digest",
+   "record": "first_admitted"
+  },
+  {
+   "minted": "first_admitted_at",
+   "pointer": "/prepared_at",
+   "record": "first_admitted"
+  },
+  {
+   "digest_of": "resume_first",
+   "pointer": "/request_digest",
+   "record": "resume_the_first_use_result"
+  },
+  {
+   "digest_of": "first_admitted",
+   "pointer": "/outputs/0/digest",
+   "record": "resume_the_first_use_result"
+  },
+  {
+   "digest_of": "take_backup",
+   "pointer": "/request_digest",
+   "record": "take_the_backup_receipt"
+  },
+  {
+   "minted": "take_the_backup_head",
+   "pointer": "/head_digest",
+   "record": "take_the_backup_receipt"
+  },
+  {
+   "minted": "take_the_backup_sequence",
+   "pointer": "/sequence",
+   "record": "take_the_backup_receipt"
+  },
+  {
+   "minted": "take_the_backup_committed_at",
+   "pointer": "/committed_at",
+   "record": "take_the_backup_receipt"
+  },
+  {
+   "minted": "backup_taken_at",
+   "pointer": "/taken_at",
+   "record": "backup"
+  },
+  {
+   "minted": "backup_covered_through",
+   "pointer": "/covered_through",
+   "record": "backup"
+  },
+  {
+   "minted": "backup_database",
+   "pointer": "/database/digest",
+   "record": "backup"
+  },
+  {
+   "digest_of": "stored_choice_a",
+   "pointer": "/members/0/digest",
+   "record": "backup"
+  },
+  {
+   "digest_of": "stored_choice_b",
+   "pointer": "/members/1/digest",
+   "record": "backup"
+  },
+  {
+   "minted": "control_sequence",
+   "pointer": "/members/2/digest",
+   "record": "backup"
+  },
+  {
+   "digest_of": "take_the_backup_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "take_the_backup_result"
+  },
+  {
+   "digest_of": "take_backup",
+   "pointer": "/request_digest",
+   "record": "take_the_backup_result"
+  },
+  {
+   "digest_of": "backup",
+   "pointer": "/outputs/0/digest",
+   "record": "take_the_backup_result"
+  },
+  {
+   "minted": "choice_a",
+   "pointer": "/replaces/record_id",
+   "record": "choice_a2"
+  },
+  {
+   "digest_of": "choice_a2",
+   "pointer": "/payload_digest",
+   "record": "publish_choice_a2"
+  },
+  {
+   "minted": "decisions_head_2",
+   "pointer": "/target/base/head_digest",
+   "record": "publish_choice_a2"
+  },
+  {
+   "digest_of": "publish_choice_a2",
+   "pointer": "/request_digest",
+   "record": "change_choice_a_receipt"
+  },
+  {
+   "minted": "decisions_head_3",
+   "pointer": "/head_digest",
+   "record": "change_choice_a_receipt"
+  },
+  {
+   "minted": "change_choice_a_sequence",
+   "pointer": "/sequence",
+   "record": "change_choice_a_receipt"
+  },
+  {
+   "minted": "change_choice_a_committed_at",
+   "pointer": "/committed_at",
+   "record": "change_choice_a_receipt"
+  },
+  {
+   "minted": "decisions_head_2",
+   "pointer": "/target/base/head_digest",
+   "record": "change_choice_a_receipt"
+  },
+  {
+   "minted": "choice_a",
+   "pointer": "/replaces/record_id",
+   "record": "stored_choice_a2"
+  },
+  {
+   "minted": "choice_a2",
+   "pointer": "/record_id",
+   "record": "stored_choice_a2"
+  },
+  {
+   "minted": "choice_a2_at",
+   "pointer": "/recorded_at",
+   "record": "stored_choice_a2"
+  },
+  {
+   "minted": "decisions_3_at",
+   "pointer": "/produced_at",
+   "record": "decisions_3"
+  },
+  {
+   "digest_of": "stored_choice_a",
+   "pointer": "/members/0/digest",
+   "record": "decisions_3"
+  },
+  {
+   "digest_of": "stored_choice_b",
+   "pointer": "/members/1/digest",
+   "record": "decisions_3"
+  },
+  {
+   "digest_of": "stored_choice_a2",
+   "pointer": "/members/2/digest",
+   "record": "decisions_3"
+  },
+  {
+   "digest_of": "change_choice_a_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "change_choice_a_result"
+  },
+  {
+   "digest_of": "publish_choice_a2",
+   "pointer": "/request_digest",
+   "record": "change_choice_a_result"
+  },
+  {
+   "digest_of": "stored_choice_a2",
+   "pointer": "/outputs/0/digest",
+   "record": "change_choice_a_result"
+  },
+  {
+   "digest_of": "decisions_3",
+   "pointer": "/outputs/1/digest",
+   "record": "change_choice_a_result"
+  },
+  {
+   "digest_of": "envelope",
+   "pointer": "/payload_digest",
+   "record": "prepare_second"
+  },
+  {
+   "digest_of": "envelope",
+   "pointer": "/envelope_digest",
+   "record": "second_waiting"
+  },
+  {
+   "minted": "decisions_head_3",
+   "pointer": "/outcome/frontiers/0/checkpoint_digest",
+   "record": "second_waiting"
+  },
+  {
+   "minted": "second_question",
+   "pointer": "/outcome/use/question_id",
+   "record": "second_waiting"
+  },
+  {
+   "minted": "second_use",
+   "pointer": "/outcome/use/use_id",
+   "record": "second_waiting"
+  },
+  {
+   "minted": "second_waiting_at",
+   "pointer": "/prepared_at",
+   "record": "second_waiting"
+  },
+  {
+   "minted": "journal_application",
+   "pointer": "/preference_id",
+   "record": "application_changed"
+  },
+  {
+   "minted": "application_lineage",
+   "pointer": "/lineage_digest",
+   "record": "application_changed"
+  },
+  {
+   "digest_of": "verified_answer",
+   "pointer": "/answer_evidence_digest",
+   "record": "application_changed"
+  },
+  {
+   "minted": "application_at",
+   "pointer": "/created_at",
+   "record": "application_changed"
+  },
+  {
+   "minted": "choice_a",
+   "pointer": "/standing/participants/0/record_id",
+   "record": "application_changed"
+  },
+  {
+   "digest_of": "decisions_2",
+   "pointer": "/standing/participants/0/revision_digest",
+   "record": "application_changed"
+  },
+  {
+   "minted": "choice_b",
+   "pointer": "/standing/participants/1/record_id",
+   "record": "application_changed"
+  },
+  {
+   "digest_of": "decisions_2",
+   "pointer": "/standing/participants/1/revision_digest",
+   "record": "application_changed"
+  },
+  {
+   "minted": "second_question",
+   "pointer": "/question_id",
+   "record": "second_question"
+  },
+  {
+   "minted": "second_use",
+   "pointer": "/use_id",
+   "record": "second_question"
+  },
+  {
+   "minted": "second_basis_at",
+   "pointer": "/prepared_at",
+   "record": "second_basis"
+  },
+  {
+   "minted": "choice_a2",
+   "pointer": "/participants/0/record_id",
+   "record": "second_basis"
+  },
+  {
+   "digest_of": "decisions_3",
+   "pointer": "/participants/0/revision_digest",
+   "record": "second_basis"
+  },
+  {
+   "minted": "choice_b",
+   "pointer": "/participants/1/record_id",
+   "record": "second_basis"
+  },
+  {
+   "digest_of": "decisions_3",
+   "pointer": "/participants/1/revision_digest",
+   "record": "second_basis"
+  },
+  {
+   "minted": "choice_a",
+   "pointer": "/participants/2/record_id",
+   "record": "second_basis"
+  },
+  {
+   "digest_of": "decisions_3",
+   "pointer": "/participants/2/revision_digest",
+   "record": "second_basis"
+  },
+  {
+   "digest_of": "second_basis",
+   "pointer": "/basis_digest",
+   "record": "second_question"
+  },
+  {
+   "minted": "second_question_at",
+   "pointer": "/created_at",
+   "record": "second_question"
+  },
+  {
+   "minted": "choice_a2",
+   "pointer": "/alternatives/0/record_id",
+   "record": "second_question"
+  },
+  {
+   "minted": "choice_b",
+   "pointer": "/alternatives/1/record_id",
+   "record": "second_question"
+  },
+  {
+   "digest_of": "envelope",
+   "pointer": "/question_digest",
+   "record": "second_state"
+  },
+  {
+   "minted": "decisions_head_3",
+   "pointer": "/frontiers/0/checkpoint_digest",
+   "record": "second_state"
+  },
+  {
+   "minted": "second_state_at",
+   "pointer": "/prepared_at",
+   "record": "second_state"
+  },
+  {
+   "minted": "choice_a2",
+   "pointer": "/entries/0/record_id",
+   "record": "second_state"
+  },
+  {
+   "minted": "choice_b",
+   "pointer": "/entries/1/record_id",
+   "record": "second_state"
+  },
+  {
+   "minted": "choice_a",
+   "pointer": "/entries/2/record_id",
+   "record": "second_state"
+  },
+  {
+   "minted": "choice_a2",
+   "pointer": "/entries/2/superseded_by",
+   "record": "second_state"
+  },
+  {
+   "digest_of": "prepare_second",
+   "pointer": "/request_digest",
+   "record": "prepare_after_the_change_result"
+  },
+  {
+   "digest_of": "second_waiting",
+   "pointer": "/outputs/0/digest",
+   "record": "prepare_after_the_change_result"
+  },
+  {
+   "digest_of": "application_changed",
+   "pointer": "/outputs/1/digest",
+   "record": "prepare_after_the_change_result"
+  },
+  {
+   "digest_of": "second_question",
+   "pointer": "/outputs/2/digest",
+   "record": "prepare_after_the_change_result"
+  },
+  {
+   "digest_of": "second_basis",
+   "pointer": "/outputs/3/digest",
+   "record": "prepare_after_the_change_result"
+  },
+  {
+   "digest_of": "second_state",
+   "pointer": "/outputs/4/digest",
+   "record": "prepare_after_the_change_result"
+  },
+  {
+   "minted": "choice_a2",
+   "pointer": "/replaces/record_id",
+   "record": "choice_a3"
+  },
+  {
+   "digest_of": "choice_a3",
+   "pointer": "/payload_digest",
+   "record": "publish_choice_a3"
+  },
+  {
+   "minted": "decisions_head_3",
+   "pointer": "/target/base/head_digest",
+   "record": "publish_choice_a3"
+  },
+  {
+   "digest_of": "publish_choice_a3",
+   "pointer": "/request_digest",
+   "record": "change_choice_back_receipt"
+  },
+  {
+   "minted": "decisions_head_4",
+   "pointer": "/head_digest",
+   "record": "change_choice_back_receipt"
+  },
+  {
+   "minted": "change_choice_back_sequence",
+   "pointer": "/sequence",
+   "record": "change_choice_back_receipt"
+  },
+  {
+   "minted": "change_choice_back_committed_at",
+   "pointer": "/committed_at",
+   "record": "change_choice_back_receipt"
+  },
+  {
+   "minted": "decisions_head_3",
+   "pointer": "/target/base/head_digest",
+   "record": "change_choice_back_receipt"
+  },
+  {
+   "minted": "choice_a2",
+   "pointer": "/replaces/record_id",
+   "record": "stored_choice_a3"
+  },
+  {
+   "minted": "choice_a3",
+   "pointer": "/record_id",
+   "record": "stored_choice_a3"
+  },
+  {
+   "minted": "choice_a3_at",
+   "pointer": "/recorded_at",
+   "record": "stored_choice_a3"
+  },
+  {
+   "minted": "decisions_4_at",
+   "pointer": "/produced_at",
+   "record": "decisions_4"
+  },
+  {
+   "digest_of": "stored_choice_a",
+   "pointer": "/members/0/digest",
+   "record": "decisions_4"
+  },
+  {
+   "digest_of": "stored_choice_b",
+   "pointer": "/members/1/digest",
+   "record": "decisions_4"
+  },
+  {
+   "digest_of": "stored_choice_a2",
+   "pointer": "/members/2/digest",
+   "record": "decisions_4"
+  },
+  {
+   "digest_of": "stored_choice_a3",
+   "pointer": "/members/3/digest",
+   "record": "decisions_4"
+  },
+  {
+   "digest_of": "change_choice_back_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "change_choice_back_result"
+  },
+  {
+   "digest_of": "publish_choice_a3",
+   "pointer": "/request_digest",
+   "record": "change_choice_back_result"
+  },
+  {
+   "digest_of": "stored_choice_a3",
+   "pointer": "/outputs/0/digest",
+   "record": "change_choice_back_result"
+  },
+  {
+   "digest_of": "decisions_4",
+   "pointer": "/outputs/1/digest",
+   "record": "change_choice_back_result"
+  },
+  {
+   "minted": "second_use",
+   "pointer": "/target/resource_id",
+   "record": "prepare_second_again"
+  },
+  {
+   "digest_of": "envelope",
+   "pointer": "/payload_digest",
+   "record": "prepare_second_again"
+  },
+  {
+   "digest_of": "envelope",
+   "pointer": "/envelope_digest",
+   "record": "third_waiting"
+  },
+  {
+   "minted": "decisions_head_4",
+   "pointer": "/outcome/frontiers/0/checkpoint_digest",
+   "record": "third_waiting"
+  },
+  {
+   "minted": "second_question",
+   "pointer": "/outcome/use/question_id",
+   "record": "third_waiting"
+  },
+  {
+   "minted": "second_use",
+   "pointer": "/outcome/use/use_id",
+   "record": "third_waiting"
+  },
+  {
+   "minted": "third_waiting_at",
+   "pointer": "/prepared_at",
+   "record": "third_waiting"
+  },
+  {
+   "minted": "second_question",
+   "pointer": "/question_id",
+   "record": "third_question"
+  },
+  {
+   "minted": "second_use",
+   "pointer": "/use_id",
+   "record": "third_question"
+  },
+  {
+   "minted": "third_basis_at",
+   "pointer": "/prepared_at",
+   "record": "third_basis"
+  },
+  {
+   "minted": "choice_a3",
+   "pointer": "/participants/0/record_id",
+   "record": "third_basis"
+  },
+  {
+   "digest_of": "decisions_4",
+   "pointer": "/participants/0/revision_digest",
+   "record": "third_basis"
+  },
+  {
+   "minted": "choice_b",
+   "pointer": "/participants/1/record_id",
+   "record": "third_basis"
+  },
+  {
+   "digest_of": "decisions_4",
+   "pointer": "/participants/1/revision_digest",
+   "record": "third_basis"
+  },
+  {
+   "minted": "choice_a",
+   "pointer": "/participants/2/record_id",
+   "record": "third_basis"
+  },
+  {
+   "digest_of": "decisions_4",
+   "pointer": "/participants/2/revision_digest",
+   "record": "third_basis"
+  },
+  {
+   "minted": "choice_a2",
+   "pointer": "/participants/3/record_id",
+   "record": "third_basis"
+  },
+  {
+   "digest_of": "decisions_4",
+   "pointer": "/participants/3/revision_digest",
+   "record": "third_basis"
+  },
+  {
+   "digest_of": "third_basis",
+   "pointer": "/basis_digest",
+   "record": "third_question"
+  },
+  {
+   "minted": "third_question_at",
+   "pointer": "/created_at",
+   "record": "third_question"
+  },
+  {
+   "minted": "choice_a3",
+   "pointer": "/alternatives/0/record_id",
+   "record": "third_question"
+  },
+  {
+   "minted": "choice_b",
+   "pointer": "/alternatives/1/record_id",
+   "record": "third_question"
+  },
+  {
+   "minted": "second_question",
+   "pointer": "/question_id",
+   "record": "second_question_superseded"
+  },
+  {
+   "minted": "second_use",
+   "pointer": "/use_id",
+   "record": "second_question_superseded"
+  },
+  {
+   "digest_of": "second_basis",
+   "pointer": "/basis_digest",
+   "record": "second_question_superseded"
+  },
+  {
+   "minted": "second_question_at",
+   "pointer": "/created_at",
+   "record": "second_question_superseded"
+  },
+  {
+   "minted": "choice_a2",
+   "pointer": "/alternatives/0/record_id",
+   "record": "second_question_superseded"
+  },
+  {
+   "minted": "choice_b",
+   "pointer": "/alternatives/1/record_id",
+   "record": "second_question_superseded"
+  },
+  {
+   "digest_of": "envelope",
+   "pointer": "/question_digest",
+   "record": "third_state"
+  },
+  {
+   "minted": "decisions_head_4",
+   "pointer": "/frontiers/0/checkpoint_digest",
+   "record": "third_state"
+  },
+  {
+   "minted": "third_state_at",
+   "pointer": "/prepared_at",
+   "record": "third_state"
+  },
+  {
+   "minted": "choice_a3",
+   "pointer": "/entries/0/record_id",
+   "record": "third_state"
+  },
+  {
+   "minted": "choice_b",
+   "pointer": "/entries/1/record_id",
+   "record": "third_state"
+  },
+  {
+   "minted": "choice_a",
+   "pointer": "/entries/2/record_id",
+   "record": "third_state"
+  },
+  {
+   "minted": "choice_a2",
+   "pointer": "/entries/2/superseded_by",
+   "record": "third_state"
+  },
+  {
+   "minted": "choice_a2",
+   "pointer": "/entries/3/record_id",
+   "record": "third_state"
+  },
+  {
+   "minted": "choice_a3",
+   "pointer": "/entries/3/superseded_by",
+   "record": "third_state"
+  },
+  {
+   "digest_of": "prepare_second_again",
+   "pointer": "/request_digest",
+   "record": "prepare_the_second_use_again_result"
+  },
+  {
+   "digest_of": "third_waiting",
+   "pointer": "/outputs/0/digest",
+   "record": "prepare_the_second_use_again_result"
+  },
+  {
+   "digest_of": "application_changed",
+   "pointer": "/outputs/1/digest",
+   "record": "prepare_the_second_use_again_result"
+  },
+  {
+   "digest_of": "third_question",
+   "pointer": "/outputs/2/digest",
+   "record": "prepare_the_second_use_again_result"
+  },
+  {
+   "digest_of": "second_question_superseded",
+   "pointer": "/outputs/3/digest",
+   "record": "prepare_the_second_use_again_result"
+  },
+  {
+   "digest_of": "third_basis",
+   "pointer": "/outputs/4/digest",
+   "record": "prepare_the_second_use_again_result"
+  },
+  {
+   "digest_of": "third_state",
+   "pointer": "/outputs/5/digest",
+   "record": "prepare_the_second_use_again_result"
+  },
+  {
+   "digest_of": "backup",
+   "pointer": "/payload_digest",
+   "record": "restore"
+  },
+  {
+   "digest_of": "restore",
+   "pointer": "/request_digest",
+   "record": "restore_after_the_loss_receipt"
+  },
+  {
+   "minted": "restore_after_the_loss_head",
+   "pointer": "/head_digest",
+   "record": "restore_after_the_loss_receipt"
+  },
+  {
+   "minted": "restore_after_the_loss_sequence",
+   "pointer": "/sequence",
+   "record": "restore_after_the_loss_receipt"
+  },
+  {
+   "minted": "restore_after_the_loss_committed_at",
+   "pointer": "/committed_at",
+   "record": "restore_after_the_loss_receipt"
+  },
+  {
+   "digest_of": "backup",
+   "pointer": "/backup_digest",
+   "record": "report"
+  },
+  {
+   "minted": "backup_taken_at",
+   "pointer": "/taken_at",
+   "record": "report"
+  },
+  {
+   "minted": "backup_covered_through",
+   "pointer": "/covered_through",
+   "record": "report"
+  },
+  {
+   "minted": "restored_at",
+   "pointer": "/restored_at",
+   "record": "report"
+  },
+  {
+   "digest_of": "restore_after_the_loss_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "restore_after_the_loss_result"
+  },
+  {
+   "digest_of": "restore",
+   "pointer": "/request_digest",
+   "record": "restore_after_the_loss_result"
+  },
+  {
+   "digest_of": "report",
+   "pointer": "/outputs/0/digest",
+   "record": "restore_after_the_loss_result"
+  },
+  {
+   "digest_of": "envelope",
+   "pointer": "/payload_digest",
+   "record": "prepare_restored"
+  },
+  {
+   "digest_of": "prepare_restored",
+   "pointer": "/request_digest",
+   "record": "prepare_while_restored_result"
+  },
+  {
+   "minted": "profile_created_at",
+   "pointer": "/created_at",
+   "record": "restored_profile"
+  },
+  {
+   "minted": "restored_locked_at",
+   "pointer": "/changed_at",
+   "record": "restored_access"
+  },
+  {
+   "digest_of": "read_profile",
+   "pointer": "/request_digest",
+   "record": "read_the_restored_profile_result"
+  },
+  {
+   "digest_of": "restored_profile",
+   "pointer": "/outputs/0/digest",
+   "record": "read_the_restored_profile_result"
+  },
+  {
+   "digest_of": "restored_access",
+   "pointer": "/outputs/1/digest",
+   "record": "read_the_restored_profile_result"
+  },
+  {
+   "digest_of": "unlock_change",
+   "pointer": "/payload_digest",
+   "record": "unlock"
+  },
+  {
+   "digest_of": "unlock",
+   "pointer": "/request_digest",
+   "record": "unlock_the_restored_profile_receipt"
+  },
+  {
+   "minted": "unlock_the_restored_profile_head",
+   "pointer": "/head_digest",
+   "record": "unlock_the_restored_profile_receipt"
+  },
+  {
+   "minted": "unlock_the_restored_profile_sequence",
+   "pointer": "/sequence",
+   "record": "unlock_the_restored_profile_receipt"
+  },
+  {
+   "minted": "unlock_the_restored_profile_committed_at",
+   "pointer": "/committed_at",
+   "record": "unlock_the_restored_profile_receipt"
+  },
+  {
+   "minted": "unlocked_at",
+   "pointer": "/changed_at",
+   "record": "unlocked"
+  },
+  {
+   "digest_of": "unlock_the_restored_profile_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "unlock_the_restored_profile_result"
+  },
+  {
+   "digest_of": "unlock",
+   "pointer": "/request_digest",
+   "record": "unlock_the_restored_profile_result"
+  },
+  {
+   "digest_of": "unlocked",
+   "pointer": "/outputs/0/digest",
+   "record": "unlock_the_restored_profile_result"
+  },
+  {
+   "digest_of": "ask_answer_payload",
+   "pointer": "/payload_digest",
+   "record": "ask_answer"
+  },
+  {
+   "digest_of": "ask_answer",
+   "pointer": "/request_digest",
+   "record": "query_her_recorded_answer_result"
+  },
+  {
+   "digest_of": "record_her_answer_result",
+   "pointer": "/outputs/0/digest",
+   "record": "query_her_recorded_answer_result"
+  },
+  {
+   "digest_of": "record_her_answer_receipt",
+   "pointer": "/outputs/1/digest",
+   "record": "query_her_recorded_answer_result"
+  },
+  {
+   "digest_of": "ask_application_payload",
+   "pointer": "/payload_digest",
+   "record": "ask_application"
+  },
+  {
+   "digest_of": "ask_application",
+   "pointer": "/request_digest",
+   "record": "query_the_recorded_application_result"
+  },
+  {
+   "digest_of": "record_the_application_result",
+   "pointer": "/outputs/0/digest",
+   "record": "query_the_recorded_application_result"
+  },
+  {
+   "digest_of": "record_the_application_receipt",
+   "pointer": "/outputs/1/digest",
+   "record": "query_the_recorded_application_result"
+  },
+  {
+   "digest_of": "envelope",
+   "pointer": "/payload_digest",
+   "record": "prepare_after_restore"
+  },
+  {
+   "digest_of": "envelope",
+   "pointer": "/envelope_digest",
+   "record": "restored_waiting"
+  },
+  {
+   "minted": "decisions_head_2",
+   "pointer": "/outcome/frontiers/0/checkpoint_digest",
+   "record": "restored_waiting"
+  },
+  {
+   "minted": "restored_question",
+   "pointer": "/outcome/use/question_id",
+   "record": "restored_waiting"
+  },
+  {
+   "minted": "restored_use",
+   "pointer": "/outcome/use/use_id",
+   "record": "restored_waiting"
+  },
+  {
+   "minted": "restored_waiting_at",
+   "pointer": "/prepared_at",
+   "record": "restored_waiting"
+  },
+  {
+   "minted": "journal_application",
+   "pointer": "/preference_id",
+   "record": "application_unverifiable"
+  },
+  {
+   "minted": "application_lineage",
+   "pointer": "/lineage_digest",
+   "record": "application_unverifiable"
+  },
+  {
+   "digest_of": "verified_answer",
+   "pointer": "/answer_evidence_digest",
+   "record": "application_unverifiable"
+  },
+  {
+   "minted": "application_at",
+   "pointer": "/created_at",
+   "record": "application_unverifiable"
+  },
+  {
+   "minted": "choice_a",
+   "pointer": "/standing/participants/0/record_id",
+   "record": "application_unverifiable"
+  },
+  {
+   "digest_of": "decisions_2",
+   "pointer": "/standing/participants/0/revision_digest",
+   "record": "application_unverifiable"
+  },
+  {
+   "minted": "choice_b",
+   "pointer": "/standing/participants/1/record_id",
+   "record": "application_unverifiable"
+  },
+  {
+   "digest_of": "decisions_2",
+   "pointer": "/standing/participants/1/revision_digest",
+   "record": "application_unverifiable"
+  },
+  {
+   "minted": "restored_question",
+   "pointer": "/question_id",
+   "record": "restored_question"
+  },
+  {
+   "minted": "restored_use",
+   "pointer": "/use_id",
+   "record": "restored_question"
+  },
+  {
+   "minted": "restored_basis_at",
+   "pointer": "/prepared_at",
+   "record": "restored_basis"
+  },
+  {
+   "minted": "choice_a",
+   "pointer": "/participants/0/record_id",
+   "record": "restored_basis"
+  },
+  {
+   "digest_of": "decisions_2",
+   "pointer": "/participants/0/revision_digest",
+   "record": "restored_basis"
+  },
+  {
+   "minted": "choice_b",
+   "pointer": "/participants/1/record_id",
+   "record": "restored_basis"
+  },
+  {
+   "digest_of": "decisions_2",
+   "pointer": "/participants/1/revision_digest",
+   "record": "restored_basis"
+  },
+  {
+   "digest_of": "restored_basis",
+   "pointer": "/basis_digest",
+   "record": "restored_question"
+  },
+  {
+   "minted": "restored_question_at",
+   "pointer": "/created_at",
+   "record": "restored_question"
+  },
+  {
+   "minted": "choice_a",
+   "pointer": "/alternatives/0/record_id",
+   "record": "restored_question"
+  },
+  {
+   "minted": "choice_b",
+   "pointer": "/alternatives/1/record_id",
+   "record": "restored_question"
+  },
+  {
+   "digest_of": "envelope",
+   "pointer": "/question_digest",
+   "record": "restored_state"
+  },
+  {
+   "minted": "decisions_head_2",
+   "pointer": "/frontiers/0/checkpoint_digest",
+   "record": "restored_state"
+  },
+  {
+   "minted": "restored_state_at",
+   "pointer": "/prepared_at",
+   "record": "restored_state"
+  },
+  {
+   "minted": "choice_a",
+   "pointer": "/entries/0/record_id",
+   "record": "restored_state"
+  },
+  {
+   "minted": "choice_b",
+   "pointer": "/entries/1/record_id",
+   "record": "restored_state"
+  },
+  {
+   "digest_of": "prepare_after_restore",
+   "pointer": "/request_digest",
+   "record": "prepare_after_the_restore_result"
+  },
+  {
+   "digest_of": "restored_waiting",
+   "pointer": "/outputs/0/digest",
+   "record": "prepare_after_the_restore_result"
+  },
+  {
+   "digest_of": "application_unverifiable",
+   "pointer": "/outputs/1/digest",
+   "record": "prepare_after_the_restore_result"
+  },
+  {
+   "digest_of": "restored_question",
+   "pointer": "/outputs/2/digest",
+   "record": "prepare_after_the_restore_result"
+  },
+  {
+   "digest_of": "restored_basis",
+   "pointer": "/outputs/3/digest",
+   "record": "prepare_after_the_restore_result"
+  },
+  {
+   "digest_of": "restored_state",
+   "pointer": "/outputs/4/digest",
+   "record": "prepare_after_the_restore_result"
+  },
+  {
+   "digest_of": "ask_choice_payload",
+   "pointer": "/payload_digest",
+   "record": "ask_choice"
+  },
+  {
+   "digest_of": "ask_choice",
+   "pointer": "/request_digest",
+   "record": "query_the_first_choice_result"
+  },
+  {
+   "digest_of": "publish_choice_a_result",
+   "pointer": "/outputs/0/digest",
+   "record": "query_the_first_choice_result"
+  },
+  {
+   "digest_of": "publish_choice_a_receipt",
+   "pointer": "/outputs/1/digest",
+   "record": "query_the_first_choice_result"
+  }
+ ],
+ "minted": [
+  {
+   "name": "alice_binding",
+   "shape": "bnd",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "bind_device_key_committed_at",
+   "shape": "instant",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "bind_device_key_head",
+   "shape": "digest",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "bind_device_key_sequence",
+   "shape": "integer",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "bound_at",
+   "shape": "instant",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "host_profile",
+   "shape": "cap",
+   "step": "probe_the_host"
+  },
+  {
+   "name": "probe_the_host_committed_at",
+   "shape": "instant",
+   "step": "probe_the_host"
+  },
+  {
+   "name": "probe_the_host_head",
+   "shape": "digest",
+   "step": "probe_the_host"
+  },
+  {
+   "name": "probe_the_host_sequence",
+   "shape": "integer",
+   "step": "probe_the_host"
+  },
+  {
+   "name": "probed_at",
+   "shape": "instant",
+   "step": "probe_the_host"
+  },
+  {
+   "name": "user_event_probe",
+   "shape": "prb",
+   "step": "probe_the_host"
+  },
+  {
+   "name": "decisions_head_0",
+   "shape": "digest",
+   "step": "register_the_decisions_source"
+  },
+  {
+   "name": "register_the_decisions_source_committed_at",
+   "shape": "instant",
+   "step": "register_the_decisions_source"
+  },
+  {
+   "name": "register_the_decisions_source_sequence",
+   "shape": "integer",
+   "step": "register_the_decisions_source"
+  },
+  {
+   "name": "registered_at",
+   "shape": "instant",
+   "step": "register_the_decisions_source"
+  },
+  {
+   "name": "choice_a",
+   "shape": "rec",
+   "step": "publish_choice_a"
+  },
+  {
+   "name": "choice_a_at",
+   "shape": "instant",
+   "step": "publish_choice_a"
+  },
+  {
+   "name": "decisions_1_at",
+   "shape": "instant",
+   "step": "publish_choice_a"
+  },
+  {
+   "name": "decisions_head_1",
+   "shape": "digest",
+   "step": "publish_choice_a"
+  },
+  {
+   "name": "publish_choice_a_committed_at",
+   "shape": "instant",
+   "step": "publish_choice_a"
+  },
+  {
+   "name": "publish_choice_a_sequence",
+   "shape": "integer",
+   "step": "publish_choice_a"
+  },
+  {
+   "name": "choice_b",
+   "shape": "rec",
+   "step": "publish_choice_b"
+  },
+  {
+   "name": "choice_b_at",
+   "shape": "instant",
+   "step": "publish_choice_b"
+  },
+  {
+   "name": "decisions_2_at",
+   "shape": "instant",
+   "step": "publish_choice_b"
+  },
+  {
+   "name": "decisions_head_2",
+   "shape": "digest",
+   "step": "publish_choice_b"
+  },
+  {
+   "name": "publish_choice_b_committed_at",
+   "shape": "instant",
+   "step": "publish_choice_b"
+  },
+  {
+   "name": "publish_choice_b_sequence",
+   "shape": "integer",
+   "step": "publish_choice_b"
+  },
+  {
+   "name": "open_the_working_conversation_committed_at",
+   "shape": "instant",
+   "step": "open_the_working_conversation"
+  },
+  {
+   "name": "open_the_working_conversation_head",
+   "shape": "digest",
+   "step": "open_the_working_conversation"
+  },
+  {
+   "name": "open_the_working_conversation_sequence",
+   "shape": "integer",
+   "step": "open_the_working_conversation"
+  },
+  {
+   "name": "work_link",
+   "shape": "lnk",
+   "step": "open_the_working_conversation"
+  },
+  {
+   "name": "work_link_at",
+   "shape": "instant",
+   "step": "open_the_working_conversation"
+  },
+  {
+   "name": "first_basis_at",
+   "shape": "instant",
+   "step": "prepare_the_first_use"
+  },
+  {
+   "name": "first_question",
+   "shape": "qst",
+   "step": "prepare_the_first_use"
+  },
+  {
+   "name": "first_question_at",
+   "shape": "instant",
+   "step": "prepare_the_first_use"
+  },
+  {
+   "name": "first_state_at",
+   "shape": "instant",
+   "step": "prepare_the_first_use"
+  },
+  {
+   "name": "first_use",
+   "shape": "use",
+   "step": "prepare_the_first_use"
+  },
+  {
+   "name": "first_waiting_at",
+   "shape": "instant",
+   "step": "prepare_the_first_use"
+  },
+  {
+   "name": "deliver_the_question_committed_at",
+   "shape": "instant",
+   "step": "deliver_the_question"
+  },
+  {
+   "name": "deliver_the_question_head",
+   "shape": "digest",
+   "step": "deliver_the_question"
+  },
+  {
+   "name": "deliver_the_question_sequence",
+   "shape": "integer",
+   "step": "deliver_the_question"
+  },
+  {
+   "name": "question_waiting_at",
+   "shape": "instant",
+   "step": "deliver_the_question"
+  },
+  {
+   "name": "answered_at",
+   "shape": "instant",
+   "step": "record_her_answer"
+  },
+  {
+   "name": "record_her_answer_committed_at",
+   "shape": "instant",
+   "step": "record_her_answer"
+  },
+  {
+   "name": "record_her_answer_head",
+   "shape": "digest",
+   "step": "record_her_answer"
+  },
+  {
+   "name": "record_her_answer_sequence",
+   "shape": "integer",
+   "step": "record_her_answer"
+  },
+  {
+   "name": "verified_answer",
+   "shape": "ans",
+   "step": "record_her_answer"
+  },
+  {
+   "name": "application_at",
+   "shape": "instant",
+   "step": "record_the_application"
+  },
+  {
+   "name": "application_lineage",
+   "shape": "digest",
+   "step": "record_the_application"
+  },
+  {
+   "name": "journal_application",
+   "shape": "pre",
+   "step": "record_the_application"
+  },
+  {
+   "name": "record_the_application_committed_at",
+   "shape": "instant",
+   "step": "record_the_application"
+  },
+  {
+   "name": "record_the_application_head",
+   "shape": "digest",
+   "step": "record_the_application"
+  },
+  {
+   "name": "record_the_application_sequence",
+   "shape": "integer",
+   "step": "record_the_application"
+  },
+  {
+   "name": "first_admitted_at",
+   "shape": "instant",
+   "step": "resume_the_first_use"
+  },
+  {
+   "name": "first_unit",
+   "shape": "unt",
+   "step": "resume_the_first_use"
+  },
+  {
+   "name": "backup_covered_through",
+   "shape": "integer",
+   "step": "take_the_backup"
+  },
+  {
+   "name": "backup_database",
+   "shape": "digest",
+   "step": "take_the_backup"
+  },
+  {
+   "name": "backup_taken_at",
+   "shape": "instant",
+   "step": "take_the_backup"
+  },
+  {
+   "name": "control_sequence",
+   "shape": "digest",
+   "step": "take_the_backup"
+  },
+  {
+   "name": "take_the_backup_committed_at",
+   "shape": "instant",
+   "step": "take_the_backup"
+  },
+  {
+   "name": "take_the_backup_head",
+   "shape": "digest",
+   "step": "take_the_backup"
+  },
+  {
+   "name": "take_the_backup_sequence",
+   "shape": "integer",
+   "step": "take_the_backup"
+  },
+  {
+   "name": "change_choice_a_committed_at",
+   "shape": "instant",
+   "step": "change_choice_a"
+  },
+  {
+   "name": "change_choice_a_sequence",
+   "shape": "integer",
+   "step": "change_choice_a"
+  },
+  {
+   "name": "choice_a2",
+   "shape": "rec",
+   "step": "change_choice_a"
+  },
+  {
+   "name": "choice_a2_at",
+   "shape": "instant",
+   "step": "change_choice_a"
+  },
+  {
+   "name": "decisions_3_at",
+   "shape": "instant",
+   "step": "change_choice_a"
+  },
+  {
+   "name": "decisions_head_3",
+   "shape": "digest",
+   "step": "change_choice_a"
+  },
+  {
+   "name": "second_basis_at",
+   "shape": "instant",
+   "step": "prepare_after_the_change"
+  },
+  {
+   "name": "second_question",
+   "shape": "qst",
+   "step": "prepare_after_the_change"
+  },
+  {
+   "name": "second_question_at",
+   "shape": "instant",
+   "step": "prepare_after_the_change"
+  },
+  {
+   "name": "second_state_at",
+   "shape": "instant",
+   "step": "prepare_after_the_change"
+  },
+  {
+   "name": "second_use",
+   "shape": "use",
+   "step": "prepare_after_the_change"
+  },
+  {
+   "name": "second_waiting_at",
+   "shape": "instant",
+   "step": "prepare_after_the_change"
+  },
+  {
+   "name": "change_choice_back_committed_at",
+   "shape": "instant",
+   "step": "change_choice_back"
+  },
+  {
+   "name": "change_choice_back_sequence",
+   "shape": "integer",
+   "step": "change_choice_back"
+  },
+  {
+   "name": "choice_a3",
+   "shape": "rec",
+   "step": "change_choice_back"
+  },
+  {
+   "name": "choice_a3_at",
+   "shape": "instant",
+   "step": "change_choice_back"
+  },
+  {
+   "name": "decisions_4_at",
+   "shape": "instant",
+   "step": "change_choice_back"
+  },
+  {
+   "name": "decisions_head_4",
+   "shape": "digest",
+   "step": "change_choice_back"
+  },
+  {
+   "name": "third_basis_at",
+   "shape": "instant",
+   "step": "prepare_the_second_use_again"
+  },
+  {
+   "name": "third_question_at",
+   "shape": "instant",
+   "step": "prepare_the_second_use_again"
+  },
+  {
+   "name": "third_state_at",
+   "shape": "instant",
+   "step": "prepare_the_second_use_again"
+  },
+  {
+   "name": "third_waiting_at",
+   "shape": "instant",
+   "step": "prepare_the_second_use_again"
+  },
+  {
+   "name": "restore_after_the_loss_committed_at",
+   "shape": "instant",
+   "step": "restore_after_the_loss"
+  },
+  {
+   "name": "restore_after_the_loss_head",
+   "shape": "digest",
+   "step": "restore_after_the_loss"
+  },
+  {
+   "name": "restore_after_the_loss_sequence",
+   "shape": "integer",
+   "step": "restore_after_the_loss"
+  },
+  {
+   "name": "restored_at",
+   "shape": "instant",
+   "step": "restore_after_the_loss"
+  },
+  {
+   "name": "profile_created_at",
+   "shape": "instant",
+   "step": "read_the_restored_profile"
+  },
+  {
+   "name": "restored_locked_at",
+   "shape": "instant",
+   "step": "read_the_restored_profile"
+  },
+  {
+   "name": "unlock_the_restored_profile_committed_at",
+   "shape": "instant",
+   "step": "unlock_the_restored_profile"
+  },
+  {
+   "name": "unlock_the_restored_profile_head",
+   "shape": "digest",
+   "step": "unlock_the_restored_profile"
+  },
+  {
+   "name": "unlock_the_restored_profile_sequence",
+   "shape": "integer",
+   "step": "unlock_the_restored_profile"
+  },
+  {
+   "name": "unlocked_at",
+   "shape": "instant",
+   "step": "unlock_the_restored_profile"
+  },
+  {
+   "name": "restored_basis_at",
+   "shape": "instant",
+   "step": "prepare_after_the_restore"
+  },
+  {
+   "name": "restored_question",
+   "shape": "qst",
+   "step": "prepare_after_the_restore"
+  },
+  {
+   "name": "restored_question_at",
+   "shape": "instant",
+   "step": "prepare_after_the_restore"
+  },
+  {
+   "name": "restored_state_at",
+   "shape": "instant",
+   "step": "prepare_after_the_restore"
+  },
+  {
+   "name": "restored_use",
+   "shape": "use",
+   "step": "prepare_after_the_restore"
+  },
+  {
+   "name": "restored_waiting_at",
+   "shape": "instant",
+   "step": "prepare_after_the_restore"
+  }
+ ],
+ "records": [
+  {
+   "digest": "159e82b55861d2fc615ff8bead7d4adb0f2f5daf4408a4ec9f6cbc57619b4874",
+   "name": "device_key",
+   "record": {
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_45da4c0b5ae0975a4707144d1679f2f8",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "c93a4f32125a7540e145bb9149cda79d012c3a06996416742e636b371dba88ac",
+   "name": "bind_key",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_45da4c0b5ae0975a4707144d1679f2f8",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+     "profile_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "identity.binding.add",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "payload_digest": "159e82b55861d2fc615ff8bead7d4adb0f2f5daf4408a4ec9f6cbc57619b4874",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_31d0b1799e028b8b2074fcd0c2b484ad",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    }
+   }
+  },
+  {
+   "digest": "26775d725802e689627b2e3567ec58ac5fb0c29320b484559594ba7aa454cff2",
+   "name": "bind_device_key_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "159db0fdd6baac542a389681646a1fee8d6135c62cff689e0f006e6ef971119f",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "request_digest": "c93a4f32125a7540e145bb9149cda79d012c3a06996416742e636b371dba88ac",
+    "request_id": "req_31d0b1799e028b8b2074fcd0c2b484ad",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    }
+   }
+  },
+  {
+   "digest": "e33fa52d81c43dcdd0a61747f75c972f8e9c0b4afe519c3a0602408093f8cb95",
+   "name": "stored_key",
+   "record": {
+    "binding_id": "bnd_4da7930a7197c281c7f84c6a717c358a",
+    "created_at": "2000-01-01T00:00:00Z",
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_45da4c0b5ae0975a4707144d1679f2f8",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "8ecc5a7723ec8b4b9e22b3b08c055472bf9daa12caf91d8ee971b85867bbc695",
+   "name": "bind_device_key_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "26775d725802e689627b2e3567ec58ac5fb0c29320b484559594ba7aa454cff2",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "e33fa52d81c43dcdd0a61747f75c972f8e9c0b4afe519c3a0602408093f8cb95",
+      "kind": "principal_binding"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "c93a4f32125a7540e145bb9149cda79d012c3a06996416742e636b371dba88ac",
+    "request_id": "req_31d0b1799e028b8b2074fcd0c2b484ad",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "e9b6808ff086d2da4a165ce97e1755847906e1d507869a263661cc5f93cea899",
+   "name": "probe",
+   "record": {
+    "capability": "user_event",
+    "client": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "kind": "capability_probe",
+    "schema": 1,
+    "wire": {
+     "protocol": "model_context_protocol",
+     "version": "2025-11-25"
+    }
+   }
+  },
+  {
+   "digest": "a120070f3f26ddb213b4cf23f53025340329d320db24fda347649b357fe43166",
+   "name": "probe_host",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_45da4c0b5ae0975a4707144d1679f2f8",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+     "profile_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "capability.probe",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "payload_digest": "e9b6808ff086d2da4a165ce97e1755847906e1d507869a263661cc5f93cea899",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_4ea0b3c13f4db778689e1f68cdf25639",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    }
+   }
+  },
+  {
+   "digest": "7bd61f62afdd712c7e060bc5f5b167e6feb244130d32760f3fcd95e11c4279b0",
+   "name": "probe_the_host_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "b3471cbd4d584e3b6ebaf97a27eb274f56df9fb6f168a96b62874bb92c60f6a8",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "request_digest": "a120070f3f26ddb213b4cf23f53025340329d320db24fda347649b357fe43166",
+    "request_id": "req_4ea0b3c13f4db778689e1f68cdf25639",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    }
+   }
+  },
+  {
+   "digest": "d3b99fbd338f0e93ed3d6509d91c235760e3abddaa315f097bebc645f40aedfb",
+   "name": "probe_that_worked",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "capability": "user_event",
+    "client": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "kind": "capability_probe",
+    "mode": {
+     "runs": "real"
+    },
+    "observed": "The person's own keypress in the host's form came back as a native user event the host's hooks could not produce.",
+    "offered": true,
+    "outcome": "worked",
+    "probe_id": "prb_4ffc90863c89e47f70e780edc5428d3e",
+    "schema": 1,
+    "wire": {
+     "protocol": "model_context_protocol",
+     "version": "2025-11-25"
+    }
+   }
+  },
+  {
+   "digest": "35a3606213ba8e5c04d5a5eb3b774beedd75ef61bea61d614ba88974f1008914",
+   "name": "host_profile",
+   "record": {
+    "capabilities": [
+     {
+      "capability": "user_event",
+      "state": {
+       "probe_digest": "d3b99fbd338f0e93ed3d6509d91c235760e3abddaa315f097bebc645f40aedfb",
+       "qualified": "yes"
+      }
+     }
+    ],
+    "client": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "kind": "capability_profile",
+    "measured_at": "2000-01-01T00:00:00Z",
+    "profile_id": "cap_0bf6f04e9b1b6fa55f57d311ad148aca",
+    "schema": 1,
+    "wire": {
+     "protocol": "model_context_protocol",
+     "version": "2025-11-25"
+    }
+   }
+  },
+  {
+   "digest": "40782b10bc064b6e4302b3c64e5e0fb7bbae0c6d98b4921eb538454f04d2313a",
+   "name": "host_config",
+   "record": {
+    "client": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "hooks": [],
+    "kind": "host_configuration",
+    "measured_at": "2000-01-01T00:00:00Z",
+    "mode": {
+     "runs": "real"
+    },
+    "schema": 1
+   }
+  },
+  {
+   "digest": "379b38ab0be97c3e068ba42988f0f278d91cd26914f020a96892871e21a98d7e",
+   "name": "probe_the_host_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "7bd61f62afdd712c7e060bc5f5b167e6feb244130d32760f3fcd95e11c4279b0",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "d3b99fbd338f0e93ed3d6509d91c235760e3abddaa315f097bebc645f40aedfb",
+      "kind": "capability_probe"
+     },
+     {
+      "digest": "35a3606213ba8e5c04d5a5eb3b774beedd75ef61bea61d614ba88974f1008914",
+      "kind": "capability_profile"
+     },
+     {
+      "digest": "40782b10bc064b6e4302b3c64e5e0fb7bbae0c6d98b4921eb538454f04d2313a",
+      "kind": "host_configuration"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "a120070f3f26ddb213b4cf23f53025340329d320db24fda347649b357fe43166",
+    "request_id": "req_4ea0b3c13f4db778689e1f68cdf25639",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "15db6bc9b056c396ae63aeec5302873ba77702ef6a0c0077662461f6a05569c1",
+   "name": "decisions_home",
+   "record": {
+    "acceptance_authority": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "profile",
+       "value": "this installation"
+      }
+     ],
+     "states": "stated"
+    },
+    "disclosure": "private",
+    "format_version": 1,
+    "home": {
+     "markdown_view": {
+      "path": "views/collection.md",
+      "view": "derived"
+     },
+     "mode": "managed"
+    },
+    "kind": "source_home",
+    "publication_evidence_digests": [],
+    "retention": {
+     "keep": "until",
+     "until": "2027-01-01T00:00:00Z"
+    },
+    "role": "memory",
+    "schema": 1,
+    "scope": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+   }
+  },
+  {
+   "digest": "45463a19d4dea49cec838ac90ca9f7388ab3b0fda22034b153e3aab52b6fdfde",
+   "name": "register_decisions",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_45da4c0b5ae0975a4707144d1679f2f8",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+     "profile_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "source.home.register",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "payload_digest": "15db6bc9b056c396ae63aeec5302873ba77702ef6a0c0077662461f6a05569c1",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_3806cf14c22474c91c2faca913370ee2",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_bfbe1392707737a4e3e36aab5d171870"
+    }
+   }
+  },
+  {
+   "digest": "574c18704eac47e5d4fed9c4eca1d16235498af188b5b38ee42b428f55895e60",
+   "name": "register_the_decisions_source_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "e851768ed59fa08b94f0da87cad36844ebe28f78ad16c61cfe8fa6f292867105",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "request_digest": "45463a19d4dea49cec838ac90ca9f7388ab3b0fda22034b153e3aab52b6fdfde",
+    "request_id": "req_3806cf14c22474c91c2faca913370ee2",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_bfbe1392707737a4e3e36aab5d171870"
+    }
+   }
+  },
+  {
+   "digest": "d77bf3804a7ab69191f1c09dde951cd8484114aa885998867c2110d399517855",
+   "name": "stored_home",
+   "record": {
+    "acceptance_authority": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "profile",
+       "value": "this installation"
+      }
+     ],
+     "states": "stated"
+    },
+    "disclosure": "private",
+    "format_version": 1,
+    "home": {
+     "markdown_view": {
+      "path": "views/collection.md",
+      "view": "derived"
+     },
+     "mode": "managed"
+    },
+    "kind": "source_home",
+    "publication_evidence_digests": [],
+    "registered_at": "2000-01-01T00:00:00Z",
+    "retention": {
+     "keep": "until",
+     "until": "2027-01-01T00:00:00Z"
+    },
+    "role": "memory",
+    "schema": 1,
+    "scope": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+   }
+  },
+  {
+   "digest": "72ff46afb79053b86f74d8dbbeacaccfed24c084971fbf5411323866c96917c2",
+   "name": "register_the_decisions_source_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "574c18704eac47e5d4fed9c4eca1d16235498af188b5b38ee42b428f55895e60",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "d77bf3804a7ab69191f1c09dde951cd8484114aa885998867c2110d399517855",
+      "kind": "source_home"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "45463a19d4dea49cec838ac90ca9f7388ab3b0fda22034b153e3aab52b6fdfde",
+    "request_id": "req_3806cf14c22474c91c2faca913370ee2",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "d38c6ad57fb8f508439a27baf497b25ef33e911a31d3896b55cd7c050019a08c",
+   "name": "choice_a",
+   "record": {
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "jurisdiction",
+       "value": "KR"
+      }
+     ],
+     "period": {
+      "effective_from": "2026-01-01"
+     },
+     "states": "stated"
+    },
+    "choice": "WAL, with synchronous FULL.",
+    "context": "Measured on APFS with fullfsync on.",
+    "expected_consequences": "A checkpoint fault point has to be tested.",
+    "home": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "kind": "choice_record",
+    "question": "Which journal mode does the local state database use?",
+    "reason": "4.11 ms per commit against 11.76, and readers are not blocked.",
+    "revisit_condition": "A filesystem that does not honour fullfsync.",
+    "schema": 1,
+    "workstream_ids": []
+   }
+  },
+  {
+   "digest": "729e2187ceaedde59e8b101cc5ee607fa72d7e19e36da1fbeefe5945b7f40a04",
+   "name": "publish_choice_a",
+   "record": {
+    "action": "publish",
+    "actor": {
+     "device_id": "dev_45da4c0b5ae0975a4707144d1679f2f8",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+     "profile_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "memory.record.publish",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "payload_digest": "d38c6ad57fb8f508439a27baf497b25ef33e911a31d3896b55cd7c050019a08c",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_ee76c00e4eed28b665c2699ba3d5e6bd",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "e851768ed59fa08b94f0da87cad36844ebe28f78ad16c61cfe8fa6f292867105"
+     },
+     "resource_id": "src_bfbe1392707737a4e3e36aab5d171870"
+    }
+   }
+  },
+  {
+   "digest": "7fa7bfbcb142b8c763954c026bb19d7b42447db090afbac7dac3197d4931f666",
+   "name": "publish_choice_a_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "c1cecec690c3873853a95b7684255e8d6c6a307805c67e180fa51bfb393c7a49",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "request_digest": "729e2187ceaedde59e8b101cc5ee607fa72d7e19e36da1fbeefe5945b7f40a04",
+    "request_id": "req_ee76c00e4eed28b665c2699ba3d5e6bd",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "e851768ed59fa08b94f0da87cad36844ebe28f78ad16c61cfe8fa6f292867105"
+     },
+     "resource_id": "src_bfbe1392707737a4e3e36aab5d171870"
+    }
+   }
+  },
+  {
+   "digest": "186264b0c0b4ae9ff7f186e4086070c4fd765dda26d55516fa81b1801dcbf2ed",
+   "name": "stored_choice_a",
+   "record": {
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "jurisdiction",
+       "value": "KR"
+      }
+     ],
+     "period": {
+      "effective_from": "2026-01-01"
+     },
+     "states": "stated"
+    },
+    "choice": "WAL, with synchronous FULL.",
+    "context": "Measured on APFS with fullfsync on.",
+    "expected_consequences": "A checkpoint fault point has to be tested.",
+    "home": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "kind": "choice_record",
+    "question": "Which journal mode does the local state database use?",
+    "reason": "4.11 ms per commit against 11.76, and readers are not blocked.",
+    "record_id": "rec_53c105c4ec38a727a70adb322872f222",
+    "recorded_at": "2000-01-01T00:00:00Z",
+    "revisit_condition": "A filesystem that does not honour fullfsync.",
+    "schema": 1,
+    "workstream_ids": []
+   }
+  },
+  {
+   "digest": "c2472384e06c31bfb42fe53fd7341ffff2067df55070d31d29c8b0e627de75e9",
+   "name": "decisions_1",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "186264b0c0b4ae9ff7f186e4086070c4fd765dda26d55516fa81b1801dcbf2ed",
+      "path": "records/choice_a.json",
+      "size": 512
+     }
+    ],
+    "produced_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+   }
+  },
+  {
+   "digest": "f0c0c0e1fc5b086b3dc5f2beb2a55877c867276535fda6bedec77692da8bf556",
+   "name": "publish_choice_a_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "7fa7bfbcb142b8c763954c026bb19d7b42447db090afbac7dac3197d4931f666",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "186264b0c0b4ae9ff7f186e4086070c4fd765dda26d55516fa81b1801dcbf2ed",
+      "kind": "choice_record"
+     },
+     {
+      "digest": "c2472384e06c31bfb42fe53fd7341ffff2067df55070d31d29c8b0e627de75e9",
+      "kind": "source_manifest"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "729e2187ceaedde59e8b101cc5ee607fa72d7e19e36da1fbeefe5945b7f40a04",
+    "request_id": "req_ee76c00e4eed28b665c2699ba3d5e6bd",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "2993d64c480f419ae7a3c4e1867991f9b029155aec943ab0d684fe96aa0b1f84",
+   "name": "choice_b",
+   "record": {
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "jurisdiction",
+       "value": "KR"
+      }
+     ],
+     "period": {
+      "effective_from": "2026-01-01"
+     },
+     "states": "stated"
+    },
+    "choice": "A rollback journal with EXTRA.",
+    "context": "Measured on APFS with fullfsync on.",
+    "expected_consequences": "A checkpoint fault point has to be tested.",
+    "home": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "kind": "choice_record",
+    "question": "Which journal mode does the local state database use?",
+    "reason": "4.11 ms per commit against 11.76, and readers are not blocked.",
+    "revisit_condition": "A filesystem that does not honour fullfsync.",
+    "schema": 1,
+    "workstream_ids": []
+   }
+  },
+  {
+   "digest": "ed01d84f44532f9b0563f4dd249a159c19d7ed73001d7046945ef93ddd0abd6d",
+   "name": "publish_choice_b",
+   "record": {
+    "action": "publish",
+    "actor": {
+     "device_id": "dev_45da4c0b5ae0975a4707144d1679f2f8",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+     "profile_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "memory.record.publish",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "payload_digest": "2993d64c480f419ae7a3c4e1867991f9b029155aec943ab0d684fe96aa0b1f84",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_c24fee3a29cc2724bd8b55cd40425bfd",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "c1cecec690c3873853a95b7684255e8d6c6a307805c67e180fa51bfb393c7a49"
+     },
+     "resource_id": "src_bfbe1392707737a4e3e36aab5d171870"
+    }
+   }
+  },
+  {
+   "digest": "f15de57d19de680a151a7b43703d25458cdd935cf354d8bdb165035c0919e6be",
+   "name": "publish_choice_b_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "7cbc2ea67a194572d98f5bb516e881855164d53251f39d89d6fb7a1b83935861",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "request_digest": "ed01d84f44532f9b0563f4dd249a159c19d7ed73001d7046945ef93ddd0abd6d",
+    "request_id": "req_c24fee3a29cc2724bd8b55cd40425bfd",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "c1cecec690c3873853a95b7684255e8d6c6a307805c67e180fa51bfb393c7a49"
+     },
+     "resource_id": "src_bfbe1392707737a4e3e36aab5d171870"
+    }
+   }
+  },
+  {
+   "digest": "47964b0ecbd713684801c59b137a3a57ddcaa0c9c9f295559c42ceab79381c33",
+   "name": "stored_choice_b",
+   "record": {
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "jurisdiction",
+       "value": "KR"
+      }
+     ],
+     "period": {
+      "effective_from": "2026-01-01"
+     },
+     "states": "stated"
+    },
+    "choice": "A rollback journal with EXTRA.",
+    "context": "Measured on APFS with fullfsync on.",
+    "expected_consequences": "A checkpoint fault point has to be tested.",
+    "home": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "kind": "choice_record",
+    "question": "Which journal mode does the local state database use?",
+    "reason": "4.11 ms per commit against 11.76, and readers are not blocked.",
+    "record_id": "rec_0a3b461becc5b755e58d61335935c1fa",
+    "recorded_at": "2000-01-01T00:00:00Z",
+    "revisit_condition": "A filesystem that does not honour fullfsync.",
+    "schema": 1,
+    "workstream_ids": []
+   }
+  },
+  {
+   "digest": "fdc379e2c98ff4b4f56cb77bb52a16d71367f2afb7d79900e52c06035453a042",
+   "name": "decisions_2",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "186264b0c0b4ae9ff7f186e4086070c4fd765dda26d55516fa81b1801dcbf2ed",
+      "path": "records/choice_a.json",
+      "size": 512
+     },
+     {
+      "digest": "47964b0ecbd713684801c59b137a3a57ddcaa0c9c9f295559c42ceab79381c33",
+      "path": "records/choice_b.json",
+      "size": 512
+     }
+    ],
+    "produced_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+   }
+  },
+  {
+   "digest": "e739b821cbb3be0371e29f4c135732e78eb3e3581ad786be90f7230f1360b810",
+   "name": "publish_choice_b_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "f15de57d19de680a151a7b43703d25458cdd935cf354d8bdb165035c0919e6be",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "47964b0ecbd713684801c59b137a3a57ddcaa0c9c9f295559c42ceab79381c33",
+      "kind": "choice_record"
+     },
+     {
+      "digest": "fdc379e2c98ff4b4f56cb77bb52a16d71367f2afb7d79900e52c06035453a042",
+      "kind": "source_manifest"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "ed01d84f44532f9b0563f4dd249a159c19d7ed73001d7046945ef93ddd0abd6d",
+    "request_id": "req_c24fee3a29cc2724bd8b55cd40425bfd",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "cb63c29dab7cf916a786c31fe5bbccf3b5ab3086b6322b295ade465dac061bf9",
+   "name": "link_submitted",
+   "record": {
+    "destination": {
+     "destination_digest": "34772b65f5555b73049e4a2b1161124773e0f3fd394619397a05d820310f2990",
+     "destination_kind": "conversation"
+    },
+    "host": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "isolation": "proven_fresh",
+    "kind": "recipient_link",
+    "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+    "schema": 1,
+    "work_scope": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    }
+   }
+  },
+  {
+   "digest": "25b547c080acf6fa0320493c74b3d226cf1aab9040e0a38fc7cf6003916dcbc7",
+   "name": "open_link",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_45da4c0b5ae0975a4707144d1679f2f8",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+     "profile_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "recipient.link.open",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "payload_digest": "cb63c29dab7cf916a786c31fe5bbccf3b5ab3086b6322b295ade465dac061bf9",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_580a3147a45daff2563f6bce3e9d6238",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    }
+   }
+  },
+  {
+   "digest": "283a4166da52a77f302900e9d48abdc3d40bbb78348eb5c52e36e60125f95333",
+   "name": "open_the_working_conversation_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "4d7b9b10ed071ed07d43a33cc463cbd603096e52932f05a940d4bdc24397dfcb",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "request_digest": "25b547c080acf6fa0320493c74b3d226cf1aab9040e0a38fc7cf6003916dcbc7",
+    "request_id": "req_580a3147a45daff2563f6bce3e9d6238",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    }
+   }
+  },
+  {
+   "digest": "5a55753d3eae77b1bc58d4b7a8f5347998b1304a06d17ab3650c87610b8918d0",
+   "name": "work_link",
+   "record": {
+    "created_at": "2000-01-01T00:00:00Z",
+    "destination": {
+     "destination_digest": "34772b65f5555b73049e4a2b1161124773e0f3fd394619397a05d820310f2990",
+     "destination_kind": "conversation"
+    },
+    "host": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "isolation": "proven_fresh",
+    "kind": "recipient_link",
+    "link_id": "lnk_3c05b59aa0e559726005fed6517a7e1a",
+    "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+    "schema": 1,
+    "work_scope": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    }
+   }
+  },
+  {
+   "digest": "3c27eabd5dc27c30bb0ad751681fdfbb3ba77deade4858a5a01a379909284be6",
+   "name": "open_the_working_conversation_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "283a4166da52a77f302900e9d48abdc3d40bbb78348eb5c52e36e60125f95333",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "5a55753d3eae77b1bc58d4b7a8f5347998b1304a06d17ab3650c87610b8918d0",
+      "kind": "recipient_link"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "25b547c080acf6fa0320493c74b3d226cf1aab9040e0a38fc7cf6003916dcbc7",
+    "request_id": "req_580a3147a45daff2563f6bce3e9d6238",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "5674e59ced6859e5403e3b1657be09e4ba3d90fc152a30c736e107697ffbfe6d",
+   "name": "envelope",
+   "record": {
+    "budget": {
+     "max_bytes": 40000,
+     "max_examined": 64,
+     "max_units": 8
+    },
+    "history": "excluded",
+    "kind": "reader_envelope",
+    "required": [
+     {
+      "role": "memory",
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+     }
+    ],
+    "role_view": {
+     "role": "memory",
+     "view": "executor"
+    },
+    "schema": 1,
+    "selector": {
+     "asks": "concern",
+     "concern": {
+      "question": "Which journal mode does the local state database use?"
+     }
+    },
+    "work_scope": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    }
+   }
+  },
+  {
+   "digest": "5f2c175975e5c78afc84c8e80a3156e64581b3b1e9bc3315060f8cbd4c2efe19",
+   "name": "prepare_first",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_45da4c0b5ae0975a4707144d1679f2f8",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+     "profile_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    },
+    "control_digests": [],
+    "effect_class": "durable_candidate",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "memory.use.prepare",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "payload_digest": "5674e59ced6859e5403e3b1657be09e4ba3d90fc152a30c736e107697ffbfe6d",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_9e57012151a49d6acc8d8f2a5e25e4d5",
+    "schema": 1,
+    "target": {
+     "resource_id": "cnc_04972becfbc4b6c2c975a682d4af9951"
+    }
+   }
+  },
+  {
+   "digest": "f51df41859fe91348c5ddd7a8955849cf923fceffe0407da7a835439626ba500",
+   "name": "first_waiting",
+   "record": {
+    "ended": true,
+    "envelope_digest": "5674e59ced6859e5403e3b1657be09e4ba3d90fc152a30c736e107697ffbfe6d",
+    "kind": "reader_result",
+    "material_gaps": [],
+    "omissions": [],
+    "outcome": {
+     "consumed": {
+      "bytes": 0,
+      "examined": 12,
+      "units": 0
+     },
+     "frontiers": [
+      {
+       "checkpoint_digest": "7cbc2ea67a194572d98f5bb516e881855164d53251f39d89d6fb7a1b83935861",
+       "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+      }
+     ],
+     "standing": "unresolved",
+     "units": [],
+     "use": {
+      "question_id": "qst_d8b8a108a3f9ae79b191e0be0d941484",
+      "question_version": 1,
+      "state": "pending_user",
+      "use_id": "use_f2c3a5a214beff4675d09ac0fcf64d02"
+     }
+    },
+    "prepared_at": "2000-01-01T00:00:00Z",
+    "qualifications": [],
+    "schema": 1
+   }
+  },
+  {
+   "digest": "1c3878610d87237f2d8cbe13c34dd5ac1b4b919e4663cf28b46864ad7bb6a566",
+   "name": "first_basis",
+   "record": {
+    "concern": {
+     "question": "Which journal mode does the local state database use?"
+    },
+    "coverage": {
+     "compared": 2,
+     "unreachable": 0
+    },
+    "generation": 1,
+    "kind": "comparison_basis",
+    "participants": [
+     {
+      "applicable": true,
+      "lifecycle": "accepted",
+      "record_id": "rec_53c105c4ec38a727a70adb322872f222",
+      "revision_digest": "fdc379e2c98ff4b4f56cb77bb52a16d71367f2afb7d79900e52c06035453a042",
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+     },
+     {
+      "applicable": true,
+      "lifecycle": "accepted",
+      "record_id": "rec_0a3b461becc5b755e58d61335935c1fa",
+      "revision_digest": "fdc379e2c98ff4b4f56cb77bb52a16d71367f2afb7d79900e52c06035453a042",
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+     }
+    ],
+    "prepared_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "scopes": [
+     {
+      "layer": "personal",
+      "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+     }
+    ]
+   }
+  },
+  {
+   "digest": "812207a71f61fcb0f8b0c0ae0017a6485bdd505d6c6b4bc1de5d921827657d63",
+   "name": "first_question",
+   "record": {
+    "alternatives": [
+     {
+      "record_id": "rec_53c105c4ec38a727a70adb322872f222",
+      "scope": {
+       "layer": "personal",
+       "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+      },
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870",
+      "summary": "WAL, with synchronous FULL."
+     },
+     {
+      "record_id": "rec_0a3b461becc5b755e58d61335935c1fa",
+      "scope": {
+       "layer": "personal",
+       "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+      },
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870",
+      "summary": "A rollback journal with EXTRA."
+     }
+    ],
+    "asked_through": {
+     "host": "claude-code 2.1.278",
+     "qualified": true,
+     "route": "conversation"
+    },
+    "basis_digest": "1c3878610d87237f2d8cbe13c34dd5ac1b4b919e4663cf28b46864ad7bb6a566",
+    "concern": {
+     "question": "Which journal mode does the local state database use?"
+    },
+    "created_at": "2000-01-01T00:00:00Z",
+    "kind": "pending_question",
+    "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+    "question_id": "qst_d8b8a108a3f9ae79b191e0be0d941484",
+    "question_version": 1,
+    "schema": 1,
+    "standing": "pending",
+    "use_id": "use_f2c3a5a214beff4675d09ac0fcf64d02"
+   }
+  },
+  {
+   "digest": "fb8504b23360f232dae94562cd328c97a2fde20bb9f5d7bc549ec3c96a1e92f2",
+   "name": "first_state",
+   "record": {
+    "comparison": {
+     "compared": 2,
+     "unreachable": 0
+    },
+    "entries": [
+     {
+      "record_id": "rec_53c105c4ec38a727a70adb322872f222",
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870",
+      "standing": "unresolved"
+     },
+     {
+      "record_id": "rec_0a3b461becc5b755e58d61335935c1fa",
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870",
+      "standing": "unresolved"
+     }
+    ],
+    "frontiers": [
+     {
+      "checkpoint_digest": "7cbc2ea67a194572d98f5bb516e881855164d53251f39d89d6fb7a1b83935861",
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+     }
+    ],
+    "kind": "qualified_state",
+    "material_gaps": [
+     {
+      "code": "choice_conflict_unresolved"
+     }
+    ],
+    "prepared_at": "2000-01-01T00:00:00Z",
+    "question_digest": "5674e59ced6859e5403e3b1657be09e4ba3d90fc152a30c736e107697ffbfe6d",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "56835ead10c1825b41603bf90dbc5c1075dd36eaf50d5ddca01b60d82d3e6ddb",
+   "name": "prepare_the_first_use_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "private_state_written",
+    "outcome": {
+     "material_gaps": [
+      {
+       "code": "choice_conflict_unresolved"
+      }
+     ],
+     "stage": "blocked"
+    },
+    "outputs": [
+     {
+      "digest": "f51df41859fe91348c5ddd7a8955849cf923fceffe0407da7a835439626ba500",
+      "kind": "reader_result"
+     },
+     {
+      "digest": "812207a71f61fcb0f8b0c0ae0017a6485bdd505d6c6b4bc1de5d921827657d63",
+      "kind": "pending_question"
+     },
+     {
+      "digest": "1c3878610d87237f2d8cbe13c34dd5ac1b4b919e4663cf28b46864ad7bb6a566",
+      "kind": "comparison_basis"
+     },
+     {
+      "digest": "fb8504b23360f232dae94562cd328c97a2fde20bb9f5d7bc549ec3c96a1e92f2",
+      "kind": "qualified_state"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "5f2c175975e5c78afc84c8e80a3156e64581b3b1e9bc3315060f8cbd4c2efe19",
+    "request_id": "req_9e57012151a49d6acc8d8f2a5e25e4d5",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "6166b73fe361009321b35ab0f705224b0036fc9a34c1e7c4e0e1a197b9b447e9",
+   "name": "ask_submitted",
+   "record": {
+    "kind": "delivery_attempt",
+    "link_id": "lnk_3c05b59aa0e559726005fed6517a7e1a",
+    "requested": {
+     "question_id": "qst_d8b8a108a3f9ae79b191e0be0d941484",
+     "question_version": 1,
+     "what": "question"
+    },
+    "schema": 1,
+    "use_id": "use_f2c3a5a214beff4675d09ac0fcf64d02"
+   }
+  },
+  {
+   "digest": "3ad78730426f92d59ca33821696b100d128db2de7a32b5da8e41f8573b5310d6",
+   "name": "attempt_ask",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_45da4c0b5ae0975a4707144d1679f2f8",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+     "profile_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "recipient.delivery.attempt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "payload_digest": "6166b73fe361009321b35ab0f705224b0036fc9a34c1e7c4e0e1a197b9b447e9",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_a0f5da54e5eaa4f9c277931abde7813a",
+    "schema": 1,
+    "target": {
+     "resource_id": "lnk_3c05b59aa0e559726005fed6517a7e1a"
+    }
+   }
+  },
+  {
+   "digest": "e88715700e966d41afabec9902dbc6541b797f17bb3ae41aa47abc6381456a04",
+   "name": "deliver_the_question_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "133417b24ad1b5bec6223798e34527351b94b06fac80a3ae92138a02b42f8a89",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "request_digest": "3ad78730426f92d59ca33821696b100d128db2de7a32b5da8e41f8573b5310d6",
+    "request_id": "req_a0f5da54e5eaa4f9c277931abde7813a",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "lnk_3c05b59aa0e559726005fed6517a7e1a"
+    }
+   }
+  },
+  {
+   "digest": "4a706368aff697ac6c148d4fbae4fedcf6d710e40ee0c2b63fbf7f5c95f0be60",
+   "name": "question_waiting",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "kind": "delivery_attempt",
+    "link_id": "lnk_3c05b59aa0e559726005fed6517a7e1a",
+    "material_gaps": [],
+    "observed": {
+     "saw": "still_waiting"
+    },
+    "requested": {
+     "question_id": "qst_d8b8a108a3f9ae79b191e0be0d941484",
+     "question_version": 1,
+     "what": "question"
+    },
+    "schema": 1,
+    "supported": true,
+    "use_id": "use_f2c3a5a214beff4675d09ac0fcf64d02"
+   }
+  },
+  {
+   "digest": "306ed2085048327e479cf21384f9eb9b3ccadef5528f11f9b2b64b68531522af",
+   "name": "deliver_the_question_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "e88715700e966d41afabec9902dbc6541b797f17bb3ae41aa47abc6381456a04",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "4a706368aff697ac6c148d4fbae4fedcf6d710e40ee0c2b63fbf7f5c95f0be60",
+      "kind": "delivery_attempt"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "3ad78730426f92d59ca33821696b100d128db2de7a32b5da8e41f8573b5310d6",
+    "request_id": "req_a0f5da54e5eaa4f9c277931abde7813a",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "328b83473f32309574850f7b581065fb1e2204fcfcceec5ac2d64eb14eaa0b6d",
+   "name": "choice_reply",
+   "record": {
+    "kind": "host_reply",
+    "link_id": "lnk_3c05b59aa0e559726005fed6517a7e1a",
+    "question_id": "qst_d8b8a108a3f9ae79b191e0be0d941484",
+    "question_version": 1,
+    "reply": {
+     "answer": {
+      "mode": "keep_until_change",
+      "selected": {
+       "record_id": "rec_53c105c4ec38a727a70adb322872f222",
+       "selects": "record"
+      }
+     },
+     "given": "choice",
+     "separation_evidence_digest": "d3b99fbd338f0e93ed3d6509d91c235760e3abddaa315f097bebc645f40aedfb"
+    },
+    "route": "conversation",
+    "schema": 1,
+    "use_id": "use_f2c3a5a214beff4675d09ac0fcf64d02"
+   }
+  },
+  {
+   "digest": "211586422d4410adae8f6bebc23e22caf631c8b8b47816580f14a19957db547b",
+   "name": "record_reply",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_45da4c0b5ae0975a4707144d1679f2f8",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+     "profile_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "recipient.answer.record",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "payload_digest": "328b83473f32309574850f7b581065fb1e2204fcfcceec5ac2d64eb14eaa0b6d",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_0c1cde861d4bd24463c459f407cf48b4",
+    "schema": 1,
+    "target": {
+     "resource_id": "qst_d8b8a108a3f9ae79b191e0be0d941484"
+    }
+   }
+  },
+  {
+   "digest": "b7e64bcca40d33d0bfde4418e5048c90fdabde29f7450861b8605bfe21a62bae",
+   "name": "record_her_answer_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "ceaba9e2b5ac21c13366c31404aa224e2b4f68fe8b4358f79bd4a7938fb2c1ec",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "request_digest": "211586422d4410adae8f6bebc23e22caf631c8b8b47816580f14a19957db547b",
+    "request_id": "req_0c1cde861d4bd24463c459f407cf48b4",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "qst_d8b8a108a3f9ae79b191e0be0d941484"
+    }
+   }
+  },
+  {
+   "digest": "40782b10bc064b6e4302b3c64e5e0fb7bbae0c6d98b4921eb538454f04d2313a",
+   "name": "answer_config",
+   "record": {
+    "client": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "hooks": [],
+    "kind": "host_configuration",
+    "measured_at": "2000-01-01T00:00:00Z",
+    "mode": {
+     "runs": "real"
+    },
+    "schema": 1
+   }
+  },
+  {
+   "digest": "39a925ebd2bfbd7eb866ec6955eaa02e18bc92b4194d08df4d0a7daf122241f9",
+   "name": "verified_answer",
+   "record": {
+    "evidence_id": "ans_49c695dd4528bae09cb45e0f327fe6e1",
+    "host": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "kind": "answer_evidence",
+    "link_id": "lnk_3c05b59aa0e559726005fed6517a7e1a",
+    "measured_configuration_digest": "40782b10bc064b6e4302b3c64e5e0fb7bbae0c6d98b4921eb538454f04d2313a",
+    "observed_at": "2000-01-01T00:00:00Z",
+    "origin": {
+     "answer": {
+      "mode": "keep_until_change",
+      "selected": {
+       "record_id": "rec_53c105c4ec38a727a70adb322872f222",
+       "selects": "record"
+      }
+     },
+     "origin": "verified_native_user_event",
+     "separation_evidence_digest": "d3b99fbd338f0e93ed3d6509d91c235760e3abddaa315f097bebc645f40aedfb"
+    },
+    "question_id": "qst_d8b8a108a3f9ae79b191e0be0d941484",
+    "question_version": 1,
+    "route": "conversation",
+    "schema": 1,
+    "use_id": "use_f2c3a5a214beff4675d09ac0fcf64d02"
+   }
+  },
+  {
+   "digest": "f81bd9f1128a45fd202095f6958caf8d2148502058471e7026f9e31e1e63b417",
+   "name": "record_her_answer_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "b7e64bcca40d33d0bfde4418e5048c90fdabde29f7450861b8605bfe21a62bae",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "39a925ebd2bfbd7eb866ec6955eaa02e18bc92b4194d08df4d0a7daf122241f9",
+      "kind": "answer_evidence"
+     },
+     {
+      "digest": "40782b10bc064b6e4302b3c64e5e0fb7bbae0c6d98b4921eb538454f04d2313a",
+      "kind": "host_configuration"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "211586422d4410adae8f6bebc23e22caf631c8b8b47816580f14a19957db547b",
+    "request_id": "req_0c1cde861d4bd24463c459f407cf48b4",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "4b66d3a0a3b61a4008c8e794cf63ad1a6b0fde0da3fd6274785a99ffc5b27eb8",
+   "name": "resume_payload",
+   "record": {
+    "answer_evidence_digest": "39a925ebd2bfbd7eb866ec6955eaa02e18bc92b4194d08df4d0a7daf122241f9",
+    "kind": "resume_request",
+    "question_id": "qst_d8b8a108a3f9ae79b191e0be0d941484",
+    "question_version": 1,
+    "schema": 1,
+    "use_id": "use_f2c3a5a214beff4675d09ac0fcf64d02"
+   }
+  },
+  {
+   "digest": "2498c44e6f8202e8e6b3abfbb0a0822defa15e3c7e7ef5dac4c8a598fbc2c6f1",
+   "name": "record_application",
+   "record": {
+    "action": "decide",
+    "actor": {
+     "device_id": "dev_45da4c0b5ae0975a4707144d1679f2f8",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+     "profile_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "memory.preference.record",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "payload_digest": "4b66d3a0a3b61a4008c8e794cf63ad1a6b0fde0da3fd6274785a99ffc5b27eb8",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_4d5ca74990a01201c6ea53ab646d29e5",
+    "schema": 1,
+    "target": {
+     "resource_id": "cnc_04972becfbc4b6c2c975a682d4af9951"
+    }
+   }
+  },
+  {
+   "digest": "e0505d732d5702fd660f7bcb99f51973d94f482747feec7c79cf3311778fa45d",
+   "name": "record_the_application_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "c7210d421c0e741749742328da47f543298c1cc6a25a396c2f68e8d21e921063",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "request_digest": "2498c44e6f8202e8e6b3abfbb0a0822defa15e3c7e7ef5dac4c8a598fbc2c6f1",
+    "request_id": "req_4d5ca74990a01201c6ea53ab646d29e5",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "cnc_04972becfbc4b6c2c975a682d4af9951"
+    }
+   }
+  },
+  {
+   "digest": "f98c76485fb2ecf22f1128d315bddecb7356607720e7382e3445bb4836835abf",
+   "name": "application",
+   "record": {
+    "answer_evidence_digest": "39a925ebd2bfbd7eb866ec6955eaa02e18bc92b4194d08df4d0a7daf122241f9",
+    "concern": {
+     "question": "Which journal mode does the local state database use?"
+    },
+    "created_at": "2000-01-01T00:00:00Z",
+    "kind": "application_preference",
+    "lineage_digest": "51a2f783b302f147f77946d45d015c80f866e2c5044ce529e0ae3e5501a62e1f",
+    "preference_id": "pre_a310cbefb12a2198f7398f6af0a0807a",
+    "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+    "schema": 1,
+    "scopes": [
+     {
+      "layer": "personal",
+      "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+     }
+    ],
+    "standing": {
+     "holds": "active",
+     "participants": [
+      {
+       "applicable": true,
+       "lifecycle": "accepted",
+       "record_id": "rec_53c105c4ec38a727a70adb322872f222",
+       "revision_digest": "fdc379e2c98ff4b4f56cb77bb52a16d71367f2afb7d79900e52c06035453a042",
+       "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+      },
+      {
+       "applicable": true,
+       "lifecycle": "accepted",
+       "record_id": "rec_0a3b461becc5b755e58d61335935c1fa",
+       "revision_digest": "fdc379e2c98ff4b4f56cb77bb52a16d71367f2afb7d79900e52c06035453a042",
+       "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "digest": "de3443fce0445a0f1eed335744b2ebc25dcaa9278d0f900e3dc3d0497a285657",
+   "name": "record_the_application_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "e0505d732d5702fd660f7bcb99f51973d94f482747feec7c79cf3311778fa45d",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "f98c76485fb2ecf22f1128d315bddecb7356607720e7382e3445bb4836835abf",
+      "kind": "application_preference"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "2498c44e6f8202e8e6b3abfbb0a0822defa15e3c7e7ef5dac4c8a598fbc2c6f1",
+    "request_id": "req_4d5ca74990a01201c6ea53ab646d29e5",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "c656cc1dc4d62e485932dd483290b809926b12f679375a2061f069234ec98d4f",
+   "name": "resume_first",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_45da4c0b5ae0975a4707144d1679f2f8",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+     "profile_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    },
+    "control_digests": [],
+    "effect_class": "durable_candidate",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "reader.use.resume",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "payload_digest": "4b66d3a0a3b61a4008c8e794cf63ad1a6b0fde0da3fd6274785a99ffc5b27eb8",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_11a203d43f997c7f9b44a76d8859aa4d",
+    "schema": 1,
+    "target": {
+     "resource_id": "use_f2c3a5a214beff4675d09ac0fcf64d02"
+    }
+   }
+  },
+  {
+   "digest": "04f47123dd308a02cf0b6cadfa71cfd5009f2ff60f63ba096149375151fcce8f",
+   "name": "first_admitted",
+   "record": {
+    "ended": true,
+    "envelope_digest": "5674e59ced6859e5403e3b1657be09e4ba3d90fc152a30c736e107697ffbfe6d",
+    "kind": "reader_result",
+    "material_gaps": [],
+    "omissions": [],
+    "outcome": {
+     "consumed": {
+      "bytes": 512,
+      "examined": 2,
+      "units": 1
+     },
+     "frontiers": [
+      {
+       "checkpoint_digest": "7cbc2ea67a194572d98f5bb516e881855164d53251f39d89d6fb7a1b83935861",
+       "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+      }
+     ],
+     "standing": "delivered",
+     "units": [
+      {
+       "body_digest": "186264b0c0b4ae9ff7f186e4086070c4fd765dda26d55516fa81b1801dcbf2ed",
+       "layer": "personal",
+       "need": "required",
+       "revision_digest": "fdc379e2c98ff4b4f56cb77bb52a16d71367f2afb7d79900e52c06035453a042",
+       "role": "memory",
+       "source_id": "src_bfbe1392707737a4e3e36aab5d171870",
+       "standing": "winning",
+       "unit_id": "unt_b79380d917e1ebb1aba40ab60c296f38"
+      }
+     ],
+     "use": {
+      "state": "admitted",
+      "state_digest": "fb8504b23360f232dae94562cd328c97a2fde20bb9f5d7bc549ec3c96a1e92f2",
+      "use_id": "use_f2c3a5a214beff4675d09ac0fcf64d02"
+     }
+    },
+    "prepared_at": "2000-01-01T00:00:00Z",
+    "qualifications": [],
+    "schema": 1
+   }
+  },
+  {
+   "digest": "d7f9ded13b6908204efd621f378c80d8584917df41f4c79fd4f74b83c6db366f",
+   "name": "resume_the_first_use_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "private_state_written",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "04f47123dd308a02cf0b6cadfa71cfd5009f2ff60f63ba096149375151fcce8f",
+      "kind": "reader_result"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "c656cc1dc4d62e485932dd483290b809926b12f679375a2061f069234ec98d4f",
+    "request_id": "req_11a203d43f997c7f9b44a76d8859aa4d",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "5eeac833380e0d0c7dfd7b32f5000807c11fd6b2b5c3f7a24847a8ea4c3d1112",
+   "name": "take_backup",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_45da4c0b5ae0975a4707144d1679f2f8",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+     "profile_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "store.backup.create",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_b4c212c361f2afe588b7754a613691cb",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    }
+   }
+  },
+  {
+   "digest": "ee548ec3084f37851a480a00dbb9ae970363cd21a09f46871b81cafce747771c",
+   "name": "take_the_backup_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "fb541d6429da0ccfd74ca56545b3368299540ae0bf1a7b065f71cd45c24365c5",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "request_digest": "5eeac833380e0d0c7dfd7b32f5000807c11fd6b2b5c3f7a24847a8ea4c3d1112",
+    "request_id": "req_b4c212c361f2afe588b7754a613691cb",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    }
+   }
+  },
+  {
+   "digest": "abea60dd5ce8e7633072825407adcf5d1888b2d4e2a4c3357c08d0a4869426dc",
+   "name": "backup",
+   "record": {
+    "access_generation": 7,
+    "covered_through": 1,
+    "database": {
+     "digest": "c32d39ae4ba99a6ca15ca0436eaac27fda82fb5dde314ed66138d80e7dc342d2",
+     "path": "state.sqlite3",
+     "size": 1048576
+    },
+    "kind": "backup_set",
+    "members": [
+     {
+      "digest": "186264b0c0b4ae9ff7f186e4086070c4fd765dda26d55516fa81b1801dcbf2ed",
+      "holds": "object",
+      "path": "objects/choice_a.json",
+      "size": 512
+     },
+     {
+      "digest": "47964b0ecbd713684801c59b137a3a57ddcaa0c9c9f295559c42ceab79381c33",
+      "holds": "object",
+      "path": "objects/choice_b.json",
+      "size": 512
+     },
+     {
+      "digest": "ca1236cba594e03d1aa173cd06baf4cb0486e2207d6b9200b664dae05268ee4e",
+      "holds": "control_state",
+      "path": "control/sequence.json",
+      "size": 64
+     }
+    ],
+    "profile_id": "prf_e7d946ca23ed8197a79be77ba3071367",
+    "schema": 1,
+    "taken_at": "2000-01-01T00:00:00Z"
+   }
+  },
+  {
+   "digest": "584280ff413acdb73f608ea02f219ac423e3d062b9fdf42c7c402edb82eaf723",
+   "name": "take_the_backup_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "ee548ec3084f37851a480a00dbb9ae970363cd21a09f46871b81cafce747771c",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "abea60dd5ce8e7633072825407adcf5d1888b2d4e2a4c3357c08d0a4869426dc",
+      "kind": "backup_set"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "5eeac833380e0d0c7dfd7b32f5000807c11fd6b2b5c3f7a24847a8ea4c3d1112",
+    "request_id": "req_b4c212c361f2afe588b7754a613691cb",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "ca30a2c095cf33fcfbf29a227d140083bf08c7665ccc8910fd238528d41a4f92",
+   "name": "choice_a2",
+   "record": {
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "jurisdiction",
+       "value": "KR"
+      }
+     ],
+     "period": {
+      "effective_from": "2026-01-01"
+     },
+     "states": "stated"
+    },
+    "choice": "WAL, with synchronous NORMAL.",
+    "context": "Measured on APFS with fullfsync on.",
+    "expected_consequences": "A checkpoint fault point has to be tested.",
+    "home": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "kind": "choice_record",
+    "question": "Which journal mode does the local state database use?",
+    "reason": "4.11 ms per commit against 11.76, and readers are not blocked.",
+    "replaces": {
+     "extent": "whole",
+     "record_id": "rec_53c105c4ec38a727a70adb322872f222"
+    },
+    "revisit_condition": "A filesystem that does not honour fullfsync.",
+    "schema": 1,
+    "workstream_ids": []
+   }
+  },
+  {
+   "digest": "6908ee55a4ad25ae7b1e5cb90f203721d549366438d647729525cd39e778a91a",
+   "name": "publish_choice_a2",
+   "record": {
+    "action": "publish",
+    "actor": {
+     "device_id": "dev_45da4c0b5ae0975a4707144d1679f2f8",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+     "profile_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "memory.record.publish",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "payload_digest": "ca30a2c095cf33fcfbf29a227d140083bf08c7665ccc8910fd238528d41a4f92",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_93b5146a8629a7e33db9bfb1d5acc11e",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "7cbc2ea67a194572d98f5bb516e881855164d53251f39d89d6fb7a1b83935861"
+     },
+     "resource_id": "src_bfbe1392707737a4e3e36aab5d171870"
+    }
+   }
+  },
+  {
+   "digest": "5b0cbe56bf4245cac9db00c67dc37abbd74cc62673e8dbaa10158599304f2ab4",
+   "name": "change_choice_a_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "6799e29c0a985fb191fcb110cd64699237fe4bcb190f53792bd56b1f79769584",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "request_digest": "6908ee55a4ad25ae7b1e5cb90f203721d549366438d647729525cd39e778a91a",
+    "request_id": "req_93b5146a8629a7e33db9bfb1d5acc11e",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "7cbc2ea67a194572d98f5bb516e881855164d53251f39d89d6fb7a1b83935861"
+     },
+     "resource_id": "src_bfbe1392707737a4e3e36aab5d171870"
+    }
+   }
+  },
+  {
+   "digest": "2e981744208d13d70bddffb2e2350745b1ffc6e34fc7405289ea1f6fef1439a8",
+   "name": "stored_choice_a2",
+   "record": {
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "jurisdiction",
+       "value": "KR"
+      }
+     ],
+     "period": {
+      "effective_from": "2026-01-01"
+     },
+     "states": "stated"
+    },
+    "choice": "WAL, with synchronous NORMAL.",
+    "context": "Measured on APFS with fullfsync on.",
+    "expected_consequences": "A checkpoint fault point has to be tested.",
+    "home": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "kind": "choice_record",
+    "question": "Which journal mode does the local state database use?",
+    "reason": "4.11 ms per commit against 11.76, and readers are not blocked.",
+    "record_id": "rec_d3dc0e5c0a796228378b18d351ab7453",
+    "recorded_at": "2000-01-01T00:00:00Z",
+    "replaces": {
+     "extent": "whole",
+     "record_id": "rec_53c105c4ec38a727a70adb322872f222"
+    },
+    "revisit_condition": "A filesystem that does not honour fullfsync.",
+    "schema": 1,
+    "workstream_ids": []
+   }
+  },
+  {
+   "digest": "40df968d35064dc6c502c5ee2d637cc78170c5b0b8c2fac2cc7ae684508a329d",
+   "name": "decisions_3",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "186264b0c0b4ae9ff7f186e4086070c4fd765dda26d55516fa81b1801dcbf2ed",
+      "path": "records/choice_a.json",
+      "size": 512
+     },
+     {
+      "digest": "47964b0ecbd713684801c59b137a3a57ddcaa0c9c9f295559c42ceab79381c33",
+      "path": "records/choice_b.json",
+      "size": 512
+     },
+     {
+      "digest": "2e981744208d13d70bddffb2e2350745b1ffc6e34fc7405289ea1f6fef1439a8",
+      "path": "records/choice_a2.json",
+      "size": 512
+     }
+    ],
+    "produced_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+   }
+  },
+  {
+   "digest": "a6016dd557fca7211578609b93b7fff5efd249441ee087fed096b9ca08adff28",
+   "name": "change_choice_a_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "5b0cbe56bf4245cac9db00c67dc37abbd74cc62673e8dbaa10158599304f2ab4",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "2e981744208d13d70bddffb2e2350745b1ffc6e34fc7405289ea1f6fef1439a8",
+      "kind": "choice_record"
+     },
+     {
+      "digest": "40df968d35064dc6c502c5ee2d637cc78170c5b0b8c2fac2cc7ae684508a329d",
+      "kind": "source_manifest"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "6908ee55a4ad25ae7b1e5cb90f203721d549366438d647729525cd39e778a91a",
+    "request_id": "req_93b5146a8629a7e33db9bfb1d5acc11e",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "ac398750ff1bcae3f2daf97ab6943e76bf854b9ef0e0ced311dabb2fa27c23bc",
+   "name": "prepare_second",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_45da4c0b5ae0975a4707144d1679f2f8",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+     "profile_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    },
+    "control_digests": [],
+    "effect_class": "durable_candidate",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "memory.use.prepare",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "payload_digest": "5674e59ced6859e5403e3b1657be09e4ba3d90fc152a30c736e107697ffbfe6d",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_c96625f71f59e0c7faf9c61508e271fa",
+    "schema": 1,
+    "target": {
+     "resource_id": "cnc_04972becfbc4b6c2c975a682d4af9951"
+    }
+   }
+  },
+  {
+   "digest": "650b13da400faa061d598a8c8661f93a3186bc52f199264a3840a2be8042f0bc",
+   "name": "second_waiting",
+   "record": {
+    "ended": true,
+    "envelope_digest": "5674e59ced6859e5403e3b1657be09e4ba3d90fc152a30c736e107697ffbfe6d",
+    "kind": "reader_result",
+    "material_gaps": [],
+    "omissions": [],
+    "outcome": {
+     "consumed": {
+      "bytes": 0,
+      "examined": 12,
+      "units": 0
+     },
+     "frontiers": [
+      {
+       "checkpoint_digest": "6799e29c0a985fb191fcb110cd64699237fe4bcb190f53792bd56b1f79769584",
+       "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+      }
+     ],
+     "standing": "unresolved",
+     "units": [],
+     "use": {
+      "question_id": "qst_7810088d98712f37e56cae793c2a46f6",
+      "question_version": 1,
+      "state": "pending_user",
+      "use_id": "use_53999c96af51179acf2191d2cb0395e6"
+     }
+    },
+    "prepared_at": "2000-01-01T00:00:00Z",
+    "qualifications": [],
+    "schema": 1
+   }
+  },
+  {
+   "digest": "3c8c42f54c53845c4db27cf4ecd97da616c22b433cbc9ea67b2780e51a4083f4",
+   "name": "application_changed",
+   "record": {
+    "answer_evidence_digest": "39a925ebd2bfbd7eb866ec6955eaa02e18bc92b4194d08df4d0a7daf122241f9",
+    "concern": {
+     "question": "Which journal mode does the local state database use?"
+    },
+    "created_at": "2000-01-01T00:00:00Z",
+    "kind": "application_preference",
+    "lineage_digest": "51a2f783b302f147f77946d45d015c80f866e2c5044ce529e0ae3e5501a62e1f",
+    "preference_id": "pre_a310cbefb12a2198f7398f6af0a0807a",
+    "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+    "schema": 1,
+    "scopes": [
+     {
+      "layer": "personal",
+      "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+     }
+    ],
+    "standing": {
+     "because": "participant_changed",
+     "holds": "invalidated",
+     "participants": [
+      {
+       "applicable": true,
+       "lifecycle": "accepted",
+       "record_id": "rec_53c105c4ec38a727a70adb322872f222",
+       "revision_digest": "fdc379e2c98ff4b4f56cb77bb52a16d71367f2afb7d79900e52c06035453a042",
+       "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+      },
+      {
+       "applicable": true,
+       "lifecycle": "accepted",
+       "record_id": "rec_0a3b461becc5b755e58d61335935c1fa",
+       "revision_digest": "fdc379e2c98ff4b4f56cb77bb52a16d71367f2afb7d79900e52c06035453a042",
+       "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "digest": "c3b756cb33ecafa823506af8ee548ef71160e0c5ebe1509cce59eb832d66e3b7",
+   "name": "second_basis",
+   "record": {
+    "concern": {
+     "question": "Which journal mode does the local state database use?"
+    },
+    "coverage": {
+     "compared": 3,
+     "unreachable": 0
+    },
+    "generation": 2,
+    "kind": "comparison_basis",
+    "participants": [
+     {
+      "applicable": true,
+      "lifecycle": "accepted",
+      "record_id": "rec_d3dc0e5c0a796228378b18d351ab7453",
+      "revision_digest": "40df968d35064dc6c502c5ee2d637cc78170c5b0b8c2fac2cc7ae684508a329d",
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+     },
+     {
+      "applicable": true,
+      "lifecycle": "accepted",
+      "record_id": "rec_0a3b461becc5b755e58d61335935c1fa",
+      "revision_digest": "40df968d35064dc6c502c5ee2d637cc78170c5b0b8c2fac2cc7ae684508a329d",
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+     },
+     {
+      "applicable": false,
+      "lifecycle": "replaced",
+      "record_id": "rec_53c105c4ec38a727a70adb322872f222",
+      "revision_digest": "40df968d35064dc6c502c5ee2d637cc78170c5b0b8c2fac2cc7ae684508a329d",
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+     }
+    ],
+    "prepared_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "scopes": [
+     {
+      "layer": "personal",
+      "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+     }
+    ]
+   }
+  },
+  {
+   "digest": "065b00d5f9247556ebbf565b94228a0c2a9bc2ec2e1b52498d5354869880fac1",
+   "name": "second_question",
+   "record": {
+    "alternatives": [
+     {
+      "record_id": "rec_d3dc0e5c0a796228378b18d351ab7453",
+      "scope": {
+       "layer": "personal",
+       "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+      },
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870",
+      "summary": "WAL, with synchronous NORMAL."
+     },
+     {
+      "record_id": "rec_0a3b461becc5b755e58d61335935c1fa",
+      "scope": {
+       "layer": "personal",
+       "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+      },
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870",
+      "summary": "A rollback journal with EXTRA."
+     }
+    ],
+    "asked_through": {
+     "host": "claude-code 2.1.278",
+     "qualified": true,
+     "route": "conversation"
+    },
+    "basis_digest": "c3b756cb33ecafa823506af8ee548ef71160e0c5ebe1509cce59eb832d66e3b7",
+    "concern": {
+     "question": "Which journal mode does the local state database use?"
+    },
+    "created_at": "2000-01-01T00:00:00Z",
+    "kind": "pending_question",
+    "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+    "question_id": "qst_7810088d98712f37e56cae793c2a46f6",
+    "question_version": 1,
+    "schema": 1,
+    "standing": "pending",
+    "use_id": "use_53999c96af51179acf2191d2cb0395e6"
+   }
+  },
+  {
+   "digest": "655475b7e36d5922d3a8d249d0e4399543fbe7a3a4c588e3637503d2d6e04b69",
+   "name": "second_state",
+   "record": {
+    "comparison": {
+     "compared": 3,
+     "unreachable": 0
+    },
+    "entries": [
+     {
+      "record_id": "rec_d3dc0e5c0a796228378b18d351ab7453",
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870",
+      "standing": "unresolved"
+     },
+     {
+      "record_id": "rec_0a3b461becc5b755e58d61335935c1fa",
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870",
+      "standing": "unresolved"
+     },
+     {
+      "record_id": "rec_53c105c4ec38a727a70adb322872f222",
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870",
+      "standing": "superseded",
+      "superseded_by": "rec_d3dc0e5c0a796228378b18d351ab7453"
+     }
+    ],
+    "frontiers": [
+     {
+      "checkpoint_digest": "6799e29c0a985fb191fcb110cd64699237fe4bcb190f53792bd56b1f79769584",
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+     }
+    ],
+    "kind": "qualified_state",
+    "material_gaps": [
+     {
+      "code": "choice_conflict_unresolved"
+     }
+    ],
+    "prepared_at": "2000-01-01T00:00:00Z",
+    "question_digest": "5674e59ced6859e5403e3b1657be09e4ba3d90fc152a30c736e107697ffbfe6d",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "797bb2d4e206b3f6211cac1d28dcc92a70a7e3cb776fe04c31896807087a9a7c",
+   "name": "prepare_after_the_change_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "private_state_written",
+    "outcome": {
+     "material_gaps": [
+      {
+       "code": "preference_invalidated"
+      }
+     ],
+     "stage": "blocked"
+    },
+    "outputs": [
+     {
+      "digest": "650b13da400faa061d598a8c8661f93a3186bc52f199264a3840a2be8042f0bc",
+      "kind": "reader_result"
+     },
+     {
+      "digest": "3c8c42f54c53845c4db27cf4ecd97da616c22b433cbc9ea67b2780e51a4083f4",
+      "kind": "application_preference"
+     },
+     {
+      "digest": "065b00d5f9247556ebbf565b94228a0c2a9bc2ec2e1b52498d5354869880fac1",
+      "kind": "pending_question"
+     },
+     {
+      "digest": "c3b756cb33ecafa823506af8ee548ef71160e0c5ebe1509cce59eb832d66e3b7",
+      "kind": "comparison_basis"
+     },
+     {
+      "digest": "655475b7e36d5922d3a8d249d0e4399543fbe7a3a4c588e3637503d2d6e04b69",
+      "kind": "qualified_state"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "ac398750ff1bcae3f2daf97ab6943e76bf854b9ef0e0ced311dabb2fa27c23bc",
+    "request_id": "req_c96625f71f59e0c7faf9c61508e271fa",
+    "schema": 1,
+    "supported_recovery": [
+     "new_governed_request"
+    ]
+   }
+  },
+  {
+   "digest": "7a40cc73360327b9b29bd51206a72b4b2c79a5fbd9eb9a3d4d8332a032b17e51",
+   "name": "choice_a3",
+   "record": {
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "jurisdiction",
+       "value": "KR"
+      }
+     ],
+     "period": {
+      "effective_from": "2026-01-01"
+     },
+     "states": "stated"
+    },
+    "choice": "WAL, with synchronous FULL.",
+    "context": "Measured on APFS with fullfsync on.",
+    "expected_consequences": "A checkpoint fault point has to be tested.",
+    "home": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "kind": "choice_record",
+    "question": "Which journal mode does the local state database use?",
+    "reason": "4.11 ms per commit against 11.76, and readers are not blocked.",
+    "replaces": {
+     "extent": "whole",
+     "record_id": "rec_d3dc0e5c0a796228378b18d351ab7453"
+    },
+    "revisit_condition": "A filesystem that does not honour fullfsync.",
+    "schema": 1,
+    "workstream_ids": []
+   }
+  },
+  {
+   "digest": "80bf1d98ffab844d0dda79928b184dc429cfde8c071f6ef4f045423e4648de4f",
+   "name": "publish_choice_a3",
+   "record": {
+    "action": "publish",
+    "actor": {
+     "device_id": "dev_45da4c0b5ae0975a4707144d1679f2f8",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+     "profile_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "memory.record.publish",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "payload_digest": "7a40cc73360327b9b29bd51206a72b4b2c79a5fbd9eb9a3d4d8332a032b17e51",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_dd7f1b648908ea26eac2acda75d935c9",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "6799e29c0a985fb191fcb110cd64699237fe4bcb190f53792bd56b1f79769584"
+     },
+     "resource_id": "src_bfbe1392707737a4e3e36aab5d171870"
+    }
+   }
+  },
+  {
+   "digest": "197cde787e93ee7a396c7a0aeb24abf35bf78771d60da5100f2206fd0b90a6a2",
+   "name": "change_choice_back_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "a503786ca1d81ecf5010b2de7f8fdc74542cfe826d970f68f9887bc54a7db8eb",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "request_digest": "80bf1d98ffab844d0dda79928b184dc429cfde8c071f6ef4f045423e4648de4f",
+    "request_id": "req_dd7f1b648908ea26eac2acda75d935c9",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "6799e29c0a985fb191fcb110cd64699237fe4bcb190f53792bd56b1f79769584"
+     },
+     "resource_id": "src_bfbe1392707737a4e3e36aab5d171870"
+    }
+   }
+  },
+  {
+   "digest": "a5881d675b5c3d5a2ee3896c3bb94ad757cf78423500f7283182abecfa3e5ea1",
+   "name": "stored_choice_a3",
+   "record": {
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "jurisdiction",
+       "value": "KR"
+      }
+     ],
+     "period": {
+      "effective_from": "2026-01-01"
+     },
+     "states": "stated"
+    },
+    "choice": "WAL, with synchronous FULL.",
+    "context": "Measured on APFS with fullfsync on.",
+    "expected_consequences": "A checkpoint fault point has to be tested.",
+    "home": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "kind": "choice_record",
+    "question": "Which journal mode does the local state database use?",
+    "reason": "4.11 ms per commit against 11.76, and readers are not blocked.",
+    "record_id": "rec_ef9140473a7c3d1a0d7cf91dac6117be",
+    "recorded_at": "2000-01-01T00:00:00Z",
+    "replaces": {
+     "extent": "whole",
+     "record_id": "rec_d3dc0e5c0a796228378b18d351ab7453"
+    },
+    "revisit_condition": "A filesystem that does not honour fullfsync.",
+    "schema": 1,
+    "workstream_ids": []
+   }
+  },
+  {
+   "digest": "608263e6fc0036d19154d3601e0dfd95ced99a001dffac4659251d5fe2ceb628",
+   "name": "decisions_4",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "186264b0c0b4ae9ff7f186e4086070c4fd765dda26d55516fa81b1801dcbf2ed",
+      "path": "records/choice_a.json",
+      "size": 512
+     },
+     {
+      "digest": "47964b0ecbd713684801c59b137a3a57ddcaa0c9c9f295559c42ceab79381c33",
+      "path": "records/choice_b.json",
+      "size": 512
+     },
+     {
+      "digest": "2e981744208d13d70bddffb2e2350745b1ffc6e34fc7405289ea1f6fef1439a8",
+      "path": "records/choice_a2.json",
+      "size": 512
+     },
+     {
+      "digest": "a5881d675b5c3d5a2ee3896c3bb94ad757cf78423500f7283182abecfa3e5ea1",
+      "path": "records/choice_a3.json",
+      "size": 512
+     }
+    ],
+    "produced_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+   }
+  },
+  {
+   "digest": "5bb7e6740ce797ea91649c9a29282fa9c7f39da12f7a75a74db5d37a2d9feb1a",
+   "name": "change_choice_back_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "197cde787e93ee7a396c7a0aeb24abf35bf78771d60da5100f2206fd0b90a6a2",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "a5881d675b5c3d5a2ee3896c3bb94ad757cf78423500f7283182abecfa3e5ea1",
+      "kind": "choice_record"
+     },
+     {
+      "digest": "608263e6fc0036d19154d3601e0dfd95ced99a001dffac4659251d5fe2ceb628",
+      "kind": "source_manifest"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "80bf1d98ffab844d0dda79928b184dc429cfde8c071f6ef4f045423e4648de4f",
+    "request_id": "req_dd7f1b648908ea26eac2acda75d935c9",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "6fe08f83fc66deed374953159f86b6c59f10ea1dd15afe13da2be1fe5dcd69a1",
+   "name": "prepare_second_again",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_45da4c0b5ae0975a4707144d1679f2f8",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+     "profile_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    },
+    "control_digests": [],
+    "effect_class": "durable_candidate",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "memory.use.prepare",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "payload_digest": "5674e59ced6859e5403e3b1657be09e4ba3d90fc152a30c736e107697ffbfe6d",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_1be280a2ee795e85c4dd940df7aa74fc",
+    "schema": 1,
+    "target": {
+     "resource_id": "use_53999c96af51179acf2191d2cb0395e6"
+    }
+   }
+  },
+  {
+   "digest": "3be63736e6913530b10e5a3712d6a44805c423ef4a893b7fb70c75760f9e4a14",
+   "name": "third_waiting",
+   "record": {
+    "ended": true,
+    "envelope_digest": "5674e59ced6859e5403e3b1657be09e4ba3d90fc152a30c736e107697ffbfe6d",
+    "kind": "reader_result",
+    "material_gaps": [],
+    "omissions": [],
+    "outcome": {
+     "consumed": {
+      "bytes": 0,
+      "examined": 12,
+      "units": 0
+     },
+     "frontiers": [
+      {
+       "checkpoint_digest": "a503786ca1d81ecf5010b2de7f8fdc74542cfe826d970f68f9887bc54a7db8eb",
+       "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+      }
+     ],
+     "standing": "unresolved",
+     "units": [],
+     "use": {
+      "question_id": "qst_7810088d98712f37e56cae793c2a46f6",
+      "question_version": 2,
+      "state": "pending_user",
+      "use_id": "use_53999c96af51179acf2191d2cb0395e6"
+     }
+    },
+    "prepared_at": "2000-01-01T00:00:00Z",
+    "qualifications": [],
+    "schema": 1
+   }
+  },
+  {
+   "digest": "cd8efc17f284019f58764a13c11fba68a1465d791445e3a5678985c68f48b9ed",
+   "name": "third_basis",
+   "record": {
+    "concern": {
+     "question": "Which journal mode does the local state database use?"
+    },
+    "coverage": {
+     "compared": 4,
+     "unreachable": 0
+    },
+    "generation": 3,
+    "kind": "comparison_basis",
+    "participants": [
+     {
+      "applicable": true,
+      "lifecycle": "accepted",
+      "record_id": "rec_ef9140473a7c3d1a0d7cf91dac6117be",
+      "revision_digest": "608263e6fc0036d19154d3601e0dfd95ced99a001dffac4659251d5fe2ceb628",
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+     },
+     {
+      "applicable": true,
+      "lifecycle": "accepted",
+      "record_id": "rec_0a3b461becc5b755e58d61335935c1fa",
+      "revision_digest": "608263e6fc0036d19154d3601e0dfd95ced99a001dffac4659251d5fe2ceb628",
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+     },
+     {
+      "applicable": false,
+      "lifecycle": "replaced",
+      "record_id": "rec_53c105c4ec38a727a70adb322872f222",
+      "revision_digest": "608263e6fc0036d19154d3601e0dfd95ced99a001dffac4659251d5fe2ceb628",
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+     },
+     {
+      "applicable": false,
+      "lifecycle": "replaced",
+      "record_id": "rec_d3dc0e5c0a796228378b18d351ab7453",
+      "revision_digest": "608263e6fc0036d19154d3601e0dfd95ced99a001dffac4659251d5fe2ceb628",
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+     }
+    ],
+    "prepared_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "scopes": [
+     {
+      "layer": "personal",
+      "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+     }
+    ]
+   }
+  },
+  {
+   "digest": "fd90a852b948966ee7cf0df9e4109f1f65b2a13513b67acf662e29abf1170519",
+   "name": "third_question",
+   "record": {
+    "alternatives": [
+     {
+      "record_id": "rec_ef9140473a7c3d1a0d7cf91dac6117be",
+      "scope": {
+       "layer": "personal",
+       "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+      },
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870",
+      "summary": "WAL, with synchronous FULL."
+     },
+     {
+      "record_id": "rec_0a3b461becc5b755e58d61335935c1fa",
+      "scope": {
+       "layer": "personal",
+       "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+      },
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870",
+      "summary": "A rollback journal with EXTRA."
+     }
+    ],
+    "asked_through": {
+     "host": "claude-code 2.1.278",
+     "qualified": true,
+     "route": "conversation"
+    },
+    "basis_digest": "cd8efc17f284019f58764a13c11fba68a1465d791445e3a5678985c68f48b9ed",
+    "concern": {
+     "question": "Which journal mode does the local state database use?"
+    },
+    "created_at": "2000-01-01T00:00:00Z",
+    "kind": "pending_question",
+    "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+    "question_id": "qst_7810088d98712f37e56cae793c2a46f6",
+    "question_version": 2,
+    "schema": 1,
+    "standing": "pending",
+    "use_id": "use_53999c96af51179acf2191d2cb0395e6"
+   }
+  },
+  {
+   "digest": "63ef2b78388d8ee0d8ed48216f2a3cb252d244a6d2ea96955bd4d82e044e862e",
+   "name": "second_question_superseded",
+   "record": {
+    "alternatives": [
+     {
+      "record_id": "rec_d3dc0e5c0a796228378b18d351ab7453",
+      "scope": {
+       "layer": "personal",
+       "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+      },
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870",
+      "summary": "WAL, with synchronous NORMAL."
+     },
+     {
+      "record_id": "rec_0a3b461becc5b755e58d61335935c1fa",
+      "scope": {
+       "layer": "personal",
+       "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+      },
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870",
+      "summary": "A rollback journal with EXTRA."
+     }
+    ],
+    "asked_through": {
+     "host": "claude-code 2.1.278",
+     "qualified": true,
+     "route": "conversation"
+    },
+    "basis_digest": "c3b756cb33ecafa823506af8ee548ef71160e0c5ebe1509cce59eb832d66e3b7",
+    "concern": {
+     "question": "Which journal mode does the local state database use?"
+    },
+    "created_at": "2000-01-01T00:00:00Z",
+    "kind": "pending_question",
+    "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+    "question_id": "qst_7810088d98712f37e56cae793c2a46f6",
+    "question_version": 1,
+    "schema": 1,
+    "standing": "superseded",
+    "use_id": "use_53999c96af51179acf2191d2cb0395e6"
+   }
+  },
+  {
+   "digest": "a16308d8afe68ab050d82c0a78e9a5cc341169f81c2ebb799b49e30d8f32bbfc",
+   "name": "third_state",
+   "record": {
+    "comparison": {
+     "compared": 4,
+     "unreachable": 0
+    },
+    "entries": [
+     {
+      "record_id": "rec_ef9140473a7c3d1a0d7cf91dac6117be",
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870",
+      "standing": "unresolved"
+     },
+     {
+      "record_id": "rec_0a3b461becc5b755e58d61335935c1fa",
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870",
+      "standing": "unresolved"
+     },
+     {
+      "record_id": "rec_53c105c4ec38a727a70adb322872f222",
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870",
+      "standing": "superseded",
+      "superseded_by": "rec_d3dc0e5c0a796228378b18d351ab7453"
+     },
+     {
+      "record_id": "rec_d3dc0e5c0a796228378b18d351ab7453",
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870",
+      "standing": "superseded",
+      "superseded_by": "rec_ef9140473a7c3d1a0d7cf91dac6117be"
+     }
+    ],
+    "frontiers": [
+     {
+      "checkpoint_digest": "a503786ca1d81ecf5010b2de7f8fdc74542cfe826d970f68f9887bc54a7db8eb",
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+     }
+    ],
+    "kind": "qualified_state",
+    "material_gaps": [
+     {
+      "code": "choice_conflict_unresolved"
+     }
+    ],
+    "prepared_at": "2000-01-01T00:00:00Z",
+    "question_digest": "5674e59ced6859e5403e3b1657be09e4ba3d90fc152a30c736e107697ffbfe6d",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "3df8d59b9d7324fcdbe02b554ab480f32bfca1fc8fb3bf16a57bce52b4c24d12",
+   "name": "prepare_the_second_use_again_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "private_state_written",
+    "outcome": {
+     "material_gaps": [
+      {
+       "code": "choice_conflict_unresolved"
+      }
+     ],
+     "stage": "blocked"
+    },
+    "outputs": [
+     {
+      "digest": "3be63736e6913530b10e5a3712d6a44805c423ef4a893b7fb70c75760f9e4a14",
+      "kind": "reader_result"
+     },
+     {
+      "digest": "3c8c42f54c53845c4db27cf4ecd97da616c22b433cbc9ea67b2780e51a4083f4",
+      "kind": "application_preference"
+     },
+     {
+      "digest": "fd90a852b948966ee7cf0df9e4109f1f65b2a13513b67acf662e29abf1170519",
+      "kind": "pending_question"
+     },
+     {
+      "digest": "63ef2b78388d8ee0d8ed48216f2a3cb252d244a6d2ea96955bd4d82e044e862e",
+      "kind": "pending_question"
+     },
+     {
+      "digest": "cd8efc17f284019f58764a13c11fba68a1465d791445e3a5678985c68f48b9ed",
+      "kind": "comparison_basis"
+     },
+     {
+      "digest": "a16308d8afe68ab050d82c0a78e9a5cc341169f81c2ebb799b49e30d8f32bbfc",
+      "kind": "qualified_state"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "6fe08f83fc66deed374953159f86b6c59f10ea1dd15afe13da2be1fe5dcd69a1",
+    "request_id": "req_1be280a2ee795e85c4dd940df7aa74fc",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "42ed6b5c0f3c11759e58431be6a14e4c6cc7995b363d0c386baa76ea0e44f38a",
+   "name": "restore",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_45da4c0b5ae0975a4707144d1679f2f8",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+     "profile_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "store.backup.restore",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "payload_digest": "abea60dd5ce8e7633072825407adcf5d1888b2d4e2a4c3357c08d0a4869426dc",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_8b248d521c311bb63a3410902dfcc683",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    }
+   }
+  },
+  {
+   "digest": "a09fbc89a2e629052e35adece9a30f0d8b7eb5fdecb65236816e18eb8bc83367",
+   "name": "restore_after_the_loss_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "6ab8e8eaa62e2defb0c93aae93189c8692abd7d3fb6c7c7f4cc80bc2bf200eaa",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "request_digest": "42ed6b5c0f3c11759e58431be6a14e4c6cc7995b363d0c386baa76ea0e44f38a",
+    "request_id": "req_8b248d521c311bb63a3410902dfcc683",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    }
+   }
+  },
+  {
+   "digest": "d872f7048e84eeb6a6cf0e12711fdf044e9a99ca2ea8f60b869cf19785d0991f",
+   "name": "report",
+   "record": {
+    "after_backup": "not_known",
+    "authority": "passive",
+    "backup_digest": "abea60dd5ce8e7633072825407adcf5d1888b2d4e2a4c3357c08d0a4869426dc",
+    "covered_through": 1,
+    "kind": "restore_report",
+    "recovery_objective_seconds": 3600,
+    "restored_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "taken_at": "2000-01-01T00:00:00Z"
+   }
+  },
+  {
+   "digest": "a806a584226eab0b0b67c3d2117fc9d73345cd4f3de0acfeba73be0051813566",
+   "name": "restore_after_the_loss_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "a09fbc89a2e629052e35adece9a30f0d8b7eb5fdecb65236816e18eb8bc83367",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "d872f7048e84eeb6a6cf0e12711fdf044e9a99ca2ea8f60b869cf19785d0991f",
+      "kind": "restore_report"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "42ed6b5c0f3c11759e58431be6a14e4c6cc7995b363d0c386baa76ea0e44f38a",
+    "request_id": "req_8b248d521c311bb63a3410902dfcc683",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "452803f4968261252ce118cf1ea65006c20f5781d1262559b5fa776c7f709160",
+   "name": "prepare_restored",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_45da4c0b5ae0975a4707144d1679f2f8",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+     "profile_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    },
+    "control_digests": [],
+    "effect_class": "durable_candidate",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "memory.use.prepare",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "payload_digest": "5674e59ced6859e5403e3b1657be09e4ba3d90fc152a30c736e107697ffbfe6d",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_3f715150c0f4e1b20f7e06eea3593753",
+    "schema": 1,
+    "target": {
+     "resource_id": "cnc_04972becfbc4b6c2c975a682d4af9951"
+    }
+   }
+  },
+  {
+   "digest": "0bbe22d35b746b5158d5767fc506e0b82f8f0745fce8b27277427db5b2744100",
+   "name": "prepare_while_restored_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [
+      {
+       "code": "access_locked"
+      },
+      {
+       "code": "access_generation_moved"
+      }
+     ],
+     "stage": "blocked"
+    },
+    "outputs": [],
+    "provider_effect": "none",
+    "request_digest": "452803f4968261252ce118cf1ea65006c20f5781d1262559b5fa776c7f709160",
+    "request_id": "req_3f715150c0f4e1b20f7e06eea3593753",
+    "schema": 1,
+    "supported_recovery": [
+     "unlock"
+    ]
+   }
+  },
+  {
+   "digest": "00b8623fb13398b59d66f0cc1c61ab137c79ed30163b47b41d416ef5a26ffd00",
+   "name": "read_profile",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_45da4c0b5ae0975a4707144d1679f2f8",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+     "profile_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "access.profile.read",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_4f8fe062ba130df45e883463e139e6a3",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    }
+   }
+  },
+  {
+   "digest": "8d71a9fc8af7cbecd603c278ad62d198020556aa68d29311a2a634b802f33071",
+   "name": "restored_profile",
+   "record": {
+    "created_at": "2000-01-01T00:00:00Z",
+    "kind": "local_profile",
+    "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+    "profile_id": "prf_e7d946ca23ed8197a79be77ba3071367",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "50c9f4e96eeef8488048469e0a8369100ad740c2cc01862c500c734364d86ea5",
+   "name": "restored_access",
+   "record": {
+    "access_generation": 8,
+    "changed_at": "2000-01-01T00:00:00Z",
+    "kind": "access_state",
+    "profile_id": "prf_e7d946ca23ed8197a79be77ba3071367",
+    "schema": 1,
+    "state": {
+     "because": "restored",
+     "is": "locked"
+    }
+   }
+  },
+  {
+   "digest": "2c93cb901f0132babf0ac197d6578220a1b00c94c35cad10ef78bdc2f443e842",
+   "name": "read_the_restored_profile_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "8d71a9fc8af7cbecd603c278ad62d198020556aa68d29311a2a634b802f33071",
+      "kind": "local_profile"
+     },
+     {
+      "digest": "50c9f4e96eeef8488048469e0a8369100ad740c2cc01862c500c734364d86ea5",
+      "kind": "access_state"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "00b8623fb13398b59d66f0cc1c61ab137c79ed30163b47b41d416ef5a26ffd00",
+    "request_id": "req_4f8fe062ba130df45e883463e139e6a3",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "058375e2a256fef04f863a4c8ce0c71792fa0f4cd15a88f5f1a71d7fe79b7188",
+   "name": "unlock_change",
+   "record": {
+    "change": {
+     "method": "device_key_at_terminal",
+     "transition": "unlock"
+    },
+    "expected_generation": 8,
+    "kind": "access_transition",
+    "profile_id": "prf_e7d946ca23ed8197a79be77ba3071367",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "f738eaea5e598179a6f9574f861025b0acb11586e7a039f3a7d81ad0b2ea0657",
+   "name": "unlock",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_45da4c0b5ae0975a4707144d1679f2f8",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+     "profile_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 8,
+    "operation": "access.transition",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "payload_digest": "058375e2a256fef04f863a4c8ce0c71792fa0f4cd15a88f5f1a71d7fe79b7188",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_fd2950c51a8ce80bfd1ed4910d70f389",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    }
+   }
+  },
+  {
+   "digest": "0b59cdab0ff105c67368c1ba6e797cb2ca5d3e7cf29b2bc1ce9cf9c41e5ce12c",
+   "name": "unlock_the_restored_profile_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "5d0f5682b4cd6a89bd0bf15057eb3d7e554fff2b4c682b73cf39243401a1eb27",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "request_digest": "f738eaea5e598179a6f9574f861025b0acb11586e7a039f3a7d81ad0b2ea0657",
+    "request_id": "req_fd2950c51a8ce80bfd1ed4910d70f389",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    }
+   }
+  },
+  {
+   "digest": "629eb155e48e670c3b2c19c96b217bf325808f27b83659efb29277588f41b4ef",
+   "name": "unlocked",
+   "record": {
+    "access_generation": 8,
+    "changed_at": "2000-01-01T00:00:00Z",
+    "kind": "access_state",
+    "profile_id": "prf_e7d946ca23ed8197a79be77ba3071367",
+    "schema": 1,
+    "state": {
+     "because": "unlock",
+     "is": "active",
+     "key_mode": {
+      "runs": "real"
+     }
+    }
+   }
+  },
+  {
+   "digest": "3ffe8bfcc30cc9b0f70854ee07420818ae598a3307d54e82806dc04591d4565e",
+   "name": "unlock_the_restored_profile_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "0b59cdab0ff105c67368c1ba6e797cb2ca5d3e7cf29b2bc1ce9cf9c41e5ce12c",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "629eb155e48e670c3b2c19c96b217bf325808f27b83659efb29277588f41b4ef",
+      "kind": "access_state"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "f738eaea5e598179a6f9574f861025b0acb11586e7a039f3a7d81ad0b2ea0657",
+    "request_id": "req_fd2950c51a8ce80bfd1ed4910d70f389",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "da79fa7e6faa08b1566ec5d4cfca4a8ca8726b442e52ef6c0b21300a205adafb",
+   "name": "ask_answer_payload",
+   "record": {
+    "kind": "operation_query",
+    "request_id": "req_0c1cde861d4bd24463c459f407cf48b4",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "9a5267ba9b1ccb10fa2fed1fc7b4bbec83347b18efa40dade357a179d79a3a08",
+   "name": "ask_answer",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_45da4c0b5ae0975a4707144d1679f2f8",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+     "profile_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 8,
+    "operation": "operation.query",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "payload_digest": "da79fa7e6faa08b1566ec5d4cfca4a8ca8726b442e52ef6c0b21300a205adafb",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_edece516f3419c388a9723050ed8908b",
+    "schema": 1,
+    "target": {
+     "resource_id": "req_0c1cde861d4bd24463c459f407cf48b4"
+    }
+   }
+  },
+  {
+   "digest": "2708a5ec33734a281ebc1bce2c726246045610bcacb23e09cc6de7691920f43e",
+   "name": "query_her_recorded_answer_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "f81bd9f1128a45fd202095f6958caf8d2148502058471e7026f9e31e1e63b417",
+      "kind": "operation_result"
+     },
+     {
+      "digest": "b7e64bcca40d33d0bfde4418e5048c90fdabde29f7450861b8605bfe21a62bae",
+      "kind": "operation_receipt"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "9a5267ba9b1ccb10fa2fed1fc7b4bbec83347b18efa40dade357a179d79a3a08",
+    "request_id": "req_edece516f3419c388a9723050ed8908b",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "3d8b4abc7dc947c31f349515202189a68fbc4656924d077639480d82eb5a7a08",
+   "name": "ask_application_payload",
+   "record": {
+    "kind": "operation_query",
+    "request_id": "req_4d5ca74990a01201c6ea53ab646d29e5",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "420076c2d824f0a9eac1a7981720f60c2081e7ec449efad719b48b5ad2547466",
+   "name": "ask_application",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_45da4c0b5ae0975a4707144d1679f2f8",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+     "profile_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 8,
+    "operation": "operation.query",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "payload_digest": "3d8b4abc7dc947c31f349515202189a68fbc4656924d077639480d82eb5a7a08",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_55f327851d7ff21c8b8603cb287996ff",
+    "schema": 1,
+    "target": {
+     "resource_id": "req_4d5ca74990a01201c6ea53ab646d29e5"
+    }
+   }
+  },
+  {
+   "digest": "ef29dbee38ca93039ebdd269254aad99cd7899473727b54c118adfa1b5d88914",
+   "name": "query_the_recorded_application_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "de3443fce0445a0f1eed335744b2ebc25dcaa9278d0f900e3dc3d0497a285657",
+      "kind": "operation_result"
+     },
+     {
+      "digest": "e0505d732d5702fd660f7bcb99f51973d94f482747feec7c79cf3311778fa45d",
+      "kind": "operation_receipt"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "420076c2d824f0a9eac1a7981720f60c2081e7ec449efad719b48b5ad2547466",
+    "request_id": "req_55f327851d7ff21c8b8603cb287996ff",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "c52d925bfc36ef551ac0c1eedc4949c6546160248b2dc1915efcebe859364038",
+   "name": "prepare_after_restore",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_45da4c0b5ae0975a4707144d1679f2f8",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+     "profile_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    },
+    "control_digests": [],
+    "effect_class": "durable_candidate",
+    "kind": "operation_request",
+    "local_access_generation": 8,
+    "operation": "memory.use.prepare",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "payload_digest": "5674e59ced6859e5403e3b1657be09e4ba3d90fc152a30c736e107697ffbfe6d",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_efc641a844a8e01d97e83048451fa335",
+    "schema": 1,
+    "target": {
+     "resource_id": "cnc_04972becfbc4b6c2c975a682d4af9951"
+    }
+   }
+  },
+  {
+   "digest": "a34c92fbbe41dbb6fe8c61ecf1862747797b6f5a0a173b953c33df796d8505c7",
+   "name": "restored_waiting",
+   "record": {
+    "ended": true,
+    "envelope_digest": "5674e59ced6859e5403e3b1657be09e4ba3d90fc152a30c736e107697ffbfe6d",
+    "kind": "reader_result",
+    "material_gaps": [],
+    "omissions": [],
+    "outcome": {
+     "consumed": {
+      "bytes": 0,
+      "examined": 12,
+      "units": 0
+     },
+     "frontiers": [
+      {
+       "checkpoint_digest": "7cbc2ea67a194572d98f5bb516e881855164d53251f39d89d6fb7a1b83935861",
+       "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+      }
+     ],
+     "standing": "unresolved",
+     "units": [],
+     "use": {
+      "question_id": "qst_5fccef3ea4a84e93dc7f4c6d88a78d34",
+      "question_version": 1,
+      "state": "pending_user",
+      "use_id": "use_2e7f2c7fba1387331c5317e15fd55240"
+     }
+    },
+    "prepared_at": "2000-01-01T00:00:00Z",
+    "qualifications": [],
+    "schema": 1
+   }
+  },
+  {
+   "digest": "4398046422f232b32d37b5e5a8b366ef39f7a6adcfa56c4d83c7eef8dc10b5e8",
+   "name": "application_unverifiable",
+   "record": {
+    "answer_evidence_digest": "39a925ebd2bfbd7eb866ec6955eaa02e18bc92b4194d08df4d0a7daf122241f9",
+    "concern": {
+     "question": "Which journal mode does the local state database use?"
+    },
+    "created_at": "2000-01-01T00:00:00Z",
+    "kind": "application_preference",
+    "lineage_digest": "51a2f783b302f147f77946d45d015c80f866e2c5044ce529e0ae3e5501a62e1f",
+    "preference_id": "pre_a310cbefb12a2198f7398f6af0a0807a",
+    "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+    "schema": 1,
+    "scopes": [
+     {
+      "layer": "personal",
+      "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+     }
+    ],
+    "standing": {
+     "because": "basis_unverifiable",
+     "holds": "invalidated",
+     "participants": [
+      {
+       "applicable": true,
+       "lifecycle": "accepted",
+       "record_id": "rec_53c105c4ec38a727a70adb322872f222",
+       "revision_digest": "fdc379e2c98ff4b4f56cb77bb52a16d71367f2afb7d79900e52c06035453a042",
+       "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+      },
+      {
+       "applicable": true,
+       "lifecycle": "accepted",
+       "record_id": "rec_0a3b461becc5b755e58d61335935c1fa",
+       "revision_digest": "fdc379e2c98ff4b4f56cb77bb52a16d71367f2afb7d79900e52c06035453a042",
+       "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "digest": "9057864a792af929895c1d3b1b89815b477ba5d0670e148e86ffa948e7189dd0",
+   "name": "restored_basis",
+   "record": {
+    "concern": {
+     "question": "Which journal mode does the local state database use?"
+    },
+    "coverage": {
+     "compared": 2,
+     "unreachable": 0
+    },
+    "generation": 2,
+    "kind": "comparison_basis",
+    "participants": [
+     {
+      "applicable": true,
+      "lifecycle": "accepted",
+      "record_id": "rec_53c105c4ec38a727a70adb322872f222",
+      "revision_digest": "fdc379e2c98ff4b4f56cb77bb52a16d71367f2afb7d79900e52c06035453a042",
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+     },
+     {
+      "applicable": true,
+      "lifecycle": "accepted",
+      "record_id": "rec_0a3b461becc5b755e58d61335935c1fa",
+      "revision_digest": "fdc379e2c98ff4b4f56cb77bb52a16d71367f2afb7d79900e52c06035453a042",
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+     }
+    ],
+    "prepared_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "scopes": [
+     {
+      "layer": "personal",
+      "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+     }
+    ]
+   }
+  },
+  {
+   "digest": "4f78c4352914de8484544a53ea9f47015fd6e87f063975baad4d080c9113502b",
+   "name": "restored_question",
+   "record": {
+    "alternatives": [
+     {
+      "record_id": "rec_53c105c4ec38a727a70adb322872f222",
+      "scope": {
+       "layer": "personal",
+       "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+      },
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870",
+      "summary": "WAL, with synchronous FULL."
+     },
+     {
+      "record_id": "rec_0a3b461becc5b755e58d61335935c1fa",
+      "scope": {
+       "layer": "personal",
+       "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+      },
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870",
+      "summary": "A rollback journal with EXTRA."
+     }
+    ],
+    "asked_through": {
+     "host": "claude-code 2.1.278",
+     "qualified": true,
+     "route": "conversation"
+    },
+    "basis_digest": "9057864a792af929895c1d3b1b89815b477ba5d0670e148e86ffa948e7189dd0",
+    "concern": {
+     "question": "Which journal mode does the local state database use?"
+    },
+    "created_at": "2000-01-01T00:00:00Z",
+    "kind": "pending_question",
+    "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+    "question_id": "qst_5fccef3ea4a84e93dc7f4c6d88a78d34",
+    "question_version": 1,
+    "schema": 1,
+    "standing": "pending",
+    "use_id": "use_2e7f2c7fba1387331c5317e15fd55240"
+   }
+  },
+  {
+   "digest": "fb8504b23360f232dae94562cd328c97a2fde20bb9f5d7bc549ec3c96a1e92f2",
+   "name": "restored_state",
+   "record": {
+    "comparison": {
+     "compared": 2,
+     "unreachable": 0
+    },
+    "entries": [
+     {
+      "record_id": "rec_53c105c4ec38a727a70adb322872f222",
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870",
+      "standing": "unresolved"
+     },
+     {
+      "record_id": "rec_0a3b461becc5b755e58d61335935c1fa",
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870",
+      "standing": "unresolved"
+     }
+    ],
+    "frontiers": [
+     {
+      "checkpoint_digest": "7cbc2ea67a194572d98f5bb516e881855164d53251f39d89d6fb7a1b83935861",
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+     }
+    ],
+    "kind": "qualified_state",
+    "material_gaps": [
+     {
+      "code": "choice_conflict_unresolved"
+     }
+    ],
+    "prepared_at": "2000-01-01T00:00:00Z",
+    "question_digest": "5674e59ced6859e5403e3b1657be09e4ba3d90fc152a30c736e107697ffbfe6d",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "31fdb2824058d51703bf64aed01a7a7e14bd36f257102491d210fe0f01fb6d0d",
+   "name": "prepare_after_the_restore_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "private_state_written",
+    "outcome": {
+     "material_gaps": [
+      {
+       "code": "preference_invalidated"
+      }
+     ],
+     "stage": "blocked"
+    },
+    "outputs": [
+     {
+      "digest": "a34c92fbbe41dbb6fe8c61ecf1862747797b6f5a0a173b953c33df796d8505c7",
+      "kind": "reader_result"
+     },
+     {
+      "digest": "4398046422f232b32d37b5e5a8b366ef39f7a6adcfa56c4d83c7eef8dc10b5e8",
+      "kind": "application_preference"
+     },
+     {
+      "digest": "4f78c4352914de8484544a53ea9f47015fd6e87f063975baad4d080c9113502b",
+      "kind": "pending_question"
+     },
+     {
+      "digest": "9057864a792af929895c1d3b1b89815b477ba5d0670e148e86ffa948e7189dd0",
+      "kind": "comparison_basis"
+     },
+     {
+      "digest": "fb8504b23360f232dae94562cd328c97a2fde20bb9f5d7bc549ec3c96a1e92f2",
+      "kind": "qualified_state"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "c52d925bfc36ef551ac0c1eedc4949c6546160248b2dc1915efcebe859364038",
+    "request_id": "req_efc641a844a8e01d97e83048451fa335",
+    "schema": 1,
+    "supported_recovery": [
+     "new_governed_request"
+    ]
+   }
+  },
+  {
+   "digest": "b222a624363345eb9f0cb8595936fd68b14594a9903bea9e6935ede1748f0ec3",
+   "name": "ask_choice_payload",
+   "record": {
+    "kind": "operation_query",
+    "request_id": "req_ee76c00e4eed28b665c2699ba3d5e6bd",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "30eddf0535141980c9ff680221a3fce7337c2f405082a3a5a2c0642e2bbebf92",
+   "name": "ask_choice",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_45da4c0b5ae0975a4707144d1679f2f8",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+     "profile_id": "prf_e7d946ca23ed8197a79be77ba3071367"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 8,
+    "operation": "operation.query",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+    },
+    "payload_digest": "b222a624363345eb9f0cb8595936fd68b14594a9903bea9e6935ede1748f0ec3",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_327292f5f426c5300d939e6d5a92e183",
+    "schema": 1,
+    "target": {
+     "resource_id": "req_ee76c00e4eed28b665c2699ba3d5e6bd"
+    }
+   }
+  },
+  {
+   "digest": "506a5bebf9186817488207a74f4017cf3cae4aba0af1a61df0bffe25c401b436",
+   "name": "query_the_first_choice_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "f0c0c0e1fc5b086b3dc5f2beb2a55877c867276535fda6bedec77692da8bf556",
+      "kind": "operation_result"
+     },
+     {
+      "digest": "7fa7bfbcb142b8c763954c026bb19d7b42447db090afbac7dac3197d4931f666",
+      "kind": "operation_receipt"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "30eddf0535141980c9ff680221a3fce7337c2f405082a3a5a2c0642e2bbebf92",
+    "request_id": "req_327292f5f426c5300d939e6d5a92e183",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  }
+ ],
+ "says": "Alice's host is probed: native user events work for real. In her private decisions source two choices conflict — A (WAL with synchronous FULL) and B (a rollback journal) — so her first use of the journal concern waits on a sealed question, version 1, over both. She is asked in her working conversation and chooses A, keep until the choices change, through the probed route: a verified answer. From the resume naming that answer the application is recorded against the whole participant set at its exact revision, and the use resumes and is admitted. A backup is then taken. A is replaced by A2 (synchronous NORMAL): her next use is blocked with preference_invalidated, the application now invalidated because a participant changed, and a new use waits on a question over A2 and B. A2 is then replaced by A3, whose words are A's again: preparing that use again seals version 2 of its question against a basis at generation 3 that keeps A and A2 as replaced participants, and the application stays invalidated — matching old words do not revive old consent. The laptop's live database is lost and the backup is restored on a rebuilt runtime; its store holds the application active, as it stood before the change. A use there, carrying the restored generation, is not admitted: access_locked and access_generation_moved. Alice reads her profile — locked because restored, at generation 8 — and unlocks at a terminal. Querying the answer and the application by their request ids returns their original results and receipts, as recorded. Her next use is blocked with preference_invalidated: the restored application is invalidated because its basis cannot be verified past the backup, and a new question is sealed against a new basis. Querying the first choice's publication returns its original result, same record. What must not happen: the changed-back words, the restored stale application or the loss of the invalidation reviving the choice; or the recovery rewriting a decision record.",
+ "spec_sha256": "f5772c0a025e4d28a24132186f351bc6892b5220533f591042b1240100fd6a5e",
+ "steps": [
+  {
+   "carries": [
+    "device_key"
+   ],
+   "name": "bind_device_key",
+   "process": "laptop",
+   "request": "bind_key",
+   "result": "bind_device_key_result",
+   "returns": [
+    "stored_key"
+   ]
+  },
+  {
+   "carries": [
+    "probe"
+   ],
+   "name": "probe_the_host",
+   "process": "laptop",
+   "request": "probe_host",
+   "result": "probe_the_host_result",
+   "returns": [
+    "probe_that_worked",
+    "host_profile",
+    "host_config"
+   ]
+  },
+  {
+   "carries": [
+    "decisions_home"
+   ],
+   "head": "decisions_head_0",
+   "name": "register_the_decisions_source",
+   "process": "laptop",
+   "request": "register_decisions",
+   "result": "register_the_decisions_source_result",
+   "returns": [
+    "stored_home"
+   ]
+  },
+  {
+   "carries": [
+    "choice_a"
+   ],
+   "head": "decisions_head_1",
+   "name": "publish_choice_a",
+   "process": "laptop",
+   "request": "publish_choice_a",
+   "result": "publish_choice_a_result",
+   "returns": [
+    "stored_choice_a",
+    "decisions_1"
+   ]
+  },
+  {
+   "carries": [
+    "choice_b"
+   ],
+   "head": "decisions_head_2",
+   "name": "publish_choice_b",
+   "process": "laptop",
+   "request": "publish_choice_b",
+   "result": "publish_choice_b_result",
+   "returns": [
+    "stored_choice_b",
+    "decisions_2"
+   ]
+  },
+  {
+   "carries": [
+    "link_submitted"
+   ],
+   "name": "open_the_working_conversation",
+   "process": "laptop",
+   "request": "open_link",
+   "result": "open_the_working_conversation_result",
+   "returns": [
+    "work_link"
+   ]
+  },
+  {
+   "carries": [
+    "envelope"
+   ],
+   "name": "prepare_the_first_use",
+   "process": "laptop",
+   "request": "prepare_first",
+   "result": "prepare_the_first_use_result",
+   "returns": [
+    "first_waiting",
+    "first_question",
+    "first_basis",
+    "first_state"
+   ]
+  },
+  {
+   "carries": [
+    "ask_submitted"
+   ],
+   "name": "deliver_the_question",
+   "process": "laptop",
+   "request": "attempt_ask",
+   "result": "deliver_the_question_result",
+   "returns": [
+    "question_waiting"
+   ]
+  },
+  {
+   "carries": [
+    "choice_reply"
+   ],
+   "name": "record_her_answer",
+   "process": "laptop",
+   "request": "record_reply",
+   "result": "record_her_answer_result",
+   "returns": [
+    "verified_answer",
+    "answer_config"
+   ]
+  },
+  {
+   "carries": [
+    "resume_payload"
+   ],
+   "name": "record_the_application",
+   "process": "laptop",
+   "request": "record_application",
+   "result": "record_the_application_result",
+   "returns": [
+    "application"
+   ]
+  },
+  {
+   "carries": [
+    "resume_payload"
+   ],
+   "name": "resume_the_first_use",
+   "process": "laptop",
+   "request": "resume_first",
+   "result": "resume_the_first_use_result",
+   "returns": [
+    "first_admitted"
+   ]
+  },
+  {
+   "carries": [],
+   "name": "take_the_backup",
+   "process": "laptop",
+   "request": "take_backup",
+   "result": "take_the_backup_result",
+   "returns": [
+    "backup"
+   ]
+  },
+  {
+   "carries": [
+    "choice_a2"
+   ],
+   "head": "decisions_head_3",
+   "name": "change_choice_a",
+   "process": "laptop",
+   "request": "publish_choice_a2",
+   "result": "change_choice_a_result",
+   "returns": [
+    "stored_choice_a2",
+    "decisions_3"
+   ]
+  },
+  {
+   "carries": [
+    "envelope"
+   ],
+   "name": "prepare_after_the_change",
+   "process": "laptop",
+   "request": "prepare_second",
+   "result": "prepare_after_the_change_result",
+   "returns": [
+    "second_waiting",
+    "application_changed",
+    "second_question",
+    "second_basis",
+    "second_state"
+   ]
+  },
+  {
+   "carries": [
+    "choice_a3"
+   ],
+   "head": "decisions_head_4",
+   "name": "change_choice_back",
+   "process": "laptop",
+   "request": "publish_choice_a3",
+   "result": "change_choice_back_result",
+   "returns": [
+    "stored_choice_a3",
+    "decisions_4"
+   ]
+  },
+  {
+   "carries": [
+    "envelope"
+   ],
+   "name": "prepare_the_second_use_again",
+   "process": "laptop",
+   "request": "prepare_second_again",
+   "result": "prepare_the_second_use_again_result",
+   "returns": [
+    "third_waiting",
+    "application_changed",
+    "third_question",
+    "second_question_superseded",
+    "third_basis",
+    "third_state"
+   ]
+  },
+  {
+   "carries": [
+    "backup"
+   ],
+   "name": "restore_after_the_loss",
+   "process": "rebuilt",
+   "request": "restore",
+   "result": "restore_after_the_loss_result",
+   "returns": [
+    "report"
+   ]
+  },
+  {
+   "carries": [
+    "envelope"
+   ],
+   "name": "prepare_while_restored",
+   "process": "rebuilt",
+   "request": "prepare_restored",
+   "result": "prepare_while_restored_result",
+   "returns": []
+  },
+  {
+   "carries": [],
+   "name": "read_the_restored_profile",
+   "process": "rebuilt",
+   "request": "read_profile",
+   "result": "read_the_restored_profile_result",
+   "returns": [
+    "restored_profile",
+    "restored_access"
+   ]
+  },
+  {
+   "carries": [
+    "unlock_change"
+   ],
+   "name": "unlock_the_restored_profile",
+   "process": "rebuilt",
+   "request": "unlock",
+   "result": "unlock_the_restored_profile_result",
+   "returns": [
+    "unlocked"
+   ]
+  },
+  {
+   "carries": [
+    "ask_answer_payload"
+   ],
+   "name": "query_her_recorded_answer",
+   "process": "rebuilt",
+   "request": "ask_answer",
+   "result": "query_her_recorded_answer_result",
+   "returns": [
+    "record_her_answer_result",
+    "record_her_answer_receipt"
+   ]
+  },
+  {
+   "carries": [
+    "ask_application_payload"
+   ],
+   "name": "query_the_recorded_application",
+   "process": "rebuilt",
+   "request": "ask_application",
+   "result": "query_the_recorded_application_result",
+   "returns": [
+    "record_the_application_result",
+    "record_the_application_receipt"
+   ]
+  },
+  {
+   "carries": [
+    "envelope"
+   ],
+   "name": "prepare_after_the_restore",
+   "process": "rebuilt",
+   "request": "prepare_after_restore",
+   "result": "prepare_after_the_restore_result",
+   "returns": [
+    "restored_waiting",
+    "application_unverifiable",
+    "restored_question",
+    "restored_basis",
+    "restored_state"
+   ]
+  },
+  {
+   "carries": [
+    "ask_choice_payload"
+   ],
+   "name": "query_the_first_choice",
+   "process": "rebuilt",
+   "request": "ask_choice",
+   "result": "query_the_first_choice_result",
+   "returns": [
+    "publish_choice_a_result",
+    "publish_choice_a_receipt"
+   ]
+  }
+ ],
+ "world": {
+  "processes": [
+   "laptop",
+   "rebuilt"
+  ]
+ }
+}

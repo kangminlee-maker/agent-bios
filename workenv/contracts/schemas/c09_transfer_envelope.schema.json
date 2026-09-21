@@ -66,7 +66,8 @@
       "uniqueItems": true,
       "items": {
         "$ref": "#/$defs/digest"
-      }
+      },
+      "description": "What the recipient verifies trust by: the `authority_continuity` epochs of the authority the package comes from, from the founding epoch to its current one, or, where trust is enrolment, the `principal_binding` that enrolled the sending device. Each is a record its owner wrote; it travels as a member of the package unless the recipient already holds it, and the recipient verifies it by its bytes. One it cannot verify is `trust_continuity_unverified`."
     },
     "confidentiality": {
       "enum": [
@@ -230,7 +231,8 @@
         "acknowledged_inventory_digest": {
           "$ref": "#/$defs/digest"
         }
-      }
+      },
+      "description": "A delta: the checkpoint it applies to, and the `custody_acknowledgment` it was built against, named by `acknowledged_inventory_digest` — the record in which a holder reported, object by object, what it keeps. The package carries what that acknowledgment does not observe present. A recipient that does not hold the baseline answers `baseline_missing`, and a permitted complete transfer brings it level."
     },
     "return_transfer": {
       "type": "object",
@@ -286,6 +288,7 @@
     "object_kind": {
       "enum": [
         "access_admission",
+        "access_handle",
         "access_state",
         "access_transition",
         "action_assessment",
@@ -329,6 +332,7 @@
         "grant_record",
         "history_query",
         "host_binding",
+        "host_configuration",
         "host_reply",
         "invitation_cancellation",
         "knowledge_capture",
@@ -341,6 +345,7 @@
         "membership_consent",
         "membership_invitation",
         "membership_record",
+        "membership_verification",
         "memory_candidate",
         "memory_capture",
         "operation_query",
@@ -364,6 +369,7 @@
         "removal_outcome",
         "removal_request",
         "repository_binding",
+        "request_not_covered",
         "request_not_held",
         "restore_report",
         "resume_request",

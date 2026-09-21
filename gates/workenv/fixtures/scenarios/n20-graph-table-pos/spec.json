@@ -1,6 +1,6 @@
 {
  "case": "N20-GRAPH-TABLE-POS",
- "says": "A knowledge source is registered and its first revision holds a tax model with two nodes, taxable_income and income_tax, and no relation, checked with knowledge.member.prepare before it is committed. The author adds the relation computed_from (income_tax derived from taxable_income) in the graph editor, which the owner checks and returns as the model to commit. The same edit is then made from the keyboard in the Studio's knowledge screen (W03), driven by surface.drive at 80 by 24: each node of the committed model is an element of its own whose id carries the node id and whose value is that id, Tab reaches each in turn and the Add relation action, Enter opens the relation fields, the relation's name, its from and to endpoints are typed and its type is selected with Space, and Enter dispatches one knowledge.member.prepare request, the only call the client makes. The last frame shows the relation as an element whose value names both endpoints, referring to the model the graph edit produced. That dispatched request carries byte for byte the model the graph edit produced, the owner returns the same model, and the second revision commits it on the first head.",
+ "says": "The worker's device key and checkout are bound. A knowledge source is registered and its first revision, committed on the head the registration moved to, holds a tax model with two nodes, taxable_income and income_tax, and no relation, checked with knowledge.member.prepare before it is committed. The author adds the relation computed_from (income_tax derived from taxable_income) in the graph editor, which the owner checks and returns as the model to commit. The same edit is then made from the keyboard in the Studio's knowledge screen (W03), driven by surface.drive on the worker's local profile at 80 by 24: each node of the committed model is an element of its own whose id carries the node id, whose value is that id, and whose reference names that node as a part of the committed model by its node id, Tab reaches each in turn and the Add relation action, Enter opens the relation fields, the relation's name, its from and to endpoints are typed and its type is selected with Space, and Enter dispatches one knowledge.member.prepare request, the only call the client makes. The last frame shows the relation as an element whose value names both endpoints and whose reference names the relation computed_from as a part of the model the graph edit produced, beside both nodes as parts of that same model. That dispatched request carries byte for byte the model the graph edit produced, the owner returns the same model, and the second revision commits it on the first head.",
  "ids": [
   {
    "name": "rates",
@@ -49,9 +49,140 @@
   {
    "name": "commit_rates_rev2_id",
    "prefix": "req"
+  },
+  {
+   "name": "bind_my_key_id",
+   "prefix": "req"
+  },
+  {
+   "name": "bind_my_checkout_id",
+   "prefix": "req"
   }
  ],
  "records": [
+  {
+   "name": "my_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "my_key_stored",
+   "from": "my_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:my_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:my_key_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "bind_my_key",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_my_key_id"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#my_key"
+    }
+   ]
+  },
+  {
+   "name": "my_checkout",
+   "from": "c01/repository_binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "my_checkout_bound",
+   "from": "c01/clone_shares_the_repository_id.json",
+   "drop": [
+    "/observed/working_bytes_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "bind_my_checkout",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_my_checkout_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "repository.bind"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#my_checkout"
+    }
+   ]
+  },
   {
    "name": "rates_home",
    "from": "sources/home_submitted.json",
@@ -94,7 +225,7 @@
     },
     {
      "pointer": "/home/binding_evidence_digest",
-     "value": "47a017af61158bae8401475d7156faf45fe1f355b9b2c2f9fc8ebc54de98a9e4"
+     "value": "#my_checkout_bound"
     },
     {
      "pointer": "/acceptance_authority/layer",
@@ -209,14 +340,12 @@
   },
   {
    "name": "bare_model_as_it_will_be_committed",
-   "from": "bare_model"
+   "from": "bare_model",
+   "set": []
   },
   {
    "name": "check_the_model_without_relations_request",
    "from": "c04/model_check_request.json",
-   "drop": [
-    "/target/base/head_digest"
-   ],
    "set": [
     {
      "pointer": "/request_id",
@@ -252,7 +381,7 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
@@ -261,6 +390,10 @@
     {
      "pointer": "/owner/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:rates_registered"
     }
    ]
   },
@@ -311,9 +444,6 @@
   {
    "name": "commit_rates_rev1",
    "from": "c04/model_check_request.json",
-   "drop": [
-    "/target/base/head_digest"
-   ],
    "set": [
     {
      "pointer": "/request_id",
@@ -349,7 +479,7 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
@@ -358,6 +488,10 @@
     {
      "pointer": "/owner/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:rates_registered"
     }
    ]
   },
@@ -385,7 +519,8 @@
   },
   {
    "name": "model_as_it_will_be_committed",
-   "from": "graph_edit"
+   "from": "graph_edit",
+   "set": []
   },
   {
    "name": "check_the_graph_edit_request",
@@ -703,7 +838,11 @@
     },
     {
      "pointer": "/frames/0/elements/1/refers_to/ref",
-     "value": "record"
+     "value": "part"
+    },
+    {
+     "pointer": "/frames/0/elements/1/refers_to/part_id",
+     "value": "taxable_income"
     },
     {
      "pointer": "/frames/0/elements/1/refers_to/digest",
@@ -747,7 +886,11 @@
     },
     {
      "pointer": "/frames/0/elements/2/refers_to/ref",
-     "value": "record"
+     "value": "part"
+    },
+    {
+     "pointer": "/frames/0/elements/2/refers_to/part_id",
+     "value": "income_tax"
     },
     {
      "pointer": "/frames/0/elements/2/refers_to/digest",
@@ -923,7 +1066,11 @@
     },
     {
      "pointer": "/frames/1/elements/1/refers_to/ref",
-     "value": "record"
+     "value": "part"
+    },
+    {
+     "pointer": "/frames/1/elements/1/refers_to/part_id",
+     "value": "taxable_income"
     },
     {
      "pointer": "/frames/1/elements/1/refers_to/digest",
@@ -969,7 +1116,11 @@
     },
     {
      "pointer": "/frames/1/elements/2/refers_to/ref",
-     "value": "record"
+     "value": "part"
+    },
+    {
+     "pointer": "/frames/1/elements/2/refers_to/part_id",
+     "value": "income_tax"
     },
     {
      "pointer": "/frames/1/elements/2/refers_to/digest",
@@ -1145,7 +1296,11 @@
     },
     {
      "pointer": "/frames/2/elements/1/refers_to/ref",
-     "value": "record"
+     "value": "part"
+    },
+    {
+     "pointer": "/frames/2/elements/1/refers_to/part_id",
+     "value": "taxable_income"
     },
     {
      "pointer": "/frames/2/elements/1/refers_to/digest",
@@ -1189,7 +1344,11 @@
     },
     {
      "pointer": "/frames/2/elements/2/refers_to/ref",
-     "value": "record"
+     "value": "part"
+    },
+    {
+     "pointer": "/frames/2/elements/2/refers_to/part_id",
+     "value": "income_tax"
     },
     {
      "pointer": "/frames/2/elements/2/refers_to/digest",
@@ -1367,7 +1526,11 @@
     },
     {
      "pointer": "/frames/3/elements/1/refers_to/ref",
-     "value": "record"
+     "value": "part"
+    },
+    {
+     "pointer": "/frames/3/elements/1/refers_to/part_id",
+     "value": "taxable_income"
     },
     {
      "pointer": "/frames/3/elements/1/refers_to/digest",
@@ -1411,7 +1574,11 @@
     },
     {
      "pointer": "/frames/3/elements/2/refers_to/ref",
-     "value": "record"
+     "value": "part"
+    },
+    {
+     "pointer": "/frames/3/elements/2/refers_to/part_id",
+     "value": "income_tax"
     },
     {
      "pointer": "/frames/3/elements/2/refers_to/digest",
@@ -1719,7 +1886,11 @@
     },
     {
      "pointer": "/frames/4/elements/1/refers_to/ref",
-     "value": "record"
+     "value": "part"
+    },
+    {
+     "pointer": "/frames/4/elements/1/refers_to/part_id",
+     "value": "taxable_income"
     },
     {
      "pointer": "/frames/4/elements/1/refers_to/digest",
@@ -1763,7 +1934,11 @@
     },
     {
      "pointer": "/frames/4/elements/2/refers_to/ref",
-     "value": "record"
+     "value": "part"
+    },
+    {
+     "pointer": "/frames/4/elements/2/refers_to/part_id",
+     "value": "income_tax"
     },
     {
      "pointer": "/frames/4/elements/2/refers_to/digest",
@@ -2075,7 +2250,11 @@
     },
     {
      "pointer": "/frames/5/elements/1/refers_to/ref",
-     "value": "record"
+     "value": "part"
+    },
+    {
+     "pointer": "/frames/5/elements/1/refers_to/part_id",
+     "value": "taxable_income"
     },
     {
      "pointer": "/frames/5/elements/1/refers_to/digest",
@@ -2119,7 +2298,11 @@
     },
     {
      "pointer": "/frames/5/elements/2/refers_to/ref",
-     "value": "record"
+     "value": "part"
+    },
+    {
+     "pointer": "/frames/5/elements/2/refers_to/part_id",
+     "value": "income_tax"
     },
     {
      "pointer": "/frames/5/elements/2/refers_to/digest",
@@ -2431,7 +2614,11 @@
     },
     {
      "pointer": "/frames/6/elements/1/refers_to/ref",
-     "value": "record"
+     "value": "part"
+    },
+    {
+     "pointer": "/frames/6/elements/1/refers_to/part_id",
+     "value": "taxable_income"
     },
     {
      "pointer": "/frames/6/elements/1/refers_to/digest",
@@ -2475,7 +2662,11 @@
     },
     {
      "pointer": "/frames/6/elements/2/refers_to/ref",
-     "value": "record"
+     "value": "part"
+    },
+    {
+     "pointer": "/frames/6/elements/2/refers_to/part_id",
+     "value": "income_tax"
     },
     {
      "pointer": "/frames/6/elements/2/refers_to/digest",
@@ -2791,7 +2982,11 @@
     },
     {
      "pointer": "/frames/7/elements/1/refers_to/ref",
-     "value": "record"
+     "value": "part"
+    },
+    {
+     "pointer": "/frames/7/elements/1/refers_to/part_id",
+     "value": "taxable_income"
     },
     {
      "pointer": "/frames/7/elements/1/refers_to/digest",
@@ -2835,7 +3030,11 @@
     },
     {
      "pointer": "/frames/7/elements/2/refers_to/ref",
-     "value": "record"
+     "value": "part"
+    },
+    {
+     "pointer": "/frames/7/elements/2/refers_to/part_id",
+     "value": "income_tax"
     },
     {
      "pointer": "/frames/7/elements/2/refers_to/digest",
@@ -3151,7 +3350,11 @@
     },
     {
      "pointer": "/frames/8/elements/1/refers_to/ref",
-     "value": "record"
+     "value": "part"
+    },
+    {
+     "pointer": "/frames/8/elements/1/refers_to/part_id",
+     "value": "taxable_income"
     },
     {
      "pointer": "/frames/8/elements/1/refers_to/digest",
@@ -3195,7 +3398,11 @@
     },
     {
      "pointer": "/frames/8/elements/2/refers_to/ref",
-     "value": "record"
+     "value": "part"
+    },
+    {
+     "pointer": "/frames/8/elements/2/refers_to/part_id",
+     "value": "income_tax"
     },
     {
      "pointer": "/frames/8/elements/2/refers_to/digest",
@@ -3515,7 +3722,11 @@
     },
     {
      "pointer": "/frames/9/elements/1/refers_to/ref",
-     "value": "record"
+     "value": "part"
+    },
+    {
+     "pointer": "/frames/9/elements/1/refers_to/part_id",
+     "value": "taxable_income"
     },
     {
      "pointer": "/frames/9/elements/1/refers_to/digest",
@@ -3559,7 +3770,11 @@
     },
     {
      "pointer": "/frames/9/elements/2/refers_to/ref",
-     "value": "record"
+     "value": "part"
+    },
+    {
+     "pointer": "/frames/9/elements/2/refers_to/part_id",
+     "value": "income_tax"
     },
     {
      "pointer": "/frames/9/elements/2/refers_to/digest",
@@ -3878,7 +4093,11 @@
     },
     {
      "pointer": "/frames/10/elements/1/refers_to/ref",
-     "value": "record"
+     "value": "part"
+    },
+    {
+     "pointer": "/frames/10/elements/1/refers_to/part_id",
+     "value": "taxable_income"
     },
     {
      "pointer": "/frames/10/elements/1/refers_to/digest",
@@ -3922,7 +4141,11 @@
     },
     {
      "pointer": "/frames/10/elements/2/refers_to/ref",
-     "value": "record"
+     "value": "part"
+    },
+    {
+     "pointer": "/frames/10/elements/2/refers_to/part_id",
+     "value": "income_tax"
     },
     {
      "pointer": "/frames/10/elements/2/refers_to/digest",
@@ -4241,11 +4464,15 @@
     },
     {
      "pointer": "/frames/11/elements/1/refers_to/ref",
-     "value": "record"
+     "value": "part"
+    },
+    {
+     "pointer": "/frames/11/elements/1/refers_to/part_id",
+     "value": "taxable_income"
     },
     {
      "pointer": "/frames/11/elements/1/refers_to/digest",
-     "value": "#bare_model_as_it_will_be_committed"
+     "value": "#model_as_it_will_be_committed"
     },
     {
      "pointer": "/frames/11/elements/2/element_id",
@@ -4285,11 +4512,15 @@
     },
     {
      "pointer": "/frames/11/elements/2/refers_to/ref",
-     "value": "record"
+     "value": "part"
+    },
+    {
+     "pointer": "/frames/11/elements/2/refers_to/part_id",
+     "value": "income_tax"
     },
     {
      "pointer": "/frames/11/elements/2/refers_to/digest",
-     "value": "#bare_model_as_it_will_be_committed"
+     "value": "#model_as_it_will_be_committed"
     },
     {
      "pointer": "/frames/11/elements/3/element_id",
@@ -4329,7 +4560,11 @@
     },
     {
      "pointer": "/frames/11/elements/3/refers_to/ref",
-     "value": "record"
+     "value": "part"
+    },
+    {
+     "pointer": "/frames/11/elements/3/refers_to/part_id",
+     "value": "computed_from"
     },
     {
      "pointer": "/frames/11/elements/3/refers_to/digest",
@@ -4403,7 +4638,8 @@
    "name": "drive_request",
    "from": "c04/model_check_request.json",
    "drop": [
-    "/target/base"
+    "/target/base",
+    "/owner/repository_id"
    ],
    "set": [
     {
@@ -4436,15 +4672,19 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@repo"
+     "value": "@profile"
     },
     {
      "pointer": "/payload_digest",
      "value": "#script"
     },
     {
-     "pointer": "/owner/repository_id",
-     "value": "@repo"
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
     }
    ]
   },
@@ -4583,6 +4823,40 @@
  ],
  "steps": [
   {
+   "name": "bind_my_key",
+   "request": "bind_my_key",
+   "carries": [
+    "my_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "my_key_stored"
+    ]
+   }
+  },
+  {
+   "name": "bind_my_checkout",
+   "request": "bind_my_checkout",
+   "carries": [
+    "my_checkout"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "my_checkout_bound"
+    ]
+   }
+  },
+  {
    "name": "register_rates_home",
    "request": "register_rates",
    "carries": [
@@ -4596,7 +4870,8 @@
     "recovery": [],
     "returns": [
      "rates_home_stored"
-    ]
+    ],
+    "head": "rates_registered"
    }
   },
   {

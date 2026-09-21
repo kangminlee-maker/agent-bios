@@ -1,6 +1,6 @@
 {
  "case": "N28-PRODUCER-POS",
- "says": "A person selects records 12 to 18 of one session transcript, in which two decisions were made: the journal mode, effective from 2026-01-01 under jurisdiction KR, with its measured reason stated; and the backup volume, effective from 2026-03-01 on a local SSD, with no reason given anywhere in the span. The owner reads exactly that span once (source.observe). Each producer adapter then runs on that one fixed observation through source.capture.record: the packaged distillation adapter yields a memory capture with one entry for each decision, and the packaged learning adapter yields a behavioural capture of one lesson; each answer returns the capture with the extraction_run that names its own adapter by name and digest and the packaged files it loaded. From the memory capture the person stores one candidate per decision (memory.candidate.store). The first keeps the date, condition and stated reason as the span states them; the second keeps its date and condition and lists reason under unrecorded, with no reason written for it. No adapter reads outside the observed span, and neither capture nor candidate carries a rationale the input does not contain.",
+ "says": "A person binds this device's key and the checkout and registers two repository sources: one for decisions (memory) and one for lessons (Instructions). They select records 12 to 18 of one session transcript, stating that its text may be processed locally, with no prompt log, for this repository only; in that span two decisions were made: the journal mode, effective from 2026-01-01 under jurisdiction KR, with its measured reason stated; and the backup volume, effective from 2026-03-01 on a local SSD, with no reason given anywhere in the span. The owner reads exactly that span once (source.observe). Each producer adapter then runs on that one fixed observation through source.capture.record, at the head its destination's registration committed: the packaged distillation adapter yields a memory capture with one entry for each decision, and the packaged learning adapter yields a behavioural capture of one lesson; each answer returns the capture with the extraction_run that names its own adapter by name and digest and the packaged files it loaded. Every capture's input lies under the selection's one root and restates no more than that root permits (local processing, no log, this repository), which is the rule input_within_its_root. From the memory capture the person stores one candidate per decision (memory.candidate.store). The first keeps the date, condition and stated reason as the span states them; the second keeps its date and condition and lists reason under unrecorded, with no reason written for it. No adapter reads outside the observed span, and neither capture nor candidate carries a rationale the input does not contain.",
  "ids": [
   {
    "name": "me",
@@ -27,12 +27,20 @@
    "prefix": "src"
   },
   {
-   "name": "lane",
-   "prefix": "wst"
+   "name": "bind_key_rid",
+   "prefix": "req"
   },
   {
-   "name": "measured_source",
-   "prefix": "src"
+   "name": "bind_repo_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "register_home_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "register_lessons_rid",
+   "prefix": "req"
   },
   {
    "name": "lesson_unit",
@@ -69,8 +77,275 @@
  ],
  "records": [
   {
+   "name": "key_submitted",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "bind_key_request",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_key_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#key_submitted"
+    }
+   ]
+  },
+  {
+   "name": "key",
+   "from": "c01/device_key_binding.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:key_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:bound_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_binding_submitted",
+   "from": "c01/repository_binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "bind_repo_request",
+   "from": "c01/repository_bind_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_repo_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_binding_submitted"
+    }
+   ]
+  },
+  {
+   "name": "repo_binding",
+   "from": "c01/clone_shares_the_repository_id.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/observed/working_bytes_digest",
+     "value": "$digest:checkout_bytes"
+    }
+   ]
+  },
+  {
+   "name": "home_submitted",
+   "from": "sources/home_of_a_repository_document.json",
+   "drop": [
+    "/registered_at"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@decisions"
+    },
+    {
+     "pointer": "/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/acceptance_authority/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/binding_evidence_digest",
+     "value": "#repo_binding"
+    }
+   ]
+  },
+  {
+   "name": "home_request",
+   "from": "sources/request_to_register_a_home.json",
+   "drop": [
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_home_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@decisions"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#home_submitted"
+    }
+   ]
+  },
+  {
+   "name": "home",
+   "from": "home_submitted",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:registered_at"
+    }
+   ]
+  },
+  {
+   "name": "lessons_home_submitted",
+   "from": "home_submitted",
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@lessons"
+    },
+    {
+     "pointer": "/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/home/document_root",
+     "value": "docs/lessons"
+    }
+   ]
+  },
+  {
+   "name": "lessons_home_request",
+   "from": "home_request",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_lessons_rid"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@lessons"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#lessons_home_submitted"
+    }
+   ]
+  },
+  {
+   "name": "lessons_home",
+   "from": "lessons_home_submitted",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:lessons_registered_at"
+    }
+   ]
+  },
+  {
    "name": "selection",
-   "from": "c01/selection_of_a_transcript_span.json"
+   "from": "c01/selection_of_a_transcript_span.json",
+   "drop": [
+    "/roots/0/permits/destinations/1"
+   ],
+   "set": [
+    {
+     "pointer": "/roots/0/permits/destinations/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/roots/0/permits/processing",
+     "value": "local_processing"
+    }
+   ]
   },
   {
    "name": "observe",
@@ -156,6 +431,9 @@
      "pointer": "/processing/inputs/0/permits/destinations/0/repository_id",
      "value": "@repo"
     }
+   ],
+   "drop": [
+    "/revision_digest"
    ]
   },
   {
@@ -189,6 +467,14 @@
     {
      "pointer": "/payload_digest",
      "value": "#memory_capture"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_decisions_home_head"
     }
    ]
   },
@@ -248,6 +534,9 @@
      "pointer": "/processing/inputs/0/permits/destinations/0/repository_id",
      "value": "@repo"
     }
+   ],
+   "drop": [
+    "/revision_digest"
    ]
   },
   {
@@ -265,6 +554,14 @@
     {
      "pointer": "/payload_digest",
      "value": "#behaviour_capture"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_lessons_home_head"
     }
    ]
   },
@@ -333,13 +630,12 @@
      "value": "@repo"
     },
     {
-     "pointer": "/proposed/workstream_ids/0",
-     "value": "@lane"
-    },
-    {
-     "pointer": "/proposed/basis/0/source_id",
-     "value": "@measured_source"
+     "pointer": "/proposed/workstream_ids",
+     "value": []
     }
+   ],
+   "drop": [
+    "/proposed/basis"
    ]
   },
   {
@@ -347,7 +643,6 @@
    "from": "journal_candidate",
    "drop": [
     "/proposed/reason",
-    "/proposed/basis",
     "/proposed/expected_consequences",
     "/proposed/revisit_condition",
     "/proposed/context",
@@ -480,6 +775,74 @@
   }
  ],
  "steps": [
+  {
+   "name": "bind_device_key",
+   "request": "bind_key_request",
+   "carries": [
+    "key_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "key"
+    ]
+   }
+  },
+  {
+   "name": "bind_repository",
+   "request": "bind_repo_request",
+   "carries": [
+    "repo_binding_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_binding"
+    ]
+   }
+  },
+  {
+   "name": "register_decisions_home",
+   "request": "home_request",
+   "carries": [
+    "home_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "home"
+    ]
+   }
+  },
+  {
+   "name": "register_lessons_home",
+   "request": "lessons_home_request",
+   "carries": [
+    "lessons_home_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "lessons_home"
+    ]
+   }
+  },
   {
    "name": "observe_span",
    "request": "observe",

@@ -65,16 +65,6 @@
    "record": "bind"
   },
   {
-   "minted": "first_binding",
-   "pointer": "/binding_id",
-   "record": "stored_key"
-  },
-  {
-   "minted": "bound_at",
-   "pointer": "/created_at",
-   "record": "stored_key"
-  },
-  {
    "digest_of": "bind",
    "pointer": "/request_digest",
    "record": "bind_device_key_receipt"
@@ -93,6 +83,16 @@
    "minted": "bind_device_key_committed_at",
    "pointer": "/committed_at",
    "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "first_binding",
+   "pointer": "/binding_id",
+   "record": "stored_key"
+  },
+  {
+   "minted": "bound_at",
+   "pointer": "/created_at",
+   "record": "stored_key"
   },
   {
    "digest_of": "bind_device_key_receipt",
@@ -160,16 +160,6 @@
    "record": "register_repo_home"
   },
   {
-   "digest_of": "stored_binding",
-   "pointer": "/home/binding_evidence_digest",
-   "record": "stored_repo_home"
-  },
-  {
-   "minted": "repo_home_registered_at",
-   "pointer": "/registered_at",
-   "record": "stored_repo_home"
-  },
-  {
    "digest_of": "register_repo_home",
    "pointer": "/request_digest",
    "record": "register_repository_knowledge_receipt"
@@ -188,6 +178,16 @@
    "minted": "register_repository_knowledge_committed_at",
    "pointer": "/committed_at",
    "record": "register_repository_knowledge_receipt"
+  },
+  {
+   "digest_of": "stored_binding",
+   "pointer": "/home/binding_evidence_digest",
+   "record": "stored_repo_home"
+  },
+  {
+   "minted": "repo_home_registered_at",
+   "pointer": "/registered_at",
+   "record": "stored_repo_home"
   },
   {
    "digest_of": "register_repository_knowledge_receipt",
@@ -215,11 +215,6 @@
    "record": "commit_repo"
   },
   {
-   "minted": "repo_revision_at",
-   "pointer": "/produced_at",
-   "record": "stored_repo_manifest"
-  },
-  {
    "digest_of": "commit_repo",
    "pointer": "/request_digest",
    "record": "commit_repository_knowledge_receipt"
@@ -243,6 +238,11 @@
    "minted": "repo_source_registered",
    "pointer": "/target/base/head_digest",
    "record": "commit_repository_knowledge_receipt"
+  },
+  {
+   "minted": "repo_revision_at",
+   "pointer": "/produced_at",
+   "record": "stored_repo_manifest"
   },
   {
    "digest_of": "commit_repository_knowledge_receipt",
@@ -270,16 +270,6 @@
    "record": "import"
   },
   {
-   "minted": "imported_at",
-   "pointer": "/acquisition/acquired_at",
-   "record": "import_provenance"
-  },
-  {
-   "minted": "acquired_package",
-   "pointer": "/acquisition/availability_evidence_digest",
-   "record": "import_provenance"
-  },
-  {
    "digest_of": "import",
    "pointer": "/request_digest",
    "record": "import_external_package_receipt"
@@ -298,6 +288,16 @@
    "minted": "import_external_package_committed_at",
    "pointer": "/committed_at",
    "record": "import_external_package_receipt"
+  },
+  {
+   "minted": "imported_at",
+   "pointer": "/acquisition/acquired_at",
+   "record": "import_provenance"
+  },
+  {
+   "minted": "acquired_package",
+   "pointer": "/acquisition/availability_evidence_digest",
+   "record": "import_provenance"
   },
   {
    "digest_of": "import_external_package_receipt",
@@ -335,16 +335,6 @@
    "record": "register_import_home"
   },
   {
-   "minted": "acquired_package",
-   "pointer": "/home/publisher_evidence_digest",
-   "record": "stored_import_home"
-  },
-  {
-   "minted": "import_home_registered_at",
-   "pointer": "/registered_at",
-   "record": "stored_import_home"
-  },
-  {
    "digest_of": "register_import_home",
    "pointer": "/request_digest",
    "record": "register_imported_home_receipt"
@@ -368,6 +358,16 @@
    "minted": "import_head",
    "pointer": "/target/base/head_digest",
    "record": "register_imported_home_receipt"
+  },
+  {
+   "minted": "acquired_package",
+   "pointer": "/home/publisher_evidence_digest",
+   "record": "stored_import_home"
+  },
+  {
+   "minted": "import_home_registered_at",
+   "pointer": "/registered_at",
+   "record": "stored_import_home"
   },
   {
    "digest_of": "register_imported_home_receipt",
@@ -620,25 +620,6 @@
    }
   },
   {
-   "digest": "f1e092403e1976b069b3393e48290ec8cbc816ef32a8c2c1d278280d97ee1c9a",
-   "name": "stored_key",
-   "record": {
-    "binding_id": "bnd_8e8d01fe92d5f2ad9d692384f1fbd9fa",
-    "created_at": "2000-01-01T00:00:00Z",
-    "credential": {
-     "credential": "device_key",
-     "device_id": "dev_343d66afc42ce9d0e36850d6078bf5f5",
-     "key_generation": 1,
-     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
-    },
-    "established_by": "local_creation",
-    "evidence_digests": [],
-    "kind": "principal_binding",
-    "principal_id": "prn_c04c03a8da5b206d37e41e58a0933e71",
-    "schema": 1
-   }
-  },
-  {
    "digest": "7810c2e99ec6d16fcbdece55e8603c5628c5fe7616a7f49eefe7fd007ccfe96e",
    "name": "bind_device_key_receipt",
    "record": {
@@ -656,6 +637,25 @@
     "target": {
      "resource_id": "prn_c04c03a8da5b206d37e41e58a0933e71"
     }
+   }
+  },
+  {
+   "digest": "f1e092403e1976b069b3393e48290ec8cbc816ef32a8c2c1d278280d97ee1c9a",
+   "name": "stored_key",
+   "record": {
+    "binding_id": "bnd_8e8d01fe92d5f2ad9d692384f1fbd9fa",
+    "created_at": "2000-01-01T00:00:00Z",
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_343d66afc42ce9d0e36850d6078bf5f5",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_c04c03a8da5b206d37e41e58a0933e71",
+    "schema": 1
    }
   },
   {
@@ -724,21 +724,6 @@
    }
   },
   {
-   "digest": "2f4f5e9546d98c2065b0b06ad0c7ee59df0db85d77e7a25d68510f99439bd780",
-   "name": "stored_binding",
-   "record": {
-    "kind": "repository_binding",
-    "observed": {
-     "locator": "git@github.com:example/work.git"
-    },
-    "relation": {
-     "how": "clone"
-    },
-    "repository_id": "rep_db05893df17309ac88a3553d417e438b",
-    "schema": 1
-   }
-  },
-  {
    "digest": "33334bdf7177c4af2abfb27d6f796ea3bbb4864f71fa941ef8816ed17cd69b5f",
    "name": "bind_checkout_receipt",
    "record": {
@@ -756,6 +741,21 @@
     "target": {
      "resource_id": "rep_db05893df17309ac88a3553d417e438b"
     }
+   }
+  },
+  {
+   "digest": "2f4f5e9546d98c2065b0b06ad0c7ee59df0db85d77e7a25d68510f99439bd780",
+   "name": "stored_binding",
+   "record": {
+    "kind": "repository_binding",
+    "observed": {
+     "locator": "git@github.com:example/work.git"
+    },
+    "relation": {
+     "how": "clone"
+    },
+    "repository_id": "rep_db05893df17309ac88a3553d417e438b",
+    "schema": 1
    }
   },
   {
@@ -848,6 +848,29 @@
    }
   },
   {
+   "digest": "30ffd357fd45f43841284c7a1dbee14de37458dcacbfa1d9ddf14c31eaa8dc36",
+   "name": "register_repository_knowledge_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "07bf6edee8e55ee30991086f10bd7b6d575e935254e5b779b7f3f33ed4dcbc91",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_db05893df17309ac88a3553d417e438b"
+    },
+    "request_digest": "91b70269a02cc028687409c035ee193e6017ae48f8742cfa083b58c6c2e4d285",
+    "request_id": "req_1efaedbd74ce4632041ac1d8c1179709",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_474221461596d8163c43f3a58977d77f"
+    }
+   }
+  },
+  {
    "digest": "5fc4f180532a2f05be638bd6dafaf93650a84b4847d5be38ee90eb6c1e1d778a",
    "name": "stored_repo_home",
    "record": {
@@ -879,29 +902,6 @@
      "repository_id": "rep_db05893df17309ac88a3553d417e438b"
     },
     "source_id": "src_474221461596d8163c43f3a58977d77f"
-   }
-  },
-  {
-   "digest": "30ffd357fd45f43841284c7a1dbee14de37458dcacbfa1d9ddf14c31eaa8dc36",
-   "name": "register_repository_knowledge_receipt",
-   "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "07bf6edee8e55ee30991086f10bd7b6d575e935254e5b779b7f3f33ed4dcbc91",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "repository",
-     "repository_id": "rep_db05893df17309ac88a3553d417e438b"
-    },
-    "request_digest": "91b70269a02cc028687409c035ee193e6017ae48f8742cfa083b58c6c2e4d285",
-    "request_id": "req_1efaedbd74ce4632041ac1d8c1179709",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "base": {
-      "expects": "absent"
-     },
-     "resource_id": "src_474221461596d8163c43f3a58977d77f"
-    }
    }
   },
   {
@@ -951,10 +951,10 @@
    }
   },
   {
-   "digest": "459ec9b4f267070a7c05861ce1b5241bbd406e6526630d045ee9a29a14c1a252",
+   "digest": "736020c02838b4d54fe280fd3de949096fe8c91da4e162cbe789bfb143ba2f25",
    "name": "commit_repo",
    "record": {
-    "action": "contribute",
+    "action": "publish",
     "actor": {
      "device_id": "dev_343d66afc42ce9d0e36850d6078bf5f5",
      "principal_id": "prn_c04c03a8da5b206d37e41e58a0933e71",
@@ -974,6 +974,30 @@
     "proof_digests": [],
     "request_id": "req_f752ebea704d023d0673fe94fe8d0b7a",
     "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "07bf6edee8e55ee30991086f10bd7b6d575e935254e5b779b7f3f33ed4dcbc91"
+     },
+     "resource_id": "src_474221461596d8163c43f3a58977d77f"
+    }
+   }
+  },
+  {
+   "digest": "bacacdc4b33a3209b891db15a8ab436e7d8dd77b4819f414836529a5f9a79c65",
+   "name": "commit_repository_knowledge_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "47744132fb7456be284d51741f0cb1c75192c1eb41d5ef91569d526783e589f1",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_db05893df17309ac88a3553d417e438b"
+    },
+    "request_digest": "736020c02838b4d54fe280fd3de949096fe8c91da4e162cbe789bfb143ba2f25",
+    "request_id": "req_f752ebea704d023d0673fe94fe8d0b7a",
+    "schema": 1,
+    "sequence": 1,
     "target": {
      "base": {
       "expects": "head",
@@ -1007,38 +1031,14 @@
    }
   },
   {
-   "digest": "7a02ad5659b3fa8507b8e80c36fce3bfdbeeddb5c3369afa34bd18fbd56f27c7",
-   "name": "commit_repository_knowledge_receipt",
-   "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "47744132fb7456be284d51741f0cb1c75192c1eb41d5ef91569d526783e589f1",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "repository",
-     "repository_id": "rep_db05893df17309ac88a3553d417e438b"
-    },
-    "request_digest": "459ec9b4f267070a7c05861ce1b5241bbd406e6526630d045ee9a29a14c1a252",
-    "request_id": "req_f752ebea704d023d0673fe94fe8d0b7a",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "base": {
-      "expects": "head",
-      "head_digest": "07bf6edee8e55ee30991086f10bd7b6d575e935254e5b779b7f3f33ed4dcbc91"
-     },
-     "resource_id": "src_474221461596d8163c43f3a58977d77f"
-    }
-   }
-  },
-  {
-   "digest": "6515d763b48dcfb27a50b6683414904b85f3ecef3815d7a6513363f4bf2f3f3f",
+   "digest": "474f72339ca9e15e6f5ed3719a86a3a8aad16910a2b36e14016d2d569faf9b17",
    "name": "commit_repository_knowledge_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "7a02ad5659b3fa8507b8e80c36fce3bfdbeeddb5c3369afa34bd18fbd56f27c7",
+     "receipt_digest": "bacacdc4b33a3209b891db15a8ab436e7d8dd77b4819f414836529a5f9a79c65",
      "stage": "committed"
     },
     "outputs": [
@@ -1048,7 +1048,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "459ec9b4f267070a7c05861ce1b5241bbd406e6526630d045ee9a29a14c1a252",
+    "request_digest": "736020c02838b4d54fe280fd3de949096fe8c91da4e162cbe789bfb143ba2f25",
     "request_id": "req_f752ebea704d023d0673fe94fe8d0b7a",
     "schema": 1,
     "supported_recovery": []
@@ -1132,28 +1132,6 @@
    }
   },
   {
-   "digest": "38f683ebfb4084bae639fd3735b7bc2ff8c0b2a5df8b60214530045995487e2f",
-   "name": "import_provenance",
-   "record": {
-    "acceptance": {
-     "state": "not_accepted"
-    },
-    "acquisition": {
-     "acquired_at": "2000-01-01T00:00:00Z",
-     "availability_evidence_digest": "94288bd0c9c58b976bcd949b594a80152ed0fef5431c064ef65a75f17fc13e05"
-    },
-    "kind": "source_provenance",
-    "origin": {
-     "declared_origin": "a public archive of tax guidance",
-     "license_conditions": "attribution required, redistribution permitted",
-     "origin": "added_external_package"
-    },
-    "role": "knowledge",
-    "schema": 1,
-    "source_id": "src_2bb5332dc8f2ce3a8b66dcb859bd5aa5"
-   }
-  },
-  {
    "digest": "c11667a173f4fe20f053f2545869aa80f8ae958775a51b5ab4762d042a68c899",
    "name": "import_external_package_receipt",
    "record": {
@@ -1174,6 +1152,28 @@
      },
      "resource_id": "src_2bb5332dc8f2ce3a8b66dcb859bd5aa5"
     }
+   }
+  },
+  {
+   "digest": "38f683ebfb4084bae639fd3735b7bc2ff8c0b2a5df8b60214530045995487e2f",
+   "name": "import_provenance",
+   "record": {
+    "acceptance": {
+     "state": "not_accepted"
+    },
+    "acquisition": {
+     "acquired_at": "2000-01-01T00:00:00Z",
+     "availability_evidence_digest": "94288bd0c9c58b976bcd949b594a80152ed0fef5431c064ef65a75f17fc13e05"
+    },
+    "kind": "source_provenance",
+    "origin": {
+     "declared_origin": "a public archive of tax guidance",
+     "license_conditions": "attribution required, redistribution permitted",
+     "origin": "added_external_package"
+    },
+    "role": "knowledge",
+    "schema": 1,
+    "source_id": "src_2bb5332dc8f2ce3a8b66dcb859bd5aa5"
    }
   },
   {
@@ -1281,6 +1281,30 @@
    }
   },
   {
+   "digest": "c0aea30671f4801136d4dd2931da213b8d297e6a0ed5d401af8ef8f127f09da8",
+   "name": "register_imported_home_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "7fd4d8cdd085fca0042862393587646eb95ef15459853d7c0fff4a3727687b59",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_c04c03a8da5b206d37e41e58a0933e71"
+    },
+    "request_digest": "58d69a82e3900bdf1d6ef6099ddd172ba30622870149de26e6666e983d4f085f",
+    "request_id": "req_ea3c311c54cdadce49c7451c31c3d229",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "74666b3ac47f9e2b62ae1d567bdcc628bab36557179c0f821fca1d7571961b3d"
+     },
+     "resource_id": "src_2bb5332dc8f2ce3a8b66dcb859bd5aa5"
+    }
+   }
+  },
+  {
    "digest": "3c7a219718083aa10cb90a8365cfc57f6df5dd908bd9a3bff5d93a8a36749233",
    "name": "stored_import_home",
    "record": {
@@ -1322,30 +1346,6 @@
      "principal_id": "prn_c04c03a8da5b206d37e41e58a0933e71"
     },
     "source_id": "src_2bb5332dc8f2ce3a8b66dcb859bd5aa5"
-   }
-  },
-  {
-   "digest": "c0aea30671f4801136d4dd2931da213b8d297e6a0ed5d401af8ef8f127f09da8",
-   "name": "register_imported_home_receipt",
-   "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "7fd4d8cdd085fca0042862393587646eb95ef15459853d7c0fff4a3727687b59",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "personal",
-     "principal_id": "prn_c04c03a8da5b206d37e41e58a0933e71"
-    },
-    "request_digest": "58d69a82e3900bdf1d6ef6099ddd172ba30622870149de26e6666e983d4f085f",
-    "request_id": "req_ea3c311c54cdadce49c7451c31c3d229",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "base": {
-      "expects": "head",
-      "head_digest": "74666b3ac47f9e2b62ae1d567bdcc628bab36557179c0f821fca1d7571961b3d"
-     },
-     "resource_id": "src_2bb5332dc8f2ce3a8b66dcb859bd5aa5"
-    }
    }
   },
   {
@@ -1402,7 +1402,7 @@
    }
   },
   {
-   "digest": "801bcb6bef88d2756949188eea5ad7903fbb771da7999f34f8771b9382dcac4d",
+   "digest": "a3c347a9567b09aae5d7e5603b140ae82ae3a19c19bcdf60cbbfc19cdc064f1c",
    "name": "ask",
    "record": {
     "action": "read",
@@ -1412,7 +1412,7 @@
      "profile_id": "prf_8341f48940ccd5fdc92e0dcc2fb7b902"
     },
     "control_digests": [],
-    "effect_class": "pure_preview",
+    "effect_class": "durable_candidate",
     "kind": "operation_request",
     "local_access_generation": 7,
     "operation": "knowledge.question.ask",
@@ -1486,11 +1486,11 @@
    }
   },
   {
-   "digest": "50433867e8efede48d389e8533f9a07d7c62038714ef1e19d4079ea14b5fa90d",
+   "digest": "3c1ac25950271ec3d7ac603943fe44aca1a29e509e382fa7f1b9acba22a9f59a",
    "name": "ask_both_layers_result",
    "record": {
     "kind": "operation_result",
-    "local_effect": "none",
+    "local_effect": "private_state_written",
     "outcome": {
      "material_gaps": [],
      "stage": "previewed"
@@ -1502,7 +1502,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "801bcb6bef88d2756949188eea5ad7903fbb771da7999f34f8771b9382dcac4d",
+    "request_digest": "a3c347a9567b09aae5d7e5603b140ae82ae3a19c19bcdf60cbbfc19cdc064f1c",
     "request_id": "req_29155b0f6de249ad32bda46fd5b622f3",
     "schema": 1,
     "supported_recovery": []
@@ -1510,7 +1510,7 @@
   }
  ],
  "says": "A person whose bound repository already holds a committed knowledge source (repository.bind, source.home.register, source.revision.commit) imports an external package of tax guidance into their own scope through the import_external_package route (source.revision.admit), stating its declared origin, its license conditions and the digest of the package's manifest. The owner commits it as a new knowledge source with its own id and returns that exact manifest and a provenance whose origin is added_external_package naming the same origin and conditions, acquired now and not_accepted. The person registers the imported source's own package_published home, apart from the repository source's home. A question over both revisions in the default order (knowledge.question.ask) prefers the repository member and keeps the imported member retained beside it with its own evidence. Nothing is adopted or accepted for any Team, and the import ranks above no existing layer: its provenance has no priority field and the view places it below the repository layer.",
- "spec_sha256": "8b265ca48e386aa558037c74d7ebf9575aaaca6ea82fdfbb563ebe714538ebdb",
+ "spec_sha256": "b10ea36369a9e54e86b8a1348a6c3faf84e273180a92b6476ec5b278401f3d1d",
  "steps": [
   {
    "carries": [

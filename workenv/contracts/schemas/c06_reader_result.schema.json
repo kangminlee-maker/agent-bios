@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C06 reader result",
-  "description": "What the reader actually returned. Seven standings stay apart on purpose: an empty answer from a source with nothing to say is not a denial, and neither is an answer this installation could not reach. `ended` says the pagination finished, which is not a claim that nothing else was relevant. A result that waits on a person says so with a `pending_user` use: the question and use it waits on, never a first option chosen on their behalf. A result that admitted a use names that use and the state it was admitted on; it cannot do both. Each unit says whether it is required or optional, what was examined and returned is stated beside the budget, and a selected source the read did not check is named with why, apart from one it checked and found empty. A denied read has nowhere to name a source, a continuation or a waiting use: access is resolved before candidates or metadata are exposed. A frontier an `access_not_established` gap's pointer names is not returned; the runtime owner keeps that rule and P01's cases check it.",
+  "description": "What the reader actually returned. Seven standings stay apart on purpose: an empty answer from a source with nothing to say is not a denial, and neither is an answer this installation could not reach. `ended` says the pagination finished, which is not a claim that nothing else was relevant. A result that waits on a person says so with a `pending_user` use: the question and use it waits on, never a first option chosen on their behalf. A result that admitted a use names that use and the state it was admitted on; it cannot do both. Each unit says whether it is required or optional, what was examined and returned is stated beside the budget, and a selected source the read did not check is named with why, apart from one it checked and found empty. Superseded and withdrawn units come back only when the envelope asked for history, and a memory candidate the envelope selected comes back among `candidates`, unadopted, never among the units. A denied read has nowhere to name a source, a continuation, a candidate or a waiting use: access is resolved before candidates or metadata are exposed. A frontier an `access_not_established` gap's pointer names is not returned, and a result whose envelope excludes history marks no unit superseded or withdrawn; the runtime owner keeps both rules and P01's cases check them.",
   "required": [
     "kind",
     "schema",
@@ -99,12 +99,14 @@
             "adapter_unavailable",
             "adoption_evidence_missing",
             "agent_not_owned_here",
+            "alternative_not_offered",
             "answer_not_from_a_person",
             "answer_origin_unverified",
             "applicability_unstated",
             "approval_threshold_unmet",
             "approver_not_independent",
             "audience_mismatch",
+            "author_side_member",
             "backup_set_damaged",
             "backup_set_incomplete",
             "baseline_missing",
@@ -118,7 +120,10 @@
             "budget_exhausted",
             "callback_not_bound",
             "cancel_too_late",
+            "candidate_not_registered",
+            "candidate_origin_changed",
             "capability_not_qualified",
+            "carrier_repository_mismatch",
             "carrier_unreachable",
             "child_route_unsupported",
             "choice_conflict_unresolved",
@@ -127,6 +132,7 @@
             "client_token_missing",
             "client_token_unknown",
             "companion_unavailable",
+            "comparison_incomplete",
             "competing_successors",
             "condition_not_covered",
             "confirmation_is_not_authorization",
@@ -145,6 +151,7 @@
             "destination_invented",
             "effect_class_mismatch",
             "erasure_not_promised",
+            "evidence_already_recorded",
             "executable_import_refused",
             "finalizer_unavailable",
             "fixture_result_in_real_mode",
@@ -163,6 +170,7 @@
             "invitation_not_open",
             "isolation_unproven",
             "journal_mode_unexpected",
+            "keystore_missing",
             "knowledge_evidence_conflicts",
             "last_owner_removal_refused",
             "lifecycle_contradiction",
@@ -177,6 +185,7 @@
             "outcome_partial",
             "outcome_unknown",
             "payload_not_taken",
+            "policy_superseded",
             "preference_invalidated",
             "preflight_refused",
             "private_key_beside_public",
@@ -198,13 +207,16 @@
             "repository_rights_not_a_grant",
             "request_id_conflict",
             "request_mismatch",
+            "resubmitted_while_unknown",
             "resume_stale",
             "resurrection_refused",
             "retention_declined",
             "retry_under_a_new_id_refused",
             "role_body_unavailable",
             "role_promotion_refused",
+            "route_retired",
             "route_unsupported",
+            "runtime_path_missing",
             "same_layer_unordered",
             "selection_unresolved",
             "semantics_unsupported",
@@ -407,6 +419,13 @@
             "$ref": "#/$defs/unread_source"
           }
         },
+        "candidates": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/candidate_support"
+          }
+        },
         "consumed": {
           "$ref": "#/$defs/consumption"
         }
@@ -484,7 +503,9 @@
             "winning",
             "shadowed",
             "disabled",
-            "unresolved"
+            "unresolved",
+            "superseded",
+            "withdrawn"
           ]
         },
         "body_digest": {
@@ -500,7 +521,7 @@
           ]
         }
       },
-      "description": "One unit returned. `need` says whether it answers a required subject or is optional support; required meaning is fitted before optional ranking."
+      "description": "One unit returned. `need` says whether it answers a required subject or is optional support; required meaning is fitted before optional ranking. A unit is `superseded` or `withdrawn` only when its envelope asked for history."
     },
     "consumption": {
       "type": "object",
@@ -603,6 +624,37 @@
           "$ref": "#/$defs/admitted_use"
         }
       ]
+    },
+    "candidate_support": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A memory candidate the envelope selected, read at that version as support for this work. It is a proposal no destination has accepted: it is marked unadopted, names no source revision, is never a winning unit, and counts against the budget like a unit.",
+      "required": [
+        "candidate_id",
+        "version",
+        "candidate_digest",
+        "standing"
+      ],
+      "properties": {
+        "candidate_id": {
+          "$ref": "#/$defs/candidate_id"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "candidate_digest": {
+          "$ref": "#/$defs/digest",
+          "description": "The digest of the stored memory_candidate version read."
+        },
+        "standing": {
+          "const": "unadopted"
+        }
+      }
+    },
+    "candidate_id": {
+      "type": "string",
+      "pattern": "^cnd_[0-9a-f]{32}$"
     }
   }
 }

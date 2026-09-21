@@ -1,6 +1,6 @@
 {
  "case": "DH-REVALIDATE",
- "says": "The working host is Claude Code 2.1.278 with no hooks configured, and its ordinary-message route is qualified by a real probe. The repository says WAL and the person's own decisions say a rollback journal. The owner seals the journal question against the basis of those two records at generation 1 and stores it pending before asking, then asks it in the conversation. While the question waits, the owner's lock is not held: the person publishes an unrelated note-taking choice to their own decisions and it commits at once. Two replies that are not the person's arrive: an asynchronous callback fired after the use (hook_generated) and a pre-tool-use permission prompt the agent answered (tool_permission); resuming with the first is refused with answer_not_from_a_person and nothing is admitted. The person then replaces their rollback choice with a corrected one, which changes the participant set: their answer to version 1 arrives afterwards and is recorded as evidence for version 1, but resuming with it is refused with resume_stale although the use id is the same. Preparing the same use again seals version 2 of the same question against a basis at generation 2 that keeps the replaced record as an ended participant, returns version 1 as superseded, and waits on version 2. Asked again, the person chooses WAL and the owner records a verified answer to version 2. Before the use is admitted the profile is locked: resuming is refused with access_locked and unlock as the recovery. After an unlock at a terminal, the same resume admits the use on the current basis and access generation.",
+ "says": "The working host is Claude Code 2.1.278; its fresh profile reads active at access generation 1, and its ordinary-message route is qualified by a real probe run with no hook configured. The repository says WAL and the person's own decisions say a rollback journal. The owner seals the journal question against the basis of those two records and stores it pending before asking, then asks it in the conversation. While the question waits, the owner's lock is not held: the person publishes an unrelated note-taking choice to their own decisions and it commits at once. While a PostToolUse hook is briefly configured, two replies that are not the person's arrive, each classified under the configuration measured then: an asynchronous callback the hook fired after the use (hook_generated) and a pre-tool-use permission prompt the agent answered (tool_permission). Resuming with the first is blocked with answer_not_from_a_person; the use stays pending on version 1 and nothing is admitted. The hook is removed. The person then replaces their rollback choice with a corrected one, which changes the participant set: their answer to version 1 arrives afterwards and is recorded as verified evidence for version 1, but resuming with it is refused with resume_stale although the use id is the same. Preparing that same use again seals version 2 of the same question against a basis that keeps the replaced record as an ended participant, returns version 1 as superseded, and waits on version 2. Asked again, the person chooses WAL and the owner records a verified answer to version 2, with no hook configured. Before the use is admitted the profile is locked (generation 2): resuming is refused with access_locked and unlock as the recovery. After an unlock at a terminal, which keeps generation 2, the same resume admits the use on the current basis and access generation.",
  "ids": [
   {
    "name": "alice",
@@ -117,9 +117,83 @@
   {
    "name": "journal_unit",
    "prefix": "unt"
+  },
+  {
+   "name": "read_profile_request_id",
+   "prefix": "req"
   }
  ],
  "records": [
+  {
+   "name": "read_profile_request",
+   "from": "c02/profile_read_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@read_profile_request_id"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    }
+   ]
+  },
+  {
+   "name": "read_profile_profile",
+   "from": "c02/profile_written_at_first_use.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:read_profile_profile_at"
+    }
+   ]
+  },
+  {
+   "name": "read_profile_state",
+   "from": "c02/active_at_first_use.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:read_profile_state_at"
+    }
+   ]
+  },
   {
    "name": "device_key",
    "from": "c01/binding_as_submitted.json",
@@ -177,6 +251,10 @@
     {
      "pointer": "/payload_digest",
      "value": "#device_key"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
     }
    ]
   },
@@ -281,6 +359,10 @@
     {
      "pointer": "/work_scope/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
     }
    ]
   },
@@ -390,6 +472,10 @@
     {
      "pointer": "/payload_digest",
      "value": "#journal_personal_choice"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
     }
    ]
   },
@@ -487,6 +573,10 @@
     {
      "pointer": "/payload_digest",
      "value": "#chat_link"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
     }
    ]
   },
@@ -573,6 +663,10 @@
     {
      "pointer": "/payload_digest",
      "value": "#message_probe_submitted"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
     }
    ]
   },
@@ -619,6 +713,24 @@
     {
      "pointer": "/at",
      "value": "$instant:message_probe_at"
+    }
+   ]
+  },
+  {
+   "name": "claude_configuration_at_message_probe",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:claude_configuration_at_message_probe_at"
     }
    ]
   },
@@ -763,6 +875,10 @@
     {
      "pointer": "/payload_digest",
      "value": "#journal_envelope"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
     }
    ]
   },
@@ -1022,11 +1138,15 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice"
+     "value": "$lnk:chat_link"
     },
     {
      "pointer": "/payload_digest",
      "value": "#first_attempt_submitted"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
     }
    ]
   },
@@ -1125,6 +1245,10 @@
     {
      "pointer": "/payload_digest",
      "value": "#notes_choice"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
     }
    ]
   },
@@ -1217,11 +1341,15 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice"
+     "value": "$qst:journal_question"
     },
     {
      "pointer": "/payload_digest",
      "value": "#callback_reply"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
     }
    ]
   },
@@ -1251,7 +1379,7 @@
     },
     {
      "pointer": "/measured_configuration_digest",
-     "value": "$digest:callback_reply_evidence_configuration"
+     "value": "#claude_configuration_at_callback"
     },
     {
      "pointer": "/observed_at",
@@ -1276,6 +1404,35 @@
     {
      "pointer": "/origin/origin",
      "value": "hook_generated"
+    }
+   ]
+  },
+  {
+   "name": "claude_configuration_at_callback",
+   "from": "c12/a_host_measured_with_a_hook_that_answers_questions.json",
+   "drop": [
+    "/hooks/1"
+   ],
+   "set": [
+    {
+     "pointer": "/hooks/0/enabled",
+     "value": true
+    },
+    {
+     "pointer": "/hooks/0/event",
+     "value": "PostToolUse"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:claude_configuration_at_callback_at"
     }
    ]
   },
@@ -1354,11 +1511,15 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice"
+     "value": "$qst:journal_question"
     },
     {
      "pointer": "/payload_digest",
      "value": "#permission_reply"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
     }
    ]
   },
@@ -1388,7 +1549,7 @@
     },
     {
      "pointer": "/measured_configuration_digest",
-     "value": "$digest:permission_reply_evidence_configuration"
+     "value": "#claude_configuration_at_permission_prompt"
     },
     {
      "pointer": "/observed_at",
@@ -1413,6 +1574,35 @@
     {
      "pointer": "/origin/origin",
      "value": "tool_permission"
+    }
+   ]
+  },
+  {
+   "name": "claude_configuration_at_permission_prompt",
+   "from": "c12/a_host_measured_with_a_hook_that_answers_questions.json",
+   "drop": [
+    "/hooks/1"
+   ],
+   "set": [
+    {
+     "pointer": "/hooks/0/enabled",
+     "value": true
+    },
+    {
+     "pointer": "/hooks/0/event",
+     "value": "PostToolUse"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:claude_configuration_at_permission_prompt_at"
     }
    ]
   },
@@ -1476,11 +1666,29 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@journal_concern"
+     "value": "$use:journal_use"
     },
     {
      "pointer": "/payload_digest",
      "value": "#resume_with_callback_submitted"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "name": "journal_still_waiting_after_the_callback",
+   "from": "journal_waiting",
+   "set": [
+    {
+     "pointer": "/material_gaps/0/code",
+     "value": "choice_conflict_unresolved"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:journal_still_waiting_after_the_callback_at"
     }
    ]
   },
@@ -1557,6 +1765,10 @@
     {
      "pointer": "/payload_digest",
      "value": "#corrected_rollback"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
     }
    ]
   },
@@ -1650,11 +1862,15 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice"
+     "value": "$qst:journal_question"
     },
     {
      "pointer": "/payload_digest",
      "value": "#stale_reply"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
     }
    ]
   },
@@ -1680,7 +1896,7 @@
     },
     {
      "pointer": "/measured_configuration_digest",
-     "value": "$digest:stale_reply_evidence_configuration"
+     "value": "#claude_configuration_at_version_1_answer"
     },
     {
      "pointer": "/observed_at",
@@ -1717,6 +1933,24 @@
     {
      "pointer": "/origin/answer/mode",
      "value": "keep_until_change"
+    }
+   ]
+  },
+  {
+   "name": "claude_configuration_at_version_1_answer",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:claude_configuration_at_version_1_answer_at"
     }
    ]
   },
@@ -1780,11 +2014,15 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@journal_concern"
+     "value": "$use:journal_use"
     },
     {
      "pointer": "/payload_digest",
      "value": "#resume_stale_submitted"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
     }
    ]
   },
@@ -1826,11 +2064,15 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@journal_concern"
+     "value": "$use:journal_use"
     },
     {
      "pointer": "/payload_digest",
      "value": "#journal_envelope"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
     }
    ]
   },
@@ -2136,11 +2378,15 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice"
+     "value": "$lnk:chat_link"
     },
     {
      "pointer": "/payload_digest",
      "value": "#second_attempt_submitted"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
     }
    ]
   },
@@ -2242,11 +2488,15 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice"
+     "value": "$qst:journal_question"
     },
     {
      "pointer": "/payload_digest",
      "value": "#current_reply"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
     }
    ]
   },
@@ -2272,7 +2522,7 @@
     },
     {
      "pointer": "/measured_configuration_digest",
-     "value": "$digest:current_reply_evidence_configuration"
+     "value": "#claude_configuration_at_version_2_answer"
     },
     {
      "pointer": "/observed_at",
@@ -2313,12 +2563,34 @@
    ]
   },
   {
+   "name": "claude_configuration_at_version_2_answer",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:claude_configuration_at_version_2_answer_at"
+    }
+   ]
+  },
+  {
    "name": "lock",
    "from": "c02/lock.json",
    "set": [
     {
      "pointer": "/profile_id",
      "value": "@alice_profile"
+    },
+    {
+     "pointer": "/expected_generation",
+     "value": 1
     }
    ]
   },
@@ -2365,6 +2637,10 @@
     {
      "pointer": "/payload_digest",
      "value": "#lock"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
     }
    ]
   },
@@ -2378,7 +2654,7 @@
     },
     {
      "pointer": "/access_generation",
-     "value": 8
+     "value": 2
     },
     {
      "pointer": "/changed_at",
@@ -2446,7 +2722,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@journal_concern"
+     "value": "$use:journal_use"
     },
     {
      "pointer": "/payload_digest",
@@ -2454,7 +2730,7 @@
     },
     {
      "pointer": "/local_access_generation",
-     "value": 8
+     "value": 2
     }
    ]
   },
@@ -2465,6 +2741,10 @@
     {
      "pointer": "/profile_id",
      "value": "@alice_profile"
+    },
+    {
+     "pointer": "/expected_generation",
+     "value": 2
     }
    ]
   },
@@ -2514,7 +2794,7 @@
     },
     {
      "pointer": "/local_access_generation",
-     "value": 8
+     "value": 2
     }
    ]
   },
@@ -2528,7 +2808,7 @@
     },
     {
      "pointer": "/access_generation",
-     "value": 9
+     "value": 2
     },
     {
      "pointer": "/state/is",
@@ -2604,7 +2884,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@journal_concern"
+     "value": "$use:journal_use"
     },
     {
      "pointer": "/payload_digest",
@@ -2612,7 +2892,7 @@
     },
     {
      "pointer": "/local_access_generation",
-     "value": 9
+     "value": 2
     }
    ]
   },
@@ -2688,6 +2968,22 @@
  ],
  "steps": [
   {
+   "name": "read_profile",
+   "request": "read_profile_request",
+   "carries": [],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "read_profile_profile",
+     "read_profile_state"
+    ]
+   }
+  },
+  {
    "name": "bind_device_key",
    "request": "bind_key",
    "carries": [
@@ -2748,7 +3044,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2771,7 +3067,8 @@
     "recovery": [],
     "returns": [
      "message_probe",
-     "claude_profile"
+     "claude_profile",
+     "claude_configuration_at_message_probe"
     ]
    }
   },
@@ -2806,7 +3103,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2841,12 +3138,13 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "callback_reply_evidence"
+     "callback_reply_evidence",
+     "claude_configuration_at_callback"
     ]
    }
   },
@@ -2858,12 +3156,13 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "permission_reply_evidence"
+     "permission_reply_evidence",
+     "claude_configuration_at_permission_prompt"
     ]
    }
   },
@@ -2874,7 +3173,7 @@
     "resume_with_callback_submitted"
    ],
    "answer": {
-    "stage": "refused",
+    "stage": "blocked",
     "local_effect": "none",
     "provider_effect": "not_applicable",
     "gaps": [
@@ -2883,7 +3182,9 @@
      }
     ],
     "recovery": [],
-    "returns": []
+    "returns": [
+     "journal_still_waiting_after_the_callback"
+    ]
    }
   },
   {
@@ -2912,12 +3213,13 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "stale_reply_evidence"
+     "stale_reply_evidence",
+     "claude_configuration_at_version_1_answer"
     ]
    }
   },
@@ -2972,7 +3274,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2989,12 +3291,13 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "current_reply_evidence"
+     "current_reply_evidence",
+     "claude_configuration_at_version_2_answer"
     ]
    }
   },

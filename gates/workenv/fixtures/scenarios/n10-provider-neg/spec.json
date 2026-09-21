@@ -1,6 +1,6 @@
 {
  "case": "N10-PROVIDER-NEG",
- "says": "Ana founds a Team whose policy has no admission rule and configures a Google connection expecting the hd claim example.com. Ben signs in through it for admission on his own device; the owner verifies the callback and returns sign-in evidence, and the callback also carried his address ben@example.com. None of this admits him: Ana's membership change naming the connection, the policy in force and Ben's verified evidence is refused by the owner with claim_not_admitted. A policy that would admit by e-mail domain is refused at admission (no such claim can be written), a provider-claim membership that names no admitting policy is refused at admission, and a device-key binding that tries to carry Ben's e-mail as an identity is refused at admission. What must not happen: any membership record, policy version or binding being committed from a verified login or a matching e-mail domain alone.",
+ "says": "Ana founds a Team whose policy has no admission rule, which returns her membership by founding and the founding epoch, and configures a Google connection expecting the hd claim example.com. Ben signs in through it for admission on his own device; the owner verifies the callback and returns sign-in evidence, and the callback also carried his address ben@example.com. None of this admits him: Ana's membership change naming the connection, the policy in force and Ben's verified evidence is refused by the owner with claim_not_admitted. A policy that would admit by e-mail domain is refused at admission (no such claim can be written), a provider-claim membership that names no admitting policy is refused at admission, and a device-key binding that tries to carry Ben's e-mail as an identity is refused at admission. What must not happen: any membership record, policy version or binding being committed from a verified login or a matching e-mail domain alone.",
  "ids": [
   {
    "name": "ana",
@@ -130,6 +130,68 @@
     {
      "pointer": "/recovery/0/principal_id",
      "value": "@ana"
+    }
+   ]
+  },
+  {
+   "name": "team_sealed_proposal",
+   "from": "team_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:team_founder_membership_id"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#team_sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_head_1"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@ana_device"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_founded_at"
     }
    ]
   },
@@ -1005,10 +1067,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "team_sealed_proposal",
      "team_policy",
+     "team_founder_membership",
      "team_founder_grant",
      "team_active",
-     "team_profile"
+     "team_profile",
+     "team_founding_epoch"
     ],
     "head": "team_head_1"
    },
@@ -1044,7 +1109,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],

@@ -41,16 +41,6 @@
    "record": "bind_alice"
   },
   {
-   "minted": "alice_binding_id",
-   "pointer": "/binding_id",
-   "record": "alice_binding"
-  },
-  {
-   "minted": "alice_bound_at",
-   "pointer": "/created_at",
-   "record": "alice_binding"
-  },
-  {
    "digest_of": "bind_alice",
    "pointer": "/request_digest",
    "record": "bind_alice_receipt"
@@ -69,6 +59,16 @@
    "minted": "bind_alice_committed_at",
    "pointer": "/committed_at",
    "record": "bind_alice_receipt"
+  },
+  {
+   "minted": "alice_binding_id",
+   "pointer": "/binding_id",
+   "record": "alice_binding"
+  },
+  {
+   "minted": "alice_bound_at",
+   "pointer": "/created_at",
+   "record": "alice_binding"
   },
   {
    "digest_of": "bind_alice_receipt",
@@ -91,11 +91,6 @@
    "record": "bind_repo"
   },
   {
-   "minted": "checkout_bytes",
-   "pointer": "/observed/working_bytes_digest",
-   "record": "repo_bound"
-  },
-  {
    "digest_of": "bind_repo",
    "pointer": "/request_digest",
    "record": "bind_repo_receipt"
@@ -114,6 +109,11 @@
    "minted": "bind_repo_committed_at",
    "pointer": "/committed_at",
    "record": "bind_repo_receipt"
+  },
+  {
+   "minted": "checkout_bytes",
+   "pointer": "/observed/working_bytes_digest",
+   "record": "repo_bound"
   },
   {
    "digest_of": "bind_repo_receipt",
@@ -286,25 +286,6 @@
    }
   },
   {
-   "digest": "dd83b7010b377f46b1c91da20c3c5eed361d3827da295414b559f4d398daa629",
-   "name": "alice_binding",
-   "record": {
-    "binding_id": "bnd_9c41b2d3a103eaf536de476ba5af6540",
-    "created_at": "2000-01-01T00:00:00Z",
-    "credential": {
-     "credential": "device_key",
-     "device_id": "dev_2550d678e3522c726c52fea0f9a1d07f",
-     "key_generation": 1,
-     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
-    },
-    "established_by": "local_creation",
-    "evidence_digests": [],
-    "kind": "principal_binding",
-    "principal_id": "prn_e43c9abef5a9b832a2b6f9eb57ebdaca",
-    "schema": 1
-   }
-  },
-  {
    "digest": "12119aeea768b501b8970687b1f06c87ef7142d17e268aad5f16631289d58ddf",
    "name": "bind_alice_receipt",
    "record": {
@@ -322,6 +303,25 @@
     "target": {
      "resource_id": "prn_e43c9abef5a9b832a2b6f9eb57ebdaca"
     }
+   }
+  },
+  {
+   "digest": "dd83b7010b377f46b1c91da20c3c5eed361d3827da295414b559f4d398daa629",
+   "name": "alice_binding",
+   "record": {
+    "binding_id": "bnd_9c41b2d3a103eaf536de476ba5af6540",
+    "created_at": "2000-01-01T00:00:00Z",
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_2550d678e3522c726c52fea0f9a1d07f",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_e43c9abef5a9b832a2b6f9eb57ebdaca",
+    "schema": 1
    }
   },
   {
@@ -390,24 +390,6 @@
    }
   },
   {
-   "digest": "7a400b6a9d588be1dd8dfc9e34df4e341a56954506bc586abc61fabcbd6150eb",
-   "name": "repo_bound",
-   "record": {
-    "kind": "repository_binding",
-    "observed": {
-     "branch": "main",
-     "commit": "0123456789abcdef0123456789abcdef01234567",
-     "locator": "git@github.com:example/work.git",
-     "working_bytes_digest": "5a4e99853e6aa53680fa67b789549ba3f0fd62db1416e7af4f6b7901f281dbde"
-    },
-    "relation": {
-     "how": "clone"
-    },
-    "repository_id": "rep_9197653cbf4ca70af3294b93d5cb59b1",
-    "schema": 1
-   }
-  },
-  {
    "digest": "fbe1930a92244cf410834d2308a2f5eb4161cda8e622879983c8a452f93d832a",
    "name": "bind_repo_receipt",
    "record": {
@@ -425,6 +407,24 @@
     "target": {
      "resource_id": "rep_9197653cbf4ca70af3294b93d5cb59b1"
     }
+   }
+  },
+  {
+   "digest": "7a400b6a9d588be1dd8dfc9e34df4e341a56954506bc586abc61fabcbd6150eb",
+   "name": "repo_bound",
+   "record": {
+    "kind": "repository_binding",
+    "observed": {
+     "branch": "main",
+     "commit": "0123456789abcdef0123456789abcdef01234567",
+     "locator": "git@github.com:example/work.git",
+     "working_bytes_digest": "5a4e99853e6aa53680fa67b789549ba3f0fd62db1416e7af4f6b7901f281dbde"
+    },
+    "relation": {
+     "how": "clone"
+    },
+    "repository_id": "rep_9197653cbf4ca70af3294b93d5cb59b1",
+    "schema": 1
    }
   },
   {
@@ -452,14 +452,25 @@
    }
   },
   {
-   "digest": "802110de3f053b4c0fd51282837b9db76e210902b73a719f7d1ad0942d0a0f08",
+   "digest": "3711518037ce30699a8f0c56bdb065682e5da1de5c87fec972a482239126c32e",
    "name": "adr_selection",
    "record": {
     "kind": "source_selection",
     "roots": [
      {
       "need": "required",
+      "permits": {
+       "destinations": [
+        {
+         "layer": "repository",
+         "repository_id": "rep_9197653cbf4ca70af3294b93d5cb59b1"
+        }
+       ],
+       "processing": "local_processing",
+       "prompt_log": "not_kept"
+      },
       "place": {
+       "checkout": "/home/ana/work",
        "from": "working_tree",
        "path": "docs/adr",
        "repository_id": "rep_9197653cbf4ca70af3294b93d5cb59b1"
@@ -468,6 +479,7 @@
      {
       "need": "optional",
       "place": {
+       "checkout": "/home/ana/work",
        "from": "working_tree",
        "path": "README.md",
        "repository_id": "rep_9197653cbf4ca70af3294b93d5cb59b1"
@@ -478,7 +490,7 @@
    }
   },
   {
-   "digest": "021ee0f9bb6662d9578db379f0b2581667800edad4877c6fa995f1f4d5538bcd",
+   "digest": "0c0bfe8e086bb437fb22f00a543cc852760669b791589823cc55f3fcd666d66a",
    "name": "observe_the_selection",
    "record": {
     "action": "read",
@@ -496,7 +508,7 @@
      "layer": "repository",
      "repository_id": "rep_9197653cbf4ca70af3294b93d5cb59b1"
     },
-    "payload_digest": "802110de3f053b4c0fd51282837b9db76e210902b73a719f7d1ad0942d0a0f08",
+    "payload_digest": "3711518037ce30699a8f0c56bdb065682e5da1de5c87fec972a482239126c32e",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_2c1334e67e237795c55f9b487ad0e60e",
@@ -507,7 +519,7 @@
    }
   },
   {
-   "digest": "8c273d167f96ffafd525b6d223930a791143d35fe639c98a49951c6aef760de9",
+   "digest": "6bd7e3ddc686fad9378268256e5c0063d3fcb6198cd74380715fb74411dba749",
    "name": "observe_the_selection_observation",
    "record": {
     "kind": "source_observation",
@@ -548,11 +560,11 @@
      }
     ],
     "schema": 1,
-    "selection_digest": "802110de3f053b4c0fd51282837b9db76e210902b73a719f7d1ad0942d0a0f08"
+    "selection_digest": "3711518037ce30699a8f0c56bdb065682e5da1de5c87fec972a482239126c32e"
    }
   },
   {
-   "digest": "c95619297712dd707e4e6fcbee321c0d32d59f637ee8fe058001b24dae9f5438",
+   "digest": "63a5e538a6ec34813d0a08ac1ccd506350bad3fa493696a1245def160a59a7e3",
    "name": "observe_the_selection_result",
    "record": {
     "kind": "operation_result",
@@ -563,19 +575,19 @@
     },
     "outputs": [
      {
-      "digest": "8c273d167f96ffafd525b6d223930a791143d35fe639c98a49951c6aef760de9",
+      "digest": "6bd7e3ddc686fad9378268256e5c0063d3fcb6198cd74380715fb74411dba749",
       "kind": "source_observation"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "021ee0f9bb6662d9578db379f0b2581667800edad4877c6fa995f1f4d5538bcd",
+    "request_digest": "0c0bfe8e086bb437fb22f00a543cc852760669b791589823cc55f3fcd666d66a",
     "request_id": "req_2c1334e67e237795c55f9b487ad0e60e",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "e6543ca65934cb46611ded8552f548fc70da3291f1f50685a3aadb8856d2e1c8",
+   "digest": "59edb0272d0eca00c88a410627287aa69eca72a12ff56428d4b25ca7be24b3ea",
    "name": "observe_after_the_directory_is_gone",
    "record": {
     "action": "read",
@@ -593,7 +605,7 @@
      "layer": "repository",
      "repository_id": "rep_9197653cbf4ca70af3294b93d5cb59b1"
     },
-    "payload_digest": "802110de3f053b4c0fd51282837b9db76e210902b73a719f7d1ad0942d0a0f08",
+    "payload_digest": "3711518037ce30699a8f0c56bdb065682e5da1de5c87fec972a482239126c32e",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_d91a7bfa0486b8b3c392d4f65766ed3e",
@@ -604,7 +616,7 @@
    }
   },
   {
-   "digest": "ffbeb689326f067832e87c42095f0f6c7af4071dbc5e9418082e5a66508de8fb",
+   "digest": "8e6c14732e9cd53ed8de602c876e51ac55270d0cd65d05ff88eb7b075cf19070",
    "name": "observe_after_the_directory_is_gone_observation",
    "record": {
     "kind": "source_observation",
@@ -623,11 +635,11 @@
      }
     ],
     "schema": 1,
-    "selection_digest": "802110de3f053b4c0fd51282837b9db76e210902b73a719f7d1ad0942d0a0f08"
+    "selection_digest": "3711518037ce30699a8f0c56bdb065682e5da1de5c87fec972a482239126c32e"
    }
   },
   {
-   "digest": "bfd425265bd531075eed5fddce0baf8f27ce37330d06dd28121523bd12810c47",
+   "digest": "2f2db5ad03cff376cdc63541ce1d3f19c9856865d5a4a6ea97f4127c77fb5aa4",
    "name": "observe_after_the_directory_is_gone_result",
    "record": {
     "kind": "operation_result",
@@ -643,12 +655,12 @@
     },
     "outputs": [
      {
-      "digest": "ffbeb689326f067832e87c42095f0f6c7af4071dbc5e9418082e5a66508de8fb",
+      "digest": "8e6c14732e9cd53ed8de602c876e51ac55270d0cd65d05ff88eb7b075cf19070",
       "kind": "source_observation"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "e6543ca65934cb46611ded8552f548fc70da3291f1f50685a3aadb8856d2e1c8",
+    "request_digest": "59edb0272d0eca00c88a410627287aa69eca72a12ff56428d4b25ca7be24b3ea",
     "request_id": "req_d91a7bfa0486b8b3c392d4f65766ed3e",
     "schema": 1,
     "supported_recovery": []
@@ -656,7 +668,7 @@
   }
  ],
  "says": "alice selects two roots of her bound checkout to read: the directory docs/adr, which is required, and README.md, which is optional; beside docs/adr the checkout also holds docs/adr-private/notes.md, which she did not select. The owner observes the selection and writes nothing: the source_observation it returns names that selection's digest and reads the three files under docs/adr (committed, modified and untracked, each with its state) and README.md, each under the root it belongs to, and nothing under docs/adr-private. After docs/adr is removed from the working tree, the same selection is observed again: the observation lists root 0 as missing, reads only README.md, and the answer carries ref_unavailable at /roots/0. Every observation the owner writes must satisfy C01/read_within_selection against the selection it observed; what it must never write is a read outside the selected roots (the sibling docs/adr-private file), a read under a root the selection does not have, transcript records beyond the selected span, or a missing optional root reported as missing (the rule fixture's breaking records).",
- "spec_sha256": "0dc51c1fe28b263a9ac676dcafeedc87022fe2ad51d55d8a6a395ce60473f621",
+ "spec_sha256": "d571cbaeb209fd6f8b960b321b571a6d5887c4c16ef06f257f81e88b02b4da37",
  "steps": [
   {
    "carries": [

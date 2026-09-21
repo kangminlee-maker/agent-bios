@@ -1,6 +1,6 @@
 {
  "case": "DH-CONVERSATION",
- "says": "The person's repository says WAL and their own decisions say a rollback journal, and a use in the working Claude Code 2.1.278 conversation needs their answer. A link to that conversation is opened, and so is one to a headless Codex CLI 0.155.1 run. The ordinary-message route is probed for real on Claude Code: with hooks disabled, only a message the person typed produced the host's user-prompt event, so the profile qualifies user_event by that probe while the form route stays offered_but_unproven. The owner seals the question and stores it pending before asking, naming the qualified conversation route. Asking through the headless Codex link is recorded unsupported with no channel and answer_origin_unverified, so the use stays pending there rather than counting anything that transport returns. Asked in the Claude Code conversation, four replies arrive that are not the person's answer, and the owner classifies each as the non-answer it is: the assistant quoting the person (model_quoted), a field the agent filled and submitted through a pre-approved tool call (tool_permission), a synthetic hook message (hook_generated) and a timeout (timed_out). A reply replayed from another conversation names a link this work never opened and is refused with recipient_link_unknown before any evidence is written. Resuming the use with the tool-permission evidence is refused with answer_not_from_a_person, and the use still waits on the same question version. The person then types their choice of WAL in the conversation; the owner records a verified_native_user_event answer on the conversation route, bound to this link, use and question version and naming the user-event probe as its separation evidence, and resuming with it admits the same use.",
+ "says": "The repository says WAL and the person's own decisions say a rollback journal, and a use in the working Claude Code 2.1.278 conversation needs their answer. A link to that conversation is opened, and so is one to a headless Codex CLI 0.155.1 run. The ordinary-message route is probed for real on Claude Code, and the probe writes the configuration it ran under, the host's one UserPromptSubmit hook disabled: only a message the person typed produced the host's user-prompt event, so the profile qualifies user_event by that probe while the form route stays offered_but_unproven. The owner seals the question and stores it pending before asking, naming the qualified conversation route. Asking through the headless Codex link is recorded unsupported with no channel and answer_origin_unverified, so the use stays pending there rather than counting anything that transport returns. Asked in the conversation, four replies arrive that are not the person's answer, and the owner, measuring the configuration as it classifies each, records the non-answer it is: the assistant quoting the person (model_quoted), a field the agent filled and submitted through a pre-approved tool call (tool_permission), a message injected while the hook was switched on (hook_generated) and a timeout (timed_out). A reply replayed from another conversation names a link this work never opened and is refused with recipient_link_unknown before any evidence is written. Resuming the use with the tool-permission evidence is blocked with answer_not_from_a_person: the same use still waits on the same question version. With the hook off again the person types their choice of WAL; the owner records a verified_native_user_event answer on the conversation route, bound to this link, use and question version, under the configuration measured then and naming the real user-event probe as its separation, and resuming with it admits the same use.",
  "ids": [
   {
    "name": "alice",
@@ -708,6 +708,35 @@
    ]
   },
   {
+   "name": "claude_configuration_at_message_probe",
+   "from": "c12/a_host_measured_with_a_hook_that_answers_questions.json",
+   "drop": [
+    "/hooks/1"
+   ],
+   "set": [
+    {
+     "pointer": "/hooks/0/enabled",
+     "value": false
+    },
+    {
+     "pointer": "/hooks/0/event",
+     "value": "UserPromptSubmit"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:claude_configuration_at_message_probe_at"
+    }
+   ]
+  },
+  {
    "name": "claude_profile",
    "from": "c12/four_capabilities_qualified_one_at_a_time.json",
    "drop": [
@@ -1107,7 +1136,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice"
+     "value": "$lnk:codex_link"
     },
     {
      "pointer": "/payload_digest",
@@ -1201,7 +1230,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice"
+     "value": "$lnk:chat_link"
     },
     {
      "pointer": "/payload_digest",
@@ -1306,7 +1335,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice"
+     "value": "$qst:journal_question"
     },
     {
      "pointer": "/payload_digest",
@@ -1340,7 +1369,7 @@
     },
     {
      "pointer": "/measured_configuration_digest",
-     "value": "$digest:quoted_reply_evidence_configuration"
+     "value": "#claude_configuration_at_quoted_reply"
     },
     {
      "pointer": "/observed_at",
@@ -1365,6 +1394,35 @@
     {
      "pointer": "/origin/origin",
      "value": "model_quoted"
+    }
+   ]
+  },
+  {
+   "name": "claude_configuration_at_quoted_reply",
+   "from": "c12/a_host_measured_with_a_hook_that_answers_questions.json",
+   "drop": [
+    "/hooks/1"
+   ],
+   "set": [
+    {
+     "pointer": "/hooks/0/enabled",
+     "value": false
+    },
+    {
+     "pointer": "/hooks/0/event",
+     "value": "UserPromptSubmit"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:claude_configuration_at_quoted_reply_at"
     }
    ]
   },
@@ -1443,7 +1501,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice"
+     "value": "$qst:journal_question"
     },
     {
      "pointer": "/payload_digest",
@@ -1477,7 +1535,7 @@
     },
     {
      "pointer": "/measured_configuration_digest",
-     "value": "$digest:tool_reply_evidence_configuration"
+     "value": "#claude_configuration_at_tool_reply"
     },
     {
      "pointer": "/observed_at",
@@ -1502,6 +1560,35 @@
     {
      "pointer": "/origin/origin",
      "value": "tool_permission"
+    }
+   ]
+  },
+  {
+   "name": "claude_configuration_at_tool_reply",
+   "from": "c12/a_host_measured_with_a_hook_that_answers_questions.json",
+   "drop": [
+    "/hooks/1"
+   ],
+   "set": [
+    {
+     "pointer": "/hooks/0/enabled",
+     "value": false
+    },
+    {
+     "pointer": "/hooks/0/event",
+     "value": "UserPromptSubmit"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:claude_configuration_at_tool_reply_at"
     }
    ]
   },
@@ -1580,7 +1667,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice"
+     "value": "$qst:journal_question"
     },
     {
      "pointer": "/payload_digest",
@@ -1614,7 +1701,7 @@
     },
     {
      "pointer": "/measured_configuration_digest",
-     "value": "$digest:hook_reply_evidence_configuration"
+     "value": "#claude_configuration_at_hook_reply"
     },
     {
      "pointer": "/observed_at",
@@ -1639,6 +1726,35 @@
     {
      "pointer": "/origin/origin",
      "value": "hook_generated"
+    }
+   ]
+  },
+  {
+   "name": "claude_configuration_at_hook_reply",
+   "from": "c12/a_host_measured_with_a_hook_that_answers_questions.json",
+   "drop": [
+    "/hooks/1"
+   ],
+   "set": [
+    {
+     "pointer": "/hooks/0/enabled",
+     "value": true
+    },
+    {
+     "pointer": "/hooks/0/event",
+     "value": "UserPromptSubmit"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:claude_configuration_at_hook_reply_at"
     }
    ]
   },
@@ -1710,7 +1826,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice"
+     "value": "$qst:journal_question"
     },
     {
      "pointer": "/payload_digest",
@@ -1744,7 +1860,7 @@
     },
     {
      "pointer": "/measured_configuration_digest",
-     "value": "$digest:timeout_reply_evidence_configuration"
+     "value": "#claude_configuration_at_timeout_reply"
     },
     {
      "pointer": "/observed_at",
@@ -1769,6 +1885,35 @@
     {
      "pointer": "/origin/origin",
      "value": "timed_out"
+    }
+   ]
+  },
+  {
+   "name": "claude_configuration_at_timeout_reply",
+   "from": "c12/a_host_measured_with_a_hook_that_answers_questions.json",
+   "drop": [
+    "/hooks/1"
+   ],
+   "set": [
+    {
+     "pointer": "/hooks/0/enabled",
+     "value": false
+    },
+    {
+     "pointer": "/hooks/0/event",
+     "value": "UserPromptSubmit"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:claude_configuration_at_timeout_reply_at"
     }
    ]
   },
@@ -1820,7 +1965,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice"
+     "value": "$qst:journal_question"
     },
     {
      "pointer": "/payload_digest",
@@ -1888,11 +2033,25 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@journal_concern"
+     "value": "$use:journal_use"
     },
     {
      "pointer": "/payload_digest",
      "value": "#resume_with_the_tool_call_submitted"
+    }
+   ]
+  },
+  {
+   "name": "journal_still_waiting_after_the_tool_reply",
+   "from": "journal_waiting",
+   "set": [
+    {
+     "pointer": "/material_gaps/0/code",
+     "value": "choice_conflict_unresolved"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:journal_still_waiting_after_the_tool_reply_at"
     }
    ]
   },
@@ -1972,7 +2131,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice"
+     "value": "$qst:journal_question"
     },
     {
      "pointer": "/payload_digest",
@@ -2002,7 +2161,7 @@
     },
     {
      "pointer": "/measured_configuration_digest",
-     "value": "$digest:person_reply_evidence_configuration"
+     "value": "#claude_configuration_at_person_reply"
     },
     {
      "pointer": "/observed_at",
@@ -2039,6 +2198,35 @@
     {
      "pointer": "/origin/answer/mode",
      "value": "keep_until_change"
+    }
+   ]
+  },
+  {
+   "name": "claude_configuration_at_person_reply",
+   "from": "c12/a_host_measured_with_a_hook_that_answers_questions.json",
+   "drop": [
+    "/hooks/1"
+   ],
+   "set": [
+    {
+     "pointer": "/hooks/0/enabled",
+     "value": false
+    },
+    {
+     "pointer": "/hooks/0/event",
+     "value": "UserPromptSubmit"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:claude_configuration_at_person_reply_at"
     }
    ]
   },
@@ -2102,7 +2290,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@journal_concern"
+     "value": "$use:journal_use"
     },
     {
      "pointer": "/payload_digest",
@@ -2242,7 +2430,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2259,7 +2447,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2282,7 +2470,8 @@
     "recovery": [],
     "returns": [
      "message_probe",
-     "claude_profile"
+     "claude_profile",
+     "claude_configuration_at_message_probe"
     ]
    }
   },
@@ -2317,7 +2506,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2334,7 +2523,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -2351,12 +2540,13 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "quoted_reply_evidence"
+     "quoted_reply_evidence",
+     "claude_configuration_at_quoted_reply"
     ]
    }
   },
@@ -2368,12 +2558,13 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "tool_reply_evidence"
+     "tool_reply_evidence",
+     "claude_configuration_at_tool_reply"
     ]
    }
   },
@@ -2385,12 +2576,13 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "hook_reply_evidence"
+     "hook_reply_evidence",
+     "claude_configuration_at_hook_reply"
     ]
    }
   },
@@ -2402,12 +2594,13 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "timeout_reply_evidence"
+     "timeout_reply_evidence",
+     "claude_configuration_at_timeout_reply"
     ]
    }
   },
@@ -2437,7 +2630,7 @@
     "resume_with_the_tool_call_submitted"
    ],
    "answer": {
-    "stage": "refused",
+    "stage": "blocked",
     "local_effect": "none",
     "provider_effect": "not_applicable",
     "gaps": [
@@ -2446,7 +2639,9 @@
      }
     ],
     "recovery": [],
-    "returns": []
+    "returns": [
+     "journal_still_waiting_after_the_tool_reply"
+    ]
    }
   },
   {
@@ -2457,12 +2652,13 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "person_reply_evidence"
+     "person_reply_evidence",
+     "claude_configuration_at_person_reply"
     ]
    }
   },

@@ -53,16 +53,6 @@
    "record": "bind"
   },
   {
-   "minted": "alice_binding",
-   "pointer": "/binding_id",
-   "record": "stored_key"
-  },
-  {
-   "minted": "bound_at",
-   "pointer": "/created_at",
-   "record": "stored_key"
-  },
-  {
    "digest_of": "bind",
    "pointer": "/request_digest",
    "record": "bind_first_key_receipt"
@@ -81,6 +71,16 @@
    "minted": "bind_first_key_committed_at",
    "pointer": "/committed_at",
    "record": "bind_first_key_receipt"
+  },
+  {
+   "minted": "alice_binding",
+   "pointer": "/binding_id",
+   "record": "stored_key"
+  },
+  {
+   "minted": "bound_at",
+   "pointer": "/created_at",
+   "record": "stored_key"
   },
   {
    "digest_of": "bind_first_key_receipt",
@@ -103,6 +103,26 @@
    "record": "probe"
   },
   {
+   "digest_of": "probe",
+   "pointer": "/request_digest",
+   "record": "probe_question_receipt"
+  },
+  {
+   "minted": "probe_question_head",
+   "pointer": "/head_digest",
+   "record": "probe_question_receipt"
+  },
+  {
+   "minted": "probe_question_sequence",
+   "pointer": "/sequence",
+   "record": "probe_question_receipt"
+  },
+  {
+   "minted": "probe_question_committed_at",
+   "pointer": "/committed_at",
+   "record": "probe_question_receipt"
+  },
+  {
    "minted": "probed_at",
    "pointer": "/at",
    "record": "probe_found_nothing"
@@ -123,24 +143,9 @@
    "record": "client_profile"
   },
   {
-   "digest_of": "probe",
-   "pointer": "/request_digest",
-   "record": "probe_question_receipt"
-  },
-  {
-   "minted": "probe_question_head",
-   "pointer": "/head_digest",
-   "record": "probe_question_receipt"
-  },
-  {
-   "minted": "probe_question_sequence",
-   "pointer": "/sequence",
-   "record": "probe_question_receipt"
-  },
-  {
-   "minted": "probe_question_committed_at",
-   "pointer": "/committed_at",
-   "record": "probe_question_receipt"
+   "minted": "probed_at",
+   "pointer": "/measured_at",
+   "record": "client_config"
   },
   {
    "digest_of": "probe_question_receipt",
@@ -163,14 +168,14 @@
    "record": "probe_question_result"
   },
   {
+   "digest_of": "client_config",
+   "pointer": "/outputs/2/digest",
+   "record": "probe_question_result"
+  },
+  {
    "digest_of": "decide_offer",
    "pointer": "/payload_digest",
    "record": "offer"
-  },
-  {
-   "minted": "offered_at",
-   "pointer": "/offered_at",
-   "record": "stored_offer"
   },
   {
    "digest_of": "offer",
@@ -191,6 +196,11 @@
    "minted": "offer_hub_routes_committed_at",
    "pointer": "/committed_at",
    "record": "offer_hub_routes_receipt"
+  },
+  {
+   "minted": "offered_at",
+   "pointer": "/offered_at",
+   "record": "stored_offer"
   },
   {
    "digest_of": "offer_hub_routes_receipt",
@@ -433,25 +443,6 @@
    }
   },
   {
-   "digest": "4b32c386f4352a5c24e7bae4ac6ec417edb0361c4adcbeecbc2b366ed232d267",
-   "name": "stored_key",
-   "record": {
-    "binding_id": "bnd_a0ec0bba64c72d0a61017be9bc74a4a4",
-    "created_at": "2000-01-01T00:00:00Z",
-    "credential": {
-     "credential": "device_key",
-     "device_id": "dev_374d1ab84ceea977d179e099e2dc2c41",
-     "key_generation": 1,
-     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
-    },
-    "established_by": "local_creation",
-    "evidence_digests": [],
-    "kind": "principal_binding",
-    "principal_id": "prn_65c74dc5da862e0aca587ae193e1014b",
-    "schema": 1
-   }
-  },
-  {
    "digest": "9deb4259caeb49020de5c6433d36dfd9a5731de9ef572eb3b66f9060e9d6a64e",
    "name": "bind_first_key_receipt",
    "record": {
@@ -469,6 +460,25 @@
     "target": {
      "resource_id": "prn_65c74dc5da862e0aca587ae193e1014b"
     }
+   }
+  },
+  {
+   "digest": "4b32c386f4352a5c24e7bae4ac6ec417edb0361c4adcbeecbc2b366ed232d267",
+   "name": "stored_key",
+   "record": {
+    "binding_id": "bnd_a0ec0bba64c72d0a61017be9bc74a4a4",
+    "created_at": "2000-01-01T00:00:00Z",
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_374d1ab84ceea977d179e099e2dc2c41",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_65c74dc5da862e0aca587ae193e1014b",
+    "schema": 1
    }
   },
   {
@@ -513,17 +523,17 @@
    }
   },
   {
-   "digest": "d09194d8cb5c85aba1d1985028fed2fd8dcbf2163ac056a8b1bd03e54f3a8048",
+   "digest": "8d54330cfc5b4387160542aaf1ee0402a53e594f8bf39874aeda1272c7488dc8",
    "name": "probe",
    "record": {
-    "action": "read",
+    "action": "local_profile",
     "actor": {
      "device_id": "dev_374d1ab84ceea977d179e099e2dc2c41",
      "principal_id": "prn_65c74dc5da862e0aca587ae193e1014b",
      "profile_id": "prf_3fe7bf74c78c94762b19ca206900de05"
     },
     "control_digests": [],
-    "effect_class": "durable_candidate",
+    "effect_class": "owner_commit",
     "kind": "operation_request",
     "local_access_generation": 7,
     "operation": "capability.probe",
@@ -536,6 +546,26 @@
     "proof_digests": [],
     "request_id": "req_a941ee2f4feaf2321866d98f99a8aa6c",
     "schema": 1,
+    "target": {
+     "resource_id": "prf_3fe7bf74c78c94762b19ca206900de05"
+    }
+   }
+  },
+  {
+   "digest": "64a512db9847b1b3ddd0c568b028e1bda614c4b186df860795fa04bb35215d18",
+   "name": "probe_question_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "a39e5a1568d18d0d1e51d3382a6747826fe586b679708ca3c96384ff4736ef9a",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_65c74dc5da862e0aca587ae193e1014b"
+    },
+    "request_digest": "8d54330cfc5b4387160542aaf1ee0402a53e594f8bf39874aeda1272c7488dc8",
+    "request_id": "req_a941ee2f4feaf2321866d98f99a8aa6c",
+    "schema": 1,
+    "sequence": 1,
     "target": {
      "resource_id": "prf_3fe7bf74c78c94762b19ca206900de05"
     }
@@ -594,34 +624,31 @@
    }
   },
   {
-   "digest": "6dd821230d63c420bba62da49bf1519b10252e843eceee74b5a638a686efe7ca",
-   "name": "probe_question_receipt",
+   "digest": "f3695fbc1aeebb98eb0de6bfdd3c6162b2ce24b87978ed72e2dd544e9c2b6cf7",
+   "name": "client_config",
    "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "a39e5a1568d18d0d1e51d3382a6747826fe586b679708ca3c96384ff4736ef9a",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "personal",
-     "principal_id": "prn_65c74dc5da862e0aca587ae193e1014b"
+    "client": {
+     "name": "agent-bios",
+     "version": "0.20.0"
     },
-    "request_digest": "d09194d8cb5c85aba1d1985028fed2fd8dcbf2163ac056a8b1bd03e54f3a8048",
-    "request_id": "req_a941ee2f4feaf2321866d98f99a8aa6c",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "resource_id": "prf_3fe7bf74c78c94762b19ca206900de05"
-    }
+    "hooks": [],
+    "kind": "host_configuration",
+    "measured_at": "2000-01-01T00:00:00Z",
+    "mode": {
+     "runs": "real"
+    },
+    "schema": 1
    }
   },
   {
-   "digest": "5c0039a872bb8b97ba9d70dc8d906a385ea42f08149efc0c3e9c3231adf9f025",
+   "digest": "375a75963e43cb76e8a0e45c7b6fa2cf0fd053fdee315d47f805946d42ca7557",
    "name": "probe_question_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "6dd821230d63c420bba62da49bf1519b10252e843eceee74b5a638a686efe7ca",
+     "receipt_digest": "64a512db9847b1b3ddd0c568b028e1bda614c4b186df860795fa04bb35215d18",
      "stage": "committed"
     },
     "outputs": [
@@ -632,10 +659,14 @@
      {
       "digest": "58ec95ae3b52f64b0067ae241ce5c88454e3ec468876d1b4481e4e6980dc3739",
       "kind": "capability_profile"
+     },
+     {
+      "digest": "f3695fbc1aeebb98eb0de6bfdd3c6162b2ce24b87978ed72e2dd544e9c2b6cf7",
+      "kind": "host_configuration"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "d09194d8cb5c85aba1d1985028fed2fd8dcbf2163ac056a8b1bd03e54f3a8048",
+    "request_digest": "8d54330cfc5b4387160542aaf1ee0402a53e594f8bf39874aeda1272c7488dc8",
     "request_id": "req_a941ee2f4feaf2321866d98f99a8aa6c",
     "schema": 1,
     "supported_recovery": []
@@ -669,7 +700,7 @@
    }
   },
   {
-   "digest": "79c5e36a41801ad4758c3c699f145fc8d256bbcad850a75b33c26f49890d70a1",
+   "digest": "04546c38343319d45200d1a3a637f658ab495a37e703d55569a384bf6042e2e8",
    "name": "offer",
    "record": {
     "action": "read",
@@ -679,7 +710,7 @@
      "profile_id": "prf_3fe7bf74c78c94762b19ca206900de05"
     },
     "control_digests": [],
-    "effect_class": "durable_candidate",
+    "effect_class": "owner_commit",
     "kind": "operation_request",
     "local_access_generation": 7,
     "operation": "route.offer",
@@ -693,7 +724,27 @@
     "request_id": "req_6cc0601e8539d424b9adb9d70045716e",
     "schema": 1,
     "target": {
-     "resource_id": "rte_4a498058e79e27250df27b776dbe71d2"
+     "resource_id": "prf_3fe7bf74c78c94762b19ca206900de05"
+    }
+   }
+  },
+  {
+   "digest": "a1dd5afabe20ce2ea83d7aff3e7fc2d8515baff4fe191be60ff2a63848bd08ad",
+   "name": "offer_hub_routes_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "949a85cda6549a703f7563a172b10abdf56d1e591969a34712a1650c2916f705",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_65c74dc5da862e0aca587ae193e1014b"
+    },
+    "request_digest": "04546c38343319d45200d1a3a637f658ab495a37e703d55569a384bf6042e2e8",
+    "request_id": "req_6cc0601e8539d424b9adb9d70045716e",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_3fe7bf74c78c94762b19ca206900de05"
     }
    }
   },
@@ -726,34 +777,14 @@
    }
   },
   {
-   "digest": "ca81feaa34f4ee719010980730d9017cf017e332a349b08edb2b5a79a77c745d",
-   "name": "offer_hub_routes_receipt",
-   "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "949a85cda6549a703f7563a172b10abdf56d1e591969a34712a1650c2916f705",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "personal",
-     "principal_id": "prn_65c74dc5da862e0aca587ae193e1014b"
-    },
-    "request_digest": "79c5e36a41801ad4758c3c699f145fc8d256bbcad850a75b33c26f49890d70a1",
-    "request_id": "req_6cc0601e8539d424b9adb9d70045716e",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "resource_id": "rte_4a498058e79e27250df27b776dbe71d2"
-    }
-   }
-  },
-  {
-   "digest": "7c53173e17de6e55062cb4f0e43b560a4c0cf50d33ee9947ee6b4219405f43aa",
+   "digest": "7ab20d536ee8355515f5ffa5b84ca63a5d354d751042ab3175e032133d0c1e55",
    "name": "offer_hub_routes_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "ca81feaa34f4ee719010980730d9017cf017e332a349b08edb2b5a79a77c745d",
+     "receipt_digest": "a1dd5afabe20ce2ea83d7aff3e7fc2d8515baff4fe191be60ff2a63848bd08ad",
      "stage": "committed"
     },
     "outputs": [
@@ -763,7 +794,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "79c5e36a41801ad4758c3c699f145fc8d256bbcad850a75b33c26f49890d70a1",
+    "request_digest": "04546c38343319d45200d1a3a637f658ab495a37e703d55569a384bf6042e2e8",
     "request_id": "req_6cc0601e8539d424b9adb9d70045716e",
     "schema": 1,
     "supported_recovery": []
@@ -1345,17 +1376,17 @@
    }
   },
   {
-   "digest": "73a90768d1205727624076024fe4d03fa8da240397da7ccf10286fe872277b76",
+   "digest": "b51b272bb646499b9adc604c1d06d8a6a0a6a0480945d9472365ac7e4760dd8e",
    "name": "select",
    "record": {
-    "action": "decide",
+    "action": "read",
     "actor": {
      "device_id": "dev_374d1ab84ceea977d179e099e2dc2c41",
      "principal_id": "prn_65c74dc5da862e0aca587ae193e1014b",
      "profile_id": "prf_3fe7bf74c78c94762b19ca206900de05"
     },
     "control_digests": [],
-    "effect_class": "durable_candidate",
+    "effect_class": "owner_commit",
     "kind": "operation_request",
     "local_access_generation": 7,
     "operation": "route.select",
@@ -1369,7 +1400,7 @@
     "request_id": "req_2b086f947e47553dabbf1393037787c2",
     "schema": 1,
     "target": {
-     "resource_id": "rte_4a498058e79e27250df27b776dbe71d2"
+     "resource_id": "prf_3fe7bf74c78c94762b19ca206900de05"
     }
    }
   },
@@ -1401,7 +1432,7 @@
    }
   },
   {
-   "digest": "c343f25f81eb808b79d2513b86de92174cdc5af5c3345aae1eae890f2156a601",
+   "digest": "1103a279c5de3970c6a74b87e28faf0121b837ab1cdb8503425b8041f689a6b9",
    "name": "submit_decide_directly_result",
    "record": {
     "kind": "operation_result",
@@ -1421,7 +1452,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "73a90768d1205727624076024fe4d03fa8da240397da7ccf10286fe872277b76",
+    "request_digest": "b51b272bb646499b9adc604c1d06d8a6a0a6a0480945d9472365ac7e4760dd8e",
     "request_id": "req_2b086f947e47553dabbf1393037787c2",
     "schema": 1,
     "supported_recovery": []
@@ -1499,7 +1530,7 @@
   }
  ],
  "says": "alice binds her laptop key, then the installed client is probed for putting a question to a person: it declares no such capability, so the probe records it unsupported and the client's capability profile marks the question capability not qualified because it is not offered. The Studio hub's route.offer lists the decide route with exactly that qualification (not_offered). Driven from the hub, focusing the decide route and pressing Enter twice shows a blocker naming the working host instead; no frame marks the route selected or complete, no frame dispatches a request and no owner operation is called. Submitting the same route directly through route.select, bypassing the control, is refused with capability_not_qualified and a route outcome that says unsupported because the capability is absent, with route_unsupported as its gap. Querying the request the selection named then answers request_not_held: nothing was dispatched for it. It must not happen that the route is shown as done, that an empty success is returned, or that any request reaches an owner for it.",
- "spec_sha256": "954ed237e00704715d4c21bfa3c4bf75c70765f5092a6200f0365de2edbd0540",
+ "spec_sha256": "0972eddcce651350ff6e8783c57bf0dcd57a9627ddf5116682fb4229a96def75",
  "steps": [
   {
    "carries": [
@@ -1521,7 +1552,8 @@
    "result": "probe_question_result",
    "returns": [
     "probe_found_nothing",
-    "client_profile"
+    "client_profile",
+    "client_config"
    ]
   },
   {

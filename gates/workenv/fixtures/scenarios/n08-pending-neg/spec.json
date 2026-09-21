@@ -1,6 +1,6 @@
 {
  "case": "N08-PENDING-NEG",
- "says": "A repository knowledge source, a workstream, a repository memory source and a personal memory source are set up, and each memory source publishes a different journal-mode choice for the same question, so the two conflict. The person's conversation is linked as the recipient. memory.use.prepare for an actual use of that concern returns a result waiting on the person (pending_user naming the stored question and the use), the sealed pending question offering both choices, the comparison basis it was sealed against and a qualified state holding both entries unresolved with choice_conflict_unresolved; no alternative is chosen. Delivering the question finds no channel this host qualifies (answer_origin_unverified). While the use waits, a read of the unrelated knowledge source completes and delivers its table. The host then reports that the person cancelled; the owner records that as a non-answer, and resuming the use with that evidence leaves it pending_user with answer_not_from_a_person: the waiting use is not resolved, no choice is taken from the cancellation and nothing is admitted.",
+ "says": "The person binds their device key and checkout. A repository knowledge source, a workstream, a repository memory source and a personal memory source are set up, each registration moving its source's head and each first commit expecting it, and each memory source publishes a different journal-mode choice for the same question, so the two conflict. The person's conversation is linked as the recipient. memory.use.prepare for an actual use of that concern targets the concern, so the owner starts a new use, and returns a result waiting on the person (pending_user naming the stored question and the use), the sealed pending question offering both choices, the comparison basis it was sealed against and a qualified state holding both entries unresolved with choice_conflict_unresolved; no alternative is chosen. Delivering the question finds no channel this host qualifies (answer_origin_unverified). While the use waits, a read of the unrelated knowledge source completes and delivers its table. The host then reports that the person cancelled; the owner records that as a non-answer against the question, naming the host configuration it measured, and resuming the use with that evidence is blocked with answer_not_from_a_person and returns the same pending_user use: the waiting use is not resolved, no choice is taken from the cancellation and nothing is admitted.",
  "ids": [
   {
    "name": "rates",
@@ -27,6 +27,14 @@
    "prefix": "prf"
   },
   {
+   "name": "bind_my_key_id",
+   "prefix": "req"
+  },
+  {
+   "name": "bind_my_checkout_id",
+   "prefix": "req"
+  },
+  {
    "name": "commit_rates_rev1_id",
    "prefix": "req"
   },
@@ -45,10 +53,6 @@
   {
    "name": "mine",
    "prefix": "src"
-  },
-  {
-   "name": "mine_collection",
-   "prefix": "col"
   },
   {
    "name": "register_mine_id",
@@ -71,6 +75,10 @@
    "prefix": "req"
   },
   {
+   "name": "journal_concern",
+   "prefix": "cnc"
+  },
+  {
    "name": "attempt_request_id",
    "prefix": "req"
   },
@@ -88,6 +96,129 @@
   }
  ],
  "records": [
+  {
+   "name": "my_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "my_key_stored",
+   "from": "my_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:my_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:my_key_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "bind_my_key",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_my_key_id"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#my_key"
+    }
+   ]
+  },
+  {
+   "name": "my_checkout",
+   "from": "c01/repository_binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "my_checkout_bound",
+   "from": "c01/clone_shares_the_repository_id.json",
+   "drop": [
+    "/observed/working_bytes_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "bind_my_checkout",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_my_checkout_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "repository.bind"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#my_checkout"
+    }
+   ]
+  },
   {
    "name": "rates_home",
    "from": "sources/home_submitted.json",
@@ -130,7 +261,7 @@
     },
     {
      "pointer": "/home/binding_evidence_digest",
-     "value": "47a017af61158bae8401475d7156faf45fe1f355b9b2c2f9fc8ebc54de98a9e4"
+     "value": "#my_checkout_bound"
     },
     {
      "pointer": "/acceptance_authority/layer",
@@ -264,9 +395,7 @@
   {
    "name": "commit_rates_rev1",
    "from": "c04/model_check_request.json",
-   "drop": [
-    "/target/base/head_digest"
-   ],
+   "drop": [],
    "set": [
     {
      "pointer": "/request_id",
@@ -302,7 +431,7 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
@@ -311,6 +440,10 @@
     {
      "pointer": "/owner/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:rates_registered"
     }
    ]
   },
@@ -429,7 +562,7 @@
     },
     {
      "pointer": "/home/binding_evidence_digest",
-     "value": "47a017af61158bae8401475d7156faf45fe1f355b9b2c2f9fc8ebc54de98a9e4"
+     "value": "#my_checkout_bound"
     },
     {
      "pointer": "/acceptance_authority/layer",
@@ -547,10 +680,6 @@
     {
      "pointer": "/home/mode",
      "value": "managed"
-    },
-    {
-     "pointer": "/home/collection_id",
-     "value": "@mine_collection"
     },
     {
      "pointer": "/home/markdown_view/view",
@@ -729,9 +858,7 @@
   {
    "name": "publish_wal",
    "from": "c04/model_check_request.json",
-   "drop": [
-    "/target/base/head_digest"
-   ],
+   "drop": [],
    "set": [
     {
      "pointer": "/request_id",
@@ -767,7 +894,7 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
@@ -776,6 +903,10 @@
     {
      "pointer": "/owner/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:decisions_registered"
     }
    ]
   },
@@ -864,7 +995,6 @@
    "name": "publish_rollback_journal",
    "from": "c04/model_check_request.json",
    "drop": [
-    "/target/base/head_digest",
     "/owner/repository_id"
    ],
    "set": [
@@ -902,7 +1032,7 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
     },
     {
      "pointer": "/payload_digest",
@@ -915,6 +1045,10 @@
     {
      "pointer": "/owner/principal_id",
      "value": "@me"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:mine_registered"
     }
    ]
   },
@@ -933,11 +1067,10 @@
     {
      "pointer": "/destination/destination_digest",
      "value": "df52341b0001922b045d89c33f28412fba55ecf56259939b0b0ae8b30635f4e5"
-    },
-    {
-     "pointer": "/rights_digest",
-     "value": "f4150083ad9e07dff63b94d7c0c112dfefd07a7619e5ff8d6f9329bddbab34d9"
     }
+   ],
+   "drop": [
+    "/rights_digest"
    ]
   },
   {
@@ -1268,7 +1401,8 @@
    "name": "prepare_the_conflicting_use_request",
    "from": "c04/model_check_request.json",
    "drop": [
-    "/target/base"
+    "/target/base",
+    "/owner/repository_id"
    ],
    "set": [
     {
@@ -1301,15 +1435,19 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@repo"
+     "value": "@journal_concern"
     },
     {
      "pointer": "/payload_digest",
      "value": "#use_envelope"
     },
     {
-     "pointer": "/owner/repository_id",
-     "value": "@repo"
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
     }
    ]
   },
@@ -1590,6 +1728,16 @@
    ]
   },
   {
+   "name": "cancelled_configuration",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:cancelled_measured_at"
+    }
+   ]
+  },
+  {
    "name": "cancelled",
    "from": "c11/the_person_cancelled.json",
    "set": [
@@ -1611,7 +1759,7 @@
     },
     {
      "pointer": "/measured_configuration_digest",
-     "value": "d9eeab1782594acbf2c1567828bba798c42beb7411a2ccd163d670b954aaec8a"
+     "value": "#cancelled_configuration"
     },
     {
      "pointer": "/observed_at",
@@ -1657,7 +1805,7 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "$lnk:conversation"
+     "value": "$qst:journal_question"
     },
     {
      "pointer": "/payload_digest",
@@ -1705,7 +1853,8 @@
    "name": "resume_request",
    "from": "c04/model_check_request.json",
    "drop": [
-    "/target/base"
+    "/target/base",
+    "/owner/repository_id"
    ],
    "set": [
     {
@@ -1745,13 +1894,51 @@
      "value": "#resume"
     },
     {
-     "pointer": "/owner/repository_id",
-     "value": "@repo"
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
     }
    ]
   }
  ],
  "steps": [
+  {
+   "name": "bind_my_key",
+   "request": "bind_my_key",
+   "carries": [
+    "my_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "my_key_stored"
+    ]
+   }
+  },
+  {
+   "name": "bind_my_checkout",
+   "request": "bind_my_checkout",
+   "carries": [
+    "my_checkout"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "my_checkout_bound"
+    ]
+   }
+  },
   {
    "name": "register_rates_home",
    "request": "register_rates",
@@ -1766,7 +1953,8 @@
     "recovery": [],
     "returns": [
      "rates_home_stored"
-    ]
+    ],
+    "head": "rates_registered"
    }
   },
   {
@@ -1818,7 +2006,8 @@
     "recovery": [],
     "returns": [
      "decisions_home_stored"
-    ]
+    ],
+    "head": "decisions_registered"
    }
   },
   {
@@ -1835,7 +2024,8 @@
     "recovery": [],
     "returns": [
      "mine_home_stored"
-    ]
+    ],
+    "head": "mine_registered"
    }
   },
   {
@@ -1884,7 +2074,7 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
@@ -1963,12 +2153,13 @@
    ],
    "answer": {
     "stage": "committed",
-    "local_effect": "private_state_written",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "cancelled"
+     "cancelled",
+     "cancelled_configuration"
     ]
    }
   },

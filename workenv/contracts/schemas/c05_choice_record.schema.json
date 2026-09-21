@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C05 choice record",
-  "description": "One recorded choice, immutable. An alternative or a reason nobody wrote down stays missing and is named in `unrecorded`; a later explanation is a separate record, not a field filled in afterwards. Membership in several workstreams is an association, not a reliance. Replacement is whole and declared: a partial change is a new bounded record, never an extent this field describes.",
+  "description": "One recorded choice, immutable. An alternative or a reason nobody wrote down stays missing and is named in `unrecorded`; a later explanation is a separate record, not a field filled in afterwards. Membership in several workstreams is an association, not a reliance. Replacement is whole and declared: a partial change is a new bounded record, never an extent this field describes. A choice published from a memory candidate names the exact version it `promotes`.",
   "required": [
     "kind",
     "schema",
@@ -98,6 +98,10 @@
     },
     "applicability": {
       "$ref": "#/$defs/applicability"
+    },
+    "promotes": {
+      "$ref": "#/$defs/candidate_version",
+      "description": "The memory candidate version this record publishes, when it came from one. It states what that version proposes, and the candidate's promoted version names this commit's receipt."
     },
     "recorded_at": {
       "$ref": "#/$defs/instant",
@@ -386,6 +390,28 @@
           "const": "whole"
         }
       }
+    },
+    "candidate_version": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One version of a memory candidate, by its id and version number.",
+      "required": [
+        "candidate_id",
+        "version"
+      ],
+      "properties": {
+        "candidate_id": {
+          "$ref": "#/$defs/candidate_id"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "candidate_id": {
+      "type": "string",
+      "pattern": "^cnd_[0-9a-f]{32}$"
     }
   }
 }
