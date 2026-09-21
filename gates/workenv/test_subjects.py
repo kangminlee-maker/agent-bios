@@ -1,8 +1,10 @@
 """Subject manifest and resolver tests. Run by gates/workenv/check-workenv.py, one process
 per file."""
+import hashlib
 import json
 import pathlib
 import sys
+import tempfile
 import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
@@ -33,6 +35,11 @@ class Rule(unittest.TestCase):
         self.assertEqual(declared["baseline"]["recorded"], P00_BASELINE_INPUT)
         self.assertEqual(subjects.resolve("baseline", declared=declared),
                          P00_BASELINE_FINGERPRINT)
+
+    def test_non_ascii_is_hashed_as_utf8_and_not_escaped(self):
+        # The evaluator's rule writes UTF-8; an escaping rule gives another digest for "café".
+        expected = hashlib.sha256('{"path":"caf\u00e9"}'.encode("utf-8")).hexdigest()
+        self.assertEqual(subjects.fingerprint({"path": "caf\u00e9"}), expected)
 
     def test_key_order_in_the_identity_does_not_change_the_fingerprint(self):
         # Both orders, against each other: comparing one of them to the recorded value only
@@ -132,9 +139,17 @@ class Fingerprints(unittest.TestCase):
         self.assertEqual(first, subjects.resolve("contracts"))
 
     def test_a_byte_inside_the_closure_moves_it(self):
-        before = self.identity({"src/one.py": "a" * 64})
-        after = self.identity({"src/one.py": "b" * 64})
-        self.assertNotEqual(subjects.fingerprint(before), subjects.fingerprint(after))
+        # Measured from bytes on disk, one byte changed and the length kept: a digest written
+        # into the test would pass with a resolver that never reads the file.
+        with tempfile.TemporaryDirectory() as scratch:
+            root = pathlib.Path(scratch)
+            (root / "one.py").write_bytes(b"a = 1\n")
+            before = subjects.members(root, ["one.py"])
+            (root / "one.py").write_bytes(b"a = 2\n")
+            after = subjects.members(root, ["one.py"])
+        self.assertNotEqual(before, after)
+        self.assertNotEqual(subjects.fingerprint(self.identity(before)),
+                            subjects.fingerprint(self.identity(after)))
 
     def test_a_byte_outside_the_closure_does_not_move_it(self):
         wanted = {"src/one.py": "N1"}
@@ -165,7 +180,12 @@ class Payload(unittest.TestCase):
         self.assertTrue(excepted)
         entries = subjects.payload_of(subjects.ROOT, "package.json", excepted)
         declared = json.loads((subjects.ROOT / "package.json").read_bytes())["files"]
-        self.assertEqual(set(entries), {e.lstrip("./") for e in declared} - set(excepted))
+        self.assertTrue({e.lstrip("./") for e in declared} - set(excepted) <= set(entries))
+
+    def test_the_payload_holds_what_npm_packs_whatever_files_names(self):
+        entries = set(subjects.payload_of(subjects.ROOT, "package.json",
+                                          subjects.manifests()["package"].get("except") or {}))
+        self.assertTrue({"package.json", "LICENSE"} <= entries, sorted(entries)[:5])
 
     def test_an_exception_naming_a_path_the_payload_does_not(self):
         with self.assertRaises(subjects.SubjectError) as raised:

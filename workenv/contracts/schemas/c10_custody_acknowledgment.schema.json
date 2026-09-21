@@ -81,25 +81,14 @@
       }
     },
     "custody_holder": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "holds_on"
-      ],
-      "properties": {
-        "holds_on": {
-          "enum": [
-            "device",
-            "peer"
-          ]
+      "oneOf": [
+        {
+          "$ref": "#/$defs/device_holder"
         },
-        "device_id": {
-          "$ref": "#/$defs/device_id"
-        },
-        "peer_id": {
-          "$ref": "#/$defs/peer_id"
+        {
+          "$ref": "#/$defs/peer_holder"
         }
-      }
+      ]
     },
     "peer_id": {
       "type": "string",
@@ -126,6 +115,38 @@
             "absent",
             "damaged"
           ]
+        }
+      }
+    },
+    "device_holder": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "holds_on",
+        "device_id"
+      ],
+      "properties": {
+        "holds_on": {
+          "const": "device"
+        },
+        "device_id": {
+          "$ref": "#/$defs/device_id"
+        }
+      }
+    },
+    "peer_holder": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "holds_on",
+        "peer_id"
+      ],
+      "properties": {
+        "holds_on": {
+          "const": "peer"
+        },
+        "peer_id": {
+          "$ref": "#/$defs/peer_id"
         }
       }
     }

@@ -142,7 +142,17 @@ def payload_of(root: pathlib.Path, path: str, excepted: dict[str, str]) -> list[
         if (root / name).exists():
             raise SubjectError(f"the payload exception {name!r} is in the tree after all, so "
                                f"the reason {reason!r} no longer holds")
-    return [entry for entry in entries if entry not in excepted]
+    # npm packs these whatever files[] says (npm-packlist's always-included set), so a payload
+    # measured from files[] alone stays current while one of them changes.
+    manifest = json.loads((root / path).read_bytes())
+    always = {path} | {name.name for name in root.iterdir() if name.is_file()
+                       and name.name.upper().startswith(("README", "LICENSE", "LICENCE"))}
+    bins = manifest.get("bin") or {}
+    always |= set(bins.values() if isinstance(bins, dict) else [bins])
+    if manifest.get("main"):
+        always.add(manifest["main"])
+    return sorted({entry for entry in entries if entry not in excepted}
+                  | {name.lstrip("./") for name in always})
 
 
 def closure(name: str, wanted: dict[str, str],

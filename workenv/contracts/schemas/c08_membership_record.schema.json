@@ -2,14 +2,13 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C08 membership record",
-  "description": "Consent, an invitation receipt and an active membership are three standings, not one. A provider claim admits only where the Team's own delegation policy says it may, and the policy is named here; a verified login or a matching e-mail domain admits nobody by itself.",
+  "description": "Consent, an invitation receipt and an active membership are three standings, not one. A provider claim admits only where the Team's own delegation policy says it may, and the policy is named here; a verified login or a matching e-mail domain admits nobody by itself. A standing carries how it was admitted, so invitation, consent and membership stay three stages.",
   "required": [
     "kind",
     "schema",
     "membership_id",
     "team_id",
     "principal_id",
-    "admitted_by",
     "standing",
     "created_at"
   ],
@@ -30,18 +29,8 @@
     "principal_id": {
       "$ref": "#/$defs/principal_id"
     },
-    "admitted_by": {
-      "$ref": "#/$defs/admission"
-    },
     "standing": {
-      "enum": [
-        "invited",
-        "consented",
-        "registered",
-        "active",
-        "left",
-        "removed"
-      ]
+      "$ref": "#/$defs/membership_standing"
     },
     "created_at": {
       "$ref": "#/$defs/instant"
@@ -69,15 +58,59 @@
       "type": "string",
       "pattern": "^tem_[0-9a-f]{32}$"
     },
-    "invited_admission": {
+    "membership_standing": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/invited_standing"
+        },
+        {
+          "$ref": "#/$defs/consented_standing"
+        },
+        {
+          "$ref": "#/$defs/claimed_standing"
+        }
+      ]
+    },
+    "invited_standing": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Invited and not yet consented: there is no consent to name.",
+      "required": [
+        "is",
+        "how",
+        "invitation_digest"
+      ],
+      "properties": {
+        "is": {
+          "const": "invited"
+        },
+        "how": {
+          "const": "invitation"
+        },
+        "invitation_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "consented_standing": {
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "is",
         "how",
         "invitation_digest",
         "consent_digest"
       ],
       "properties": {
+        "is": {
+          "enum": [
+            "consented",
+            "registered",
+            "active",
+            "left",
+            "removed"
+          ]
+        },
         "how": {
           "const": "invitation"
         },
@@ -89,15 +122,24 @@
         }
       }
     },
-    "delegated_admission": {
+    "claimed_standing": {
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "is",
         "how",
         "connection_id",
         "policy_digest"
       ],
       "properties": {
+        "is": {
+          "enum": [
+            "registered",
+            "active",
+            "left",
+            "removed"
+          ]
+        },
         "how": {
           "const": "provider_claim"
         },
@@ -108,16 +150,6 @@
           "$ref": "#/$defs/digest"
         }
       }
-    },
-    "admission": {
-      "oneOf": [
-        {
-          "$ref": "#/$defs/invited_admission"
-        },
-        {
-          "$ref": "#/$defs/delegated_admission"
-        }
-      ]
     }
   }
 }

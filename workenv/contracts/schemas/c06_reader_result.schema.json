@@ -2,14 +2,12 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C06 reader result",
-  "description": "What the reader actually returned. Seven standings stay apart on purpose: an empty answer from a source with nothing to say is not a denial, and neither is an answer this installation could not reach. `ended` says the pagination finished, which is not a claim that nothing else was relevant. A result that waits on a person carries the question and use it waits on, never a first option chosen on their behalf.",
+  "description": "What the reader actually returned. Seven standings stay apart on purpose: an empty answer from a source with nothing to say is not a denial, and neither is an answer this installation could not reach. `ended` says the pagination finished, which is not a claim that nothing else was relevant. A result that waits on a person carries the question and use it waits on, never a first option chosen on their behalf. A denied read has nowhere to name a source: access is resolved before candidates or metadata are exposed.",
   "required": [
     "kind",
     "schema",
     "envelope_digest",
-    "standing",
-    "frontiers",
-    "units",
+    "outcome",
     "qualifications",
     "omissions",
     "ended",
@@ -26,26 +24,8 @@
     "envelope_digest": {
       "$ref": "#/$defs/digest"
     },
-    "standing": {
-      "enum": [
-        "delivered",
-        "empty",
-        "denied",
-        "unavailable",
-        "unsupported",
-        "unresolved",
-        "truncated"
-      ]
-    },
-    "frontiers": {
-      "$ref": "#/$defs/frontiers"
-    },
-    "units": {
-      "type": "array",
-      "uniqueItems": true,
-      "items": {
-        "$ref": "#/$defs/composed_unit"
-      }
+    "outcome": {
+      "$ref": "#/$defs/read_outcome"
     },
     "qualifications": {
       "type": "array",
@@ -289,6 +269,60 @@
         "question_version": {
           "type": "integer",
           "minimum": 1
+        }
+      }
+    },
+    "read_outcome": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/denied_read"
+        },
+        {
+          "$ref": "#/$defs/answered_read"
+        }
+      ]
+    },
+    "denied_read": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Access was not established, so no source, checkpoint or unit is named.",
+      "required": [
+        "standing"
+      ],
+      "properties": {
+        "standing": {
+          "const": "denied"
+        }
+      }
+    },
+    "answered_read": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "standing",
+        "frontiers",
+        "units"
+      ],
+      "properties": {
+        "standing": {
+          "enum": [
+            "delivered",
+            "empty",
+            "unavailable",
+            "unsupported",
+            "unresolved",
+            "truncated"
+          ]
+        },
+        "frontiers": {
+          "$ref": "#/$defs/frontiers"
+        },
+        "units": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/composed_unit"
+          }
         }
       }
     }

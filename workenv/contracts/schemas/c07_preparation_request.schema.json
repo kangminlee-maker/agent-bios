@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C07 preparation request",
-  "description": "Three questions are asked separately and answered separately: which sources this is composed from, what operation is declared, and \u2014 only when a task has actually been requested \u2014 what that task needs. A session that starts without a request carries no `work_request`, and its support is not assessed rather than assessed as satisfied.",
+  "description": "Three questions are asked separately and answered separately: which sources this is composed from, what operation is declared, and — only when a task has actually been requested — what that task needs. A session that starts without a request carries no `work_request`, and its support is not assessed rather than assessed as satisfied.",
   "required": [
     "kind",
     "schema",
@@ -270,7 +270,7 @@
           }
         },
         "source_pins": {
-          "$ref": "#/$defs/source_pins"
+          "$ref": "#/$defs/selected_pins"
         }
       }
     },
@@ -318,6 +318,13 @@
             "$ref": "#/$defs/subject_ref"
           }
         }
+      }
+    },
+    "selected_pins": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/source_pin"
       }
     }
   }

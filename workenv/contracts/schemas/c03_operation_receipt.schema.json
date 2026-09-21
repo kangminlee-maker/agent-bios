@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C03 operation receipt",
-  "description": "The owner's atomic record that one request moved one head. An object without a receipt is unaccepted, whatever is on disk.",
+  "description": "The owner's atomic record that one request moved one head. An object without a receipt is unaccepted, whatever is on disk. The target's id says what it is; a resource whose owner keeps a head carries the base the request expects inside the target, so a head-moving request without one has no spelling.",
   "required": [
     "kind",
     "schema",
@@ -10,7 +10,6 @@
     "request_digest",
     "owner",
     "target",
-    "base",
     "head_digest",
     "sequence",
     "committed_at"
@@ -33,9 +32,6 @@
     },
     "target": {
       "$ref": "#/$defs/target"
-    },
-    "base": {
-      "$ref": "#/$defs/base"
     },
     "head_digest": {
       "$ref": "#/$defs/digest"
@@ -60,9 +56,6 @@
     },
     "base": {
       "oneOf": [
-        {
-          "$ref": "#/$defs/unversioned_base"
-        },
         {
           "$ref": "#/$defs/absent_base"
         },
@@ -99,35 +92,15 @@
         }
       }
     },
-    "unversioned_base": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "expects"
-      ],
-      "properties": {
-        "expects": {
-          "const": "unversioned"
-        }
-      }
-    },
     "target": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "resource_kind",
-        "resource_id"
-      ],
-      "properties": {
-        "resource_kind": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+      "oneOf": [
+        {
+          "$ref": "#/$defs/head_target"
         },
-        "resource_id": {
-          "type": "string",
-          "pattern": "^[a-z]{3}_[0-9a-f]{32}$"
+        {
+          "$ref": "#/$defs/plain_target"
         }
-      }
+      ]
     },
     "scope": {
       "oneOf": [
@@ -205,6 +178,38 @@
     "request_id": {
       "type": "string",
       "pattern": "^req_[0-9a-f]{32}$"
+    },
+    "head_target": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A resource whose owner keeps a head. The request names the base it expects, so a stale commit is refused by comparison rather than by convention.",
+      "required": [
+        "resource_id",
+        "base"
+      ],
+      "properties": {
+        "resource_id": {
+          "type": "string",
+          "pattern": "^(?:src|env)_[0-9a-f]{32}$"
+        },
+        "base": {
+          "$ref": "#/$defs/base"
+        }
+      }
+    },
+    "plain_target": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A resource with no head; there is no base to name.",
+      "required": [
+        "resource_id"
+      ],
+      "properties": {
+        "resource_id": {
+          "type": "string",
+          "pattern": "^(?:ans|apr|bnd|cap|cnc|cnd|col|con|cus|dev|ent|evt|fnd|gra|grp|lnk|mbr|obs|pbd|per|pkg|pol|prb|pre|prf|prj|prn|prp|qst|rec|rep|req|rte|tem|unt|use|viw|wst)_[0-9a-f]{32}$"
+        }
+      }
     }
   }
 }

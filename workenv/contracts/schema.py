@@ -72,17 +72,20 @@ STORED = "stored"
 SUBMIT = "submit"
 
 RUNTIME_OWNED = "x-runtime-owned"
+# Items of the named sibling arrays may not share the value of `key`. JSON Schema compares whole
+# items, so a manifest could list one path twice with two digests; this states the identity.
+UNIQUE_BY = "x-unique-by"
 ANNOTATIONS = frozenset({"$schema", "$id", "title", "description"})
 KEYWORDS = ANNOTATIONS | frozenset({
     "$defs", "$ref", "type", "properties", "required", "additionalProperties", "items",
     "minItems", "maxItems", "uniqueItems", "enum", "const", "pattern", "minLength",
-    "maxLength", "minimum", "maximum", "oneOf", RUNTIME_OWNED,
+    "maxLength", "minimum", "maximum", "oneOf", RUNTIME_OWNED, UNIQUE_BY,
 })
 TYPES = ("object", "array", "string", "integer", "boolean", "null")
 # Which assertion keywords each type admits. A keyword on the wrong type asserts nothing in
 # JSON Schema, which is how `minLength` on an integer passes review and checks no record.
 BY_TYPE = {
-    "object": {"properties", "required", "additionalProperties"},
+    "object": {"properties", "required", "additionalProperties", UNIQUE_BY},
     "array": {"items", "minItems", "maxItems", "uniqueItems"},
     "string": {"pattern", "minLength", "maxLength"},
     "integer": {"minimum", "maximum"},
@@ -123,6 +126,7 @@ def _escape(token: str) -> str:
 
 _LITERAL_ESCAPES = set("\\.^$|?*+()[]{}/-")
 _CLASS_ESCAPES = {"d", "w"}   # ASCII under re.ASCII, as in ECMAScript without the u flag
+_QUANTIFIER = re.compile(r"\{[0-9]+(?:,[0-9]*)?\}")
 
 
 def compile_pattern(pattern: str, pointer: str) -> re.Pattern[str]:
@@ -131,7 +135,8 @@ def compile_pattern(pattern: str, pointer: str) -> re.Pattern[str]:
     Refused because the two dialects disagree: an unanchored pattern (search against
     fullmatch), `.` (line terminators), `\\s` and `\\b` (Unicode), a `$` that Python lets
     match before a final newline, alternation outside a group (binds looser than the
-    anchors), non-ASCII literals, backreferences, lookaround and named groups."""
+    anchors), a brace that is not a bounded quantifier, non-ASCII literals, backreferences,
+    lookaround and named groups."""
     def refuse(detail: str) -> SchemaError:
         return SchemaError(UNSUPPORTED_PATTERN, pointer, f"{pattern!r}: {detail}")
 
@@ -171,6 +176,9 @@ def compile_pattern(pattern: str, pointer: str) -> re.Pattern[str]:
                 raise refuse("unbalanced group")
         elif char == "|" and depth == 0:
             raise refuse("alternation outside a group")
+        elif char == "{" and not _QUANTIFIER.match(body, index):
+            # `{,2}` is a quantifier to Python and three literals to ECMAScript.
+            raise refuse("a brace that is not {n}, {n,} or {n,m}")
         elif char in ".^$":
             raise refuse(f"unescaped {char} inside the pattern")
         index += 1
@@ -310,6 +318,14 @@ class Schema:
             if name not in properties:
                 raise SchemaError(INVALID_SCHEMA, f"{pointer}/required",
                                   f"{name!r} is required and not a property")
+        if UNIQUE_BY in node:
+            unique = node[UNIQUE_BY]
+            if (not isinstance(unique, dict) or set(unique) != {"key", "across"}
+                    or not isinstance(unique["key"], str) or not isinstance(unique["across"], list)
+                    or not unique["across"]
+                    or any(name not in properties for name in unique["across"])):
+                raise SchemaError(INVALID_SCHEMA, f"{pointer}/{UNIQUE_BY}",
+                                  "{key, across} naming this object's own array properties")
 
     def _no_bare_cycle(self) -> None:
         """Refuse a definition that reaches itself without consuming any of the value.
@@ -412,6 +428,19 @@ class Schema:
             owned = self._runtime_owned(properties[name])
             if name not in value and not (mode == SUBMIT and owned):
                 found.append(Violation(MISSING_FIELD, f"{pointer}/{_escape(name)}", "required"))
+        unique = node.get(UNIQUE_BY)
+        if unique:
+            seen: set[str] = set()
+            for name in unique["across"]:
+                items = value.get(name)
+                for index, item in enumerate(items if isinstance(items, list) else []):
+                    if isinstance(item, dict) and unique["key"] in item:
+                        mark = repr(item[unique["key"]])
+                        if mark in seen:
+                            where = f"{pointer}/{_escape(name)}/{index}"
+                            found.append(Violation(DUPLICATE_ITEM, where,
+                                                   f"another item has this {unique['key']}"))
+                        seen.add(mark)
         for name, child in properties.items():
             if name not in value:
                 continue

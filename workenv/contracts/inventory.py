@@ -24,11 +24,12 @@ has no members to bind, so a manifest of it would be a digest over nothing.
 from __future__ import annotations
 
 import hashlib
+import json
 import pathlib
 import sys
 from typing import Any, Iterable
 
-from . import c01, canonical
+from . import c01, canonical, schema
 
 KIND = "source_manifest"
 SCHEMA = 1
@@ -42,6 +43,10 @@ class InventoryError(ValueError):
 def files(directory: pathlib.Path) -> list[pathlib.Path]:
     """Every regular file under the directory, sorted. Two shapes are refused rather than
     walked past, because an inventory of either would state something untrue."""
+    if not directory.is_dir():
+        # rglob over a path that is not a directory yields nothing, which reads as an empty
+        # revision rather than as the wrong path.
+        raise InventoryError(f"{directory} is not a directory")
     found = []
     for path in sorted(directory.rglob("*")):
         if path.is_symlink():
@@ -107,12 +112,27 @@ def differences(stated: dict[str, Any], directory: pathlib.Path) -> list[tuple[s
     return sorted(found, key=lambda row: (row[1], row[0]))
 
 
+def stated_manifest_refusals(stated: Any) -> list:
+    """What the committed `source_manifest` schema says about a stated manifest. A comparison
+    against a manifest the schema refuses — no member, one path twice — would report agreement
+    with something that is not a manifest."""
+    document = json.loads((pathlib.Path(__file__).with_name("schemas")
+                           / "c01_source_manifest.schema.json").read_bytes())
+    return schema.load_schema(document).validate(stated)
+
+
 def main(argv: list[str]) -> int:
     usage = ("usage: python3 -m workenv.contracts.inventory <directory> "
              "--source <src_id> --at <instant> | <directory> --against <manifest.json>")
     if len(argv) == 3 and argv[1] == "--against":
         try:
-            stated = canonical.load(pathlib.Path(argv[2]).read_bytes())
+            data = pathlib.Path(argv[2]).read_bytes()
+            stated = canonical.load(data)
+            refused = stated_manifest_refusals(stated)
+            if refused:
+                for violation in refused:
+                    print(f"FAIL: manifest {violation.pointer or '/'}: {violation.code}")
+                return 1
             disagreements = differences(stated, pathlib.Path(argv[0]))
         except (InventoryError, canonical.CanonicalError, OSError) as error:
             print(f"FAIL: {error}")

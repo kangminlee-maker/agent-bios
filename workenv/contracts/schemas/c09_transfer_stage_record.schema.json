@@ -8,7 +8,6 @@
     "schema",
     "envelope_digest",
     "stage",
-    "material_gaps",
     "at"
   ],
   "properties": {
@@ -22,19 +21,10 @@
       "$ref": "#/$defs/digest"
     },
     "stage": {
-      "enum": [
-        "exported",
-        "received",
-        "verified",
-        "accepted",
-        "committed"
-      ]
+      "$ref": "#/$defs/transfer_stage"
     },
     "receipt_digest": {
       "$ref": "#/$defs/digest"
-    },
-    "material_gaps": {
-      "$ref": "#/$defs/gaps"
     },
     "at": {
       "$ref": "#/$defs/instant"
@@ -73,6 +63,52 @@
     "digest": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}$"
+    },
+    "transfer_stage": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/open_stage"
+        },
+        {
+          "$ref": "#/$defs/settled_stage"
+        }
+      ]
+    },
+    "open_stage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "is",
+        "material_gaps"
+      ],
+      "properties": {
+        "is": {
+          "enum": [
+            "exported",
+            "received",
+            "verified"
+          ]
+        },
+        "material_gaps": {
+          "$ref": "#/$defs/gaps"
+        }
+      }
+    },
+    "settled_stage": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Past verification. A gap found on the way stops the transfer before this stage, so a settled stage has no gaps to state.",
+      "required": [
+        "is"
+      ],
+      "properties": {
+        "is": {
+          "enum": [
+            "accepted",
+            "committed"
+          ]
+        }
+      }
     }
   }
 }

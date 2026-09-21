@@ -46,11 +46,23 @@ ENTRANCES = (
     "session_start", "host_launcher", "studio_hub", "supplied_request", "work_link",
     "setup", "locked_scope", "decision_cli", "decision_mcp", "studio_bridge",
     "capture_intake", "compatibility_route",
+    # A support command — measurement, checks, a cache, cleanup. Added when the existing routes
+    # were disposed of one by one: `cost`, `help` and the check scripts fit no other name.
+    "maintenance",
 )
 
 # The three places a guard sits. Named by what each owns, because that is what decides
 # which one an entrance routes through — not by the module that happens to hold it today.
 CHOKE_POINTS = ("source_store", "projection_owner", "publication_lock")
+
+# The id prefixes whose owner keeps a head. A request targeting one names the base it expects
+# (`absent`, or the exact head); a request targeting anything else has no base to name, so a
+# head-moving request cannot be written without its stale-head precondition.
+HEAD_KEEPING = ("src", "env")
+
+# Targets no contract declares an id for, which operations nonetheless address: a stored
+# memory candidate before it is a record, and the concern an application preference answers.
+TARGET_ONLY = ("cnd", "cnc")
 
 # Why an entrance reaches no state the target keeps. Each value was found by tracing the
 # shipped tree; a reason no entrance has is not carried here.

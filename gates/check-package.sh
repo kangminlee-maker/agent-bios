@@ -97,7 +97,9 @@ PY
     if [ "$rc" -eq 0 ]; then
       echo "check-package --self-test: FAIL: $name — the planted violation passed" >&2
       bad=1
-    elif ! printf '%s' "$out" | grep -qF -- "$want"; then
+    # A here-string, not a pipe: `grep -q` stops at its first match, and under pipefail the
+    # writer's broken pipe on a long output turned a match into "not by name".
+    elif ! grep -qF -- "$want" <<< "$out"; then
       echo "check-package --self-test: FAIL: $name — failed, but not by name" >&2
       echo "    wanted: $want" >&2
       printf '%s\n' "$out" | sed 's/^/    got: /' >&2
@@ -128,6 +130,10 @@ PY
   # the gates while this check reported clean.
   fresh; pkg add './gates/'
   case_is "a files[] entry spelled with a leading ./ is still that subtree" \
+          "author-side path in files[]"
+
+  fresh; pkg add '/workenv/contracts/examples/'
+  case_is "a files[] entry spelled with a leading / is still that subtree" \
           "author-side path in files[]"
 
   fresh; printf '\npython3 "$REPO/compose/NO-SUCH-PROBE.py"\n' >> "$W/install.sh"
@@ -375,8 +381,10 @@ def leg(name, subjects):
 def rel_key(raw):
     # Normalize before matching: the author-side rule below is a path-prefix test,
     # so an un-normalized "gates/../x" would claim an exemption it has no
-    # right to. normpath collapses that to the path actually referenced.
-    return posixpath.normpath(raw.rstrip("/"))
+    # right to. normpath collapses that to the path actually referenced. npm reads a
+    # leading "/" as the package root, so "/gates/" is "gates": left in place, it matched
+    # no author-side prefix and no shipped file while npm packed the whole subtree.
+    return posixpath.normpath(raw.rstrip("/")).lstrip("/")
 
 
 found = {}

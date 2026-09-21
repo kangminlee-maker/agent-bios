@@ -79,15 +79,6 @@
       "type": "string",
       "pattern": "^rec_[0-9a-f]{32}$"
     },
-    "lifecycle": {
-      "enum": [
-        "proposed",
-        "accepted",
-        "corrected",
-        "withdrawn",
-        "replaced"
-      ]
-    },
     "digest": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}$"
@@ -218,32 +209,14 @@
       }
     },
     "participant": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "source_id",
-        "record_id",
-        "revision_digest",
-        "lifecycle",
-        "applicable"
-      ],
-      "properties": {
-        "source_id": {
-          "$ref": "#/$defs/source_id"
+      "oneOf": [
+        {
+          "$ref": "#/$defs/live_participant"
         },
-        "record_id": {
-          "$ref": "#/$defs/record_id"
-        },
-        "revision_digest": {
-          "$ref": "#/$defs/digest"
-        },
-        "lifecycle": {
-          "$ref": "#/$defs/lifecycle"
-        },
-        "applicable": {
-          "type": "boolean"
+        {
+          "$ref": "#/$defs/ended_participant"
         }
-      }
+      ]
     },
     "record_selection": {
       "type": "object",
@@ -332,6 +305,70 @@
           "$ref": "#/$defs/invalidated_standing"
         }
       ]
+    },
+    "live_participant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "record_id",
+        "revision_digest",
+        "lifecycle",
+        "applicable"
+      ],
+      "properties": {
+        "source_id": {
+          "$ref": "#/$defs/source_id"
+        },
+        "record_id": {
+          "$ref": "#/$defs/record_id"
+        },
+        "revision_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "lifecycle": {
+          "enum": [
+            "proposed",
+            "accepted",
+            "corrected"
+          ]
+        },
+        "applicable": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ended_participant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "record_id",
+        "revision_digest",
+        "lifecycle",
+        "applicable"
+      ],
+      "properties": {
+        "source_id": {
+          "$ref": "#/$defs/source_id"
+        },
+        "record_id": {
+          "$ref": "#/$defs/record_id"
+        },
+        "revision_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "lifecycle": {
+          "enum": [
+            "withdrawn",
+            "replaced"
+          ]
+        },
+        "applicable": {
+          "const": false
+        }
+      },
+      "description": "A withdrawn or replaced record stays in the participant set so its change is seen, and is never an applicable option."
     }
   }
 }

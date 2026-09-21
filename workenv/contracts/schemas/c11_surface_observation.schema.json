@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C11 surface observation",
-  "description": "One person meeting a surface for the first time. What it was observed in is whatever the terminal reported, so no real observation is unrecordable; what support may be claimed from it is a closed list, so a claim cannot name a terminal nobody put there. The evidence class has one value, because a family that requires an observation is not answered by a deterministic run.",
+  "description": "One person meeting a surface for the first time. What it was observed in is whatever the terminal reported, so no real observation is unrecordable; what support may be claimed from it is a closed list, so a claim cannot name a terminal nobody put there. The evidence class has one value, because a family that requires an observation is not answered by a deterministic run. Evidence sits under its subject, so a prototype has no way to offer evidence that qualifies.",
   "required": [
     "kind",
     "schema",
@@ -11,7 +11,6 @@
     "observed_in",
     "locale",
     "evidence_class",
-    "evidence",
     "observed_at"
   ],
   "properties": {
@@ -39,9 +38,6 @@
     },
     "evidence_class": {
       "const": "observed"
-    },
-    "evidence": {
-      "$ref": "#/$defs/exposure_evidence"
     },
     "observed_at": {
       "$ref": "#/$defs/instant",
@@ -272,7 +268,8 @@
       "description": "A prototype has one thing to say about what it establishes, and it says it here rather than in prose nobody reads.",
       "required": [
         "is",
-        "establishes"
+        "establishes",
+        "evidence"
       ],
       "properties": {
         "is": {
@@ -280,6 +277,9 @@
         },
         "establishes": {
           "const": "neither_product_nor_human_evidence"
+        },
+        "evidence": {
+          "$ref": "#/$defs/not_qualifying_evidence"
         }
       }
     },
@@ -288,7 +288,8 @@
       "additionalProperties": false,
       "required": [
         "is",
-        "candidate_digest"
+        "candidate_digest",
+        "evidence"
       ],
       "properties": {
         "is": {
@@ -296,6 +297,9 @@
         },
         "candidate_digest": {
           "$ref": "#/$defs/digest"
+        },
+        "evidence": {
+          "$ref": "#/$defs/exposure_evidence"
         }
       }
     },

@@ -2,14 +2,13 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C02 access state",
-  "description": "The local access state of one profile on one installation. The runtime writes it whole. These three states are not Team membership and not an `enabled` flag.",
+  "description": "The local access state of one profile on one installation. The runtime writes it whole. These three states are not Team membership and not an `enabled` flag. A state and the change that produced it are one value: only an unlock or sign-in leads to `active`, and recovering an unfinished transition completes a restriction, never access.",
   "required": [
     "kind",
     "schema",
     "profile_id",
     "state",
     "access_generation",
-    "cause",
     "changed_at"
   ],
   "properties": {
@@ -23,25 +22,11 @@
       "$ref": "#/$defs/profile_id"
     },
     "state": {
-      "enum": [
-        "active",
-        "locked",
-        "signed_out"
-      ]
+      "$ref": "#/$defs/access_standing"
     },
     "access_generation": {
       "type": "integer",
       "minimum": 1
-    },
-    "cause": {
-      "enum": [
-        "first_use",
-        "lock",
-        "sign_out",
-        "unlock",
-        "sign_in",
-        "incomplete_transition_recovered"
-      ]
     },
     "changed_at": {
       "$ref": "#/$defs/instant"
@@ -56,6 +41,77 @@
     "profile_id": {
       "type": "string",
       "pattern": "^prf_[0-9a-f]{32}$"
+    },
+    "access_standing": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/access_active"
+        },
+        {
+          "$ref": "#/$defs/access_locked"
+        },
+        {
+          "$ref": "#/$defs/access_signed_out"
+        }
+      ]
+    },
+    "access_active": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "is",
+        "because"
+      ],
+      "properties": {
+        "is": {
+          "const": "active"
+        },
+        "because": {
+          "enum": [
+            "first_use",
+            "unlock",
+            "sign_in"
+          ]
+        }
+      }
+    },
+    "access_locked": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "is",
+        "because"
+      ],
+      "properties": {
+        "is": {
+          "const": "locked"
+        },
+        "because": {
+          "enum": [
+            "lock",
+            "incomplete_transition_recovered"
+          ]
+        }
+      }
+    },
+    "access_signed_out": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "is",
+        "because"
+      ],
+      "properties": {
+        "is": {
+          "const": "signed_out"
+        },
+        "because": {
+          "enum": [
+            "sign_out",
+            "incomplete_transition_recovered"
+          ]
+        }
+      }
     }
   }
 }

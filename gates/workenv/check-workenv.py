@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Two umbrella legs over the work-environment runtime and its tests.
 
-  unit-tests       every gates/workenv/test_*.py, one process per file. A file passes only
+  unit-tests       every gates/workenv/test_*.py and every test_*.py under a task's own
+                   gates/workenv/units/<task-id>/ (the spec's per-task home), one process per
+                   file. A file passes only
                    when at least one of its tests actually executed and none failed: an empty
                    file, or one whose every test is skipped, reports OK to unittest.
   static-analysis  ruff at the exact version RUFF_PIN over workenv/ and gates/workenv/. The
@@ -41,6 +43,7 @@ STATIC_TREES = ("workenv", "gates/workenv")
 PYTHON_FLOOR = (3, 11)
 TEST_DIR = "gates/workenv"
 TEST_PATTERN = "test_*.py"
+UNITS = "units"   # gates/workenv/units/<task-id>/ — each task's own tests, at any depth
 
 RUN_ONE = "--run-one"
 PROBE_TIMEOUT = 30
@@ -58,7 +61,8 @@ def test_files(root):
     base = root / TEST_DIR
     if not base.is_dir():
         return []
-    return sorted(p for p in base.glob(TEST_PATTERN) if p.is_file())
+    found = list(base.glob(TEST_PATTERN)) + list((base / UNITS).rglob(TEST_PATTERN))
+    return sorted(p for p in found if p.is_file())
 
 
 def probe(argv):
@@ -289,6 +293,12 @@ def self_test():
         expect("unit all skipped", got, "test_skip.py: every test was skipped")
         got, _ = unit_tests(tree(case("u-fail"), tests={"test_fail.py": FAILING_TEST}), python)
         expect("unit failing test", got, "test_fail.py: 1 test(s) failed")
+        nested = tree(case("u-task"))
+        task = nested / TEST_DIR / UNITS / "P02"
+        task.mkdir(parents=True)
+        (task / "test_task.py").write_text(FAILING_TEST, encoding="utf-8")
+        got, _ = unit_tests(nested, python)
+        expect("unit failing test in a task's own directory", got, "test_task.py: 1 test(s) failed")
         got, _ = unit_tests(tree(case("u-exit"), tests={"test_exit.py": EXITS_ZERO}), python)
         expect("unit file that exits 0 before any test", got, "test_exit.py: no result was written")
         got, _ = unit_tests(tree(case("u-import"), tests={"test_imp.py": BROKEN_IMPORT}), python)

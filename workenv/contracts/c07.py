@@ -26,6 +26,8 @@ OPERATIONS = (
     "preparation.compose",
     "preparation.assess",
     "delivery.observe",
+    "environment.publish",
+    "environment.adopt",
 )
 
 SELECTION_UNRESOLVED = "selection_unresolved"

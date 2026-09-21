@@ -2,11 +2,12 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C03 entrance disposition",
-  "description": "What one entrance may reach, and what stands between it and the state the target keeps. Two of the four spellings name a guard and the other two reach nothing; reaching kept state past a choke point has no spelling here, so the construction sites and the guarded set are one set rather than two lists to compare.",
+  "description": "What one entrance may reach, and what stands between it and the state the target keeps. Two of the four spellings name a guard and the other two reach nothing; reaching kept state past a choke point has no spelling here, so the construction sites and the guarded set are one set rather than two lists to compare. Each record is one existing route, so a retirement is stated route by route.",
   "required": [
     "kind",
     "schema",
     "entrance",
+    "route",
     "disposition",
     "traced_at"
   ],
@@ -19,6 +20,9 @@
     },
     "entrance": {
       "$ref": "#/$defs/entrance"
+    },
+    "route": {
+      "$ref": "#/$defs/existing_route"
     },
     "disposition": {
       "oneOf": [
@@ -70,7 +74,8 @@
             "decision_mcp",
             "studio_bridge",
             "capture_intake",
-            "compatibility_route"
+            "compatibility_route",
+            "maintenance"
           ]
         },
         "root_origin": {
@@ -116,6 +121,8 @@
               "delivery.observe",
               "entrance.cutover.commit",
               "entrance.disposition.record",
+              "environment.adopt",
+              "environment.publish",
               "identity.binding.add",
               "identity.binding.revoke",
               "knowledge.question.ask",
@@ -187,7 +194,7 @@
     "retired_at_cutover": {
       "type": "object",
       "additionalProperties": false,
-      "description": "A compatibility-only route. It forwards rather than reaches, so it carries no choke point of its own; its successor is guarded.",
+      "description": "A compatibility-only route. It forwards rather than reaches, so it carries no choke point of its own; the route it forwards to is named.",
       "required": [
         "state",
         "compatibility_only",
@@ -201,20 +208,7 @@
           "const": true
         },
         "successor": {
-          "enum": [
-            "session_start",
-            "host_launcher",
-            "studio_hub",
-            "supplied_request",
-            "work_link",
-            "setup",
-            "locked_scope",
-            "decision_cli",
-            "decision_mcp",
-            "studio_bridge",
-            "capture_intake",
-            "compatibility_route"
-          ]
+          "$ref": "#/$defs/existing_route"
         }
       }
     },
@@ -237,6 +231,24 @@
             "writes_outside_kept_state",
             "holds_no_write"
           ]
+        }
+      }
+    },
+    "existing_route": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "An existing way in, by the repository path that holds it and, when one file dispatches several, the command.",
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+        },
+        "command": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
         }
       }
     }
