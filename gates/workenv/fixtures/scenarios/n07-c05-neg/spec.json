@@ -1,0 +1,2023 @@
+{
+ "case": "N07-C05-NEG",
+ "says": "Three concerns in the repository memory each have a flaw that must leave state unresolved rather than ranked. A page-size choice states reliance on a record this reader cannot reach: its entry is unresolved with basis_target_missing and the comparison counts the unreachable record. A cache choice is replaced whole by two later choices: the replaced entry and both successors are unresolved with competing_successors, and neither the newer nor the older successor wins. A vacuum choice is both adopted and withdrawn by events stating the same instant: its entry is unresolved with lifecycle_contradiction. In none of the three does a timestamp, an order or a ranking select a current entry.",
+ "ids": [
+  {
+   "name": "alice",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "bind_alice_key_id",
+   "prefix": "req"
+  },
+  {
+   "name": "alice_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "repo",
+   "prefix": "rep"
+  },
+  {
+   "name": "bind_alice_checkout_id",
+   "prefix": "req"
+  },
+  {
+   "name": "repo_memory",
+   "prefix": "src"
+  },
+  {
+   "name": "register_repo_memory_id",
+   "prefix": "req"
+  },
+  {
+   "name": "page_concern",
+   "prefix": "cnc"
+  },
+  {
+   "name": "cache_concern",
+   "prefix": "cnc"
+  },
+  {
+   "name": "vacuum_concern",
+   "prefix": "cnc"
+  },
+  {
+   "name": "ghost_record",
+   "prefix": "rec"
+  },
+  {
+   "name": "record_a_choice_relying_on_a_missing_record_id",
+   "prefix": "req"
+  },
+  {
+   "name": "resolve_the_page_size_id",
+   "prefix": "req"
+  },
+  {
+   "name": "record_the_cache_choice_id",
+   "prefix": "req"
+  },
+  {
+   "name": "replace_it_with_a_larger_cache_id",
+   "prefix": "req"
+  },
+  {
+   "name": "replace_it_with_no_cache_id",
+   "prefix": "req"
+  },
+  {
+   "name": "resolve_the_cache_id",
+   "prefix": "req"
+  },
+  {
+   "name": "record_the_vacuum_choice_id",
+   "prefix": "req"
+  },
+  {
+   "name": "adopt_the_vacuum_choice_id",
+   "prefix": "req"
+  },
+  {
+   "name": "withdraw_the_vacuum_choice_id",
+   "prefix": "req"
+  },
+  {
+   "name": "resolve_the_vacuum_id",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "alice_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "alice_key_stored",
+   "from": "alice_key",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:alice_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:alice_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "bind_alice_key",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_alice_key_id"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#alice_key"
+    }
+   ]
+  },
+  {
+   "name": "alice_checkout",
+   "from": "c01/repository_binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "alice_checkout_bound",
+   "from": "c01/clone_shares_the_repository_id.json",
+   "drop": [
+    "/observed/working_bytes_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "bind_alice_checkout",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_alice_checkout_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "repository.bind"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#alice_checkout"
+    }
+   ]
+  },
+  {
+   "name": "repo_memory_home",
+   "from": "sources/home_of_a_repository_document.json",
+   "drop": [
+    "/registered_at"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/acceptance_authority/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/document_root",
+     "value": "docs/decisions"
+    },
+    {
+     "pointer": "/home/binding_evidence_digest",
+     "value": "#alice_checkout_bound"
+    }
+   ]
+  },
+  {
+   "name": "repo_memory_registered",
+   "from": "repo_memory_home",
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/acceptance_authority/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/binding_evidence_digest",
+     "value": "#alice_checkout_bound"
+    },
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:repo_memory_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "register_repo_memory",
+   "from": "c01/link_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_repo_memory_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_memory_home"
+    }
+   ]
+  },
+  {
+   "name": "page_size_submitted",
+   "from": "c05/choice_as_submitted.json",
+   "drop": [
+    "/context",
+    "/expected_consequences",
+    "/revisit_condition",
+    "/applicability/period",
+    "/basis/0/revision_digest",
+    "/basis/0/source_id"
+   ],
+   "set": [
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/workstream_ids",
+     "value": []
+    },
+    {
+     "pointer": "/question",
+     "value": "What page size does the local database use?"
+    },
+    {
+     "pointer": "/choice",
+     "value": "16 KiB pages."
+    },
+    {
+     "pointer": "/alternatives/0/choice",
+     "value": "4 KiB pages"
+    },
+    {
+     "pointer": "/alternatives/0/reason",
+     "value": "More reads per commit."
+    },
+    {
+     "pointer": "/reason",
+     "value": "The measurement it relies on favoured 16 KiB."
+    },
+    {
+     "pointer": "/applicability/conditions/0/dimension",
+     "value": "repository"
+    },
+    {
+     "pointer": "/applicability/conditions/0/value",
+     "value": "this one"
+    },
+    {
+     "pointer": "/basis/0/relies_on",
+     "value": "record"
+    },
+    {
+     "pointer": "/basis/0/record_id",
+     "value": "@ghost_record"
+    },
+    {
+     "pointer": "/basis/0/as_stated",
+     "value": "The page-size benchmark from the old repository."
+    }
+   ]
+  },
+  {
+   "name": "page_size_stored",
+   "from": "page_size_submitted",
+   "set": [
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/basis/0/record_id",
+     "value": "@ghost_record"
+    },
+    {
+     "pointer": "/record_id",
+     "value": "$rec:page_size"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:page_size_recorded_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_memory_manifest_2",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "memory/records.jsonl"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:repo_memory_bytes_2"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": "$integer:repo_memory_size_2"
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:repo_memory_produced_2"
+    }
+   ]
+  },
+  {
+   "name": "record_a_choice_relying_on_a_missing_record",
+   "from": "c01/link_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@record_a_choice_relying_on_a_missing_record_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.record.publish"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:repo_memory_head_1"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#page_size_submitted"
+    }
+   ]
+  },
+  {
+   "name": "page_question",
+   "from": "c05/state_question_for_one_lane.json",
+   "drop": [
+    "/workstream_ids",
+    "/scopes/2",
+    "/scopes/1"
+   ],
+   "set": [
+    {
+     "pointer": "/scopes/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/concern/question",
+     "value": "What page size does the local database use?"
+    }
+   ]
+  },
+  {
+   "name": "page_state",
+   "from": "c05/state_whose_conflict_waits_for_the_person.json",
+   "drop": [
+    "/frontiers/1",
+    "/entries/1"
+   ],
+   "set": [
+    {
+     "pointer": "/question_digest",
+     "value": "#page_question"
+    },
+    {
+     "pointer": "/frontiers/0/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/frontiers/0/checkpoint_digest",
+     "value": "$digest:repo_memory_head_2"
+    },
+    {
+     "pointer": "/entries/0/record_id",
+     "value": "$rec:page_size"
+    },
+    {
+     "pointer": "/entries/0/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/comparison/unreachable",
+     "value": 1
+    },
+    {
+     "pointer": "/material_gaps/0/code",
+     "value": "basis_target_missing"
+    },
+    {
+     "pointer": "/material_gaps/0/pointer",
+     "value": "/entries/0"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:page_state_at"
+    }
+   ]
+  },
+  {
+   "name": "resolve_the_page_size",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@resolve_the_page_size_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.state.resolve"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@page_concern"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#page_question"
+    }
+   ]
+  },
+  {
+   "name": "cache_small_submitted",
+   "from": "c05/choice_as_submitted.json",
+   "drop": [
+    "/basis",
+    "/context",
+    "/expected_consequences",
+    "/revisit_condition",
+    "/applicability/period"
+   ],
+   "set": [
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/workstream_ids",
+     "value": []
+    },
+    {
+     "pointer": "/question",
+     "value": "How large is the page cache?"
+    },
+    {
+     "pointer": "/choice",
+     "value": "A 2 MiB page cache."
+    },
+    {
+     "pointer": "/alternatives/0/choice",
+     "value": "No cache limit"
+    },
+    {
+     "pointer": "/alternatives/0/reason",
+     "value": "Memory grows with the database."
+    },
+    {
+     "pointer": "/reason",
+     "value": "Fits the smallest laptop."
+    },
+    {
+     "pointer": "/applicability/conditions/0/dimension",
+     "value": "repository"
+    },
+    {
+     "pointer": "/applicability/conditions/0/value",
+     "value": "this one"
+    }
+   ]
+  },
+  {
+   "name": "cache_small_stored",
+   "from": "cache_small_submitted",
+   "set": [
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/record_id",
+     "value": "$rec:cache_small"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:cache_small_recorded_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_memory_manifest_3",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "memory/records.jsonl"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:repo_memory_bytes_3"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": "$integer:repo_memory_size_3"
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:repo_memory_produced_3"
+    }
+   ]
+  },
+  {
+   "name": "record_the_cache_choice",
+   "from": "c01/link_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@record_the_cache_choice_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.record.publish"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:repo_memory_head_2"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#cache_small_submitted"
+    }
+   ]
+  },
+  {
+   "name": "cache_large_submitted",
+   "from": "c05/choice_as_submitted.json",
+   "drop": [
+    "/basis",
+    "/context",
+    "/expected_consequences",
+    "/revisit_condition",
+    "/applicability/period"
+   ],
+   "set": [
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/workstream_ids",
+     "value": []
+    },
+    {
+     "pointer": "/question",
+     "value": "How large is the page cache?"
+    },
+    {
+     "pointer": "/choice",
+     "value": "A 64 MiB page cache."
+    },
+    {
+     "pointer": "/alternatives/0/choice",
+     "value": "A 2 MiB page cache"
+    },
+    {
+     "pointer": "/alternatives/0/reason",
+     "value": "Too many misses on large reads."
+    },
+    {
+     "pointer": "/reason",
+     "value": "Large reads dominate."
+    },
+    {
+     "pointer": "/applicability/conditions/0/dimension",
+     "value": "repository"
+    },
+    {
+     "pointer": "/applicability/conditions/0/value",
+     "value": "this one"
+    },
+    {
+     "pointer": "/replaces/record_id",
+     "value": "$rec:cache_small"
+    },
+    {
+     "pointer": "/replaces/extent",
+     "value": "whole"
+    }
+   ]
+  },
+  {
+   "name": "cache_large_stored",
+   "from": "cache_large_submitted",
+   "set": [
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/replaces/record_id",
+     "value": "$rec:cache_small"
+    },
+    {
+     "pointer": "/record_id",
+     "value": "$rec:cache_large"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:cache_large_recorded_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_memory_manifest_4",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "memory/records.jsonl"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:repo_memory_bytes_4"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": "$integer:repo_memory_size_4"
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:repo_memory_produced_4"
+    }
+   ]
+  },
+  {
+   "name": "replace_it_with_a_larger_cache",
+   "from": "c01/link_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@replace_it_with_a_larger_cache_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.record.publish"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:repo_memory_head_3"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#cache_large_submitted"
+    }
+   ]
+  },
+  {
+   "name": "cache_off_submitted",
+   "from": "c05/choice_as_submitted.json",
+   "drop": [
+    "/basis",
+    "/context",
+    "/expected_consequences",
+    "/revisit_condition",
+    "/applicability/period"
+   ],
+   "set": [
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/workstream_ids",
+     "value": []
+    },
+    {
+     "pointer": "/question",
+     "value": "How large is the page cache?"
+    },
+    {
+     "pointer": "/choice",
+     "value": "No page cache beyond the OS."
+    },
+    {
+     "pointer": "/alternatives/0/choice",
+     "value": "A 2 MiB page cache"
+    },
+    {
+     "pointer": "/alternatives/0/reason",
+     "value": "Double caching."
+    },
+    {
+     "pointer": "/reason",
+     "value": "The OS cache already holds the hot pages."
+    },
+    {
+     "pointer": "/applicability/conditions/0/dimension",
+     "value": "repository"
+    },
+    {
+     "pointer": "/applicability/conditions/0/value",
+     "value": "this one"
+    },
+    {
+     "pointer": "/replaces/record_id",
+     "value": "$rec:cache_small"
+    },
+    {
+     "pointer": "/replaces/extent",
+     "value": "whole"
+    }
+   ]
+  },
+  {
+   "name": "cache_off_stored",
+   "from": "cache_off_submitted",
+   "set": [
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/replaces/record_id",
+     "value": "$rec:cache_small"
+    },
+    {
+     "pointer": "/record_id",
+     "value": "$rec:cache_off"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:cache_off_recorded_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_memory_manifest_5",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "memory/records.jsonl"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:repo_memory_bytes_5"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": "$integer:repo_memory_size_5"
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:repo_memory_produced_5"
+    }
+   ]
+  },
+  {
+   "name": "replace_it_with_no_cache",
+   "from": "c01/link_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@replace_it_with_no_cache_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.record.publish"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:repo_memory_head_4"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#cache_off_submitted"
+    }
+   ]
+  },
+  {
+   "name": "cache_question",
+   "from": "c05/state_question_for_one_lane.json",
+   "drop": [
+    "/workstream_ids",
+    "/scopes/2",
+    "/scopes/1"
+   ],
+   "set": [
+    {
+     "pointer": "/scopes/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/concern/question",
+     "value": "How large is the page cache?"
+    }
+   ]
+  },
+  {
+   "name": "cache_state",
+   "from": "c05/state_whose_conflict_waits_for_the_person.json",
+   "drop": [
+    "/frontiers/1"
+   ],
+   "set": [
+    {
+     "pointer": "/question_digest",
+     "value": "#cache_question"
+    },
+    {
+     "pointer": "/frontiers/0/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/frontiers/0/checkpoint_digest",
+     "value": "$digest:repo_memory_head_5"
+    },
+    {
+     "pointer": "/entries/0/record_id",
+     "value": "$rec:cache_small"
+    },
+    {
+     "pointer": "/entries/0/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/entries/0/qualification",
+     "value": "Two records declare they replace it whole."
+    },
+    {
+     "pointer": "/entries/1/record_id",
+     "value": "$rec:cache_large"
+    },
+    {
+     "pointer": "/entries/1/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/entries/2/record_id",
+     "value": "$rec:cache_off"
+    },
+    {
+     "pointer": "/entries/2/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/entries/2/standing",
+     "value": "unresolved"
+    },
+    {
+     "pointer": "/comparison/compared",
+     "value": 3
+    },
+    {
+     "pointer": "/material_gaps/0/code",
+     "value": "competing_successors"
+    },
+    {
+     "pointer": "/material_gaps/0/pointer",
+     "value": "/entries/0"
+    },
+    {
+     "pointer": "/material_gaps/1/code",
+     "value": "competing_successors"
+    },
+    {
+     "pointer": "/material_gaps/1/pointer",
+     "value": "/entries/1"
+    },
+    {
+     "pointer": "/material_gaps/2/code",
+     "value": "competing_successors"
+    },
+    {
+     "pointer": "/material_gaps/2/pointer",
+     "value": "/entries/2"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:cache_state_at"
+    }
+   ]
+  },
+  {
+   "name": "resolve_the_cache",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@resolve_the_cache_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.state.resolve"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@cache_concern"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#cache_question"
+    }
+   ]
+  },
+  {
+   "name": "vacuum_submitted",
+   "from": "c05/choice_as_submitted.json",
+   "drop": [
+    "/basis",
+    "/context",
+    "/expected_consequences",
+    "/revisit_condition",
+    "/applicability/period"
+   ],
+   "set": [
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/workstream_ids",
+     "value": []
+    },
+    {
+     "pointer": "/question",
+     "value": "When is the database vacuumed?"
+    },
+    {
+     "pointer": "/choice",
+     "value": "Vacuum weekly."
+    },
+    {
+     "pointer": "/alternatives/0/choice",
+     "value": "Auto-vacuum"
+    },
+    {
+     "pointer": "/alternatives/0/reason",
+     "value": "Fragmentation spikes on large deletes."
+    },
+    {
+     "pointer": "/reason",
+     "value": "Predictable pauses."
+    },
+    {
+     "pointer": "/applicability/conditions/0/dimension",
+     "value": "repository"
+    },
+    {
+     "pointer": "/applicability/conditions/0/value",
+     "value": "this one"
+    }
+   ]
+  },
+  {
+   "name": "vacuum_stored",
+   "from": "vacuum_submitted",
+   "set": [
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/record_id",
+     "value": "$rec:vacuum"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:vacuum_recorded_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_memory_manifest_6",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "memory/records.jsonl"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:repo_memory_bytes_6"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": "$integer:repo_memory_size_6"
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:repo_memory_produced_6"
+    }
+   ]
+  },
+  {
+   "name": "record_the_vacuum_choice",
+   "from": "c01/link_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@record_the_vacuum_choice_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.record.publish"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:repo_memory_head_5"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#vacuum_submitted"
+    }
+   ]
+  },
+  {
+   "name": "vacuum_adopted_submitted",
+   "from": "c05/event_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/target/record_id",
+     "value": "$rec:vacuum"
+    },
+    {
+     "pointer": "/attributed_to",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/evidence_digests",
+     "value": []
+    },
+    {
+     "pointer": "/occurred_at",
+     "value": "2026-09-21T10:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "vacuum_adopted_stored",
+   "from": "vacuum_adopted_submitted",
+   "set": [
+    {
+     "pointer": "/target/record_id",
+     "value": "$rec:vacuum"
+    },
+    {
+     "pointer": "/attributed_to",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/event_id",
+     "value": "$evt:vacuum_adopted"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:vacuum_adopted_recorded_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_memory_manifest_7",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "memory/records.jsonl"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:repo_memory_bytes_7"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": "$integer:repo_memory_size_7"
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:repo_memory_produced_7"
+    }
+   ]
+  },
+  {
+   "name": "adopt_the_vacuum_choice",
+   "from": "c01/link_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@adopt_the_vacuum_choice_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.lifecycle.apply"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:repo_memory_head_6"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#vacuum_adopted_submitted"
+    }
+   ]
+  },
+  {
+   "name": "vacuum_withdrawn_submitted",
+   "from": "c05/event_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/target/record_id",
+     "value": "$rec:vacuum"
+    },
+    {
+     "pointer": "/effect/did",
+     "value": "withdrawn"
+    },
+    {
+     "pointer": "/attributed_to",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/evidence_digests",
+     "value": []
+    },
+    {
+     "pointer": "/occurred_at",
+     "value": "2026-09-21T10:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "vacuum_withdrawn_stored",
+   "from": "vacuum_withdrawn_submitted",
+   "set": [
+    {
+     "pointer": "/target/record_id",
+     "value": "$rec:vacuum"
+    },
+    {
+     "pointer": "/attributed_to",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/event_id",
+     "value": "$evt:vacuum_withdrawn"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:vacuum_withdrawn_recorded_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_memory_manifest_8",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "memory/records.jsonl"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:repo_memory_bytes_8"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": "$integer:repo_memory_size_8"
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:repo_memory_produced_8"
+    }
+   ]
+  },
+  {
+   "name": "withdraw_the_vacuum_choice",
+   "from": "c01/link_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@withdraw_the_vacuum_choice_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.lifecycle.apply"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:repo_memory_head_7"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#vacuum_withdrawn_submitted"
+    }
+   ]
+  },
+  {
+   "name": "vacuum_question",
+   "from": "c05/state_question_for_one_lane.json",
+   "drop": [
+    "/workstream_ids",
+    "/scopes/2",
+    "/scopes/1"
+   ],
+   "set": [
+    {
+     "pointer": "/scopes/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/concern/question",
+     "value": "When is the database vacuumed?"
+    }
+   ]
+  },
+  {
+   "name": "vacuum_state",
+   "from": "c05/state_whose_conflict_waits_for_the_person.json",
+   "drop": [
+    "/frontiers/1",
+    "/entries/1"
+   ],
+   "set": [
+    {
+     "pointer": "/question_digest",
+     "value": "#vacuum_question"
+    },
+    {
+     "pointer": "/frontiers/0/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/frontiers/0/checkpoint_digest",
+     "value": "$digest:repo_memory_head_8"
+    },
+    {
+     "pointer": "/entries/0/record_id",
+     "value": "$rec:vacuum"
+    },
+    {
+     "pointer": "/entries/0/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/comparison/compared",
+     "value": 1
+    },
+    {
+     "pointer": "/material_gaps/0/code",
+     "value": "lifecycle_contradiction"
+    },
+    {
+     "pointer": "/material_gaps/0/pointer",
+     "value": "/entries/0"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:vacuum_state_at"
+    }
+   ]
+  },
+  {
+   "name": "resolve_the_vacuum",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@resolve_the_vacuum_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.state.resolve"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@vacuum_concern"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#vacuum_question"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_alice_key",
+   "request": "bind_alice_key",
+   "carries": [
+    "alice_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "alice_key_stored"
+    ]
+   }
+  },
+  {
+   "name": "bind_alice_checkout",
+   "request": "bind_alice_checkout",
+   "carries": [
+    "alice_checkout"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "alice_checkout_bound"
+    ]
+   }
+  },
+  {
+   "name": "register_repo_memory",
+   "request": "register_repo_memory",
+   "carries": [
+    "repo_memory_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_memory_registered"
+    ],
+    "head": "repo_memory_head_1"
+   }
+  },
+  {
+   "name": "record_a_choice_relying_on_a_missing_record",
+   "request": "record_a_choice_relying_on_a_missing_record",
+   "carries": [
+    "page_size_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "page_size_stored",
+     "repo_memory_manifest_2"
+    ],
+    "head": "repo_memory_head_2"
+   }
+  },
+  {
+   "name": "resolve_the_page_size",
+   "request": "resolve_the_page_size",
+   "carries": [
+    "page_question"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "none",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "page_state"
+    ]
+   }
+  },
+  {
+   "name": "record_the_cache_choice",
+   "request": "record_the_cache_choice",
+   "carries": [
+    "cache_small_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "cache_small_stored",
+     "repo_memory_manifest_3"
+    ],
+    "head": "repo_memory_head_3"
+   }
+  },
+  {
+   "name": "replace_it_with_a_larger_cache",
+   "request": "replace_it_with_a_larger_cache",
+   "carries": [
+    "cache_large_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "cache_large_stored",
+     "repo_memory_manifest_4"
+    ],
+    "head": "repo_memory_head_4"
+   }
+  },
+  {
+   "name": "replace_it_with_no_cache",
+   "request": "replace_it_with_no_cache",
+   "carries": [
+    "cache_off_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "cache_off_stored",
+     "repo_memory_manifest_5"
+    ],
+    "head": "repo_memory_head_5"
+   }
+  },
+  {
+   "name": "resolve_the_cache",
+   "request": "resolve_the_cache",
+   "carries": [
+    "cache_question"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "none",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "cache_state"
+    ]
+   }
+  },
+  {
+   "name": "record_the_vacuum_choice",
+   "request": "record_the_vacuum_choice",
+   "carries": [
+    "vacuum_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "vacuum_stored",
+     "repo_memory_manifest_6"
+    ],
+    "head": "repo_memory_head_6"
+   }
+  },
+  {
+   "name": "adopt_the_vacuum_choice",
+   "request": "adopt_the_vacuum_choice",
+   "carries": [
+    "vacuum_adopted_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "vacuum_adopted_stored",
+     "repo_memory_manifest_7"
+    ],
+    "head": "repo_memory_head_7"
+   }
+  },
+  {
+   "name": "withdraw_the_vacuum_choice",
+   "request": "withdraw_the_vacuum_choice",
+   "carries": [
+    "vacuum_withdrawn_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "vacuum_withdrawn_stored",
+     "repo_memory_manifest_8"
+    ],
+    "head": "repo_memory_head_8"
+   }
+  },
+  {
+   "name": "resolve_the_vacuum",
+   "request": "resolve_the_vacuum",
+   "carries": [
+    "vacuum_question"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "none",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "vacuum_state"
+    ]
+   }
+  }
+ ]
+}

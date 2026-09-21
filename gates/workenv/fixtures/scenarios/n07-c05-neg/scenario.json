@@ -1,0 +1,3326 @@
+{
+ "case": "N07-C05-NEG",
+ "ids": [
+  {
+   "id": "prn_daf6f777c4569bafe4c0e63e5ff63f78",
+   "name": "alice"
+  },
+  {
+   "id": "dev_a0e10a02258b9fabf22d403ded726575",
+   "name": "laptop"
+  },
+  {
+   "id": "req_e548396b986b3499da647297add9557b",
+   "name": "bind_alice_key_id"
+  },
+  {
+   "id": "prf_7bc439e8403d6b65d9a39e28ffbd9618",
+   "name": "alice_profile"
+  },
+  {
+   "id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4",
+   "name": "repo"
+  },
+  {
+   "id": "req_4dc157f645c73d51503d89d6365377fc",
+   "name": "bind_alice_checkout_id"
+  },
+  {
+   "id": "src_16c8edf57faf768e788a29a9e8b74354",
+   "name": "repo_memory"
+  },
+  {
+   "id": "req_bf3d35e3e9ca00cf7b60234bf36f14c3",
+   "name": "register_repo_memory_id"
+  },
+  {
+   "id": "cnc_90d5a4ae9f5bed0f24d01ecaa7dbcfe1",
+   "name": "page_concern"
+  },
+  {
+   "id": "cnc_9610f810c66eac4fb9d7da4b79c3a9f6",
+   "name": "cache_concern"
+  },
+  {
+   "id": "cnc_188e30b1712b8faa0057f4b5829bb76a",
+   "name": "vacuum_concern"
+  },
+  {
+   "id": "rec_410b00a263054cb7ad816e20a4ef6efb",
+   "name": "ghost_record"
+  },
+  {
+   "id": "req_e95802fb3dee78784fa2e1da80110d46",
+   "name": "record_a_choice_relying_on_a_missing_record_id"
+  },
+  {
+   "id": "req_275da33f022715ddc3933ca1540e61e4",
+   "name": "resolve_the_page_size_id"
+  },
+  {
+   "id": "req_d0ccd94993d9392a9001cc1f8a04d5d0",
+   "name": "record_the_cache_choice_id"
+  },
+  {
+   "id": "req_ff32d07d7dc2e6629de250182fa187cc",
+   "name": "replace_it_with_a_larger_cache_id"
+  },
+  {
+   "id": "req_8413bcdb028bb0a450b7ed8c7cf2d5d8",
+   "name": "replace_it_with_no_cache_id"
+  },
+  {
+   "id": "req_2946cf3eef7468af9c3870b51577dd0a",
+   "name": "resolve_the_cache_id"
+  },
+  {
+   "id": "req_d2acc3a879a065e7a9a3440086787685",
+   "name": "record_the_vacuum_choice_id"
+  },
+  {
+   "id": "req_976d53c74af17f73d3943606648c710f",
+   "name": "adopt_the_vacuum_choice_id"
+  },
+  {
+   "id": "req_102c5822b4b10dcd82a8d7e5bf2fb75a",
+   "name": "withdraw_the_vacuum_choice_id"
+  },
+  {
+   "id": "req_a027d8c8591b1f3b2e63f671499543a8",
+   "name": "resolve_the_vacuum_id"
+  }
+ ],
+ "joins": [
+  {
+   "digest_of": "alice_key",
+   "pointer": "/payload_digest",
+   "record": "bind_alice_key"
+  },
+  {
+   "minted": "alice_binding",
+   "pointer": "/binding_id",
+   "record": "alice_key_stored"
+  },
+  {
+   "minted": "alice_bound_at",
+   "pointer": "/created_at",
+   "record": "alice_key_stored"
+  },
+  {
+   "digest_of": "bind_alice_key",
+   "pointer": "/request_digest",
+   "record": "bind_alice_key_receipt"
+  },
+  {
+   "minted": "bind_alice_key_head",
+   "pointer": "/head_digest",
+   "record": "bind_alice_key_receipt"
+  },
+  {
+   "minted": "bind_alice_key_sequence",
+   "pointer": "/sequence",
+   "record": "bind_alice_key_receipt"
+  },
+  {
+   "minted": "bind_alice_key_committed_at",
+   "pointer": "/committed_at",
+   "record": "bind_alice_key_receipt"
+  },
+  {
+   "digest_of": "bind_alice_key_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "bind_alice_key_result"
+  },
+  {
+   "digest_of": "bind_alice_key",
+   "pointer": "/request_digest",
+   "record": "bind_alice_key_result"
+  },
+  {
+   "digest_of": "alice_key_stored",
+   "pointer": "/outputs/0/digest",
+   "record": "bind_alice_key_result"
+  },
+  {
+   "digest_of": "alice_checkout",
+   "pointer": "/payload_digest",
+   "record": "bind_alice_checkout"
+  },
+  {
+   "digest_of": "bind_alice_checkout",
+   "pointer": "/request_digest",
+   "record": "bind_alice_checkout_receipt"
+  },
+  {
+   "minted": "bind_alice_checkout_head",
+   "pointer": "/head_digest",
+   "record": "bind_alice_checkout_receipt"
+  },
+  {
+   "minted": "bind_alice_checkout_sequence",
+   "pointer": "/sequence",
+   "record": "bind_alice_checkout_receipt"
+  },
+  {
+   "minted": "bind_alice_checkout_committed_at",
+   "pointer": "/committed_at",
+   "record": "bind_alice_checkout_receipt"
+  },
+  {
+   "digest_of": "bind_alice_checkout_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "bind_alice_checkout_result"
+  },
+  {
+   "digest_of": "bind_alice_checkout",
+   "pointer": "/request_digest",
+   "record": "bind_alice_checkout_result"
+  },
+  {
+   "digest_of": "alice_checkout_bound",
+   "pointer": "/outputs/0/digest",
+   "record": "bind_alice_checkout_result"
+  },
+  {
+   "digest_of": "alice_checkout_bound",
+   "pointer": "/home/binding_evidence_digest",
+   "record": "repo_memory_home"
+  },
+  {
+   "digest_of": "repo_memory_home",
+   "pointer": "/payload_digest",
+   "record": "register_repo_memory"
+  },
+  {
+   "digest_of": "alice_checkout_bound",
+   "pointer": "/home/binding_evidence_digest",
+   "record": "repo_memory_registered"
+  },
+  {
+   "minted": "repo_memory_registered_at",
+   "pointer": "/registered_at",
+   "record": "repo_memory_registered"
+  },
+  {
+   "digest_of": "register_repo_memory",
+   "pointer": "/request_digest",
+   "record": "register_repo_memory_receipt"
+  },
+  {
+   "minted": "repo_memory_head_1",
+   "pointer": "/head_digest",
+   "record": "register_repo_memory_receipt"
+  },
+  {
+   "minted": "register_repo_memory_sequence",
+   "pointer": "/sequence",
+   "record": "register_repo_memory_receipt"
+  },
+  {
+   "minted": "register_repo_memory_committed_at",
+   "pointer": "/committed_at",
+   "record": "register_repo_memory_receipt"
+  },
+  {
+   "digest_of": "register_repo_memory_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "register_repo_memory_result"
+  },
+  {
+   "digest_of": "register_repo_memory",
+   "pointer": "/request_digest",
+   "record": "register_repo_memory_result"
+  },
+  {
+   "digest_of": "repo_memory_registered",
+   "pointer": "/outputs/0/digest",
+   "record": "register_repo_memory_result"
+  },
+  {
+   "minted": "repo_memory_head_1",
+   "pointer": "/target/base/head_digest",
+   "record": "record_a_choice_relying_on_a_missing_record"
+  },
+  {
+   "digest_of": "page_size_submitted",
+   "pointer": "/payload_digest",
+   "record": "record_a_choice_relying_on_a_missing_record"
+  },
+  {
+   "minted": "page_size",
+   "pointer": "/record_id",
+   "record": "page_size_stored"
+  },
+  {
+   "minted": "page_size_recorded_at",
+   "pointer": "/recorded_at",
+   "record": "page_size_stored"
+  },
+  {
+   "minted": "repo_memory_bytes_2",
+   "pointer": "/members/0/digest",
+   "record": "repo_memory_manifest_2"
+  },
+  {
+   "minted": "repo_memory_size_2",
+   "pointer": "/members/0/size",
+   "record": "repo_memory_manifest_2"
+  },
+  {
+   "minted": "repo_memory_produced_2",
+   "pointer": "/produced_at",
+   "record": "repo_memory_manifest_2"
+  },
+  {
+   "digest_of": "record_a_choice_relying_on_a_missing_record",
+   "pointer": "/request_digest",
+   "record": "record_a_choice_relying_on_a_missing_record_receipt"
+  },
+  {
+   "minted": "repo_memory_head_2",
+   "pointer": "/head_digest",
+   "record": "record_a_choice_relying_on_a_missing_record_receipt"
+  },
+  {
+   "minted": "record_a_choice_relying_on_a_missing_record_sequence",
+   "pointer": "/sequence",
+   "record": "record_a_choice_relying_on_a_missing_record_receipt"
+  },
+  {
+   "minted": "record_a_choice_relying_on_a_missing_record_committed_at",
+   "pointer": "/committed_at",
+   "record": "record_a_choice_relying_on_a_missing_record_receipt"
+  },
+  {
+   "minted": "repo_memory_head_1",
+   "pointer": "/target/base/head_digest",
+   "record": "record_a_choice_relying_on_a_missing_record_receipt"
+  },
+  {
+   "digest_of": "record_a_choice_relying_on_a_missing_record_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "record_a_choice_relying_on_a_missing_record_result"
+  },
+  {
+   "digest_of": "record_a_choice_relying_on_a_missing_record",
+   "pointer": "/request_digest",
+   "record": "record_a_choice_relying_on_a_missing_record_result"
+  },
+  {
+   "digest_of": "page_size_stored",
+   "pointer": "/outputs/0/digest",
+   "record": "record_a_choice_relying_on_a_missing_record_result"
+  },
+  {
+   "digest_of": "repo_memory_manifest_2",
+   "pointer": "/outputs/1/digest",
+   "record": "record_a_choice_relying_on_a_missing_record_result"
+  },
+  {
+   "digest_of": "page_question",
+   "pointer": "/payload_digest",
+   "record": "resolve_the_page_size"
+  },
+  {
+   "digest_of": "page_question",
+   "pointer": "/question_digest",
+   "record": "page_state"
+  },
+  {
+   "minted": "repo_memory_head_2",
+   "pointer": "/frontiers/0/checkpoint_digest",
+   "record": "page_state"
+  },
+  {
+   "minted": "page_size",
+   "pointer": "/entries/0/record_id",
+   "record": "page_state"
+  },
+  {
+   "minted": "page_state_at",
+   "pointer": "/prepared_at",
+   "record": "page_state"
+  },
+  {
+   "digest_of": "resolve_the_page_size",
+   "pointer": "/request_digest",
+   "record": "resolve_the_page_size_result"
+  },
+  {
+   "digest_of": "page_state",
+   "pointer": "/outputs/0/digest",
+   "record": "resolve_the_page_size_result"
+  },
+  {
+   "minted": "repo_memory_head_2",
+   "pointer": "/target/base/head_digest",
+   "record": "record_the_cache_choice"
+  },
+  {
+   "digest_of": "cache_small_submitted",
+   "pointer": "/payload_digest",
+   "record": "record_the_cache_choice"
+  },
+  {
+   "minted": "cache_small",
+   "pointer": "/record_id",
+   "record": "cache_small_stored"
+  },
+  {
+   "minted": "cache_small_recorded_at",
+   "pointer": "/recorded_at",
+   "record": "cache_small_stored"
+  },
+  {
+   "minted": "repo_memory_bytes_3",
+   "pointer": "/members/0/digest",
+   "record": "repo_memory_manifest_3"
+  },
+  {
+   "minted": "repo_memory_size_3",
+   "pointer": "/members/0/size",
+   "record": "repo_memory_manifest_3"
+  },
+  {
+   "minted": "repo_memory_produced_3",
+   "pointer": "/produced_at",
+   "record": "repo_memory_manifest_3"
+  },
+  {
+   "digest_of": "record_the_cache_choice",
+   "pointer": "/request_digest",
+   "record": "record_the_cache_choice_receipt"
+  },
+  {
+   "minted": "repo_memory_head_3",
+   "pointer": "/head_digest",
+   "record": "record_the_cache_choice_receipt"
+  },
+  {
+   "minted": "record_the_cache_choice_sequence",
+   "pointer": "/sequence",
+   "record": "record_the_cache_choice_receipt"
+  },
+  {
+   "minted": "record_the_cache_choice_committed_at",
+   "pointer": "/committed_at",
+   "record": "record_the_cache_choice_receipt"
+  },
+  {
+   "minted": "repo_memory_head_2",
+   "pointer": "/target/base/head_digest",
+   "record": "record_the_cache_choice_receipt"
+  },
+  {
+   "digest_of": "record_the_cache_choice_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "record_the_cache_choice_result"
+  },
+  {
+   "digest_of": "record_the_cache_choice",
+   "pointer": "/request_digest",
+   "record": "record_the_cache_choice_result"
+  },
+  {
+   "digest_of": "cache_small_stored",
+   "pointer": "/outputs/0/digest",
+   "record": "record_the_cache_choice_result"
+  },
+  {
+   "digest_of": "repo_memory_manifest_3",
+   "pointer": "/outputs/1/digest",
+   "record": "record_the_cache_choice_result"
+  },
+  {
+   "minted": "repo_memory_head_3",
+   "pointer": "/target/base/head_digest",
+   "record": "replace_it_with_a_larger_cache"
+  },
+  {
+   "minted": "cache_small",
+   "pointer": "/replaces/record_id",
+   "record": "cache_large_submitted"
+  },
+  {
+   "digest_of": "cache_large_submitted",
+   "pointer": "/payload_digest",
+   "record": "replace_it_with_a_larger_cache"
+  },
+  {
+   "minted": "cache_small",
+   "pointer": "/replaces/record_id",
+   "record": "cache_large_stored"
+  },
+  {
+   "minted": "cache_large",
+   "pointer": "/record_id",
+   "record": "cache_large_stored"
+  },
+  {
+   "minted": "cache_large_recorded_at",
+   "pointer": "/recorded_at",
+   "record": "cache_large_stored"
+  },
+  {
+   "minted": "repo_memory_bytes_4",
+   "pointer": "/members/0/digest",
+   "record": "repo_memory_manifest_4"
+  },
+  {
+   "minted": "repo_memory_size_4",
+   "pointer": "/members/0/size",
+   "record": "repo_memory_manifest_4"
+  },
+  {
+   "minted": "repo_memory_produced_4",
+   "pointer": "/produced_at",
+   "record": "repo_memory_manifest_4"
+  },
+  {
+   "digest_of": "replace_it_with_a_larger_cache",
+   "pointer": "/request_digest",
+   "record": "replace_it_with_a_larger_cache_receipt"
+  },
+  {
+   "minted": "repo_memory_head_4",
+   "pointer": "/head_digest",
+   "record": "replace_it_with_a_larger_cache_receipt"
+  },
+  {
+   "minted": "replace_it_with_a_larger_cache_sequence",
+   "pointer": "/sequence",
+   "record": "replace_it_with_a_larger_cache_receipt"
+  },
+  {
+   "minted": "replace_it_with_a_larger_cache_committed_at",
+   "pointer": "/committed_at",
+   "record": "replace_it_with_a_larger_cache_receipt"
+  },
+  {
+   "minted": "repo_memory_head_3",
+   "pointer": "/target/base/head_digest",
+   "record": "replace_it_with_a_larger_cache_receipt"
+  },
+  {
+   "digest_of": "replace_it_with_a_larger_cache_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "replace_it_with_a_larger_cache_result"
+  },
+  {
+   "digest_of": "replace_it_with_a_larger_cache",
+   "pointer": "/request_digest",
+   "record": "replace_it_with_a_larger_cache_result"
+  },
+  {
+   "digest_of": "cache_large_stored",
+   "pointer": "/outputs/0/digest",
+   "record": "replace_it_with_a_larger_cache_result"
+  },
+  {
+   "digest_of": "repo_memory_manifest_4",
+   "pointer": "/outputs/1/digest",
+   "record": "replace_it_with_a_larger_cache_result"
+  },
+  {
+   "minted": "repo_memory_head_4",
+   "pointer": "/target/base/head_digest",
+   "record": "replace_it_with_no_cache"
+  },
+  {
+   "minted": "cache_small",
+   "pointer": "/replaces/record_id",
+   "record": "cache_off_submitted"
+  },
+  {
+   "digest_of": "cache_off_submitted",
+   "pointer": "/payload_digest",
+   "record": "replace_it_with_no_cache"
+  },
+  {
+   "minted": "cache_small",
+   "pointer": "/replaces/record_id",
+   "record": "cache_off_stored"
+  },
+  {
+   "minted": "cache_off",
+   "pointer": "/record_id",
+   "record": "cache_off_stored"
+  },
+  {
+   "minted": "cache_off_recorded_at",
+   "pointer": "/recorded_at",
+   "record": "cache_off_stored"
+  },
+  {
+   "minted": "repo_memory_bytes_5",
+   "pointer": "/members/0/digest",
+   "record": "repo_memory_manifest_5"
+  },
+  {
+   "minted": "repo_memory_size_5",
+   "pointer": "/members/0/size",
+   "record": "repo_memory_manifest_5"
+  },
+  {
+   "minted": "repo_memory_produced_5",
+   "pointer": "/produced_at",
+   "record": "repo_memory_manifest_5"
+  },
+  {
+   "digest_of": "replace_it_with_no_cache",
+   "pointer": "/request_digest",
+   "record": "replace_it_with_no_cache_receipt"
+  },
+  {
+   "minted": "repo_memory_head_5",
+   "pointer": "/head_digest",
+   "record": "replace_it_with_no_cache_receipt"
+  },
+  {
+   "minted": "replace_it_with_no_cache_sequence",
+   "pointer": "/sequence",
+   "record": "replace_it_with_no_cache_receipt"
+  },
+  {
+   "minted": "replace_it_with_no_cache_committed_at",
+   "pointer": "/committed_at",
+   "record": "replace_it_with_no_cache_receipt"
+  },
+  {
+   "minted": "repo_memory_head_4",
+   "pointer": "/target/base/head_digest",
+   "record": "replace_it_with_no_cache_receipt"
+  },
+  {
+   "digest_of": "replace_it_with_no_cache_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "replace_it_with_no_cache_result"
+  },
+  {
+   "digest_of": "replace_it_with_no_cache",
+   "pointer": "/request_digest",
+   "record": "replace_it_with_no_cache_result"
+  },
+  {
+   "digest_of": "cache_off_stored",
+   "pointer": "/outputs/0/digest",
+   "record": "replace_it_with_no_cache_result"
+  },
+  {
+   "digest_of": "repo_memory_manifest_5",
+   "pointer": "/outputs/1/digest",
+   "record": "replace_it_with_no_cache_result"
+  },
+  {
+   "digest_of": "cache_question",
+   "pointer": "/payload_digest",
+   "record": "resolve_the_cache"
+  },
+  {
+   "digest_of": "cache_question",
+   "pointer": "/question_digest",
+   "record": "cache_state"
+  },
+  {
+   "minted": "repo_memory_head_5",
+   "pointer": "/frontiers/0/checkpoint_digest",
+   "record": "cache_state"
+  },
+  {
+   "minted": "cache_small",
+   "pointer": "/entries/0/record_id",
+   "record": "cache_state"
+  },
+  {
+   "minted": "cache_large",
+   "pointer": "/entries/1/record_id",
+   "record": "cache_state"
+  },
+  {
+   "minted": "cache_off",
+   "pointer": "/entries/2/record_id",
+   "record": "cache_state"
+  },
+  {
+   "minted": "cache_state_at",
+   "pointer": "/prepared_at",
+   "record": "cache_state"
+  },
+  {
+   "digest_of": "resolve_the_cache",
+   "pointer": "/request_digest",
+   "record": "resolve_the_cache_result"
+  },
+  {
+   "digest_of": "cache_state",
+   "pointer": "/outputs/0/digest",
+   "record": "resolve_the_cache_result"
+  },
+  {
+   "minted": "repo_memory_head_5",
+   "pointer": "/target/base/head_digest",
+   "record": "record_the_vacuum_choice"
+  },
+  {
+   "digest_of": "vacuum_submitted",
+   "pointer": "/payload_digest",
+   "record": "record_the_vacuum_choice"
+  },
+  {
+   "minted": "vacuum",
+   "pointer": "/record_id",
+   "record": "vacuum_stored"
+  },
+  {
+   "minted": "vacuum_recorded_at",
+   "pointer": "/recorded_at",
+   "record": "vacuum_stored"
+  },
+  {
+   "minted": "repo_memory_bytes_6",
+   "pointer": "/members/0/digest",
+   "record": "repo_memory_manifest_6"
+  },
+  {
+   "minted": "repo_memory_size_6",
+   "pointer": "/members/0/size",
+   "record": "repo_memory_manifest_6"
+  },
+  {
+   "minted": "repo_memory_produced_6",
+   "pointer": "/produced_at",
+   "record": "repo_memory_manifest_6"
+  },
+  {
+   "digest_of": "record_the_vacuum_choice",
+   "pointer": "/request_digest",
+   "record": "record_the_vacuum_choice_receipt"
+  },
+  {
+   "minted": "repo_memory_head_6",
+   "pointer": "/head_digest",
+   "record": "record_the_vacuum_choice_receipt"
+  },
+  {
+   "minted": "record_the_vacuum_choice_sequence",
+   "pointer": "/sequence",
+   "record": "record_the_vacuum_choice_receipt"
+  },
+  {
+   "minted": "record_the_vacuum_choice_committed_at",
+   "pointer": "/committed_at",
+   "record": "record_the_vacuum_choice_receipt"
+  },
+  {
+   "minted": "repo_memory_head_5",
+   "pointer": "/target/base/head_digest",
+   "record": "record_the_vacuum_choice_receipt"
+  },
+  {
+   "digest_of": "record_the_vacuum_choice_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "record_the_vacuum_choice_result"
+  },
+  {
+   "digest_of": "record_the_vacuum_choice",
+   "pointer": "/request_digest",
+   "record": "record_the_vacuum_choice_result"
+  },
+  {
+   "digest_of": "vacuum_stored",
+   "pointer": "/outputs/0/digest",
+   "record": "record_the_vacuum_choice_result"
+  },
+  {
+   "digest_of": "repo_memory_manifest_6",
+   "pointer": "/outputs/1/digest",
+   "record": "record_the_vacuum_choice_result"
+  },
+  {
+   "minted": "repo_memory_head_6",
+   "pointer": "/target/base/head_digest",
+   "record": "adopt_the_vacuum_choice"
+  },
+  {
+   "minted": "vacuum",
+   "pointer": "/target/record_id",
+   "record": "vacuum_adopted_submitted"
+  },
+  {
+   "digest_of": "vacuum_adopted_submitted",
+   "pointer": "/payload_digest",
+   "record": "adopt_the_vacuum_choice"
+  },
+  {
+   "minted": "vacuum",
+   "pointer": "/target/record_id",
+   "record": "vacuum_adopted_stored"
+  },
+  {
+   "minted": "vacuum_adopted",
+   "pointer": "/event_id",
+   "record": "vacuum_adopted_stored"
+  },
+  {
+   "minted": "vacuum_adopted_recorded_at",
+   "pointer": "/recorded_at",
+   "record": "vacuum_adopted_stored"
+  },
+  {
+   "minted": "repo_memory_bytes_7",
+   "pointer": "/members/0/digest",
+   "record": "repo_memory_manifest_7"
+  },
+  {
+   "minted": "repo_memory_size_7",
+   "pointer": "/members/0/size",
+   "record": "repo_memory_manifest_7"
+  },
+  {
+   "minted": "repo_memory_produced_7",
+   "pointer": "/produced_at",
+   "record": "repo_memory_manifest_7"
+  },
+  {
+   "digest_of": "adopt_the_vacuum_choice",
+   "pointer": "/request_digest",
+   "record": "adopt_the_vacuum_choice_receipt"
+  },
+  {
+   "minted": "repo_memory_head_7",
+   "pointer": "/head_digest",
+   "record": "adopt_the_vacuum_choice_receipt"
+  },
+  {
+   "minted": "adopt_the_vacuum_choice_sequence",
+   "pointer": "/sequence",
+   "record": "adopt_the_vacuum_choice_receipt"
+  },
+  {
+   "minted": "adopt_the_vacuum_choice_committed_at",
+   "pointer": "/committed_at",
+   "record": "adopt_the_vacuum_choice_receipt"
+  },
+  {
+   "minted": "repo_memory_head_6",
+   "pointer": "/target/base/head_digest",
+   "record": "adopt_the_vacuum_choice_receipt"
+  },
+  {
+   "digest_of": "adopt_the_vacuum_choice_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "adopt_the_vacuum_choice_result"
+  },
+  {
+   "digest_of": "adopt_the_vacuum_choice",
+   "pointer": "/request_digest",
+   "record": "adopt_the_vacuum_choice_result"
+  },
+  {
+   "digest_of": "vacuum_adopted_stored",
+   "pointer": "/outputs/0/digest",
+   "record": "adopt_the_vacuum_choice_result"
+  },
+  {
+   "digest_of": "repo_memory_manifest_7",
+   "pointer": "/outputs/1/digest",
+   "record": "adopt_the_vacuum_choice_result"
+  },
+  {
+   "minted": "repo_memory_head_7",
+   "pointer": "/target/base/head_digest",
+   "record": "withdraw_the_vacuum_choice"
+  },
+  {
+   "minted": "vacuum",
+   "pointer": "/target/record_id",
+   "record": "vacuum_withdrawn_submitted"
+  },
+  {
+   "digest_of": "vacuum_withdrawn_submitted",
+   "pointer": "/payload_digest",
+   "record": "withdraw_the_vacuum_choice"
+  },
+  {
+   "minted": "vacuum",
+   "pointer": "/target/record_id",
+   "record": "vacuum_withdrawn_stored"
+  },
+  {
+   "minted": "vacuum_withdrawn",
+   "pointer": "/event_id",
+   "record": "vacuum_withdrawn_stored"
+  },
+  {
+   "minted": "vacuum_withdrawn_recorded_at",
+   "pointer": "/recorded_at",
+   "record": "vacuum_withdrawn_stored"
+  },
+  {
+   "minted": "repo_memory_bytes_8",
+   "pointer": "/members/0/digest",
+   "record": "repo_memory_manifest_8"
+  },
+  {
+   "minted": "repo_memory_size_8",
+   "pointer": "/members/0/size",
+   "record": "repo_memory_manifest_8"
+  },
+  {
+   "minted": "repo_memory_produced_8",
+   "pointer": "/produced_at",
+   "record": "repo_memory_manifest_8"
+  },
+  {
+   "digest_of": "withdraw_the_vacuum_choice",
+   "pointer": "/request_digest",
+   "record": "withdraw_the_vacuum_choice_receipt"
+  },
+  {
+   "minted": "repo_memory_head_8",
+   "pointer": "/head_digest",
+   "record": "withdraw_the_vacuum_choice_receipt"
+  },
+  {
+   "minted": "withdraw_the_vacuum_choice_sequence",
+   "pointer": "/sequence",
+   "record": "withdraw_the_vacuum_choice_receipt"
+  },
+  {
+   "minted": "withdraw_the_vacuum_choice_committed_at",
+   "pointer": "/committed_at",
+   "record": "withdraw_the_vacuum_choice_receipt"
+  },
+  {
+   "minted": "repo_memory_head_7",
+   "pointer": "/target/base/head_digest",
+   "record": "withdraw_the_vacuum_choice_receipt"
+  },
+  {
+   "digest_of": "withdraw_the_vacuum_choice_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "withdraw_the_vacuum_choice_result"
+  },
+  {
+   "digest_of": "withdraw_the_vacuum_choice",
+   "pointer": "/request_digest",
+   "record": "withdraw_the_vacuum_choice_result"
+  },
+  {
+   "digest_of": "vacuum_withdrawn_stored",
+   "pointer": "/outputs/0/digest",
+   "record": "withdraw_the_vacuum_choice_result"
+  },
+  {
+   "digest_of": "repo_memory_manifest_8",
+   "pointer": "/outputs/1/digest",
+   "record": "withdraw_the_vacuum_choice_result"
+  },
+  {
+   "digest_of": "vacuum_question",
+   "pointer": "/payload_digest",
+   "record": "resolve_the_vacuum"
+  },
+  {
+   "digest_of": "vacuum_question",
+   "pointer": "/question_digest",
+   "record": "vacuum_state"
+  },
+  {
+   "minted": "repo_memory_head_8",
+   "pointer": "/frontiers/0/checkpoint_digest",
+   "record": "vacuum_state"
+  },
+  {
+   "minted": "vacuum",
+   "pointer": "/entries/0/record_id",
+   "record": "vacuum_state"
+  },
+  {
+   "minted": "vacuum_state_at",
+   "pointer": "/prepared_at",
+   "record": "vacuum_state"
+  },
+  {
+   "digest_of": "resolve_the_vacuum",
+   "pointer": "/request_digest",
+   "record": "resolve_the_vacuum_result"
+  },
+  {
+   "digest_of": "vacuum_state",
+   "pointer": "/outputs/0/digest",
+   "record": "resolve_the_vacuum_result"
+  }
+ ],
+ "minted": [
+  {
+   "name": "alice_binding",
+   "shape": "bnd",
+   "step": "bind_alice_key"
+  },
+  {
+   "name": "alice_bound_at",
+   "shape": "instant",
+   "step": "bind_alice_key"
+  },
+  {
+   "name": "bind_alice_key_committed_at",
+   "shape": "instant",
+   "step": "bind_alice_key"
+  },
+  {
+   "name": "bind_alice_key_head",
+   "shape": "digest",
+   "step": "bind_alice_key"
+  },
+  {
+   "name": "bind_alice_key_sequence",
+   "shape": "integer",
+   "step": "bind_alice_key"
+  },
+  {
+   "name": "bind_alice_checkout_committed_at",
+   "shape": "instant",
+   "step": "bind_alice_checkout"
+  },
+  {
+   "name": "bind_alice_checkout_head",
+   "shape": "digest",
+   "step": "bind_alice_checkout"
+  },
+  {
+   "name": "bind_alice_checkout_sequence",
+   "shape": "integer",
+   "step": "bind_alice_checkout"
+  },
+  {
+   "name": "register_repo_memory_committed_at",
+   "shape": "instant",
+   "step": "register_repo_memory"
+  },
+  {
+   "name": "register_repo_memory_sequence",
+   "shape": "integer",
+   "step": "register_repo_memory"
+  },
+  {
+   "name": "repo_memory_head_1",
+   "shape": "digest",
+   "step": "register_repo_memory"
+  },
+  {
+   "name": "repo_memory_registered_at",
+   "shape": "instant",
+   "step": "register_repo_memory"
+  },
+  {
+   "name": "page_size",
+   "shape": "rec",
+   "step": "record_a_choice_relying_on_a_missing_record"
+  },
+  {
+   "name": "page_size_recorded_at",
+   "shape": "instant",
+   "step": "record_a_choice_relying_on_a_missing_record"
+  },
+  {
+   "name": "record_a_choice_relying_on_a_missing_record_committed_at",
+   "shape": "instant",
+   "step": "record_a_choice_relying_on_a_missing_record"
+  },
+  {
+   "name": "record_a_choice_relying_on_a_missing_record_sequence",
+   "shape": "integer",
+   "step": "record_a_choice_relying_on_a_missing_record"
+  },
+  {
+   "name": "repo_memory_bytes_2",
+   "shape": "digest",
+   "step": "record_a_choice_relying_on_a_missing_record"
+  },
+  {
+   "name": "repo_memory_head_2",
+   "shape": "digest",
+   "step": "record_a_choice_relying_on_a_missing_record"
+  },
+  {
+   "name": "repo_memory_produced_2",
+   "shape": "instant",
+   "step": "record_a_choice_relying_on_a_missing_record"
+  },
+  {
+   "name": "repo_memory_size_2",
+   "shape": "integer",
+   "step": "record_a_choice_relying_on_a_missing_record"
+  },
+  {
+   "name": "page_state_at",
+   "shape": "instant",
+   "step": "resolve_the_page_size"
+  },
+  {
+   "name": "cache_small",
+   "shape": "rec",
+   "step": "record_the_cache_choice"
+  },
+  {
+   "name": "cache_small_recorded_at",
+   "shape": "instant",
+   "step": "record_the_cache_choice"
+  },
+  {
+   "name": "record_the_cache_choice_committed_at",
+   "shape": "instant",
+   "step": "record_the_cache_choice"
+  },
+  {
+   "name": "record_the_cache_choice_sequence",
+   "shape": "integer",
+   "step": "record_the_cache_choice"
+  },
+  {
+   "name": "repo_memory_bytes_3",
+   "shape": "digest",
+   "step": "record_the_cache_choice"
+  },
+  {
+   "name": "repo_memory_head_3",
+   "shape": "digest",
+   "step": "record_the_cache_choice"
+  },
+  {
+   "name": "repo_memory_produced_3",
+   "shape": "instant",
+   "step": "record_the_cache_choice"
+  },
+  {
+   "name": "repo_memory_size_3",
+   "shape": "integer",
+   "step": "record_the_cache_choice"
+  },
+  {
+   "name": "cache_large",
+   "shape": "rec",
+   "step": "replace_it_with_a_larger_cache"
+  },
+  {
+   "name": "cache_large_recorded_at",
+   "shape": "instant",
+   "step": "replace_it_with_a_larger_cache"
+  },
+  {
+   "name": "replace_it_with_a_larger_cache_committed_at",
+   "shape": "instant",
+   "step": "replace_it_with_a_larger_cache"
+  },
+  {
+   "name": "replace_it_with_a_larger_cache_sequence",
+   "shape": "integer",
+   "step": "replace_it_with_a_larger_cache"
+  },
+  {
+   "name": "repo_memory_bytes_4",
+   "shape": "digest",
+   "step": "replace_it_with_a_larger_cache"
+  },
+  {
+   "name": "repo_memory_head_4",
+   "shape": "digest",
+   "step": "replace_it_with_a_larger_cache"
+  },
+  {
+   "name": "repo_memory_produced_4",
+   "shape": "instant",
+   "step": "replace_it_with_a_larger_cache"
+  },
+  {
+   "name": "repo_memory_size_4",
+   "shape": "integer",
+   "step": "replace_it_with_a_larger_cache"
+  },
+  {
+   "name": "cache_off",
+   "shape": "rec",
+   "step": "replace_it_with_no_cache"
+  },
+  {
+   "name": "cache_off_recorded_at",
+   "shape": "instant",
+   "step": "replace_it_with_no_cache"
+  },
+  {
+   "name": "replace_it_with_no_cache_committed_at",
+   "shape": "instant",
+   "step": "replace_it_with_no_cache"
+  },
+  {
+   "name": "replace_it_with_no_cache_sequence",
+   "shape": "integer",
+   "step": "replace_it_with_no_cache"
+  },
+  {
+   "name": "repo_memory_bytes_5",
+   "shape": "digest",
+   "step": "replace_it_with_no_cache"
+  },
+  {
+   "name": "repo_memory_head_5",
+   "shape": "digest",
+   "step": "replace_it_with_no_cache"
+  },
+  {
+   "name": "repo_memory_produced_5",
+   "shape": "instant",
+   "step": "replace_it_with_no_cache"
+  },
+  {
+   "name": "repo_memory_size_5",
+   "shape": "integer",
+   "step": "replace_it_with_no_cache"
+  },
+  {
+   "name": "cache_state_at",
+   "shape": "instant",
+   "step": "resolve_the_cache"
+  },
+  {
+   "name": "record_the_vacuum_choice_committed_at",
+   "shape": "instant",
+   "step": "record_the_vacuum_choice"
+  },
+  {
+   "name": "record_the_vacuum_choice_sequence",
+   "shape": "integer",
+   "step": "record_the_vacuum_choice"
+  },
+  {
+   "name": "repo_memory_bytes_6",
+   "shape": "digest",
+   "step": "record_the_vacuum_choice"
+  },
+  {
+   "name": "repo_memory_head_6",
+   "shape": "digest",
+   "step": "record_the_vacuum_choice"
+  },
+  {
+   "name": "repo_memory_produced_6",
+   "shape": "instant",
+   "step": "record_the_vacuum_choice"
+  },
+  {
+   "name": "repo_memory_size_6",
+   "shape": "integer",
+   "step": "record_the_vacuum_choice"
+  },
+  {
+   "name": "vacuum",
+   "shape": "rec",
+   "step": "record_the_vacuum_choice"
+  },
+  {
+   "name": "vacuum_recorded_at",
+   "shape": "instant",
+   "step": "record_the_vacuum_choice"
+  },
+  {
+   "name": "adopt_the_vacuum_choice_committed_at",
+   "shape": "instant",
+   "step": "adopt_the_vacuum_choice"
+  },
+  {
+   "name": "adopt_the_vacuum_choice_sequence",
+   "shape": "integer",
+   "step": "adopt_the_vacuum_choice"
+  },
+  {
+   "name": "repo_memory_bytes_7",
+   "shape": "digest",
+   "step": "adopt_the_vacuum_choice"
+  },
+  {
+   "name": "repo_memory_head_7",
+   "shape": "digest",
+   "step": "adopt_the_vacuum_choice"
+  },
+  {
+   "name": "repo_memory_produced_7",
+   "shape": "instant",
+   "step": "adopt_the_vacuum_choice"
+  },
+  {
+   "name": "repo_memory_size_7",
+   "shape": "integer",
+   "step": "adopt_the_vacuum_choice"
+  },
+  {
+   "name": "vacuum_adopted",
+   "shape": "evt",
+   "step": "adopt_the_vacuum_choice"
+  },
+  {
+   "name": "vacuum_adopted_recorded_at",
+   "shape": "instant",
+   "step": "adopt_the_vacuum_choice"
+  },
+  {
+   "name": "repo_memory_bytes_8",
+   "shape": "digest",
+   "step": "withdraw_the_vacuum_choice"
+  },
+  {
+   "name": "repo_memory_head_8",
+   "shape": "digest",
+   "step": "withdraw_the_vacuum_choice"
+  },
+  {
+   "name": "repo_memory_produced_8",
+   "shape": "instant",
+   "step": "withdraw_the_vacuum_choice"
+  },
+  {
+   "name": "repo_memory_size_8",
+   "shape": "integer",
+   "step": "withdraw_the_vacuum_choice"
+  },
+  {
+   "name": "vacuum_withdrawn",
+   "shape": "evt",
+   "step": "withdraw_the_vacuum_choice"
+  },
+  {
+   "name": "vacuum_withdrawn_recorded_at",
+   "shape": "instant",
+   "step": "withdraw_the_vacuum_choice"
+  },
+  {
+   "name": "withdraw_the_vacuum_choice_committed_at",
+   "shape": "instant",
+   "step": "withdraw_the_vacuum_choice"
+  },
+  {
+   "name": "withdraw_the_vacuum_choice_sequence",
+   "shape": "integer",
+   "step": "withdraw_the_vacuum_choice"
+  },
+  {
+   "name": "vacuum_state_at",
+   "shape": "instant",
+   "step": "resolve_the_vacuum"
+  }
+ ],
+ "records": [
+  {
+   "digest": "18384bef243dee0085b73c694f900b4d9560d98cecd66c8df03e8aa55a8e4dad",
+   "name": "alice_key",
+   "record": {
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_a0e10a02258b9fabf22d403ded726575",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_daf6f777c4569bafe4c0e63e5ff63f78",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "455b7651434f9b16170b0a211f37673fd20f180e1ce766e051f41af7834ab09e",
+   "name": "bind_alice_key",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_a0e10a02258b9fabf22d403ded726575",
+     "principal_id": "prn_daf6f777c4569bafe4c0e63e5ff63f78",
+     "profile_id": "prf_7bc439e8403d6b65d9a39e28ffbd9618"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "identity.binding.add",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_daf6f777c4569bafe4c0e63e5ff63f78"
+    },
+    "payload_digest": "18384bef243dee0085b73c694f900b4d9560d98cecd66c8df03e8aa55a8e4dad",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_e548396b986b3499da647297add9557b",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_daf6f777c4569bafe4c0e63e5ff63f78"
+    }
+   }
+  },
+  {
+   "digest": "f22eb3353f8b94d3a4468cc3a430456f7efc1f2a55476e002de0cbe4a6a7462c",
+   "name": "alice_key_stored",
+   "record": {
+    "binding_id": "bnd_b8ff9cd980897a3ad6f1360bf8eff9d8",
+    "created_at": "2000-01-01T00:00:00Z",
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_a0e10a02258b9fabf22d403ded726575",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_daf6f777c4569bafe4c0e63e5ff63f78",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "7f8122dfbe4daff202a21560291e70a106ae8a25227f52c115afd69c31c6f3c8",
+   "name": "bind_alice_key_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "da0a505073ee9f4684611f1d1977c07308bd973c843bcd7cc85afe4adcaa6b06",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_daf6f777c4569bafe4c0e63e5ff63f78"
+    },
+    "request_digest": "455b7651434f9b16170b0a211f37673fd20f180e1ce766e051f41af7834ab09e",
+    "request_id": "req_e548396b986b3499da647297add9557b",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prn_daf6f777c4569bafe4c0e63e5ff63f78"
+    }
+   }
+  },
+  {
+   "digest": "300203fc34609c8507a423c6c4865ba768940369abe369ee7c0280bf5950cf51",
+   "name": "bind_alice_key_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "7f8122dfbe4daff202a21560291e70a106ae8a25227f52c115afd69c31c6f3c8",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "f22eb3353f8b94d3a4468cc3a430456f7efc1f2a55476e002de0cbe4a6a7462c",
+      "kind": "principal_binding"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "455b7651434f9b16170b0a211f37673fd20f180e1ce766e051f41af7834ab09e",
+    "request_id": "req_e548396b986b3499da647297add9557b",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "2c3c323086e057154699c54c597e18bd7f35c3994e3400334eb74d2728c1ede6",
+   "name": "alice_checkout",
+   "record": {
+    "kind": "repository_binding",
+    "relation": {
+     "how": "clone"
+    },
+    "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "b7a7efcb3db71061d07c9d8ff8e10b92dcbd25e7db1f496233e2447817ff0b24",
+   "name": "bind_alice_checkout",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_a0e10a02258b9fabf22d403ded726575",
+     "principal_id": "prn_daf6f777c4569bafe4c0e63e5ff63f78",
+     "profile_id": "prf_7bc439e8403d6b65d9a39e28ffbd9618"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "repository.bind",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_daf6f777c4569bafe4c0e63e5ff63f78"
+    },
+    "payload_digest": "2c3c323086e057154699c54c597e18bd7f35c3994e3400334eb74d2728c1ede6",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_4dc157f645c73d51503d89d6365377fc",
+    "schema": 1,
+    "target": {
+     "resource_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    }
+   }
+  },
+  {
+   "digest": "a54bc69bc05d5666ee7ce0687f41271cf7a0110459e25c17d60e58497f09f531",
+   "name": "alice_checkout_bound",
+   "record": {
+    "kind": "repository_binding",
+    "observed": {
+     "branch": "main",
+     "commit": "0123456789abcdef0123456789abcdef01234567",
+     "locator": "git@github.com:example/work.git"
+    },
+    "relation": {
+     "how": "clone"
+    },
+    "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "7309f4bacb12851d47b886c3ed0fa15041f4f56ef74324506a777f67ecdb1c3e",
+   "name": "bind_alice_checkout_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "8885c39f3701cc8d2177d2f25999d7b230b2e3f1c7dbf73c5ad2812f2a8e3f71",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_daf6f777c4569bafe4c0e63e5ff63f78"
+    },
+    "request_digest": "b7a7efcb3db71061d07c9d8ff8e10b92dcbd25e7db1f496233e2447817ff0b24",
+    "request_id": "req_4dc157f645c73d51503d89d6365377fc",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    }
+   }
+  },
+  {
+   "digest": "64bb427740a51d654003ff839d69d0ae3d7360a7834c043b05dfc2a0544195f4",
+   "name": "bind_alice_checkout_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "7309f4bacb12851d47b886c3ed0fa15041f4f56ef74324506a777f67ecdb1c3e",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "a54bc69bc05d5666ee7ce0687f41271cf7a0110459e25c17d60e58497f09f531",
+      "kind": "repository_binding"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "b7a7efcb3db71061d07c9d8ff8e10b92dcbd25e7db1f496233e2447817ff0b24",
+    "request_id": "req_4dc157f645c73d51503d89d6365377fc",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "c3fc6649e8f11e2c0a8171e84f1e462d8ca594814698d2a325639e8d97de045f",
+   "name": "repo_memory_home",
+   "record": {
+    "acceptance_authority": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "applicability": {
+     "states": "unstated"
+    },
+    "disclosure": "private",
+    "format_version": 1,
+    "home": {
+     "binding_evidence_digest": "a54bc69bc05d5666ee7ce0687f41271cf7a0110459e25c17d60e58497f09f531",
+     "document_root": "docs/decisions",
+     "mode": "repository_authored",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "kind": "source_home",
+    "publication_evidence_digests": [],
+    "retention": {
+     "keep": "until_withdrawn"
+    },
+    "role": "memory",
+    "schema": 1,
+    "scope": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "source_id": "src_16c8edf57faf768e788a29a9e8b74354"
+   }
+  },
+  {
+   "digest": "3fbc84bfa33449e3e2bb3aeec96aa6765a09d3024d62297318333c7a47502588",
+   "name": "register_repo_memory",
+   "record": {
+    "action": "publish",
+    "actor": {
+     "device_id": "dev_a0e10a02258b9fabf22d403ded726575",
+     "principal_id": "prn_daf6f777c4569bafe4c0e63e5ff63f78",
+     "profile_id": "prf_7bc439e8403d6b65d9a39e28ffbd9618"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "source.home.register",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "payload_digest": "c3fc6649e8f11e2c0a8171e84f1e462d8ca594814698d2a325639e8d97de045f",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_bf3d35e3e9ca00cf7b60234bf36f14c3",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_16c8edf57faf768e788a29a9e8b74354"
+    }
+   }
+  },
+  {
+   "digest": "db2c161a52e0121554359dfab298d18dc47341063f176d7eec91368801292edf",
+   "name": "repo_memory_registered",
+   "record": {
+    "acceptance_authority": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "applicability": {
+     "states": "unstated"
+    },
+    "disclosure": "private",
+    "format_version": 1,
+    "home": {
+     "binding_evidence_digest": "a54bc69bc05d5666ee7ce0687f41271cf7a0110459e25c17d60e58497f09f531",
+     "document_root": "docs/decisions",
+     "mode": "repository_authored",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "kind": "source_home",
+    "publication_evidence_digests": [],
+    "registered_at": "2000-01-01T00:00:00Z",
+    "retention": {
+     "keep": "until_withdrawn"
+    },
+    "role": "memory",
+    "schema": 1,
+    "scope": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "source_id": "src_16c8edf57faf768e788a29a9e8b74354"
+   }
+  },
+  {
+   "digest": "43a40a01d61452b8312b7dcbc43a76e95ebc7bbffba2f6be3082558fa2f991c0",
+   "name": "register_repo_memory_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "b22add84a0a35c1eec694a025fdcb363127443ea847ed4aff0e3e8e1e1609769",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "request_digest": "3fbc84bfa33449e3e2bb3aeec96aa6765a09d3024d62297318333c7a47502588",
+    "request_id": "req_bf3d35e3e9ca00cf7b60234bf36f14c3",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_16c8edf57faf768e788a29a9e8b74354"
+    }
+   }
+  },
+  {
+   "digest": "7449c71eaed0cb7ee39321bcb7afb972298f13ee862b1ebd72567456dc131270",
+   "name": "register_repo_memory_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "43a40a01d61452b8312b7dcbc43a76e95ebc7bbffba2f6be3082558fa2f991c0",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "db2c161a52e0121554359dfab298d18dc47341063f176d7eec91368801292edf",
+      "kind": "source_home"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "3fbc84bfa33449e3e2bb3aeec96aa6765a09d3024d62297318333c7a47502588",
+    "request_id": "req_bf3d35e3e9ca00cf7b60234bf36f14c3",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "394c04cd5ab242a3d723b563508a59d4c6916372727aad0cd1312e43226da54f",
+   "name": "page_size_submitted",
+   "record": {
+    "alternatives": [
+     {
+      "choice": "4 KiB pages",
+      "reason": "More reads per commit."
+     }
+    ],
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "repository",
+       "value": "this one"
+      }
+     ],
+     "states": "stated"
+    },
+    "basis": [
+     {
+      "as_stated": "The page-size benchmark from the old repository.",
+      "record_id": "rec_410b00a263054cb7ad816e20a4ef6efb",
+      "relies_on": "record"
+     }
+    ],
+    "choice": "16 KiB pages.",
+    "home": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "kind": "choice_record",
+    "question": "What page size does the local database use?",
+    "reason": "The measurement it relies on favoured 16 KiB.",
+    "schema": 1,
+    "workstream_ids": []
+   }
+  },
+  {
+   "digest": "c91ce701fa17d7e296265211603326f1e2922eaa0496c8c9f163a5b843a055d9",
+   "name": "record_a_choice_relying_on_a_missing_record",
+   "record": {
+    "action": "publish",
+    "actor": {
+     "device_id": "dev_a0e10a02258b9fabf22d403ded726575",
+     "principal_id": "prn_daf6f777c4569bafe4c0e63e5ff63f78",
+     "profile_id": "prf_7bc439e8403d6b65d9a39e28ffbd9618"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "memory.record.publish",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "payload_digest": "394c04cd5ab242a3d723b563508a59d4c6916372727aad0cd1312e43226da54f",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_e95802fb3dee78784fa2e1da80110d46",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "b22add84a0a35c1eec694a025fdcb363127443ea847ed4aff0e3e8e1e1609769"
+     },
+     "resource_id": "src_16c8edf57faf768e788a29a9e8b74354"
+    }
+   }
+  },
+  {
+   "digest": "7f1165c4f63efdf5e675c6df7333114f27a963439e49172aeb214b03f13ef803",
+   "name": "page_size_stored",
+   "record": {
+    "alternatives": [
+     {
+      "choice": "4 KiB pages",
+      "reason": "More reads per commit."
+     }
+    ],
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "repository",
+       "value": "this one"
+      }
+     ],
+     "states": "stated"
+    },
+    "basis": [
+     {
+      "as_stated": "The page-size benchmark from the old repository.",
+      "record_id": "rec_410b00a263054cb7ad816e20a4ef6efb",
+      "relies_on": "record"
+     }
+    ],
+    "choice": "16 KiB pages.",
+    "home": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "kind": "choice_record",
+    "question": "What page size does the local database use?",
+    "reason": "The measurement it relies on favoured 16 KiB.",
+    "record_id": "rec_eca7e82d02368a9934d86f06a4bf2faa",
+    "recorded_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "workstream_ids": []
+   }
+  },
+  {
+   "digest": "05dbe39816bff2a61d238558330825d9e2d536f73e838c39a83d5f8fd58197ca",
+   "name": "repo_memory_manifest_2",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "0c7acfbd46a78e0936d4a7467629cc2a64a4f35b3c4882776de18ff1293e1ba8",
+      "path": "memory/records.jsonl",
+      "size": 1
+     }
+    ],
+    "produced_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "source_id": "src_16c8edf57faf768e788a29a9e8b74354"
+   }
+  },
+  {
+   "digest": "6f3ff16a895efef9d22d90584b800ef4445bd22d2af39c9db9f87a032a8c376f",
+   "name": "record_a_choice_relying_on_a_missing_record_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "fde969432054e2c13ccb1ebb2157ee85993594bf945cf98064d9dc968ed08dc0",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "request_digest": "c91ce701fa17d7e296265211603326f1e2922eaa0496c8c9f163a5b843a055d9",
+    "request_id": "req_e95802fb3dee78784fa2e1da80110d46",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "b22add84a0a35c1eec694a025fdcb363127443ea847ed4aff0e3e8e1e1609769"
+     },
+     "resource_id": "src_16c8edf57faf768e788a29a9e8b74354"
+    }
+   }
+  },
+  {
+   "digest": "1ef8cbde11740b3b409938637c762c447bfe67e8b16e72ff5ebf5740b428192e",
+   "name": "record_a_choice_relying_on_a_missing_record_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "6f3ff16a895efef9d22d90584b800ef4445bd22d2af39c9db9f87a032a8c376f",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "7f1165c4f63efdf5e675c6df7333114f27a963439e49172aeb214b03f13ef803",
+      "kind": "choice_record"
+     },
+     {
+      "digest": "05dbe39816bff2a61d238558330825d9e2d536f73e838c39a83d5f8fd58197ca",
+      "kind": "source_manifest"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "c91ce701fa17d7e296265211603326f1e2922eaa0496c8c9f163a5b843a055d9",
+    "request_id": "req_e95802fb3dee78784fa2e1da80110d46",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "11e544709c72aa55bb58797a2f60be192e2c6bcf6a1868cc88fe1d29a490991d",
+   "name": "page_question",
+   "record": {
+    "concern": {
+     "conditions": [
+      {
+       "dimension": "repository",
+       "value": "this one"
+      }
+     ],
+     "question": "What page size does the local database use?"
+    },
+    "include_superseded": false,
+    "kind": "state_question",
+    "schema": 1,
+    "scopes": [
+     {
+      "layer": "repository",
+      "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+     }
+    ]
+   }
+  },
+  {
+   "digest": "f45db6453c8d4716889d50bc97e7be348fb06789290b9be8a07dd8b6cdbba63c",
+   "name": "resolve_the_page_size",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_a0e10a02258b9fabf22d403ded726575",
+     "principal_id": "prn_daf6f777c4569bafe4c0e63e5ff63f78",
+     "profile_id": "prf_7bc439e8403d6b65d9a39e28ffbd9618"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "memory.state.resolve",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_daf6f777c4569bafe4c0e63e5ff63f78"
+    },
+    "payload_digest": "11e544709c72aa55bb58797a2f60be192e2c6bcf6a1868cc88fe1d29a490991d",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_275da33f022715ddc3933ca1540e61e4",
+    "schema": 1,
+    "target": {
+     "resource_id": "cnc_90d5a4ae9f5bed0f24d01ecaa7dbcfe1"
+    }
+   }
+  },
+  {
+   "digest": "fdfd586a4734e086256e4f28f15120343643c9ec94232d3e0d08bea3fd926c18",
+   "name": "page_state",
+   "record": {
+    "comparison": {
+     "compared": 2,
+     "unreachable": 1
+    },
+    "entries": [
+     {
+      "record_id": "rec_eca7e82d02368a9934d86f06a4bf2faa",
+      "source_id": "src_16c8edf57faf768e788a29a9e8b74354",
+      "standing": "unresolved"
+     }
+    ],
+    "frontiers": [
+     {
+      "checkpoint_digest": "fde969432054e2c13ccb1ebb2157ee85993594bf945cf98064d9dc968ed08dc0",
+      "source_id": "src_16c8edf57faf768e788a29a9e8b74354"
+     }
+    ],
+    "kind": "qualified_state",
+    "material_gaps": [
+     {
+      "code": "basis_target_missing",
+      "pointer": "/entries/0"
+     }
+    ],
+    "prepared_at": "2000-01-01T00:00:00Z",
+    "question_digest": "11e544709c72aa55bb58797a2f60be192e2c6bcf6a1868cc88fe1d29a490991d",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "55a58ee36ba11b4c91f1ab3d11ace841bd00ac39e8704c45811c49cf152e1d23",
+   "name": "resolve_the_page_size_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "fdfd586a4734e086256e4f28f15120343643c9ec94232d3e0d08bea3fd926c18",
+      "kind": "qualified_state"
+     }
+    ],
+    "provider_effect": "none",
+    "request_digest": "f45db6453c8d4716889d50bc97e7be348fb06789290b9be8a07dd8b6cdbba63c",
+    "request_id": "req_275da33f022715ddc3933ca1540e61e4",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "cf9e111767bf93bfcef11b6a21d396d10bdcda1d4a8483b18f6288563c16e84c",
+   "name": "cache_small_submitted",
+   "record": {
+    "alternatives": [
+     {
+      "choice": "No cache limit",
+      "reason": "Memory grows with the database."
+     }
+    ],
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "repository",
+       "value": "this one"
+      }
+     ],
+     "states": "stated"
+    },
+    "choice": "A 2 MiB page cache.",
+    "home": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "kind": "choice_record",
+    "question": "How large is the page cache?",
+    "reason": "Fits the smallest laptop.",
+    "schema": 1,
+    "workstream_ids": []
+   }
+  },
+  {
+   "digest": "9be2cb694f3b80fe31bf7baf604f5689d9c8aaf9fdfe34026f2930349913f75b",
+   "name": "record_the_cache_choice",
+   "record": {
+    "action": "publish",
+    "actor": {
+     "device_id": "dev_a0e10a02258b9fabf22d403ded726575",
+     "principal_id": "prn_daf6f777c4569bafe4c0e63e5ff63f78",
+     "profile_id": "prf_7bc439e8403d6b65d9a39e28ffbd9618"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "memory.record.publish",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "payload_digest": "cf9e111767bf93bfcef11b6a21d396d10bdcda1d4a8483b18f6288563c16e84c",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_d0ccd94993d9392a9001cc1f8a04d5d0",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "fde969432054e2c13ccb1ebb2157ee85993594bf945cf98064d9dc968ed08dc0"
+     },
+     "resource_id": "src_16c8edf57faf768e788a29a9e8b74354"
+    }
+   }
+  },
+  {
+   "digest": "6d22c80346bc8d7abb7a92c93c006419a267b24351461106f297cca631ba5fb3",
+   "name": "cache_small_stored",
+   "record": {
+    "alternatives": [
+     {
+      "choice": "No cache limit",
+      "reason": "Memory grows with the database."
+     }
+    ],
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "repository",
+       "value": "this one"
+      }
+     ],
+     "states": "stated"
+    },
+    "choice": "A 2 MiB page cache.",
+    "home": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "kind": "choice_record",
+    "question": "How large is the page cache?",
+    "reason": "Fits the smallest laptop.",
+    "record_id": "rec_9c8626b9c5c9ab002f80fb087dd5b6fa",
+    "recorded_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "workstream_ids": []
+   }
+  },
+  {
+   "digest": "5d6f1bd5a26d2c233d60e3d89da27c09b388d3b3e68b44153a361e5c34393750",
+   "name": "repo_memory_manifest_3",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "cc1f633524e4eb56ee2a68fbda8fd92a2f25cdb5460478cb4ddfd1bcabda1d24",
+      "path": "memory/records.jsonl",
+      "size": 1
+     }
+    ],
+    "produced_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "source_id": "src_16c8edf57faf768e788a29a9e8b74354"
+   }
+  },
+  {
+   "digest": "6aa75c7e4af50e77882eeed7f421052c54ad9688793319a4a9b4e30f2925906a",
+   "name": "record_the_cache_choice_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "676e9caa1fdebe1407bb7321c56d6d4a61dab5e5c345f4581d3a3fe7a9de4ba0",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "request_digest": "9be2cb694f3b80fe31bf7baf604f5689d9c8aaf9fdfe34026f2930349913f75b",
+    "request_id": "req_d0ccd94993d9392a9001cc1f8a04d5d0",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "fde969432054e2c13ccb1ebb2157ee85993594bf945cf98064d9dc968ed08dc0"
+     },
+     "resource_id": "src_16c8edf57faf768e788a29a9e8b74354"
+    }
+   }
+  },
+  {
+   "digest": "1aba01d740a2a5cf347699f867621a745520f33eaae0db6b294d0df1a9341910",
+   "name": "record_the_cache_choice_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "6aa75c7e4af50e77882eeed7f421052c54ad9688793319a4a9b4e30f2925906a",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "6d22c80346bc8d7abb7a92c93c006419a267b24351461106f297cca631ba5fb3",
+      "kind": "choice_record"
+     },
+     {
+      "digest": "5d6f1bd5a26d2c233d60e3d89da27c09b388d3b3e68b44153a361e5c34393750",
+      "kind": "source_manifest"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "9be2cb694f3b80fe31bf7baf604f5689d9c8aaf9fdfe34026f2930349913f75b",
+    "request_id": "req_d0ccd94993d9392a9001cc1f8a04d5d0",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "e178df94d777e37bb50ef44eecae65bd66c69d9debfb90637d02c76591c4fc9d",
+   "name": "cache_large_submitted",
+   "record": {
+    "alternatives": [
+     {
+      "choice": "A 2 MiB page cache",
+      "reason": "Too many misses on large reads."
+     }
+    ],
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "repository",
+       "value": "this one"
+      }
+     ],
+     "states": "stated"
+    },
+    "choice": "A 64 MiB page cache.",
+    "home": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "kind": "choice_record",
+    "question": "How large is the page cache?",
+    "reason": "Large reads dominate.",
+    "replaces": {
+     "extent": "whole",
+     "record_id": "rec_9c8626b9c5c9ab002f80fb087dd5b6fa"
+    },
+    "schema": 1,
+    "workstream_ids": []
+   }
+  },
+  {
+   "digest": "1257c244c403f0f416573178453248044decaa76f3b2084b9590ab3fb4bea6c8",
+   "name": "replace_it_with_a_larger_cache",
+   "record": {
+    "action": "publish",
+    "actor": {
+     "device_id": "dev_a0e10a02258b9fabf22d403ded726575",
+     "principal_id": "prn_daf6f777c4569bafe4c0e63e5ff63f78",
+     "profile_id": "prf_7bc439e8403d6b65d9a39e28ffbd9618"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "memory.record.publish",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "payload_digest": "e178df94d777e37bb50ef44eecae65bd66c69d9debfb90637d02c76591c4fc9d",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_ff32d07d7dc2e6629de250182fa187cc",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "676e9caa1fdebe1407bb7321c56d6d4a61dab5e5c345f4581d3a3fe7a9de4ba0"
+     },
+     "resource_id": "src_16c8edf57faf768e788a29a9e8b74354"
+    }
+   }
+  },
+  {
+   "digest": "6020e0c130ff9cc5b794e06b80b8800bcd74ff75d2e2805e373957dd5ea4d450",
+   "name": "cache_large_stored",
+   "record": {
+    "alternatives": [
+     {
+      "choice": "A 2 MiB page cache",
+      "reason": "Too many misses on large reads."
+     }
+    ],
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "repository",
+       "value": "this one"
+      }
+     ],
+     "states": "stated"
+    },
+    "choice": "A 64 MiB page cache.",
+    "home": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "kind": "choice_record",
+    "question": "How large is the page cache?",
+    "reason": "Large reads dominate.",
+    "record_id": "rec_6f65d96093e14b11f9144c6b9bd851ff",
+    "recorded_at": "2000-01-01T00:00:00Z",
+    "replaces": {
+     "extent": "whole",
+     "record_id": "rec_9c8626b9c5c9ab002f80fb087dd5b6fa"
+    },
+    "schema": 1,
+    "workstream_ids": []
+   }
+  },
+  {
+   "digest": "f6bc6109a08c75915dfda63d1aa6af587fcbe4e9b6c1fc43faf719e66a0fd8d4",
+   "name": "repo_memory_manifest_4",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "5f2b2456189363ef0549df8f74d39520fd5d359bd885d39e0aabb85f5c957c96",
+      "path": "memory/records.jsonl",
+      "size": 1
+     }
+    ],
+    "produced_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "source_id": "src_16c8edf57faf768e788a29a9e8b74354"
+   }
+  },
+  {
+   "digest": "741e5709031d8eb20345c72a2151680b5bfc0de1e51b3567455107838ff21559",
+   "name": "replace_it_with_a_larger_cache_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "57e4692aa13032c59dc8c0c2d1738f0027eecfd04addeab0c6e881f330d7a470",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "request_digest": "1257c244c403f0f416573178453248044decaa76f3b2084b9590ab3fb4bea6c8",
+    "request_id": "req_ff32d07d7dc2e6629de250182fa187cc",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "676e9caa1fdebe1407bb7321c56d6d4a61dab5e5c345f4581d3a3fe7a9de4ba0"
+     },
+     "resource_id": "src_16c8edf57faf768e788a29a9e8b74354"
+    }
+   }
+  },
+  {
+   "digest": "a3522f76f608a7c7a039ac4f1ef47554fd290ef6be44f8f234f6da127bcab708",
+   "name": "replace_it_with_a_larger_cache_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "741e5709031d8eb20345c72a2151680b5bfc0de1e51b3567455107838ff21559",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "6020e0c130ff9cc5b794e06b80b8800bcd74ff75d2e2805e373957dd5ea4d450",
+      "kind": "choice_record"
+     },
+     {
+      "digest": "f6bc6109a08c75915dfda63d1aa6af587fcbe4e9b6c1fc43faf719e66a0fd8d4",
+      "kind": "source_manifest"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "1257c244c403f0f416573178453248044decaa76f3b2084b9590ab3fb4bea6c8",
+    "request_id": "req_ff32d07d7dc2e6629de250182fa187cc",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "1963f5afea3e9c35a201b0531fe9138ed5d759e9fb30a634966500a2e24a0bb0",
+   "name": "cache_off_submitted",
+   "record": {
+    "alternatives": [
+     {
+      "choice": "A 2 MiB page cache",
+      "reason": "Double caching."
+     }
+    ],
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "repository",
+       "value": "this one"
+      }
+     ],
+     "states": "stated"
+    },
+    "choice": "No page cache beyond the OS.",
+    "home": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "kind": "choice_record",
+    "question": "How large is the page cache?",
+    "reason": "The OS cache already holds the hot pages.",
+    "replaces": {
+     "extent": "whole",
+     "record_id": "rec_9c8626b9c5c9ab002f80fb087dd5b6fa"
+    },
+    "schema": 1,
+    "workstream_ids": []
+   }
+  },
+  {
+   "digest": "78dc2fd688b6e115a42f6eafbde3511c73c059991c7d87416fd1d627c1996e20",
+   "name": "replace_it_with_no_cache",
+   "record": {
+    "action": "publish",
+    "actor": {
+     "device_id": "dev_a0e10a02258b9fabf22d403ded726575",
+     "principal_id": "prn_daf6f777c4569bafe4c0e63e5ff63f78",
+     "profile_id": "prf_7bc439e8403d6b65d9a39e28ffbd9618"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "memory.record.publish",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "payload_digest": "1963f5afea3e9c35a201b0531fe9138ed5d759e9fb30a634966500a2e24a0bb0",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_8413bcdb028bb0a450b7ed8c7cf2d5d8",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "57e4692aa13032c59dc8c0c2d1738f0027eecfd04addeab0c6e881f330d7a470"
+     },
+     "resource_id": "src_16c8edf57faf768e788a29a9e8b74354"
+    }
+   }
+  },
+  {
+   "digest": "36ac28ddafc8aa4d1ffb0670ea8aca5154737f7bc4382c0108b28b1fe804cfdc",
+   "name": "cache_off_stored",
+   "record": {
+    "alternatives": [
+     {
+      "choice": "A 2 MiB page cache",
+      "reason": "Double caching."
+     }
+    ],
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "repository",
+       "value": "this one"
+      }
+     ],
+     "states": "stated"
+    },
+    "choice": "No page cache beyond the OS.",
+    "home": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "kind": "choice_record",
+    "question": "How large is the page cache?",
+    "reason": "The OS cache already holds the hot pages.",
+    "record_id": "rec_52f8023df8c6e1eec59b7509ae7e74cf",
+    "recorded_at": "2000-01-01T00:00:00Z",
+    "replaces": {
+     "extent": "whole",
+     "record_id": "rec_9c8626b9c5c9ab002f80fb087dd5b6fa"
+    },
+    "schema": 1,
+    "workstream_ids": []
+   }
+  },
+  {
+   "digest": "0665d02f17417908a54055300bcbc86d3dc19723309dd8dcb5da2f662dd19055",
+   "name": "repo_memory_manifest_5",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "69545349dd9a9a3c29d454765524e8fdf2f285d548bab92d790da12803c012b2",
+      "path": "memory/records.jsonl",
+      "size": 1
+     }
+    ],
+    "produced_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "source_id": "src_16c8edf57faf768e788a29a9e8b74354"
+   }
+  },
+  {
+   "digest": "50e151eb01552a8f28fb23db1090f6a5a2bf677da4237d450418571914ace251",
+   "name": "replace_it_with_no_cache_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "396cccfddb2e3d03ac92180d534acbd68cec4fab0e1fa823b89246b21ab2b755",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "request_digest": "78dc2fd688b6e115a42f6eafbde3511c73c059991c7d87416fd1d627c1996e20",
+    "request_id": "req_8413bcdb028bb0a450b7ed8c7cf2d5d8",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "57e4692aa13032c59dc8c0c2d1738f0027eecfd04addeab0c6e881f330d7a470"
+     },
+     "resource_id": "src_16c8edf57faf768e788a29a9e8b74354"
+    }
+   }
+  },
+  {
+   "digest": "883f4326cf0fa75ddacc94e39ca9f25e6dd04fcf6a11298e669e5e1fb257d75f",
+   "name": "replace_it_with_no_cache_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "50e151eb01552a8f28fb23db1090f6a5a2bf677da4237d450418571914ace251",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "36ac28ddafc8aa4d1ffb0670ea8aca5154737f7bc4382c0108b28b1fe804cfdc",
+      "kind": "choice_record"
+     },
+     {
+      "digest": "0665d02f17417908a54055300bcbc86d3dc19723309dd8dcb5da2f662dd19055",
+      "kind": "source_manifest"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "78dc2fd688b6e115a42f6eafbde3511c73c059991c7d87416fd1d627c1996e20",
+    "request_id": "req_8413bcdb028bb0a450b7ed8c7cf2d5d8",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "c9fcc42cb8456e8e1897b9f467393f7d27e01d10b4574741e793dbb95c0d5d35",
+   "name": "cache_question",
+   "record": {
+    "concern": {
+     "conditions": [
+      {
+       "dimension": "repository",
+       "value": "this one"
+      }
+     ],
+     "question": "How large is the page cache?"
+    },
+    "include_superseded": false,
+    "kind": "state_question",
+    "schema": 1,
+    "scopes": [
+     {
+      "layer": "repository",
+      "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+     }
+    ]
+   }
+  },
+  {
+   "digest": "cf94da4036c13ebd82d41acabd1559a523c67a70f5ce319ea786b6977c0f1368",
+   "name": "resolve_the_cache",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_a0e10a02258b9fabf22d403ded726575",
+     "principal_id": "prn_daf6f777c4569bafe4c0e63e5ff63f78",
+     "profile_id": "prf_7bc439e8403d6b65d9a39e28ffbd9618"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "memory.state.resolve",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_daf6f777c4569bafe4c0e63e5ff63f78"
+    },
+    "payload_digest": "c9fcc42cb8456e8e1897b9f467393f7d27e01d10b4574741e793dbb95c0d5d35",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_2946cf3eef7468af9c3870b51577dd0a",
+    "schema": 1,
+    "target": {
+     "resource_id": "cnc_9610f810c66eac4fb9d7da4b79c3a9f6"
+    }
+   }
+  },
+  {
+   "digest": "6ed214a865476a9be871848daae9ee379c65b9d75d955691067ff9707a6dc8b3",
+   "name": "cache_state",
+   "record": {
+    "comparison": {
+     "compared": 3,
+     "unreachable": 0
+    },
+    "entries": [
+     {
+      "qualification": "Two records declare they replace it whole.",
+      "record_id": "rec_9c8626b9c5c9ab002f80fb087dd5b6fa",
+      "source_id": "src_16c8edf57faf768e788a29a9e8b74354",
+      "standing": "unresolved"
+     },
+     {
+      "record_id": "rec_6f65d96093e14b11f9144c6b9bd851ff",
+      "source_id": "src_16c8edf57faf768e788a29a9e8b74354",
+      "standing": "unresolved"
+     },
+     {
+      "record_id": "rec_52f8023df8c6e1eec59b7509ae7e74cf",
+      "source_id": "src_16c8edf57faf768e788a29a9e8b74354",
+      "standing": "unresolved"
+     }
+    ],
+    "frontiers": [
+     {
+      "checkpoint_digest": "396cccfddb2e3d03ac92180d534acbd68cec4fab0e1fa823b89246b21ab2b755",
+      "source_id": "src_16c8edf57faf768e788a29a9e8b74354"
+     }
+    ],
+    "kind": "qualified_state",
+    "material_gaps": [
+     {
+      "code": "competing_successors",
+      "pointer": "/entries/0"
+     },
+     {
+      "code": "competing_successors",
+      "pointer": "/entries/1"
+     },
+     {
+      "code": "competing_successors",
+      "pointer": "/entries/2"
+     }
+    ],
+    "prepared_at": "2000-01-01T00:00:00Z",
+    "question_digest": "c9fcc42cb8456e8e1897b9f467393f7d27e01d10b4574741e793dbb95c0d5d35",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "e343f61ba03c7c42da6d6534543d49f8e05204e7d3371d8276cbb9fc40b647d8",
+   "name": "resolve_the_cache_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "6ed214a865476a9be871848daae9ee379c65b9d75d955691067ff9707a6dc8b3",
+      "kind": "qualified_state"
+     }
+    ],
+    "provider_effect": "none",
+    "request_digest": "cf94da4036c13ebd82d41acabd1559a523c67a70f5ce319ea786b6977c0f1368",
+    "request_id": "req_2946cf3eef7468af9c3870b51577dd0a",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "47c464d5523fde22de2d434828c95a8ba03a67e922d9d490a022d7964e0e918d",
+   "name": "vacuum_submitted",
+   "record": {
+    "alternatives": [
+     {
+      "choice": "Auto-vacuum",
+      "reason": "Fragmentation spikes on large deletes."
+     }
+    ],
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "repository",
+       "value": "this one"
+      }
+     ],
+     "states": "stated"
+    },
+    "choice": "Vacuum weekly.",
+    "home": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "kind": "choice_record",
+    "question": "When is the database vacuumed?",
+    "reason": "Predictable pauses.",
+    "schema": 1,
+    "workstream_ids": []
+   }
+  },
+  {
+   "digest": "6aacf974ca9420bd2424d4c6b9e4d362b0d05703a6e44aba4c45188657c88caa",
+   "name": "record_the_vacuum_choice",
+   "record": {
+    "action": "publish",
+    "actor": {
+     "device_id": "dev_a0e10a02258b9fabf22d403ded726575",
+     "principal_id": "prn_daf6f777c4569bafe4c0e63e5ff63f78",
+     "profile_id": "prf_7bc439e8403d6b65d9a39e28ffbd9618"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "memory.record.publish",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "payload_digest": "47c464d5523fde22de2d434828c95a8ba03a67e922d9d490a022d7964e0e918d",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_d2acc3a879a065e7a9a3440086787685",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "396cccfddb2e3d03ac92180d534acbd68cec4fab0e1fa823b89246b21ab2b755"
+     },
+     "resource_id": "src_16c8edf57faf768e788a29a9e8b74354"
+    }
+   }
+  },
+  {
+   "digest": "c147188d0a66e65f5fd96c5f932b7a5c763bc30f1def78f72e927f29b57a3ac3",
+   "name": "vacuum_stored",
+   "record": {
+    "alternatives": [
+     {
+      "choice": "Auto-vacuum",
+      "reason": "Fragmentation spikes on large deletes."
+     }
+    ],
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "repository",
+       "value": "this one"
+      }
+     ],
+     "states": "stated"
+    },
+    "choice": "Vacuum weekly.",
+    "home": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "kind": "choice_record",
+    "question": "When is the database vacuumed?",
+    "reason": "Predictable pauses.",
+    "record_id": "rec_009aad2efca76454f2603916ca60a7b7",
+    "recorded_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "workstream_ids": []
+   }
+  },
+  {
+   "digest": "87ca594eb4264e153e271ef7e88e9118b737e79b375ff4b4ca76fd86805aa659",
+   "name": "repo_memory_manifest_6",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "f55bb0c08c1e36d969788a57df14fa5604e53714bc88eb7e5c82a066583299da",
+      "path": "memory/records.jsonl",
+      "size": 1
+     }
+    ],
+    "produced_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "source_id": "src_16c8edf57faf768e788a29a9e8b74354"
+   }
+  },
+  {
+   "digest": "67ed077896a98eae1a020b4fc2bd725ea29f590368d8d3a3471ab343be251af1",
+   "name": "record_the_vacuum_choice_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "6bf04e07e81cc60a8a21a9233b17b51d55849e9f9d90691cd47a884f69aac1a9",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "request_digest": "6aacf974ca9420bd2424d4c6b9e4d362b0d05703a6e44aba4c45188657c88caa",
+    "request_id": "req_d2acc3a879a065e7a9a3440086787685",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "396cccfddb2e3d03ac92180d534acbd68cec4fab0e1fa823b89246b21ab2b755"
+     },
+     "resource_id": "src_16c8edf57faf768e788a29a9e8b74354"
+    }
+   }
+  },
+  {
+   "digest": "bb6a58fc986de24d39047ea8acc77dc2cd20492c5840bfca686db07ceace6fd8",
+   "name": "record_the_vacuum_choice_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "67ed077896a98eae1a020b4fc2bd725ea29f590368d8d3a3471ab343be251af1",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "c147188d0a66e65f5fd96c5f932b7a5c763bc30f1def78f72e927f29b57a3ac3",
+      "kind": "choice_record"
+     },
+     {
+      "digest": "87ca594eb4264e153e271ef7e88e9118b737e79b375ff4b4ca76fd86805aa659",
+      "kind": "source_manifest"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "6aacf974ca9420bd2424d4c6b9e4d362b0d05703a6e44aba4c45188657c88caa",
+    "request_id": "req_d2acc3a879a065e7a9a3440086787685",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "bd64d52b2bd405577ede8019077e3f7a42b0f7ddfeb0d0fc2ebd5d4b20f38eaf",
+   "name": "vacuum_adopted_submitted",
+   "record": {
+    "attributed_to": "prn_daf6f777c4569bafe4c0e63e5ff63f78",
+    "effect": {
+     "did": "adopted"
+    },
+    "evidence_digests": [],
+    "kind": "lifecycle_event",
+    "occurred_at": "2026-09-21T10:00:00Z",
+    "schema": 1,
+    "target": {
+     "record_id": "rec_009aad2efca76454f2603916ca60a7b7",
+     "targets": "record"
+    }
+   }
+  },
+  {
+   "digest": "52ac50162288f100eb63508c2ba61b910fdfd9f1a4c48021125553eb65a4bd46",
+   "name": "adopt_the_vacuum_choice",
+   "record": {
+    "action": "publish",
+    "actor": {
+     "device_id": "dev_a0e10a02258b9fabf22d403ded726575",
+     "principal_id": "prn_daf6f777c4569bafe4c0e63e5ff63f78",
+     "profile_id": "prf_7bc439e8403d6b65d9a39e28ffbd9618"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "memory.lifecycle.apply",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "payload_digest": "bd64d52b2bd405577ede8019077e3f7a42b0f7ddfeb0d0fc2ebd5d4b20f38eaf",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_976d53c74af17f73d3943606648c710f",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "6bf04e07e81cc60a8a21a9233b17b51d55849e9f9d90691cd47a884f69aac1a9"
+     },
+     "resource_id": "src_16c8edf57faf768e788a29a9e8b74354"
+    }
+   }
+  },
+  {
+   "digest": "61710e14acba30dcff4d8d946b568df962f21b6845dced59a5d8b06d108c4996",
+   "name": "vacuum_adopted_stored",
+   "record": {
+    "attributed_to": "prn_daf6f777c4569bafe4c0e63e5ff63f78",
+    "effect": {
+     "did": "adopted"
+    },
+    "event_id": "evt_3e7b5d8bd577159e818ea26c93feb799",
+    "evidence_digests": [],
+    "kind": "lifecycle_event",
+    "occurred_at": "2026-09-21T10:00:00Z",
+    "recorded_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "target": {
+     "record_id": "rec_009aad2efca76454f2603916ca60a7b7",
+     "targets": "record"
+    }
+   }
+  },
+  {
+   "digest": "17d9aa34fb2ea2b4fa868e54235134045db64aead91c2b9efd74a1c7a47b0646",
+   "name": "repo_memory_manifest_7",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "6de27271ffa44f66facad357b39088fdc27ff2136e16e3fdff4dc10c24bfd4f0",
+      "path": "memory/records.jsonl",
+      "size": 1
+     }
+    ],
+    "produced_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "source_id": "src_16c8edf57faf768e788a29a9e8b74354"
+   }
+  },
+  {
+   "digest": "b33963736f020068cbddc3de67d33f5bbaea557cf215c6f958d1894bf9c9ac8d",
+   "name": "adopt_the_vacuum_choice_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "7ed0be5e06fc6d719ba4427b3241927ee58c397ce5cc6c7cc4a252fd1cd4be67",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "request_digest": "52ac50162288f100eb63508c2ba61b910fdfd9f1a4c48021125553eb65a4bd46",
+    "request_id": "req_976d53c74af17f73d3943606648c710f",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "6bf04e07e81cc60a8a21a9233b17b51d55849e9f9d90691cd47a884f69aac1a9"
+     },
+     "resource_id": "src_16c8edf57faf768e788a29a9e8b74354"
+    }
+   }
+  },
+  {
+   "digest": "457af4f14a4f2517749a3db9d30b9e3aec8b61d3dbfee41d21d9dbd48483ed59",
+   "name": "adopt_the_vacuum_choice_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "b33963736f020068cbddc3de67d33f5bbaea557cf215c6f958d1894bf9c9ac8d",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "61710e14acba30dcff4d8d946b568df962f21b6845dced59a5d8b06d108c4996",
+      "kind": "lifecycle_event"
+     },
+     {
+      "digest": "17d9aa34fb2ea2b4fa868e54235134045db64aead91c2b9efd74a1c7a47b0646",
+      "kind": "source_manifest"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "52ac50162288f100eb63508c2ba61b910fdfd9f1a4c48021125553eb65a4bd46",
+    "request_id": "req_976d53c74af17f73d3943606648c710f",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "8ab326793487f1229025d8b76555de98586b3a7a9ad3a99828566c811abed532",
+   "name": "vacuum_withdrawn_submitted",
+   "record": {
+    "attributed_to": "prn_daf6f777c4569bafe4c0e63e5ff63f78",
+    "effect": {
+     "did": "withdrawn"
+    },
+    "evidence_digests": [],
+    "kind": "lifecycle_event",
+    "occurred_at": "2026-09-21T10:00:00Z",
+    "schema": 1,
+    "target": {
+     "record_id": "rec_009aad2efca76454f2603916ca60a7b7",
+     "targets": "record"
+    }
+   }
+  },
+  {
+   "digest": "dc22c5d0c8d36b07b49827f21caf2b947f78e6dfa6d558d3a97b23ba4401f9ae",
+   "name": "withdraw_the_vacuum_choice",
+   "record": {
+    "action": "publish",
+    "actor": {
+     "device_id": "dev_a0e10a02258b9fabf22d403ded726575",
+     "principal_id": "prn_daf6f777c4569bafe4c0e63e5ff63f78",
+     "profile_id": "prf_7bc439e8403d6b65d9a39e28ffbd9618"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "memory.lifecycle.apply",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "payload_digest": "8ab326793487f1229025d8b76555de98586b3a7a9ad3a99828566c811abed532",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_102c5822b4b10dcd82a8d7e5bf2fb75a",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "7ed0be5e06fc6d719ba4427b3241927ee58c397ce5cc6c7cc4a252fd1cd4be67"
+     },
+     "resource_id": "src_16c8edf57faf768e788a29a9e8b74354"
+    }
+   }
+  },
+  {
+   "digest": "fc624e882c4fd13ea1c258722d54fe5e2f514f95f4195654246f9b34cbcf1504",
+   "name": "vacuum_withdrawn_stored",
+   "record": {
+    "attributed_to": "prn_daf6f777c4569bafe4c0e63e5ff63f78",
+    "effect": {
+     "did": "withdrawn"
+    },
+    "event_id": "evt_011a91be9be7d7aaf97d56f99d69002d",
+    "evidence_digests": [],
+    "kind": "lifecycle_event",
+    "occurred_at": "2026-09-21T10:00:00Z",
+    "recorded_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "target": {
+     "record_id": "rec_009aad2efca76454f2603916ca60a7b7",
+     "targets": "record"
+    }
+   }
+  },
+  {
+   "digest": "baeae19eb64adc031de393d92c451bdeaef93e3154a051c967afb5c80d928778",
+   "name": "repo_memory_manifest_8",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "a8093a08fe1fefe9b49a7891238a1b5267d11bf42a0b27c69a4eee903e7ece46",
+      "path": "memory/records.jsonl",
+      "size": 1
+     }
+    ],
+    "produced_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "source_id": "src_16c8edf57faf768e788a29a9e8b74354"
+   }
+  },
+  {
+   "digest": "558d511fd75b1859a072d2c36d1f7e9c52913dde1d917cce7a96a35e0a53ae02",
+   "name": "withdraw_the_vacuum_choice_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "eb7cc434a792acc7953ba52bbe39b6a12c27492505f6a4317e97714a354993c8",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+    },
+    "request_digest": "dc22c5d0c8d36b07b49827f21caf2b947f78e6dfa6d558d3a97b23ba4401f9ae",
+    "request_id": "req_102c5822b4b10dcd82a8d7e5bf2fb75a",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "7ed0be5e06fc6d719ba4427b3241927ee58c397ce5cc6c7cc4a252fd1cd4be67"
+     },
+     "resource_id": "src_16c8edf57faf768e788a29a9e8b74354"
+    }
+   }
+  },
+  {
+   "digest": "bcf913feb656f64e3b8f6d629ed3d2d1cd1e4734f203f9174650fc7d759f5999",
+   "name": "withdraw_the_vacuum_choice_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "558d511fd75b1859a072d2c36d1f7e9c52913dde1d917cce7a96a35e0a53ae02",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "fc624e882c4fd13ea1c258722d54fe5e2f514f95f4195654246f9b34cbcf1504",
+      "kind": "lifecycle_event"
+     },
+     {
+      "digest": "baeae19eb64adc031de393d92c451bdeaef93e3154a051c967afb5c80d928778",
+      "kind": "source_manifest"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "dc22c5d0c8d36b07b49827f21caf2b947f78e6dfa6d558d3a97b23ba4401f9ae",
+    "request_id": "req_102c5822b4b10dcd82a8d7e5bf2fb75a",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "c3e5ec6fa0445bf2fcfbee6bd74433a45c86daa884f07d3263d3638dc51ba95e",
+   "name": "vacuum_question",
+   "record": {
+    "concern": {
+     "conditions": [
+      {
+       "dimension": "repository",
+       "value": "this one"
+      }
+     ],
+     "question": "When is the database vacuumed?"
+    },
+    "include_superseded": false,
+    "kind": "state_question",
+    "schema": 1,
+    "scopes": [
+     {
+      "layer": "repository",
+      "repository_id": "rep_a278fd0c6f5497d2c7ab326e3239d1f4"
+     }
+    ]
+   }
+  },
+  {
+   "digest": "ca7c7f5fe616729a4b29780e16c00dae6d2713cf48b358ca654b013a5a619f6b",
+   "name": "resolve_the_vacuum",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_a0e10a02258b9fabf22d403ded726575",
+     "principal_id": "prn_daf6f777c4569bafe4c0e63e5ff63f78",
+     "profile_id": "prf_7bc439e8403d6b65d9a39e28ffbd9618"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "memory.state.resolve",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_daf6f777c4569bafe4c0e63e5ff63f78"
+    },
+    "payload_digest": "c3e5ec6fa0445bf2fcfbee6bd74433a45c86daa884f07d3263d3638dc51ba95e",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_a027d8c8591b1f3b2e63f671499543a8",
+    "schema": 1,
+    "target": {
+     "resource_id": "cnc_188e30b1712b8faa0057f4b5829bb76a"
+    }
+   }
+  },
+  {
+   "digest": "a0f4b33e2fbac1b3a781cd2705c8e355cb1b6dc78d9b02daba64c498280c7d87",
+   "name": "vacuum_state",
+   "record": {
+    "comparison": {
+     "compared": 1,
+     "unreachable": 0
+    },
+    "entries": [
+     {
+      "record_id": "rec_009aad2efca76454f2603916ca60a7b7",
+      "source_id": "src_16c8edf57faf768e788a29a9e8b74354",
+      "standing": "unresolved"
+     }
+    ],
+    "frontiers": [
+     {
+      "checkpoint_digest": "eb7cc434a792acc7953ba52bbe39b6a12c27492505f6a4317e97714a354993c8",
+      "source_id": "src_16c8edf57faf768e788a29a9e8b74354"
+     }
+    ],
+    "kind": "qualified_state",
+    "material_gaps": [
+     {
+      "code": "lifecycle_contradiction",
+      "pointer": "/entries/0"
+     }
+    ],
+    "prepared_at": "2000-01-01T00:00:00Z",
+    "question_digest": "c3e5ec6fa0445bf2fcfbee6bd74433a45c86daa884f07d3263d3638dc51ba95e",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "69325cb772d17654d090c010cf37d8c276ba4126e41821f4fb14cc83a7ce80d9",
+   "name": "resolve_the_vacuum_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "a0f4b33e2fbac1b3a781cd2705c8e355cb1b6dc78d9b02daba64c498280c7d87",
+      "kind": "qualified_state"
+     }
+    ],
+    "provider_effect": "none",
+    "request_digest": "ca7c7f5fe616729a4b29780e16c00dae6d2713cf48b358ca654b013a5a619f6b",
+    "request_id": "req_a027d8c8591b1f3b2e63f671499543a8",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  }
+ ],
+ "says": "Three concerns in the repository memory each have a flaw that must leave state unresolved rather than ranked. A page-size choice states reliance on a record this reader cannot reach: its entry is unresolved with basis_target_missing and the comparison counts the unreachable record. A cache choice is replaced whole by two later choices: the replaced entry and both successors are unresolved with competing_successors, and neither the newer nor the older successor wins. A vacuum choice is both adopted and withdrawn by events stating the same instant: its entry is unresolved with lifecycle_contradiction. In none of the three does a timestamp, an order or a ranking select a current entry.",
+ "spec_sha256": "b98ec954880fca5ff00a0bcd98b2456716a4aae4e8e60979c3fa7057c9250026",
+ "steps": [
+  {
+   "carries": [
+    "alice_key"
+   ],
+   "name": "bind_alice_key",
+   "request": "bind_alice_key",
+   "result": "bind_alice_key_result",
+   "returns": [
+    "alice_key_stored"
+   ]
+  },
+  {
+   "carries": [
+    "alice_checkout"
+   ],
+   "name": "bind_alice_checkout",
+   "request": "bind_alice_checkout",
+   "result": "bind_alice_checkout_result",
+   "returns": [
+    "alice_checkout_bound"
+   ]
+  },
+  {
+   "carries": [
+    "repo_memory_home"
+   ],
+   "head": "repo_memory_head_1",
+   "name": "register_repo_memory",
+   "request": "register_repo_memory",
+   "result": "register_repo_memory_result",
+   "returns": [
+    "repo_memory_registered"
+   ]
+  },
+  {
+   "carries": [
+    "page_size_submitted"
+   ],
+   "head": "repo_memory_head_2",
+   "name": "record_a_choice_relying_on_a_missing_record",
+   "request": "record_a_choice_relying_on_a_missing_record",
+   "result": "record_a_choice_relying_on_a_missing_record_result",
+   "returns": [
+    "page_size_stored",
+    "repo_memory_manifest_2"
+   ]
+  },
+  {
+   "carries": [
+    "page_question"
+   ],
+   "name": "resolve_the_page_size",
+   "request": "resolve_the_page_size",
+   "result": "resolve_the_page_size_result",
+   "returns": [
+    "page_state"
+   ]
+  },
+  {
+   "carries": [
+    "cache_small_submitted"
+   ],
+   "head": "repo_memory_head_3",
+   "name": "record_the_cache_choice",
+   "request": "record_the_cache_choice",
+   "result": "record_the_cache_choice_result",
+   "returns": [
+    "cache_small_stored",
+    "repo_memory_manifest_3"
+   ]
+  },
+  {
+   "carries": [
+    "cache_large_submitted"
+   ],
+   "head": "repo_memory_head_4",
+   "name": "replace_it_with_a_larger_cache",
+   "request": "replace_it_with_a_larger_cache",
+   "result": "replace_it_with_a_larger_cache_result",
+   "returns": [
+    "cache_large_stored",
+    "repo_memory_manifest_4"
+   ]
+  },
+  {
+   "carries": [
+    "cache_off_submitted"
+   ],
+   "head": "repo_memory_head_5",
+   "name": "replace_it_with_no_cache",
+   "request": "replace_it_with_no_cache",
+   "result": "replace_it_with_no_cache_result",
+   "returns": [
+    "cache_off_stored",
+    "repo_memory_manifest_5"
+   ]
+  },
+  {
+   "carries": [
+    "cache_question"
+   ],
+   "name": "resolve_the_cache",
+   "request": "resolve_the_cache",
+   "result": "resolve_the_cache_result",
+   "returns": [
+    "cache_state"
+   ]
+  },
+  {
+   "carries": [
+    "vacuum_submitted"
+   ],
+   "head": "repo_memory_head_6",
+   "name": "record_the_vacuum_choice",
+   "request": "record_the_vacuum_choice",
+   "result": "record_the_vacuum_choice_result",
+   "returns": [
+    "vacuum_stored",
+    "repo_memory_manifest_6"
+   ]
+  },
+  {
+   "carries": [
+    "vacuum_adopted_submitted"
+   ],
+   "head": "repo_memory_head_7",
+   "name": "adopt_the_vacuum_choice",
+   "request": "adopt_the_vacuum_choice",
+   "result": "adopt_the_vacuum_choice_result",
+   "returns": [
+    "vacuum_adopted_stored",
+    "repo_memory_manifest_7"
+   ]
+  },
+  {
+   "carries": [
+    "vacuum_withdrawn_submitted"
+   ],
+   "head": "repo_memory_head_8",
+   "name": "withdraw_the_vacuum_choice",
+   "request": "withdraw_the_vacuum_choice",
+   "result": "withdraw_the_vacuum_choice_result",
+   "returns": [
+    "vacuum_withdrawn_stored",
+    "repo_memory_manifest_8"
+   ]
+  },
+  {
+   "carries": [
+    "vacuum_question"
+   ],
+   "name": "resolve_the_vacuum",
+   "request": "resolve_the_vacuum",
+   "result": "resolve_the_vacuum_result",
+   "returns": [
+    "vacuum_state"
+   ]
+  }
+ ]
+}

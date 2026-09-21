@@ -1,0 +1,1246 @@
+{
+ "case": "CAP-14",
+ "ids": [
+  {
+   "id": "prn_c9c8e46e34beac6f5bf0235b2c6e73d7",
+   "name": "me"
+  },
+  {
+   "id": "dev_78d4f1697504e035d75e86a6885daf5a",
+   "name": "laptop"
+  },
+  {
+   "id": "prf_379ec8f78d98c6b5a4b6282378a3ea44",
+   "name": "local_profile"
+  },
+  {
+   "id": "rep_231941d615a4a07e237a65d0f40b5298",
+   "name": "repo"
+  },
+  {
+   "id": "src_74bcc5e97965ab75bf9b934f43c01c34",
+   "name": "decisions"
+  },
+  {
+   "id": "ent_a14c4cceb598c5c5d267b52c2edb9393",
+   "name": "entry"
+  },
+  {
+   "id": "ent_a6887942e379a54123364e5a183b7aaf",
+   "name": "second_entry"
+  },
+  {
+   "id": "req_9e772bdf6fe9ef5b32a44d5527d42a20",
+   "name": "register_request"
+  },
+  {
+   "id": "req_2ec5da0c494ca29407ffb710bd63c12b",
+   "name": "observe_request"
+  },
+  {
+   "id": "req_365e785059f0821d939aa09780e3fa01",
+   "name": "capture_request"
+  },
+  {
+   "id": "req_98cece2acef8eda840b066e36f467f35",
+   "name": "second_observe_request"
+  },
+  {
+   "id": "req_4e32a1953c47a4d9c049e4c5657691c9",
+   "name": "second_capture_request"
+  },
+  {
+   "id": "req_12911964bd6977ffac755aa7b93735ea",
+   "name": "author_script_request"
+  }
+ ],
+ "joins": [
+  {
+   "digest_of": "package",
+   "pointer": "/payload_digest",
+   "record": "register_submit"
+  },
+  {
+   "digest_of": "register_submit",
+   "pointer": "/request_digest",
+   "record": "register_package_receipt"
+  },
+  {
+   "minted": "register_package_head",
+   "pointer": "/head_digest",
+   "record": "register_package_receipt"
+  },
+  {
+   "minted": "register_package_sequence",
+   "pointer": "/sequence",
+   "record": "register_package_receipt"
+  },
+  {
+   "minted": "register_package_committed_at",
+   "pointer": "/committed_at",
+   "record": "register_package_receipt"
+  },
+  {
+   "digest_of": "register_package_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "register_package_result"
+  },
+  {
+   "digest_of": "register_submit",
+   "pointer": "/request_digest",
+   "record": "register_package_result"
+  },
+  {
+   "digest_of": "package",
+   "pointer": "/outputs/0/digest",
+   "record": "register_package_result"
+  },
+  {
+   "digest_of": "selection",
+   "pointer": "/payload_digest",
+   "record": "observe"
+  },
+  {
+   "digest_of": "selection",
+   "pointer": "/selection_digest",
+   "record": "observation"
+  },
+  {
+   "minted": "span_bytes",
+   "pointer": "/read/0/digest",
+   "record": "observation"
+  },
+  {
+   "minted": "observed_at",
+   "pointer": "/observed_at",
+   "record": "observation"
+  },
+  {
+   "digest_of": "observe",
+   "pointer": "/request_digest",
+   "record": "observe_span_result"
+  },
+  {
+   "digest_of": "observation",
+   "pointer": "/outputs/0/digest",
+   "record": "observe_span_result"
+  },
+  {
+   "digest_of": "observation",
+   "pointer": "/observation_digest",
+   "record": "capture"
+  },
+  {
+   "minted": "span_bytes",
+   "pointer": "/processing/inputs/0/evidence_digest",
+   "record": "capture"
+  },
+  {
+   "digest_of": "capture",
+   "pointer": "/payload_digest",
+   "record": "capture_submit"
+  },
+  {
+   "digest_of": "observation",
+   "pointer": "/observation_digest",
+   "record": "stored_capture"
+  },
+  {
+   "minted": "span_bytes",
+   "pointer": "/processing/inputs/0/evidence_digest",
+   "record": "stored_capture"
+  },
+  {
+   "minted": "captured_at",
+   "pointer": "/captured_at",
+   "record": "stored_capture"
+  },
+  {
+   "minted": "distill_run",
+   "pointer": "/run_id",
+   "record": "run"
+  },
+  {
+   "minted": "ran_at",
+   "pointer": "/ran_at",
+   "record": "run"
+  },
+  {
+   "digest_of": "capture_submit",
+   "pointer": "/request_digest",
+   "record": "capture_with_the_packaged_adapter_result"
+  },
+  {
+   "digest_of": "stored_capture",
+   "pointer": "/outputs/0/digest",
+   "record": "capture_with_the_packaged_adapter_result"
+  },
+  {
+   "digest_of": "run",
+   "pointer": "/outputs/1/digest",
+   "record": "capture_with_the_packaged_adapter_result"
+  },
+  {
+   "digest_of": "second_selection",
+   "pointer": "/payload_digest",
+   "record": "second_observe"
+  },
+  {
+   "digest_of": "second_selection",
+   "pointer": "/selection_digest",
+   "record": "second_observation"
+  },
+  {
+   "minted": "second_span_bytes",
+   "pointer": "/read/0/digest",
+   "record": "second_observation"
+  },
+  {
+   "minted": "second_observed_at",
+   "pointer": "/observed_at",
+   "record": "second_observation"
+  },
+  {
+   "digest_of": "second_observe",
+   "pointer": "/request_digest",
+   "record": "observe_second_span_result"
+  },
+  {
+   "digest_of": "second_observation",
+   "pointer": "/outputs/0/digest",
+   "record": "observe_second_span_result"
+  },
+  {
+   "digest_of": "second_observation",
+   "pointer": "/observation_digest",
+   "record": "second_capture"
+  },
+  {
+   "minted": "second_span_bytes",
+   "pointer": "/processing/inputs/0/evidence_digest",
+   "record": "second_capture"
+  },
+  {
+   "digest_of": "second_capture",
+   "pointer": "/payload_digest",
+   "record": "second_capture_submit"
+  },
+  {
+   "digest_of": "second_observation",
+   "pointer": "/observation_digest",
+   "record": "second_stored_capture"
+  },
+  {
+   "minted": "second_span_bytes",
+   "pointer": "/processing/inputs/0/evidence_digest",
+   "record": "second_stored_capture"
+  },
+  {
+   "minted": "second_captured_at",
+   "pointer": "/captured_at",
+   "record": "second_stored_capture"
+  },
+  {
+   "minted": "second_run",
+   "pointer": "/run_id",
+   "record": "second_run"
+  },
+  {
+   "minted": "second_ran_at",
+   "pointer": "/ran_at",
+   "record": "second_run"
+  },
+  {
+   "minted": "second_run_entry",
+   "pointer": "/outputs/0/digest",
+   "record": "second_run"
+  },
+  {
+   "digest_of": "second_capture_submit",
+   "pointer": "/request_digest",
+   "record": "capture_second_span_result"
+  },
+  {
+   "digest_of": "second_stored_capture",
+   "pointer": "/outputs/0/digest",
+   "record": "capture_second_span_result"
+  },
+  {
+   "digest_of": "second_run",
+   "pointer": "/outputs/1/digest",
+   "record": "capture_second_span_result"
+  },
+  {
+   "digest_of": "observation",
+   "pointer": "/observation_digest",
+   "record": "author_script_capture"
+  },
+  {
+   "minted": "span_bytes",
+   "pointer": "/processing/inputs/0/evidence_digest",
+   "record": "author_script_capture"
+  },
+  {
+   "digest_of": "author_script_capture",
+   "pointer": "/payload_digest",
+   "record": "author_script_submit"
+  },
+  {
+   "digest_of": "author_script_submit",
+   "pointer": "/request_digest",
+   "record": "capture_with_an_author_side_script_result"
+  }
+ ],
+ "minted": [
+  {
+   "name": "register_package_committed_at",
+   "shape": "instant",
+   "step": "register_package"
+  },
+  {
+   "name": "register_package_head",
+   "shape": "digest",
+   "step": "register_package"
+  },
+  {
+   "name": "register_package_sequence",
+   "shape": "integer",
+   "step": "register_package"
+  },
+  {
+   "name": "observed_at",
+   "shape": "instant",
+   "step": "observe_span"
+  },
+  {
+   "name": "span_bytes",
+   "shape": "digest",
+   "step": "observe_span"
+  },
+  {
+   "name": "captured_at",
+   "shape": "instant",
+   "step": "capture_with_the_packaged_adapter"
+  },
+  {
+   "name": "distill_run",
+   "shape": "run",
+   "step": "capture_with_the_packaged_adapter"
+  },
+  {
+   "name": "ran_at",
+   "shape": "instant",
+   "step": "capture_with_the_packaged_adapter"
+  },
+  {
+   "name": "second_observed_at",
+   "shape": "instant",
+   "step": "observe_second_span"
+  },
+  {
+   "name": "second_span_bytes",
+   "shape": "digest",
+   "step": "observe_second_span"
+  },
+  {
+   "name": "second_captured_at",
+   "shape": "instant",
+   "step": "capture_second_span"
+  },
+  {
+   "name": "second_ran_at",
+   "shape": "instant",
+   "step": "capture_second_span"
+  },
+  {
+   "name": "second_run",
+   "shape": "run",
+   "step": "capture_second_span"
+  },
+  {
+   "name": "second_run_entry",
+   "shape": "digest",
+   "step": "capture_second_span"
+  }
+ ],
+ "records": [
+  {
+   "digest": "2732b1cbf3753ef22b512629fe27427b43e8f32891d15646fbdb4bb60a7dd3be",
+   "name": "package",
+   "record": {
+    "kind": "package_candidate",
+    "members": [
+     {
+      "digest": "446b029fe11ff71ac8f57cc61d1e686b5cd9b9f987ffe56f8a2190d3b959a2e4",
+      "origin": {
+       "copied_from": "workenv/intake/distill.py"
+      },
+      "path": "workenv/intake/distill.py",
+      "size": 18432
+     },
+     {
+      "digest": "2024a7278d18d1945a1ceaea6fe998ab9beee0ebdc6e46aa90bf6337c87019b1",
+      "origin": {
+       "copied_from": "workenv/contracts/canonical.py"
+      },
+      "path": "workenv/contracts/canonical.py",
+      "size": 6150
+     },
+     {
+      "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "origin": {
+       "made": "at_pack_time"
+      },
+      "path": "provenance.json",
+      "size": 312
+     }
+    ],
+    "schema": 1,
+    "source_commit": "d360f26444444444444444444444444444444444",
+    "tarball": {
+     "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 482113
+    }
+   }
+  },
+  {
+   "digest": "5484bde241926aad55cbf33971ccba6d6db1df98727cfea7a74e4f09f56ca244",
+   "name": "register_submit",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_78d4f1697504e035d75e86a6885daf5a",
+     "principal_id": "prn_c9c8e46e34beac6f5bf0235b2c6e73d7",
+     "profile_id": "prf_379ec8f78d98c6b5a4b6282378a3ea44"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "package.candidate.register",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_c9c8e46e34beac6f5bf0235b2c6e73d7"
+    },
+    "payload_digest": "2732b1cbf3753ef22b512629fe27427b43e8f32891d15646fbdb4bb60a7dd3be",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_9e772bdf6fe9ef5b32a44d5527d42a20",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_379ec8f78d98c6b5a4b6282378a3ea44"
+    }
+   }
+  },
+  {
+   "digest": "ac0554ec207070c339837430b9e7c8adf0fc9e447729677d891de7486ab17fc8",
+   "name": "register_package_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "43289b2347c140c5aa7a9369ccae8be8ab9c01ac0e6513525f94491edd564175",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_c9c8e46e34beac6f5bf0235b2c6e73d7"
+    },
+    "request_digest": "5484bde241926aad55cbf33971ccba6d6db1df98727cfea7a74e4f09f56ca244",
+    "request_id": "req_9e772bdf6fe9ef5b32a44d5527d42a20",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_379ec8f78d98c6b5a4b6282378a3ea44"
+    }
+   }
+  },
+  {
+   "digest": "af3050003f264b9054f84ac98065bb1553b08fec9ef9e05ff4a4d0457c88a6e4",
+   "name": "register_package_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "ac0554ec207070c339837430b9e7c8adf0fc9e447729677d891de7486ab17fc8",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "2732b1cbf3753ef22b512629fe27427b43e8f32891d15646fbdb4bb60a7dd3be",
+      "kind": "package_candidate"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "5484bde241926aad55cbf33971ccba6d6db1df98727cfea7a74e4f09f56ca244",
+    "request_id": "req_9e772bdf6fe9ef5b32a44d5527d42a20",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "a3e8794e9772e96357b42282364d5953d753bb3520aa0bc600d0e4d96fd5ca25",
+   "name": "selection",
+   "record": {
+    "kind": "source_selection",
+    "roots": [
+     {
+      "need": "required",
+      "place": {
+       "first_record": 12,
+       "from": "session_transcript",
+       "last_record": 18,
+       "transcript": {
+        "host": {
+         "name": "claude-code",
+         "version": "2.1.278"
+        },
+        "session_id": "5f0d2c9e-7a41-4b8e-9c2d-1e6f3a8b0c47"
+       }
+      }
+     }
+    ],
+    "schema": 1
+   }
+  },
+  {
+   "digest": "f5f226747eb10cc21507a84dc9885f2cd73b6a4d982c1990c2bef81a04c713a2",
+   "name": "observe",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_78d4f1697504e035d75e86a6885daf5a",
+     "principal_id": "prn_c9c8e46e34beac6f5bf0235b2c6e73d7",
+     "profile_id": "prf_379ec8f78d98c6b5a4b6282378a3ea44"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "source.observe",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_231941d615a4a07e237a65d0f40b5298"
+    },
+    "payload_digest": "a3e8794e9772e96357b42282364d5953d753bb3520aa0bc600d0e4d96fd5ca25",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_2ec5da0c494ca29407ffb710bd63c12b",
+    "schema": 1,
+    "target": {
+     "resource_id": "rep_231941d615a4a07e237a65d0f40b5298"
+    }
+   }
+  },
+  {
+   "digest": "fed61a5ee52c6cfcae13f2b1b02333f4b4b6e0e9d8bf61726f919c106d6fb523",
+   "name": "observation",
+   "record": {
+    "kind": "source_observation",
+    "missing": [],
+    "observed_at": "2000-01-01T00:00:00Z",
+    "read": [
+     {
+      "digest": "160bc4e676e93f72387e91753c449159c9cdd055b0ef33c87ff66cbddda11335",
+      "first_record": 12,
+      "last_record": 18,
+      "read": "records",
+      "root": 0,
+      "size": 4096
+     }
+    ],
+    "schema": 1,
+    "selection_digest": "a3e8794e9772e96357b42282364d5953d753bb3520aa0bc600d0e4d96fd5ca25"
+   }
+  },
+  {
+   "digest": "13a19f9a7892d4e49337343d44e70eab97c17eb03c570b94fad3cac4770bd1c1",
+   "name": "observe_span_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "fed61a5ee52c6cfcae13f2b1b02333f4b4b6e0e9d8bf61726f919c106d6fb523",
+      "kind": "source_observation"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "f5f226747eb10cc21507a84dc9885f2cd73b6a4d982c1990c2bef81a04c713a2",
+    "request_id": "req_2ec5da0c494ca29407ffb710bd63c12b",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "610bead50a656d08ea7350a63b4414d2466924d246f899bb6c595377e420245d",
+   "name": "capture",
+   "record": {
+    "destination_source_id": "src_74bcc5e97965ab75bf9b934f43c01c34",
+    "entries": [
+     {
+      "body_digest": "33eff2c748192ebe99c9e960d63ed1b7d0cce0d556f1b39028440ecfafb2da4f",
+      "entry_id": "ent_a14c4cceb598c5c5d267b52c2edb9393"
+     }
+    ],
+    "kind": "memory_capture",
+    "observation_digest": "fed61a5ee52c6cfcae13f2b1b02333f4b4b6e0e9d8bf61726f919c106d6fb523",
+    "processing": {
+     "adapter": {
+      "digest": "446b029fe11ff71ac8f57cc61d1e686b5cd9b9f987ffe56f8a2190d3b959a2e4",
+      "name": "agent-bios distill"
+     },
+     "inputs": [
+      {
+       "evidence_digest": "160bc4e676e93f72387e91753c449159c9cdd055b0ef33c87ff66cbddda11335",
+       "from": {
+        "first_record": 12,
+        "from": "session_transcript",
+        "last_record": 18,
+        "transcript": {
+         "host": {
+          "name": "claude-code",
+          "version": "2.1.278"
+         },
+         "session_id": "5f0d2c9e-7a41-4b8e-9c2d-1e6f3a8b0c47"
+        }
+       },
+       "permits": {
+        "destinations": [
+         {
+          "layer": "repository",
+          "repository_id": "rep_231941d615a4a07e237a65d0f40b5298"
+         }
+        ],
+        "processing": "local_processing",
+        "prompt_log": "not_kept"
+       }
+      }
+     ],
+     "prompt_log": "not_kept",
+     "runs": "local"
+    },
+    "revision_digest": "e75372be62c10ffe1ee0757f4f3b52025a9ef87fb285ea492edd01edfe6e15d0",
+    "role": "memory",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "da5a42da406395e0cbe33e184bf5d5256d5215927a5d63dd017cfd0c6b4f49f9",
+   "name": "capture_submit",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_78d4f1697504e035d75e86a6885daf5a",
+     "principal_id": "prn_c9c8e46e34beac6f5bf0235b2c6e73d7",
+     "profile_id": "prf_379ec8f78d98c6b5a4b6282378a3ea44"
+    },
+    "control_digests": [],
+    "effect_class": "durable_candidate",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "source.capture.record",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_231941d615a4a07e237a65d0f40b5298"
+    },
+    "payload_digest": "610bead50a656d08ea7350a63b4414d2466924d246f899bb6c595377e420245d",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_365e785059f0821d939aa09780e3fa01",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_74bcc5e97965ab75bf9b934f43c01c34"
+    }
+   }
+  },
+  {
+   "digest": "90606adcedffcb28896857b79b32bc43b96aee3efc8ad7b0535f13308d81d6c7",
+   "name": "stored_capture",
+   "record": {
+    "captured_at": "2000-01-01T00:00:00Z",
+    "destination_source_id": "src_74bcc5e97965ab75bf9b934f43c01c34",
+    "entries": [
+     {
+      "body_digest": "33eff2c748192ebe99c9e960d63ed1b7d0cce0d556f1b39028440ecfafb2da4f",
+      "entry_id": "ent_a14c4cceb598c5c5d267b52c2edb9393"
+     }
+    ],
+    "kind": "memory_capture",
+    "observation_digest": "fed61a5ee52c6cfcae13f2b1b02333f4b4b6e0e9d8bf61726f919c106d6fb523",
+    "processing": {
+     "adapter": {
+      "digest": "446b029fe11ff71ac8f57cc61d1e686b5cd9b9f987ffe56f8a2190d3b959a2e4",
+      "name": "agent-bios distill"
+     },
+     "inputs": [
+      {
+       "evidence_digest": "160bc4e676e93f72387e91753c449159c9cdd055b0ef33c87ff66cbddda11335",
+       "from": {
+        "first_record": 12,
+        "from": "session_transcript",
+        "last_record": 18,
+        "transcript": {
+         "host": {
+          "name": "claude-code",
+          "version": "2.1.278"
+         },
+         "session_id": "5f0d2c9e-7a41-4b8e-9c2d-1e6f3a8b0c47"
+        }
+       },
+       "permits": {
+        "destinations": [
+         {
+          "layer": "repository",
+          "repository_id": "rep_231941d615a4a07e237a65d0f40b5298"
+         }
+        ],
+        "processing": "local_processing",
+        "prompt_log": "not_kept"
+       }
+      }
+     ],
+     "prompt_log": "not_kept",
+     "runs": "local"
+    },
+    "revision_digest": "e75372be62c10ffe1ee0757f4f3b52025a9ef87fb285ea492edd01edfe6e15d0",
+    "role": "memory",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "5d8703163fefeab08b944049860fbfdafea0934043e73ccdeee89d591f860afd",
+   "name": "run",
+   "record": {
+    "adapter": {
+     "digest": "446b029fe11ff71ac8f57cc61d1e686b5cd9b9f987ffe56f8a2190d3b959a2e4",
+     "name": "agent-bios distill"
+    },
+    "kind": "extraction_run",
+    "loaded": [
+     {
+      "digest": "446b029fe11ff71ac8f57cc61d1e686b5cd9b9f987ffe56f8a2190d3b959a2e4",
+      "path": "workenv/intake/distill.py"
+     },
+     {
+      "digest": "2024a7278d18d1945a1ceaea6fe998ab9beee0ebdc6e46aa90bf6337c87019b1",
+      "path": "workenv/contracts/canonical.py"
+     }
+    ],
+    "outputs": [
+     {
+      "digest": "e74cd8c877a9c4a37e69a659d757cdc5f6723fdce23af3b4d0cf42637cb0630a",
+      "path": "entries/0001.json"
+     }
+    ],
+    "ran_at": "2000-01-01T00:00:00Z",
+    "run_id": "run_6021e0860181418a5ccf4ff729a4be91",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "86a6dc5083045270e691346c8b4bb90e3fa8aa1dcac3ee365f04a3e2e23f23b6",
+   "name": "capture_with_the_packaged_adapter_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "candidate_stored",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "draft"
+    },
+    "outputs": [
+     {
+      "digest": "90606adcedffcb28896857b79b32bc43b96aee3efc8ad7b0535f13308d81d6c7",
+      "kind": "memory_capture"
+     },
+     {
+      "digest": "5d8703163fefeab08b944049860fbfdafea0934043e73ccdeee89d591f860afd",
+      "kind": "extraction_run"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "da5a42da406395e0cbe33e184bf5d5256d5215927a5d63dd017cfd0c6b4f49f9",
+    "request_id": "req_365e785059f0821d939aa09780e3fa01",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "e3424cad33ec1bfebfe555a7d825334c2ca15fd241e919d2f210fb1e0cef566a",
+   "name": "second_selection",
+   "record": {
+    "kind": "source_selection",
+    "roots": [
+     {
+      "need": "required",
+      "place": {
+       "first_record": 19,
+       "from": "session_transcript",
+       "last_record": 25,
+       "transcript": {
+        "host": {
+         "name": "claude-code",
+         "version": "2.1.278"
+        },
+        "session_id": "5f0d2c9e-7a41-4b8e-9c2d-1e6f3a8b0c47"
+       }
+      }
+     }
+    ],
+    "schema": 1
+   }
+  },
+  {
+   "digest": "d3740a109561bf7f9b20037d1734e34d7d78b210340fc5f8517bc66719539cef",
+   "name": "second_observe",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_78d4f1697504e035d75e86a6885daf5a",
+     "principal_id": "prn_c9c8e46e34beac6f5bf0235b2c6e73d7",
+     "profile_id": "prf_379ec8f78d98c6b5a4b6282378a3ea44"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "source.observe",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_231941d615a4a07e237a65d0f40b5298"
+    },
+    "payload_digest": "e3424cad33ec1bfebfe555a7d825334c2ca15fd241e919d2f210fb1e0cef566a",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_98cece2acef8eda840b066e36f467f35",
+    "schema": 1,
+    "target": {
+     "resource_id": "rep_231941d615a4a07e237a65d0f40b5298"
+    }
+   }
+  },
+  {
+   "digest": "a1fa3626d82c58494535cfc09cbb6d2f35e93e5f2b70aae92a6918a70636fb71",
+   "name": "second_observation",
+   "record": {
+    "kind": "source_observation",
+    "missing": [],
+    "observed_at": "2000-01-01T00:00:00Z",
+    "read": [
+     {
+      "digest": "0de2f22a998a035801ce020f63fddf0e98021549c7052386c4b7dab9fc8022eb",
+      "first_record": 19,
+      "last_record": 25,
+      "read": "records",
+      "root": 0,
+      "size": 4096
+     }
+    ],
+    "schema": 1,
+    "selection_digest": "e3424cad33ec1bfebfe555a7d825334c2ca15fd241e919d2f210fb1e0cef566a"
+   }
+  },
+  {
+   "digest": "108f9f4beabb367bd296794ec0fffe73ac625c07bf9b8ff8857a437458e1a715",
+   "name": "observe_second_span_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "a1fa3626d82c58494535cfc09cbb6d2f35e93e5f2b70aae92a6918a70636fb71",
+      "kind": "source_observation"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "d3740a109561bf7f9b20037d1734e34d7d78b210340fc5f8517bc66719539cef",
+    "request_id": "req_98cece2acef8eda840b066e36f467f35",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "1054d996542082c2b98233b7125aab2eb21796918d1ad3e553a4b27a3e200e1d",
+   "name": "second_capture",
+   "record": {
+    "destination_source_id": "src_74bcc5e97965ab75bf9b934f43c01c34",
+    "entries": [
+     {
+      "body_digest": "33eff2c748192ebe99c9e960d63ed1b7d0cce0d556f1b39028440ecfafb2da4f",
+      "entry_id": "ent_a6887942e379a54123364e5a183b7aaf"
+     }
+    ],
+    "kind": "memory_capture",
+    "observation_digest": "a1fa3626d82c58494535cfc09cbb6d2f35e93e5f2b70aae92a6918a70636fb71",
+    "processing": {
+     "adapter": {
+      "digest": "446b029fe11ff71ac8f57cc61d1e686b5cd9b9f987ffe56f8a2190d3b959a2e4",
+      "name": "agent-bios distill"
+     },
+     "inputs": [
+      {
+       "evidence_digest": "0de2f22a998a035801ce020f63fddf0e98021549c7052386c4b7dab9fc8022eb",
+       "from": {
+        "first_record": 19,
+        "from": "session_transcript",
+        "last_record": 25,
+        "transcript": {
+         "host": {
+          "name": "claude-code",
+          "version": "2.1.278"
+         },
+         "session_id": "5f0d2c9e-7a41-4b8e-9c2d-1e6f3a8b0c47"
+        }
+       },
+       "permits": {
+        "destinations": [
+         {
+          "layer": "repository",
+          "repository_id": "rep_231941d615a4a07e237a65d0f40b5298"
+         }
+        ],
+        "processing": "local_processing",
+        "prompt_log": "not_kept"
+       }
+      }
+     ],
+     "prompt_log": "not_kept",
+     "runs": "local"
+    },
+    "revision_digest": "e75372be62c10ffe1ee0757f4f3b52025a9ef87fb285ea492edd01edfe6e15d0",
+    "role": "memory",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "66ebdbeb46166ed31f61935d2c8c007f7fb89e9ff20009edec3a718c806d7cb5",
+   "name": "second_capture_submit",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_78d4f1697504e035d75e86a6885daf5a",
+     "principal_id": "prn_c9c8e46e34beac6f5bf0235b2c6e73d7",
+     "profile_id": "prf_379ec8f78d98c6b5a4b6282378a3ea44"
+    },
+    "control_digests": [],
+    "effect_class": "durable_candidate",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "source.capture.record",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_231941d615a4a07e237a65d0f40b5298"
+    },
+    "payload_digest": "1054d996542082c2b98233b7125aab2eb21796918d1ad3e553a4b27a3e200e1d",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_4e32a1953c47a4d9c049e4c5657691c9",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_74bcc5e97965ab75bf9b934f43c01c34"
+    }
+   }
+  },
+  {
+   "digest": "aff6c2bee849f973830a970274e975613af86fab4e5d5c408aa8aae917a1803a",
+   "name": "second_stored_capture",
+   "record": {
+    "captured_at": "2000-01-01T00:00:00Z",
+    "destination_source_id": "src_74bcc5e97965ab75bf9b934f43c01c34",
+    "entries": [
+     {
+      "body_digest": "33eff2c748192ebe99c9e960d63ed1b7d0cce0d556f1b39028440ecfafb2da4f",
+      "entry_id": "ent_a6887942e379a54123364e5a183b7aaf"
+     }
+    ],
+    "kind": "memory_capture",
+    "observation_digest": "a1fa3626d82c58494535cfc09cbb6d2f35e93e5f2b70aae92a6918a70636fb71",
+    "processing": {
+     "adapter": {
+      "digest": "446b029fe11ff71ac8f57cc61d1e686b5cd9b9f987ffe56f8a2190d3b959a2e4",
+      "name": "agent-bios distill"
+     },
+     "inputs": [
+      {
+       "evidence_digest": "0de2f22a998a035801ce020f63fddf0e98021549c7052386c4b7dab9fc8022eb",
+       "from": {
+        "first_record": 19,
+        "from": "session_transcript",
+        "last_record": 25,
+        "transcript": {
+         "host": {
+          "name": "claude-code",
+          "version": "2.1.278"
+         },
+         "session_id": "5f0d2c9e-7a41-4b8e-9c2d-1e6f3a8b0c47"
+        }
+       },
+       "permits": {
+        "destinations": [
+         {
+          "layer": "repository",
+          "repository_id": "rep_231941d615a4a07e237a65d0f40b5298"
+         }
+        ],
+        "processing": "local_processing",
+        "prompt_log": "not_kept"
+       }
+      }
+     ],
+     "prompt_log": "not_kept",
+     "runs": "local"
+    },
+    "revision_digest": "e75372be62c10ffe1ee0757f4f3b52025a9ef87fb285ea492edd01edfe6e15d0",
+    "role": "memory",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "e3c66c8b02cf286ba72b676e1f6f907c212305bda1335591f22b85153f33605a",
+   "name": "second_run",
+   "record": {
+    "adapter": {
+     "digest": "446b029fe11ff71ac8f57cc61d1e686b5cd9b9f987ffe56f8a2190d3b959a2e4",
+     "name": "agent-bios distill"
+    },
+    "kind": "extraction_run",
+    "loaded": [
+     {
+      "digest": "446b029fe11ff71ac8f57cc61d1e686b5cd9b9f987ffe56f8a2190d3b959a2e4",
+      "path": "workenv/intake/distill.py"
+     },
+     {
+      "digest": "2024a7278d18d1945a1ceaea6fe998ab9beee0ebdc6e46aa90bf6337c87019b1",
+      "path": "workenv/contracts/canonical.py"
+     }
+    ],
+    "outputs": [
+     {
+      "digest": "570975ccf6920337ca3842054d2c5246f0b81ebfa7b1cafde38814a691ca047e",
+      "path": "entries/0001.json"
+     }
+    ],
+    "ran_at": "2000-01-01T00:00:00Z",
+    "run_id": "run_e8e53986f1155afb2c5b1ab181aaf1c8",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "630973f59760cba5cea3dbbc0349a9f9fefe087c3a55a0d7e8a9c7c408d95ef4",
+   "name": "capture_second_span_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "candidate_stored",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "draft"
+    },
+    "outputs": [
+     {
+      "digest": "aff6c2bee849f973830a970274e975613af86fab4e5d5c408aa8aae917a1803a",
+      "kind": "memory_capture"
+     },
+     {
+      "digest": "e3c66c8b02cf286ba72b676e1f6f907c212305bda1335591f22b85153f33605a",
+      "kind": "extraction_run"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "66ebdbeb46166ed31f61935d2c8c007f7fb89e9ff20009edec3a718c806d7cb5",
+    "request_id": "req_4e32a1953c47a4d9c049e4c5657691c9",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "dd8f38577de27956177a66a1ba032efeaf2186ca6207693c2b9031ad8dadeb98",
+   "name": "author_script_capture",
+   "record": {
+    "destination_source_id": "src_74bcc5e97965ab75bf9b934f43c01c34",
+    "entries": [
+     {
+      "body_digest": "33eff2c748192ebe99c9e960d63ed1b7d0cce0d556f1b39028440ecfafb2da4f",
+      "entry_id": "ent_a14c4cceb598c5c5d267b52c2edb9393"
+     }
+    ],
+    "kind": "memory_capture",
+    "observation_digest": "fed61a5ee52c6cfcae13f2b1b02333f4b4b6e0e9d8bf61726f919c106d6fb523",
+    "processing": {
+     "adapter": {
+      "digest": "9e3f0c3f1a0a7a3a0d1c5f7b2e4d6c8a0b2d4f6e8a1c3e5f7092b4d6f8a0c2e4",
+      "name": "session-distill ledger"
+     },
+     "inputs": [
+      {
+       "evidence_digest": "160bc4e676e93f72387e91753c449159c9cdd055b0ef33c87ff66cbddda11335",
+       "from": {
+        "first_record": 12,
+        "from": "session_transcript",
+        "last_record": 18,
+        "transcript": {
+         "host": {
+          "name": "claude-code",
+          "version": "2.1.278"
+         },
+         "session_id": "5f0d2c9e-7a41-4b8e-9c2d-1e6f3a8b0c47"
+        }
+       },
+       "permits": {
+        "destinations": [
+         {
+          "layer": "repository",
+          "repository_id": "rep_231941d615a4a07e237a65d0f40b5298"
+         }
+        ],
+        "processing": "local_processing",
+        "prompt_log": "not_kept"
+       }
+      }
+     ],
+     "prompt_log": "not_kept",
+     "runs": "local"
+    },
+    "revision_digest": "e75372be62c10ffe1ee0757f4f3b52025a9ef87fb285ea492edd01edfe6e15d0",
+    "role": "memory",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "0c9508d7bcb21dadd55c6bc05ef2e37ef4368314ce3aa95d32bb0c8711357574",
+   "name": "author_script_submit",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_78d4f1697504e035d75e86a6885daf5a",
+     "principal_id": "prn_c9c8e46e34beac6f5bf0235b2c6e73d7",
+     "profile_id": "prf_379ec8f78d98c6b5a4b6282378a3ea44"
+    },
+    "control_digests": [],
+    "effect_class": "durable_candidate",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "source.capture.record",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_231941d615a4a07e237a65d0f40b5298"
+    },
+    "payload_digest": "dd8f38577de27956177a66a1ba032efeaf2186ca6207693c2b9031ad8dadeb98",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_12911964bd6977ffac755aa7b93735ea",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_74bcc5e97965ab75bf9b934f43c01c34"
+    }
+   }
+  },
+  {
+   "digest": "e6a72d31f8dcd92adf6e2115349ac2a77af50a8b50f08382092d478c7fef8020",
+   "name": "capture_with_an_author_side_script_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [
+      {
+       "code": "adapter_unavailable",
+       "pointer": "/processing/adapter"
+      }
+     ],
+     "stage": "refused"
+    },
+    "outputs": [],
+    "provider_effect": "not_applicable",
+    "request_digest": "0c9508d7bcb21dadd55c6bc05ef2e37ef4368314ce3aa95d32bb0c8711357574",
+    "request_id": "req_12911964bd6977ffac755aa7b93735ea",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  }
+ ],
+ "says": "The candidate package built from one commit is registered (package.candidate.register): its members are the distillation adapter workenv/intake/distill.py and its declared dependency workenv/contracts/canonical.py, each copied from that source path with its digest, and the pack-time provenance file. On that installation a person observes one transcript span and captures it (source.observe, source.capture.record); the extraction run the owner returns names the packaged adapter by the digest of that member and lists as loaded only those two package members with their package digests, and writes its entry inside its own run directory. A second span captured the same way gets its own run id and writes the same relative entry path inside its own directory, so no run shares a mutable output directory with another. A capture naming the author-side session-distill ledger script as its adapter, which the package does not contain, is refused with adapter_unavailable at /processing/adapter: no extraction run is written, nothing is stored, and no other script or canned result stands in for it.",
+ "spec_sha256": "db1e771f2822998e15a5b71f5d38d76b5c2cfc27c422d1775d1326cfb2db8f86",
+ "steps": [
+  {
+   "carries": [
+    "package"
+   ],
+   "name": "register_package",
+   "request": "register_submit",
+   "result": "register_package_result",
+   "returns": [
+    "package"
+   ]
+  },
+  {
+   "carries": [
+    "selection"
+   ],
+   "name": "observe_span",
+   "request": "observe",
+   "result": "observe_span_result",
+   "returns": [
+    "observation"
+   ]
+  },
+  {
+   "carries": [
+    "capture"
+   ],
+   "name": "capture_with_the_packaged_adapter",
+   "request": "capture_submit",
+   "result": "capture_with_the_packaged_adapter_result",
+   "returns": [
+    "stored_capture",
+    "run"
+   ]
+  },
+  {
+   "carries": [
+    "second_selection"
+   ],
+   "name": "observe_second_span",
+   "request": "second_observe",
+   "result": "observe_second_span_result",
+   "returns": [
+    "second_observation"
+   ]
+  },
+  {
+   "carries": [
+    "second_capture"
+   ],
+   "name": "capture_second_span",
+   "request": "second_capture_submit",
+   "result": "capture_second_span_result",
+   "returns": [
+    "second_stored_capture",
+    "second_run"
+   ]
+  },
+  {
+   "carries": [
+    "author_script_capture"
+   ],
+   "name": "capture_with_an_author_side_script",
+   "request": "author_script_submit",
+   "result": "capture_with_an_author_side_script_result",
+   "returns": []
+  }
+ ]
+}

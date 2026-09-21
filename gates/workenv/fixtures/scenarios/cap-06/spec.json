@@ -1,0 +1,457 @@
+{
+ "case": "CAP-06",
+ "says": "A person binds this device's key and the checkout, then imports an architecture decision record from an inherited repository's ADR directory into a memory source of this repository (source.revision.admit, import_external_package with its declared origin, license conditions and exact package revision). The owner commits the revision and its provenance. The provenance keeps what the ADR says about its own history as claims, each with how far it is supported: its author 'Architecture group' as stated only, its decision date 2025-11-04 as verified against evidence, its status 'Accepted' and 'Approved by the platform council' as stated only. The person who imported it is not named as its author anywhere, and nothing is accepted: acceptance stays not_accepted and no Team receipt exists. Resolving the committed revision later returns the same manifest and the same provenance, so the ADR's status string and stated approval never became an acceptance by being imported, read or committed.",
+ "ids": [
+  {
+   "name": "alice",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "repo",
+   "prefix": "rep"
+  },
+  {
+   "name": "bind_key",
+   "prefix": "req"
+  },
+  {
+   "name": "bind_repo",
+   "prefix": "req"
+  },
+  {
+   "name": "adr_source",
+   "prefix": "src"
+  },
+  {
+   "name": "import_adr_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "resolve_adr_rid",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "alice_key_submitted",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "bind_key_request",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_key"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#alice_key_submitted"
+    }
+   ]
+  },
+  {
+   "name": "alice_key",
+   "from": "c01/device_key_binding.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:alice_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:alice_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_binding_submitted",
+   "from": "c01/repository_binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "bind_repo_request",
+   "from": "c01/repository_bind_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_repo"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_binding_submitted"
+    }
+   ]
+  },
+  {
+   "name": "repo_binding",
+   "from": "c01/clone_shares_the_repository_id.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/observed/working_bytes_digest",
+     "value": "$digest:checkout_bytes"
+    }
+   ]
+  },
+  {
+   "name": "import_request_payload",
+   "from": "sources/request_to_import_without_its_conditions.json",
+   "drop": [
+    "/destination/scope/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/destination/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/destination/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/route/declared_origin",
+     "value": "the ADR directory of a repository this team inherited"
+    },
+    {
+     "pointer": "/route/license_conditions",
+     "value": "attribution required, redistribution permitted"
+    },
+    {
+     "pointer": "/route/revision_digest",
+     "value": "e79118c1c48cba3d1c82dc40b67b7b6b65cd71dab3621c686d48fa9828595015"
+    }
+   ]
+  },
+  {
+   "name": "import_request",
+   "from": "sources/sourcing_request.json",
+   "drop": [
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@import_adr_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@adr_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#import_request_payload"
+    }
+   ]
+  },
+  {
+   "name": "adr_revision",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@adr_source"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "adr/0007-journal-mode.md"
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:adr_revision_at"
+    }
+   ]
+  },
+  {
+   "name": "adr_provenance",
+   "from": "c01/provenance_of_an_imported_record_keeping_its_own_claims.json",
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@adr_source"
+    },
+    {
+     "pointer": "/acquisition/acquired_at",
+     "value": "$instant:adr_acquired_at"
+    },
+    {
+     "pointer": "/acquisition/availability_evidence_digest",
+     "value": "$digest:adr_availability"
+    },
+    {
+     "pointer": "/claims/1/support/evidence_digest",
+     "value": "$digest:adr_decision_date_evidence"
+    },
+    {
+     "pointer": "/origin/declared_origin",
+     "value": "the ADR directory of a repository this team inherited"
+    },
+    {
+     "pointer": "/origin/license_conditions",
+     "value": "attribution required, redistribution permitted"
+    }
+   ]
+  },
+  {
+   "name": "adr_ref",
+   "from": "c01/exact_member_of_a_revision.json",
+   "drop": [
+    "/scope/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@adr_source"
+    },
+    {
+     "pointer": "/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/revision_digest",
+     "value": "#adr_revision"
+    },
+    {
+     "pointer": "/member/path",
+     "value": "adr/0007-journal-mode.md"
+    },
+    {
+     "pointer": "/member/digest",
+     "value": "c4933a82770781b42504ac60a6252bfd06ccfce66170394620ba473ade98365d"
+    },
+    {
+     "pointer": "/member/size",
+     "value": 4120
+    }
+   ]
+  },
+  {
+   "name": "resolve_request",
+   "from": "c01/resolve_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@resolve_adr_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@adr_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:adr_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#adr_ref"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_device_key",
+   "request": "bind_key_request",
+   "carries": [
+    "alice_key_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "alice_key"
+    ]
+   }
+  },
+  {
+   "name": "bind_repository",
+   "request": "bind_repo_request",
+   "carries": [
+    "repo_binding_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_binding"
+    ]
+   }
+  },
+  {
+   "name": "import_adr",
+   "request": "import_request",
+   "carries": [
+    "import_request_payload"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "adr_revision",
+     "adr_provenance"
+    ],
+    "head": "adr_head"
+   }
+  },
+  {
+   "name": "resolve_imported_adr",
+   "request": "resolve_request",
+   "carries": [
+    "adr_ref"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "adr_revision",
+     "adr_provenance"
+    ]
+   }
+  }
+ ]
+}

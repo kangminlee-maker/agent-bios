@@ -1,0 +1,483 @@
+{
+ "case": "N04-ACTIVATION-POS",
+ "says": "Alice has selected no Instructions at all: her personal preparation request pins no source, and the preparation composed from it holds no unit. She activates her host session with that preparation. The routing the owner returns is activated, carries no projection, and still carries the memory usage contract - the short text the runtime writes and a guide pointer naming the guide's path and the digest of the guide bytes this installation holds. The always surface is unchanged and native instruction files are preserved. Observing the session shows it activated with nothing delivered. Zero selected Instructions must not stop activation or drop the usage contract, and activation must not add to the always surface or write a native file.",
+ "ids": [
+  {
+   "name": "alice",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "bind_alice_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "compose_nothing_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "activate_session_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "observe_session_request_req",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "alice_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    }
+   ]
+  },
+  {
+   "name": "bind_alice_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.add"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@bind_alice_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#alice_key"
+    }
+   ]
+  },
+  {
+   "name": "alice_binding",
+   "from": "c01/device_key_binding.json",
+   "set": [
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:alice_binding_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:alice_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "nothing_selected",
+   "from": "c07/personal_preparation_with_nothing_selected.json",
+   "set": [
+    {
+     "pointer": "/basis/scopes/0/principal_id",
+     "value": "@alice"
+    }
+   ]
+  },
+  {
+   "name": "empty_preparation",
+   "from": "c07/preparation_of_nothing.json",
+   "set": [
+    {
+     "pointer": "/order/0/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/preparation_id",
+     "value": "$prp:empty_preparation_id"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:empty_preparation_at"
+    },
+    {
+     "pointer": "/recipient/work_scope/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/request_digest",
+     "value": "#nothing_selected"
+    }
+   ]
+  },
+  {
+   "name": "compose_nothing_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "preparation.compose"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@compose_nothing_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#nothing_selected"
+    }
+   ]
+  },
+  {
+   "name": "activate_session_activation",
+   "from": "c04/activation_of_one_session.json",
+   "set": [
+    {
+     "pointer": "/preparation_digest",
+     "value": "#empty_preparation"
+    },
+    {
+     "pointer": "/session/profile_id",
+     "value": "@profile"
+    }
+   ]
+  },
+  {
+   "name": "activate_session_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "session.routing.activate"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@activate_session_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#activate_session_activation"
+    }
+   ]
+  },
+  {
+   "name": "empty_routing",
+   "from": "session/activated_with_a_projection.json",
+   "set": [
+    {
+     "pointer": "/delivery/memory_usage/guide/digest",
+     "value": "$digest:memory_use_guide"
+    },
+    {
+     "pointer": "/delivery/projections",
+     "value": []
+    },
+    {
+     "pointer": "/routed_at",
+     "value": "$instant:empty_routing_at"
+    },
+    {
+     "pointer": "/session/profile_id",
+     "value": "@profile"
+    }
+   ]
+  },
+  {
+   "name": "activation_seen",
+   "from": "c07/activation_observed.json",
+   "set": [
+    {
+     "pointer": "/observed/at",
+     "value": "$instant:activation_seen_at"
+    },
+    {
+     "pointer": "/observed/evidence_digest",
+     "value": "$digest:activation_seen_evidence"
+    },
+    {
+     "pointer": "/observed/inventory",
+     "value": []
+    },
+    {
+     "pointer": "/preparation_id",
+     "value": "$prp:empty_preparation_id"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:activation_seen_at"
+    },
+    {
+     "pointer": "/requested/recipient_digest",
+     "value": "#activate_session_activation"
+    }
+   ]
+  },
+  {
+   "name": "observe_session_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/payload_digest",
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "delivery.observe"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@observe_session_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$prp:empty_preparation_id"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_alice",
+   "request": "bind_alice_request",
+   "carries": [
+    "alice_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "alice_binding"
+    ]
+   }
+  },
+  {
+   "name": "compose_nothing",
+   "request": "compose_nothing_request",
+   "carries": [
+    "nothing_selected"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "empty_preparation"
+    ]
+   }
+  },
+  {
+   "name": "activate_session",
+   "request": "activate_session_request",
+   "carries": [
+    "activate_session_activation"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "empty_routing"
+    ]
+   }
+  },
+  {
+   "name": "observe_session",
+   "request": "observe_session_request",
+   "carries": [],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "activation_seen"
+    ]
+   }
+  }
+ ]
+}

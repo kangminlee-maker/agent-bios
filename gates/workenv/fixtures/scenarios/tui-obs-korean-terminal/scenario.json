@@ -1,0 +1,1875 @@
+{
+ "case": "TUI-OBS-KOREAN-TERMINAL",
+ "ids": [
+  {
+   "id": "prn_96e71c335cecf5bb362b1f996a01ce77",
+   "name": "alice"
+  },
+  {
+   "id": "dev_b6a2956f09f60800816bb660fafd703e",
+   "name": "laptop"
+  },
+  {
+   "id": "prf_e684ed0befe5887e32142fbff051fc23",
+   "name": "alice_profile"
+  },
+  {
+   "id": "req_0860cffc853a42fc0f49ca1d3d277d70",
+   "name": "register_candidate_id"
+  },
+  {
+   "id": "req_fd19d5f9d77a8cb1c32ebd05a450084f",
+   "name": "record_protocol_id"
+  },
+  {
+   "id": "req_68db0a5103aab7592dfda690af4d2070",
+   "name": "observe_p4_session_id"
+  },
+  {
+   "id": "req_1dc399de923c8a7efacff1924dcd1c3a",
+   "name": "record_p4_type_id"
+  },
+  {
+   "id": "req_a3e48ed2222fd9200f8f837064cd2ca7",
+   "name": "observe_p5_session_id"
+  },
+  {
+   "id": "req_19d4b2a4f8f6a3a5f464e8804e65523d",
+   "name": "record_p5_type_id"
+  },
+  {
+   "id": "req_20c90e0cf95e5f0a0520c4ee5a9ee6e5",
+   "name": "submit_injected_id"
+  },
+  {
+   "id": "req_b745f202ecde624e2ac7060399a88e16",
+   "name": "observe_browser_rendering_id"
+  },
+  {
+   "id": "req_2225cd89935d829e8c594ae95c33e20c",
+   "name": "submit_unlisted_terminal_id"
+  },
+  {
+   "id": "req_22008d38b6204f612a75b13e7a82bc6b",
+   "name": "submit_unsupported_locale_id"
+  }
+ ],
+ "joins": [
+  {
+   "digest_of": "candidate",
+   "pointer": "/payload_digest",
+   "record": "register_candidate"
+  },
+  {
+   "digest_of": "register_candidate",
+   "pointer": "/request_digest",
+   "record": "register_the_installed_candidate_receipt"
+  },
+  {
+   "minted": "register_the_installed_candidate_head",
+   "pointer": "/head_digest",
+   "record": "register_the_installed_candidate_receipt"
+  },
+  {
+   "minted": "register_the_installed_candidate_sequence",
+   "pointer": "/sequence",
+   "record": "register_the_installed_candidate_receipt"
+  },
+  {
+   "minted": "register_the_installed_candidate_committed_at",
+   "pointer": "/committed_at",
+   "record": "register_the_installed_candidate_receipt"
+  },
+  {
+   "digest_of": "register_the_installed_candidate_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "register_the_installed_candidate_result"
+  },
+  {
+   "digest_of": "register_candidate",
+   "pointer": "/request_digest",
+   "record": "register_the_installed_candidate_result"
+  },
+  {
+   "digest_of": "candidate",
+   "pointer": "/outputs/0/digest",
+   "record": "register_the_installed_candidate_result"
+  },
+  {
+   "digest_of": "protocol",
+   "pointer": "/payload_digest",
+   "record": "record_protocol"
+  },
+  {
+   "minted": "protocol_at",
+   "pointer": "/recorded_at",
+   "record": "stored_protocol"
+  },
+  {
+   "digest_of": "record_protocol",
+   "pointer": "/request_digest",
+   "record": "fix_the_protocol_first_receipt"
+  },
+  {
+   "minted": "fix_the_protocol_first_head",
+   "pointer": "/head_digest",
+   "record": "fix_the_protocol_first_receipt"
+  },
+  {
+   "minted": "fix_the_protocol_first_sequence",
+   "pointer": "/sequence",
+   "record": "fix_the_protocol_first_receipt"
+  },
+  {
+   "minted": "fix_the_protocol_first_committed_at",
+   "pointer": "/committed_at",
+   "record": "fix_the_protocol_first_receipt"
+  },
+  {
+   "digest_of": "fix_the_protocol_first_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "fix_the_protocol_first_result"
+  },
+  {
+   "digest_of": "record_protocol",
+   "pointer": "/request_digest",
+   "record": "fix_the_protocol_first_result"
+  },
+  {
+   "digest_of": "stored_protocol",
+   "pointer": "/outputs/0/digest",
+   "record": "fix_the_protocol_first_result"
+  },
+  {
+   "digest_of": "candidate",
+   "pointer": "/subject/candidate_digest",
+   "record": "p4_session_submitted"
+  },
+  {
+   "digest_of": "p4_session_submitted",
+   "pointer": "/payload_digest",
+   "record": "observe_p4_session"
+  },
+  {
+   "digest_of": "candidate",
+   "pointer": "/subject/candidate_digest",
+   "record": "p4_session"
+  },
+  {
+   "minted": "p4_session",
+   "pointer": "/observation_id",
+   "record": "p4_session"
+  },
+  {
+   "minted": "p4_session_at",
+   "pointer": "/observed_at",
+   "record": "p4_session"
+  },
+  {
+   "digest_of": "observe_p4_session",
+   "pointer": "/request_digest",
+   "record": "observe_novice_p4_receipt"
+  },
+  {
+   "minted": "observe_novice_p4_head",
+   "pointer": "/head_digest",
+   "record": "observe_novice_p4_receipt"
+  },
+  {
+   "minted": "observe_novice_p4_sequence",
+   "pointer": "/sequence",
+   "record": "observe_novice_p4_receipt"
+  },
+  {
+   "minted": "observe_novice_p4_committed_at",
+   "pointer": "/committed_at",
+   "record": "observe_novice_p4_receipt"
+  },
+  {
+   "digest_of": "observe_novice_p4_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "observe_novice_p4_result"
+  },
+  {
+   "digest_of": "observe_p4_session",
+   "pointer": "/request_digest",
+   "record": "observe_novice_p4_result"
+  },
+  {
+   "digest_of": "p4_session",
+   "pointer": "/outputs/0/digest",
+   "record": "observe_novice_p4_result"
+  },
+  {
+   "minted": "p4_session",
+   "pointer": "/target/resource_id",
+   "record": "record_p4_type"
+  },
+  {
+   "minted": "p4_session",
+   "pointer": "/observation_id",
+   "record": "p4_type"
+  },
+  {
+   "digest_of": "stored_protocol",
+   "pointer": "/protocol_digest",
+   "record": "p4_type"
+  },
+  {
+   "digest_of": "p4_type",
+   "pointer": "/payload_digest",
+   "record": "record_p4_type"
+  },
+  {
+   "digest_of": "record_p4_type",
+   "pointer": "/request_digest",
+   "record": "compose_cancel_paste_resize_receipt"
+  },
+  {
+   "minted": "compose_cancel_paste_resize_head",
+   "pointer": "/head_digest",
+   "record": "compose_cancel_paste_resize_receipt"
+  },
+  {
+   "minted": "compose_cancel_paste_resize_sequence",
+   "pointer": "/sequence",
+   "record": "compose_cancel_paste_resize_receipt"
+  },
+  {
+   "minted": "compose_cancel_paste_resize_committed_at",
+   "pointer": "/committed_at",
+   "record": "compose_cancel_paste_resize_receipt"
+  },
+  {
+   "minted": "p4_session",
+   "pointer": "/target/resource_id",
+   "record": "compose_cancel_paste_resize_receipt"
+  },
+  {
+   "digest_of": "compose_cancel_paste_resize_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "compose_cancel_paste_resize_result"
+  },
+  {
+   "digest_of": "record_p4_type",
+   "pointer": "/request_digest",
+   "record": "compose_cancel_paste_resize_result"
+  },
+  {
+   "digest_of": "p4_type",
+   "pointer": "/outputs/0/digest",
+   "record": "compose_cancel_paste_resize_result"
+  },
+  {
+   "digest_of": "candidate",
+   "pointer": "/subject/candidate_digest",
+   "record": "p5_session_submitted"
+  },
+  {
+   "digest_of": "p5_session_submitted",
+   "pointer": "/payload_digest",
+   "record": "observe_p5_session"
+  },
+  {
+   "digest_of": "candidate",
+   "pointer": "/subject/candidate_digest",
+   "record": "p5_session"
+  },
+  {
+   "minted": "p5_session",
+   "pointer": "/observation_id",
+   "record": "p5_session"
+  },
+  {
+   "minted": "p5_session_at",
+   "pointer": "/observed_at",
+   "record": "p5_session"
+  },
+  {
+   "digest_of": "observe_p5_session",
+   "pointer": "/request_digest",
+   "record": "observe_novice_p5_receipt"
+  },
+  {
+   "minted": "observe_novice_p5_head",
+   "pointer": "/head_digest",
+   "record": "observe_novice_p5_receipt"
+  },
+  {
+   "minted": "observe_novice_p5_sequence",
+   "pointer": "/sequence",
+   "record": "observe_novice_p5_receipt"
+  },
+  {
+   "minted": "observe_novice_p5_committed_at",
+   "pointer": "/committed_at",
+   "record": "observe_novice_p5_receipt"
+  },
+  {
+   "digest_of": "observe_novice_p5_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "observe_novice_p5_result"
+  },
+  {
+   "digest_of": "observe_p5_session",
+   "pointer": "/request_digest",
+   "record": "observe_novice_p5_result"
+  },
+  {
+   "digest_of": "p5_session",
+   "pointer": "/outputs/0/digest",
+   "record": "observe_novice_p5_result"
+  },
+  {
+   "minted": "p5_session",
+   "pointer": "/target/resource_id",
+   "record": "record_p5_type"
+  },
+  {
+   "minted": "p5_session",
+   "pointer": "/observation_id",
+   "record": "p5_type"
+  },
+  {
+   "digest_of": "stored_protocol",
+   "pointer": "/protocol_digest",
+   "record": "p5_type"
+  },
+  {
+   "digest_of": "p5_type",
+   "pointer": "/payload_digest",
+   "record": "record_p5_type"
+  },
+  {
+   "digest_of": "record_p5_type",
+   "pointer": "/request_digest",
+   "record": "record_composition_stolen_by_enter_receipt"
+  },
+  {
+   "minted": "record_composition_stolen_by_enter_head",
+   "pointer": "/head_digest",
+   "record": "record_composition_stolen_by_enter_receipt"
+  },
+  {
+   "minted": "record_composition_stolen_by_enter_sequence",
+   "pointer": "/sequence",
+   "record": "record_composition_stolen_by_enter_receipt"
+  },
+  {
+   "minted": "record_composition_stolen_by_enter_committed_at",
+   "pointer": "/committed_at",
+   "record": "record_composition_stolen_by_enter_receipt"
+  },
+  {
+   "minted": "p5_session",
+   "pointer": "/target/resource_id",
+   "record": "record_composition_stolen_by_enter_receipt"
+  },
+  {
+   "digest_of": "record_composition_stolen_by_enter_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "record_composition_stolen_by_enter_result"
+  },
+  {
+   "digest_of": "record_p5_type",
+   "pointer": "/request_digest",
+   "record": "record_composition_stolen_by_enter_result"
+  },
+  {
+   "digest_of": "p5_type",
+   "pointer": "/outputs/0/digest",
+   "record": "record_composition_stolen_by_enter_result"
+  },
+  {
+   "digest_of": "candidate",
+   "pointer": "/subject/candidate_digest",
+   "record": "injected"
+  },
+  {
+   "digest_of": "injected",
+   "pointer": "/payload_digest",
+   "record": "submit_injected"
+  },
+  {
+   "digest_of": "browser_rendering_submitted",
+   "pointer": "/payload_digest",
+   "record": "observe_browser_rendering"
+  },
+  {
+   "minted": "browser_rendering",
+   "pointer": "/observation_id",
+   "record": "browser_rendering"
+  },
+  {
+   "minted": "browser_rendering_at",
+   "pointer": "/observed_at",
+   "record": "browser_rendering"
+  },
+  {
+   "digest_of": "observe_browser_rendering",
+   "pointer": "/request_digest",
+   "record": "observe_a_browser_rendering_receipt"
+  },
+  {
+   "minted": "observe_a_browser_rendering_head",
+   "pointer": "/head_digest",
+   "record": "observe_a_browser_rendering_receipt"
+  },
+  {
+   "minted": "observe_a_browser_rendering_sequence",
+   "pointer": "/sequence",
+   "record": "observe_a_browser_rendering_receipt"
+  },
+  {
+   "minted": "observe_a_browser_rendering_committed_at",
+   "pointer": "/committed_at",
+   "record": "observe_a_browser_rendering_receipt"
+  },
+  {
+   "digest_of": "observe_a_browser_rendering_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "observe_a_browser_rendering_result"
+  },
+  {
+   "digest_of": "observe_browser_rendering",
+   "pointer": "/request_digest",
+   "record": "observe_a_browser_rendering_result"
+  },
+  {
+   "digest_of": "browser_rendering",
+   "pointer": "/outputs/0/digest",
+   "record": "observe_a_browser_rendering_result"
+  },
+  {
+   "digest_of": "candidate",
+   "pointer": "/subject/candidate_digest",
+   "record": "unlisted_terminal"
+  },
+  {
+   "digest_of": "unlisted_terminal",
+   "pointer": "/payload_digest",
+   "record": "submit_unlisted_terminal"
+  },
+  {
+   "digest_of": "candidate",
+   "pointer": "/subject/candidate_digest",
+   "record": "unsupported_locale"
+  },
+  {
+   "digest_of": "unsupported_locale",
+   "pointer": "/payload_digest",
+   "record": "submit_unsupported_locale"
+  }
+ ],
+ "minted": [
+  {
+   "name": "register_the_installed_candidate_committed_at",
+   "shape": "instant",
+   "step": "register_the_installed_candidate"
+  },
+  {
+   "name": "register_the_installed_candidate_head",
+   "shape": "digest",
+   "step": "register_the_installed_candidate"
+  },
+  {
+   "name": "register_the_installed_candidate_sequence",
+   "shape": "integer",
+   "step": "register_the_installed_candidate"
+  },
+  {
+   "name": "fix_the_protocol_first_committed_at",
+   "shape": "instant",
+   "step": "fix_the_protocol_first"
+  },
+  {
+   "name": "fix_the_protocol_first_head",
+   "shape": "digest",
+   "step": "fix_the_protocol_first"
+  },
+  {
+   "name": "fix_the_protocol_first_sequence",
+   "shape": "integer",
+   "step": "fix_the_protocol_first"
+  },
+  {
+   "name": "protocol_at",
+   "shape": "instant",
+   "step": "fix_the_protocol_first"
+  },
+  {
+   "name": "observe_novice_p4_committed_at",
+   "shape": "instant",
+   "step": "observe_novice_p4"
+  },
+  {
+   "name": "observe_novice_p4_head",
+   "shape": "digest",
+   "step": "observe_novice_p4"
+  },
+  {
+   "name": "observe_novice_p4_sequence",
+   "shape": "integer",
+   "step": "observe_novice_p4"
+  },
+  {
+   "name": "p4_session",
+   "shape": "obs",
+   "step": "observe_novice_p4"
+  },
+  {
+   "name": "p4_session_at",
+   "shape": "instant",
+   "step": "observe_novice_p4"
+  },
+  {
+   "name": "compose_cancel_paste_resize_committed_at",
+   "shape": "instant",
+   "step": "compose_cancel_paste_resize"
+  },
+  {
+   "name": "compose_cancel_paste_resize_head",
+   "shape": "digest",
+   "step": "compose_cancel_paste_resize"
+  },
+  {
+   "name": "compose_cancel_paste_resize_sequence",
+   "shape": "integer",
+   "step": "compose_cancel_paste_resize"
+  },
+  {
+   "name": "observe_novice_p5_committed_at",
+   "shape": "instant",
+   "step": "observe_novice_p5"
+  },
+  {
+   "name": "observe_novice_p5_head",
+   "shape": "digest",
+   "step": "observe_novice_p5"
+  },
+  {
+   "name": "observe_novice_p5_sequence",
+   "shape": "integer",
+   "step": "observe_novice_p5"
+  },
+  {
+   "name": "p5_session",
+   "shape": "obs",
+   "step": "observe_novice_p5"
+  },
+  {
+   "name": "p5_session_at",
+   "shape": "instant",
+   "step": "observe_novice_p5"
+  },
+  {
+   "name": "record_composition_stolen_by_enter_committed_at",
+   "shape": "instant",
+   "step": "record_composition_stolen_by_enter"
+  },
+  {
+   "name": "record_composition_stolen_by_enter_head",
+   "shape": "digest",
+   "step": "record_composition_stolen_by_enter"
+  },
+  {
+   "name": "record_composition_stolen_by_enter_sequence",
+   "shape": "integer",
+   "step": "record_composition_stolen_by_enter"
+  },
+  {
+   "name": "browser_rendering",
+   "shape": "obs",
+   "step": "observe_a_browser_rendering"
+  },
+  {
+   "name": "browser_rendering_at",
+   "shape": "instant",
+   "step": "observe_a_browser_rendering"
+  },
+  {
+   "name": "observe_a_browser_rendering_committed_at",
+   "shape": "instant",
+   "step": "observe_a_browser_rendering"
+  },
+  {
+   "name": "observe_a_browser_rendering_head",
+   "shape": "digest",
+   "step": "observe_a_browser_rendering"
+  },
+  {
+   "name": "observe_a_browser_rendering_sequence",
+   "shape": "integer",
+   "step": "observe_a_browser_rendering"
+  }
+ ],
+ "records": [
+  {
+   "digest": "7861c85d87e2dd4a63a5fee8377c062124ffddd93581a5e22b36da9b8b0745f4",
+   "name": "candidate",
+   "record": {
+    "kind": "package_candidate",
+    "members": [
+     {
+      "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "origin": {
+       "copied_from": "workenv/contracts/c03.py"
+      },
+      "path": "workenv/contracts/c03.py",
+      "size": 9120
+     },
+     {
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "origin": {
+       "copied_from": "workenv/contracts/schemas/c03_cutover_plan.schema.json"
+      },
+      "path": "workenv/contracts/schemas/c03_cutover_plan.schema.json",
+      "size": 6211
+     },
+     {
+      "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "origin": {
+       "made": "at_pack_time"
+      },
+      "path": "provenance.json",
+      "size": 312
+     }
+    ],
+    "schema": 1,
+    "source_commit": "d360f26444444444444444444444444444444444",
+    "tarball": {
+     "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 482113
+    }
+   }
+  },
+  {
+   "digest": "d85fc59fafde288eeba2181c456ddc0408d60517d48e6f4314679179de020203",
+   "name": "register_candidate",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_b6a2956f09f60800816bb660fafd703e",
+     "principal_id": "prn_96e71c335cecf5bb362b1f996a01ce77",
+     "profile_id": "prf_e684ed0befe5887e32142fbff051fc23"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "package.candidate.register",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_96e71c335cecf5bb362b1f996a01ce77"
+    },
+    "payload_digest": "7861c85d87e2dd4a63a5fee8377c062124ffddd93581a5e22b36da9b8b0745f4",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_0860cffc853a42fc0f49ca1d3d277d70",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_e684ed0befe5887e32142fbff051fc23"
+    }
+   }
+  },
+  {
+   "digest": "83a22c142b07f0b3ddf45ea51ac42c1f2579b807950b8e95a48d85e2e3d03c78",
+   "name": "register_the_installed_candidate_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "bde9da6805df9f751815748382b63197ba9e8207ec8cf2e9b8d0fe9e9c0e03e3",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_96e71c335cecf5bb362b1f996a01ce77"
+    },
+    "request_digest": "d85fc59fafde288eeba2181c456ddc0408d60517d48e6f4314679179de020203",
+    "request_id": "req_0860cffc853a42fc0f49ca1d3d277d70",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_e684ed0befe5887e32142fbff051fc23"
+    }
+   }
+  },
+  {
+   "digest": "cb3f4373e12e42d4c8e5a0d03527afba839bd7b8a89a5c5e4eb373ff74f827bf",
+   "name": "register_the_installed_candidate_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "83a22c142b07f0b3ddf45ea51ac42c1f2579b807950b8e95a48d85e2e3d03c78",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "7861c85d87e2dd4a63a5fee8377c062124ffddd93581a5e22b36da9b8b0745f4",
+      "kind": "package_candidate"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "d85fc59fafde288eeba2181c456ddc0408d60517d48e6f4314679179de020203",
+    "request_id": "req_0860cffc853a42fc0f49ca1d3d277d70",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "10b261e130ef6ed32d642c11fd4e425ca5ab5f413b89143115f6ae08f8479a9b",
+   "name": "protocol",
+   "record": {
+    "cells": [
+     {
+      "input_routes": [
+       "keyboard",
+       "ime",
+       "paste"
+      ],
+      "locale": "ko",
+      "minimum_trials": 1,
+      "participants": "novice",
+      "task_id": "type_and_paste_korean",
+      "terminal": "apple_terminal"
+     }
+    ],
+    "critical_misinterpretations": [
+     "Took saving a draft for publishing or adopting it.",
+     "Took installed or selected material for context the session actually received.",
+     "Expected an action to affect another scope, Team or recipient than the one it affected.",
+     "Took focus for a selection, or expected a default to start without choosing it."
+    ],
+    "kind": "study_protocol",
+    "schema": 1,
+    "tasks": [
+     {
+      "case": "TUI-OBS-KOREAN-TERMINAL",
+      "prompt": "메모 칸에 한글로 한 문장을 입력하고, 조합 중에 취소한 뒤, 복사한 문장을 붙여 넣으세요. 그다음 창 크기를 80×24로 줄이세요.",
+      "task_id": "type_and_paste_korean"
+     }
+    ],
+    "version": 1
+   }
+  },
+  {
+   "digest": "4486c81f506d30f525962a216f9558d73024cbfd2bcfeba37deafee41900bfdb",
+   "name": "record_protocol",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_b6a2956f09f60800816bb660fafd703e",
+     "principal_id": "prn_96e71c335cecf5bb362b1f996a01ce77",
+     "profile_id": "prf_e684ed0befe5887e32142fbff051fc23"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "surface.protocol.record",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_96e71c335cecf5bb362b1f996a01ce77"
+    },
+    "payload_digest": "10b261e130ef6ed32d642c11fd4e425ca5ab5f413b89143115f6ae08f8479a9b",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_fd19d5f9d77a8cb1c32ebd05a450084f",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_e684ed0befe5887e32142fbff051fc23"
+    }
+   }
+  },
+  {
+   "digest": "e8d0bc412bf3b7ec53fa76eae9e744098e2dc9f70c11c493881b4947c2978df3",
+   "name": "stored_protocol",
+   "record": {
+    "cells": [
+     {
+      "input_routes": [
+       "keyboard",
+       "ime",
+       "paste"
+      ],
+      "locale": "ko",
+      "minimum_trials": 1,
+      "participants": "novice",
+      "task_id": "type_and_paste_korean",
+      "terminal": "apple_terminal"
+     }
+    ],
+    "critical_misinterpretations": [
+     "Took saving a draft for publishing or adopting it.",
+     "Took installed or selected material for context the session actually received.",
+     "Expected an action to affect another scope, Team or recipient than the one it affected.",
+     "Took focus for a selection, or expected a default to start without choosing it."
+    ],
+    "kind": "study_protocol",
+    "recorded_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "tasks": [
+     {
+      "case": "TUI-OBS-KOREAN-TERMINAL",
+      "prompt": "메모 칸에 한글로 한 문장을 입력하고, 조합 중에 취소한 뒤, 복사한 문장을 붙여 넣으세요. 그다음 창 크기를 80×24로 줄이세요.",
+      "task_id": "type_and_paste_korean"
+     }
+    ],
+    "version": 1
+   }
+  },
+  {
+   "digest": "608f3e3f6b7cbb2edcd38e74648ad0e54ec9243b25c5e43df0df43552e428b96",
+   "name": "fix_the_protocol_first_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "a5e4d6d96648d38d5afb43b7e8c89c3dfef03c13a620f7bd5d2bef27318b466f",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_96e71c335cecf5bb362b1f996a01ce77"
+    },
+    "request_digest": "4486c81f506d30f525962a216f9558d73024cbfd2bcfeba37deafee41900bfdb",
+    "request_id": "req_fd19d5f9d77a8cb1c32ebd05a450084f",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_e684ed0befe5887e32142fbff051fc23"
+    }
+   }
+  },
+  {
+   "digest": "736e861f6e80f77a59f571621561c9d0cc5f94c092165e2e2da9a24c2a47f80d",
+   "name": "fix_the_protocol_first_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "608f3e3f6b7cbb2edcd38e74648ad0e54ec9243b25c5e43df0df43552e428b96",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "e8d0bc412bf3b7ec53fa76eae9e744098e2dc9f70c11c493881b4947c2978df3",
+      "kind": "study_protocol"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "4486c81f506d30f525962a216f9558d73024cbfd2bcfeba37deafee41900bfdb",
+    "request_id": "req_fd19d5f9d77a8cb1c32ebd05a450084f",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "56902770770c7cfae3198bb4ee3540b0b0905bcda3c09306733414d9853ba84b",
+   "name": "p4_session_submitted",
+   "record": {
+    "evidence_class": "observed",
+    "input_routes": [
+     "keyboard",
+     "ime",
+     "paste"
+    ],
+    "kind": "surface_observation",
+    "locale": "ko",
+    "observed_in": {
+     "columns": 80,
+     "reported_as": "Apple_Terminal",
+     "rows": 24
+    },
+    "schema": 1,
+    "subject": {
+     "candidate_digest": "7861c85d87e2dd4a63a5fee8377c062124ffddd93581a5e22b36da9b8b0745f4",
+     "claim": {
+      "state": {
+       "needs": [
+        "a first-exposure observation of the integrated candidate"
+       ],
+       "state": "pending"
+      },
+      "terminal": "apple_terminal"
+     },
+     "evidence": {
+      "families": [
+       "N26"
+      ],
+      "origin": {
+       "origin": "verified_native_user_event",
+       "separation_evidence_digest": "f0310728d2a8b9f8491fd79347e938277157e9fcf3e20fda8f50d2a2a02f8da2"
+      },
+      "qualifies": "yes"
+     },
+     "is": "product_candidate"
+    }
+   }
+  },
+  {
+   "digest": "d07f41d0bf43fb8d30f14cb5268d0697b45b5c82e0400bda6305853d65b0638e",
+   "name": "observe_p4_session",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_b6a2956f09f60800816bb660fafd703e",
+     "principal_id": "prn_96e71c335cecf5bb362b1f996a01ce77",
+     "profile_id": "prf_e684ed0befe5887e32142fbff051fc23"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "surface.observe",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_96e71c335cecf5bb362b1f996a01ce77"
+    },
+    "payload_digest": "56902770770c7cfae3198bb4ee3540b0b0905bcda3c09306733414d9853ba84b",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_68db0a5103aab7592dfda690af4d2070",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_e684ed0befe5887e32142fbff051fc23"
+    }
+   }
+  },
+  {
+   "digest": "26919e563eb13d05ca403bcec2bcb697a6add794f0449c4f26a9d3ed883f6745",
+   "name": "p4_session",
+   "record": {
+    "evidence_class": "observed",
+    "input_routes": [
+     "keyboard",
+     "ime",
+     "paste"
+    ],
+    "kind": "surface_observation",
+    "locale": "ko",
+    "observation_id": "obs_d4e635436e32417c3602d7b4bec3ab85",
+    "observed_at": "2000-01-01T00:00:00Z",
+    "observed_in": {
+     "columns": 80,
+     "reported_as": "Apple_Terminal",
+     "rows": 24
+    },
+    "schema": 1,
+    "subject": {
+     "candidate_digest": "7861c85d87e2dd4a63a5fee8377c062124ffddd93581a5e22b36da9b8b0745f4",
+     "claim": {
+      "state": {
+       "needs": [
+        "a first-exposure observation of the integrated candidate"
+       ],
+       "state": "pending"
+      },
+      "terminal": "apple_terminal"
+     },
+     "evidence": {
+      "families": [
+       "N26"
+      ],
+      "origin": {
+       "origin": "verified_native_user_event",
+       "separation_evidence_digest": "f0310728d2a8b9f8491fd79347e938277157e9fcf3e20fda8f50d2a2a02f8da2"
+      },
+      "qualifies": "yes"
+     },
+     "is": "product_candidate"
+    }
+   }
+  },
+  {
+   "digest": "dc101ed68f8b019d55de9dbccd348cdfcddd7945f2c82ae844380118643186bd",
+   "name": "observe_novice_p4_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "a421a760bc580386063958ebfe30a49d01fc0cc4c85ae319dd35818da0d57e10",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_96e71c335cecf5bb362b1f996a01ce77"
+    },
+    "request_digest": "d07f41d0bf43fb8d30f14cb5268d0697b45b5c82e0400bda6305853d65b0638e",
+    "request_id": "req_68db0a5103aab7592dfda690af4d2070",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_e684ed0befe5887e32142fbff051fc23"
+    }
+   }
+  },
+  {
+   "digest": "4ad925a6a2f0769dfdfaf894cca34448d696097b02ca57fb27637eb0f1a76058",
+   "name": "observe_novice_p4_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "dc101ed68f8b019d55de9dbccd348cdfcddd7945f2c82ae844380118643186bd",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "26919e563eb13d05ca403bcec2bcb697a6add794f0449c4f26a9d3ed883f6745",
+      "kind": "surface_observation"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "d07f41d0bf43fb8d30f14cb5268d0697b45b5c82e0400bda6305853d65b0638e",
+    "request_id": "req_68db0a5103aab7592dfda690af4d2070",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "e73453e18aca8df6fd8826566f35bd99419404bb42923d3e81422a98b8b20bf9",
+   "name": "p4_type",
+   "record": {
+    "assistance": {
+     "given": "none"
+    },
+    "confusion": [],
+    "kind": "exposure_trial",
+    "observation_id": "obs_d4e635436e32417c3602d7b4bec3ab85",
+    "observed_at": "2026-09-21T10:00:00Z",
+    "observed_outcome": "한글 조합이 칸 안에서 보였고, Esc로 조합 중인 글자만 취소되었으며, 붙여 넣은 문장이 한 번에 들어갔다. 80×24에서도 저장 버튼과 초점 표시가 잘리지 않았다.",
+    "participant": {
+     "class": "novice",
+     "code": "P4",
+     "sample": "People who had not seen the installed candidate before"
+    },
+    "protocol_digest": "e8d0bc412bf3b7ec53fa76eae9e744098e2dc9f70c11c493881b4947c2978df3",
+    "schema": 1,
+    "stated": {
+     "options": [
+      "Type in the note field",
+      "Paste",
+      "Cancel composing"
+     ],
+     "predicted_effect": "The sentence stays in the note field until I choose to save it.",
+     "predicted_target": "the note field on the contribution screen",
+     "selection": "Type in the note field"
+    },
+    "task_id": "type_and_paste_korean",
+    "task_prompt": "메모 칸에 한글로 한 문장을 입력하고, 조합 중에 취소한 뒤, 복사한 문장을 붙여 넣으세요. 그다음 창 크기를 80×24로 줄이세요.",
+    "ui_subject": "Note field on the contribution screen",
+    "unresolved_misinterpretations": []
+   }
+  },
+  {
+   "digest": "3e10dcec125d6dfed84a968918d5f61213e7bad6979574fa2681da9808ce4b10",
+   "name": "record_p4_type",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_b6a2956f09f60800816bb660fafd703e",
+     "principal_id": "prn_96e71c335cecf5bb362b1f996a01ce77",
+     "profile_id": "prf_e684ed0befe5887e32142fbff051fc23"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "surface.observe",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_96e71c335cecf5bb362b1f996a01ce77"
+    },
+    "payload_digest": "e73453e18aca8df6fd8826566f35bd99419404bb42923d3e81422a98b8b20bf9",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_1dc399de923c8a7efacff1924dcd1c3a",
+    "schema": 1,
+    "target": {
+     "resource_id": "obs_d4e635436e32417c3602d7b4bec3ab85"
+    }
+   }
+  },
+  {
+   "digest": "965e94707433f97c26e9e4204cb3b58284a17440ff5084c2a5e15e024155b0d0",
+   "name": "compose_cancel_paste_resize_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "1980f26c74acf5cc86b9f4db96c63904c9feb7d1ea9834e4f2d156b90655d334",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_96e71c335cecf5bb362b1f996a01ce77"
+    },
+    "request_digest": "3e10dcec125d6dfed84a968918d5f61213e7bad6979574fa2681da9808ce4b10",
+    "request_id": "req_1dc399de923c8a7efacff1924dcd1c3a",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "obs_d4e635436e32417c3602d7b4bec3ab85"
+    }
+   }
+  },
+  {
+   "digest": "b6d6dd5d680c7316dfb11c1cda6b357444014aa3ee7086909da35ae77796a8e2",
+   "name": "compose_cancel_paste_resize_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "965e94707433f97c26e9e4204cb3b58284a17440ff5084c2a5e15e024155b0d0",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "e73453e18aca8df6fd8826566f35bd99419404bb42923d3e81422a98b8b20bf9",
+      "kind": "exposure_trial"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "3e10dcec125d6dfed84a968918d5f61213e7bad6979574fa2681da9808ce4b10",
+    "request_id": "req_1dc399de923c8a7efacff1924dcd1c3a",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "56902770770c7cfae3198bb4ee3540b0b0905bcda3c09306733414d9853ba84b",
+   "name": "p5_session_submitted",
+   "record": {
+    "evidence_class": "observed",
+    "input_routes": [
+     "keyboard",
+     "ime",
+     "paste"
+    ],
+    "kind": "surface_observation",
+    "locale": "ko",
+    "observed_in": {
+     "columns": 80,
+     "reported_as": "Apple_Terminal",
+     "rows": 24
+    },
+    "schema": 1,
+    "subject": {
+     "candidate_digest": "7861c85d87e2dd4a63a5fee8377c062124ffddd93581a5e22b36da9b8b0745f4",
+     "claim": {
+      "state": {
+       "needs": [
+        "a first-exposure observation of the integrated candidate"
+       ],
+       "state": "pending"
+      },
+      "terminal": "apple_terminal"
+     },
+     "evidence": {
+      "families": [
+       "N26"
+      ],
+      "origin": {
+       "origin": "verified_native_user_event",
+       "separation_evidence_digest": "f0310728d2a8b9f8491fd79347e938277157e9fcf3e20fda8f50d2a2a02f8da2"
+      },
+      "qualifies": "yes"
+     },
+     "is": "product_candidate"
+    }
+   }
+  },
+  {
+   "digest": "eff40d5e6df6232297918c75fef3f63bf8a84701e426e80aa2dd14e52ba69221",
+   "name": "observe_p5_session",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_b6a2956f09f60800816bb660fafd703e",
+     "principal_id": "prn_96e71c335cecf5bb362b1f996a01ce77",
+     "profile_id": "prf_e684ed0befe5887e32142fbff051fc23"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "surface.observe",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_96e71c335cecf5bb362b1f996a01ce77"
+    },
+    "payload_digest": "56902770770c7cfae3198bb4ee3540b0b0905bcda3c09306733414d9853ba84b",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_a3e48ed2222fd9200f8f837064cd2ca7",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_e684ed0befe5887e32142fbff051fc23"
+    }
+   }
+  },
+  {
+   "digest": "d72f361858916293a4863d43bd4ac3a0b3a4b08206eb985ef3c5cb6eedf6a351",
+   "name": "p5_session",
+   "record": {
+    "evidence_class": "observed",
+    "input_routes": [
+     "keyboard",
+     "ime",
+     "paste"
+    ],
+    "kind": "surface_observation",
+    "locale": "ko",
+    "observation_id": "obs_1db2937dd826592ee4e41f00b4976d05",
+    "observed_at": "2000-01-01T00:00:00Z",
+    "observed_in": {
+     "columns": 80,
+     "reported_as": "Apple_Terminal",
+     "rows": 24
+    },
+    "schema": 1,
+    "subject": {
+     "candidate_digest": "7861c85d87e2dd4a63a5fee8377c062124ffddd93581a5e22b36da9b8b0745f4",
+     "claim": {
+      "state": {
+       "needs": [
+        "a first-exposure observation of the integrated candidate"
+       ],
+       "state": "pending"
+      },
+      "terminal": "apple_terminal"
+     },
+     "evidence": {
+      "families": [
+       "N26"
+      ],
+      "origin": {
+       "origin": "verified_native_user_event",
+       "separation_evidence_digest": "f0310728d2a8b9f8491fd79347e938277157e9fcf3e20fda8f50d2a2a02f8da2"
+      },
+      "qualifies": "yes"
+     },
+     "is": "product_candidate"
+    }
+   }
+  },
+  {
+   "digest": "479dd83e81affe7bb0290bac2dcdcac26a3c5ad6cae278367d1b05888fd2b7db",
+   "name": "observe_novice_p5_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "4b73f3c13e3c2c1935837c67ad64b595f7cdf16ed0de282b8fe4d74ff9327369",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_96e71c335cecf5bb362b1f996a01ce77"
+    },
+    "request_digest": "eff40d5e6df6232297918c75fef3f63bf8a84701e426e80aa2dd14e52ba69221",
+    "request_id": "req_a3e48ed2222fd9200f8f837064cd2ca7",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_e684ed0befe5887e32142fbff051fc23"
+    }
+   }
+  },
+  {
+   "digest": "e1cac6d70ff8fd80f993576dadcaca9534ff2e740663ace30157435c05b0c445",
+   "name": "observe_novice_p5_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "479dd83e81affe7bb0290bac2dcdcac26a3c5ad6cae278367d1b05888fd2b7db",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "d72f361858916293a4863d43bd4ac3a0b3a4b08206eb985ef3c5cb6eedf6a351",
+      "kind": "surface_observation"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "eff40d5e6df6232297918c75fef3f63bf8a84701e426e80aa2dd14e52ba69221",
+    "request_id": "req_a3e48ed2222fd9200f8f837064cd2ca7",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "cb4e6e78fcd593c189549157f3060964a1ec5802f37ea6fc3d36dcd87be2b101",
+   "name": "p5_type",
+   "record": {
+    "assistance": {
+     "given": "none"
+    },
+    "confusion": [
+     "Enter sent the note while a syllable was still composing.",
+     "The save action was clipped at 80×24."
+    ],
+    "kind": "exposure_trial",
+    "observation_id": "obs_1db2937dd826592ee4e41f00b4976d05",
+    "observed_at": "2026-09-21T11:00:00Z",
+    "observed_outcome": "조합 중에 Enter를 누르자 마지막 음절이 확정되기 전에 메모가 전송되었다. 80×24로 줄인 뒤 저장 버튼이 잘려 보이지 않았다.",
+    "participant": {
+     "class": "novice",
+     "code": "P5",
+     "sample": "People who had not seen the installed candidate before"
+    },
+    "protocol_digest": "e8d0bc412bf3b7ec53fa76eae9e744098e2dc9f70c11c493881b4947c2978df3",
+    "schema": 1,
+    "stated": {
+     "options": [
+      "Type in the note field",
+      "Paste",
+      "Cancel composing"
+     ],
+     "predicted_effect": "The sentence stays in the note field until I choose to save it.",
+     "predicted_target": "the note field on the contribution screen",
+     "selection": "Type in the note field"
+    },
+    "task_id": "type_and_paste_korean",
+    "task_prompt": "메모 칸에 한글로 한 문장을 입력하고, 조합 중에 취소한 뒤, 복사한 문장을 붙여 넣으세요. 그다음 창 크기를 80×24로 줄이세요.",
+    "ui_subject": "Note field on the contribution screen",
+    "unresolved_misinterpretations": []
+   }
+  },
+  {
+   "digest": "333cc65c905b4c935d83c59acebefc4e26b594b744f561ed95eba5376b889624",
+   "name": "record_p5_type",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_b6a2956f09f60800816bb660fafd703e",
+     "principal_id": "prn_96e71c335cecf5bb362b1f996a01ce77",
+     "profile_id": "prf_e684ed0befe5887e32142fbff051fc23"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "surface.observe",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_96e71c335cecf5bb362b1f996a01ce77"
+    },
+    "payload_digest": "cb4e6e78fcd593c189549157f3060964a1ec5802f37ea6fc3d36dcd87be2b101",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_19d4b2a4f8f6a3a5f464e8804e65523d",
+    "schema": 1,
+    "target": {
+     "resource_id": "obs_1db2937dd826592ee4e41f00b4976d05"
+    }
+   }
+  },
+  {
+   "digest": "088a6471b7bee4eac4d5242dfa3a7a1f6ec6547d280c704507d7048eccc19861",
+   "name": "record_composition_stolen_by_enter_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "d1803645572e27124d3420f93d1ca69fc18b04d73a2329fa8ce4752fdac6bcb9",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_96e71c335cecf5bb362b1f996a01ce77"
+    },
+    "request_digest": "333cc65c905b4c935d83c59acebefc4e26b594b744f561ed95eba5376b889624",
+    "request_id": "req_19d4b2a4f8f6a3a5f464e8804e65523d",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "obs_1db2937dd826592ee4e41f00b4976d05"
+    }
+   }
+  },
+  {
+   "digest": "0769d6202ffa1c0fd45c3e86a97d8aa8684c83162f4884ba63639d33a5d1e268",
+   "name": "record_composition_stolen_by_enter_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "088a6471b7bee4eac4d5242dfa3a7a1f6ec6547d280c704507d7048eccc19861",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "cb4e6e78fcd593c189549157f3060964a1ec5802f37ea6fc3d36dcd87be2b101",
+      "kind": "exposure_trial"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "333cc65c905b4c935d83c59acebefc4e26b594b744f561ed95eba5376b889624",
+    "request_id": "req_19d4b2a4f8f6a3a5f464e8804e65523d",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "0eeca4a884e8606dff704cea0334a02e50cb55716d06fbee7eb2a755c16ce36d",
+   "name": "injected",
+   "record": {
+    "evidence_class": "deterministic",
+    "input_routes": [
+     "keyboard",
+     "ime",
+     "paste"
+    ],
+    "kind": "surface_observation",
+    "locale": "ko",
+    "observed_in": {
+     "columns": 80,
+     "reported_as": "Apple_Terminal",
+     "rows": 24
+    },
+    "schema": 1,
+    "subject": {
+     "candidate_digest": "7861c85d87e2dd4a63a5fee8377c062124ffddd93581a5e22b36da9b8b0745f4",
+     "claim": {
+      "state": {
+       "needs": [
+        "a first-exposure observation of the integrated candidate"
+       ],
+       "state": "pending"
+      },
+      "terminal": "apple_terminal"
+     },
+     "evidence": {
+      "families": [
+       "N26"
+      ],
+      "origin": {
+       "origin": "verified_native_user_event",
+       "separation_evidence_digest": "f0310728d2a8b9f8491fd79347e938277157e9fcf3e20fda8f50d2a2a02f8da2"
+      },
+      "qualifies": "yes"
+     },
+     "is": "product_candidate"
+    }
+   }
+  },
+  {
+   "digest": "dced48d1f4324aa1aa01db756292b65dd3693134b4c0759fbc6562c0bd330db7",
+   "name": "submit_injected",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_b6a2956f09f60800816bb660fafd703e",
+     "principal_id": "prn_96e71c335cecf5bb362b1f996a01ce77",
+     "profile_id": "prf_e684ed0befe5887e32142fbff051fc23"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "surface.observe",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_96e71c335cecf5bb362b1f996a01ce77"
+    },
+    "payload_digest": "0eeca4a884e8606dff704cea0334a02e50cb55716d06fbee7eb2a755c16ce36d",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_20c90e0cf95e5f0a0520c4ee5a9ee6e5",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_e684ed0befe5887e32142fbff051fc23"
+    }
+   }
+  },
+  {
+   "digest": "1135e8a97b430db108e101b35a031d4a1f954dd34581b8e213cd4507e88ec97a",
+   "name": "browser_rendering_submitted",
+   "record": {
+    "evidence_class": "observed",
+    "input_routes": [
+     "keyboard"
+    ],
+    "kind": "surface_observation",
+    "locale": "en",
+    "observed_in": {
+     "columns": 120,
+     "reported_as": "an unlisted terminal",
+     "rows": 40
+    },
+    "schema": 1,
+    "subject": {
+     "establishes": "neither_product_nor_human_evidence",
+     "evidence": {
+      "origin": {
+       "origin": "hook_generated"
+      },
+      "qualifies": "no"
+     },
+     "is": "prototype"
+    }
+   }
+  },
+  {
+   "digest": "51edbc0ee1f6e5ec101e46cd8b4a595566ad78de31dcd8bdc6ab7454a57adb56",
+   "name": "observe_browser_rendering",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_b6a2956f09f60800816bb660fafd703e",
+     "principal_id": "prn_96e71c335cecf5bb362b1f996a01ce77",
+     "profile_id": "prf_e684ed0befe5887e32142fbff051fc23"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "surface.observe",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_96e71c335cecf5bb362b1f996a01ce77"
+    },
+    "payload_digest": "1135e8a97b430db108e101b35a031d4a1f954dd34581b8e213cd4507e88ec97a",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_b745f202ecde624e2ac7060399a88e16",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_e684ed0befe5887e32142fbff051fc23"
+    }
+   }
+  },
+  {
+   "digest": "27fadfd7c0f43f32a9a7430efd73ed0b507be36f502ec8cb77c93bb8050f1027",
+   "name": "browser_rendering",
+   "record": {
+    "evidence_class": "observed",
+    "input_routes": [
+     "keyboard"
+    ],
+    "kind": "surface_observation",
+    "locale": "en",
+    "observation_id": "obs_61c04d8b81358976498d1d3f13fd084f",
+    "observed_at": "2000-01-01T00:00:00Z",
+    "observed_in": {
+     "columns": 120,
+     "reported_as": "an unlisted terminal",
+     "rows": 40
+    },
+    "schema": 1,
+    "subject": {
+     "establishes": "neither_product_nor_human_evidence",
+     "evidence": {
+      "origin": {
+       "origin": "hook_generated"
+      },
+      "qualifies": "no"
+     },
+     "is": "prototype"
+    }
+   }
+  },
+  {
+   "digest": "4efbe0c82fccf647dc1c2904f27bb09c9199212d23794bab9549d88c37b60a1c",
+   "name": "observe_a_browser_rendering_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "56afbc5cb5459c742bdefa02098942f0059e0036af118facf7a485707a0b6429",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_96e71c335cecf5bb362b1f996a01ce77"
+    },
+    "request_digest": "51edbc0ee1f6e5ec101e46cd8b4a595566ad78de31dcd8bdc6ab7454a57adb56",
+    "request_id": "req_b745f202ecde624e2ac7060399a88e16",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_e684ed0befe5887e32142fbff051fc23"
+    }
+   }
+  },
+  {
+   "digest": "9f322f8a0646691d9e4b245b7808c794be494ca1bb9b31353c2a051408a8d476",
+   "name": "observe_a_browser_rendering_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "4efbe0c82fccf647dc1c2904f27bb09c9199212d23794bab9549d88c37b60a1c",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "27fadfd7c0f43f32a9a7430efd73ed0b507be36f502ec8cb77c93bb8050f1027",
+      "kind": "surface_observation"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "51edbc0ee1f6e5ec101e46cd8b4a595566ad78de31dcd8bdc6ab7454a57adb56",
+    "request_id": "req_b745f202ecde624e2ac7060399a88e16",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "37453607d4ad6dd58e38863645271e7e2d8044619c52b29bfcf0e8730c9c096b",
+   "name": "unlisted_terminal",
+   "record": {
+    "evidence_class": "observed",
+    "input_routes": [
+     "keyboard",
+     "ime",
+     "paste"
+    ],
+    "kind": "surface_observation",
+    "locale": "ko",
+    "observed_in": {
+     "columns": 80,
+     "reported_as": "Apple_Terminal",
+     "rows": 24
+    },
+    "schema": 1,
+    "subject": {
+     "candidate_digest": "7861c85d87e2dd4a63a5fee8377c062124ffddd93581a5e22b36da9b8b0745f4",
+     "claim": {
+      "state": {
+       "needs": [
+        "a first-exposure observation of the integrated candidate"
+       ],
+       "state": "pending"
+      },
+      "terminal": "a_new_terminal"
+     },
+     "evidence": {
+      "families": [
+       "N26"
+      ],
+      "origin": {
+       "origin": "verified_native_user_event",
+       "separation_evidence_digest": "f0310728d2a8b9f8491fd79347e938277157e9fcf3e20fda8f50d2a2a02f8da2"
+      },
+      "qualifies": "yes"
+     },
+     "is": "product_candidate"
+    }
+   }
+  },
+  {
+   "digest": "c7cb39028c45833ddbe85365ad90cbbbb868d83cf4e71ad1b958ee2cbcb61397",
+   "name": "submit_unlisted_terminal",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_b6a2956f09f60800816bb660fafd703e",
+     "principal_id": "prn_96e71c335cecf5bb362b1f996a01ce77",
+     "profile_id": "prf_e684ed0befe5887e32142fbff051fc23"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "surface.observe",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_96e71c335cecf5bb362b1f996a01ce77"
+    },
+    "payload_digest": "37453607d4ad6dd58e38863645271e7e2d8044619c52b29bfcf0e8730c9c096b",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_2225cd89935d829e8c594ae95c33e20c",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_e684ed0befe5887e32142fbff051fc23"
+    }
+   }
+  },
+  {
+   "digest": "f916b7b7ad3a7626a45dca15cf0c002aab909ff6ca636f3af42b15b8c3dedc52",
+   "name": "unsupported_locale",
+   "record": {
+    "evidence_class": "observed",
+    "input_routes": [
+     "keyboard"
+    ],
+    "kind": "surface_observation",
+    "locale": "fr",
+    "observed_in": {
+     "columns": 80,
+     "reported_as": "Apple_Terminal",
+     "rows": 24
+    },
+    "schema": 1,
+    "subject": {
+     "candidate_digest": "7861c85d87e2dd4a63a5fee8377c062124ffddd93581a5e22b36da9b8b0745f4",
+     "claim": {
+      "state": {
+       "needs": [
+        "a first-exposure observation of the integrated candidate"
+       ],
+       "state": "pending"
+      },
+      "terminal": "apple_terminal"
+     },
+     "evidence": {
+      "families": [
+       "N26"
+      ],
+      "origin": {
+       "origin": "verified_native_user_event",
+       "separation_evidence_digest": "f0310728d2a8b9f8491fd79347e938277157e9fcf3e20fda8f50d2a2a02f8da2"
+      },
+      "qualifies": "yes"
+     },
+     "is": "product_candidate"
+    }
+   }
+  },
+  {
+   "digest": "5e182fd4c85436f6654f92018a21ebe5d1b936519a68a8ed3f86ec6132fa3069",
+   "name": "submit_unsupported_locale",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_b6a2956f09f60800816bb660fafd703e",
+     "principal_id": "prn_96e71c335cecf5bb362b1f996a01ce77",
+     "profile_id": "prf_e684ed0befe5887e32142fbff051fc23"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "surface.observe",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_96e71c335cecf5bb362b1f996a01ce77"
+    },
+    "payload_digest": "f916b7b7ad3a7626a45dca15cf0c002aab909ff6ca636f3af42b15b8c3dedc52",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_22008d38b6204f612a75b13e7a82bc6b",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_e684ed0befe5887e32142fbff051fc23"
+    }
+   }
+  }
+ ],
+ "says": "Before any trial the conductor registers the installed candidate and records the protocol cell for typing and pasting Korean: novices, Apple Terminal, Korean locale, keyboard, IME and paste. Novice P4 meets the candidate for the first time, observed on Apple_Terminal at 80×24 in the Korean locale with keyboard, IME and paste as the input routes, the observation bound to the candidate's digest and claiming Apple Terminal only as pending. P4 composes a Korean sentence in the note field, cancels one syllable while composing, pastes a copied sentence and shrinks the window to 80×24: the trial records the composition shown in the field, the cancel taking only the composing syllable, the paste arriving whole, focus staying in the field and the save action unclipped. Novice P5's trial on the same task is recorded with what went wrong — Enter pressed during composition sent the note, and the save action was clipped after the resize — in its observed outcome and confusion, not dropped. What must not stand in for this: an observation called deterministic (injected precomposed strings), a prototype rendering, which is recorded as establishing nothing, a claim for a terminal nobody listed, and a locale the product has no text for — the last two are refused at admission, so no unobserved platform is declared supported.",
+ "spec_sha256": "f9aad9cd44787cb2aae174f20b651741a4d7d01e2564821e98bbec83ba36c7c4",
+ "steps": [
+  {
+   "carries": [
+    "candidate"
+   ],
+   "name": "register_the_installed_candidate",
+   "request": "register_candidate",
+   "result": "register_the_installed_candidate_result",
+   "returns": [
+    "candidate"
+   ]
+  },
+  {
+   "carries": [
+    "protocol"
+   ],
+   "name": "fix_the_protocol_first",
+   "request": "record_protocol",
+   "result": "fix_the_protocol_first_result",
+   "returns": [
+    "stored_protocol"
+   ]
+  },
+  {
+   "carries": [
+    "p4_session_submitted"
+   ],
+   "name": "observe_novice_p4",
+   "request": "observe_p4_session",
+   "result": "observe_novice_p4_result",
+   "returns": [
+    "p4_session"
+   ]
+  },
+  {
+   "carries": [
+    "p4_type"
+   ],
+   "name": "compose_cancel_paste_resize",
+   "request": "record_p4_type",
+   "result": "compose_cancel_paste_resize_result",
+   "returns": [
+    "p4_type"
+   ]
+  },
+  {
+   "carries": [
+    "p5_session_submitted"
+   ],
+   "name": "observe_novice_p5",
+   "request": "observe_p5_session",
+   "result": "observe_novice_p5_result",
+   "returns": [
+    "p5_session"
+   ]
+  },
+  {
+   "carries": [
+    "p5_type"
+   ],
+   "name": "record_composition_stolen_by_enter",
+   "request": "record_p5_type",
+   "result": "record_composition_stolen_by_enter_result",
+   "returns": [
+    "p5_type"
+   ]
+  },
+  {
+   "carries": [
+    "injected"
+   ],
+   "name": "refuse_injected_strings_as_observation",
+   "refused": [
+    {
+     "code": "value_not_allowed",
+     "pointer": "/evidence_class",
+     "record": "injected"
+    }
+   ],
+   "request": "submit_injected"
+  },
+  {
+   "carries": [
+    "browser_rendering_submitted"
+   ],
+   "name": "observe_a_browser_rendering",
+   "request": "observe_browser_rendering",
+   "result": "observe_a_browser_rendering_result",
+   "returns": [
+    "browser_rendering"
+   ]
+  },
+  {
+   "carries": [
+    "unlisted_terminal"
+   ],
+   "name": "refuse_a_terminal_nobody_listed",
+   "refused": [
+    {
+     "code": "variant_mismatch",
+     "pointer": "/subject",
+     "record": "unlisted_terminal"
+    }
+   ],
+   "request": "submit_unlisted_terminal"
+  },
+  {
+   "carries": [
+    "unsupported_locale"
+   ],
+   "name": "refuse_a_locale_without_text",
+   "refused": [
+    {
+     "code": "value_not_allowed",
+     "pointer": "/locale",
+     "record": "unsupported_locale"
+    }
+   ],
+   "request": "submit_unsupported_locale"
+  }
+ ]
+}

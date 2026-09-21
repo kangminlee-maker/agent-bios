@@ -1,0 +1,1111 @@
+{
+ "case": "CAP-03",
+ "says": "A person binds this device's key and the checkout, and registers two sources of the repository: a knowledge source for domain material and a memory source for decisions. From one observed span of a session transcript, a packaged local adapter makes two typed captures: a knowledge capture of one domain member, stored as a draft for the knowledge source, and a memory capture of one entry, stored as a draft for the memory source; a candidate choice extracted from the memory capture is stored as a candidate for the memory source. Each enters its own role's path. None of it becomes an always instruction or accepted current memory: a knowledge capture that also carries behavioural units is refused at admission (a knowledge capture has no field for a unit); a projection to the Instructions role that pins the knowledge source is refused with role_promotion_refused and nothing is projected; and the current state of the memory source, resolved after the candidate is stored, has no entry and no frontier, because nothing was accepted there.",
+ "ids": [
+  {
+   "name": "alice",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "repo",
+   "prefix": "rep"
+  },
+  {
+   "name": "bind_key",
+   "prefix": "req"
+  },
+  {
+   "name": "bind_repo",
+   "prefix": "req"
+  },
+  {
+   "name": "memory_source",
+   "prefix": "src"
+  },
+  {
+   "name": "register_memory_home_request",
+   "prefix": "req"
+  },
+  {
+   "name": "knowledge_source",
+   "prefix": "src"
+  },
+  {
+   "name": "register_knowledge_home_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "observe_span_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "capture_knowledge_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "entry",
+   "prefix": "ent"
+  },
+  {
+   "name": "capture_memory_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "store_candidate_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "unit",
+   "prefix": "unt"
+  },
+  {
+   "name": "capture_units_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "project_knowledge_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "resolve_state_rid",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "alice_key_submitted",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "bind_key_request",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_key"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#alice_key_submitted"
+    }
+   ]
+  },
+  {
+   "name": "alice_key",
+   "from": "c01/device_key_binding.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:alice_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:alice_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_binding_submitted",
+   "from": "c01/repository_binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "bind_repo_request",
+   "from": "c01/repository_bind_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_repo"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_binding_submitted"
+    }
+   ]
+  },
+  {
+   "name": "repo_binding",
+   "from": "c01/clone_shares_the_repository_id.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/observed/working_bytes_digest",
+     "value": "$digest:checkout_bytes"
+    }
+   ]
+  },
+  {
+   "name": "memory_source_home_submitted",
+   "from": "sources/home_of_a_repository_document.json",
+   "drop": [
+    "/registered_at"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@memory_source"
+    },
+    {
+     "pointer": "/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/acceptance_authority/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/binding_evidence_digest",
+     "value": "#repo_binding"
+    }
+   ]
+  },
+  {
+   "name": "memory_source_home_request",
+   "from": "c01/capture_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_memory_home_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@memory_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#memory_source_home_submitted"
+    }
+   ]
+  },
+  {
+   "name": "memory_source_home",
+   "from": "memory_source_home_submitted",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:memory_source_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "knowledge_home_submitted",
+   "from": "sources/home_of_a_repository_document.json",
+   "drop": [
+    "/registered_at"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@knowledge_source"
+    },
+    {
+     "pointer": "/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/acceptance_authority/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/document_root",
+     "value": "docs/domain"
+    },
+    {
+     "pointer": "/home/binding_evidence_digest",
+     "value": "#repo_binding"
+    }
+   ]
+  },
+  {
+   "name": "knowledge_home_request",
+   "from": "c01/capture_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_knowledge_home_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@knowledge_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#knowledge_home_submitted"
+    }
+   ]
+  },
+  {
+   "name": "knowledge_home",
+   "from": "knowledge_home_submitted",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:knowledge_source_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "span_selection",
+   "from": "c01/selection_of_a_transcript_span.json"
+  },
+  {
+   "name": "observe_span_request",
+   "from": "c01/observe_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@observe_span_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#span_selection"
+    }
+   ]
+  },
+  {
+   "name": "span_observation",
+   "from": "c01/observation_of_a_selected_transcript_span.json",
+   "set": [
+    {
+     "pointer": "/selection_digest",
+     "value": "#span_selection"
+    },
+    {
+     "pointer": "/read/0/digest",
+     "value": "$digest:span_bytes"
+    },
+    {
+     "pointer": "/observed_at",
+     "value": "$instant:observe_span_at"
+    }
+   ]
+  },
+  {
+   "name": "knowledge_capture",
+   "from": "sources/capture_of_domain_material_submitted.json",
+   "set": [
+    {
+     "pointer": "/destination_source_id",
+     "value": "@knowledge_source"
+    },
+    {
+     "pointer": "/observation_digest",
+     "value": "#span_observation"
+    },
+    {
+     "pointer": "/processing/inputs/0/evidence_digest",
+     "value": "$digest:span_bytes"
+    },
+    {
+     "pointer": "/processing/inputs/0/permits/destinations/0/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "capture_knowledge_request",
+   "from": "c01/capture_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@capture_knowledge_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@knowledge_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#knowledge_capture"
+    }
+   ]
+  },
+  {
+   "name": "knowledge_capture_stored",
+   "from": "knowledge_capture",
+   "set": [
+    {
+     "pointer": "/captured_at",
+     "value": "$instant:capture_knowledge_at"
+    }
+   ]
+  },
+  {
+   "name": "knowledge_run",
+   "from": "c01/extraction_run_of_a_packaged_adapter.json",
+   "set": [
+    {
+     "pointer": "/run_id",
+     "value": "$run:knowledge_run"
+    },
+    {
+     "pointer": "/ran_at",
+     "value": "$instant:knowledge_ran_at"
+    }
+   ]
+  },
+  {
+   "name": "memory_capture",
+   "from": "sources/capture_of_memory_material_submitted.json",
+   "set": [
+    {
+     "pointer": "/destination_source_id",
+     "value": "@memory_source"
+    },
+    {
+     "pointer": "/observation_digest",
+     "value": "#span_observation"
+    },
+    {
+     "pointer": "/processing/inputs/0/evidence_digest",
+     "value": "$digest:span_bytes"
+    },
+    {
+     "pointer": "/processing/inputs/0/permits/destinations/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/entries/0/entry_id",
+     "value": "@entry"
+    }
+   ]
+  },
+  {
+   "name": "capture_memory_request",
+   "from": "c01/capture_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@capture_memory_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@memory_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#memory_capture"
+    }
+   ]
+  },
+  {
+   "name": "memory_capture_stored",
+   "from": "memory_capture",
+   "set": [
+    {
+     "pointer": "/captured_at",
+     "value": "$instant:capture_memory_at"
+    }
+   ]
+  },
+  {
+   "name": "memory_run",
+   "from": "c01/extraction_run_of_a_packaged_adapter.json",
+   "set": [
+    {
+     "pointer": "/run_id",
+     "value": "$run:capture_memory_run"
+    },
+    {
+     "pointer": "/ran_at",
+     "value": "$instant:capture_memory_ran_at"
+    }
+   ]
+  },
+  {
+   "name": "choice_candidate",
+   "from": "c05/candidate_from_a_capture.json",
+   "drop": [
+    "/proposed/basis"
+   ],
+   "set": [
+    {
+     "pointer": "/destination_source_id",
+     "value": "@memory_source"
+    },
+    {
+     "pointer": "/origin/capture_digest",
+     "value": "#memory_capture_stored"
+    },
+    {
+     "pointer": "/origin/evidence_digests/0",
+     "value": "$digest:span_bytes"
+    },
+    {
+     "pointer": "/proposed/workstream_ids",
+     "value": []
+    },
+    {
+     "pointer": "/proposed/home/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "store_candidate_request",
+   "from": "c03/candidate_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@store_candidate_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#choice_candidate"
+    }
+   ]
+  },
+  {
+   "name": "choice_candidate_stored",
+   "from": "choice_candidate",
+   "set": [
+    {
+     "pointer": "/candidate_id",
+     "value": "$cnd:choice_candidate"
+    },
+    {
+     "pointer": "/version",
+     "value": 1
+    },
+    {
+     "pointer": "/standing/is",
+     "value": "candidate"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:candidate_stored_at"
+    }
+   ]
+  },
+  {
+   "name": "knowledge_capture_with_units",
+   "from": "sources/knowledge_capture_carrying_behavioural_units.json",
+   "drop": [
+    "/captured_at"
+   ],
+   "set": [
+    {
+     "pointer": "/destination_source_id",
+     "value": "@knowledge_source"
+    },
+    {
+     "pointer": "/observation_digest",
+     "value": "#span_observation"
+    },
+    {
+     "pointer": "/processing/inputs/0/evidence_digest",
+     "value": "$digest:span_bytes"
+    },
+    {
+     "pointer": "/processing/inputs/0/permits/destinations/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/units/0/unit_id",
+     "value": "@unit"
+    }
+   ]
+  },
+  {
+   "name": "capture_units_request",
+   "from": "c01/capture_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@capture_units_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@knowledge_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#knowledge_capture_with_units"
+    }
+   ]
+  },
+  {
+   "name": "instructions_plan",
+   "from": "c04/plan_for_one_source.json",
+   "set": [
+    {
+     "pointer": "/source_pins/0/source_id",
+     "value": "@knowledge_source"
+    },
+    {
+     "pointer": "/source_pins/0/revision_digest",
+     "value": "e79118c1c48cba3d1c82dc40b67b7b6b65cd71dab3621c686d48fa9828595015"
+    }
+   ]
+  },
+  {
+   "name": "project_request",
+   "from": "c04/projection_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@project_knowledge_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@knowledge_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#instructions_plan"
+    }
+   ]
+  },
+  {
+   "name": "state_question",
+   "from": "c05/state_question_over_three_scopes.json",
+   "drop": [
+    "/scopes/2",
+    "/scopes/1"
+   ],
+   "set": [
+    {
+     "pointer": "/scopes/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/concern/question",
+     "value": "Which journal mode does the local state database use?"
+    }
+   ]
+  },
+  {
+   "name": "resolve_request",
+   "from": "c05/memory_use_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@resolve_state_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.state.resolve"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@memory_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#state_question"
+    }
+   ]
+  },
+  {
+   "name": "state_without_the_candidate",
+   "from": "c05/state_over_no_source.json",
+   "set": [
+    {
+     "pointer": "/question_digest",
+     "value": "#state_question"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:state_prepared_at"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_device_key",
+   "request": "bind_key_request",
+   "carries": [
+    "alice_key_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "alice_key"
+    ]
+   }
+  },
+  {
+   "name": "bind_repository",
+   "request": "bind_repo_request",
+   "carries": [
+    "repo_binding_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_binding"
+    ]
+   }
+  },
+  {
+   "name": "register_memory_home",
+   "request": "memory_source_home_request",
+   "carries": [
+    "memory_source_home_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "memory_source_home"
+    ]
+   }
+  },
+  {
+   "name": "register_knowledge_home",
+   "request": "knowledge_home_request",
+   "carries": [
+    "knowledge_home_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "knowledge_home"
+    ]
+   }
+  },
+  {
+   "name": "observe_span",
+   "request": "observe_span_request",
+   "carries": [
+    "span_selection"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "span_observation"
+    ]
+   }
+  },
+  {
+   "name": "capture_knowledge",
+   "request": "capture_knowledge_request",
+   "carries": [
+    "knowledge_capture"
+   ],
+   "answer": {
+    "stage": "draft",
+    "local_effect": "candidate_stored",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "knowledge_capture_stored",
+     "knowledge_run"
+    ]
+   }
+  },
+  {
+   "name": "capture_memory",
+   "request": "capture_memory_request",
+   "carries": [
+    "memory_capture"
+   ],
+   "answer": {
+    "stage": "draft",
+    "local_effect": "candidate_stored",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "memory_capture_stored",
+     "memory_run"
+    ]
+   }
+  },
+  {
+   "name": "store_candidate",
+   "request": "store_candidate_request",
+   "carries": [
+    "choice_candidate"
+   ],
+   "answer": {
+    "stage": "draft",
+    "local_effect": "candidate_stored",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "choice_candidate_stored"
+    ]
+   }
+  },
+  {
+   "name": "capture_knowledge_as_units",
+   "request": "capture_units_request",
+   "carries": [
+    "knowledge_capture_with_units"
+   ],
+   "refused": [
+    {
+     "record": "knowledge_capture_with_units",
+     "code": "unknown_field",
+     "pointer": "/units"
+    }
+   ]
+  },
+  {
+   "name": "project_knowledge_as_instructions",
+   "request": "project_request",
+   "carries": [
+    "instructions_plan"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "role_promotion_refused"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "resolve_current_memory",
+   "request": "resolve_request",
+   "carries": [
+    "state_question"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "state_without_the_candidate"
+    ]
+   }
+  }
+ ]
+}

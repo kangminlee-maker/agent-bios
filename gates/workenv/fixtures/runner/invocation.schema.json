@@ -37,10 +37,10 @@
     "stop": {
       "type": "object",
       "additionalProperties": false,
-      "description": "A fault point. When the round reaches it for the named node's attempt, the adapter ends at once and writes nothing more, as a crash would. Its exit status is not read: the files show whether the point was hit. `after_in_flight_written`: the node's attempt is durably in `in_flight` and no record for the node is written. `after_integration_before_record`: the attempt's changes are in the tree and no record for the node is written.",
+      "description": "A fault point. When the round reaches it for the named node's attempt, the adapter ends at once and writes nothing more, as a crash would. Its exit status is not read: the files show whether the point was hit. `after_in_flight_written`: the node's attempt is durably in `in_flight` and no record for the node is written. `after_result_before_integration`: the node's worker has exited leaving its worker_result at the packet's `result_path`, none of the attempt's changes is in the tree, and no record for the node is written. `after_integration_before_record`: the attempt's changes are in the tree and no record for the node is written.",
       "required": ["point", "node_id"],
       "properties": {
-        "point": {"enum": ["after_in_flight_written", "after_integration_before_record"]},
+        "point": {"enum": ["after_in_flight_written", "after_result_before_integration", "after_integration_before_record"]},
         "node_id": {"$ref": "#/$defs/node_id"}
       }
     }

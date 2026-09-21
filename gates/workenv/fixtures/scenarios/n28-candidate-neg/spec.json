@@ -1,0 +1,465 @@
+{
+ "case": "N28-CANDIDATE-NEG",
+ "says": "A person captures the memory of one selected transcript span (source.observe, then source.capture.record) and stores a candidate choice extracted from that capture (memory.candidate.store), which the owner writes as version 1 naming the capture and the exact span bytes as its origin. The person then edits the proposal, changing the chosen synchronous mode, and submits it under the same candidate id; the owner writes version 2, and its origin is the origin of version 1, byte for byte. The person then rejects the candidate (memory.candidate.reject); the owner writes version 3 standing rejected, and its origin is still that of version 2. Every memory_candidate the owner returns keeps the origin of the version it replaces: none restates the captured candidate as written by hand and none names another capture, which are the breaking records of the rule fixture candidate_keeps_its_origin. Neither the edit nor the rejection changes the capture, the observed span or any destination source.",
+ "ids": [
+  {
+   "name": "me",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "local_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "repo",
+   "prefix": "rep"
+  },
+  {
+   "name": "decisions",
+   "prefix": "src"
+  },
+  {
+   "name": "lane",
+   "prefix": "wst"
+  },
+  {
+   "name": "measured_source",
+   "prefix": "src"
+  },
+  {
+   "name": "entry",
+   "prefix": "ent"
+  },
+  {
+   "name": "observe_request",
+   "prefix": "req"
+  },
+  {
+   "name": "capture_request",
+   "prefix": "req"
+  },
+  {
+   "name": "candidate_request",
+   "prefix": "req"
+  },
+  {
+   "name": "edit_request",
+   "prefix": "req"
+  },
+  {
+   "name": "reject_request",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "selection",
+   "from": "c01/selection_of_a_transcript_span.json"
+  },
+  {
+   "name": "observe",
+   "from": "c01/observe_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@observe_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#selection"
+    }
+   ]
+  },
+  {
+   "name": "observation",
+   "from": "c01/observation_of_a_selected_transcript_span.json",
+   "set": [
+    {
+     "pointer": "/selection_digest",
+     "value": "#selection"
+    },
+    {
+     "pointer": "/read/0/digest",
+     "value": "$digest:span_bytes"
+    },
+    {
+     "pointer": "/observed_at",
+     "value": "$instant:observed_at"
+    }
+   ]
+  },
+  {
+   "name": "capture",
+   "from": "sources/capture_of_memory_material_submitted.json",
+   "set": [
+    {
+     "pointer": "/destination_source_id",
+     "value": "@decisions"
+    },
+    {
+     "pointer": "/observation_digest",
+     "value": "#observation"
+    },
+    {
+     "pointer": "/entries/0/entry_id",
+     "value": "@entry"
+    },
+    {
+     "pointer": "/processing/inputs/0/evidence_digest",
+     "value": "$digest:span_bytes"
+    },
+    {
+     "pointer": "/processing/inputs/0/permits/destinations/0/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "capture_submit",
+   "from": "c01/capture_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@capture_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@decisions"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#capture"
+    }
+   ]
+  },
+  {
+   "name": "stored_capture",
+   "from": "capture",
+   "set": [
+    {
+     "pointer": "/captured_at",
+     "value": "$instant:captured_at"
+    }
+   ]
+  },
+  {
+   "name": "run",
+   "from": "c01/extraction_run_of_a_packaged_adapter.json",
+   "set": [
+    {
+     "pointer": "/run_id",
+     "value": "$run:distill_run"
+    },
+    {
+     "pointer": "/ran_at",
+     "value": "$instant:ran_at"
+    }
+   ]
+  },
+  {
+   "name": "candidate",
+   "from": "c05/candidate_from_a_capture.json",
+   "set": [
+    {
+     "pointer": "/destination_source_id",
+     "value": "@decisions"
+    },
+    {
+     "pointer": "/origin/capture_digest",
+     "value": "#stored_capture"
+    },
+    {
+     "pointer": "/origin/evidence_digests/0",
+     "value": "$digest:span_bytes"
+    },
+    {
+     "pointer": "/proposed/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/proposed/workstream_ids/0",
+     "value": "@lane"
+    },
+    {
+     "pointer": "/proposed/basis/0/source_id",
+     "value": "@measured_source"
+    }
+   ]
+  },
+  {
+   "name": "candidate_submit",
+   "from": "c03/candidate_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@candidate_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#candidate"
+    }
+   ]
+  },
+  {
+   "name": "stored_candidate",
+   "from": "candidate",
+   "set": [
+    {
+     "pointer": "/candidate_id",
+     "value": "$cnd:candidate"
+    },
+    {
+     "pointer": "/version",
+     "value": 1
+    },
+    {
+     "pointer": "/standing/is",
+     "value": "candidate"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:candidate_at"
+    }
+   ]
+  },
+  {
+   "name": "edited_candidate",
+   "from": "candidate",
+   "set": [
+    {
+     "pointer": "/proposed/choice",
+     "value": "WAL, with synchronous NORMAL."
+    }
+   ]
+  },
+  {
+   "name": "edit_submit",
+   "from": "candidate_submit",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@edit_request"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$cnd:candidate"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#edited_candidate"
+    }
+   ]
+  },
+  {
+   "name": "stored_edit",
+   "from": "edited_candidate",
+   "set": [
+    {
+     "pointer": "/candidate_id",
+     "value": "$cnd:candidate"
+    },
+    {
+     "pointer": "/version",
+     "value": 2
+    },
+    {
+     "pointer": "/standing/is",
+     "value": "candidate"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:edited_at"
+    }
+   ]
+  },
+  {
+   "name": "reject_submit",
+   "from": "candidate_submit",
+   "drop": [
+    "/payload_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@reject_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.candidate.reject"
+    },
+    {
+     "pointer": "/action",
+     "value": "review"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$cnd:candidate"
+    }
+   ]
+  },
+  {
+   "name": "stored_rejection",
+   "from": "stored_edit",
+   "set": [
+    {
+     "pointer": "/version",
+     "value": 3
+    },
+    {
+     "pointer": "/standing/is",
+     "value": "rejected"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:rejected_at"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "observe_span",
+   "request": "observe",
+   "carries": [
+    "selection"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "observation"
+    ]
+   }
+  },
+  {
+   "name": "capture_span",
+   "request": "capture_submit",
+   "carries": [
+    "capture"
+   ],
+   "answer": {
+    "stage": "draft",
+    "local_effect": "candidate_stored",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_capture",
+     "run"
+    ]
+   }
+  },
+  {
+   "name": "store_candidate",
+   "request": "candidate_submit",
+   "carries": [
+    "candidate"
+   ],
+   "answer": {
+    "stage": "draft",
+    "local_effect": "candidate_stored",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_candidate"
+    ]
+   }
+  },
+  {
+   "name": "edit_candidate",
+   "request": "edit_submit",
+   "carries": [
+    "edited_candidate"
+   ],
+   "answer": {
+    "stage": "draft",
+    "local_effect": "candidate_stored",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_edit"
+    ]
+   }
+  },
+  {
+   "name": "reject_candidate",
+   "request": "reject_submit",
+   "carries": [],
+   "answer": {
+    "stage": "rejected",
+    "local_effect": "candidate_stored",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_rejection"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,1224 @@
+{
+ "case": "N24-WRITERS-NEG",
+ "ids": [
+  {
+   "id": "prn_5695a138501bebc1bcb862cb7f0fdf4d",
+   "name": "alice"
+  },
+  {
+   "id": "dev_fe8c40408eb5f7fe4d47aded4225a276",
+   "name": "laptop"
+  },
+  {
+   "id": "prf_9144ff449d3cd4a7b75c9443beb788d9",
+   "name": "alice_profile"
+  },
+  {
+   "id": "req_06e799c99d55d7de619ebac65499538c",
+   "name": "bind_request"
+  },
+  {
+   "id": "req_0e26c5679b44d925fe2133e5cbd8e745",
+   "name": "register_request"
+  },
+  {
+   "id": "req_672c93dbba4e4cd194ac38e0bd2fae12",
+   "name": "old_unknown_request"
+  },
+  {
+   "id": "req_c9e6e365a172ff5b11c864e26b18f672",
+   "name": "in_flight_cutover"
+  },
+  {
+   "id": "req_484972537d1b942becb3959374047c93",
+   "name": "in_flight_query_request"
+  },
+  {
+   "id": "req_cf16bcf8b5a2d3a8a74de7a26673f89f",
+   "name": "two_sealed_cutover"
+  },
+  {
+   "id": "req_2f40e027369db380f4bdeee02330611c",
+   "name": "two_sealed_query_request"
+  },
+  {
+   "id": "req_ce103bd51583cb955b563d42060bec4c",
+   "name": "unrouted_cutover"
+  },
+  {
+   "id": "req_8007cfc29ba9d91cba0f4e06ff2abe1c",
+   "name": "unrouted_query_request"
+  },
+  {
+   "id": "req_0402583220d31900a2e987b6bc82f703",
+   "name": "dropped_unknown_cutover"
+  },
+  {
+   "id": "req_0c12ce97c1ad4d95159baacd0f1cf314",
+   "name": "dropped_unknown_query_request"
+  }
+ ],
+ "joins": [
+  {
+   "digest_of": "device_key",
+   "pointer": "/payload_digest",
+   "record": "bind_key"
+  },
+  {
+   "minted": "alice_binding",
+   "pointer": "/binding_id",
+   "record": "stored_key"
+  },
+  {
+   "minted": "bound_at",
+   "pointer": "/created_at",
+   "record": "stored_key"
+  },
+  {
+   "digest_of": "bind_key",
+   "pointer": "/request_digest",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "bind_device_key_head",
+   "pointer": "/head_digest",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "bind_device_key_sequence",
+   "pointer": "/sequence",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "bind_device_key_committed_at",
+   "pointer": "/committed_at",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "digest_of": "bind_device_key_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "bind_device_key_result"
+  },
+  {
+   "digest_of": "bind_key",
+   "pointer": "/request_digest",
+   "record": "bind_device_key_result"
+  },
+  {
+   "digest_of": "stored_key",
+   "pointer": "/outputs/0/digest",
+   "record": "bind_device_key_result"
+  },
+  {
+   "digest_of": "candidate",
+   "pointer": "/payload_digest",
+   "record": "register"
+  },
+  {
+   "digest_of": "register",
+   "pointer": "/request_digest",
+   "record": "register_candidate_receipt"
+  },
+  {
+   "minted": "register_candidate_head",
+   "pointer": "/head_digest",
+   "record": "register_candidate_receipt"
+  },
+  {
+   "minted": "register_candidate_sequence",
+   "pointer": "/sequence",
+   "record": "register_candidate_receipt"
+  },
+  {
+   "minted": "register_candidate_committed_at",
+   "pointer": "/committed_at",
+   "record": "register_candidate_receipt"
+  },
+  {
+   "digest_of": "register_candidate_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "register_candidate_result"
+  },
+  {
+   "digest_of": "register",
+   "pointer": "/request_digest",
+   "record": "register_candidate_result"
+  },
+  {
+   "digest_of": "candidate",
+   "pointer": "/outputs/0/digest",
+   "record": "register_candidate_result"
+  },
+  {
+   "digest_of": "candidate",
+   "pointer": "/candidate_digest",
+   "record": "in_flight_plan"
+  },
+  {
+   "digest_of": "in_flight_plan",
+   "pointer": "/payload_digest",
+   "record": "switch_in_flight"
+  },
+  {
+   "digest_of": "in_flight_query",
+   "pointer": "/payload_digest",
+   "record": "ask_in_flight"
+  },
+  {
+   "digest_of": "ask_in_flight",
+   "pointer": "/request_digest",
+   "record": "query_in_flight_result"
+  },
+  {
+   "digest_of": "in_flight_not_held",
+   "pointer": "/outputs/0/digest",
+   "record": "query_in_flight_result"
+  },
+  {
+   "digest_of": "candidate",
+   "pointer": "/candidate_digest",
+   "record": "two_sealed_plan"
+  },
+  {
+   "digest_of": "two_sealed_plan",
+   "pointer": "/payload_digest",
+   "record": "switch_two_sealed"
+  },
+  {
+   "digest_of": "two_sealed_query",
+   "pointer": "/payload_digest",
+   "record": "ask_two_sealed"
+  },
+  {
+   "digest_of": "ask_two_sealed",
+   "pointer": "/request_digest",
+   "record": "query_two_sealed_result"
+  },
+  {
+   "digest_of": "two_sealed_not_held",
+   "pointer": "/outputs/0/digest",
+   "record": "query_two_sealed_result"
+  },
+  {
+   "digest_of": "candidate",
+   "pointer": "/candidate_digest",
+   "record": "unrouted_plan"
+  },
+  {
+   "digest_of": "unrouted_plan",
+   "pointer": "/payload_digest",
+   "record": "switch_unrouted"
+  },
+  {
+   "digest_of": "unrouted_query",
+   "pointer": "/payload_digest",
+   "record": "ask_unrouted"
+  },
+  {
+   "digest_of": "ask_unrouted",
+   "pointer": "/request_digest",
+   "record": "query_unrouted_result"
+  },
+  {
+   "digest_of": "unrouted_not_held",
+   "pointer": "/outputs/0/digest",
+   "record": "query_unrouted_result"
+  },
+  {
+   "digest_of": "candidate",
+   "pointer": "/candidate_digest",
+   "record": "dropped_unknown_plan"
+  },
+  {
+   "digest_of": "dropped_unknown_plan",
+   "pointer": "/payload_digest",
+   "record": "switch_dropped_unknown"
+  },
+  {
+   "digest_of": "dropped_unknown_query",
+   "pointer": "/payload_digest",
+   "record": "ask_dropped_unknown"
+  },
+  {
+   "digest_of": "ask_dropped_unknown",
+   "pointer": "/request_digest",
+   "record": "query_dropped_unknown_result"
+  },
+  {
+   "digest_of": "dropped_unknown_not_held",
+   "pointer": "/outputs/0/digest",
+   "record": "query_dropped_unknown_result"
+  }
+ ],
+ "minted": [
+  {
+   "name": "alice_binding",
+   "shape": "bnd",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "bind_device_key_committed_at",
+   "shape": "instant",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "bind_device_key_head",
+   "shape": "digest",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "bind_device_key_sequence",
+   "shape": "integer",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "bound_at",
+   "shape": "instant",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "register_candidate_committed_at",
+   "shape": "instant",
+   "step": "register_candidate"
+  },
+  {
+   "name": "register_candidate_head",
+   "shape": "digest",
+   "step": "register_candidate"
+  },
+  {
+   "name": "register_candidate_sequence",
+   "shape": "integer",
+   "step": "register_candidate"
+  }
+ ],
+ "records": [
+  {
+   "digest": "faa57905bdf8225cfbc46506218206cbe4efd16c73079c65d8ab003f1bcc5fdf",
+   "name": "device_key",
+   "record": {
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_fe8c40408eb5f7fe4d47aded4225a276",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_5695a138501bebc1bcb862cb7f0fdf4d",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "8da6e2e256206657cc020724832d533003c70325d4311587f7270c273c2df0b4",
+   "name": "bind_key",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_fe8c40408eb5f7fe4d47aded4225a276",
+     "principal_id": "prn_5695a138501bebc1bcb862cb7f0fdf4d",
+     "profile_id": "prf_9144ff449d3cd4a7b75c9443beb788d9"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "identity.binding.add",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_5695a138501bebc1bcb862cb7f0fdf4d"
+    },
+    "payload_digest": "faa57905bdf8225cfbc46506218206cbe4efd16c73079c65d8ab003f1bcc5fdf",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_06e799c99d55d7de619ebac65499538c",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_5695a138501bebc1bcb862cb7f0fdf4d"
+    }
+   }
+  },
+  {
+   "digest": "2fb96833caffee5e2b6c299993f67c3ef6669ef9c1373c009215519e05b8fb1e",
+   "name": "stored_key",
+   "record": {
+    "binding_id": "bnd_b1b663c003ef9e43917f4b727af77d68",
+    "created_at": "2000-01-01T00:00:00Z",
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_fe8c40408eb5f7fe4d47aded4225a276",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_5695a138501bebc1bcb862cb7f0fdf4d",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "341a355eac38f582a7d4f1320f95d29dc3d77b1b333d3b3afd3363319c905b38",
+   "name": "bind_device_key_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "07a17118517d73a567dd4563b9b9213499d20cb23c73194771b364b2f508fec3",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_5695a138501bebc1bcb862cb7f0fdf4d"
+    },
+    "request_digest": "8da6e2e256206657cc020724832d533003c70325d4311587f7270c273c2df0b4",
+    "request_id": "req_06e799c99d55d7de619ebac65499538c",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prn_5695a138501bebc1bcb862cb7f0fdf4d"
+    }
+   }
+  },
+  {
+   "digest": "beeec80648fed78eaeaa2c1883c6d863ad03c351ad7c57715bd77fa7537d1128",
+   "name": "bind_device_key_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "341a355eac38f582a7d4f1320f95d29dc3d77b1b333d3b3afd3363319c905b38",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "2fb96833caffee5e2b6c299993f67c3ef6669ef9c1373c009215519e05b8fb1e",
+      "kind": "principal_binding"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "8da6e2e256206657cc020724832d533003c70325d4311587f7270c273c2df0b4",
+    "request_id": "req_06e799c99d55d7de619ebac65499538c",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "325deb5ab01e35fd9a7ee0842770ed5c0c443d06f726866ae821a1265bf04f32",
+   "name": "candidate",
+   "record": {
+    "kind": "package_candidate",
+    "members": [
+     {
+      "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "origin": {
+       "copied_from": "workenv/contracts/c03.py"
+      },
+      "path": "workenv/contracts/c03.py",
+      "size": 9120
+     },
+     {
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "origin": {
+       "copied_from": "workenv/contracts/schemas/c03_cutover_plan.schema.json"
+      },
+      "path": "workenv/contracts/schemas/c03_cutover_plan.schema.json",
+      "size": 6211
+     },
+     {
+      "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "origin": {
+       "made": "at_pack_time"
+      },
+      "path": "provenance.json",
+      "size": 312
+     }
+    ],
+    "schema": 1,
+    "source_commit": "a184c3b26df4d7ca57c74806fd4c32273835ae3c",
+    "tarball": {
+     "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 482113
+    }
+   }
+  },
+  {
+   "digest": "befbb4898546afd85a600dafd6554a6cdb21097c07e0539a8071027d5d7cd14b",
+   "name": "register",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_fe8c40408eb5f7fe4d47aded4225a276",
+     "principal_id": "prn_5695a138501bebc1bcb862cb7f0fdf4d",
+     "profile_id": "prf_9144ff449d3cd4a7b75c9443beb788d9"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "package.candidate.register",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_5695a138501bebc1bcb862cb7f0fdf4d"
+    },
+    "payload_digest": "325deb5ab01e35fd9a7ee0842770ed5c0c443d06f726866ae821a1265bf04f32",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_0e26c5679b44d925fe2133e5cbd8e745",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_9144ff449d3cd4a7b75c9443beb788d9"
+    }
+   }
+  },
+  {
+   "digest": "b2b47c5758c3106391d5c89a181fbf297068a76b2819fd7f75e95e4b3b21a2f1",
+   "name": "register_candidate_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "c905faa8310781d3936e324d0c2702d9cf3adef814515faa4364a42258815203",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_5695a138501bebc1bcb862cb7f0fdf4d"
+    },
+    "request_digest": "befbb4898546afd85a600dafd6554a6cdb21097c07e0539a8071027d5d7cd14b",
+    "request_id": "req_0e26c5679b44d925fe2133e5cbd8e745",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_9144ff449d3cd4a7b75c9443beb788d9"
+    }
+   }
+  },
+  {
+   "digest": "375e6e99d8ed122ee2081133334abb45ec58c1eea2828e4db30d7c7fe2144171",
+   "name": "register_candidate_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "b2b47c5758c3106391d5c89a181fbf297068a76b2819fd7f75e95e4b3b21a2f1",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "325deb5ab01e35fd9a7ee0842770ed5c0c443d06f726866ae821a1265bf04f32",
+      "kind": "package_candidate"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "befbb4898546afd85a600dafd6554a6cdb21097c07e0539a8071027d5d7cd14b",
+    "request_id": "req_0e26c5679b44d925fe2133e5cbd8e745",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "f5aefc04b13cc7fb81d1936a48605c00632e16a1c2456a54e0ff65b3a7d42002",
+   "name": "in_flight_plan",
+   "record": {
+    "abortable_until": "commit",
+    "candidate_digest": "325deb5ab01e35fd9a7ee0842770ed5c0c443d06f726866ae821a1265bf04f32",
+    "commit": {
+     "commits": 1,
+     "head_after": "2222222222222222222222222222222222222222222222222222222222222222",
+     "head_before": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    "data": {
+     "carries": "selected",
+     "export_baseline_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+     "quiesced": {
+      "import_digest": "9999999999999999999999999999999999999999999999999999999999999999",
+      "outbox_digest": "8888888888888888888888888888888888888888888888888888888888888888",
+      "revision_digest": "7777777777777777777777777777777777777777777777777777777777777777"
+     },
+     "selection_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+     "source_after": "kept",
+     "unknown_operations": [
+      {
+       "recovery": [
+        "query_same_request"
+       ],
+       "request_id": "req_672c93dbba4e4cd194ac38e0bd2fae12"
+      }
+     ]
+    },
+    "kind": "cutover_plan",
+    "planned_at": "2026-09-21T11:00:00Z",
+    "quiesce": {
+     "in_flight": 1,
+     "sealed": [
+      "source_store",
+      "projection_owner",
+      "publication_lock"
+     ]
+    },
+    "schema": 1,
+    "verify": {
+     "evidence_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+     "unrouted_writers": 0
+    }
+   }
+  },
+  {
+   "digest": "998230cc3106e456749e869a148daf0ce2ecfe58438ea02ee21114b1e8b48f22",
+   "name": "switch_in_flight",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_fe8c40408eb5f7fe4d47aded4225a276",
+     "principal_id": "prn_5695a138501bebc1bcb862cb7f0fdf4d",
+     "profile_id": "prf_9144ff449d3cd4a7b75c9443beb788d9"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "entrance.cutover.commit",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_5695a138501bebc1bcb862cb7f0fdf4d"
+    },
+    "payload_digest": "f5aefc04b13cc7fb81d1936a48605c00632e16a1c2456a54e0ff65b3a7d42002",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_c9e6e365a172ff5b11c864e26b18f672",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_9144ff449d3cd4a7b75c9443beb788d9"
+    }
+   }
+  },
+  {
+   "digest": "69c9b83ae576df461ce87d93a3c48216ec7100a101727457a2f57d3da5c141dd",
+   "name": "in_flight_query",
+   "record": {
+    "kind": "operation_query",
+    "request_id": "req_c9e6e365a172ff5b11c864e26b18f672",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "42cda71130ba52f2044aea224288c6db060beb52d05f2edab6fbac946707098c",
+   "name": "ask_in_flight",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_fe8c40408eb5f7fe4d47aded4225a276",
+     "principal_id": "prn_5695a138501bebc1bcb862cb7f0fdf4d",
+     "profile_id": "prf_9144ff449d3cd4a7b75c9443beb788d9"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "operation.query",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_5695a138501bebc1bcb862cb7f0fdf4d"
+    },
+    "payload_digest": "69c9b83ae576df461ce87d93a3c48216ec7100a101727457a2f57d3da5c141dd",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_484972537d1b942becb3959374047c93",
+    "schema": 1,
+    "target": {
+     "resource_id": "req_c9e6e365a172ff5b11c864e26b18f672"
+    }
+   }
+  },
+  {
+   "digest": "b0adad70f4f72d76574c2d800d1fb82e9003f5e344f411f934256f75ad5000e8",
+   "name": "in_flight_not_held",
+   "record": {
+    "kind": "request_not_held",
+    "request_id": "req_c9e6e365a172ff5b11c864e26b18f672",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "d41acbd44ec25d84fd9ee8d150c5764132fdce64cf3eb72980a05d288f834fef",
+   "name": "query_in_flight_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "b0adad70f4f72d76574c2d800d1fb82e9003f5e344f411f934256f75ad5000e8",
+      "kind": "request_not_held"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "42cda71130ba52f2044aea224288c6db060beb52d05f2edab6fbac946707098c",
+    "request_id": "req_484972537d1b942becb3959374047c93",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "6bb93938815f1c1e22a724c214f9c3c1a765d0cc9c30b34ec659159e28ff95e9",
+   "name": "two_sealed_plan",
+   "record": {
+    "abortable_until": "commit",
+    "candidate_digest": "325deb5ab01e35fd9a7ee0842770ed5c0c443d06f726866ae821a1265bf04f32",
+    "commit": {
+     "commits": 1,
+     "head_after": "2222222222222222222222222222222222222222222222222222222222222222",
+     "head_before": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    "data": {
+     "carries": "selected",
+     "export_baseline_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+     "quiesced": {
+      "import_digest": "9999999999999999999999999999999999999999999999999999999999999999",
+      "outbox_digest": "8888888888888888888888888888888888888888888888888888888888888888",
+      "revision_digest": "7777777777777777777777777777777777777777777777777777777777777777"
+     },
+     "selection_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+     "source_after": "kept",
+     "unknown_operations": [
+      {
+       "recovery": [
+        "query_same_request"
+       ],
+       "request_id": "req_672c93dbba4e4cd194ac38e0bd2fae12"
+      }
+     ]
+    },
+    "kind": "cutover_plan",
+    "planned_at": "2026-09-21T11:00:00Z",
+    "quiesce": {
+     "in_flight": 0,
+     "sealed": [
+      "source_store",
+      "projection_owner"
+     ]
+    },
+    "schema": 1,
+    "verify": {
+     "evidence_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+     "unrouted_writers": 0
+    }
+   }
+  },
+  {
+   "digest": "5dbcdcd4123c382582e8d89ca914e35b078ec27829206a7ab7f81e29ee5994bc",
+   "name": "switch_two_sealed",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_fe8c40408eb5f7fe4d47aded4225a276",
+     "principal_id": "prn_5695a138501bebc1bcb862cb7f0fdf4d",
+     "profile_id": "prf_9144ff449d3cd4a7b75c9443beb788d9"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "entrance.cutover.commit",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_5695a138501bebc1bcb862cb7f0fdf4d"
+    },
+    "payload_digest": "6bb93938815f1c1e22a724c214f9c3c1a765d0cc9c30b34ec659159e28ff95e9",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_cf16bcf8b5a2d3a8a74de7a26673f89f",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_9144ff449d3cd4a7b75c9443beb788d9"
+    }
+   }
+  },
+  {
+   "digest": "d824838cf24272c6dab78a5aa607094525e737c5f9d2b232e1054e229de5c418",
+   "name": "two_sealed_query",
+   "record": {
+    "kind": "operation_query",
+    "request_id": "req_cf16bcf8b5a2d3a8a74de7a26673f89f",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "ffd1c3fc10d101118ce70f41ce56caefecec48cbb49744912e7a10b822b6408f",
+   "name": "ask_two_sealed",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_fe8c40408eb5f7fe4d47aded4225a276",
+     "principal_id": "prn_5695a138501bebc1bcb862cb7f0fdf4d",
+     "profile_id": "prf_9144ff449d3cd4a7b75c9443beb788d9"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "operation.query",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_5695a138501bebc1bcb862cb7f0fdf4d"
+    },
+    "payload_digest": "d824838cf24272c6dab78a5aa607094525e737c5f9d2b232e1054e229de5c418",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_2f40e027369db380f4bdeee02330611c",
+    "schema": 1,
+    "target": {
+     "resource_id": "req_cf16bcf8b5a2d3a8a74de7a26673f89f"
+    }
+   }
+  },
+  {
+   "digest": "2d2df8d5f91d8ae5d0353dc046e2b9477a142076639c229678bba60c4f7ad13d",
+   "name": "two_sealed_not_held",
+   "record": {
+    "kind": "request_not_held",
+    "request_id": "req_cf16bcf8b5a2d3a8a74de7a26673f89f",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "dda3f47e074c5cf119abb5933d99045142d8fad019cd108e7bbf302ac13262c3",
+   "name": "query_two_sealed_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "2d2df8d5f91d8ae5d0353dc046e2b9477a142076639c229678bba60c4f7ad13d",
+      "kind": "request_not_held"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "ffd1c3fc10d101118ce70f41ce56caefecec48cbb49744912e7a10b822b6408f",
+    "request_id": "req_2f40e027369db380f4bdeee02330611c",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "3c8947360799778c4db4a4c70e0666aa35a66f196dd1d725f17c9987a7d74bc2",
+   "name": "unrouted_plan",
+   "record": {
+    "abortable_until": "commit",
+    "candidate_digest": "325deb5ab01e35fd9a7ee0842770ed5c0c443d06f726866ae821a1265bf04f32",
+    "commit": {
+     "commits": 1,
+     "head_after": "2222222222222222222222222222222222222222222222222222222222222222",
+     "head_before": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    "data": {
+     "carries": "selected",
+     "export_baseline_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+     "quiesced": {
+      "import_digest": "9999999999999999999999999999999999999999999999999999999999999999",
+      "outbox_digest": "8888888888888888888888888888888888888888888888888888888888888888",
+      "revision_digest": "7777777777777777777777777777777777777777777777777777777777777777"
+     },
+     "selection_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+     "source_after": "kept",
+     "unknown_operations": [
+      {
+       "recovery": [
+        "query_same_request"
+       ],
+       "request_id": "req_672c93dbba4e4cd194ac38e0bd2fae12"
+      }
+     ]
+    },
+    "kind": "cutover_plan",
+    "planned_at": "2026-09-21T11:00:00Z",
+    "quiesce": {
+     "in_flight": 0,
+     "sealed": [
+      "source_store",
+      "projection_owner",
+      "publication_lock"
+     ]
+    },
+    "schema": 1,
+    "verify": {
+     "evidence_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+     "unrouted_writers": 1
+    }
+   }
+  },
+  {
+   "digest": "f26e1bd08294ad6303e25339c66122ddec651e4b817544167868b45c34bd3be5",
+   "name": "switch_unrouted",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_fe8c40408eb5f7fe4d47aded4225a276",
+     "principal_id": "prn_5695a138501bebc1bcb862cb7f0fdf4d",
+     "profile_id": "prf_9144ff449d3cd4a7b75c9443beb788d9"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "entrance.cutover.commit",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_5695a138501bebc1bcb862cb7f0fdf4d"
+    },
+    "payload_digest": "3c8947360799778c4db4a4c70e0666aa35a66f196dd1d725f17c9987a7d74bc2",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_ce103bd51583cb955b563d42060bec4c",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_9144ff449d3cd4a7b75c9443beb788d9"
+    }
+   }
+  },
+  {
+   "digest": "b78abb090d877d655af0e46b61ea4caaaf2e31fb41072bbff1dafc3e80ea8199",
+   "name": "unrouted_query",
+   "record": {
+    "kind": "operation_query",
+    "request_id": "req_ce103bd51583cb955b563d42060bec4c",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "1fe2795c2571cbabf70b60fe543c9d5798952f0b8522c2abf5faa8621e068d49",
+   "name": "ask_unrouted",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_fe8c40408eb5f7fe4d47aded4225a276",
+     "principal_id": "prn_5695a138501bebc1bcb862cb7f0fdf4d",
+     "profile_id": "prf_9144ff449d3cd4a7b75c9443beb788d9"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "operation.query",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_5695a138501bebc1bcb862cb7f0fdf4d"
+    },
+    "payload_digest": "b78abb090d877d655af0e46b61ea4caaaf2e31fb41072bbff1dafc3e80ea8199",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_8007cfc29ba9d91cba0f4e06ff2abe1c",
+    "schema": 1,
+    "target": {
+     "resource_id": "req_ce103bd51583cb955b563d42060bec4c"
+    }
+   }
+  },
+  {
+   "digest": "465fb3c46faa9dc2a56d6f4cecd7a58d93402eda8eb3eff4e0028fe419d34840",
+   "name": "unrouted_not_held",
+   "record": {
+    "kind": "request_not_held",
+    "request_id": "req_ce103bd51583cb955b563d42060bec4c",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "cb03bd03effd80dac237162a6b10f048c56809bd2e275fdd8f62d5ce3dec5b26",
+   "name": "query_unrouted_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "465fb3c46faa9dc2a56d6f4cecd7a58d93402eda8eb3eff4e0028fe419d34840",
+      "kind": "request_not_held"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "1fe2795c2571cbabf70b60fe543c9d5798952f0b8522c2abf5faa8621e068d49",
+    "request_id": "req_8007cfc29ba9d91cba0f4e06ff2abe1c",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "666073c8fe9b5794b1e1accd81657e2d2e968465834c6d2291a69dc4a0a6e547",
+   "name": "dropped_unknown_plan",
+   "record": {
+    "abortable_until": "commit",
+    "candidate_digest": "325deb5ab01e35fd9a7ee0842770ed5c0c443d06f726866ae821a1265bf04f32",
+    "commit": {
+     "commits": 1,
+     "head_after": "2222222222222222222222222222222222222222222222222222222222222222",
+     "head_before": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    "data": {
+     "carries": "selected",
+     "export_baseline_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+     "quiesced": {
+      "import_digest": "9999999999999999999999999999999999999999999999999999999999999999",
+      "outbox_digest": "8888888888888888888888888888888888888888888888888888888888888888",
+      "revision_digest": "7777777777777777777777777777777777777777777777777777777777777777"
+     },
+     "selection_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+     "source_after": "kept",
+     "unknown_operations": [
+      {
+       "request_id": "req_672c93dbba4e4cd194ac38e0bd2fae12"
+      }
+     ]
+    },
+    "kind": "cutover_plan",
+    "planned_at": "2026-09-21T11:00:00Z",
+    "quiesce": {
+     "in_flight": 0,
+     "sealed": [
+      "source_store",
+      "projection_owner",
+      "publication_lock"
+     ]
+    },
+    "schema": 1,
+    "verify": {
+     "evidence_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+     "unrouted_writers": 0
+    }
+   }
+  },
+  {
+   "digest": "b2136ea688dcc3d3c74e9106a1184a9b3ece2c5044056e3a970c4b30647a433e",
+   "name": "switch_dropped_unknown",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_fe8c40408eb5f7fe4d47aded4225a276",
+     "principal_id": "prn_5695a138501bebc1bcb862cb7f0fdf4d",
+     "profile_id": "prf_9144ff449d3cd4a7b75c9443beb788d9"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "entrance.cutover.commit",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_5695a138501bebc1bcb862cb7f0fdf4d"
+    },
+    "payload_digest": "666073c8fe9b5794b1e1accd81657e2d2e968465834c6d2291a69dc4a0a6e547",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_0402583220d31900a2e987b6bc82f703",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_9144ff449d3cd4a7b75c9443beb788d9"
+    }
+   }
+  },
+  {
+   "digest": "271ab561a5b5107d0a72d9e89c5906f6d4e235962f70bb1d30dec38dca5c5561",
+   "name": "dropped_unknown_query",
+   "record": {
+    "kind": "operation_query",
+    "request_id": "req_0402583220d31900a2e987b6bc82f703",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "36696870b6a8582dfa839fd1f2de69d8b2629bcb7f4c5f5d12ed0c28c4a99fb0",
+   "name": "ask_dropped_unknown",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_fe8c40408eb5f7fe4d47aded4225a276",
+     "principal_id": "prn_5695a138501bebc1bcb862cb7f0fdf4d",
+     "profile_id": "prf_9144ff449d3cd4a7b75c9443beb788d9"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "operation.query",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_5695a138501bebc1bcb862cb7f0fdf4d"
+    },
+    "payload_digest": "271ab561a5b5107d0a72d9e89c5906f6d4e235962f70bb1d30dec38dca5c5561",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_0c12ce97c1ad4d95159baacd0f1cf314",
+    "schema": 1,
+    "target": {
+     "resource_id": "req_0402583220d31900a2e987b6bc82f703"
+    }
+   }
+  },
+  {
+   "digest": "2ff1f59a69754fedce7ed20c5f9d8582e20c4d1d6a2de97128d0c0a289ef761c",
+   "name": "dropped_unknown_not_held",
+   "record": {
+    "kind": "request_not_held",
+    "request_id": "req_0402583220d31900a2e987b6bc82f703",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "57c2c6eee006e6d42be2b42e10ae05e8d29a678bf832f0e2025518b489fc9cf0",
+   "name": "query_dropped_unknown_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "2ff1f59a69754fedce7ed20c5f9d8582e20c4d1d6a2de97128d0c0a289ef761c",
+      "kind": "request_not_held"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "36696870b6a8582dfa839fd1f2de69d8b2629bcb7f4c5f5d12ed0c28c4a99fb0",
+    "request_id": "req_0c12ce97c1ad4d95159baacd0f1cf314",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  }
+ ],
+ "says": "Alice binds her device key and registers the package candidate. The old runtime left one operation (old_unknown_request) with an unknown outcome. She then submits four cutover plans, each naming the registered candidate and each wrong in one way: one starts with an operation in flight, one seals only the source store and projection owner and not the publication lock, one is verified with a writer left unrouted, and one lists the unknown operation without the recovery that settles it, dropping it. Each is refused at admission by the cutover plan's own rule, at the field that breaks it, and nothing is written; a query by each refused request id afterwards is answered request_not_held, because no result, receipt or head exists for it. What must not happen: any of these plans committing, sealing or switching anything, state ownership moving off the source, or the unknown operation being forgotten.",
+ "spec_sha256": "f49c5b0f8e9ab207ac8b727e673447482ceb773d9e628b43c629f7b8c7c1f72a",
+ "steps": [
+  {
+   "carries": [
+    "device_key"
+   ],
+   "name": "bind_device_key",
+   "request": "bind_key",
+   "result": "bind_device_key_result",
+   "returns": [
+    "stored_key"
+   ]
+  },
+  {
+   "carries": [
+    "candidate"
+   ],
+   "name": "register_candidate",
+   "request": "register",
+   "result": "register_candidate_result",
+   "returns": [
+    "candidate"
+   ]
+  },
+  {
+   "carries": [
+    "in_flight_plan"
+   ],
+   "name": "refuse_in_flight",
+   "refused": [
+    {
+     "code": "value_not_allowed",
+     "pointer": "/quiesce/in_flight",
+     "record": "in_flight_plan"
+    }
+   ],
+   "request": "switch_in_flight"
+  },
+  {
+   "carries": [
+    "in_flight_query"
+   ],
+   "name": "query_in_flight",
+   "request": "ask_in_flight",
+   "result": "query_in_flight_result",
+   "returns": [
+    "in_flight_not_held"
+   ]
+  },
+  {
+   "carries": [
+    "two_sealed_plan"
+   ],
+   "name": "refuse_two_sealed",
+   "refused": [
+    {
+     "code": "count_out_of_range",
+     "pointer": "/quiesce/sealed",
+     "record": "two_sealed_plan"
+    }
+   ],
+   "request": "switch_two_sealed"
+  },
+  {
+   "carries": [
+    "two_sealed_query"
+   ],
+   "name": "query_two_sealed",
+   "request": "ask_two_sealed",
+   "result": "query_two_sealed_result",
+   "returns": [
+    "two_sealed_not_held"
+   ]
+  },
+  {
+   "carries": [
+    "unrouted_plan"
+   ],
+   "name": "refuse_unrouted",
+   "refused": [
+    {
+     "code": "value_not_allowed",
+     "pointer": "/verify/unrouted_writers",
+     "record": "unrouted_plan"
+    }
+   ],
+   "request": "switch_unrouted"
+  },
+  {
+   "carries": [
+    "unrouted_query"
+   ],
+   "name": "query_unrouted",
+   "request": "ask_unrouted",
+   "result": "query_unrouted_result",
+   "returns": [
+    "unrouted_not_held"
+   ]
+  },
+  {
+   "carries": [
+    "dropped_unknown_plan"
+   ],
+   "name": "refuse_dropped_unknown",
+   "refused": [
+    {
+     "code": "variant_mismatch",
+     "pointer": "/data",
+     "record": "dropped_unknown_plan"
+    }
+   ],
+   "request": "switch_dropped_unknown"
+  },
+  {
+   "carries": [
+    "dropped_unknown_query"
+   ],
+   "name": "query_dropped_unknown",
+   "request": "ask_dropped_unknown",
+   "result": "query_dropped_unknown_result",
+   "returns": [
+    "dropped_unknown_not_held"
+   ]
+  }
+ ]
+}

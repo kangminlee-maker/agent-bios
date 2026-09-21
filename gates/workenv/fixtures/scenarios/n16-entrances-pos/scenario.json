@@ -1,0 +1,5264 @@
+{
+ "case": "N16-ENTRANCES-POS",
+ "ids": [
+  {
+   "id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e",
+   "name": "alice"
+  },
+  {
+   "id": "dev_3e3767aee078a917eed6bb5dc7c486cd",
+   "name": "laptop"
+  },
+  {
+   "id": "prf_303ec16602d7432c271d570b6d805092",
+   "name": "profile"
+  },
+  {
+   "id": "req_b79ca2cc06f54695312e56700aa6b618",
+   "name": "bind_request"
+  },
+  {
+   "id": "tem_90645e8713a41fcdd3e2504a8fe11e66",
+   "name": "team"
+  },
+  {
+   "id": "req_870d296fd7fa672a0d48f884a6312e44",
+   "name": "found_request"
+  },
+  {
+   "id": "rep_f0e1c003eeb44603f8ddec5f1d070411",
+   "name": "repo"
+  },
+  {
+   "id": "req_5b456b9679a979ff2c40b1a2484f5075",
+   "name": "repo_bind_request"
+  },
+  {
+   "id": "req_2cd25e86253d359862eb57c213b0e7eb",
+   "name": "probe_request"
+  },
+  {
+   "id": "req_9c421a908223de37f281ad552940f462",
+   "name": "offer_hub_request"
+  },
+  {
+   "id": "req_18e40670453f2ac2bf5e0d286284b56d",
+   "name": "drive_hub_request"
+  },
+  {
+   "id": "req_3930270d96ea0c039b4031b35e4cb00f",
+   "name": "select_hub_request"
+  },
+  {
+   "id": "req_f72e6fd1f2735513e9dca207aa32fe35",
+   "name": "start_hub_request"
+  },
+  {
+   "id": "rte_d12b14e0954daafdc367149093e99c8b",
+   "name": "route_hub"
+  },
+  {
+   "id": "req_adb9221b5604ec563907ad09030113aa",
+   "name": "offer_launcher_request"
+  },
+  {
+   "id": "req_93010fff5fd204a32d154f146e2111d7",
+   "name": "drive_launcher_request"
+  },
+  {
+   "id": "req_ec39b0e43b8b7812dc8804c19a251d00",
+   "name": "select_launcher_request"
+  },
+  {
+   "id": "req_e048bfa522389c2eb8d7430dbee76230",
+   "name": "start_launcher_request"
+  },
+  {
+   "id": "rte_e8ad79f20605fd1ea7bc47fdf00d7f7d",
+   "name": "route_launcher"
+  },
+  {
+   "id": "req_4d12406383a332937d63a2c62be357bc",
+   "name": "offer_setup_request"
+  },
+  {
+   "id": "req_0999eec2c17765e9b55003f9bdc508c7",
+   "name": "drive_setup_request"
+  },
+  {
+   "id": "req_c7552481d49099601e06cd3ac8dac20a",
+   "name": "select_setup_request"
+  },
+  {
+   "id": "req_90002f2e12d3e45ef5057bfc9ecccf16",
+   "name": "start_setup_request"
+  },
+  {
+   "id": "rte_4944b0204a83e8c40736d91e72227b61",
+   "name": "route_setup"
+  }
+ ],
+ "joins": [
+  {
+   "digest_of": "first_key",
+   "pointer": "/payload_digest",
+   "record": "bind"
+  },
+  {
+   "minted": "alice_binding",
+   "pointer": "/binding_id",
+   "record": "stored_key"
+  },
+  {
+   "minted": "bound_at",
+   "pointer": "/created_at",
+   "record": "stored_key"
+  },
+  {
+   "digest_of": "bind",
+   "pointer": "/request_digest",
+   "record": "bind_first_key_receipt"
+  },
+  {
+   "minted": "bind_first_key_head",
+   "pointer": "/head_digest",
+   "record": "bind_first_key_receipt"
+  },
+  {
+   "minted": "bind_first_key_sequence",
+   "pointer": "/sequence",
+   "record": "bind_first_key_receipt"
+  },
+  {
+   "minted": "bind_first_key_committed_at",
+   "pointer": "/committed_at",
+   "record": "bind_first_key_receipt"
+  },
+  {
+   "digest_of": "bind_first_key_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "bind_first_key_result"
+  },
+  {
+   "digest_of": "bind",
+   "pointer": "/request_digest",
+   "record": "bind_first_key_result"
+  },
+  {
+   "digest_of": "stored_key",
+   "pointer": "/outputs/0/digest",
+   "record": "bind_first_key_result"
+  },
+  {
+   "digest_of": "proposed_policy",
+   "pointer": "/policy_digest",
+   "record": "founding"
+  },
+  {
+   "digest_of": "founding",
+   "pointer": "/payload_digest",
+   "record": "found"
+  },
+  {
+   "minted": "founded_at",
+   "pointer": "/since",
+   "record": "team_active"
+  },
+  {
+   "minted": "founded_at",
+   "pointer": "/updated_at",
+   "record": "team_named"
+  },
+  {
+   "minted": "founded_at",
+   "pointer": "/committed_at",
+   "record": "team_policy"
+  },
+  {
+   "minted": "team_policy",
+   "pointer": "/policy_id",
+   "record": "team_policy"
+  },
+  {
+   "minted": "founded_at",
+   "pointer": "/created_at",
+   "record": "founder_grant"
+  },
+  {
+   "minted": "founder_grant",
+   "pointer": "/grant_id",
+   "record": "founder_grant"
+  },
+  {
+   "digest_of": "found",
+   "pointer": "/request_digest",
+   "record": "found_team_receipt"
+  },
+  {
+   "minted": "founded_head",
+   "pointer": "/head_digest",
+   "record": "found_team_receipt"
+  },
+  {
+   "minted": "found_team_sequence",
+   "pointer": "/sequence",
+   "record": "found_team_receipt"
+  },
+  {
+   "minted": "found_team_committed_at",
+   "pointer": "/committed_at",
+   "record": "found_team_receipt"
+  },
+  {
+   "digest_of": "found_team_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "found",
+   "pointer": "/request_digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "team_active",
+   "pointer": "/outputs/0/digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "team_named",
+   "pointer": "/outputs/1/digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "team_policy",
+   "pointer": "/outputs/2/digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "founder_grant",
+   "pointer": "/outputs/3/digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "repo_binding",
+   "pointer": "/payload_digest",
+   "record": "bind_repo"
+  },
+  {
+   "minted": "payments_working_bytes",
+   "pointer": "/observed/working_bytes_digest",
+   "record": "repo_bound"
+  },
+  {
+   "digest_of": "bind_repo",
+   "pointer": "/request_digest",
+   "record": "bind_repository_receipt"
+  },
+  {
+   "minted": "bind_repository_head",
+   "pointer": "/head_digest",
+   "record": "bind_repository_receipt"
+  },
+  {
+   "minted": "bind_repository_sequence",
+   "pointer": "/sequence",
+   "record": "bind_repository_receipt"
+  },
+  {
+   "minted": "bind_repository_committed_at",
+   "pointer": "/committed_at",
+   "record": "bind_repository_receipt"
+  },
+  {
+   "digest_of": "bind_repository_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "bind_repository_result"
+  },
+  {
+   "digest_of": "bind_repo",
+   "pointer": "/request_digest",
+   "record": "bind_repository_result"
+  },
+  {
+   "digest_of": "repo_bound",
+   "pointer": "/outputs/0/digest",
+   "record": "bind_repository_result"
+  },
+  {
+   "digest_of": "read_probe",
+   "pointer": "/payload_digest",
+   "record": "probe"
+  },
+  {
+   "minted": "probed_at",
+   "pointer": "/at",
+   "record": "read_probe_stored"
+  },
+  {
+   "minted": "read_probe",
+   "pointer": "/probe_id",
+   "record": "read_probe_stored"
+  },
+  {
+   "digest_of": "read_probe_stored",
+   "pointer": "/capabilities/0/state/probe_digest",
+   "record": "client_profile"
+  },
+  {
+   "minted": "probed_at",
+   "pointer": "/measured_at",
+   "record": "client_profile"
+  },
+  {
+   "minted": "client_profile",
+   "pointer": "/profile_id",
+   "record": "client_profile"
+  },
+  {
+   "digest_of": "probe",
+   "pointer": "/request_digest",
+   "record": "probe_read_receipt"
+  },
+  {
+   "minted": "probe_read_head",
+   "pointer": "/head_digest",
+   "record": "probe_read_receipt"
+  },
+  {
+   "minted": "probe_read_sequence",
+   "pointer": "/sequence",
+   "record": "probe_read_receipt"
+  },
+  {
+   "minted": "probe_read_committed_at",
+   "pointer": "/committed_at",
+   "record": "probe_read_receipt"
+  },
+  {
+   "digest_of": "probe_read_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "probe_read_result"
+  },
+  {
+   "digest_of": "probe",
+   "pointer": "/request_digest",
+   "record": "probe_read_result"
+  },
+  {
+   "digest_of": "read_probe_stored",
+   "pointer": "/outputs/0/digest",
+   "record": "probe_read_result"
+  },
+  {
+   "digest_of": "client_profile",
+   "pointer": "/outputs/1/digest",
+   "record": "probe_read_result"
+  },
+  {
+   "digest_of": "read_probe_stored",
+   "pointer": "/offered/0/support/probe_digest",
+   "record": "hub_offer"
+  },
+  {
+   "digest_of": "hub_offer",
+   "pointer": "/payload_digest",
+   "record": "offer_hub"
+  },
+  {
+   "digest_of": "read_probe_stored",
+   "pointer": "/offered/0/support/probe_digest",
+   "record": "hub_offer_stored"
+  },
+  {
+   "minted": "hub_offered_at",
+   "pointer": "/offered_at",
+   "record": "hub_offer_stored"
+  },
+  {
+   "digest_of": "offer_hub",
+   "pointer": "/request_digest",
+   "record": "offer_from_hub_receipt"
+  },
+  {
+   "minted": "offer_from_hub_head",
+   "pointer": "/head_digest",
+   "record": "offer_from_hub_receipt"
+  },
+  {
+   "minted": "offer_from_hub_sequence",
+   "pointer": "/sequence",
+   "record": "offer_from_hub_receipt"
+  },
+  {
+   "minted": "offer_from_hub_committed_at",
+   "pointer": "/committed_at",
+   "record": "offer_from_hub_receipt"
+  },
+  {
+   "digest_of": "offer_from_hub_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "offer_from_hub_result"
+  },
+  {
+   "digest_of": "offer_hub",
+   "pointer": "/request_digest",
+   "record": "offer_from_hub_result"
+  },
+  {
+   "digest_of": "hub_offer_stored",
+   "pointer": "/outputs/0/digest",
+   "record": "offer_from_hub_result"
+  },
+  {
+   "digest_of": "hub_keys",
+   "pointer": "/payload_digest",
+   "record": "drive_hub"
+  },
+  {
+   "minted": "hub_driven_at",
+   "pointer": "/at",
+   "record": "hub_trace"
+  },
+  {
+   "digest_of": "hub_offer_stored",
+   "pointer": "/offer_digest",
+   "record": "hub_selection"
+  },
+  {
+   "digest_of": "hub_selection",
+   "pointer": "/payload_digest",
+   "record": "select_hub"
+  },
+  {
+   "digest_of": "select_hub",
+   "pointer": "/frames/6/calls/0/request_digest",
+   "record": "hub_trace"
+  },
+  {
+   "digest_of": "hub_keys",
+   "pointer": "/script_digest",
+   "record": "hub_trace"
+  },
+  {
+   "digest_of": "drive_hub",
+   "pointer": "/request_digest",
+   "record": "drive_from_hub_result"
+  },
+  {
+   "digest_of": "hub_trace",
+   "pointer": "/outputs/0/digest",
+   "record": "drive_from_hub_result"
+  },
+  {
+   "minted": "hub_started_at",
+   "pointer": "/at",
+   "record": "hub_outcome"
+  },
+  {
+   "minted": "hub_start_output",
+   "pointer": "/result/output_digest",
+   "record": "hub_outcome"
+  },
+  {
+   "digest_of": "select_hub",
+   "pointer": "/request_digest",
+   "record": "start_from_hub_receipt"
+  },
+  {
+   "minted": "start_from_hub_head",
+   "pointer": "/head_digest",
+   "record": "start_from_hub_receipt"
+  },
+  {
+   "minted": "start_from_hub_sequence",
+   "pointer": "/sequence",
+   "record": "start_from_hub_receipt"
+  },
+  {
+   "minted": "start_from_hub_committed_at",
+   "pointer": "/committed_at",
+   "record": "start_from_hub_receipt"
+  },
+  {
+   "digest_of": "start_from_hub_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "start_from_hub_result"
+  },
+  {
+   "digest_of": "select_hub",
+   "pointer": "/request_digest",
+   "record": "start_from_hub_result"
+  },
+  {
+   "digest_of": "hub_outcome",
+   "pointer": "/outputs/0/digest",
+   "record": "start_from_hub_result"
+  },
+  {
+   "digest_of": "read_probe_stored",
+   "pointer": "/offered/0/support/probe_digest",
+   "record": "launcher_offer"
+  },
+  {
+   "digest_of": "launcher_offer",
+   "pointer": "/payload_digest",
+   "record": "offer_launcher"
+  },
+  {
+   "digest_of": "read_probe_stored",
+   "pointer": "/offered/0/support/probe_digest",
+   "record": "launcher_offer_stored"
+  },
+  {
+   "minted": "launcher_offered_at",
+   "pointer": "/offered_at",
+   "record": "launcher_offer_stored"
+  },
+  {
+   "digest_of": "offer_launcher",
+   "pointer": "/request_digest",
+   "record": "offer_from_launcher_receipt"
+  },
+  {
+   "minted": "offer_from_launcher_head",
+   "pointer": "/head_digest",
+   "record": "offer_from_launcher_receipt"
+  },
+  {
+   "minted": "offer_from_launcher_sequence",
+   "pointer": "/sequence",
+   "record": "offer_from_launcher_receipt"
+  },
+  {
+   "minted": "offer_from_launcher_committed_at",
+   "pointer": "/committed_at",
+   "record": "offer_from_launcher_receipt"
+  },
+  {
+   "digest_of": "offer_from_launcher_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "offer_from_launcher_result"
+  },
+  {
+   "digest_of": "offer_launcher",
+   "pointer": "/request_digest",
+   "record": "offer_from_launcher_result"
+  },
+  {
+   "digest_of": "launcher_offer_stored",
+   "pointer": "/outputs/0/digest",
+   "record": "offer_from_launcher_result"
+  },
+  {
+   "digest_of": "launcher_keys",
+   "pointer": "/payload_digest",
+   "record": "drive_launcher"
+  },
+  {
+   "minted": "launcher_driven_at",
+   "pointer": "/at",
+   "record": "launcher_trace"
+  },
+  {
+   "digest_of": "launcher_offer_stored",
+   "pointer": "/offer_digest",
+   "record": "launcher_selection"
+  },
+  {
+   "digest_of": "launcher_selection",
+   "pointer": "/payload_digest",
+   "record": "select_launcher"
+  },
+  {
+   "digest_of": "select_launcher",
+   "pointer": "/frames/6/calls/0/request_digest",
+   "record": "launcher_trace"
+  },
+  {
+   "digest_of": "launcher_keys",
+   "pointer": "/script_digest",
+   "record": "launcher_trace"
+  },
+  {
+   "digest_of": "drive_launcher",
+   "pointer": "/request_digest",
+   "record": "drive_from_launcher_result"
+  },
+  {
+   "digest_of": "launcher_trace",
+   "pointer": "/outputs/0/digest",
+   "record": "drive_from_launcher_result"
+  },
+  {
+   "minted": "launcher_started_at",
+   "pointer": "/at",
+   "record": "launcher_outcome"
+  },
+  {
+   "minted": "launcher_start_output",
+   "pointer": "/result/output_digest",
+   "record": "launcher_outcome"
+  },
+  {
+   "digest_of": "select_launcher",
+   "pointer": "/request_digest",
+   "record": "start_from_launcher_receipt"
+  },
+  {
+   "minted": "start_from_launcher_head",
+   "pointer": "/head_digest",
+   "record": "start_from_launcher_receipt"
+  },
+  {
+   "minted": "start_from_launcher_sequence",
+   "pointer": "/sequence",
+   "record": "start_from_launcher_receipt"
+  },
+  {
+   "minted": "start_from_launcher_committed_at",
+   "pointer": "/committed_at",
+   "record": "start_from_launcher_receipt"
+  },
+  {
+   "digest_of": "start_from_launcher_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "start_from_launcher_result"
+  },
+  {
+   "digest_of": "select_launcher",
+   "pointer": "/request_digest",
+   "record": "start_from_launcher_result"
+  },
+  {
+   "digest_of": "launcher_outcome",
+   "pointer": "/outputs/0/digest",
+   "record": "start_from_launcher_result"
+  },
+  {
+   "digest_of": "read_probe_stored",
+   "pointer": "/offered/0/support/probe_digest",
+   "record": "setup_offer"
+  },
+  {
+   "digest_of": "setup_offer",
+   "pointer": "/payload_digest",
+   "record": "offer_setup"
+  },
+  {
+   "digest_of": "read_probe_stored",
+   "pointer": "/offered/0/support/probe_digest",
+   "record": "setup_offer_stored"
+  },
+  {
+   "minted": "setup_offered_at",
+   "pointer": "/offered_at",
+   "record": "setup_offer_stored"
+  },
+  {
+   "digest_of": "offer_setup",
+   "pointer": "/request_digest",
+   "record": "offer_from_setup_receipt"
+  },
+  {
+   "minted": "offer_from_setup_head",
+   "pointer": "/head_digest",
+   "record": "offer_from_setup_receipt"
+  },
+  {
+   "minted": "offer_from_setup_sequence",
+   "pointer": "/sequence",
+   "record": "offer_from_setup_receipt"
+  },
+  {
+   "minted": "offer_from_setup_committed_at",
+   "pointer": "/committed_at",
+   "record": "offer_from_setup_receipt"
+  },
+  {
+   "digest_of": "offer_from_setup_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "offer_from_setup_result"
+  },
+  {
+   "digest_of": "offer_setup",
+   "pointer": "/request_digest",
+   "record": "offer_from_setup_result"
+  },
+  {
+   "digest_of": "setup_offer_stored",
+   "pointer": "/outputs/0/digest",
+   "record": "offer_from_setup_result"
+  },
+  {
+   "digest_of": "setup_keys",
+   "pointer": "/payload_digest",
+   "record": "drive_setup"
+  },
+  {
+   "minted": "setup_driven_at",
+   "pointer": "/at",
+   "record": "setup_trace"
+  },
+  {
+   "digest_of": "setup_offer_stored",
+   "pointer": "/offer_digest",
+   "record": "setup_selection"
+  },
+  {
+   "digest_of": "setup_selection",
+   "pointer": "/payload_digest",
+   "record": "select_setup"
+  },
+  {
+   "digest_of": "select_setup",
+   "pointer": "/frames/6/calls/0/request_digest",
+   "record": "setup_trace"
+  },
+  {
+   "digest_of": "setup_keys",
+   "pointer": "/script_digest",
+   "record": "setup_trace"
+  },
+  {
+   "digest_of": "drive_setup",
+   "pointer": "/request_digest",
+   "record": "drive_from_setup_result"
+  },
+  {
+   "digest_of": "setup_trace",
+   "pointer": "/outputs/0/digest",
+   "record": "drive_from_setup_result"
+  },
+  {
+   "minted": "setup_started_at",
+   "pointer": "/at",
+   "record": "setup_outcome"
+  },
+  {
+   "minted": "setup_start_output",
+   "pointer": "/result/output_digest",
+   "record": "setup_outcome"
+  },
+  {
+   "digest_of": "select_setup",
+   "pointer": "/request_digest",
+   "record": "start_from_setup_receipt"
+  },
+  {
+   "minted": "start_from_setup_head",
+   "pointer": "/head_digest",
+   "record": "start_from_setup_receipt"
+  },
+  {
+   "minted": "start_from_setup_sequence",
+   "pointer": "/sequence",
+   "record": "start_from_setup_receipt"
+  },
+  {
+   "minted": "start_from_setup_committed_at",
+   "pointer": "/committed_at",
+   "record": "start_from_setup_receipt"
+  },
+  {
+   "digest_of": "start_from_setup_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "start_from_setup_result"
+  },
+  {
+   "digest_of": "select_setup",
+   "pointer": "/request_digest",
+   "record": "start_from_setup_result"
+  },
+  {
+   "digest_of": "setup_outcome",
+   "pointer": "/outputs/0/digest",
+   "record": "start_from_setup_result"
+  }
+ ],
+ "minted": [
+  {
+   "name": "alice_binding",
+   "shape": "bnd",
+   "step": "bind_first_key"
+  },
+  {
+   "name": "bind_first_key_committed_at",
+   "shape": "instant",
+   "step": "bind_first_key"
+  },
+  {
+   "name": "bind_first_key_head",
+   "shape": "digest",
+   "step": "bind_first_key"
+  },
+  {
+   "name": "bind_first_key_sequence",
+   "shape": "integer",
+   "step": "bind_first_key"
+  },
+  {
+   "name": "bound_at",
+   "shape": "instant",
+   "step": "bind_first_key"
+  },
+  {
+   "name": "found_team_committed_at",
+   "shape": "instant",
+   "step": "found_team"
+  },
+  {
+   "name": "found_team_sequence",
+   "shape": "integer",
+   "step": "found_team"
+  },
+  {
+   "name": "founded_at",
+   "shape": "instant",
+   "step": "found_team"
+  },
+  {
+   "name": "founded_head",
+   "shape": "digest",
+   "step": "found_team"
+  },
+  {
+   "name": "founder_grant",
+   "shape": "gra",
+   "step": "found_team"
+  },
+  {
+   "name": "team_policy",
+   "shape": "pol",
+   "step": "found_team"
+  },
+  {
+   "name": "bind_repository_committed_at",
+   "shape": "instant",
+   "step": "bind_repository"
+  },
+  {
+   "name": "bind_repository_head",
+   "shape": "digest",
+   "step": "bind_repository"
+  },
+  {
+   "name": "bind_repository_sequence",
+   "shape": "integer",
+   "step": "bind_repository"
+  },
+  {
+   "name": "payments_working_bytes",
+   "shape": "digest",
+   "step": "bind_repository"
+  },
+  {
+   "name": "client_profile",
+   "shape": "cap",
+   "step": "probe_read"
+  },
+  {
+   "name": "probe_read_committed_at",
+   "shape": "instant",
+   "step": "probe_read"
+  },
+  {
+   "name": "probe_read_head",
+   "shape": "digest",
+   "step": "probe_read"
+  },
+  {
+   "name": "probe_read_sequence",
+   "shape": "integer",
+   "step": "probe_read"
+  },
+  {
+   "name": "probed_at",
+   "shape": "instant",
+   "step": "probe_read"
+  },
+  {
+   "name": "read_probe",
+   "shape": "prb",
+   "step": "probe_read"
+  },
+  {
+   "name": "hub_offered_at",
+   "shape": "instant",
+   "step": "offer_from_hub"
+  },
+  {
+   "name": "offer_from_hub_committed_at",
+   "shape": "instant",
+   "step": "offer_from_hub"
+  },
+  {
+   "name": "offer_from_hub_head",
+   "shape": "digest",
+   "step": "offer_from_hub"
+  },
+  {
+   "name": "offer_from_hub_sequence",
+   "shape": "integer",
+   "step": "offer_from_hub"
+  },
+  {
+   "name": "hub_driven_at",
+   "shape": "instant",
+   "step": "drive_from_hub"
+  },
+  {
+   "name": "hub_start_output",
+   "shape": "digest",
+   "step": "start_from_hub"
+  },
+  {
+   "name": "hub_started_at",
+   "shape": "instant",
+   "step": "start_from_hub"
+  },
+  {
+   "name": "start_from_hub_committed_at",
+   "shape": "instant",
+   "step": "start_from_hub"
+  },
+  {
+   "name": "start_from_hub_head",
+   "shape": "digest",
+   "step": "start_from_hub"
+  },
+  {
+   "name": "start_from_hub_sequence",
+   "shape": "integer",
+   "step": "start_from_hub"
+  },
+  {
+   "name": "launcher_offered_at",
+   "shape": "instant",
+   "step": "offer_from_launcher"
+  },
+  {
+   "name": "offer_from_launcher_committed_at",
+   "shape": "instant",
+   "step": "offer_from_launcher"
+  },
+  {
+   "name": "offer_from_launcher_head",
+   "shape": "digest",
+   "step": "offer_from_launcher"
+  },
+  {
+   "name": "offer_from_launcher_sequence",
+   "shape": "integer",
+   "step": "offer_from_launcher"
+  },
+  {
+   "name": "launcher_driven_at",
+   "shape": "instant",
+   "step": "drive_from_launcher"
+  },
+  {
+   "name": "launcher_start_output",
+   "shape": "digest",
+   "step": "start_from_launcher"
+  },
+  {
+   "name": "launcher_started_at",
+   "shape": "instant",
+   "step": "start_from_launcher"
+  },
+  {
+   "name": "start_from_launcher_committed_at",
+   "shape": "instant",
+   "step": "start_from_launcher"
+  },
+  {
+   "name": "start_from_launcher_head",
+   "shape": "digest",
+   "step": "start_from_launcher"
+  },
+  {
+   "name": "start_from_launcher_sequence",
+   "shape": "integer",
+   "step": "start_from_launcher"
+  },
+  {
+   "name": "offer_from_setup_committed_at",
+   "shape": "instant",
+   "step": "offer_from_setup"
+  },
+  {
+   "name": "offer_from_setup_head",
+   "shape": "digest",
+   "step": "offer_from_setup"
+  },
+  {
+   "name": "offer_from_setup_sequence",
+   "shape": "integer",
+   "step": "offer_from_setup"
+  },
+  {
+   "name": "setup_offered_at",
+   "shape": "instant",
+   "step": "offer_from_setup"
+  },
+  {
+   "name": "setup_driven_at",
+   "shape": "instant",
+   "step": "drive_from_setup"
+  },
+  {
+   "name": "setup_start_output",
+   "shape": "digest",
+   "step": "start_from_setup"
+  },
+  {
+   "name": "setup_started_at",
+   "shape": "instant",
+   "step": "start_from_setup"
+  },
+  {
+   "name": "start_from_setup_committed_at",
+   "shape": "instant",
+   "step": "start_from_setup"
+  },
+  {
+   "name": "start_from_setup_head",
+   "shape": "digest",
+   "step": "start_from_setup"
+  },
+  {
+   "name": "start_from_setup_sequence",
+   "shape": "integer",
+   "step": "start_from_setup"
+  }
+ ],
+ "records": [
+  {
+   "digest": "0cadd6053dd1763aff789cc132923d7729ccf1afdec5cc1b31b001dee7d0e668",
+   "name": "first_key",
+   "record": {
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_3e3767aee078a917eed6bb5dc7c486cd",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "731ff9a20ce6e3f11657b5200455ab430585d57518747b8c50e74ed7872caeda",
+   "name": "bind",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_3e3767aee078a917eed6bb5dc7c486cd",
+     "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e",
+     "profile_id": "prf_303ec16602d7432c271d570b6d805092"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "identity.binding.add",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+    },
+    "payload_digest": "0cadd6053dd1763aff789cc132923d7729ccf1afdec5cc1b31b001dee7d0e668",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_b79ca2cc06f54695312e56700aa6b618",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+    }
+   }
+  },
+  {
+   "digest": "446051f8bb3d8fa9147fa8704bde3978cc1a1749da84cc73df89aea17775bad4",
+   "name": "stored_key",
+   "record": {
+    "binding_id": "bnd_d6555ade53bf70989b8653715f9871f2",
+    "created_at": "2000-01-01T00:00:00Z",
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_3e3767aee078a917eed6bb5dc7c486cd",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "9e67a4e84c4b8634e43bb3857164b8ea2f346e71d8d9b36467d7785f2094a92b",
+   "name": "bind_first_key_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "a544b14f30b00c85702194e9320cb6090dc8807c919cb928137ede7211b9ec16",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+    },
+    "request_digest": "731ff9a20ce6e3f11657b5200455ab430585d57518747b8c50e74ed7872caeda",
+    "request_id": "req_b79ca2cc06f54695312e56700aa6b618",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+    }
+   }
+  },
+  {
+   "digest": "5ddb70420608e9f2c75d6ec8b06b2983904fbb280f223b743b3820aebe1760d5",
+   "name": "bind_first_key_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "9e67a4e84c4b8634e43bb3857164b8ea2f346e71d8d9b36467d7785f2094a92b",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "446051f8bb3d8fa9147fa8704bde3978cc1a1749da84cc73df89aea17775bad4",
+      "kind": "principal_binding"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "731ff9a20ce6e3f11657b5200455ab430585d57518747b8c50e74ed7872caeda",
+    "request_id": "req_b79ca2cc06f54695312e56700aa6b618",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "ac318ed8ccf23f9624847790d572785ab36b425377c78f4b76eef2af28584bd7",
+   "name": "proposed_policy",
+   "record": {
+    "delegation_ceiling": 2,
+    "execution_authority": {
+     "duty": "finalizer",
+     "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+    },
+    "expiry_days": 30,
+    "independence": {
+     "excludes_recorded_authors": true,
+     "excludes_requester": true,
+     "excludes_sponsored_agents": true
+    },
+    "kind": "governing_policy",
+    "operations": [
+     "publish",
+     "adopt"
+    ],
+    "schema": 1,
+    "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66",
+    "threshold": 0
+   }
+  },
+  {
+   "digest": "f7ad71e811beaffa488cf39042810d4cd57b78741897163817e9da67843e400a",
+   "name": "founding",
+   "record": {
+    "carriers": [
+     "local"
+    ],
+    "custody_target": 1,
+    "finalizer": {
+     "device_id": "dev_3e3767aee078a917eed6bb5dc7c486cd",
+     "runs_on": "member_device"
+    },
+    "founder_principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e",
+    "founding_mode": {
+     "acknowledged_self_reviewed": true,
+     "mode": "self_founded"
+    },
+    "kind": "founding_proposal",
+    "name": "Platform",
+    "policy_digest": "ac318ed8ccf23f9624847790d572785ab36b425377c78f4b76eef2af28584bd7",
+    "proposal_version": 1,
+    "purpose": "The standards this group works to.",
+    "recovery": [
+     {
+      "duty": "recovery",
+      "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+     }
+    ],
+    "schema": 1,
+    "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+   }
+  },
+  {
+   "digest": "52a4cfef0fd2ec8eecc54239d23995630db81baccfa4b2cf21b033f3d4b1d113",
+   "name": "found",
+   "record": {
+    "action": "policy",
+    "actor": {
+     "device_id": "dev_3e3767aee078a917eed6bb5dc7c486cd",
+     "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e",
+     "profile_id": "prf_303ec16602d7432c271d570b6d805092"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "team.found",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+    },
+    "payload_digest": "f7ad71e811beaffa488cf39042810d4cd57b78741897163817e9da67843e400a",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_870d296fd7fa672a0d48f884a6312e44",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+    }
+   }
+  },
+  {
+   "digest": "db61c139b2dbf771b4cdc94f11cf47d9a618b10a4971524c8921da0535a2a42f",
+   "name": "team_active",
+   "record": {
+    "kind": "team_state",
+    "schema": 1,
+    "since": "2000-01-01T00:00:00Z",
+    "state": "active",
+    "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+   }
+  },
+  {
+   "digest": "4618eaf32994491b41bf4b758bd10e680435dd71b7b7ddd6a811fc3292701ec0",
+   "name": "team_named",
+   "record": {
+    "kind": "team_profile",
+    "name": "Platform",
+    "purpose": "The standards this group works to.",
+    "schema": 1,
+    "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66",
+    "updated_at": "2000-01-01T00:00:00Z"
+   }
+  },
+  {
+   "digest": "fc12daef61f0244e614f785d1969f659caff73fcbcd536f906a5d5f73e733dd6",
+   "name": "team_policy",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "delegation_ceiling": 2,
+    "execution_authority": {
+     "duty": "finalizer",
+     "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+    },
+    "expiry_days": 30,
+    "independence": {
+     "excludes_recorded_authors": true,
+     "excludes_requester": true,
+     "excludes_sponsored_agents": true
+    },
+    "kind": "governing_policy",
+    "operations": [
+     "publish",
+     "adopt"
+    ],
+    "policy_id": "pol_da6edec980b9e2ccfc33846582f80376",
+    "policy_version": 1,
+    "schema": 1,
+    "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66",
+    "threshold": 0
+   }
+  },
+  {
+   "digest": "9b62b1cd119a7f635274e8f6f11f0b2b6c8027b7354c20776c585543991ada16",
+   "name": "founder_grant",
+   "record": {
+    "actions": [
+     "read",
+     "use",
+     "contribute",
+     "review",
+     "publish",
+     "adopt",
+     "decide",
+     "grant",
+     "policy"
+    ],
+    "created_at": "2000-01-01T00:00:00Z",
+    "delegation_ceiling": 1,
+    "grant_id": "gra_532288335fd75db61f729d2aa05cf906",
+    "grant_revision": 1,
+    "holder": {
+     "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e",
+     "to": "principal"
+    },
+    "issuer_principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e",
+    "kind": "grant_record",
+    "schema": 1,
+    "scope": {
+     "layer": "team",
+     "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+    },
+    "standing": "current",
+    "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+   }
+  },
+  {
+   "digest": "3d65f5973a093bb06974004bbc62f41be5ca375594cdebf6f6a7578b1e24df37",
+   "name": "found_team_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "743059590ad2d6e09c72ee520af32835ada27e925f46b17a334f60e0e32acc8f",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+    },
+    "request_digest": "52a4cfef0fd2ec8eecc54239d23995630db81baccfa4b2cf21b033f3d4b1d113",
+    "request_id": "req_870d296fd7fa672a0d48f884a6312e44",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+    }
+   }
+  },
+  {
+   "digest": "309ae7299bdc587b91ac7accbcda287c24ee162809d9038e57bad6b44437ba96",
+   "name": "found_team_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "3d65f5973a093bb06974004bbc62f41be5ca375594cdebf6f6a7578b1e24df37",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "db61c139b2dbf771b4cdc94f11cf47d9a618b10a4971524c8921da0535a2a42f",
+      "kind": "team_state"
+     },
+     {
+      "digest": "4618eaf32994491b41bf4b758bd10e680435dd71b7b7ddd6a811fc3292701ec0",
+      "kind": "team_profile"
+     },
+     {
+      "digest": "fc12daef61f0244e614f785d1969f659caff73fcbcd536f906a5d5f73e733dd6",
+      "kind": "governing_policy"
+     },
+     {
+      "digest": "9b62b1cd119a7f635274e8f6f11f0b2b6c8027b7354c20776c585543991ada16",
+      "kind": "grant_record"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "52a4cfef0fd2ec8eecc54239d23995630db81baccfa4b2cf21b033f3d4b1d113",
+    "request_id": "req_870d296fd7fa672a0d48f884a6312e44",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "c9cb16fb11fbfcbef97578696d6f843e6c624f9aaa64aaae4b08e63c8fd67eaa",
+   "name": "repo_binding",
+   "record": {
+    "kind": "repository_binding",
+    "relation": {
+     "how": "clone"
+    },
+    "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "9c676b14a15ae111db3c30dd85b1a173aae549454788fa2ad78315667d27a434",
+   "name": "bind_repo",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_3e3767aee078a917eed6bb5dc7c486cd",
+     "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e",
+     "profile_id": "prf_303ec16602d7432c271d570b6d805092"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "repository.bind",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+    },
+    "payload_digest": "c9cb16fb11fbfcbef97578696d6f843e6c624f9aaa64aaae4b08e63c8fd67eaa",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_5b456b9679a979ff2c40b1a2484f5075",
+    "schema": 1,
+    "target": {
+     "resource_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+    }
+   }
+  },
+  {
+   "digest": "7193b97a185dc61c48e1e16d12547f2f030538d6dc162002706dbdb3473f460e",
+   "name": "repo_bound",
+   "record": {
+    "kind": "repository_binding",
+    "observed": {
+     "branch": "main",
+     "commit": "0123456789abcdef0123456789abcdef01234567",
+     "locator": "git@github.com:example/payments.git",
+     "working_bytes_digest": "6f32bc8d0aead2ab1335deea589b05868ee00c63ecf224b13ae7016fcfcb7a7f"
+    },
+    "relation": {
+     "how": "clone"
+    },
+    "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "15d9448996be3150afbf69776e996ca4571335ec9ad2cc1342a5ccba282fd75a",
+   "name": "bind_repository_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "22a12cf5de2afec2e420ab20294bca5982d46ffb8e937d407376d610ea98c857",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+    },
+    "request_digest": "9c676b14a15ae111db3c30dd85b1a173aae549454788fa2ad78315667d27a434",
+    "request_id": "req_5b456b9679a979ff2c40b1a2484f5075",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+    }
+   }
+  },
+  {
+   "digest": "84628e906a6db6bc4ed73cdc4a340bc810821e967e2205de4f8e72f2632afb4c",
+   "name": "bind_repository_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "15d9448996be3150afbf69776e996ca4571335ec9ad2cc1342a5ccba282fd75a",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "7193b97a185dc61c48e1e16d12547f2f030538d6dc162002706dbdb3473f460e",
+      "kind": "repository_binding"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "9c676b14a15ae111db3c30dd85b1a173aae549454788fa2ad78315667d27a434",
+    "request_id": "req_5b456b9679a979ff2c40b1a2484f5075",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "838620cd5512c10c6c1a938a593f9450cca5e84fdc628228fc6495df7c3283d7",
+   "name": "read_probe",
+   "record": {
+    "capability": "read",
+    "client": {
+     "name": "agent-bios",
+     "version": "0.20.0"
+    },
+    "kind": "capability_probe",
+    "schema": 1,
+    "wire": {
+     "protocol": "model_context_protocol",
+     "version": "2025-11-25"
+    }
+   }
+  },
+  {
+   "digest": "91e8fe81897641d2b2628d4773fba63b4e7cc66dc1b242272f613247961986ea",
+   "name": "probe",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_3e3767aee078a917eed6bb5dc7c486cd",
+     "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e",
+     "profile_id": "prf_303ec16602d7432c271d570b6d805092"
+    },
+    "control_digests": [],
+    "effect_class": "durable_candidate",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "capability.probe",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+    },
+    "payload_digest": "838620cd5512c10c6c1a938a593f9450cca5e84fdc628228fc6495df7c3283d7",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_2cd25e86253d359862eb57c213b0e7eb",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_303ec16602d7432c271d570b6d805092"
+    }
+   }
+  },
+  {
+   "digest": "fb9e9b32c227f3667bf0b3dc6421af23673ec71500668efc4daffad41b916bc6",
+   "name": "read_probe_stored",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "capability": "read",
+    "client": {
+     "name": "agent-bios",
+     "version": "0.20.0"
+    },
+    "kind": "capability_probe",
+    "mode": {
+     "runs": "real"
+    },
+    "observed": "The installed client read and started from each entrance it offers.",
+    "offered": true,
+    "outcome": "worked",
+    "probe_id": "prb_a502aac37eec796cb27bcbe9b1960f35",
+    "schema": 1,
+    "wire": {
+     "protocol": "model_context_protocol",
+     "version": "2025-11-25"
+    }
+   }
+  },
+  {
+   "digest": "cdb9e95d42a809b3668e1c1e062221e592dcaddc674c880985a911cb3c414b36",
+   "name": "client_profile",
+   "record": {
+    "capabilities": [
+     {
+      "capability": "read",
+      "state": {
+       "probe_digest": "fb9e9b32c227f3667bf0b3dc6421af23673ec71500668efc4daffad41b916bc6",
+       "qualified": "yes"
+      }
+     }
+    ],
+    "client": {
+     "name": "agent-bios",
+     "version": "0.20.0"
+    },
+    "kind": "capability_profile",
+    "measured_at": "2000-01-01T00:00:00Z",
+    "profile_id": "cap_798c9fdf03821ea3fb5e1de9cb9f2d1f",
+    "schema": 1,
+    "wire": {
+     "protocol": "model_context_protocol",
+     "version": "2025-11-25"
+    }
+   }
+  },
+  {
+   "digest": "b4bc112952968a812caba0d477b4eee5a798cb8d93b888806fca60fcdc49d91e",
+   "name": "probe_read_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "dcc6be843c446f4f4ffbcaf373fa8eb87bcc8b74feef1a16fff94c4792b63db8",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+    },
+    "request_digest": "91e8fe81897641d2b2628d4773fba63b4e7cc66dc1b242272f613247961986ea",
+    "request_id": "req_2cd25e86253d359862eb57c213b0e7eb",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_303ec16602d7432c271d570b6d805092"
+    }
+   }
+  },
+  {
+   "digest": "89601367745778d9c95fa115738f59a07e39c44cdd3885ec1990ac3a0f27eace",
+   "name": "probe_read_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "b4bc112952968a812caba0d477b4eee5a798cb8d93b888806fca60fcdc49d91e",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "fb9e9b32c227f3667bf0b3dc6421af23673ec71500668efc4daffad41b916bc6",
+      "kind": "capability_probe"
+     },
+     {
+      "digest": "cdb9e95d42a809b3668e1c1e062221e592dcaddc674c880985a911cb3c414b36",
+      "kind": "capability_profile"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "91e8fe81897641d2b2628d4773fba63b4e7cc66dc1b242272f613247961986ea",
+    "request_id": "req_2cd25e86253d359862eb57c213b0e7eb",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "24706c95248c3e4aa144790b8e76d5f9ce7e17a7c753b68fa49e2f4947d05e56",
+   "name": "hub_offer",
+   "record": {
+    "entrance": {
+     "name": "studio_hub",
+     "root_origin": "owner"
+    },
+    "kind": "route_offer",
+    "offered": [
+     {
+      "recovery": [
+       "retry_same_request",
+       "query_same_request"
+      ],
+      "route_id": "rte_d12b14e0954daafdc367149093e99c8b",
+      "scope": {
+       "layer": "team",
+       "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+      },
+      "support": {
+       "probe_digest": "fb9e9b32c227f3667bf0b3dc6421af23673ec71500668efc4daffad41b916bc6",
+       "qualified": "yes"
+      },
+      "supported_action": "use"
+     }
+    ],
+    "schema": 1
+   }
+  },
+  {
+   "digest": "bf39bd0cd0b8bdc6523689871077c216d71c6f10a5f359051b5596eb7bf152ae",
+   "name": "offer_hub",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_3e3767aee078a917eed6bb5dc7c486cd",
+     "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e",
+     "profile_id": "prf_303ec16602d7432c271d570b6d805092"
+    },
+    "control_digests": [],
+    "effect_class": "durable_candidate",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "route.offer",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+    },
+    "payload_digest": "24706c95248c3e4aa144790b8e76d5f9ce7e17a7c753b68fa49e2f4947d05e56",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_9c421a908223de37f281ad552940f462",
+    "schema": 1,
+    "target": {
+     "resource_id": "rte_d12b14e0954daafdc367149093e99c8b"
+    }
+   }
+  },
+  {
+   "digest": "a12b6776890ae23fe34b6b2272a95242b8f965091eca089f5a5e7aaeb30441cc",
+   "name": "hub_offer_stored",
+   "record": {
+    "entrance": {
+     "name": "studio_hub",
+     "root_origin": "owner"
+    },
+    "kind": "route_offer",
+    "offered": [
+     {
+      "recovery": [
+       "retry_same_request",
+       "query_same_request"
+      ],
+      "route_id": "rte_d12b14e0954daafdc367149093e99c8b",
+      "scope": {
+       "layer": "team",
+       "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+      },
+      "support": {
+       "probe_digest": "fb9e9b32c227f3667bf0b3dc6421af23673ec71500668efc4daffad41b916bc6",
+       "qualified": "yes"
+      },
+      "supported_action": "use"
+     }
+    ],
+    "offered_at": "2000-01-01T00:00:00Z",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "4f10d7327c6601e5db042d284b0a9c124026a52a672620dc65e3c16f31d323b7",
+   "name": "offer_from_hub_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "9b59faaffb2316363f628996387b5519737e7d2c0f932c47cbb61495f584b5b2",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+    },
+    "request_digest": "bf39bd0cd0b8bdc6523689871077c216d71c6f10a5f359051b5596eb7bf152ae",
+    "request_id": "req_9c421a908223de37f281ad552940f462",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "rte_d12b14e0954daafdc367149093e99c8b"
+    }
+   }
+  },
+  {
+   "digest": "1631795511cff071ff6a545197a8975f28d07acef14e7f9a8f4a31b729d8ee10",
+   "name": "offer_from_hub_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "4f10d7327c6601e5db042d284b0a9c124026a52a672620dc65e3c16f31d323b7",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "a12b6776890ae23fe34b6b2272a95242b8f965091eca089f5a5e7aaeb30441cc",
+      "kind": "route_offer"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "bf39bd0cd0b8bdc6523689871077c216d71c6f10a5f359051b5596eb7bf152ae",
+    "request_id": "req_9c421a908223de37f281ad552940f462",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "b290801160617b42b3e6a7be87937a445c66a31f4a2b2e098025ebcccf844f45",
+   "name": "hub_keys",
+   "record": {
+    "entrance": {
+     "name": "studio_hub",
+     "root_origin": "owner"
+    },
+    "inputs": [
+     {
+      "input": "key",
+      "key": "down"
+     },
+     {
+      "input": "key",
+      "key": "space"
+     },
+     {
+      "input": "key",
+      "key": "tab"
+     },
+     {
+      "input": "key",
+      "key": "right"
+     },
+     {
+      "input": "key",
+      "key": "tab"
+     },
+     {
+      "input": "key",
+      "key": "enter"
+     }
+    ],
+    "kind": "surface_script",
+    "locale": "ko",
+    "schema": 1,
+    "terminal": {
+     "columns": 80,
+     "rows": 24
+    }
+   }
+  },
+  {
+   "digest": "2f9e50840c176200adffa0318218a886de27348e9c8c25d370deeeccb6dbbf7e",
+   "name": "drive_hub",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_3e3767aee078a917eed6bb5dc7c486cd",
+     "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e",
+     "profile_id": "prf_303ec16602d7432c271d570b6d805092"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "surface.drive",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+    },
+    "payload_digest": "b290801160617b42b3e6a7be87937a445c66a31f4a2b2e098025ebcccf844f45",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_18e40670453f2ac2bf5e0d286284b56d",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_303ec16602d7432c271d570b6d805092"
+    }
+   }
+  },
+  {
+   "digest": "4913ec882a27e177a4da8b12123302fe9cc5dcda8eda1ddd945294702ec0f84a",
+   "name": "hub_selection",
+   "record": {
+    "expected": {
+     "material_gaps": [],
+     "recovery": [
+      "retry_same_request"
+     ],
+     "stage": "prepared"
+    },
+    "focused": "rte_d12b14e0954daafdc367149093e99c8b",
+    "kind": "route_selection",
+    "offer_digest": "a12b6776890ae23fe34b6b2272a95242b8f965091eca089f5a5e7aaeb30441cc",
+    "request_id": "req_f72e6fd1f2735513e9dca207aa32fe35",
+    "schema": 1,
+    "selected": "rte_d12b14e0954daafdc367149093e99c8b"
+   }
+  },
+  {
+   "digest": "2b52de6fbdfb38e9ae333e0d732aa17830f260c530781c17780a1aad6d80b9ca",
+   "name": "select_hub",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_3e3767aee078a917eed6bb5dc7c486cd",
+     "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e",
+     "profile_id": "prf_303ec16602d7432c271d570b6d805092"
+    },
+    "control_digests": [],
+    "effect_class": "durable_candidate",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "route.select",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+    },
+    "payload_digest": "4913ec882a27e177a4da8b12123302fe9cc5dcda8eda1ddd945294702ec0f84a",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_3930270d96ea0c039b4031b35e4cb00f",
+    "schema": 1,
+    "target": {
+     "resource_id": "rte_d12b14e0954daafdc367149093e99c8b"
+    }
+   }
+  },
+  {
+   "digest": "45932a78eac824756c1c28bf6cbbf463d90cf3ad15ae6caccb4e0c9456750931",
+   "name": "hub_trace",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "client": {
+     "name": "agent-bios",
+     "version": "0.20.0"
+    },
+    "frames": [
+     {
+      "access": "active",
+      "after": 0,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.scope",
+        "executing": false,
+        "focused": false,
+        "label": "팀 · Platform",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "team",
+          "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "choice.environment",
+        "executing": false,
+        "focused": false,
+        "label": "환경  Platform 팀 환경",
+        "marks": [
+         "[ ]"
+        ],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "team",
+          "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+         }
+        },
+        "role": "choice",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "Platform 팀 환경"
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
+        "focused": false,
+        "label": "도구  Codex CLI · 새 세션",
+        "marks": [
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "Codex CLI"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": false,
+        "focused": false,
+        "label": "새 세션 시작",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_d12b14e0954daafdc367149093e99c8b"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Space 선택 · ←→ 바꾸기 · Enter 시작",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "browse_scope": {
+        "layer": "team",
+        "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+       },
+       "missing_bodies": [],
+       "origin": {
+        "name": "studio_hub",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "team",
+        "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+       },
+       "view": "entry"
+      }
+     },
+     {
+      "access": "active",
+      "after": 1,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.scope",
+        "executing": false,
+        "focused": false,
+        "label": "팀 · Platform",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "team",
+          "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "choice.environment",
+        "executing": false,
+        "focused": true,
+        "label": "환경  Platform 팀 환경",
+        "marks": [
+         "›",
+         "[ ]"
+        ],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "team",
+          "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+         }
+        },
+        "role": "choice",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "Platform 팀 환경"
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
+        "focused": false,
+        "label": "도구  Codex CLI · 새 세션",
+        "marks": [
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "Codex CLI"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": false,
+        "focused": false,
+        "label": "새 세션 시작",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_d12b14e0954daafdc367149093e99c8b"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Space 선택 · ←→ 바꾸기 · Enter 시작",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "browse_scope": {
+        "layer": "team",
+        "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+       },
+       "missing_bodies": [],
+       "origin": {
+        "name": "studio_hub",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "team",
+        "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+       },
+       "view": "entry"
+      }
+     },
+     {
+      "access": "active",
+      "after": 2,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.scope",
+        "executing": false,
+        "focused": false,
+        "label": "팀 · Platform",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "team",
+          "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "choice.environment",
+        "executing": false,
+        "focused": true,
+        "label": "환경  Platform 팀 환경",
+        "marks": [
+         "›",
+         "[x]"
+        ],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "team",
+          "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+         }
+        },
+        "role": "choice",
+        "selection": "selected",
+        "shown": "whole",
+        "value": "Platform 팀 환경"
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
+        "focused": false,
+        "label": "도구  Codex CLI · 새 세션",
+        "marks": [
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "Codex CLI"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": false,
+        "focused": false,
+        "label": "새 세션 시작",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_d12b14e0954daafdc367149093e99c8b"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Space 선택 · ←→ 바꾸기 · Enter 시작",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "browse_scope": {
+        "layer": "team",
+        "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+       },
+       "missing_bodies": [],
+       "origin": {
+        "name": "studio_hub",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "team",
+        "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+       },
+       "view": "entry"
+      }
+     },
+     {
+      "access": "active",
+      "after": 3,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.scope",
+        "executing": false,
+        "focused": false,
+        "label": "팀 · Platform",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "team",
+          "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "choice.environment",
+        "executing": false,
+        "focused": false,
+        "label": "환경  Platform 팀 환경",
+        "marks": [
+         "[x]"
+        ],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "team",
+          "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+         }
+        },
+        "role": "choice",
+        "selection": "selected",
+        "shown": "whole",
+        "value": "Platform 팀 환경"
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
+        "focused": true,
+        "label": "도구  Codex CLI · 새 세션",
+        "marks": [
+         "›",
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "Codex CLI"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": false,
+        "focused": false,
+        "label": "새 세션 시작",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_d12b14e0954daafdc367149093e99c8b"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Space 선택 · ←→ 바꾸기 · Enter 시작",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "browse_scope": {
+        "layer": "team",
+        "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+       },
+       "missing_bodies": [],
+       "origin": {
+        "name": "studio_hub",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "team",
+        "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+       },
+       "view": "entry"
+      }
+     },
+     {
+      "access": "active",
+      "after": 4,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.scope",
+        "executing": false,
+        "focused": false,
+        "label": "팀 · Platform",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "team",
+          "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "choice.environment",
+        "executing": false,
+        "focused": false,
+        "label": "환경  Platform 팀 환경",
+        "marks": [
+         "[x]"
+        ],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "team",
+          "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+         }
+        },
+        "role": "choice",
+        "selection": "selected",
+        "shown": "whole",
+        "value": "Platform 팀 환경"
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
+        "focused": true,
+        "label": "도구  Claude Code · 새 세션",
+        "marks": [
+         "›"
+        ],
+        "role": "setting",
+        "selection": "selected",
+        "shown": "whole",
+        "value": "Claude Code"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": false,
+        "focused": false,
+        "label": "새 세션 시작",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_d12b14e0954daafdc367149093e99c8b"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Space 선택 · ←→ 바꾸기 · Enter 시작",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "browse_scope": {
+        "layer": "team",
+        "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+       },
+       "missing_bodies": [],
+       "origin": {
+        "name": "studio_hub",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "team",
+        "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+       },
+       "view": "entry"
+      }
+     },
+     {
+      "access": "active",
+      "after": 5,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.scope",
+        "executing": false,
+        "focused": false,
+        "label": "팀 · Platform",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "team",
+          "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "choice.environment",
+        "executing": false,
+        "focused": false,
+        "label": "환경  Platform 팀 환경",
+        "marks": [
+         "[x]"
+        ],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "team",
+          "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+         }
+        },
+        "role": "choice",
+        "selection": "selected",
+        "shown": "whole",
+        "value": "Platform 팀 환경"
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
+        "focused": false,
+        "label": "도구  Claude Code · 새 세션",
+        "marks": [],
+        "role": "setting",
+        "selection": "selected",
+        "shown": "whole",
+        "value": "Claude Code"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": false,
+        "focused": true,
+        "label": "새 세션 시작",
+        "marks": [
+         "›"
+        ],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_d12b14e0954daafdc367149093e99c8b"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Space 선택 · ←→ 바꾸기 · Enter 시작",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "browse_scope": {
+        "layer": "team",
+        "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+       },
+       "missing_bodies": [],
+       "origin": {
+        "name": "studio_hub",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "team",
+        "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+       },
+       "view": "entry"
+      }
+     },
+     {
+      "access": "active",
+      "after": 6,
+      "calls": [
+       {
+        "operation": "route.select",
+        "reads": "nothing",
+        "request_digest": "2b52de6fbdfb38e9ae333e0d732aa17830f260c530781c17780a1aad6d80b9ca"
+       }
+      ],
+      "dispatched": [
+       "req_3930270d96ea0c039b4031b35e4cb00f"
+      ],
+      "elements": [
+       {
+        "element_id": "context.scope",
+        "executing": false,
+        "focused": false,
+        "label": "팀 · Platform",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "team",
+          "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "choice.environment",
+        "executing": false,
+        "focused": false,
+        "label": "환경  Platform 팀 환경",
+        "marks": [
+         "[x]"
+        ],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "team",
+          "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+         }
+        },
+        "role": "choice",
+        "selection": "selected",
+        "shown": "whole",
+        "value": "Platform 팀 환경"
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
+        "focused": false,
+        "label": "도구  Claude Code · 새 세션",
+        "marks": [],
+        "role": "setting",
+        "selection": "selected",
+        "shown": "whole",
+        "value": "Claude Code"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": true,
+        "focused": true,
+        "label": "새 세션 시작",
+        "marks": [
+         "›"
+        ],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_d12b14e0954daafdc367149093e99c8b"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole",
+        "state": "pending"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Space 선택 · ←→ 바꾸기 · Enter 시작",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "result.start",
+        "executing": false,
+        "focused": false,
+        "label": "시작 요청을 보냈습니다 · 결과 확인 중",
+        "marks": [],
+        "refers_to": {
+         "ref": "request",
+         "request_id": "req_f72e6fd1f2735513e9dca207aa32fe35"
+        },
+        "role": "result",
+        "selection": "none",
+        "shown": "whole",
+        "state": "pending"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "browse_scope": {
+        "layer": "team",
+        "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+       },
+       "missing_bodies": [],
+       "origin": {
+        "name": "studio_hub",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "team",
+        "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+       },
+       "view": "entry"
+      }
+     }
+    ],
+    "kind": "surface_trace",
+    "mode": {
+     "runs": "real"
+    },
+    "schema": 1,
+    "script_digest": "b290801160617b42b3e6a7be87937a445c66a31f4a2b2e098025ebcccf844f45"
+   }
+  },
+  {
+   "digest": "e42d6244a92247110422475bc7a57b5c776801f0e8be31a3e372b40583d63255",
+   "name": "drive_from_hub_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "45932a78eac824756c1c28bf6cbbf463d90cf3ad15ae6caccb4e0c9456750931",
+      "kind": "surface_trace"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "2f9e50840c176200adffa0318218a886de27348e9c8c25d370deeeccb6dbbf7e",
+    "request_id": "req_18e40670453f2ac2bf5e0d286284b56d",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "387c721a924b9bfd88e32298fc0358645a74b0bca08a12e1150af243876f6f91",
+   "name": "hub_outcome",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "capability": "read",
+    "client": {
+     "name": "agent-bios",
+     "version": "0.20.0"
+    },
+    "for_request_id": "req_f72e6fd1f2735513e9dca207aa32fe35",
+    "kind": "route_outcome",
+    "material_gaps": [],
+    "mode": {
+     "runs": "real"
+    },
+    "result": {
+     "got": "result",
+     "output_digest": "92504f1ab13ea2d94d2b92c5a986d0d8e033c41c1d7fa9296f1156834043aea0"
+    },
+    "schema": 1
+   }
+  },
+  {
+   "digest": "6db5b500e9fa72f1597db6af9e02f5a63cb671305136c939db77d178f2a3898e",
+   "name": "start_from_hub_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "2915f6e9b87c98fc43a73a2857f3b3777731bc4928b963c90eabf5c3969f1565",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+    },
+    "request_digest": "2b52de6fbdfb38e9ae333e0d732aa17830f260c530781c17780a1aad6d80b9ca",
+    "request_id": "req_3930270d96ea0c039b4031b35e4cb00f",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "rte_d12b14e0954daafdc367149093e99c8b"
+    }
+   }
+  },
+  {
+   "digest": "1d7647428fa826596a4b85b76d10632d306b704c720f76d4614da013060cee3a",
+   "name": "start_from_hub_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "6db5b500e9fa72f1597db6af9e02f5a63cb671305136c939db77d178f2a3898e",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "387c721a924b9bfd88e32298fc0358645a74b0bca08a12e1150af243876f6f91",
+      "kind": "route_outcome"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "2b52de6fbdfb38e9ae333e0d732aa17830f260c530781c17780a1aad6d80b9ca",
+    "request_id": "req_3930270d96ea0c039b4031b35e4cb00f",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "a194ea9155bf66d1b75076f8740a2af2eea578a344e5d319121a0cf1ca90f92b",
+   "name": "launcher_offer",
+   "record": {
+    "entrance": {
+     "name": "host_launcher",
+     "root_origin": "owner"
+    },
+    "kind": "route_offer",
+    "offered": [
+     {
+      "recovery": [
+       "retry_same_request",
+       "query_same_request"
+      ],
+      "route_id": "rte_e8ad79f20605fd1ea7bc47fdf00d7f7d",
+      "scope": {
+       "layer": "repository",
+       "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+      },
+      "support": {
+       "probe_digest": "fb9e9b32c227f3667bf0b3dc6421af23673ec71500668efc4daffad41b916bc6",
+       "qualified": "yes"
+      },
+      "supported_action": "use"
+     }
+    ],
+    "schema": 1
+   }
+  },
+  {
+   "digest": "e8b7ebd2dcdcf819d8f197b20acacbc955d69fa3cc74a352c1d7bf47dbe632ad",
+   "name": "offer_launcher",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_3e3767aee078a917eed6bb5dc7c486cd",
+     "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e",
+     "profile_id": "prf_303ec16602d7432c271d570b6d805092"
+    },
+    "control_digests": [],
+    "effect_class": "durable_candidate",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "route.offer",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+    },
+    "payload_digest": "a194ea9155bf66d1b75076f8740a2af2eea578a344e5d319121a0cf1ca90f92b",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_adb9221b5604ec563907ad09030113aa",
+    "schema": 1,
+    "target": {
+     "resource_id": "rte_e8ad79f20605fd1ea7bc47fdf00d7f7d"
+    }
+   }
+  },
+  {
+   "digest": "e428f6b30dac60f5f89ba662fe38907aae874e8c9d09c84cfe1e2821f053ace0",
+   "name": "launcher_offer_stored",
+   "record": {
+    "entrance": {
+     "name": "host_launcher",
+     "root_origin": "owner"
+    },
+    "kind": "route_offer",
+    "offered": [
+     {
+      "recovery": [
+       "retry_same_request",
+       "query_same_request"
+      ],
+      "route_id": "rte_e8ad79f20605fd1ea7bc47fdf00d7f7d",
+      "scope": {
+       "layer": "repository",
+       "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+      },
+      "support": {
+       "probe_digest": "fb9e9b32c227f3667bf0b3dc6421af23673ec71500668efc4daffad41b916bc6",
+       "qualified": "yes"
+      },
+      "supported_action": "use"
+     }
+    ],
+    "offered_at": "2000-01-01T00:00:00Z",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "b4305b5e0cb0233ab3c6e9dd6f55f3a32d98f427a044d379c98e7d0eddd45ddc",
+   "name": "offer_from_launcher_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "fb1c5a19f80615e1a662c4a06deb7729a9ace16d8ca0f0a136f423eda595785a",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+    },
+    "request_digest": "e8b7ebd2dcdcf819d8f197b20acacbc955d69fa3cc74a352c1d7bf47dbe632ad",
+    "request_id": "req_adb9221b5604ec563907ad09030113aa",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "rte_e8ad79f20605fd1ea7bc47fdf00d7f7d"
+    }
+   }
+  },
+  {
+   "digest": "e6772fedf91e4a5af7205fe8b485f8050fd1ec95ea195cb9d5566401d27e3347",
+   "name": "offer_from_launcher_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "b4305b5e0cb0233ab3c6e9dd6f55f3a32d98f427a044d379c98e7d0eddd45ddc",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "e428f6b30dac60f5f89ba662fe38907aae874e8c9d09c84cfe1e2821f053ace0",
+      "kind": "route_offer"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "e8b7ebd2dcdcf819d8f197b20acacbc955d69fa3cc74a352c1d7bf47dbe632ad",
+    "request_id": "req_adb9221b5604ec563907ad09030113aa",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "88dcc9d9d44730d0f71c56d2052615f31982cac74aefcbe1d9226b421a5dfe2f",
+   "name": "launcher_keys",
+   "record": {
+    "entrance": {
+     "name": "host_launcher",
+     "root_origin": "owner"
+    },
+    "inputs": [
+     {
+      "input": "key",
+      "key": "down"
+     },
+     {
+      "input": "key",
+      "key": "space"
+     },
+     {
+      "input": "key",
+      "key": "tab"
+     },
+     {
+      "input": "key",
+      "key": "right"
+     },
+     {
+      "input": "key",
+      "key": "tab"
+     },
+     {
+      "input": "key",
+      "key": "enter"
+     }
+    ],
+    "kind": "surface_script",
+    "locale": "ko",
+    "schema": 1,
+    "terminal": {
+     "columns": 80,
+     "rows": 24
+    }
+   }
+  },
+  {
+   "digest": "9027e82847a1e721af36394078118858723796a3f241b1a281990ed10ac975a5",
+   "name": "drive_launcher",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_3e3767aee078a917eed6bb5dc7c486cd",
+     "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e",
+     "profile_id": "prf_303ec16602d7432c271d570b6d805092"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "surface.drive",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+    },
+    "payload_digest": "88dcc9d9d44730d0f71c56d2052615f31982cac74aefcbe1d9226b421a5dfe2f",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_93010fff5fd204a32d154f146e2111d7",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_303ec16602d7432c271d570b6d805092"
+    }
+   }
+  },
+  {
+   "digest": "c91fe751fce5d3efa3dde0135472f9e976ab0432a44eae06749ef292aedb5a0a",
+   "name": "launcher_selection",
+   "record": {
+    "expected": {
+     "material_gaps": [],
+     "recovery": [
+      "retry_same_request"
+     ],
+     "stage": "prepared"
+    },
+    "focused": "rte_e8ad79f20605fd1ea7bc47fdf00d7f7d",
+    "kind": "route_selection",
+    "offer_digest": "e428f6b30dac60f5f89ba662fe38907aae874e8c9d09c84cfe1e2821f053ace0",
+    "request_id": "req_e048bfa522389c2eb8d7430dbee76230",
+    "schema": 1,
+    "selected": "rte_e8ad79f20605fd1ea7bc47fdf00d7f7d"
+   }
+  },
+  {
+   "digest": "1e703367629e56959c8b0299f8c01f031be10aecb6b764a409765caba015731c",
+   "name": "select_launcher",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_3e3767aee078a917eed6bb5dc7c486cd",
+     "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e",
+     "profile_id": "prf_303ec16602d7432c271d570b6d805092"
+    },
+    "control_digests": [],
+    "effect_class": "durable_candidate",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "route.select",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+    },
+    "payload_digest": "c91fe751fce5d3efa3dde0135472f9e976ab0432a44eae06749ef292aedb5a0a",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_ec39b0e43b8b7812dc8804c19a251d00",
+    "schema": 1,
+    "target": {
+     "resource_id": "rte_e8ad79f20605fd1ea7bc47fdf00d7f7d"
+    }
+   }
+  },
+  {
+   "digest": "fd119d20f579929dca93b1c555138e12e16a39257bfd9e63935e46d34eb4044f",
+   "name": "launcher_trace",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "client": {
+     "name": "agent-bios",
+     "version": "0.20.0"
+    },
+    "frames": [
+     {
+      "access": "active",
+      "after": 0,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.scope",
+        "executing": false,
+        "focused": false,
+        "label": "payments · 로컬 레포 · main",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "repository",
+          "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "choice.environment",
+        "executing": false,
+        "focused": false,
+        "label": "환경  payments 레포 지침",
+        "marks": [
+         "[ ]"
+        ],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "repository",
+          "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+         }
+        },
+        "role": "choice",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "payments 레포 지침"
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
+        "focused": false,
+        "label": "도구  Codex CLI · 새 세션",
+        "marks": [
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "Codex CLI"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": false,
+        "focused": false,
+        "label": "새 세션 시작",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_e8ad79f20605fd1ea7bc47fdf00d7f7d"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Space 선택 · ←→ 바꾸기 · Enter 시작",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "browse_scope": {
+        "layer": "repository",
+        "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+       },
+       "missing_bodies": [],
+       "origin": {
+        "name": "host_launcher",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "repository",
+        "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+       },
+       "view": "entry"
+      }
+     },
+     {
+      "access": "active",
+      "after": 1,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.scope",
+        "executing": false,
+        "focused": false,
+        "label": "payments · 로컬 레포 · main",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "repository",
+          "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "choice.environment",
+        "executing": false,
+        "focused": true,
+        "label": "환경  payments 레포 지침",
+        "marks": [
+         "›",
+         "[ ]"
+        ],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "repository",
+          "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+         }
+        },
+        "role": "choice",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "payments 레포 지침"
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
+        "focused": false,
+        "label": "도구  Codex CLI · 새 세션",
+        "marks": [
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "Codex CLI"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": false,
+        "focused": false,
+        "label": "새 세션 시작",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_e8ad79f20605fd1ea7bc47fdf00d7f7d"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Space 선택 · ←→ 바꾸기 · Enter 시작",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "browse_scope": {
+        "layer": "repository",
+        "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+       },
+       "missing_bodies": [],
+       "origin": {
+        "name": "host_launcher",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "repository",
+        "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+       },
+       "view": "entry"
+      }
+     },
+     {
+      "access": "active",
+      "after": 2,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.scope",
+        "executing": false,
+        "focused": false,
+        "label": "payments · 로컬 레포 · main",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "repository",
+          "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "choice.environment",
+        "executing": false,
+        "focused": true,
+        "label": "환경  payments 레포 지침",
+        "marks": [
+         "›",
+         "[x]"
+        ],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "repository",
+          "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+         }
+        },
+        "role": "choice",
+        "selection": "selected",
+        "shown": "whole",
+        "value": "payments 레포 지침"
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
+        "focused": false,
+        "label": "도구  Codex CLI · 새 세션",
+        "marks": [
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "Codex CLI"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": false,
+        "focused": false,
+        "label": "새 세션 시작",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_e8ad79f20605fd1ea7bc47fdf00d7f7d"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Space 선택 · ←→ 바꾸기 · Enter 시작",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "browse_scope": {
+        "layer": "repository",
+        "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+       },
+       "missing_bodies": [],
+       "origin": {
+        "name": "host_launcher",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "repository",
+        "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+       },
+       "view": "entry"
+      }
+     },
+     {
+      "access": "active",
+      "after": 3,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.scope",
+        "executing": false,
+        "focused": false,
+        "label": "payments · 로컬 레포 · main",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "repository",
+          "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "choice.environment",
+        "executing": false,
+        "focused": false,
+        "label": "환경  payments 레포 지침",
+        "marks": [
+         "[x]"
+        ],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "repository",
+          "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+         }
+        },
+        "role": "choice",
+        "selection": "selected",
+        "shown": "whole",
+        "value": "payments 레포 지침"
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
+        "focused": true,
+        "label": "도구  Codex CLI · 새 세션",
+        "marks": [
+         "›",
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "Codex CLI"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": false,
+        "focused": false,
+        "label": "새 세션 시작",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_e8ad79f20605fd1ea7bc47fdf00d7f7d"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Space 선택 · ←→ 바꾸기 · Enter 시작",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "browse_scope": {
+        "layer": "repository",
+        "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+       },
+       "missing_bodies": [],
+       "origin": {
+        "name": "host_launcher",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "repository",
+        "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+       },
+       "view": "entry"
+      }
+     },
+     {
+      "access": "active",
+      "after": 4,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.scope",
+        "executing": false,
+        "focused": false,
+        "label": "payments · 로컬 레포 · main",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "repository",
+          "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "choice.environment",
+        "executing": false,
+        "focused": false,
+        "label": "환경  payments 레포 지침",
+        "marks": [
+         "[x]"
+        ],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "repository",
+          "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+         }
+        },
+        "role": "choice",
+        "selection": "selected",
+        "shown": "whole",
+        "value": "payments 레포 지침"
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
+        "focused": true,
+        "label": "도구  Claude Code · 새 세션",
+        "marks": [
+         "›"
+        ],
+        "role": "setting",
+        "selection": "selected",
+        "shown": "whole",
+        "value": "Claude Code"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": false,
+        "focused": false,
+        "label": "새 세션 시작",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_e8ad79f20605fd1ea7bc47fdf00d7f7d"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Space 선택 · ←→ 바꾸기 · Enter 시작",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "browse_scope": {
+        "layer": "repository",
+        "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+       },
+       "missing_bodies": [],
+       "origin": {
+        "name": "host_launcher",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "repository",
+        "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+       },
+       "view": "entry"
+      }
+     },
+     {
+      "access": "active",
+      "after": 5,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.scope",
+        "executing": false,
+        "focused": false,
+        "label": "payments · 로컬 레포 · main",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "repository",
+          "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "choice.environment",
+        "executing": false,
+        "focused": false,
+        "label": "환경  payments 레포 지침",
+        "marks": [
+         "[x]"
+        ],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "repository",
+          "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+         }
+        },
+        "role": "choice",
+        "selection": "selected",
+        "shown": "whole",
+        "value": "payments 레포 지침"
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
+        "focused": false,
+        "label": "도구  Claude Code · 새 세션",
+        "marks": [],
+        "role": "setting",
+        "selection": "selected",
+        "shown": "whole",
+        "value": "Claude Code"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": false,
+        "focused": true,
+        "label": "새 세션 시작",
+        "marks": [
+         "›"
+        ],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_e8ad79f20605fd1ea7bc47fdf00d7f7d"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Space 선택 · ←→ 바꾸기 · Enter 시작",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "browse_scope": {
+        "layer": "repository",
+        "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+       },
+       "missing_bodies": [],
+       "origin": {
+        "name": "host_launcher",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "repository",
+        "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+       },
+       "view": "entry"
+      }
+     },
+     {
+      "access": "active",
+      "after": 6,
+      "calls": [
+       {
+        "operation": "route.select",
+        "reads": "nothing",
+        "request_digest": "1e703367629e56959c8b0299f8c01f031be10aecb6b764a409765caba015731c"
+       }
+      ],
+      "dispatched": [
+       "req_ec39b0e43b8b7812dc8804c19a251d00"
+      ],
+      "elements": [
+       {
+        "element_id": "context.scope",
+        "executing": false,
+        "focused": false,
+        "label": "payments · 로컬 레포 · main",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "repository",
+          "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "choice.environment",
+        "executing": false,
+        "focused": false,
+        "label": "환경  payments 레포 지침",
+        "marks": [
+         "[x]"
+        ],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "repository",
+          "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+         }
+        },
+        "role": "choice",
+        "selection": "selected",
+        "shown": "whole",
+        "value": "payments 레포 지침"
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
+        "focused": false,
+        "label": "도구  Claude Code · 새 세션",
+        "marks": [],
+        "role": "setting",
+        "selection": "selected",
+        "shown": "whole",
+        "value": "Claude Code"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": true,
+        "focused": true,
+        "label": "새 세션 시작",
+        "marks": [
+         "›"
+        ],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_e8ad79f20605fd1ea7bc47fdf00d7f7d"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole",
+        "state": "pending"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Space 선택 · ←→ 바꾸기 · Enter 시작",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "result.start",
+        "executing": false,
+        "focused": false,
+        "label": "시작 요청을 보냈습니다 · 결과 확인 중",
+        "marks": [],
+        "refers_to": {
+         "ref": "request",
+         "request_id": "req_e048bfa522389c2eb8d7430dbee76230"
+        },
+        "role": "result",
+        "selection": "none",
+        "shown": "whole",
+        "state": "pending"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "browse_scope": {
+        "layer": "repository",
+        "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+       },
+       "missing_bodies": [],
+       "origin": {
+        "name": "host_launcher",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "repository",
+        "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+       },
+       "view": "entry"
+      }
+     }
+    ],
+    "kind": "surface_trace",
+    "mode": {
+     "runs": "real"
+    },
+    "schema": 1,
+    "script_digest": "88dcc9d9d44730d0f71c56d2052615f31982cac74aefcbe1d9226b421a5dfe2f"
+   }
+  },
+  {
+   "digest": "d17a73919b0fe9758cc1f3b07c4ad2b4cf2b93751c9f7d74fd106421e07a7b44",
+   "name": "drive_from_launcher_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "fd119d20f579929dca93b1c555138e12e16a39257bfd9e63935e46d34eb4044f",
+      "kind": "surface_trace"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "9027e82847a1e721af36394078118858723796a3f241b1a281990ed10ac975a5",
+    "request_id": "req_93010fff5fd204a32d154f146e2111d7",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "7cd85941c6d5159dda208b9cca01b1a47e2d24a35167db886d8cdba68d8c6039",
+   "name": "launcher_outcome",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "capability": "read",
+    "client": {
+     "name": "agent-bios",
+     "version": "0.20.0"
+    },
+    "for_request_id": "req_e048bfa522389c2eb8d7430dbee76230",
+    "kind": "route_outcome",
+    "material_gaps": [],
+    "mode": {
+     "runs": "real"
+    },
+    "result": {
+     "got": "result",
+     "output_digest": "56a005cb5e8777bff22dce913f1cffbedcd2908b43fe6c0925f47f79e600ed59"
+    },
+    "schema": 1
+   }
+  },
+  {
+   "digest": "804e4645ef6a1d3a933b03e74bddaa96bc1df5779918666e8176b62e81e08ebb",
+   "name": "start_from_launcher_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "1425e765a63ab0e1985399bbf34aaf428f9117576dc11c84d10d7a17d41731e3",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_f0e1c003eeb44603f8ddec5f1d070411"
+    },
+    "request_digest": "1e703367629e56959c8b0299f8c01f031be10aecb6b764a409765caba015731c",
+    "request_id": "req_ec39b0e43b8b7812dc8804c19a251d00",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "rte_e8ad79f20605fd1ea7bc47fdf00d7f7d"
+    }
+   }
+  },
+  {
+   "digest": "2897228af4c0be87a170868bb2283e85f8f0b3e81f001b9e7eed05dbeedfa89c",
+   "name": "start_from_launcher_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "804e4645ef6a1d3a933b03e74bddaa96bc1df5779918666e8176b62e81e08ebb",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "7cd85941c6d5159dda208b9cca01b1a47e2d24a35167db886d8cdba68d8c6039",
+      "kind": "route_outcome"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "1e703367629e56959c8b0299f8c01f031be10aecb6b764a409765caba015731c",
+    "request_id": "req_ec39b0e43b8b7812dc8804c19a251d00",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "6d02a892d62bdf4bc414f3730f2eb46f703ff41f64c6d2f612e8c00490c56118",
+   "name": "setup_offer",
+   "record": {
+    "entrance": {
+     "name": "setup",
+     "root_origin": "owner"
+    },
+    "kind": "route_offer",
+    "offered": [
+     {
+      "recovery": [
+       "retry_same_request",
+       "query_same_request"
+      ],
+      "route_id": "rte_4944b0204a83e8c40736d91e72227b61",
+      "scope": {
+       "layer": "personal",
+       "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+      },
+      "support": {
+       "probe_digest": "fb9e9b32c227f3667bf0b3dc6421af23673ec71500668efc4daffad41b916bc6",
+       "qualified": "yes"
+      },
+      "supported_action": "use"
+     }
+    ],
+    "schema": 1
+   }
+  },
+  {
+   "digest": "15e32c17851e876dc46d245415d2feb605b16e6210256114d1ade3afed7cd924",
+   "name": "offer_setup",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_3e3767aee078a917eed6bb5dc7c486cd",
+     "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e",
+     "profile_id": "prf_303ec16602d7432c271d570b6d805092"
+    },
+    "control_digests": [],
+    "effect_class": "durable_candidate",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "route.offer",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+    },
+    "payload_digest": "6d02a892d62bdf4bc414f3730f2eb46f703ff41f64c6d2f612e8c00490c56118",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_4d12406383a332937d63a2c62be357bc",
+    "schema": 1,
+    "target": {
+     "resource_id": "rte_4944b0204a83e8c40736d91e72227b61"
+    }
+   }
+  },
+  {
+   "digest": "44f07dca4355c609271b93c52c9e5c8cd6f19574a60555a1679dc13c745ca8a5",
+   "name": "setup_offer_stored",
+   "record": {
+    "entrance": {
+     "name": "setup",
+     "root_origin": "owner"
+    },
+    "kind": "route_offer",
+    "offered": [
+     {
+      "recovery": [
+       "retry_same_request",
+       "query_same_request"
+      ],
+      "route_id": "rte_4944b0204a83e8c40736d91e72227b61",
+      "scope": {
+       "layer": "personal",
+       "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+      },
+      "support": {
+       "probe_digest": "fb9e9b32c227f3667bf0b3dc6421af23673ec71500668efc4daffad41b916bc6",
+       "qualified": "yes"
+      },
+      "supported_action": "use"
+     }
+    ],
+    "offered_at": "2000-01-01T00:00:00Z",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "47b178e9aa36fe676f7c658bed565a0818943419b45349de3682116a1a8e6fd4",
+   "name": "offer_from_setup_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "46199fac63e096d5dbae3982cc12204f002e7376c42d1fb597392dc0047875a1",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+    },
+    "request_digest": "15e32c17851e876dc46d245415d2feb605b16e6210256114d1ade3afed7cd924",
+    "request_id": "req_4d12406383a332937d63a2c62be357bc",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "rte_4944b0204a83e8c40736d91e72227b61"
+    }
+   }
+  },
+  {
+   "digest": "850b5d088832defdbf74b9c77f29b764efa6391da43b7d1cfb6599014865e0f3",
+   "name": "offer_from_setup_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "47b178e9aa36fe676f7c658bed565a0818943419b45349de3682116a1a8e6fd4",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "44f07dca4355c609271b93c52c9e5c8cd6f19574a60555a1679dc13c745ca8a5",
+      "kind": "route_offer"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "15e32c17851e876dc46d245415d2feb605b16e6210256114d1ade3afed7cd924",
+    "request_id": "req_4d12406383a332937d63a2c62be357bc",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "e9d0e85fd1dc87e8184cc180c45a8751b8931fbaf8a8224cff5d843c3680507a",
+   "name": "setup_keys",
+   "record": {
+    "entrance": {
+     "name": "setup",
+     "root_origin": "owner"
+    },
+    "inputs": [
+     {
+      "input": "key",
+      "key": "down"
+     },
+     {
+      "input": "key",
+      "key": "space"
+     },
+     {
+      "input": "key",
+      "key": "tab"
+     },
+     {
+      "input": "key",
+      "key": "right"
+     },
+     {
+      "input": "key",
+      "key": "tab"
+     },
+     {
+      "input": "key",
+      "key": "enter"
+     }
+    ],
+    "kind": "surface_script",
+    "locale": "ko",
+    "schema": 1,
+    "terminal": {
+     "columns": 80,
+     "rows": 24
+    }
+   }
+  },
+  {
+   "digest": "77d543f3b139d01398681043919a2809bfc20254f081fd5b41defc68ce87421d",
+   "name": "drive_setup",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_3e3767aee078a917eed6bb5dc7c486cd",
+     "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e",
+     "profile_id": "prf_303ec16602d7432c271d570b6d805092"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "surface.drive",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+    },
+    "payload_digest": "e9d0e85fd1dc87e8184cc180c45a8751b8931fbaf8a8224cff5d843c3680507a",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_0999eec2c17765e9b55003f9bdc508c7",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_303ec16602d7432c271d570b6d805092"
+    }
+   }
+  },
+  {
+   "digest": "04c54251b417de57baf79d74332184d35d0b8f695d072280fbf58ff2bc9198ae",
+   "name": "setup_selection",
+   "record": {
+    "expected": {
+     "material_gaps": [],
+     "recovery": [
+      "retry_same_request"
+     ],
+     "stage": "prepared"
+    },
+    "focused": "rte_4944b0204a83e8c40736d91e72227b61",
+    "kind": "route_selection",
+    "offer_digest": "44f07dca4355c609271b93c52c9e5c8cd6f19574a60555a1679dc13c745ca8a5",
+    "request_id": "req_90002f2e12d3e45ef5057bfc9ecccf16",
+    "schema": 1,
+    "selected": "rte_4944b0204a83e8c40736d91e72227b61"
+   }
+  },
+  {
+   "digest": "7b837014cebeafb937dfd9973f732dea9497035dd929090dc526be974b92d772",
+   "name": "select_setup",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_3e3767aee078a917eed6bb5dc7c486cd",
+     "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e",
+     "profile_id": "prf_303ec16602d7432c271d570b6d805092"
+    },
+    "control_digests": [],
+    "effect_class": "durable_candidate",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "route.select",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+    },
+    "payload_digest": "04c54251b417de57baf79d74332184d35d0b8f695d072280fbf58ff2bc9198ae",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_c7552481d49099601e06cd3ac8dac20a",
+    "schema": 1,
+    "target": {
+     "resource_id": "rte_4944b0204a83e8c40736d91e72227b61"
+    }
+   }
+  },
+  {
+   "digest": "9be0b509c9008301aa538df1e284855ce397af37b874764870d523bc664ac960",
+   "name": "setup_trace",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "client": {
+     "name": "agent-bios",
+     "version": "0.20.0"
+    },
+    "frames": [
+     {
+      "access": "active",
+      "after": 0,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.scope",
+        "executing": false,
+        "focused": false,
+        "label": "개인 · alice",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "personal",
+          "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "choice.environment",
+        "executing": false,
+        "focused": false,
+        "label": "환경  개인 기본 환경",
+        "marks": [
+         "[ ]"
+        ],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "personal",
+          "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+         }
+        },
+        "role": "choice",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "개인 기본 환경"
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
+        "focused": false,
+        "label": "도구  Codex CLI · 새 세션",
+        "marks": [
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "Codex CLI"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": false,
+        "focused": false,
+        "label": "새 세션 시작",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_4944b0204a83e8c40736d91e72227b61"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Space 선택 · ←→ 바꾸기 · Enter 시작",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "browse_scope": {
+        "layer": "personal",
+        "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+       },
+       "missing_bodies": [],
+       "origin": {
+        "name": "setup",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "personal",
+        "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+       },
+       "view": "setup"
+      }
+     },
+     {
+      "access": "active",
+      "after": 1,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.scope",
+        "executing": false,
+        "focused": false,
+        "label": "개인 · alice",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "personal",
+          "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "choice.environment",
+        "executing": false,
+        "focused": true,
+        "label": "환경  개인 기본 환경",
+        "marks": [
+         "›",
+         "[ ]"
+        ],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "personal",
+          "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+         }
+        },
+        "role": "choice",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "개인 기본 환경"
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
+        "focused": false,
+        "label": "도구  Codex CLI · 새 세션",
+        "marks": [
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "Codex CLI"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": false,
+        "focused": false,
+        "label": "새 세션 시작",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_4944b0204a83e8c40736d91e72227b61"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Space 선택 · ←→ 바꾸기 · Enter 시작",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "browse_scope": {
+        "layer": "personal",
+        "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+       },
+       "missing_bodies": [],
+       "origin": {
+        "name": "setup",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "personal",
+        "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+       },
+       "view": "setup"
+      }
+     },
+     {
+      "access": "active",
+      "after": 2,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.scope",
+        "executing": false,
+        "focused": false,
+        "label": "개인 · alice",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "personal",
+          "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "choice.environment",
+        "executing": false,
+        "focused": true,
+        "label": "환경  개인 기본 환경",
+        "marks": [
+         "›",
+         "[x]"
+        ],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "personal",
+          "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+         }
+        },
+        "role": "choice",
+        "selection": "selected",
+        "shown": "whole",
+        "value": "개인 기본 환경"
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
+        "focused": false,
+        "label": "도구  Codex CLI · 새 세션",
+        "marks": [
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "Codex CLI"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": false,
+        "focused": false,
+        "label": "새 세션 시작",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_4944b0204a83e8c40736d91e72227b61"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Space 선택 · ←→ 바꾸기 · Enter 시작",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "browse_scope": {
+        "layer": "personal",
+        "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+       },
+       "missing_bodies": [],
+       "origin": {
+        "name": "setup",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "personal",
+        "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+       },
+       "view": "setup"
+      }
+     },
+     {
+      "access": "active",
+      "after": 3,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.scope",
+        "executing": false,
+        "focused": false,
+        "label": "개인 · alice",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "personal",
+          "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "choice.environment",
+        "executing": false,
+        "focused": false,
+        "label": "환경  개인 기본 환경",
+        "marks": [
+         "[x]"
+        ],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "personal",
+          "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+         }
+        },
+        "role": "choice",
+        "selection": "selected",
+        "shown": "whole",
+        "value": "개인 기본 환경"
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
+        "focused": true,
+        "label": "도구  Codex CLI · 새 세션",
+        "marks": [
+         "›",
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "Codex CLI"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": false,
+        "focused": false,
+        "label": "새 세션 시작",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_4944b0204a83e8c40736d91e72227b61"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Space 선택 · ←→ 바꾸기 · Enter 시작",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "browse_scope": {
+        "layer": "personal",
+        "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+       },
+       "missing_bodies": [],
+       "origin": {
+        "name": "setup",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "personal",
+        "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+       },
+       "view": "setup"
+      }
+     },
+     {
+      "access": "active",
+      "after": 4,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.scope",
+        "executing": false,
+        "focused": false,
+        "label": "개인 · alice",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "personal",
+          "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "choice.environment",
+        "executing": false,
+        "focused": false,
+        "label": "환경  개인 기본 환경",
+        "marks": [
+         "[x]"
+        ],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "personal",
+          "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+         }
+        },
+        "role": "choice",
+        "selection": "selected",
+        "shown": "whole",
+        "value": "개인 기본 환경"
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
+        "focused": true,
+        "label": "도구  Claude Code · 새 세션",
+        "marks": [
+         "›"
+        ],
+        "role": "setting",
+        "selection": "selected",
+        "shown": "whole",
+        "value": "Claude Code"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": false,
+        "focused": false,
+        "label": "새 세션 시작",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_4944b0204a83e8c40736d91e72227b61"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Space 선택 · ←→ 바꾸기 · Enter 시작",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "browse_scope": {
+        "layer": "personal",
+        "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+       },
+       "missing_bodies": [],
+       "origin": {
+        "name": "setup",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "personal",
+        "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+       },
+       "view": "setup"
+      }
+     },
+     {
+      "access": "active",
+      "after": 5,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.scope",
+        "executing": false,
+        "focused": false,
+        "label": "개인 · alice",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "personal",
+          "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "choice.environment",
+        "executing": false,
+        "focused": false,
+        "label": "환경  개인 기본 환경",
+        "marks": [
+         "[x]"
+        ],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "personal",
+          "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+         }
+        },
+        "role": "choice",
+        "selection": "selected",
+        "shown": "whole",
+        "value": "개인 기본 환경"
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
+        "focused": false,
+        "label": "도구  Claude Code · 새 세션",
+        "marks": [],
+        "role": "setting",
+        "selection": "selected",
+        "shown": "whole",
+        "value": "Claude Code"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": false,
+        "focused": true,
+        "label": "새 세션 시작",
+        "marks": [
+         "›"
+        ],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_4944b0204a83e8c40736d91e72227b61"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Space 선택 · ←→ 바꾸기 · Enter 시작",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "browse_scope": {
+        "layer": "personal",
+        "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+       },
+       "missing_bodies": [],
+       "origin": {
+        "name": "setup",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "personal",
+        "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+       },
+       "view": "setup"
+      }
+     },
+     {
+      "access": "active",
+      "after": 6,
+      "calls": [
+       {
+        "operation": "route.select",
+        "reads": "nothing",
+        "request_digest": "7b837014cebeafb937dfd9973f732dea9497035dd929090dc526be974b92d772"
+       }
+      ],
+      "dispatched": [
+       "req_c7552481d49099601e06cd3ac8dac20a"
+      ],
+      "elements": [
+       {
+        "element_id": "context.scope",
+        "executing": false,
+        "focused": false,
+        "label": "개인 · alice",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "personal",
+          "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "choice.environment",
+        "executing": false,
+        "focused": false,
+        "label": "환경  개인 기본 환경",
+        "marks": [
+         "[x]"
+        ],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "personal",
+          "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+         }
+        },
+        "role": "choice",
+        "selection": "selected",
+        "shown": "whole",
+        "value": "개인 기본 환경"
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
+        "focused": false,
+        "label": "도구  Claude Code · 새 세션",
+        "marks": [],
+        "role": "setting",
+        "selection": "selected",
+        "shown": "whole",
+        "value": "Claude Code"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": true,
+        "focused": true,
+        "label": "새 세션 시작",
+        "marks": [
+         "›"
+        ],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_4944b0204a83e8c40736d91e72227b61"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole",
+        "state": "pending"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Space 선택 · ←→ 바꾸기 · Enter 시작",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "result.start",
+        "executing": false,
+        "focused": false,
+        "label": "시작 요청을 보냈습니다 · 결과 확인 중",
+        "marks": [],
+        "refers_to": {
+         "ref": "request",
+         "request_id": "req_90002f2e12d3e45ef5057bfc9ecccf16"
+        },
+        "role": "result",
+        "selection": "none",
+        "shown": "whole",
+        "state": "pending"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "browse_scope": {
+        "layer": "personal",
+        "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+       },
+       "missing_bodies": [],
+       "origin": {
+        "name": "setup",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "personal",
+        "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+       },
+       "view": "setup"
+      }
+     }
+    ],
+    "kind": "surface_trace",
+    "mode": {
+     "runs": "real"
+    },
+    "schema": 1,
+    "script_digest": "e9d0e85fd1dc87e8184cc180c45a8751b8931fbaf8a8224cff5d843c3680507a"
+   }
+  },
+  {
+   "digest": "bcba1858c73efb77c96a607322bae1499559737e162192bb28c23de41302d6dd",
+   "name": "drive_from_setup_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "9be0b509c9008301aa538df1e284855ce397af37b874764870d523bc664ac960",
+      "kind": "surface_trace"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "77d543f3b139d01398681043919a2809bfc20254f081fd5b41defc68ce87421d",
+    "request_id": "req_0999eec2c17765e9b55003f9bdc508c7",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "3eb54a791eb21437c64b65ce1b2a81848ff1e30d4666d755f9e17f5d248b7777",
+   "name": "setup_outcome",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "capability": "read",
+    "client": {
+     "name": "agent-bios",
+     "version": "0.20.0"
+    },
+    "for_request_id": "req_90002f2e12d3e45ef5057bfc9ecccf16",
+    "kind": "route_outcome",
+    "material_gaps": [],
+    "mode": {
+     "runs": "real"
+    },
+    "result": {
+     "got": "result",
+     "output_digest": "a034c81cfcdbde24a268707d01832dc2d49f6c596cf5fbf6f1791e4c069fce0e"
+    },
+    "schema": 1
+   }
+  },
+  {
+   "digest": "aca6e02882e4ca211ed2f5aebb575256caab0fc7852e38f29b52fcc6c9bd45c3",
+   "name": "start_from_setup_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "c20804083422e6602583b6fbbd364358c2b8130ecab82f05a0d0825c782361fa",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_2c16f97ce82b18cd4a89590bf8ee7e7e"
+    },
+    "request_digest": "7b837014cebeafb937dfd9973f732dea9497035dd929090dc526be974b92d772",
+    "request_id": "req_c7552481d49099601e06cd3ac8dac20a",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "rte_4944b0204a83e8c40736d91e72227b61"
+    }
+   }
+  },
+  {
+   "digest": "1b37545c9b68e50f344a15ab2fc6785e8eace1a62a5068708f2db14ea35f69bc",
+   "name": "start_from_setup_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "aca6e02882e4ca211ed2f5aebb575256caab0fc7852e38f29b52fcc6c9bd45c3",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "3eb54a791eb21437c64b65ce1b2a81848ff1e30d4666d755f9e17f5d248b7777",
+      "kind": "route_outcome"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "7b837014cebeafb937dfd9973f732dea9497035dd929090dc526be974b92d772",
+    "request_id": "req_c7552481d49099601e06cd3ac8dac20a",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  }
+ ],
+ "says": "alice binds her laptop key, founds the Team Platform, binds the payments repository she works in, and a probe qualifies the installed client's read capability. The entry flow is then driven from three entrances with the same keys: from studio_hub (the Team's scope), from host_launcher (the repository's scope) and from setup (her personal scope). Each entrance's route.offer offers one start route in that entrance's own scope, qualified by the probe. In each drive the environment choice and the tool choice are two separate elements: selecting the environment with Space leaves the tool's value Codex CLI, and changing the tool to Claude Code leaves the environment selected with its value unchanged. Enter on the one start action dispatches one route.select, whose selection names that entrance's start route (and so its scope) and the start request it produces, expecting it prepared; the owner answers with a real run. No entrance starts in another entrance's scope, and no frame shows one choice changing the other's value.",
+ "spec_sha256": "ab4bf6870c1d61eaa1f55b46cd9a045069960800ca2997ddcf8a4e8e6a93544d",
+ "steps": [
+  {
+   "carries": [
+    "first_key"
+   ],
+   "name": "bind_first_key",
+   "request": "bind",
+   "result": "bind_first_key_result",
+   "returns": [
+    "stored_key"
+   ]
+  },
+  {
+   "carries": [
+    "founding",
+    "proposed_policy"
+   ],
+   "head": "founded_head",
+   "name": "found_team",
+   "request": "found",
+   "result": "found_team_result",
+   "returns": [
+    "team_active",
+    "team_named",
+    "team_policy",
+    "founder_grant"
+   ],
+   "submits": [
+    "proposed_policy"
+   ]
+  },
+  {
+   "carries": [
+    "repo_binding"
+   ],
+   "name": "bind_repository",
+   "request": "bind_repo",
+   "result": "bind_repository_result",
+   "returns": [
+    "repo_bound"
+   ]
+  },
+  {
+   "carries": [
+    "read_probe"
+   ],
+   "name": "probe_read",
+   "request": "probe",
+   "result": "probe_read_result",
+   "returns": [
+    "read_probe_stored",
+    "client_profile"
+   ]
+  },
+  {
+   "carries": [
+    "hub_offer"
+   ],
+   "name": "offer_from_hub",
+   "request": "offer_hub",
+   "result": "offer_from_hub_result",
+   "returns": [
+    "hub_offer_stored"
+   ]
+  },
+  {
+   "carries": [
+    "hub_keys"
+   ],
+   "name": "drive_from_hub",
+   "request": "drive_hub",
+   "result": "drive_from_hub_result",
+   "returns": [
+    "hub_trace"
+   ]
+  },
+  {
+   "carries": [
+    "hub_selection"
+   ],
+   "name": "start_from_hub",
+   "request": "select_hub",
+   "result": "start_from_hub_result",
+   "returns": [
+    "hub_outcome"
+   ]
+  },
+  {
+   "carries": [
+    "launcher_offer"
+   ],
+   "name": "offer_from_launcher",
+   "request": "offer_launcher",
+   "result": "offer_from_launcher_result",
+   "returns": [
+    "launcher_offer_stored"
+   ]
+  },
+  {
+   "carries": [
+    "launcher_keys"
+   ],
+   "name": "drive_from_launcher",
+   "request": "drive_launcher",
+   "result": "drive_from_launcher_result",
+   "returns": [
+    "launcher_trace"
+   ]
+  },
+  {
+   "carries": [
+    "launcher_selection"
+   ],
+   "name": "start_from_launcher",
+   "request": "select_launcher",
+   "result": "start_from_launcher_result",
+   "returns": [
+    "launcher_outcome"
+   ]
+  },
+  {
+   "carries": [
+    "setup_offer"
+   ],
+   "name": "offer_from_setup",
+   "request": "offer_setup",
+   "result": "offer_from_setup_result",
+   "returns": [
+    "setup_offer_stored"
+   ]
+  },
+  {
+   "carries": [
+    "setup_keys"
+   ],
+   "name": "drive_from_setup",
+   "request": "drive_setup",
+   "result": "drive_from_setup_result",
+   "returns": [
+    "setup_trace"
+   ]
+  },
+  {
+   "carries": [
+    "setup_selection"
+   ],
+   "name": "start_from_setup",
+   "request": "select_setup",
+   "result": "start_from_setup_result",
+   "returns": [
+    "setup_outcome"
+   ]
+  }
+ ]
+}

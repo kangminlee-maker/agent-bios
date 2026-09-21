@@ -75,8 +75,12 @@ class Generator(unittest.TestCase):
         self.assertEqual(result["request_digest"], by_name["bind"]["digest"])
         self.assertEqual(result["outputs"], [{"kind": "principal_binding",
                                               "digest": by_name["stored_key"]["digest"]}])
+        receipt = by_name["bind_first_key_receipt"]
+        self.assertEqual(result["outcome"]["receipt_digest"], receipt["digest"])
+        self.assertEqual(receipt["record"]["request_digest"], by_name["bind"]["digest"])
         self.assertEqual({m["name"] for m in built["minted"]},
-                         {"first_binding", "bound_at", "bind_first_key_receipt"})
+                         {"first_binding", "bound_at", "bind_first_key_head",
+                          "bind_first_key_sequence", "bind_first_key_committed_at"})
 
     def test_a_payload_its_operation_does_not_take(self):
         def change(spec):
@@ -213,6 +217,98 @@ class Generator(unittest.TestCase):
         with self.assertRaises(scenarios.ScenarioError) as caught:
             self.generate(spec)
         self.assertIn("which the request does not name", str(caught.exception))
+
+    def test_a_later_request_can_expect_the_head_a_commit_moved_to(self):
+        spec = copy.deepcopy(BASE)
+        spec["ids"] += [{"name": "again_request", "prefix": "req"},
+                        {"name": "team", "prefix": "tem"}]
+        spec["records"].append({"name": "bind_again", "from": "bind", "set": [
+            {"pointer": "/request_id", "value": "@again_request"},
+            {"pointer": "/target/resource_id", "value": "@team"},
+            {"pointer": "/target/base/expects", "value": "head"},
+            {"pointer": "/target/base/head_digest", "value": "$digest:first_head"}]})
+        spec["steps"].append({"name": "bind_again", "request": "bind_again",
+                              "carries": ["first_key"],
+                              "answer": {**spec["steps"][0]["answer"], "returns": []}})
+        with self.assertRaises(scenarios.ScenarioError) as caught:
+            self.generate(spec)
+        self.assertIn("before any step returns them", str(caught.exception))
+        spec["steps"][0]["answer"]["head"] = "first_head"
+        built = self.generate(spec)
+        self.assertEqual(built["steps"][0]["head"], "first_head")
+        # The second receipt names the team the request names, and says where that id came from.
+        self.assertIn({"record": "bind_again_receipt", "pointer": "/target/base/head_digest",
+                       "minted": "first_head"}, built["joins"])
+        spec["steps"][0]["answer"]["stage"] = "previewed"
+        self.refused_spec("only a committed answer moves one", spec)
+
+    def test_an_index_one_past_the_end_appends_an_object(self):
+        spec = {"case": "N21-C10-POS", "says": "A plan item is added in the spec.", "ids": [],
+                "records": [{"name": "plan", "from": "c03/batch_across_three_carriers.json",
+                             "set": [{"pointer": "/items/5/carrier", "value": "local"}]},
+                            {"name": "batch", "from": "c03/batch_request.json",
+                             "set": [{"pointer": "/payload_digest", "value": "#plan"}]}],
+                "steps": [{"name": "submit", "request": "batch", "carries": ["plan"],
+                           "answer": {"stage": "committed", "local_effect": "committed",
+                                      "provider_effect": "not_applicable", "gaps": [],
+                                      "recovery": [], "returns": []}}]}
+        # The appended item holds only its carrier, so the plan is refused where it is missing.
+        self.refused_spec("'pointer': '/items/5/request_digest'", spec)
+        spec["records"][0]["set"][0]["pointer"] = "/items/6/carrier"
+        self.refused_spec("no item 6", spec)
+
+    def test_a_carried_record_the_step_submits_is_read_as_submitted(self):
+        # A founding submits its new policy with the proposal; the store does not hold it yet.
+        spec = {"case": "N10-C08-POS", "says": "A founding submits its policy.", "ids": [],
+                "records": [{"name": "policy", "from": "c08/policy_as_submitted.json"},
+                            {"name": "proposal", "from": "c08/proposal_as_submitted.json",
+                             "set": [{"pointer": "/policy_digest", "value": "#policy"}]},
+                            {"name": "found", "from": "c01/link_request.json",
+                             "set": [{"pointer": "/operation", "value": "team.found"},
+                                     {"pointer": "/payload_digest", "value": "#proposal"}]}],
+                "steps": [{"name": "found_team", "request": "found",
+                           "carries": ["proposal", "policy"],
+                           "answer": {"stage": "committed", "local_effect": "committed",
+                                      "provider_effect": "not_applicable", "gaps": [],
+                                      "recovery": [], "returns": []}}]}
+        self.refused_spec("policy is refused in stored mode", spec)
+        spec["steps"][0]["submits"] = ["policy"]
+        self.assertEqual(self.generate(spec)["steps"][0]["submits"], ["policy"])
+        spec["steps"][0]["submits"] = ["proposal"]
+        self.refused_spec("not a record it carries besides its payload", spec)
+
+    def test_a_missing_field_before_index_zero_is_a_new_array(self):
+        def change(spec):
+            self.record(spec, "first_key")["set"].append(
+                {"pointer": "/missing_list/0/code", "value": "x"})
+        # The array is created, so the only complaint is the schema's: no such field.
+        self.refused("'pointer': '/missing_list'", change)
+
+    def test_a_change_that_makes_a_key_of_an_index_is_refused_by_name(self):
+        def change(spec):
+            self.record(spec, "first_key")["set"].append(
+                {"pointer": "/missing_list/1/code", "value": "x"})
+        self.refused("is not a record canonical JSON can hold", change)
+
+    def test_an_identical_resubmission_replays_the_first_answer(self):
+        spec = copy.deepcopy(BASE)
+        spec["steps"].append({"name": "bind_again", "request": "bind", "carries": ["first_key"],
+                              "replays": "bind_first_key"})
+        built = self.generate(spec)
+        self.assertEqual(built["steps"][1]["result"], "bind_first_key_result")
+        self.assertEqual(built["steps"][1]["returns"], ["stored_key"])
+        spec["steps"][1]["replays"] = "never_ran"
+        self.refused_spec("which is no earlier answered step", spec)
+        spec["ids"].append({"name": "again_request", "prefix": "req"})
+        spec["records"].append({"name": "bind_other", "from": "bind",
+                                "set": [{"pointer": "/request_id", "value": "@again_request"}]})
+        spec["steps"][1].update(request="bind_other", replays="bind_first_key")
+        self.refused_spec("with other request bytes", spec)
+
+    def refused_spec(self, fragment, spec):
+        with self.assertRaises(scenarios.ScenarioError) as caught:
+            self.generate(spec)
+        self.assertIn(fragment, str(caught.exception))
 
 
 class World(unittest.TestCase):

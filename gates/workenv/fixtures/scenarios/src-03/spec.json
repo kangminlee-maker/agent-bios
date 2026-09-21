@@ -1,0 +1,667 @@
+{
+ "case": "SRC-03",
+ "says": "A person selects docs/adr and README.md in the checkout of their work repository W (hosted as example/work). source.observe reads those files and returns an observation with local_effect none and provider_effect not_applicable: selecting the repository creates no Team, writes no metadata into the repository, makes no commit and uploads nothing. repository.bind then records the checkout as project evidence under W, again reaching no provider. Only afterwards does the person found a Team (team.found, whose target expects no Team to exist yet, so nothing earlier created one) and bind that Team's exchange carrier with carrier.bind: a carrier_binding naming the GitHub account, the provider's repository id, a namespace and the permitted effects, with carrier_state bound and nothing provisioned or uploaded. Even though the carrier names the same hosted repository, the work repository_binding and the Team's carrier_binding stay two records of two contracts, and neither changes the other.",
+ "ids": [
+  {
+   "name": "me",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "laptop_key_request",
+   "prefix": "req"
+  },
+  {
+   "name": "work",
+   "prefix": "rep"
+  },
+  {
+   "name": "team",
+   "prefix": "tem"
+  },
+  {
+   "name": "observe_request",
+   "prefix": "req"
+  },
+  {
+   "name": "bind_request",
+   "prefix": "req"
+  },
+  {
+   "name": "found_request",
+   "prefix": "req"
+  },
+  {
+   "name": "carrier_bind_request",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "laptop_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "bind_laptop_key",
+   "from": "c01/link_request.json",
+   "drop": [
+    "/owner"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@laptop_key_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#laptop_key"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@me"
+    }
+   ]
+  },
+  {
+   "name": "stored_laptop_key",
+   "from": "laptop_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:laptop_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:laptop_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "selection",
+   "from": "c01/selection_of_working_tree_paths.json",
+   "set": [
+    {
+     "pointer": "/roots/0/place/repository_id",
+     "value": "@work"
+    },
+    {
+     "pointer": "/roots/1/place/repository_id",
+     "value": "@work"
+    }
+   ]
+  },
+  {
+   "name": "observe",
+   "from": "c01/observe_request.json",
+   "drop": [
+    "/owner",
+    "/target"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@observe_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@work"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#selection"
+    }
+   ]
+  },
+  {
+   "name": "observation",
+   "from": "c01/observation_of_a_working_tree_with_dirty_and_untracked_files.json",
+   "set": [
+    {
+     "pointer": "/selection_digest",
+     "value": "#selection"
+    },
+    {
+     "pointer": "/read/0/digest",
+     "value": "$digest:adr1_bytes"
+    },
+    {
+     "pointer": "/read/1/digest",
+     "value": "$digest:adr2_bytes"
+    },
+    {
+     "pointer": "/read/2/digest",
+     "value": "$digest:adr3_bytes"
+    },
+    {
+     "pointer": "/read/3/digest",
+     "value": "$digest:readme_bytes"
+    },
+    {
+     "pointer": "/observed_at",
+     "value": "$instant:observed_at"
+    }
+   ]
+  },
+  {
+   "name": "checkout",
+   "from": "c01/repository_binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@work"
+    }
+   ]
+  },
+  {
+   "name": "bind",
+   "from": "c01/repository_bind_request.json",
+   "drop": [
+    "/owner",
+    "/target"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@work"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#checkout"
+    }
+   ]
+  },
+  {
+   "name": "stored_checkout",
+   "from": "c01/clone_shares_the_repository_id.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@work"
+    },
+    {
+     "pointer": "/observed/working_bytes_digest",
+     "value": "#observation"
+    },
+    {
+     "pointer": "/observed/locator",
+     "value": "git@github.com:example/work.git"
+    }
+   ]
+  },
+  {
+   "name": "policy",
+   "from": "c08/policy_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/threshold",
+     "value": 0
+    }
+   ]
+  },
+  {
+   "name": "proposal",
+   "from": "c08/proposal_as_submitted.json",
+   "drop": [
+    "/founding_mode"
+   ],
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/founder_principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#policy"
+    },
+    {
+     "pointer": "/founding_mode/mode",
+     "value": "self_founded"
+    },
+    {
+     "pointer": "/founding_mode/acknowledged_self_reviewed",
+     "value": true
+    },
+    {
+     "pointer": "/recovery/0/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/carriers",
+     "value": [
+      "local",
+      "github"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "found",
+   "from": "c09/carrier_provision_request.json",
+   "drop": [
+    "/owner",
+    "/target"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@found_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.found"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#proposal"
+    }
+   ]
+  },
+  {
+   "name": "stored_policy",
+   "from": "policy",
+   "set": [
+    {
+     "pointer": "/policy_id",
+     "value": "$pol:founding_policy"
+    },
+    {
+     "pointer": "/policy_version",
+     "value": 1
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "publish",
+      "adopt",
+      "grant",
+      "policy",
+      "transfer"
+     ]
+    },
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:founder_grant"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_state",
+   "from": "c08/archived_team.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/state",
+     "value": "active"
+    },
+    {
+     "pointer": "/since",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "carrier",
+   "from": "c09/carrier_binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/credential_held_by",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/namespace",
+     "value": "agent-bios/platform"
+    },
+    {
+     "pointer": "/repository/name",
+     "value": "example/work"
+    }
+   ]
+  },
+  {
+   "name": "carrier_bind",
+   "from": "c09/carrier_provision_request.json",
+   "drop": [
+    "/owner",
+    "/target"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@carrier_bind_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "carrier.bind"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#carrier"
+    }
+   ]
+  },
+  {
+   "name": "stored_carrier",
+   "from": "carrier",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$car:exchange_binding"
+    },
+    {
+     "pointer": "/bound_at",
+     "value": "$instant:carrier_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "carrier_state",
+   "from": "c09/carrier_bound_and_nothing_provisioned.json",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$car:exchange_binding"
+    },
+    {
+     "pointer": "/observed_at",
+     "value": "$instant:carrier_bound_at"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_laptop_key",
+   "request": "bind_laptop_key",
+   "carries": [
+    "laptop_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_laptop_key"
+    ]
+   }
+  },
+  {
+   "name": "select_the_work_repository",
+   "request": "observe",
+   "carries": [
+    "selection"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "observation"
+    ]
+   }
+  },
+  {
+   "name": "bind_the_work_checkout",
+   "request": "bind",
+   "carries": [
+    "checkout"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_checkout"
+    ]
+   }
+  },
+  {
+   "name": "found_the_team",
+   "request": "found",
+   "carries": [
+    "proposal",
+    "policy"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_policy",
+     "founder_grant",
+     "team_state"
+    ],
+    "head": "team_head"
+   },
+   "submits": [
+    "policy"
+   ]
+  },
+  {
+   "name": "bind_the_team_exchange_carrier",
+   "request": "carrier_bind",
+   "carries": [
+    "carrier"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "none",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_carrier",
+     "carrier_state"
+    ]
+   }
+  }
+ ]
+}

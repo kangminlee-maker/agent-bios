@@ -1,0 +1,1465 @@
+{
+ "case": "TUI-ENTRY-LOCKED",
+ "says": "A person with a bound repository and a committed instructions source has a read of that source sealed at access generation 7 when they lock the profile (access.transition lock: locked, generation 8). The locked entry (surface.drive from the locked scope entrance) shows only that the profile is locked, how to unlock at a terminal, and an unlock action; Down, Tab and Enter move nothing and unlock nothing, and every frame stays access locked with nothing dispatched or called. The read arriving late is not admitted (access.admission.decide: access_locked). An unlock naming no explicit method is refused at admission (variant_mismatch /change). The person unlocks explicitly with the device key at a terminal (active, generation 9); the late read, still sealed at generation 7, is again not admitted (access_generation_moved) rather than delivered into the reopened session, while the same read sealed afresh at generation 9 for the same actor and repository is allowed. Negative: no frame shows the source's path, title, counts or repository name while locked; navigation never changes access; and the late read never becomes admitted under the new generation.",
+ "ids": [
+  {
+   "name": "me",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "my_key_bind",
+   "prefix": "req"
+  },
+  {
+   "name": "repo",
+   "prefix": "rep"
+  },
+  {
+   "name": "repo_bind",
+   "prefix": "req"
+  },
+  {
+   "name": "instr",
+   "prefix": "src"
+  },
+  {
+   "name": "instr_observe",
+   "prefix": "req"
+  },
+  {
+   "name": "instr_commit",
+   "prefix": "req"
+  },
+  {
+   "name": "late_read_request",
+   "prefix": "req"
+  },
+  {
+   "name": "lock_transition",
+   "prefix": "req"
+  },
+  {
+   "name": "drive_request",
+   "prefix": "req"
+  },
+  {
+   "name": "while_locked_decide",
+   "prefix": "req"
+  },
+  {
+   "name": "implicit_unlock_transition",
+   "prefix": "req"
+  },
+  {
+   "name": "unlock_transition",
+   "prefix": "req"
+  },
+  {
+   "name": "after_unlock_decide",
+   "prefix": "req"
+  },
+  {
+   "name": "fresh_read_request",
+   "prefix": "req"
+  },
+  {
+   "name": "fresh_decide",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "my_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    }
+   ]
+  },
+  {
+   "name": "my_key_request",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#my_key"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@my_key_bind"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@me"
+    }
+   ]
+  },
+  {
+   "name": "my_key_stored",
+   "from": "my_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:my_key_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:my_key_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_binding",
+   "from": "c01/repository_binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "repo_bind_request",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "repository.bind"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_binding"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@repo_bind"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "repo_bound",
+   "from": "c01/clone_shares_the_repository_id.json",
+   "set": [
+    {
+     "pointer": "/observed/working_bytes_digest",
+     "value": "$digest:checkout_bytes"
+    },
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "instr_selection",
+   "from": "c01/selection_of_working_tree_paths.json",
+   "drop": [
+    "/roots/1"
+   ],
+   "set": [
+    {
+     "pointer": "/roots/0/place/path",
+     "value": "AGENTS.md"
+    },
+    {
+     "pointer": "/roots/0/place/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "instr_observe_request",
+   "from": "c01/link_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.observe"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#instr_selection"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@instr_observe"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "instr_observation",
+   "from": "c01/observation_of_a_working_tree_with_dirty_and_untracked_files.json",
+   "drop": [
+    "/read/3",
+    "/read/2",
+    "/read/1"
+   ],
+   "set": [
+    {
+     "pointer": "/observed_at",
+     "value": "$instant:instr_observed_at"
+    },
+    {
+     "pointer": "/read/0/digest",
+     "value": "$digest:instr_bytes"
+    },
+    {
+     "pointer": "/read/0/path",
+     "value": "AGENTS.md"
+    },
+    {
+     "pointer": "/read/0/size",
+     "value": 2048
+    },
+    {
+     "pointer": "/selection_digest",
+     "value": "#instr_selection"
+    }
+   ]
+  },
+  {
+   "name": "instr_manifest",
+   "from": "sources/revision_submitted.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:instr_bytes"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "AGENTS.md"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 2048
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@instr"
+    }
+   ]
+  },
+  {
+   "name": "instr_commit_request",
+   "from": "c01/link_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.revision.commit"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#instr_manifest"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@instr_commit"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@instr"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    }
+   ]
+  },
+  {
+   "name": "instr_revision",
+   "from": "instr_manifest",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:instr_produced_at"
+    }
+   ]
+  },
+  {
+   "name": "read_envelope",
+   "from": "c06/envelope_asking_about_a_concern.json",
+   "set": [
+    {
+     "pointer": "/required/0/source_id",
+     "value": "@instr"
+    },
+    {
+     "pointer": "/work_scope/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "late_read",
+   "from": "c01/link_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/operation",
+     "value": "reader.body.read"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#read_envelope"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@late_read_request"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@instr"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:instr_head"
+    }
+   ]
+  },
+  {
+   "name": "lock",
+   "from": "c02/lock.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    }
+   ]
+  },
+  {
+   "name": "lock_request",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.transition"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#lock"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@lock_transition"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    }
+   ]
+  },
+  {
+   "name": "lock_state",
+   "from": "c02/locked_state.json",
+   "set": [
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:lock_at"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    }
+   ]
+  },
+  {
+   "name": "script",
+   "from": "c12/a_launcher_driven_at_80_by_24.json",
+   "drop": [
+    "/inputs/3"
+   ],
+   "set": [
+    {
+     "pointer": "/entrance/name",
+     "value": "locked_scope"
+    },
+    {
+     "pointer": "/inputs/1/key",
+     "value": "tab"
+    },
+    {
+     "pointer": "/inputs/2/key",
+     "value": "enter"
+    }
+   ]
+  },
+  {
+   "name": "script_request",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/operation",
+     "value": "surface.drive"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#script"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@drive_request"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@me"
+    }
+   ]
+  },
+  {
+   "name": "script_trace",
+   "from": "c12/a_launcher_trace_where_focus_moved_and_one_selection_changed.json",
+   "drop": [
+    "/candidate_digest",
+    "/frames/4",
+    "/frames/0/elements/7",
+    "/frames/0/elements/6",
+    "/frames/0/elements/5",
+    "/frames/0/elements/4",
+    "/frames/0/elements/3",
+    "/frames/0/elements/0/refers_to",
+    "/frames/0/elements/2/refers_to",
+    "/frames/0/elements/2/state",
+    "/frames/1/elements/7",
+    "/frames/1/elements/6",
+    "/frames/1/elements/5",
+    "/frames/1/elements/4",
+    "/frames/1/elements/3",
+    "/frames/1/elements/0/refers_to",
+    "/frames/1/elements/2/refers_to",
+    "/frames/1/elements/2/state",
+    "/frames/2/elements/7",
+    "/frames/2/elements/6",
+    "/frames/2/elements/5",
+    "/frames/2/elements/4",
+    "/frames/2/elements/3",
+    "/frames/2/elements/0/refers_to",
+    "/frames/2/elements/2/refers_to",
+    "/frames/2/elements/2/state",
+    "/frames/3/elements/7",
+    "/frames/3/elements/6",
+    "/frames/3/elements/5",
+    "/frames/3/elements/4",
+    "/frames/3/elements/0/refers_to",
+    "/frames/3/elements/2/refers_to",
+    "/frames/3/elements/2/state",
+    "/frames/3/elements/3/refers_to",
+    "/frames/3/elements/3/state"
+   ],
+   "set": [
+    {
+     "pointer": "/at",
+     "value": "$instant:script_driven_at"
+    },
+    {
+     "pointer": "/frames/0/access",
+     "value": "locked"
+    },
+    {
+     "pointer": "/frames/0/view/origin/name",
+     "value": "locked_scope"
+    },
+    {
+     "pointer": "/frames/0/view/view",
+     "value": "locked"
+    },
+    {
+     "pointer": "/frames/0/view/selected_scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/0/elements/0/label",
+     "value": "로컬 프로필 · 잠김"
+    },
+    {
+     "pointer": "/frames/0/elements/1/element_id",
+     "value": "blocker.locked"
+    },
+    {
+     "pointer": "/frames/0/elements/1/role",
+     "value": "blocker"
+    },
+    {
+     "pointer": "/frames/0/elements/1/label",
+     "value": "잠겨 있음 · 잠금 해제하려면 터미널에서 agent-bios unlock"
+    },
+    {
+     "pointer": "/frames/0/elements/1/state",
+     "value": "blocked"
+    },
+    {
+     "pointer": "/frames/0/elements/2/element_id",
+     "value": "action.unlock"
+    },
+    {
+     "pointer": "/frames/0/elements/2/role",
+     "value": "action"
+    },
+    {
+     "pointer": "/frames/0/elements/2/label",
+     "value": "잠금 해제"
+    },
+    {
+     "pointer": "/frames/0/elements/2/marks",
+     "value": [
+      "›"
+     ]
+    },
+    {
+     "pointer": "/frames/0/elements/2/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/1/access",
+     "value": "locked"
+    },
+    {
+     "pointer": "/frames/1/view/origin/name",
+     "value": "locked_scope"
+    },
+    {
+     "pointer": "/frames/1/view/view",
+     "value": "locked"
+    },
+    {
+     "pointer": "/frames/1/view/selected_scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/1/elements/0/label",
+     "value": "로컬 프로필 · 잠김"
+    },
+    {
+     "pointer": "/frames/1/elements/1/element_id",
+     "value": "blocker.locked"
+    },
+    {
+     "pointer": "/frames/1/elements/1/role",
+     "value": "blocker"
+    },
+    {
+     "pointer": "/frames/1/elements/1/label",
+     "value": "잠겨 있음 · 잠금 해제하려면 터미널에서 agent-bios unlock"
+    },
+    {
+     "pointer": "/frames/1/elements/1/state",
+     "value": "blocked"
+    },
+    {
+     "pointer": "/frames/1/elements/2/element_id",
+     "value": "action.unlock"
+    },
+    {
+     "pointer": "/frames/1/elements/2/role",
+     "value": "action"
+    },
+    {
+     "pointer": "/frames/1/elements/2/label",
+     "value": "잠금 해제"
+    },
+    {
+     "pointer": "/frames/1/elements/2/marks",
+     "value": [
+      "›"
+     ]
+    },
+    {
+     "pointer": "/frames/1/elements/2/focused",
+     "value": true
+    },
+    {
+     "pointer": "/frames/1/elements/2/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/2/access",
+     "value": "locked"
+    },
+    {
+     "pointer": "/frames/2/view/origin/name",
+     "value": "locked_scope"
+    },
+    {
+     "pointer": "/frames/2/view/view",
+     "value": "locked"
+    },
+    {
+     "pointer": "/frames/2/view/selected_scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/2/elements/0/label",
+     "value": "로컬 프로필 · 잠김"
+    },
+    {
+     "pointer": "/frames/2/elements/1/element_id",
+     "value": "blocker.locked"
+    },
+    {
+     "pointer": "/frames/2/elements/1/role",
+     "value": "blocker"
+    },
+    {
+     "pointer": "/frames/2/elements/1/label",
+     "value": "잠겨 있음 · 잠금 해제하려면 터미널에서 agent-bios unlock"
+    },
+    {
+     "pointer": "/frames/2/elements/1/state",
+     "value": "blocked"
+    },
+    {
+     "pointer": "/frames/2/elements/2/element_id",
+     "value": "action.unlock"
+    },
+    {
+     "pointer": "/frames/2/elements/2/role",
+     "value": "action"
+    },
+    {
+     "pointer": "/frames/2/elements/2/label",
+     "value": "잠금 해제"
+    },
+    {
+     "pointer": "/frames/2/elements/2/marks",
+     "value": [
+      "›"
+     ]
+    },
+    {
+     "pointer": "/frames/2/elements/2/focused",
+     "value": true
+    },
+    {
+     "pointer": "/frames/2/elements/2/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/3/access",
+     "value": "locked"
+    },
+    {
+     "pointer": "/frames/3/view/origin/name",
+     "value": "locked_scope"
+    },
+    {
+     "pointer": "/frames/3/view/view",
+     "value": "locked"
+    },
+    {
+     "pointer": "/frames/3/view/selected_scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/3/elements/0/label",
+     "value": "로컬 프로필 · 잠김"
+    },
+    {
+     "pointer": "/frames/3/elements/1/element_id",
+     "value": "blocker.locked"
+    },
+    {
+     "pointer": "/frames/3/elements/1/role",
+     "value": "blocker"
+    },
+    {
+     "pointer": "/frames/3/elements/1/label",
+     "value": "잠겨 있음 · 잠금 해제하려면 터미널에서 agent-bios unlock"
+    },
+    {
+     "pointer": "/frames/3/elements/1/state",
+     "value": "blocked"
+    },
+    {
+     "pointer": "/frames/3/elements/2/element_id",
+     "value": "action.unlock"
+    },
+    {
+     "pointer": "/frames/3/elements/2/role",
+     "value": "action"
+    },
+    {
+     "pointer": "/frames/3/elements/2/label",
+     "value": "잠금 해제"
+    },
+    {
+     "pointer": "/frames/3/elements/2/marks",
+     "value": [
+      "›"
+     ]
+    },
+    {
+     "pointer": "/frames/3/elements/2/focused",
+     "value": true
+    },
+    {
+     "pointer": "/frames/3/elements/2/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/3/elements/3/element_id",
+     "value": "help.unlock"
+    },
+    {
+     "pointer": "/frames/3/elements/3/role",
+     "value": "help"
+    },
+    {
+     "pointer": "/frames/3/elements/3/label",
+     "value": "이 화면에서는 풀 수 없음 · 터미널에서 agent-bios unlock 실행"
+    },
+    {
+     "pointer": "/frames/3/elements/3/marks",
+     "value": []
+    },
+    {
+     "pointer": "/script_digest",
+     "value": "#script"
+    }
+   ]
+  },
+  {
+   "name": "while_locked_request",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 8
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.admission.decide"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#late_read"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@while_locked_decide"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    }
+   ]
+  },
+  {
+   "name": "while_locked_decision",
+   "from": "c02/sign_after_lock.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@late_read_request"
+    }
+   ]
+  },
+  {
+   "name": "implicit_unlock",
+   "from": "c02/unlock_without_a_method.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    }
+   ]
+  },
+  {
+   "name": "implicit_unlock_request",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 8
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.transition"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#implicit_unlock"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@implicit_unlock_transition"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    }
+   ]
+  },
+  {
+   "name": "unlock",
+   "from": "c02/lock.json",
+   "set": [
+    {
+     "pointer": "/change/transition",
+     "value": "unlock"
+    },
+    {
+     "pointer": "/change/method",
+     "value": "device_key_at_terminal"
+    },
+    {
+     "pointer": "/expected_generation",
+     "value": 8
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    }
+   ]
+  },
+  {
+   "name": "unlock_request",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 8
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.transition"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#unlock"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@unlock_transition"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    }
+   ]
+  },
+  {
+   "name": "unlock_state",
+   "from": "c02/locked_state.json",
+   "set": [
+    {
+     "pointer": "/access_generation",
+     "value": 9
+    },
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:unlock_at"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/state/is",
+     "value": "active"
+    },
+    {
+     "pointer": "/state/because",
+     "value": "unlock"
+    }
+   ]
+  },
+  {
+   "name": "after_unlock_request",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 9
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.admission.decide"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#late_read"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@after_unlock_decide"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    }
+   ]
+  },
+  {
+   "name": "after_unlock_decision",
+   "from": "c02/sign_after_lock.json",
+   "set": [
+    {
+     "pointer": "/access_generation",
+     "value": 9
+    },
+    {
+     "pointer": "/outcome/material_gaps/0/code",
+     "value": "access_generation_moved"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@late_read_request"
+    }
+   ]
+  },
+  {
+   "name": "fresh_read",
+   "from": "late_read",
+   "set": [
+    {
+     "pointer": "/local_access_generation",
+     "value": 9
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@fresh_read_request"
+    }
+   ]
+  },
+  {
+   "name": "fresh_request",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 9
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.admission.decide"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#fresh_read"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@fresh_decide"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    }
+   ]
+  },
+  {
+   "name": "fresh_decision",
+   "from": "c02/sign_after_lock.json",
+   "drop": [
+    "/outcome/material_gaps"
+   ],
+   "set": [
+    {
+     "pointer": "/access_generation",
+     "value": 9
+    },
+    {
+     "pointer": "/outcome/admission",
+     "value": "allowed"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@fresh_read_request"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_device_key",
+   "request": "my_key_request",
+   "carries": [
+    "my_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "my_key_stored"
+    ]
+   }
+  },
+  {
+   "name": "bind_repository",
+   "request": "repo_bind_request",
+   "carries": [
+    "repo_binding"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_bound"
+    ]
+   }
+  },
+  {
+   "name": "observe_instr",
+   "request": "instr_observe_request",
+   "carries": [
+    "instr_selection"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "instr_observation"
+    ]
+   }
+  },
+  {
+   "name": "commit_instr",
+   "request": "instr_commit_request",
+   "carries": [
+    "instr_manifest"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "instr_revision"
+    ],
+    "head": "instr_head"
+   }
+  },
+  {
+   "name": "lock_profile",
+   "request": "lock_request",
+   "carries": [
+    "lock"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "lock_state"
+    ]
+   }
+  },
+  {
+   "name": "drive_entry",
+   "request": "script_request",
+   "carries": [
+    "script"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "script_trace"
+    ]
+   }
+  },
+  {
+   "name": "late_read_while_locked",
+   "request": "while_locked_request",
+   "carries": [
+    "late_read",
+    "read_envelope"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "while_locked_decision"
+    ]
+   }
+  },
+  {
+   "name": "unlock_without_a_method",
+   "request": "implicit_unlock_request",
+   "carries": [
+    "implicit_unlock"
+   ],
+   "refused": [
+    {
+     "record": "implicit_unlock",
+     "code": "variant_mismatch",
+     "pointer": "/change"
+    }
+   ]
+  },
+  {
+   "name": "unlock_at_terminal",
+   "request": "unlock_request",
+   "carries": [
+    "unlock"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "unlock_state"
+    ]
+   }
+  },
+  {
+   "name": "late_read_after_reentry",
+   "request": "after_unlock_request",
+   "carries": [
+    "late_read",
+    "read_envelope"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "after_unlock_decision"
+    ]
+   }
+  },
+  {
+   "name": "fresh_read_after_reentry",
+   "request": "fresh_request",
+   "carries": [
+    "fresh_read",
+    "read_envelope"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "fresh_decision"
+    ]
+   }
+  }
+ ]
+}

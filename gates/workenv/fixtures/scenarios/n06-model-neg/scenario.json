@@ -1,0 +1,1018 @@
+{
+ "case": "N06-MODEL-NEG",
+ "ids": [
+  {
+   "id": "src_be03c16746cad5e494119e9166393a6e",
+   "name": "rates"
+  },
+  {
+   "id": "rep_8711923bc8e19eb68f08576f916f349d",
+   "name": "repo"
+  },
+  {
+   "id": "req_7cb4d116a2643045f8de3e30852f61da",
+   "name": "register_rates_id"
+  },
+  {
+   "id": "prn_240f5bec29f9e5dc5d80c628d5d8fe02",
+   "name": "me"
+  },
+  {
+   "id": "dev_f445ff5bba0df7c5aa4783b3ff80ae58",
+   "name": "laptop"
+  },
+  {
+   "id": "prf_e9ecf8d23f06417d2047774d6ba8e9e4",
+   "name": "profile"
+  },
+  {
+   "id": "req_d8a21159c8cc400a417de0684d9710c4",
+   "name": "commit_rates_rev1_id"
+  },
+  {
+   "id": "req_df0bcdea80a1685b7045d18a4e9f0192",
+   "name": "check_model_request_id"
+  },
+  {
+   "id": "req_75721a16629c4f5bcbebaf47c021d8e0",
+   "name": "commit_rates_rev2_id"
+  },
+  {
+   "id": "req_ad18185d59199426330db1cdd61e15a1",
+   "name": "check_edited_model_request_id"
+  }
+ ],
+ "joins": [
+  {
+   "digest_of": "rates_home",
+   "pointer": "/payload_digest",
+   "record": "register_rates"
+  },
+  {
+   "minted": "rates_registered_at",
+   "pointer": "/registered_at",
+   "record": "rates_home_stored"
+  },
+  {
+   "digest_of": "register_rates",
+   "pointer": "/request_digest",
+   "record": "register_rates_home_receipt"
+  },
+  {
+   "minted": "register_rates_home_head",
+   "pointer": "/head_digest",
+   "record": "register_rates_home_receipt"
+  },
+  {
+   "minted": "register_rates_home_sequence",
+   "pointer": "/sequence",
+   "record": "register_rates_home_receipt"
+  },
+  {
+   "minted": "register_rates_home_committed_at",
+   "pointer": "/committed_at",
+   "record": "register_rates_home_receipt"
+  },
+  {
+   "digest_of": "register_rates_home_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "register_rates_home_result"
+  },
+  {
+   "digest_of": "register_rates",
+   "pointer": "/request_digest",
+   "record": "register_rates_home_result"
+  },
+  {
+   "digest_of": "rates_home_stored",
+   "pointer": "/outputs/0/digest",
+   "record": "register_rates_home_result"
+  },
+  {
+   "digest_of": "rates_rev1_submitted",
+   "pointer": "/payload_digest",
+   "record": "commit_rates_rev1"
+  },
+  {
+   "minted": "rates_rev1_at",
+   "pointer": "/produced_at",
+   "record": "rates_rev1"
+  },
+  {
+   "digest_of": "commit_rates_rev1",
+   "pointer": "/request_digest",
+   "record": "commit_rates_revision_1_receipt"
+  },
+  {
+   "minted": "rates_head1",
+   "pointer": "/head_digest",
+   "record": "commit_rates_revision_1_receipt"
+  },
+  {
+   "minted": "commit_rates_revision_1_sequence",
+   "pointer": "/sequence",
+   "record": "commit_rates_revision_1_receipt"
+  },
+  {
+   "minted": "commit_rates_revision_1_committed_at",
+   "pointer": "/committed_at",
+   "record": "commit_rates_revision_1_receipt"
+  },
+  {
+   "digest_of": "commit_rates_revision_1_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "commit_rates_revision_1_result"
+  },
+  {
+   "digest_of": "commit_rates_rev1",
+   "pointer": "/request_digest",
+   "record": "commit_rates_revision_1_result"
+  },
+  {
+   "digest_of": "rates_rev1",
+   "pointer": "/outputs/0/digest",
+   "record": "commit_rates_revision_1_result"
+  },
+  {
+   "minted": "rates_head1",
+   "pointer": "/target/base/head_digest",
+   "record": "check_model_request"
+  },
+  {
+   "digest_of": "rates_rev1",
+   "pointer": "/nodes/0/evidence_digests/0",
+   "record": "model"
+  },
+  {
+   "digest_of": "rates_rev1",
+   "pointer": "/nodes/1/evidence_digests/0",
+   "record": "model"
+  },
+  {
+   "digest_of": "model",
+   "pointer": "/payload_digest",
+   "record": "check_model_request"
+  },
+  {
+   "digest_of": "rates_rev1",
+   "pointer": "/nodes/0/evidence_digests/0",
+   "record": "model_as_it_will_be_committed"
+  },
+  {
+   "digest_of": "rates_rev1",
+   "pointer": "/nodes/1/evidence_digests/0",
+   "record": "model_as_it_will_be_committed"
+  },
+  {
+   "digest_of": "check_model_request",
+   "pointer": "/request_digest",
+   "record": "check_the_model_result"
+  },
+  {
+   "digest_of": "model_as_it_will_be_committed",
+   "pointer": "/outputs/0/digest",
+   "record": "check_the_model_result"
+  },
+  {
+   "minted": "rates_head1",
+   "pointer": "/target/base/head_digest",
+   "record": "commit_rates_rev2"
+  },
+  {
+   "digest_of": "model_as_it_will_be_committed",
+   "pointer": "/members/1/digest",
+   "record": "rates_rev2_submitted"
+  },
+  {
+   "digest_of": "rates_rev2_submitted",
+   "pointer": "/payload_digest",
+   "record": "commit_rates_rev2"
+  },
+  {
+   "digest_of": "model_as_it_will_be_committed",
+   "pointer": "/members/1/digest",
+   "record": "rates_rev2"
+  },
+  {
+   "minted": "rates_rev2_at",
+   "pointer": "/produced_at",
+   "record": "rates_rev2"
+  },
+  {
+   "digest_of": "commit_rates_rev2",
+   "pointer": "/request_digest",
+   "record": "commit_rates_revision_2_receipt"
+  },
+  {
+   "minted": "rates_head2",
+   "pointer": "/head_digest",
+   "record": "commit_rates_revision_2_receipt"
+  },
+  {
+   "minted": "commit_rates_revision_2_sequence",
+   "pointer": "/sequence",
+   "record": "commit_rates_revision_2_receipt"
+  },
+  {
+   "minted": "commit_rates_revision_2_committed_at",
+   "pointer": "/committed_at",
+   "record": "commit_rates_revision_2_receipt"
+  },
+  {
+   "minted": "rates_head1",
+   "pointer": "/target/base/head_digest",
+   "record": "commit_rates_revision_2_receipt"
+  },
+  {
+   "digest_of": "commit_rates_revision_2_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "commit_rates_revision_2_result"
+  },
+  {
+   "digest_of": "commit_rates_rev2",
+   "pointer": "/request_digest",
+   "record": "commit_rates_revision_2_result"
+  },
+  {
+   "digest_of": "rates_rev2",
+   "pointer": "/outputs/0/digest",
+   "record": "commit_rates_revision_2_result"
+  },
+  {
+   "minted": "rates_head2",
+   "pointer": "/target/base/head_digest",
+   "record": "check_edited_model_request"
+  },
+  {
+   "digest_of": "rates_rev1",
+   "pointer": "/nodes/1/evidence_digests/0",
+   "record": "model_without_taxable_income"
+  },
+  {
+   "digest_of": "model_without_taxable_income",
+   "pointer": "/payload_digest",
+   "record": "check_edited_model_request"
+  },
+  {
+   "digest_of": "check_edited_model_request",
+   "pointer": "/request_digest",
+   "record": "check_the_model_with_a_node_deleted_result"
+  }
+ ],
+ "minted": [
+  {
+   "name": "rates_registered_at",
+   "shape": "instant",
+   "step": "register_rates_home"
+  },
+  {
+   "name": "register_rates_home_committed_at",
+   "shape": "instant",
+   "step": "register_rates_home"
+  },
+  {
+   "name": "register_rates_home_head",
+   "shape": "digest",
+   "step": "register_rates_home"
+  },
+  {
+   "name": "register_rates_home_sequence",
+   "shape": "integer",
+   "step": "register_rates_home"
+  },
+  {
+   "name": "commit_rates_revision_1_committed_at",
+   "shape": "instant",
+   "step": "commit_rates_revision_1"
+  },
+  {
+   "name": "commit_rates_revision_1_sequence",
+   "shape": "integer",
+   "step": "commit_rates_revision_1"
+  },
+  {
+   "name": "rates_head1",
+   "shape": "digest",
+   "step": "commit_rates_revision_1"
+  },
+  {
+   "name": "rates_rev1_at",
+   "shape": "instant",
+   "step": "commit_rates_revision_1"
+  },
+  {
+   "name": "commit_rates_revision_2_committed_at",
+   "shape": "instant",
+   "step": "commit_rates_revision_2"
+  },
+  {
+   "name": "commit_rates_revision_2_sequence",
+   "shape": "integer",
+   "step": "commit_rates_revision_2"
+  },
+  {
+   "name": "rates_head2",
+   "shape": "digest",
+   "step": "commit_rates_revision_2"
+  },
+  {
+   "name": "rates_rev2_at",
+   "shape": "instant",
+   "step": "commit_rates_revision_2"
+  }
+ ],
+ "records": [
+  {
+   "digest": "fed3642d373785a191897c334f12322132edb3cd0655b9560311165b620cecf4",
+   "name": "rates_home",
+   "record": {
+    "acceptance_authority": {
+     "layer": "repository",
+     "repository_id": "rep_8711923bc8e19eb68f08576f916f349d"
+    },
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "jurisdiction",
+       "value": "KR"
+      }
+     ],
+     "period": {
+      "effective_from": "2026-01-01"
+     },
+     "states": "stated"
+    },
+    "disclosure": "private",
+    "format_version": 1,
+    "home": {
+     "binding_evidence_digest": "47a017af61158bae8401475d7156faf45fe1f355b9b2c2f9fc8ebc54de98a9e4",
+     "document_root": "docs/knowledge",
+     "mode": "repository_authored",
+     "repository_id": "rep_8711923bc8e19eb68f08576f916f349d"
+    },
+    "kind": "source_home",
+    "publication_evidence_digests": [],
+    "retention": {
+     "keep": "until_withdrawn"
+    },
+    "role": "knowledge",
+    "schema": 1,
+    "scope": {
+     "layer": "repository",
+     "repository_id": "rep_8711923bc8e19eb68f08576f916f349d"
+    },
+    "source_id": "src_be03c16746cad5e494119e9166393a6e"
+   }
+  },
+  {
+   "digest": "07ca2eb78e1f7aac10b1dfd45407c48a945caa7bab7c78d4d08f9a4affca7290",
+   "name": "register_rates",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_f445ff5bba0df7c5aa4783b3ff80ae58",
+     "principal_id": "prn_240f5bec29f9e5dc5d80c628d5d8fe02",
+     "profile_id": "prf_e9ecf8d23f06417d2047774d6ba8e9e4"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "source.home.register",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_8711923bc8e19eb68f08576f916f349d"
+    },
+    "payload_digest": "fed3642d373785a191897c334f12322132edb3cd0655b9560311165b620cecf4",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_7cb4d116a2643045f8de3e30852f61da",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_be03c16746cad5e494119e9166393a6e"
+    }
+   }
+  },
+  {
+   "digest": "ecbca24dac8bc24f7d9c69f731a67d63841a9ba50ff2033aeb62ddc7e95ae2c0",
+   "name": "rates_home_stored",
+   "record": {
+    "acceptance_authority": {
+     "layer": "repository",
+     "repository_id": "rep_8711923bc8e19eb68f08576f916f349d"
+    },
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "jurisdiction",
+       "value": "KR"
+      }
+     ],
+     "period": {
+      "effective_from": "2026-01-01"
+     },
+     "states": "stated"
+    },
+    "disclosure": "private",
+    "format_version": 1,
+    "home": {
+     "binding_evidence_digest": "47a017af61158bae8401475d7156faf45fe1f355b9b2c2f9fc8ebc54de98a9e4",
+     "document_root": "docs/knowledge",
+     "mode": "repository_authored",
+     "repository_id": "rep_8711923bc8e19eb68f08576f916f349d"
+    },
+    "kind": "source_home",
+    "publication_evidence_digests": [],
+    "registered_at": "2000-01-01T00:00:00Z",
+    "retention": {
+     "keep": "until_withdrawn"
+    },
+    "role": "knowledge",
+    "schema": 1,
+    "scope": {
+     "layer": "repository",
+     "repository_id": "rep_8711923bc8e19eb68f08576f916f349d"
+    },
+    "source_id": "src_be03c16746cad5e494119e9166393a6e"
+   }
+  },
+  {
+   "digest": "d95f31dc89f7194bf7493e8bce5b87f2d65a45fc4685ea2f7a23db0ada4633a8",
+   "name": "register_rates_home_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "8423e124645ff1083f6359d8fc5184d92edb9eaf0d8af53753c81b1019dc45eb",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_8711923bc8e19eb68f08576f916f349d"
+    },
+    "request_digest": "07ca2eb78e1f7aac10b1dfd45407c48a945caa7bab7c78d4d08f9a4affca7290",
+    "request_id": "req_7cb4d116a2643045f8de3e30852f61da",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_be03c16746cad5e494119e9166393a6e"
+    }
+   }
+  },
+  {
+   "digest": "41def4cc3d76cbe2fe185828e0cafaa5e22c015f4a3912bebe9083c4a9c89c9d",
+   "name": "register_rates_home_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "d95f31dc89f7194bf7493e8bce5b87f2d65a45fc4685ea2f7a23db0ada4633a8",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "ecbca24dac8bc24f7d9c69f731a67d63841a9ba50ff2033aeb62ddc7e95ae2c0",
+      "kind": "source_home"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "07ca2eb78e1f7aac10b1dfd45407c48a945caa7bab7c78d4d08f9a4affca7290",
+    "request_id": "req_7cb4d116a2643045f8de3e30852f61da",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "ecaae664a3d9a7c0c4ba696a8a044862051dc73c19d7de38e0334312ee5d27b7",
+   "name": "rates_rev1_submitted",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "82f5aa8d50cf761e7731a8ccd43c6ea17c06504385f4f8dac62f74851f3790cb",
+      "path": "tables/rates.csv",
+      "size": 2048
+     }
+    ],
+    "schema": 1,
+    "source_id": "src_be03c16746cad5e494119e9166393a6e"
+   }
+  },
+  {
+   "digest": "a0078078148012882e611c53bce9138dca3bb229ec4d748365cde8624164759a",
+   "name": "commit_rates_rev1",
+   "record": {
+    "action": "publish",
+    "actor": {
+     "device_id": "dev_f445ff5bba0df7c5aa4783b3ff80ae58",
+     "principal_id": "prn_240f5bec29f9e5dc5d80c628d5d8fe02",
+     "profile_id": "prf_e9ecf8d23f06417d2047774d6ba8e9e4"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "source.revision.commit",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_8711923bc8e19eb68f08576f916f349d"
+    },
+    "payload_digest": "ecaae664a3d9a7c0c4ba696a8a044862051dc73c19d7de38e0334312ee5d27b7",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_d8a21159c8cc400a417de0684d9710c4",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_be03c16746cad5e494119e9166393a6e"
+    }
+   }
+  },
+  {
+   "digest": "c704052b6ac36beec3838ac39fa0d4b69e49a6ab1a1c569a3c41b3ae0cac9aae",
+   "name": "rates_rev1",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "82f5aa8d50cf761e7731a8ccd43c6ea17c06504385f4f8dac62f74851f3790cb",
+      "path": "tables/rates.csv",
+      "size": 2048
+     }
+    ],
+    "produced_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "source_id": "src_be03c16746cad5e494119e9166393a6e"
+   }
+  },
+  {
+   "digest": "8c1774d574e3dd4d854d0e8ed7f34ebcc628b826275fe4559fd3e5ab08134e7d",
+   "name": "commit_rates_revision_1_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "014f252f9dc4ca59058dbe52ac71395282e9117cbe9c8d7a7a5ff60edcfee02f",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_8711923bc8e19eb68f08576f916f349d"
+    },
+    "request_digest": "a0078078148012882e611c53bce9138dca3bb229ec4d748365cde8624164759a",
+    "request_id": "req_d8a21159c8cc400a417de0684d9710c4",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_be03c16746cad5e494119e9166393a6e"
+    }
+   }
+  },
+  {
+   "digest": "dc101275ea7daff71ec822369605c708d0b233c5f32e8c9e8ef2e3c8a8409ef6",
+   "name": "commit_rates_revision_1_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "8c1774d574e3dd4d854d0e8ed7f34ebcc628b826275fe4559fd3e5ab08134e7d",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "c704052b6ac36beec3838ac39fa0d4b69e49a6ab1a1c569a3c41b3ae0cac9aae",
+      "kind": "source_manifest"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "a0078078148012882e611c53bce9138dca3bb229ec4d748365cde8624164759a",
+    "request_id": "req_d8a21159c8cc400a417de0684d9710c4",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "6b9e1de4f26c748960bbb638656e153aecb18da6c8e1b4f06c0a1d8579285cfa",
+   "name": "model",
+   "record": {
+    "kind": "knowledge_model",
+    "nodes": [
+     {
+      "definition": "Income after the deductions the schedule allows.",
+      "evidence_digests": [
+       "c704052b6ac36beec3838ac39fa0d4b69e49a6ab1a1c569a3c41b3ae0cac9aae"
+      ],
+      "id": "taxable_income",
+      "type": "quantity"
+     },
+     {
+      "conditions": [
+       {
+        "dimension": "jurisdiction",
+        "value": "KR"
+       }
+      ],
+      "definition": "Tax due on taxable income at the schedule's rates.",
+      "evidence_digests": [
+       "c704052b6ac36beec3838ac39fa0d4b69e49a6ab1a1c569a3c41b3ae0cac9aae"
+      ],
+      "id": "income_tax",
+      "type": "quantity"
+     }
+    ],
+    "relations": [
+     {
+      "from": "income_tax",
+      "id": "computed_from",
+      "to": "taxable_income",
+      "type": "derived_from"
+     }
+    ],
+    "schema": 1,
+    "source_id": "src_be03c16746cad5e494119e9166393a6e"
+   }
+  },
+  {
+   "digest": "f684a3be8db47e7192172dcdd4abc5837d1c1e54706c9a33f2ea924e790c4470",
+   "name": "check_model_request",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_f445ff5bba0df7c5aa4783b3ff80ae58",
+     "principal_id": "prn_240f5bec29f9e5dc5d80c628d5d8fe02",
+     "profile_id": "prf_e9ecf8d23f06417d2047774d6ba8e9e4"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "knowledge.member.prepare",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_8711923bc8e19eb68f08576f916f349d"
+    },
+    "payload_digest": "6b9e1de4f26c748960bbb638656e153aecb18da6c8e1b4f06c0a1d8579285cfa",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_df0bcdea80a1685b7045d18a4e9f0192",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "014f252f9dc4ca59058dbe52ac71395282e9117cbe9c8d7a7a5ff60edcfee02f"
+     },
+     "resource_id": "src_be03c16746cad5e494119e9166393a6e"
+    }
+   }
+  },
+  {
+   "digest": "6b9e1de4f26c748960bbb638656e153aecb18da6c8e1b4f06c0a1d8579285cfa",
+   "name": "model_as_it_will_be_committed",
+   "record": {
+    "kind": "knowledge_model",
+    "nodes": [
+     {
+      "definition": "Income after the deductions the schedule allows.",
+      "evidence_digests": [
+       "c704052b6ac36beec3838ac39fa0d4b69e49a6ab1a1c569a3c41b3ae0cac9aae"
+      ],
+      "id": "taxable_income",
+      "type": "quantity"
+     },
+     {
+      "conditions": [
+       {
+        "dimension": "jurisdiction",
+        "value": "KR"
+       }
+      ],
+      "definition": "Tax due on taxable income at the schedule's rates.",
+      "evidence_digests": [
+       "c704052b6ac36beec3838ac39fa0d4b69e49a6ab1a1c569a3c41b3ae0cac9aae"
+      ],
+      "id": "income_tax",
+      "type": "quantity"
+     }
+    ],
+    "relations": [
+     {
+      "from": "income_tax",
+      "id": "computed_from",
+      "to": "taxable_income",
+      "type": "derived_from"
+     }
+    ],
+    "schema": 1,
+    "source_id": "src_be03c16746cad5e494119e9166393a6e"
+   }
+  },
+  {
+   "digest": "c15a3525a796221d0546a4127be683a49132aac9dfbe5e6e95fffd3da034b1c9",
+   "name": "check_the_model_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "6b9e1de4f26c748960bbb638656e153aecb18da6c8e1b4f06c0a1d8579285cfa",
+      "kind": "knowledge_model"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "f684a3be8db47e7192172dcdd4abc5837d1c1e54706c9a33f2ea924e790c4470",
+    "request_id": "req_df0bcdea80a1685b7045d18a4e9f0192",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "f9bc9e5c359f1d424941f91a154da3161805f7ba937750d8a180067e046bc82a",
+   "name": "rates_rev2_submitted",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "82f5aa8d50cf761e7731a8ccd43c6ea17c06504385f4f8dac62f74851f3790cb",
+      "path": "tables/rates.csv",
+      "size": 2048
+     },
+     {
+      "digest": "6b9e1de4f26c748960bbb638656e153aecb18da6c8e1b4f06c0a1d8579285cfa",
+      "path": "models/tax.json",
+      "size": 612
+     }
+    ],
+    "schema": 1,
+    "source_id": "src_be03c16746cad5e494119e9166393a6e"
+   }
+  },
+  {
+   "digest": "0d08e04251230ddea55d14df88e18b926da5a23c55704ce0a77adaafd44e6a80",
+   "name": "commit_rates_rev2",
+   "record": {
+    "action": "publish",
+    "actor": {
+     "device_id": "dev_f445ff5bba0df7c5aa4783b3ff80ae58",
+     "principal_id": "prn_240f5bec29f9e5dc5d80c628d5d8fe02",
+     "profile_id": "prf_e9ecf8d23f06417d2047774d6ba8e9e4"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "source.revision.commit",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_8711923bc8e19eb68f08576f916f349d"
+    },
+    "payload_digest": "f9bc9e5c359f1d424941f91a154da3161805f7ba937750d8a180067e046bc82a",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_75721a16629c4f5bcbebaf47c021d8e0",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "014f252f9dc4ca59058dbe52ac71395282e9117cbe9c8d7a7a5ff60edcfee02f"
+     },
+     "resource_id": "src_be03c16746cad5e494119e9166393a6e"
+    }
+   }
+  },
+  {
+   "digest": "7558bc6c98f4d125655a067bc6b65d481bdb013d782c1fa5f56dd4880472dfa2",
+   "name": "rates_rev2",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "82f5aa8d50cf761e7731a8ccd43c6ea17c06504385f4f8dac62f74851f3790cb",
+      "path": "tables/rates.csv",
+      "size": 2048
+     },
+     {
+      "digest": "6b9e1de4f26c748960bbb638656e153aecb18da6c8e1b4f06c0a1d8579285cfa",
+      "path": "models/tax.json",
+      "size": 612
+     }
+    ],
+    "produced_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "source_id": "src_be03c16746cad5e494119e9166393a6e"
+   }
+  },
+  {
+   "digest": "6b6b4d2840f42e5ea9aff544d16c498dab57ac767e4930e0871caa0762c69579",
+   "name": "commit_rates_revision_2_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "76a52198951f6fded15e891d43fc49a40552a55b90752baf30ed3044b2094b3b",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_8711923bc8e19eb68f08576f916f349d"
+    },
+    "request_digest": "0d08e04251230ddea55d14df88e18b926da5a23c55704ce0a77adaafd44e6a80",
+    "request_id": "req_75721a16629c4f5bcbebaf47c021d8e0",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "014f252f9dc4ca59058dbe52ac71395282e9117cbe9c8d7a7a5ff60edcfee02f"
+     },
+     "resource_id": "src_be03c16746cad5e494119e9166393a6e"
+    }
+   }
+  },
+  {
+   "digest": "ffceda4ec02f5364d5ad891af319a6010d852b4e6297e9420ed33539b12221f3",
+   "name": "commit_rates_revision_2_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "6b6b4d2840f42e5ea9aff544d16c498dab57ac767e4930e0871caa0762c69579",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "7558bc6c98f4d125655a067bc6b65d481bdb013d782c1fa5f56dd4880472dfa2",
+      "kind": "source_manifest"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "0d08e04251230ddea55d14df88e18b926da5a23c55704ce0a77adaafd44e6a80",
+    "request_id": "req_75721a16629c4f5bcbebaf47c021d8e0",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "58f2c5a911a4aab6591849cd461d2b59b58df15e04cce6710ff074561c07141e",
+   "name": "model_without_taxable_income",
+   "record": {
+    "kind": "knowledge_model",
+    "nodes": [
+     {
+      "conditions": [
+       {
+        "dimension": "jurisdiction",
+        "value": "KR"
+       }
+      ],
+      "definition": "Tax due on taxable income at the schedule's rates.",
+      "evidence_digests": [
+       "c704052b6ac36beec3838ac39fa0d4b69e49a6ab1a1c569a3c41b3ae0cac9aae"
+      ],
+      "id": "income_tax",
+      "type": "quantity"
+     }
+    ],
+    "relations": [
+     {
+      "from": "income_tax",
+      "id": "computed_from",
+      "to": "taxable_income",
+      "type": "derived_from"
+     }
+    ],
+    "schema": 1,
+    "source_id": "src_be03c16746cad5e494119e9166393a6e"
+   }
+  },
+  {
+   "digest": "e1325f31b851f5f8034cccaa3569400ebe5ce80eb29029f4c1f5af2a0f91928a",
+   "name": "check_edited_model_request",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_f445ff5bba0df7c5aa4783b3ff80ae58",
+     "principal_id": "prn_240f5bec29f9e5dc5d80c628d5d8fe02",
+     "profile_id": "prf_e9ecf8d23f06417d2047774d6ba8e9e4"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "knowledge.member.prepare",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_8711923bc8e19eb68f08576f916f349d"
+    },
+    "payload_digest": "58f2c5a911a4aab6591849cd461d2b59b58df15e04cce6710ff074561c07141e",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_ad18185d59199426330db1cdd61e15a1",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "76a52198951f6fded15e891d43fc49a40552a55b90752baf30ed3044b2094b3b"
+     },
+     "resource_id": "src_be03c16746cad5e494119e9166393a6e"
+    }
+   }
+  },
+  {
+   "digest": "a77dbe5a0046ed2680084ac8a6761d44035fa59a4a10bc277cc034abf54bb383",
+   "name": "check_the_model_with_a_node_deleted_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [
+      {
+       "code": "model_reference_dangling",
+       "pointer": "/payload_digest"
+      }
+     ],
+     "stage": "refused"
+    },
+    "outputs": [],
+    "provider_effect": "not_applicable",
+    "request_digest": "e1325f31b851f5f8034cccaa3569400ebe5ce80eb29029f4c1f5af2a0f91928a",
+    "request_id": "req_ad18185d59199426330db1cdd61e15a1",
+    "schema": 1,
+    "supported_recovery": [
+     "new_governed_request"
+    ]
+   }
+  }
+ ],
+ "says": "A repository knowledge source is registered and its first revision (a rate table) is committed. The author checks a domain model for it with knowledge.member.prepare: two nodes, taxable_income and income_tax, and a relation computed_from between them. The owner returns the model exactly as it will be committed, both ends of its one relation naming nodes of that model, and a second revision holding the table and that model is committed on the first head. The author then edits the model to delete the taxable_income node while computed_from still points at it, and checks it against the second head: the owner refuses it with model_reference_dangling and returns no model, so no knowledge_model whose relation names a node it lacks is ever written or committed. The relation-endpoint rule (C04/relation_endpoints_are_nodes) is held by every model the owner returns here; its breaking records stay in the rule fixture.",
+ "spec_sha256": "85cb3a0ba9c8e7d70306bec52ff6b66ea6e4531cf5fb09e28e178864ab62d5b4",
+ "steps": [
+  {
+   "carries": [
+    "rates_home"
+   ],
+   "name": "register_rates_home",
+   "request": "register_rates",
+   "result": "register_rates_home_result",
+   "returns": [
+    "rates_home_stored"
+   ]
+  },
+  {
+   "carries": [
+    "rates_rev1_submitted"
+   ],
+   "head": "rates_head1",
+   "name": "commit_rates_revision_1",
+   "request": "commit_rates_rev1",
+   "result": "commit_rates_revision_1_result",
+   "returns": [
+    "rates_rev1"
+   ]
+  },
+  {
+   "carries": [
+    "model"
+   ],
+   "name": "check_the_model",
+   "request": "check_model_request",
+   "result": "check_the_model_result",
+   "returns": [
+    "model_as_it_will_be_committed"
+   ]
+  },
+  {
+   "carries": [
+    "rates_rev2_submitted"
+   ],
+   "head": "rates_head2",
+   "name": "commit_rates_revision_2",
+   "request": "commit_rates_rev2",
+   "result": "commit_rates_revision_2_result",
+   "returns": [
+    "rates_rev2"
+   ]
+  },
+  {
+   "carries": [
+    "model_without_taxable_income"
+   ],
+   "name": "check_the_model_with_a_node_deleted",
+   "request": "check_edited_model_request",
+   "result": "check_the_model_with_a_node_deleted_result",
+   "returns": []
+  }
+ ]
+}

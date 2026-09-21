@@ -1,0 +1,1582 @@
+{
+ "case": "N19-BOOTSTRAP-NEG",
+ "says": "The founder proposes Team A for review (team.found, left in review) with Bora nominated as reviewer, then revises it before anyone accepts: version 2 changes the purpose and is its own founding request. Bora's acceptance of the version 1 request, arriving after the revision, is refused with acceptances_void_after_revision. Bora accepts the version 2 request, and that same request commits Team A: a policy, a grant for each of them, an active state. After the commit, a late acceptance of the version 1 request, the version 2 request resubmitted, and a new version 3 founding for the same team_id are each refused with bootstrap_already_committed. The founder then proposes Team B for review and cancels that unused founding (team.lifecycle.apply cancel_founding, naming the exact proposal and stating that no unique draft is held); the owner writes a founding_cancelled team_state. Bora's late acceptance of B's founding request, B's founding request resubmitted, and a new version 2 founding for the same team_id are each refused with team_terminal. Refused steps return no record and grant nothing: a team.state.read of A returns only the two grants its version 2 founding committed, and a read of B returns only the founding_cancelled state, with no policy and no grant.",
+ "ids": [
+  {
+   "name": "founder",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "founder_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "bora",
+   "prefix": "prn"
+  },
+  {
+   "name": "desktop",
+   "prefix": "dev"
+  },
+  {
+   "name": "bora_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "team_a",
+   "prefix": "tem"
+  },
+  {
+   "name": "found_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "found_v2_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "stale_acceptance_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "acceptance_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "late_v1_acceptance_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "found_v3_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "read_a_id",
+   "prefix": "req"
+  },
+  {
+   "name": "team_b",
+   "prefix": "tem"
+  },
+  {
+   "name": "b_found_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "cancel_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "b_acceptance_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "b_found_v2_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "read_b_id",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "proposed_policy",
+   "from": "c08/policy_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@founder"
+    },
+    {
+     "pointer": "/threshold",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "name": "proposal",
+   "from": "c08/proposal_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/founder_principal_id",
+     "value": "@founder"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#proposed_policy"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/purpose",
+     "value": "The standards this group works to."
+    },
+    {
+     "pointer": "/proposal_version",
+     "value": 1
+    },
+    {
+     "pointer": "/founding_mode/nominees/0/principal_id",
+     "value": "@bora"
+    },
+    {
+     "pointer": "/founding_mode/nominees/1/principal_id",
+     "value": "@founder"
+    },
+    {
+     "pointer": "/recovery/0/principal_id",
+     "value": "@bora"
+    }
+   ]
+  },
+  {
+   "name": "found_request",
+   "from": "c08/founding_cancellation_request.json",
+   "drop": [
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@found_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.found"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@founder"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@founder_profile"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#proposal"
+    }
+   ]
+  },
+  {
+   "name": "team_policy",
+   "from": "c08/policy_requiring_one_independent_review.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@founder"
+    },
+    {
+     "pointer": "/threshold",
+     "value": 1
+    },
+    {
+     "pointer": "/policy_id",
+     "value": "$pol:team_policy"
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:founder_grant"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@founder"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@founder"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "review",
+      "publish",
+      "adopt",
+      "decide",
+      "grant",
+      "policy",
+      "transfer",
+      "retain_delete",
+      "export"
+     ]
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "bora_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:bora_grant"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@bora"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@founder"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "review"
+     ]
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "active_state",
+   "from": "c08/team_closed_for_good.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/state",
+     "value": "active"
+    },
+    {
+     "pointer": "/since",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "first_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/purpose",
+     "value": "The standards this group works to."
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "a_founding_state",
+   "from": "c08/team_closed_for_good.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/state",
+     "value": "founding"
+    },
+    {
+     "pointer": "/since",
+     "value": "$instant:a_proposed_at"
+    }
+   ]
+  },
+  {
+   "name": "proposal_v2",
+   "from": "proposal",
+   "set": [
+    {
+     "pointer": "/proposal_version",
+     "value": 2
+    },
+    {
+     "pointer": "/purpose",
+     "value": "The standards and reviews this group keeps."
+    }
+   ]
+  },
+  {
+   "name": "found_v2_request",
+   "from": "c08/founding_cancellation_request.json",
+   "drop": [
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@found_v2_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.found"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@founder"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@founder_profile"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#proposal_v2"
+    }
+   ]
+  },
+  {
+   "name": "stale_acceptance_payload",
+   "from": "c08/approval_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/request_digest",
+     "value": "#found_request"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#proposed_policy"
+    }
+   ]
+  },
+  {
+   "name": "stale_acceptance_request",
+   "from": "c08/founding_cancellation_request.json",
+   "drop": [
+    "/target"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@stale_acceptance_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.approval.record"
+    },
+    {
+     "pointer": "/action",
+     "value": "review"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bora"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bora_profile"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@found_request_id"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#stale_acceptance_payload"
+    }
+   ]
+  },
+  {
+   "name": "acceptance_payload",
+   "from": "c08/approval_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/request_digest",
+     "value": "#found_v2_request"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#proposed_policy"
+    }
+   ]
+  },
+  {
+   "name": "acceptance_request",
+   "from": "c08/founding_cancellation_request.json",
+   "drop": [
+    "/target"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@acceptance_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.approval.record"
+    },
+    {
+     "pointer": "/action",
+     "value": "review"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bora"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bora_profile"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@found_v2_request_id"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#acceptance_payload"
+    }
+   ]
+  },
+  {
+   "name": "acceptance_stored",
+   "from": "c08/independent_person_approves.json",
+   "set": [
+    {
+     "pointer": "/approval_id",
+     "value": "$apr:acceptance"
+    },
+    {
+     "pointer": "/approver_principal_id",
+     "value": "@bora"
+    },
+    {
+     "pointer": "/request_digest",
+     "value": "#found_v2_request"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#proposed_policy"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:acceptance_at"
+    }
+   ]
+  },
+  {
+   "name": "late_v1_acceptance_request",
+   "from": "c08/founding_cancellation_request.json",
+   "drop": [
+    "/target"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@late_v1_acceptance_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.approval.record"
+    },
+    {
+     "pointer": "/action",
+     "value": "review"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bora"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bora_profile"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@found_request_id"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#stale_acceptance_payload"
+    }
+   ]
+  },
+  {
+   "name": "proposal_v3",
+   "from": "proposal",
+   "set": [
+    {
+     "pointer": "/proposal_version",
+     "value": 3
+    },
+    {
+     "pointer": "/purpose",
+     "value": "A second start under the same Team id."
+    }
+   ]
+  },
+  {
+   "name": "found_v3_request",
+   "from": "c08/founding_cancellation_request.json",
+   "drop": [
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@found_v3_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.found"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@founder"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@founder_profile"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#proposal_v3"
+    }
+   ]
+  },
+  {
+   "name": "read_a",
+   "from": "c08/founding_cancellation_request.json",
+   "drop": [
+    "/payload_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@read_a_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.state.read"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@founder"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@founder_profile"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:a_founded"
+    }
+   ]
+  },
+  {
+   "name": "b_proposed_policy",
+   "from": "c08/policy_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@founder"
+    },
+    {
+     "pointer": "/threshold",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "name": "b_proposal",
+   "from": "c08/proposal_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/founder_principal_id",
+     "value": "@founder"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#b_proposed_policy"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform pilot"
+    },
+    {
+     "pointer": "/purpose",
+     "value": "The standards this group works to."
+    },
+    {
+     "pointer": "/proposal_version",
+     "value": 1
+    },
+    {
+     "pointer": "/founding_mode/nominees/0/principal_id",
+     "value": "@bora"
+    },
+    {
+     "pointer": "/founding_mode/nominees/1/principal_id",
+     "value": "@founder"
+    },
+    {
+     "pointer": "/recovery/0/principal_id",
+     "value": "@bora"
+    }
+   ]
+  },
+  {
+   "name": "b_found_request",
+   "from": "c08/founding_cancellation_request.json",
+   "drop": [
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@b_found_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.found"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@founder"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@founder_profile"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#b_proposal"
+    }
+   ]
+  },
+  {
+   "name": "b_founding_state",
+   "from": "c08/team_closed_for_good.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/state",
+     "value": "founding"
+    },
+    {
+     "pointer": "/since",
+     "value": "$instant:b_proposed_at"
+    }
+   ]
+  },
+  {
+   "name": "cancellation",
+   "from": "c08/cancel_an_unused_founding.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/action/proposal_digest",
+     "value": "#b_proposal"
+    },
+    {
+     "pointer": "/action/drafts/items",
+     "value": []
+    }
+   ]
+  },
+  {
+   "name": "cancel_request",
+   "from": "c08/founding_cancellation_request.json",
+   "drop": [
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@cancel_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.lifecycle.apply"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@founder"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@founder_profile"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#cancellation"
+    }
+   ]
+  },
+  {
+   "name": "b_cancelled_state",
+   "from": "c08/team_closed_for_good.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/state",
+     "value": "founding_cancelled"
+    },
+    {
+     "pointer": "/since",
+     "value": "$instant:b_cancelled_at"
+    }
+   ]
+  },
+  {
+   "name": "b_acceptance_payload",
+   "from": "c08/approval_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/request_digest",
+     "value": "#b_found_request"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#b_proposed_policy"
+    }
+   ]
+  },
+  {
+   "name": "b_acceptance_request",
+   "from": "c08/founding_cancellation_request.json",
+   "drop": [
+    "/target"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@b_acceptance_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.approval.record"
+    },
+    {
+     "pointer": "/action",
+     "value": "review"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bora"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bora_profile"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@b_found_request_id"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#b_acceptance_payload"
+    }
+   ]
+  },
+  {
+   "name": "b_proposal_v2",
+   "from": "b_proposal",
+   "set": [
+    {
+     "pointer": "/proposal_version",
+     "value": 2
+    }
+   ]
+  },
+  {
+   "name": "b_found_v2_request",
+   "from": "c08/founding_cancellation_request.json",
+   "drop": [
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@b_found_v2_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.found"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@founder"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@founder_profile"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#b_proposal_v2"
+    }
+   ]
+  },
+  {
+   "name": "read_b",
+   "from": "c08/founding_cancellation_request.json",
+   "drop": [
+    "/payload_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@read_b_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.state.read"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@founder"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@founder_profile"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:b_cancelled"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "propose_v1",
+   "request": "found_request",
+   "carries": [
+    "proposal",
+    "proposed_policy"
+   ],
+   "answer": {
+    "stage": "in_review",
+    "local_effect": "candidate_stored",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [
+     "query_same_request",
+     "retry_same_request"
+    ],
+    "returns": [
+     "a_founding_state"
+    ]
+   },
+   "submits": [
+    "proposed_policy"
+   ]
+  },
+  {
+   "name": "propose_v2",
+   "request": "found_v2_request",
+   "carries": [
+    "proposal_v2",
+    "proposed_policy"
+   ],
+   "answer": {
+    "stage": "in_review",
+    "local_effect": "candidate_stored",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [
+     "query_same_request",
+     "retry_same_request"
+    ],
+    "returns": [
+     "a_founding_state"
+    ]
+   },
+   "submits": [
+    "proposed_policy"
+   ]
+  },
+  {
+   "name": "accept_v1_after_revision",
+   "request": "stale_acceptance_request",
+   "carries": [
+    "stale_acceptance_payload"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "none",
+    "gaps": [
+     {
+      "code": "acceptances_void_after_revision"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "accept_v2",
+   "request": "acceptance_request",
+   "carries": [
+    "acceptance_payload"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "acceptance_stored"
+    ]
+   }
+  },
+  {
+   "name": "found_v2",
+   "request": "found_v2_request",
+   "carries": [
+    "proposal_v2",
+    "proposed_policy"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_policy",
+     "founder_grant",
+     "bora_grant",
+     "active_state",
+     "first_profile"
+    ],
+    "head": "a_founded"
+   },
+   "submits": [
+    "proposed_policy"
+   ]
+  },
+  {
+   "name": "accept_v1_after_commit",
+   "request": "late_v1_acceptance_request",
+   "carries": [
+    "stale_acceptance_payload"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "none",
+    "gaps": [
+     {
+      "code": "bootstrap_already_committed"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "resubmit_v2_after_commit",
+   "request": "found_v2_request",
+   "carries": [
+    "proposal_v2",
+    "proposed_policy"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "none",
+    "gaps": [
+     {
+      "code": "bootstrap_already_committed"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   },
+   "submits": [
+    "proposed_policy"
+   ]
+  },
+  {
+   "name": "found_again_after_commit",
+   "request": "found_v3_request",
+   "carries": [
+    "proposal_v3",
+    "proposed_policy"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "none",
+    "gaps": [
+     {
+      "code": "bootstrap_already_committed"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   },
+   "submits": [
+    "proposed_policy"
+   ]
+  },
+  {
+   "name": "read_committed_team",
+   "request": "read_a",
+   "carries": [],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "active_state",
+     "first_profile",
+     "team_policy",
+     "founder_grant",
+     "bora_grant"
+    ]
+   }
+  },
+  {
+   "name": "propose_b",
+   "request": "b_found_request",
+   "carries": [
+    "b_proposal",
+    "b_proposed_policy"
+   ],
+   "answer": {
+    "stage": "in_review",
+    "local_effect": "candidate_stored",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [
+     "query_same_request",
+     "retry_same_request"
+    ],
+    "returns": [
+     "b_founding_state"
+    ]
+   },
+   "submits": [
+    "b_proposed_policy"
+   ]
+  },
+  {
+   "name": "cancel_b",
+   "request": "cancel_request",
+   "carries": [
+    "cancellation"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "b_cancelled_state"
+    ],
+    "head": "b_cancelled"
+   }
+  },
+  {
+   "name": "accept_b_after_cancel",
+   "request": "b_acceptance_request",
+   "carries": [
+    "b_acceptance_payload"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "none",
+    "gaps": [
+     {
+      "code": "team_terminal"
+     }
+    ],
+    "recovery": [],
+    "returns": []
+   }
+  },
+  {
+   "name": "resubmit_b_after_cancel",
+   "request": "b_found_request",
+   "carries": [
+    "b_proposal",
+    "b_proposed_policy"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "none",
+    "gaps": [
+     {
+      "code": "team_terminal"
+     }
+    ],
+    "recovery": [],
+    "returns": []
+   },
+   "submits": [
+    "b_proposed_policy"
+   ]
+  },
+  {
+   "name": "found_b_again_after_cancel",
+   "request": "b_found_v2_request",
+   "carries": [
+    "b_proposal_v2",
+    "b_proposed_policy"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "none",
+    "gaps": [
+     {
+      "code": "team_terminal"
+     }
+    ],
+    "recovery": [],
+    "returns": []
+   },
+   "submits": [
+    "b_proposed_policy"
+   ]
+  },
+  {
+   "name": "read_cancelled_team",
+   "request": "read_b",
+   "carries": [],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "b_cancelled_state"
+    ]
+   }
+  }
+ ]
+}

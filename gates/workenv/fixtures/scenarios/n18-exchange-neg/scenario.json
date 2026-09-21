@@ -1,0 +1,1763 @@
+{
+ "case": "N18-EXCHANGE-NEG",
+ "ids": [
+  {
+   "id": "prn_1569e54310d07c7f3e001d96e502f04b",
+   "name": "alice"
+  },
+  {
+   "id": "dev_2ec5bbcb0b1d60ceed5f7f1bce6444fb",
+   "name": "laptop"
+  },
+  {
+   "id": "prf_f10d0c55cd246b30c1e3dffeada9aa28",
+   "name": "alice_profile"
+  },
+  {
+   "id": "req_b42a8856fffd146b0fcfc100789789aa",
+   "name": "bind_request_id"
+  },
+  {
+   "id": "tem_e79a190b9fde97345450731e374c8209",
+   "name": "team"
+  },
+  {
+   "id": "req_6baa0af6fd689758c7d81af37e114fdf",
+   "name": "found_team_request_id"
+  },
+  {
+   "id": "req_c7028e0b995c21771a048f23b38ed775",
+   "name": "configure_request_id"
+  },
+  {
+   "id": "req_07b4912f226693d9fe8526c17865fd15",
+   "name": "connection_with_its_secret_request_id"
+  },
+  {
+   "id": "req_cb638b7a2f038efc131c282763230545",
+   "name": "exchange_with_no_operator_request_id"
+  },
+  {
+   "id": "req_421b875e182eb71e0dde22f0c1f466cc",
+   "name": "attempt_request_id"
+  },
+  {
+   "id": "req_4bd1c3bce78d3ab3d48f9c69a4d414d0",
+   "name": "token_request_id"
+  },
+  {
+   "id": "req_679a2ed541669e5c3ff66a04b8cf2484",
+   "name": "complete_request_id"
+  },
+  {
+   "id": "ctl_a0a43ffad13fe2e2ce9bf5948e414b7c",
+   "name": "permit_with_a_refresh_token_id"
+  },
+  {
+   "id": "req_190d931e95b8c2e46a5be2d9dc7d37c0",
+   "name": "permit_request_id"
+  }
+ ],
+ "joins": [
+  {
+   "digest_of": "alice_laptop_key",
+   "pointer": "/payload_digest",
+   "record": "bind_alice_laptop"
+  },
+  {
+   "minted": "alice_binding",
+   "pointer": "/binding_id",
+   "record": "alice_laptop_binding"
+  },
+  {
+   "minted": "alice_binding_at",
+   "pointer": "/created_at",
+   "record": "alice_laptop_binding"
+  },
+  {
+   "digest_of": "bind_alice_laptop",
+   "pointer": "/request_digest",
+   "record": "bind_key_receipt"
+  },
+  {
+   "minted": "bind_key_head",
+   "pointer": "/head_digest",
+   "record": "bind_key_receipt"
+  },
+  {
+   "minted": "bind_key_sequence",
+   "pointer": "/sequence",
+   "record": "bind_key_receipt"
+  },
+  {
+   "minted": "bind_key_committed_at",
+   "pointer": "/committed_at",
+   "record": "bind_key_receipt"
+  },
+  {
+   "digest_of": "bind_key_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "bind_key_result"
+  },
+  {
+   "digest_of": "bind_alice_laptop",
+   "pointer": "/request_digest",
+   "record": "bind_key_result"
+  },
+  {
+   "digest_of": "alice_laptop_binding",
+   "pointer": "/outputs/0/digest",
+   "record": "bind_key_result"
+  },
+  {
+   "digest_of": "team_policy_draft",
+   "pointer": "/policy_digest",
+   "record": "team_proposal"
+  },
+  {
+   "digest_of": "team_proposal",
+   "pointer": "/payload_digest",
+   "record": "found_team"
+  },
+  {
+   "minted": "team_policy",
+   "pointer": "/policy_id",
+   "record": "team_policy"
+  },
+  {
+   "minted": "team_policy_at",
+   "pointer": "/committed_at",
+   "record": "team_policy"
+  },
+  {
+   "minted": "team_founder_grant",
+   "pointer": "/grant_id",
+   "record": "team_founder_grant"
+  },
+  {
+   "minted": "team_granted_at",
+   "pointer": "/created_at",
+   "record": "team_founder_grant"
+  },
+  {
+   "minted": "team_since",
+   "pointer": "/since",
+   "record": "team_state"
+  },
+  {
+   "minted": "team_profile_at",
+   "pointer": "/updated_at",
+   "record": "team_profile"
+  },
+  {
+   "digest_of": "found_team",
+   "pointer": "/request_digest",
+   "record": "found_team_receipt"
+  },
+  {
+   "minted": "team_head",
+   "pointer": "/head_digest",
+   "record": "found_team_receipt"
+  },
+  {
+   "minted": "found_team_sequence",
+   "pointer": "/sequence",
+   "record": "found_team_receipt"
+  },
+  {
+   "minted": "found_team_committed_at",
+   "pointer": "/committed_at",
+   "record": "found_team_receipt"
+  },
+  {
+   "digest_of": "found_team_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "found_team",
+   "pointer": "/request_digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "team_policy",
+   "pointer": "/outputs/0/digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "team_founder_grant",
+   "pointer": "/outputs/1/digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "team_state",
+   "pointer": "/outputs/2/digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "team_profile",
+   "pointer": "/outputs/3/digest",
+   "record": "found_team_result"
+  },
+  {
+   "minted": "team_head",
+   "pointer": "/target/base/head_digest",
+   "record": "configure_slack_request"
+  },
+  {
+   "digest_of": "slack_submitted",
+   "pointer": "/payload_digest",
+   "record": "configure_slack_request"
+  },
+  {
+   "minted": "slack",
+   "pointer": "/connection_id",
+   "record": "slack_stored"
+  },
+  {
+   "minted": "slack_at",
+   "pointer": "/configured_at",
+   "record": "slack_stored"
+  },
+  {
+   "digest_of": "configure_slack_request",
+   "pointer": "/request_digest",
+   "record": "configure_slack_receipt"
+  },
+  {
+   "minted": "team_head_2",
+   "pointer": "/head_digest",
+   "record": "configure_slack_receipt"
+  },
+  {
+   "minted": "configure_slack_sequence",
+   "pointer": "/sequence",
+   "record": "configure_slack_receipt"
+  },
+  {
+   "minted": "configure_slack_committed_at",
+   "pointer": "/committed_at",
+   "record": "configure_slack_receipt"
+  },
+  {
+   "minted": "team_head",
+   "pointer": "/target/base/head_digest",
+   "record": "configure_slack_receipt"
+  },
+  {
+   "digest_of": "configure_slack_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "configure_slack_result"
+  },
+  {
+   "digest_of": "configure_slack_request",
+   "pointer": "/request_digest",
+   "record": "configure_slack_result"
+  },
+  {
+   "digest_of": "slack_stored",
+   "pointer": "/outputs/0/digest",
+   "record": "configure_slack_result"
+  },
+  {
+   "minted": "team_head_2",
+   "pointer": "/target/base/head_digest",
+   "record": "connection_with_its_secret_request"
+  },
+  {
+   "digest_of": "secret_connection",
+   "pointer": "/payload_digest",
+   "record": "connection_with_its_secret_request"
+  },
+  {
+   "minted": "team_head_2",
+   "pointer": "/target/base/head_digest",
+   "record": "exchange_with_no_operator_request"
+  },
+  {
+   "digest_of": "operatorless_connection",
+   "pointer": "/payload_digest",
+   "record": "exchange_with_no_operator_request"
+  },
+  {
+   "minted": "slack",
+   "pointer": "/target/resource_id",
+   "record": "begin_link_request"
+  },
+  {
+   "minted": "slack",
+   "pointer": "/connection_id",
+   "record": "slack_attempt_asked"
+  },
+  {
+   "digest_of": "slack_attempt_asked",
+   "pointer": "/payload_digest",
+   "record": "begin_link_request"
+  },
+  {
+   "minted": "slack",
+   "pointer": "/connection_id",
+   "record": "slack_attempt_begun"
+  },
+  {
+   "minted": "slack_attempt",
+   "pointer": "/attempt_id",
+   "record": "slack_attempt_begun"
+  },
+  {
+   "minted": "slack_attempt_state",
+   "pointer": "/state_digest",
+   "record": "slack_attempt_begun"
+  },
+  {
+   "minted": "slack_attempt_nonce",
+   "pointer": "/nonce_digest",
+   "record": "slack_attempt_begun"
+  },
+  {
+   "minted": "slack_attempt_expires",
+   "pointer": "/expires_at",
+   "record": "slack_attempt_begun"
+  },
+  {
+   "minted": "slack_attempt_begun_at",
+   "pointer": "/begun_at",
+   "record": "slack_attempt_begun"
+  },
+  {
+   "digest_of": "begin_link_request",
+   "pointer": "/request_digest",
+   "record": "begin_link_receipt"
+  },
+  {
+   "minted": "begin_link_head",
+   "pointer": "/head_digest",
+   "record": "begin_link_receipt"
+  },
+  {
+   "minted": "begin_link_sequence",
+   "pointer": "/sequence",
+   "record": "begin_link_receipt"
+  },
+  {
+   "minted": "begin_link_committed_at",
+   "pointer": "/committed_at",
+   "record": "begin_link_receipt"
+  },
+  {
+   "minted": "slack",
+   "pointer": "/target/resource_id",
+   "record": "begin_link_receipt"
+  },
+  {
+   "digest_of": "begin_link_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "begin_link_result"
+  },
+  {
+   "digest_of": "begin_link_request",
+   "pointer": "/request_digest",
+   "record": "begin_link_result"
+  },
+  {
+   "digest_of": "slack_attempt_begun",
+   "pointer": "/outputs/0/digest",
+   "record": "begin_link_result"
+  },
+  {
+   "minted": "slack",
+   "pointer": "/target/resource_id",
+   "record": "token_request"
+  },
+  {
+   "minted": "slack_attempt",
+   "pointer": "/attempt_id",
+   "record": "callback_with_its_token"
+  },
+  {
+   "minted": "slack_attempt_state",
+   "pointer": "/state_digest",
+   "record": "callback_with_its_token"
+  },
+  {
+   "minted": "slack_attempt_nonce",
+   "pointer": "/reply/nonce_digest",
+   "record": "callback_with_its_token"
+  },
+  {
+   "digest_of": "callback_with_its_token",
+   "pointer": "/payload_digest",
+   "record": "token_request"
+  },
+  {
+   "minted": "slack",
+   "pointer": "/target/resource_id",
+   "record": "complete_request"
+  },
+  {
+   "minted": "slack_attempt",
+   "pointer": "/attempt_id",
+   "record": "callback_with_claims"
+  },
+  {
+   "minted": "slack_attempt_state",
+   "pointer": "/state_digest",
+   "record": "callback_with_claims"
+  },
+  {
+   "minted": "slack_attempt_nonce",
+   "pointer": "/reply/nonce_digest",
+   "record": "callback_with_claims"
+  },
+  {
+   "digest_of": "callback_with_claims",
+   "pointer": "/payload_digest",
+   "record": "complete_request"
+  },
+  {
+   "minted": "slack_attempt",
+   "pointer": "/attempt_id",
+   "record": "slack_evidence"
+  },
+  {
+   "minted": "slack",
+   "pointer": "/connection_id",
+   "record": "slack_evidence"
+  },
+  {
+   "minted": "slack_verified_at",
+   "pointer": "/verified_at",
+   "record": "slack_evidence"
+  },
+  {
+   "minted": "slack_binding",
+   "pointer": "/binding_id",
+   "record": "slack_binding"
+  },
+  {
+   "minted": "slack",
+   "pointer": "/credential/connection_id",
+   "record": "slack_binding"
+  },
+  {
+   "digest_of": "slack_evidence",
+   "pointer": "/evidence_digests/0",
+   "record": "slack_binding"
+  },
+  {
+   "minted": "slack_bound_at",
+   "pointer": "/created_at",
+   "record": "slack_binding"
+  },
+  {
+   "digest_of": "complete_request",
+   "pointer": "/request_digest",
+   "record": "link_with_claims_only_receipt"
+  },
+  {
+   "minted": "link_with_claims_only_head",
+   "pointer": "/head_digest",
+   "record": "link_with_claims_only_receipt"
+  },
+  {
+   "minted": "link_with_claims_only_sequence",
+   "pointer": "/sequence",
+   "record": "link_with_claims_only_receipt"
+  },
+  {
+   "minted": "link_with_claims_only_committed_at",
+   "pointer": "/committed_at",
+   "record": "link_with_claims_only_receipt"
+  },
+  {
+   "minted": "slack",
+   "pointer": "/target/resource_id",
+   "record": "link_with_claims_only_receipt"
+  },
+  {
+   "digest_of": "link_with_claims_only_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "link_with_claims_only_result"
+  },
+  {
+   "digest_of": "complete_request",
+   "pointer": "/request_digest",
+   "record": "link_with_claims_only_result"
+  },
+  {
+   "digest_of": "slack_evidence",
+   "pointer": "/outputs/0/digest",
+   "record": "link_with_claims_only_result"
+  },
+  {
+   "digest_of": "slack_binding",
+   "pointer": "/outputs/1/digest",
+   "record": "link_with_claims_only_result"
+  },
+  {
+   "digest_of": "team_founder_grant",
+   "pointer": "/statement/attests/0",
+   "record": "permit_with_a_refresh_token"
+  },
+  {
+   "digest_of": "permit_with_a_refresh_token",
+   "pointer": "/payload_digest",
+   "record": "permit_request"
+  }
+ ],
+ "minted": [
+  {
+   "name": "alice_binding",
+   "shape": "bnd",
+   "step": "bind_key"
+  },
+  {
+   "name": "alice_binding_at",
+   "shape": "instant",
+   "step": "bind_key"
+  },
+  {
+   "name": "bind_key_committed_at",
+   "shape": "instant",
+   "step": "bind_key"
+  },
+  {
+   "name": "bind_key_head",
+   "shape": "digest",
+   "step": "bind_key"
+  },
+  {
+   "name": "bind_key_sequence",
+   "shape": "integer",
+   "step": "bind_key"
+  },
+  {
+   "name": "found_team_committed_at",
+   "shape": "instant",
+   "step": "found_team"
+  },
+  {
+   "name": "found_team_sequence",
+   "shape": "integer",
+   "step": "found_team"
+  },
+  {
+   "name": "team_founder_grant",
+   "shape": "gra",
+   "step": "found_team"
+  },
+  {
+   "name": "team_granted_at",
+   "shape": "instant",
+   "step": "found_team"
+  },
+  {
+   "name": "team_head",
+   "shape": "digest",
+   "step": "found_team"
+  },
+  {
+   "name": "team_policy",
+   "shape": "pol",
+   "step": "found_team"
+  },
+  {
+   "name": "team_policy_at",
+   "shape": "instant",
+   "step": "found_team"
+  },
+  {
+   "name": "team_profile_at",
+   "shape": "instant",
+   "step": "found_team"
+  },
+  {
+   "name": "team_since",
+   "shape": "instant",
+   "step": "found_team"
+  },
+  {
+   "name": "configure_slack_committed_at",
+   "shape": "instant",
+   "step": "configure_slack"
+  },
+  {
+   "name": "configure_slack_sequence",
+   "shape": "integer",
+   "step": "configure_slack"
+  },
+  {
+   "name": "slack",
+   "shape": "con",
+   "step": "configure_slack"
+  },
+  {
+   "name": "slack_at",
+   "shape": "instant",
+   "step": "configure_slack"
+  },
+  {
+   "name": "team_head_2",
+   "shape": "digest",
+   "step": "configure_slack"
+  },
+  {
+   "name": "begin_link_committed_at",
+   "shape": "instant",
+   "step": "begin_link"
+  },
+  {
+   "name": "begin_link_head",
+   "shape": "digest",
+   "step": "begin_link"
+  },
+  {
+   "name": "begin_link_sequence",
+   "shape": "integer",
+   "step": "begin_link"
+  },
+  {
+   "name": "slack_attempt",
+   "shape": "sin",
+   "step": "begin_link"
+  },
+  {
+   "name": "slack_attempt_begun_at",
+   "shape": "instant",
+   "step": "begin_link"
+  },
+  {
+   "name": "slack_attempt_expires",
+   "shape": "instant",
+   "step": "begin_link"
+  },
+  {
+   "name": "slack_attempt_nonce",
+   "shape": "digest",
+   "step": "begin_link"
+  },
+  {
+   "name": "slack_attempt_state",
+   "shape": "digest",
+   "step": "begin_link"
+  },
+  {
+   "name": "link_with_claims_only_committed_at",
+   "shape": "instant",
+   "step": "link_with_claims_only"
+  },
+  {
+   "name": "link_with_claims_only_head",
+   "shape": "digest",
+   "step": "link_with_claims_only"
+  },
+  {
+   "name": "link_with_claims_only_sequence",
+   "shape": "integer",
+   "step": "link_with_claims_only"
+  },
+  {
+   "name": "slack_binding",
+   "shape": "bnd",
+   "step": "link_with_claims_only"
+  },
+  {
+   "name": "slack_bound_at",
+   "shape": "instant",
+   "step": "link_with_claims_only"
+  },
+  {
+   "name": "slack_verified_at",
+   "shape": "instant",
+   "step": "link_with_claims_only"
+  }
+ ],
+ "records": [
+  {
+   "digest": "b0cf56d10bc4179ef759230f1786a223aff8079e3a3317a657a30513ca06c69f",
+   "name": "alice_laptop_key",
+   "record": {
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_2ec5bbcb0b1d60ceed5f7f1bce6444fb",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "7e2534c31c8eef2387c9da6fd6ef733bf19c2472b178d339429f2b373c537976",
+   "name": "bind_alice_laptop",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_2ec5bbcb0b1d60ceed5f7f1bce6444fb",
+     "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b",
+     "profile_id": "prf_f10d0c55cd246b30c1e3dffeada9aa28"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 1,
+    "operation": "identity.binding.add",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b"
+    },
+    "payload_digest": "b0cf56d10bc4179ef759230f1786a223aff8079e3a3317a657a30513ca06c69f",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_b42a8856fffd146b0fcfc100789789aa",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_1569e54310d07c7f3e001d96e502f04b"
+    }
+   }
+  },
+  {
+   "digest": "987f43ee7214e81a0392fce618ce9740ac330b138647951109e1a8a1b7417f09",
+   "name": "alice_laptop_binding",
+   "record": {
+    "binding_id": "bnd_d9c1a35c875b98b8578388f3a7e96e4d",
+    "created_at": "2000-01-01T00:00:00Z",
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_2ec5bbcb0b1d60ceed5f7f1bce6444fb",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "366456c6f185ed7f73dc0664c87184d94b1c5b8d98f5227b4da390a2165392c0",
+   "name": "bind_key_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "4822a3f1564353cdf4ac71efd0437668179fff7e71f977b70a3386507910081c",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b"
+    },
+    "request_digest": "7e2534c31c8eef2387c9da6fd6ef733bf19c2472b178d339429f2b373c537976",
+    "request_id": "req_b42a8856fffd146b0fcfc100789789aa",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prn_1569e54310d07c7f3e001d96e502f04b"
+    }
+   }
+  },
+  {
+   "digest": "eca1e7e2cd3b9f0c714249b6651b17d69dc1beb3ec6fa2a7d026c91ec1cdab07",
+   "name": "bind_key_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "366456c6f185ed7f73dc0664c87184d94b1c5b8d98f5227b4da390a2165392c0",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "987f43ee7214e81a0392fce618ce9740ac330b138647951109e1a8a1b7417f09",
+      "kind": "principal_binding"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "7e2534c31c8eef2387c9da6fd6ef733bf19c2472b178d339429f2b373c537976",
+    "request_id": "req_b42a8856fffd146b0fcfc100789789aa",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "673e300a4d829d7fc9d15488de655827edb15f1f8579008b2659eca1b1723c4b",
+   "name": "team_policy_draft",
+   "record": {
+    "delegation_ceiling": 2,
+    "execution_authority": {
+     "duty": "finalizer",
+     "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b"
+    },
+    "expiry_days": 30,
+    "independence": {
+     "excludes_recorded_authors": true,
+     "excludes_requester": true,
+     "excludes_sponsored_agents": true
+    },
+    "kind": "governing_policy",
+    "operations": [
+     "publish",
+     "adopt"
+    ],
+    "schema": 1,
+    "team_id": "tem_e79a190b9fde97345450731e374c8209",
+    "threshold": 1
+   }
+  },
+  {
+   "digest": "fbf28e0086356e7999a0f818ef8e01ff3f2443132623463230f6a9bdae2c2118",
+   "name": "team_proposal",
+   "record": {
+    "carriers": [
+     "local",
+     "peer"
+    ],
+    "custody_target": 3,
+    "finalizer": {
+     "device_id": "dev_2ec5bbcb0b1d60ceed5f7f1bce6444fb",
+     "runs_on": "member_device"
+    },
+    "founder_principal_id": "prn_1569e54310d07c7f3e001d96e502f04b",
+    "founding_mode": {
+     "acknowledged_self_reviewed": true,
+     "mode": "self_founded"
+    },
+    "kind": "founding_proposal",
+    "name": "Platform",
+    "policy_digest": "673e300a4d829d7fc9d15488de655827edb15f1f8579008b2659eca1b1723c4b",
+    "proposal_version": 1,
+    "purpose": "The standards this group works to.",
+    "recovery": [
+     {
+      "duty": "recovery",
+      "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b"
+     }
+    ],
+    "schema": 1,
+    "team_id": "tem_e79a190b9fde97345450731e374c8209"
+   }
+  },
+  {
+   "digest": "21e33b4a0c5102c11c3d6a97104af25d38443511644a122bf283251aef23df5d",
+   "name": "found_team",
+   "record": {
+    "action": "policy",
+    "actor": {
+     "device_id": "dev_2ec5bbcb0b1d60ceed5f7f1bce6444fb",
+     "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b",
+     "profile_id": "prf_f10d0c55cd246b30c1e3dffeada9aa28"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 1,
+    "operation": "team.found",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_e79a190b9fde97345450731e374c8209"
+    },
+    "payload_digest": "fbf28e0086356e7999a0f818ef8e01ff3f2443132623463230f6a9bdae2c2118",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_6baa0af6fd689758c7d81af37e114fdf",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "tem_e79a190b9fde97345450731e374c8209"
+    }
+   }
+  },
+  {
+   "digest": "a99917f2c7b24b697662403b5e93eb2d430326b93d722e7e3debb1cbbf35bc2b",
+   "name": "team_policy",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "delegation_ceiling": 2,
+    "execution_authority": {
+     "duty": "finalizer",
+     "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b"
+    },
+    "expiry_days": 30,
+    "independence": {
+     "excludes_recorded_authors": true,
+     "excludes_requester": true,
+     "excludes_sponsored_agents": true
+    },
+    "kind": "governing_policy",
+    "operations": [
+     "publish",
+     "adopt"
+    ],
+    "policy_id": "pol_af26c8102aae3a9e97d0761a55f4b227",
+    "policy_version": 1,
+    "schema": 1,
+    "team_id": "tem_e79a190b9fde97345450731e374c8209",
+    "threshold": 1
+   }
+  },
+  {
+   "digest": "29a54563293b6891b389bdf67ffe1c58ae78153e22513ca96d0b6ee234219ca1",
+   "name": "team_founder_grant",
+   "record": {
+    "actions": [
+     "read",
+     "use",
+     "contribute",
+     "grant",
+     "policy"
+    ],
+    "created_at": "2000-01-01T00:00:00Z",
+    "delegation_ceiling": 1,
+    "grant_id": "gra_8d704f52b928e00d71bca0b425241fe2",
+    "grant_revision": 1,
+    "holder": {
+     "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b",
+     "to": "principal"
+    },
+    "issuer_principal_id": "prn_1569e54310d07c7f3e001d96e502f04b",
+    "kind": "grant_record",
+    "schema": 1,
+    "scope": {
+     "layer": "team",
+     "team_id": "tem_e79a190b9fde97345450731e374c8209"
+    },
+    "standing": "current",
+    "team_id": "tem_e79a190b9fde97345450731e374c8209"
+   }
+  },
+  {
+   "digest": "6a5ba8998c7c910a7c2acd9900e76d34130fbc6d2f51cf5fe0850d3badc0b65c",
+   "name": "team_state",
+   "record": {
+    "kind": "team_state",
+    "schema": 1,
+    "since": "2000-01-01T00:00:00Z",
+    "state": "active",
+    "team_id": "tem_e79a190b9fde97345450731e374c8209"
+   }
+  },
+  {
+   "digest": "2a0c4d09551de9ae182527d9a0346c8ee0871a123a56d6f4df49ef73054bf8d1",
+   "name": "team_profile",
+   "record": {
+    "kind": "team_profile",
+    "name": "Platform",
+    "purpose": "The standards this group works to.",
+    "schema": 1,
+    "team_id": "tem_e79a190b9fde97345450731e374c8209",
+    "updated_at": "2000-01-01T00:00:00Z"
+   }
+  },
+  {
+   "digest": "f0059d5482bd86b7b3d9564c2c0475c6fb53d044043848aca029b20cdefdb6ab",
+   "name": "found_team_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "347c899d609b42cd08635dc7515ad4b02b56f6b669a5e8f354262bf7b8275df3",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_e79a190b9fde97345450731e374c8209"
+    },
+    "request_digest": "21e33b4a0c5102c11c3d6a97104af25d38443511644a122bf283251aef23df5d",
+    "request_id": "req_6baa0af6fd689758c7d81af37e114fdf",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "tem_e79a190b9fde97345450731e374c8209"
+    }
+   }
+  },
+  {
+   "digest": "57266b774b8669c85f623d8221057d3a215d591b534434d5380f9a1732f03bd8",
+   "name": "found_team_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "f0059d5482bd86b7b3d9564c2c0475c6fb53d044043848aca029b20cdefdb6ab",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "a99917f2c7b24b697662403b5e93eb2d430326b93d722e7e3debb1cbbf35bc2b",
+      "kind": "governing_policy"
+     },
+     {
+      "digest": "29a54563293b6891b389bdf67ffe1c58ae78153e22513ca96d0b6ee234219ca1",
+      "kind": "grant_record"
+     },
+     {
+      "digest": "6a5ba8998c7c910a7c2acd9900e76d34130fbc6d2f51cf5fe0850d3badc0b65c",
+      "kind": "team_state"
+     },
+     {
+      "digest": "2a0c4d09551de9ae182527d9a0346c8ee0871a123a56d6f4df49ef73054bf8d1",
+      "kind": "team_profile"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "21e33b4a0c5102c11c3d6a97104af25d38443511644a122bf283251aef23df5d",
+    "request_id": "req_6baa0af6fd689758c7d81af37e114fdf",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "3d8eea66914a6b64be417ccba31e82b446ee2719d40a894ea8c189859b561805",
+   "name": "slack_submitted",
+   "record": {
+    "audience": "4123456789.5123456789",
+    "exchange": {
+     "operator_principal_id": "prn_1569e54310d07c7f3e001d96e502f04b",
+     "runs": "team_protected_process"
+    },
+    "expected_claims": [
+     {
+      "claim": "https://slack.com/team_id",
+      "value": "T0123456789"
+     }
+    ],
+    "issuer": "https://slack.com",
+    "kind": "provider_connection",
+    "preset": "slack",
+    "schema": 1,
+    "team_id": "tem_e79a190b9fde97345450731e374c8209"
+   }
+  },
+  {
+   "digest": "2f0403aa5ddfdd140bd22d01be381549c4935bf49f289daf51abf904b486ce10",
+   "name": "configure_slack_request",
+   "record": {
+    "action": "policy",
+    "actor": {
+     "device_id": "dev_2ec5bbcb0b1d60ceed5f7f1bce6444fb",
+     "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b",
+     "profile_id": "prf_f10d0c55cd246b30c1e3dffeada9aa28"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 1,
+    "operation": "access.connection.configure",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_e79a190b9fde97345450731e374c8209"
+    },
+    "payload_digest": "3d8eea66914a6b64be417ccba31e82b446ee2719d40a894ea8c189859b561805",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_c7028e0b995c21771a048f23b38ed775",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "347c899d609b42cd08635dc7515ad4b02b56f6b669a5e8f354262bf7b8275df3"
+     },
+     "resource_id": "tem_e79a190b9fde97345450731e374c8209"
+    }
+   }
+  },
+  {
+   "digest": "06e7b2de66daa418f2f287808023d6bc0aaad87008f249bd8282a9ba675a6fac",
+   "name": "slack_stored",
+   "record": {
+    "audience": "4123456789.5123456789",
+    "configured_at": "2000-01-01T00:00:00Z",
+    "connection_id": "con_528f88cc04aa00db5b7a7a6020ef4ee2",
+    "exchange": {
+     "operator_principal_id": "prn_1569e54310d07c7f3e001d96e502f04b",
+     "runs": "team_protected_process"
+    },
+    "expected_claims": [
+     {
+      "claim": "https://slack.com/team_id",
+      "value": "T0123456789"
+     }
+    ],
+    "issuer": "https://slack.com",
+    "kind": "provider_connection",
+    "preset": "slack",
+    "schema": 1,
+    "team_id": "tem_e79a190b9fde97345450731e374c8209"
+   }
+  },
+  {
+   "digest": "cbd9851d12eb9e0d606db8dea688981d44dedc51e44cb582d4b0c32e9df25cff",
+   "name": "configure_slack_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "e8bc875d4cc6b1cdbe5416f51de3ac9cfd3017c2c98bdcf611f0c9baa33094ec",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_e79a190b9fde97345450731e374c8209"
+    },
+    "request_digest": "2f0403aa5ddfdd140bd22d01be381549c4935bf49f289daf51abf904b486ce10",
+    "request_id": "req_c7028e0b995c21771a048f23b38ed775",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "347c899d609b42cd08635dc7515ad4b02b56f6b669a5e8f354262bf7b8275df3"
+     },
+     "resource_id": "tem_e79a190b9fde97345450731e374c8209"
+    }
+   }
+  },
+  {
+   "digest": "283198414f3fcf5ecff214d89ba84d6ed86abd03d378d8e5f51eb0a56c94ad4e",
+   "name": "configure_slack_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "cbd9851d12eb9e0d606db8dea688981d44dedc51e44cb582d4b0c32e9df25cff",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "06e7b2de66daa418f2f287808023d6bc0aaad87008f249bd8282a9ba675a6fac",
+      "kind": "provider_connection"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "2f0403aa5ddfdd140bd22d01be381549c4935bf49f289daf51abf904b486ce10",
+    "request_id": "req_c7028e0b995c21771a048f23b38ed775",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "6ab9c89bcb4fbec37893ccdd65d8c14fcec6df538d4ed137d265d8cb8d09d41e",
+   "name": "secret_connection",
+   "record": {
+    "audience": "4123456789.5123456789",
+    "client_secret": "not-a-real-one",
+    "exchange": {
+     "operator_principal_id": "prn_1569e54310d07c7f3e001d96e502f04b",
+     "runs": "team_protected_process"
+    },
+    "expected_claims": [
+     {
+      "claim": "https://slack.com/team_id",
+      "value": "T0123456789"
+     }
+    ],
+    "issuer": "https://slack.com",
+    "kind": "provider_connection",
+    "preset": "slack",
+    "schema": 1,
+    "team_id": "tem_e79a190b9fde97345450731e374c8209"
+   }
+  },
+  {
+   "digest": "9123bba5eb0034e825a648fbac586f6b78b41ea5c6da7eb0205026715aff4beb",
+   "name": "connection_with_its_secret_request",
+   "record": {
+    "action": "policy",
+    "actor": {
+     "device_id": "dev_2ec5bbcb0b1d60ceed5f7f1bce6444fb",
+     "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b",
+     "profile_id": "prf_f10d0c55cd246b30c1e3dffeada9aa28"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 1,
+    "operation": "access.connection.configure",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_e79a190b9fde97345450731e374c8209"
+    },
+    "payload_digest": "6ab9c89bcb4fbec37893ccdd65d8c14fcec6df538d4ed137d265d8cb8d09d41e",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_07b4912f226693d9fe8526c17865fd15",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "e8bc875d4cc6b1cdbe5416f51de3ac9cfd3017c2c98bdcf611f0c9baa33094ec"
+     },
+     "resource_id": "tem_e79a190b9fde97345450731e374c8209"
+    }
+   }
+  },
+  {
+   "digest": "6161ad91868ac3564a8e60bd8ca7d6475b1c49164946956ef9f6d71f266ecdc6",
+   "name": "operatorless_connection",
+   "record": {
+    "audience": "4123456789.5123456789",
+    "exchange": {
+     "runs": "team_protected_process"
+    },
+    "expected_claims": [
+     {
+      "claim": "https://slack.com/team_id",
+      "value": "T0123456789"
+     }
+    ],
+    "issuer": "https://slack.com",
+    "kind": "provider_connection",
+    "preset": "slack",
+    "schema": 1,
+    "team_id": "tem_e79a190b9fde97345450731e374c8209"
+   }
+  },
+  {
+   "digest": "5be38f39b2678208a8bc1eaa656e9530cafac7365b0dea2c76cc44803c848a2c",
+   "name": "exchange_with_no_operator_request",
+   "record": {
+    "action": "policy",
+    "actor": {
+     "device_id": "dev_2ec5bbcb0b1d60ceed5f7f1bce6444fb",
+     "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b",
+     "profile_id": "prf_f10d0c55cd246b30c1e3dffeada9aa28"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 1,
+    "operation": "access.connection.configure",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_e79a190b9fde97345450731e374c8209"
+    },
+    "payload_digest": "6161ad91868ac3564a8e60bd8ca7d6475b1c49164946956ef9f6d71f266ecdc6",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_cb638b7a2f038efc131c282763230545",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "e8bc875d4cc6b1cdbe5416f51de3ac9cfd3017c2c98bdcf611f0c9baa33094ec"
+     },
+     "resource_id": "tem_e79a190b9fde97345450731e374c8209"
+    }
+   }
+  },
+  {
+   "digest": "b2bc3542946bad9f75ee42fd46ac44c90d62999d4a3859c682c88e35be64d375",
+   "name": "slack_attempt_asked",
+   "record": {
+    "connection_id": "con_528f88cc04aa00db5b7a7a6020ef4ee2",
+    "kind": "sign_in_attempt",
+    "purpose": {
+     "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b",
+     "purpose": "link"
+    },
+    "schema": 1
+   }
+  },
+  {
+   "digest": "b893bc4a9d16b44e43be949e4bf3d49bb37f9c9b97c1d55a568eaa35c63310f2",
+   "name": "begin_link_request",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_2ec5bbcb0b1d60ceed5f7f1bce6444fb",
+     "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b",
+     "profile_id": "prf_f10d0c55cd246b30c1e3dffeada9aa28"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 1,
+    "operation": "access.sign_in.begin",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b"
+    },
+    "payload_digest": "b2bc3542946bad9f75ee42fd46ac44c90d62999d4a3859c682c88e35be64d375",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_421b875e182eb71e0dde22f0c1f466cc",
+    "schema": 1,
+    "target": {
+     "resource_id": "con_528f88cc04aa00db5b7a7a6020ef4ee2"
+    }
+   }
+  },
+  {
+   "digest": "8674dc4883662275c608b4c3146d03c333eb607b4080d743a1a8513aa55e778c",
+   "name": "slack_attempt_begun",
+   "record": {
+    "attempt_id": "sin_0ead59b4024faca91a8a2616908af7f8",
+    "begun_at": "2000-01-01T00:00:00Z",
+    "connection_id": "con_528f88cc04aa00db5b7a7a6020ef4ee2",
+    "expires_at": "2000-01-01T00:00:00Z",
+    "kind": "sign_in_attempt",
+    "nonce_digest": "ad38dcc8aa0ec9319481a38cbb69b4f8d8842ebd9bf6684fa01b8eb9e768145c",
+    "purpose": {
+     "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b",
+     "purpose": "link"
+    },
+    "schema": 1,
+    "state_digest": "eca6ebdaecf58ad7fbf9d59299e6ccd38633d6d2a3dfc1dce995969241697cb1"
+   }
+  },
+  {
+   "digest": "2cb01c5ed18669b06f87f1adb0125712c2f9db473bab90f62fbb1f525a469513",
+   "name": "begin_link_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "1e17c1e922163648a7abdf7b00cdbe138b470c3485ee5884143917a7fbf5f85d",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b"
+    },
+    "request_digest": "b893bc4a9d16b44e43be949e4bf3d49bb37f9c9b97c1d55a568eaa35c63310f2",
+    "request_id": "req_421b875e182eb71e0dde22f0c1f466cc",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "con_528f88cc04aa00db5b7a7a6020ef4ee2"
+    }
+   }
+  },
+  {
+   "digest": "f7f97f64edb78f1192b7420ac43b7dafbc4501917313b2c53aa952710f019eb5",
+   "name": "begin_link_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "private_state_written",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "2cb01c5ed18669b06f87f1adb0125712c2f9db473bab90f62fbb1f525a469513",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "8674dc4883662275c608b4c3146d03c333eb607b4080d743a1a8513aa55e778c",
+      "kind": "sign_in_attempt"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "b893bc4a9d16b44e43be949e4bf3d49bb37f9c9b97c1d55a568eaa35c63310f2",
+    "request_id": "req_421b875e182eb71e0dde22f0c1f466cc",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "32f229a6e558f56a2c0733b9cabfd3b3208ce3a77f7827c90e89f2efad10319b",
+   "name": "callback_with_its_token",
+   "record": {
+    "attempt_id": "sin_0ead59b4024faca91a8a2616908af7f8",
+    "id_token": "eyJ.not.real",
+    "kind": "provider_callback",
+    "reply": {
+     "audience": "4123456789.5123456789",
+     "claims": [
+      {
+       "claim": "https://slack.com/team_id",
+       "value": "T0123456789"
+      }
+     ],
+     "email": "alice@example.com",
+     "expires_at": "2026-09-20T10:01:00Z",
+     "issued_at": "2026-09-20T09:01:00Z",
+     "issuer": "https://slack.com",
+     "nonce_digest": "ad38dcc8aa0ec9319481a38cbb69b4f8d8842ebd9bf6684fa01b8eb9e768145c",
+     "returned": "claims",
+     "subject": "U0ALICE42"
+    },
+    "schema": 1,
+    "state_digest": "eca6ebdaecf58ad7fbf9d59299e6ccd38633d6d2a3dfc1dce995969241697cb1"
+   }
+  },
+  {
+   "digest": "eecf1e1131869972abb1372d7056f133384998803e4736f875bbb949d0194282",
+   "name": "token_request",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_2ec5bbcb0b1d60ceed5f7f1bce6444fb",
+     "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b",
+     "profile_id": "prf_f10d0c55cd246b30c1e3dffeada9aa28"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 1,
+    "operation": "access.sign_in.complete",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b"
+    },
+    "payload_digest": "32f229a6e558f56a2c0733b9cabfd3b3208ce3a77f7827c90e89f2efad10319b",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_4bd1c3bce78d3ab3d48f9c69a4d414d0",
+    "schema": 1,
+    "target": {
+     "resource_id": "con_528f88cc04aa00db5b7a7a6020ef4ee2"
+    }
+   }
+  },
+  {
+   "digest": "d71759670a35168af2d7e3ed23123340c647c6ce52ec0b1feb48d085de3f8bd9",
+   "name": "callback_with_claims",
+   "record": {
+    "attempt_id": "sin_0ead59b4024faca91a8a2616908af7f8",
+    "kind": "provider_callback",
+    "reply": {
+     "audience": "4123456789.5123456789",
+     "claims": [
+      {
+       "claim": "https://slack.com/team_id",
+       "value": "T0123456789"
+      }
+     ],
+     "email": "alice@example.com",
+     "expires_at": "2026-09-20T10:01:00Z",
+     "issued_at": "2026-09-20T09:01:00Z",
+     "issuer": "https://slack.com",
+     "nonce_digest": "ad38dcc8aa0ec9319481a38cbb69b4f8d8842ebd9bf6684fa01b8eb9e768145c",
+     "returned": "claims",
+     "subject": "U0ALICE42"
+    },
+    "schema": 1,
+    "state_digest": "eca6ebdaecf58ad7fbf9d59299e6ccd38633d6d2a3dfc1dce995969241697cb1"
+   }
+  },
+  {
+   "digest": "d15474ea6d1040c15b22e7e3abb98e707694e6ecb1658592c9347868f13b2948",
+   "name": "complete_request",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_2ec5bbcb0b1d60ceed5f7f1bce6444fb",
+     "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b",
+     "profile_id": "prf_f10d0c55cd246b30c1e3dffeada9aa28"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 1,
+    "operation": "access.sign_in.complete",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b"
+    },
+    "payload_digest": "d71759670a35168af2d7e3ed23123340c647c6ce52ec0b1feb48d085de3f8bd9",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_679a2ed541669e5c3ff66a04b8cf2484",
+    "schema": 1,
+    "target": {
+     "resource_id": "con_528f88cc04aa00db5b7a7a6020ef4ee2"
+    }
+   }
+  },
+  {
+   "digest": "139e6d58d6827a1bd3329b86271dbad2dc99a57d1ced9a9426612582e295784e",
+   "name": "slack_evidence",
+   "record": {
+    "attempt_id": "sin_0ead59b4024faca91a8a2616908af7f8",
+    "claims": [
+     {
+      "claim": "https://slack.com/team_id",
+      "value": "T0123456789"
+     }
+    ],
+    "connection_id": "con_528f88cc04aa00db5b7a7a6020ef4ee2",
+    "issuer": "https://slack.com",
+    "kind": "sign_in_evidence",
+    "purpose": {
+     "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b",
+     "purpose": "link"
+    },
+    "schema": 1,
+    "subject": "U0ALICE42",
+    "verified_at": "2000-01-01T00:00:00Z"
+   }
+  },
+  {
+   "digest": "7a32b4a902128be8806b45563cb48fd202d44e8b7e6d6ab68f3dcda816031d83",
+   "name": "slack_binding",
+   "record": {
+    "binding_id": "bnd_767d33279f8bbae6246e13d4509a7fd5",
+    "created_at": "2000-01-01T00:00:00Z",
+    "credential": {
+     "connection_id": "con_528f88cc04aa00db5b7a7a6020ef4ee2",
+     "credential": "external_identity",
+     "issuer": "https://slack.com",
+     "subject": "U0ALICE42",
+     "tenant": "T0123456789"
+    },
+    "established_by": "governed_link",
+    "evidence_digests": [
+     "139e6d58d6827a1bd3329b86271dbad2dc99a57d1ced9a9426612582e295784e"
+    ],
+    "kind": "principal_binding",
+    "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "f5649cf82d910a5ca5c93e4a8017838e74a91245a7e2950531ffacb31736c677",
+   "name": "link_with_claims_only_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "48e0836473e87f881a1536dbdcb1ce0a44cbe32e2b52054ede4a424d39ec4f55",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b"
+    },
+    "request_digest": "d15474ea6d1040c15b22e7e3abb98e707694e6ecb1658592c9347868f13b2948",
+    "request_id": "req_679a2ed541669e5c3ff66a04b8cf2484",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "con_528f88cc04aa00db5b7a7a6020ef4ee2"
+    }
+   }
+  },
+  {
+   "digest": "d7ae4f28c411e5bc4668dd8dd50f825544f7b355293d5603b05a0ef694b7d934",
+   "name": "link_with_claims_only_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "f5649cf82d910a5ca5c93e4a8017838e74a91245a7e2950531ffacb31736c677",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "139e6d58d6827a1bd3329b86271dbad2dc99a57d1ced9a9426612582e295784e",
+      "kind": "sign_in_evidence"
+     },
+     {
+      "digest": "7a32b4a902128be8806b45563cb48fd202d44e8b7e6d6ab68f3dcda816031d83",
+      "kind": "principal_binding"
+     }
+    ],
+    "provider_effect": "committed",
+    "request_digest": "d15474ea6d1040c15b22e7e3abb98e707694e6ecb1658592c9347868f13b2948",
+    "request_id": "req_679a2ed541669e5c3ff66a04b8cf2484",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "31da26c0c5039bcd86c35fb26f6f42a9c5ca491a11a893a7b6db857355dbe6b8",
+   "name": "permit_with_a_refresh_token",
+   "record": {
+    "evidence_id": "ctl_a0a43ffad13fe2e2ce9bf5948e414b7c",
+    "holder": {
+     "device_id": "dev_2ec5bbcb0b1d60ceed5f7f1bce6444fb",
+     "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b"
+    },
+    "issued_at": "2026-09-21T09:00:00Z",
+    "issuer": {
+     "authority_principal_id": "prn_1569e54310d07c7f3e001d96e502f04b",
+     "team_id": "tem_e79a190b9fde97345450731e374c8209"
+    },
+    "kind": "control_evidence",
+    "refresh_token": "1//not-real",
+    "schema": 1,
+    "scope": {
+     "layer": "team",
+     "team_id": "tem_e79a190b9fde97345450731e374c8209"
+    },
+    "statement": {
+     "attests": [
+      "29a54563293b6891b389bdf67ffe1c58ae78153e22513ca96d0b6ee234219ca1"
+     ],
+     "offline": {
+      "until": "2026-09-28T09:00:00Z",
+      "use": "offline_until"
+     },
+     "states": "permits",
+     "valid_until": "2026-10-21T09:00:00Z"
+    }
+   }
+  },
+  {
+   "digest": "410dda08bcb792013767d9ac0f46c76bfc8e583a6bf9c3a0ec87bcab970ca3b6",
+   "name": "permit_request",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_2ec5bbcb0b1d60ceed5f7f1bce6444fb",
+     "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b",
+     "profile_id": "prf_f10d0c55cd246b30c1e3dffeada9aa28"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 1,
+    "operation": "access.control.record",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b"
+    },
+    "payload_digest": "31da26c0c5039bcd86c35fb26f6f42a9c5ca491a11a893a7b6db857355dbe6b8",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_190d931e95b8c2e46a5be2d9dc7d37c0",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_f10d0c55cd246b30c1e3dffeada9aa28"
+    }
+   }
+  }
+ ],
+ "says": "Alice founds a Team and configures a Slack connection whose code exchange needs a client secret; the connection declares that the exchange runs in a Team-protected process she operates, and the stored connection carries no secret. A connection submitted with its client secret, and one declaring a protected exchange without saying who operates it, are refused at admission. She begins linking her Slack identity: a callback carrying the identity token itself is refused at admission, and the callback carrying only the verified claims links her identity, returning sign-in evidence and a binding with no token or secret in either. A Team permit carrying a refresh token is refused at admission when her device tries to keep it. What must not happen: a secret or token stored in the connection, the evidence, the binding or any record kept on the client.",
+ "spec_sha256": "330054f017ea224b406c9b41535285c31ce1db94e1f020bd560c34ad4be5c0e5",
+ "steps": [
+  {
+   "at": "2026-09-21T09:00:00Z",
+   "carries": [
+    "alice_laptop_key"
+   ],
+   "name": "bind_key",
+   "request": "bind_alice_laptop",
+   "result": "bind_key_result",
+   "returns": [
+    "alice_laptop_binding"
+   ]
+  },
+  {
+   "at": "2026-09-21T09:00:00Z",
+   "carries": [
+    "team_proposal",
+    "team_policy_draft"
+   ],
+   "head": "team_head",
+   "name": "found_team",
+   "request": "found_team",
+   "result": "found_team_result",
+   "returns": [
+    "team_policy",
+    "team_founder_grant",
+    "team_state",
+    "team_profile"
+   ],
+   "submits": [
+    "team_policy_draft"
+   ]
+  },
+  {
+   "at": "2026-09-21T09:00:00Z",
+   "carries": [
+    "slack_submitted"
+   ],
+   "head": "team_head_2",
+   "name": "configure_slack",
+   "request": "configure_slack_request",
+   "result": "configure_slack_result",
+   "returns": [
+    "slack_stored"
+   ]
+  },
+  {
+   "at": "2026-09-21T09:00:00Z",
+   "carries": [
+    "secret_connection"
+   ],
+   "name": "connection_with_its_secret",
+   "refused": [
+    {
+     "code": "unknown_field",
+     "pointer": "/client_secret",
+     "record": "secret_connection"
+    }
+   ],
+   "request": "connection_with_its_secret_request"
+  },
+  {
+   "at": "2026-09-21T09:00:00Z",
+   "carries": [
+    "operatorless_connection"
+   ],
+   "name": "exchange_with_no_operator",
+   "refused": [
+    {
+     "code": "variant_mismatch",
+     "pointer": "/exchange",
+     "record": "operatorless_connection"
+    }
+   ],
+   "request": "exchange_with_no_operator_request"
+  },
+  {
+   "at": "2026-09-21T09:00:00Z",
+   "carries": [
+    "slack_attempt_asked"
+   ],
+   "name": "begin_link",
+   "request": "begin_link_request",
+   "result": "begin_link_result",
+   "returns": [
+    "slack_attempt_begun"
+   ]
+  },
+  {
+   "at": "2026-09-21T09:00:00Z",
+   "carries": [
+    "callback_with_its_token"
+   ],
+   "name": "callback_carrying_the_token",
+   "refused": [
+    {
+     "code": "unknown_field",
+     "pointer": "/id_token",
+     "record": "callback_with_its_token"
+    }
+   ],
+   "request": "token_request"
+  },
+  {
+   "at": "2026-09-21T09:00:00Z",
+   "carries": [
+    "callback_with_claims"
+   ],
+   "name": "link_with_claims_only",
+   "request": "complete_request",
+   "result": "link_with_claims_only_result",
+   "returns": [
+    "slack_evidence",
+    "slack_binding"
+   ]
+  },
+  {
+   "at": "2026-09-21T09:00:00Z",
+   "carries": [
+    "permit_with_a_refresh_token"
+   ],
+   "name": "permit_carrying_a_token",
+   "refused": [
+    {
+     "code": "unknown_field",
+     "pointer": "/refresh_token",
+     "record": "permit_with_a_refresh_token"
+    }
+   ],
+   "request": "permit_request"
+  }
+ ],
+ "world": {
+  "clock": {
+   "start": "2026-09-21T09:00:00Z"
+  }
+ }
+}

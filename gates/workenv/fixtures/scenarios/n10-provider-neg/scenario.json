@@ -1,0 +1,1543 @@
+{
+ "case": "N10-PROVIDER-NEG",
+ "ids": [
+  {
+   "id": "prn_77dcdefe4c1c00f1910e11cea631fd47",
+   "name": "ana"
+  },
+  {
+   "id": "dev_e2f45ae267a7641c90dce409437e98c5",
+   "name": "ana_device"
+  },
+  {
+   "id": "prf_72fe61b38ab7d7fe2110906c8a266d9d",
+   "name": "ana_profile"
+  },
+  {
+   "id": "prn_a2b77752611e98806213810932d883e3",
+   "name": "ben"
+  },
+  {
+   "id": "dev_e92586021015c36d5b5d2f35447a4e3b",
+   "name": "ben_device"
+  },
+  {
+   "id": "prf_4c76928f728c85e4564eba66b22fec33",
+   "name": "ben_profile"
+  },
+  {
+   "id": "tem_5cd7144a933f8967394facee6c66406f",
+   "name": "team"
+  },
+  {
+   "id": "req_eab77b2aef4c3c8eb34fac2a8985b822",
+   "name": "found_team_request"
+  },
+  {
+   "id": "req_07cb2c338691c01d9c0c0b7c71b949e9",
+   "name": "configure_google_request"
+  },
+  {
+   "id": "req_a4d6a93c4ce93d182973208685c892be",
+   "name": "begin_ben_google_request"
+  },
+  {
+   "id": "req_e8f105b73e018f681d71769145f78d67",
+   "name": "complete_ben_google_request"
+  },
+  {
+   "id": "req_0a59df6758a65208e9fafab119be3b8f",
+   "name": "admit_on_a_login_request"
+  },
+  {
+   "id": "req_385dfd2972fd8f2caf1901f3560b34d3",
+   "name": "admit_by_email_domain_request"
+  },
+  {
+   "id": "req_8db6ec26347ca5115df8a5ad02e2f1ae",
+   "name": "admit_on_a_claim_alone_request"
+  },
+  {
+   "id": "req_5ce53835b8f9fa4afc1b8835e1f6addf",
+   "name": "bind_by_email_request"
+  }
+ ],
+ "joins": [
+  {
+   "digest_of": "team_rules",
+   "pointer": "/policy_digest",
+   "record": "team_proposal"
+  },
+  {
+   "digest_of": "team_proposal",
+   "pointer": "/payload_digest",
+   "record": "found_team"
+  },
+  {
+   "minted": "team_policy_id",
+   "pointer": "/policy_id",
+   "record": "team_policy"
+  },
+  {
+   "minted": "team_founded_at",
+   "pointer": "/committed_at",
+   "record": "team_policy"
+  },
+  {
+   "minted": "team_founder_grant_id",
+   "pointer": "/grant_id",
+   "record": "team_founder_grant"
+  },
+  {
+   "minted": "team_founded_at",
+   "pointer": "/created_at",
+   "record": "team_founder_grant"
+  },
+  {
+   "minted": "team_founded_at",
+   "pointer": "/since",
+   "record": "team_active"
+  },
+  {
+   "minted": "team_founded_at",
+   "pointer": "/updated_at",
+   "record": "team_profile"
+  },
+  {
+   "digest_of": "found_team",
+   "pointer": "/request_digest",
+   "record": "found_team_receipt"
+  },
+  {
+   "minted": "team_head_1",
+   "pointer": "/head_digest",
+   "record": "found_team_receipt"
+  },
+  {
+   "minted": "found_team_sequence",
+   "pointer": "/sequence",
+   "record": "found_team_receipt"
+  },
+  {
+   "minted": "found_team_committed_at",
+   "pointer": "/committed_at",
+   "record": "found_team_receipt"
+  },
+  {
+   "digest_of": "found_team_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "found_team",
+   "pointer": "/request_digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "team_policy",
+   "pointer": "/outputs/0/digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "team_founder_grant",
+   "pointer": "/outputs/1/digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "team_active",
+   "pointer": "/outputs/2/digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "team_profile",
+   "pointer": "/outputs/3/digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "team_policy",
+   "pointer": "/policy_digests/0",
+   "record": "configure_google"
+  },
+  {
+   "minted": "team_head_1",
+   "pointer": "/target/base/head_digest",
+   "record": "configure_google"
+  },
+  {
+   "digest_of": "google_connection_submitted",
+   "pointer": "/payload_digest",
+   "record": "configure_google"
+  },
+  {
+   "minted": "google",
+   "pointer": "/connection_id",
+   "record": "google_connection"
+  },
+  {
+   "minted": "google_configured_at",
+   "pointer": "/configured_at",
+   "record": "google_connection"
+  },
+  {
+   "digest_of": "configure_google",
+   "pointer": "/request_digest",
+   "record": "configure_google_receipt"
+  },
+  {
+   "minted": "team_head_2",
+   "pointer": "/head_digest",
+   "record": "configure_google_receipt"
+  },
+  {
+   "minted": "configure_google_sequence",
+   "pointer": "/sequence",
+   "record": "configure_google_receipt"
+  },
+  {
+   "minted": "configure_google_committed_at",
+   "pointer": "/committed_at",
+   "record": "configure_google_receipt"
+  },
+  {
+   "minted": "team_head_1",
+   "pointer": "/target/base/head_digest",
+   "record": "configure_google_receipt"
+  },
+  {
+   "digest_of": "configure_google_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "configure_google_result"
+  },
+  {
+   "digest_of": "configure_google",
+   "pointer": "/request_digest",
+   "record": "configure_google_result"
+  },
+  {
+   "digest_of": "google_connection",
+   "pointer": "/outputs/0/digest",
+   "record": "configure_google_result"
+  },
+  {
+   "minted": "google",
+   "pointer": "/target/resource_id",
+   "record": "begin_ben_google"
+  },
+  {
+   "minted": "google",
+   "pointer": "/connection_id",
+   "record": "ben_google_attempt_submitted"
+  },
+  {
+   "digest_of": "ben_google_attempt_submitted",
+   "pointer": "/payload_digest",
+   "record": "begin_ben_google"
+  },
+  {
+   "minted": "google",
+   "pointer": "/connection_id",
+   "record": "ben_google_attempt"
+  },
+  {
+   "minted": "ben_google_attempt_id",
+   "pointer": "/attempt_id",
+   "record": "ben_google_attempt"
+  },
+  {
+   "minted": "ben_google_state",
+   "pointer": "/state_digest",
+   "record": "ben_google_attempt"
+  },
+  {
+   "minted": "ben_google_nonce",
+   "pointer": "/nonce_digest",
+   "record": "ben_google_attempt"
+  },
+  {
+   "minted": "ben_google_expires_at",
+   "pointer": "/expires_at",
+   "record": "ben_google_attempt"
+  },
+  {
+   "minted": "ben_google_begun_at",
+   "pointer": "/begun_at",
+   "record": "ben_google_attempt"
+  },
+  {
+   "digest_of": "begin_ben_google",
+   "pointer": "/request_digest",
+   "record": "begin_ben_google_receipt"
+  },
+  {
+   "minted": "begin_ben_google_head",
+   "pointer": "/head_digest",
+   "record": "begin_ben_google_receipt"
+  },
+  {
+   "minted": "begin_ben_google_sequence",
+   "pointer": "/sequence",
+   "record": "begin_ben_google_receipt"
+  },
+  {
+   "minted": "begin_ben_google_committed_at",
+   "pointer": "/committed_at",
+   "record": "begin_ben_google_receipt"
+  },
+  {
+   "minted": "google",
+   "pointer": "/target/resource_id",
+   "record": "begin_ben_google_receipt"
+  },
+  {
+   "digest_of": "begin_ben_google_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "begin_ben_google_result"
+  },
+  {
+   "digest_of": "begin_ben_google",
+   "pointer": "/request_digest",
+   "record": "begin_ben_google_result"
+  },
+  {
+   "digest_of": "ben_google_attempt",
+   "pointer": "/outputs/0/digest",
+   "record": "begin_ben_google_result"
+  },
+  {
+   "minted": "google",
+   "pointer": "/target/resource_id",
+   "record": "complete_ben_google"
+  },
+  {
+   "minted": "ben_google_attempt_id",
+   "pointer": "/attempt_id",
+   "record": "ben_google_callback"
+  },
+  {
+   "minted": "ben_google_state",
+   "pointer": "/state_digest",
+   "record": "ben_google_callback"
+  },
+  {
+   "minted": "ben_google_nonce",
+   "pointer": "/reply/nonce_digest",
+   "record": "ben_google_callback"
+  },
+  {
+   "digest_of": "ben_google_callback",
+   "pointer": "/payload_digest",
+   "record": "complete_ben_google"
+  },
+  {
+   "minted": "ben_google_attempt_id",
+   "pointer": "/attempt_id",
+   "record": "ben_google_evidence"
+  },
+  {
+   "minted": "google",
+   "pointer": "/connection_id",
+   "record": "ben_google_evidence"
+  },
+  {
+   "minted": "ben_google_verified_at",
+   "pointer": "/verified_at",
+   "record": "ben_google_evidence"
+  },
+  {
+   "digest_of": "complete_ben_google",
+   "pointer": "/request_digest",
+   "record": "complete_ben_google_receipt"
+  },
+  {
+   "minted": "complete_ben_google_head",
+   "pointer": "/head_digest",
+   "record": "complete_ben_google_receipt"
+  },
+  {
+   "minted": "complete_ben_google_sequence",
+   "pointer": "/sequence",
+   "record": "complete_ben_google_receipt"
+  },
+  {
+   "minted": "complete_ben_google_committed_at",
+   "pointer": "/committed_at",
+   "record": "complete_ben_google_receipt"
+  },
+  {
+   "minted": "google",
+   "pointer": "/target/resource_id",
+   "record": "complete_ben_google_receipt"
+  },
+  {
+   "digest_of": "complete_ben_google_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "complete_ben_google_result"
+  },
+  {
+   "digest_of": "complete_ben_google",
+   "pointer": "/request_digest",
+   "record": "complete_ben_google_result"
+  },
+  {
+   "digest_of": "ben_google_evidence",
+   "pointer": "/outputs/0/digest",
+   "record": "complete_ben_google_result"
+  },
+  {
+   "digest_of": "team_policy",
+   "pointer": "/policy_digests/0",
+   "record": "admit_on_a_login"
+  },
+  {
+   "digest_of": "ben_google_evidence",
+   "pointer": "/proof_digests/0",
+   "record": "admit_on_a_login"
+  },
+  {
+   "minted": "team_head_2",
+   "pointer": "/target/base/head_digest",
+   "record": "admit_on_a_login"
+  },
+  {
+   "minted": "google",
+   "pointer": "/standing/connection_id",
+   "record": "ben_claimed_membership"
+  },
+  {
+   "digest_of": "team_policy",
+   "pointer": "/standing/policy_digest",
+   "record": "ben_claimed_membership"
+  },
+  {
+   "digest_of": "ben_claimed_membership",
+   "pointer": "/payload_digest",
+   "record": "admit_on_a_login"
+  },
+  {
+   "digest_of": "admit_on_a_login",
+   "pointer": "/request_digest",
+   "record": "admit_on_a_login_result"
+  },
+  {
+   "digest_of": "team_policy",
+   "pointer": "/policy_digests/0",
+   "record": "admit_by_email_domain"
+  },
+  {
+   "minted": "team_head_2",
+   "pointer": "/target/base/head_digest",
+   "record": "admit_by_email_domain"
+  },
+  {
+   "minted": "google",
+   "pointer": "/admission/0/connection_id",
+   "record": "policy_admitting_an_email_domain"
+  },
+  {
+   "digest_of": "policy_admitting_an_email_domain",
+   "pointer": "/payload_digest",
+   "record": "admit_by_email_domain"
+  },
+  {
+   "digest_of": "team_policy",
+   "pointer": "/policy_digests/0",
+   "record": "admit_on_a_claim_alone"
+  },
+  {
+   "digest_of": "ben_google_evidence",
+   "pointer": "/proof_digests/0",
+   "record": "admit_on_a_claim_alone"
+  },
+  {
+   "minted": "team_head_2",
+   "pointer": "/target/base/head_digest",
+   "record": "admit_on_a_claim_alone"
+  },
+  {
+   "minted": "google",
+   "pointer": "/standing/connection_id",
+   "record": "ben_claim_without_a_policy"
+  },
+  {
+   "digest_of": "ben_claim_without_a_policy",
+   "pointer": "/payload_digest",
+   "record": "admit_on_a_claim_alone"
+  },
+  {
+   "digest_of": "ben_key_named_by_email",
+   "pointer": "/payload_digest",
+   "record": "bind_by_email"
+  }
+ ],
+ "minted": [
+  {
+   "name": "found_team_committed_at",
+   "shape": "instant",
+   "step": "found_team"
+  },
+  {
+   "name": "found_team_sequence",
+   "shape": "integer",
+   "step": "found_team"
+  },
+  {
+   "name": "team_founded_at",
+   "shape": "instant",
+   "step": "found_team"
+  },
+  {
+   "name": "team_founder_grant_id",
+   "shape": "gra",
+   "step": "found_team"
+  },
+  {
+   "name": "team_head_1",
+   "shape": "digest",
+   "step": "found_team"
+  },
+  {
+   "name": "team_policy_id",
+   "shape": "pol",
+   "step": "found_team"
+  },
+  {
+   "name": "configure_google_committed_at",
+   "shape": "instant",
+   "step": "configure_google"
+  },
+  {
+   "name": "configure_google_sequence",
+   "shape": "integer",
+   "step": "configure_google"
+  },
+  {
+   "name": "google",
+   "shape": "con",
+   "step": "configure_google"
+  },
+  {
+   "name": "google_configured_at",
+   "shape": "instant",
+   "step": "configure_google"
+  },
+  {
+   "name": "team_head_2",
+   "shape": "digest",
+   "step": "configure_google"
+  },
+  {
+   "name": "begin_ben_google_committed_at",
+   "shape": "instant",
+   "step": "begin_ben_google"
+  },
+  {
+   "name": "begin_ben_google_head",
+   "shape": "digest",
+   "step": "begin_ben_google"
+  },
+  {
+   "name": "begin_ben_google_sequence",
+   "shape": "integer",
+   "step": "begin_ben_google"
+  },
+  {
+   "name": "ben_google_attempt_id",
+   "shape": "sin",
+   "step": "begin_ben_google"
+  },
+  {
+   "name": "ben_google_begun_at",
+   "shape": "instant",
+   "step": "begin_ben_google"
+  },
+  {
+   "name": "ben_google_expires_at",
+   "shape": "instant",
+   "step": "begin_ben_google"
+  },
+  {
+   "name": "ben_google_nonce",
+   "shape": "digest",
+   "step": "begin_ben_google"
+  },
+  {
+   "name": "ben_google_state",
+   "shape": "digest",
+   "step": "begin_ben_google"
+  },
+  {
+   "name": "ben_google_verified_at",
+   "shape": "instant",
+   "step": "complete_ben_google"
+  },
+  {
+   "name": "complete_ben_google_committed_at",
+   "shape": "instant",
+   "step": "complete_ben_google"
+  },
+  {
+   "name": "complete_ben_google_head",
+   "shape": "digest",
+   "step": "complete_ben_google"
+  },
+  {
+   "name": "complete_ben_google_sequence",
+   "shape": "integer",
+   "step": "complete_ben_google"
+  }
+ ],
+ "records": [
+  {
+   "digest": "397c95c0320b0b70d47b7da2bcd16f716ad49309610128398c44560973f31002",
+   "name": "team_rules",
+   "record": {
+    "delegation_ceiling": 2,
+    "execution_authority": {
+     "duty": "finalizer",
+     "principal_id": "prn_77dcdefe4c1c00f1910e11cea631fd47"
+    },
+    "expiry_days": 30,
+    "independence": {
+     "excludes_recorded_authors": true,
+     "excludes_requester": true,
+     "excludes_sponsored_agents": true
+    },
+    "kind": "governing_policy",
+    "operations": [
+     "publish"
+    ],
+    "schema": 1,
+    "team_id": "tem_5cd7144a933f8967394facee6c66406f",
+    "threshold": 0
+   }
+  },
+  {
+   "digest": "5afd27a9f4358e7cc21922f699aa7a12c3d5519e4c5af288d332783211d2a76a",
+   "name": "team_proposal",
+   "record": {
+    "carriers": [
+     "local",
+     "peer"
+    ],
+    "custody_target": 3,
+    "finalizer": {
+     "device_id": "dev_e2f45ae267a7641c90dce409437e98c5",
+     "runs_on": "member_device"
+    },
+    "founder_principal_id": "prn_77dcdefe4c1c00f1910e11cea631fd47",
+    "founding_mode": {
+     "acknowledged_self_reviewed": true,
+     "mode": "self_founded"
+    },
+    "kind": "founding_proposal",
+    "name": "Platform",
+    "policy_digest": "397c95c0320b0b70d47b7da2bcd16f716ad49309610128398c44560973f31002",
+    "proposal_version": 1,
+    "purpose": "The standards this group works to.",
+    "recovery": [
+     {
+      "duty": "recovery",
+      "principal_id": "prn_77dcdefe4c1c00f1910e11cea631fd47"
+     }
+    ],
+    "schema": 1,
+    "team_id": "tem_5cd7144a933f8967394facee6c66406f"
+   }
+  },
+  {
+   "digest": "5114c2f5bd8eb40e7145d7ca2f049855e6caca4971d647c1777a13f995fd427f",
+   "name": "found_team",
+   "record": {
+    "action": "policy",
+    "actor": {
+     "device_id": "dev_e2f45ae267a7641c90dce409437e98c5",
+     "principal_id": "prn_77dcdefe4c1c00f1910e11cea631fd47",
+     "profile_id": "prf_72fe61b38ab7d7fe2110906c8a266d9d"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "team.found",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_5cd7144a933f8967394facee6c66406f"
+    },
+    "payload_digest": "5afd27a9f4358e7cc21922f699aa7a12c3d5519e4c5af288d332783211d2a76a",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_eab77b2aef4c3c8eb34fac2a8985b822",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "tem_5cd7144a933f8967394facee6c66406f"
+    }
+   }
+  },
+  {
+   "digest": "34bbf9fff26ea8a4e0da7077423655f46cadd8c3b18a9c5f1a85309fd9b25d93",
+   "name": "team_policy",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "delegation_ceiling": 2,
+    "execution_authority": {
+     "duty": "finalizer",
+     "principal_id": "prn_77dcdefe4c1c00f1910e11cea631fd47"
+    },
+    "expiry_days": 30,
+    "independence": {
+     "excludes_recorded_authors": true,
+     "excludes_requester": true,
+     "excludes_sponsored_agents": true
+    },
+    "kind": "governing_policy",
+    "operations": [
+     "publish"
+    ],
+    "policy_id": "pol_e1182d0a1bf754f38a575432d212a422",
+    "policy_version": 1,
+    "schema": 1,
+    "team_id": "tem_5cd7144a933f8967394facee6c66406f",
+    "threshold": 0
+   }
+  },
+  {
+   "digest": "95d8ab5117d29d1108f500319b86468beda111ae4f562b6739558612246d6e98",
+   "name": "team_founder_grant",
+   "record": {
+    "actions": [
+     "read",
+     "use",
+     "contribute",
+     "review",
+     "publish",
+     "adopt",
+     "grant",
+     "policy"
+    ],
+    "created_at": "2000-01-01T00:00:00Z",
+    "delegation_ceiling": 2,
+    "grant_id": "gra_7c72c5860340299a9b78e81647184b97",
+    "grant_revision": 1,
+    "holder": {
+     "principal_id": "prn_77dcdefe4c1c00f1910e11cea631fd47",
+     "to": "principal"
+    },
+    "issuer_principal_id": "prn_77dcdefe4c1c00f1910e11cea631fd47",
+    "kind": "grant_record",
+    "schema": 1,
+    "scope": {
+     "layer": "team",
+     "team_id": "tem_5cd7144a933f8967394facee6c66406f"
+    },
+    "standing": "current",
+    "team_id": "tem_5cd7144a933f8967394facee6c66406f"
+   }
+  },
+  {
+   "digest": "c396ac80c914efaa0c158e05c93f6e5b1db3c07812de13a3284f638b84a46c1c",
+   "name": "team_active",
+   "record": {
+    "kind": "team_state",
+    "schema": 1,
+    "since": "2000-01-01T00:00:00Z",
+    "state": "active",
+    "team_id": "tem_5cd7144a933f8967394facee6c66406f"
+   }
+  },
+  {
+   "digest": "7d224e726559b6f1cfbfab88abc4006c7ed4e850aac31c8bc7c4756f8be1c84d",
+   "name": "team_profile",
+   "record": {
+    "kind": "team_profile",
+    "name": "Platform",
+    "purpose": "The standards this group works to.",
+    "schema": 1,
+    "team_id": "tem_5cd7144a933f8967394facee6c66406f",
+    "updated_at": "2000-01-01T00:00:00Z"
+   }
+  },
+  {
+   "digest": "2b6a0e0a6cf4bc558bc8fcdf4f4589fd109dac0b8d478c90a5260ab365bbd766",
+   "name": "found_team_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "d77b68f1378a03b62de620a7b3c5b32fb1f328c8988482e3a2c29ab0c0b4ebdb",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_5cd7144a933f8967394facee6c66406f"
+    },
+    "request_digest": "5114c2f5bd8eb40e7145d7ca2f049855e6caca4971d647c1777a13f995fd427f",
+    "request_id": "req_eab77b2aef4c3c8eb34fac2a8985b822",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "tem_5cd7144a933f8967394facee6c66406f"
+    }
+   }
+  },
+  {
+   "digest": "0ae043234acfa9786f8a8d4d3420bd5fc3439eec3ea6241efecbeeff28d19622",
+   "name": "found_team_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "2b6a0e0a6cf4bc558bc8fcdf4f4589fd109dac0b8d478c90a5260ab365bbd766",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "34bbf9fff26ea8a4e0da7077423655f46cadd8c3b18a9c5f1a85309fd9b25d93",
+      "kind": "governing_policy"
+     },
+     {
+      "digest": "95d8ab5117d29d1108f500319b86468beda111ae4f562b6739558612246d6e98",
+      "kind": "grant_record"
+     },
+     {
+      "digest": "c396ac80c914efaa0c158e05c93f6e5b1db3c07812de13a3284f638b84a46c1c",
+      "kind": "team_state"
+     },
+     {
+      "digest": "7d224e726559b6f1cfbfab88abc4006c7ed4e850aac31c8bc7c4756f8be1c84d",
+      "kind": "team_profile"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "5114c2f5bd8eb40e7145d7ca2f049855e6caca4971d647c1777a13f995fd427f",
+    "request_id": "req_eab77b2aef4c3c8eb34fac2a8985b822",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "69b67095acfc175cb91d405b9eafe74aa22f079e58aafd863f86477ab825dde4",
+   "name": "google_connection_submitted",
+   "record": {
+    "audience": "1234567890-abcdef.apps.googleusercontent.com",
+    "exchange": {
+     "flow": "code_with_pkce",
+     "runs": "local_public_client"
+    },
+    "expected_claims": [
+     {
+      "claim": "hd",
+      "value": "example.com"
+     }
+    ],
+    "issuer": "https://accounts.google.com",
+    "kind": "provider_connection",
+    "preset": "google",
+    "schema": 1,
+    "team_id": "tem_5cd7144a933f8967394facee6c66406f"
+   }
+  },
+  {
+   "digest": "b71dad4b306004056a4c26f37d4b48cf460ffe0978b5ed0dd218c3996295ef39",
+   "name": "configure_google",
+   "record": {
+    "action": "policy",
+    "actor": {
+     "device_id": "dev_e2f45ae267a7641c90dce409437e98c5",
+     "principal_id": "prn_77dcdefe4c1c00f1910e11cea631fd47",
+     "profile_id": "prf_72fe61b38ab7d7fe2110906c8a266d9d"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "access.connection.configure",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_5cd7144a933f8967394facee6c66406f"
+    },
+    "payload_digest": "69b67095acfc175cb91d405b9eafe74aa22f079e58aafd863f86477ab825dde4",
+    "policy_digests": [
+     "34bbf9fff26ea8a4e0da7077423655f46cadd8c3b18a9c5f1a85309fd9b25d93"
+    ],
+    "proof_digests": [],
+    "request_id": "req_07cb2c338691c01d9c0c0b7c71b949e9",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "d77b68f1378a03b62de620a7b3c5b32fb1f328c8988482e3a2c29ab0c0b4ebdb"
+     },
+     "resource_id": "tem_5cd7144a933f8967394facee6c66406f"
+    }
+   }
+  },
+  {
+   "digest": "c2fe125fa1de6a26eb5fa6db7a91db3ef3c4afa5eebf9571da0df20b9738c469",
+   "name": "google_connection",
+   "record": {
+    "audience": "1234567890-abcdef.apps.googleusercontent.com",
+    "configured_at": "2000-01-01T00:00:00Z",
+    "connection_id": "con_eee105e989beb29691909bc20158fe20",
+    "exchange": {
+     "flow": "code_with_pkce",
+     "runs": "local_public_client"
+    },
+    "expected_claims": [
+     {
+      "claim": "hd",
+      "value": "example.com"
+     }
+    ],
+    "issuer": "https://accounts.google.com",
+    "kind": "provider_connection",
+    "preset": "google",
+    "schema": 1,
+    "team_id": "tem_5cd7144a933f8967394facee6c66406f"
+   }
+  },
+  {
+   "digest": "68fb40394158e84409e610603af872115a7e017a7b3b113b91d43cf2eb7c691f",
+   "name": "configure_google_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "17dfaba5ca4d561e5250edb0143e4d07674d52e18cc5e102eba0907233434ec1",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_5cd7144a933f8967394facee6c66406f"
+    },
+    "request_digest": "b71dad4b306004056a4c26f37d4b48cf460ffe0978b5ed0dd218c3996295ef39",
+    "request_id": "req_07cb2c338691c01d9c0c0b7c71b949e9",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "d77b68f1378a03b62de620a7b3c5b32fb1f328c8988482e3a2c29ab0c0b4ebdb"
+     },
+     "resource_id": "tem_5cd7144a933f8967394facee6c66406f"
+    }
+   }
+  },
+  {
+   "digest": "df11e3aa7f7064657d6812b28081ef99ee85dd71248ae3da410264ea79998214",
+   "name": "configure_google_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "68fb40394158e84409e610603af872115a7e017a7b3b113b91d43cf2eb7c691f",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "c2fe125fa1de6a26eb5fa6db7a91db3ef3c4afa5eebf9571da0df20b9738c469",
+      "kind": "provider_connection"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "b71dad4b306004056a4c26f37d4b48cf460ffe0978b5ed0dd218c3996295ef39",
+    "request_id": "req_07cb2c338691c01d9c0c0b7c71b949e9",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "33dd1c5b9fd15e6e211e3ff98ad7de19a3ba97f81997fe183215782507fd8db7",
+   "name": "ben_google_attempt_submitted",
+   "record": {
+    "connection_id": "con_eee105e989beb29691909bc20158fe20",
+    "kind": "sign_in_attempt",
+    "purpose": {
+     "purpose": "admit"
+    },
+    "schema": 1
+   }
+  },
+  {
+   "digest": "f60ad8469bb449b651f720fbc5be91033b5a2562cedbbefbb74e8c0822af94e5",
+   "name": "begin_ben_google",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_e92586021015c36d5b5d2f35447a4e3b",
+     "principal_id": "prn_a2b77752611e98806213810932d883e3",
+     "profile_id": "prf_4c76928f728c85e4564eba66b22fec33"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "access.sign_in.begin",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_a2b77752611e98806213810932d883e3"
+    },
+    "payload_digest": "33dd1c5b9fd15e6e211e3ff98ad7de19a3ba97f81997fe183215782507fd8db7",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_a4d6a93c4ce93d182973208685c892be",
+    "schema": 1,
+    "target": {
+     "resource_id": "con_eee105e989beb29691909bc20158fe20"
+    }
+   }
+  },
+  {
+   "digest": "bfe9651783a81327bdd328749bb9637ebddb2871d08639ba9bbbf874606290bd",
+   "name": "ben_google_attempt",
+   "record": {
+    "attempt_id": "sin_37800bd15a2d9831e3102ebf141880ec",
+    "begun_at": "2000-01-01T00:00:00Z",
+    "connection_id": "con_eee105e989beb29691909bc20158fe20",
+    "expires_at": "2000-01-01T00:00:00Z",
+    "kind": "sign_in_attempt",
+    "nonce_digest": "1a74040dcb81e3d9fac26ef64827daf8acd0b7b082b67f3c1c0cfc5e8cb521db",
+    "purpose": {
+     "purpose": "admit"
+    },
+    "schema": 1,
+    "state_digest": "eaba9c6da3edfe099ac148d87b53ed71e965b0b36eef70fb682713a7d31d7da5"
+   }
+  },
+  {
+   "digest": "03a63dda33d1454f0a6c1372fe0d4c0e3a96372c7d4761cc41ffe6a5fd52b7d2",
+   "name": "begin_ben_google_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "fc29c0cbe1da609a64ba76296cea292dd8a12774a6ca6d2bf26e41abeb74ca7b",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_a2b77752611e98806213810932d883e3"
+    },
+    "request_digest": "f60ad8469bb449b651f720fbc5be91033b5a2562cedbbefbb74e8c0822af94e5",
+    "request_id": "req_a4d6a93c4ce93d182973208685c892be",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "con_eee105e989beb29691909bc20158fe20"
+    }
+   }
+  },
+  {
+   "digest": "5c0ac686f8e400644155910f7d685be8c3af11d70fdf24fc9bc8a3aee079891b",
+   "name": "begin_ben_google_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "private_state_written",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "03a63dda33d1454f0a6c1372fe0d4c0e3a96372c7d4761cc41ffe6a5fd52b7d2",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "bfe9651783a81327bdd328749bb9637ebddb2871d08639ba9bbbf874606290bd",
+      "kind": "sign_in_attempt"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "f60ad8469bb449b651f720fbc5be91033b5a2562cedbbefbb74e8c0822af94e5",
+    "request_id": "req_a4d6a93c4ce93d182973208685c892be",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "e7333fa55b9f7c4350565343afb23ae581fdb9640d1b531479af7714d3aa9db1",
+   "name": "ben_google_callback",
+   "record": {
+    "attempt_id": "sin_37800bd15a2d9831e3102ebf141880ec",
+    "kind": "provider_callback",
+    "reply": {
+     "audience": "1234567890-abcdef.apps.googleusercontent.com",
+     "claims": [
+      {
+       "claim": "hd",
+       "value": "example.com"
+      }
+     ],
+     "email": "ben@example.com",
+     "expires_at": "2026-09-20T10:01:00Z",
+     "issued_at": "2026-09-20T09:01:00Z",
+     "issuer": "https://accounts.google.com",
+     "nonce_digest": "1a74040dcb81e3d9fac26ef64827daf8acd0b7b082b67f3c1c0cfc5e8cb521db",
+     "returned": "claims",
+     "subject": "subject-of-ben"
+    },
+    "schema": 1,
+    "state_digest": "eaba9c6da3edfe099ac148d87b53ed71e965b0b36eef70fb682713a7d31d7da5"
+   }
+  },
+  {
+   "digest": "df69483c928d6db25d8c60db1df280be541b35ed0418cd9188e684923545212e",
+   "name": "complete_ben_google",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_e92586021015c36d5b5d2f35447a4e3b",
+     "principal_id": "prn_a2b77752611e98806213810932d883e3",
+     "profile_id": "prf_4c76928f728c85e4564eba66b22fec33"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "access.sign_in.complete",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_a2b77752611e98806213810932d883e3"
+    },
+    "payload_digest": "e7333fa55b9f7c4350565343afb23ae581fdb9640d1b531479af7714d3aa9db1",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_e8f105b73e018f681d71769145f78d67",
+    "schema": 1,
+    "target": {
+     "resource_id": "con_eee105e989beb29691909bc20158fe20"
+    }
+   }
+  },
+  {
+   "digest": "ac49edbf35c74f82f4550d487659ba72ca94090664023bf7740364206c1b3119",
+   "name": "ben_google_evidence",
+   "record": {
+    "attempt_id": "sin_37800bd15a2d9831e3102ebf141880ec",
+    "claims": [
+     {
+      "claim": "hd",
+      "value": "example.com"
+     }
+    ],
+    "connection_id": "con_eee105e989beb29691909bc20158fe20",
+    "issuer": "https://accounts.google.com",
+    "kind": "sign_in_evidence",
+    "purpose": {
+     "purpose": "admit"
+    },
+    "schema": 1,
+    "subject": "subject-of-ben",
+    "verified_at": "2000-01-01T00:00:00Z"
+   }
+  },
+  {
+   "digest": "65b6dfc8cef82dbd82699811bb3f10e47c8c57dde4dbfc484cbf3e43e2655344",
+   "name": "complete_ben_google_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "8e4f46d75480416124be5280e11e3bbba80b0360a1d13735a9fb93c2b89b26c6",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_a2b77752611e98806213810932d883e3"
+    },
+    "request_digest": "df69483c928d6db25d8c60db1df280be541b35ed0418cd9188e684923545212e",
+    "request_id": "req_e8f105b73e018f681d71769145f78d67",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "con_eee105e989beb29691909bc20158fe20"
+    }
+   }
+  },
+  {
+   "digest": "8a622ec95a069eb226827913905b100eab72bd1720526de12cef9ef58295dca9",
+   "name": "complete_ben_google_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "65b6dfc8cef82dbd82699811bb3f10e47c8c57dde4dbfc484cbf3e43e2655344",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "ac49edbf35c74f82f4550d487659ba72ca94090664023bf7740364206c1b3119",
+      "kind": "sign_in_evidence"
+     }
+    ],
+    "provider_effect": "committed",
+    "request_digest": "df69483c928d6db25d8c60db1df280be541b35ed0418cd9188e684923545212e",
+    "request_id": "req_e8f105b73e018f681d71769145f78d67",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "a814dd93e6cf2b02dc249c82f90e13e2de0c2b932567b27c5a38155c27581b1b",
+   "name": "ben_claimed_membership",
+   "record": {
+    "kind": "membership_record",
+    "principal_id": "prn_a2b77752611e98806213810932d883e3",
+    "schema": 1,
+    "standing": {
+     "connection_id": "con_eee105e989beb29691909bc20158fe20",
+     "how": "provider_claim",
+     "is": "active",
+     "policy_digest": "34bbf9fff26ea8a4e0da7077423655f46cadd8c3b18a9c5f1a85309fd9b25d93"
+    },
+    "team_id": "tem_5cd7144a933f8967394facee6c66406f"
+   }
+  },
+  {
+   "digest": "ad18240fe80e4e3efdc9405da34ad33ed523037dcb83f5cf0f173964e6a63fd3",
+   "name": "admit_on_a_login",
+   "record": {
+    "action": "grant",
+    "actor": {
+     "device_id": "dev_e2f45ae267a7641c90dce409437e98c5",
+     "principal_id": "prn_77dcdefe4c1c00f1910e11cea631fd47",
+     "profile_id": "prf_72fe61b38ab7d7fe2110906c8a266d9d"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "team.membership.change",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_5cd7144a933f8967394facee6c66406f"
+    },
+    "payload_digest": "a814dd93e6cf2b02dc249c82f90e13e2de0c2b932567b27c5a38155c27581b1b",
+    "policy_digests": [
+     "34bbf9fff26ea8a4e0da7077423655f46cadd8c3b18a9c5f1a85309fd9b25d93"
+    ],
+    "proof_digests": [
+     "ac49edbf35c74f82f4550d487659ba72ca94090664023bf7740364206c1b3119"
+    ],
+    "request_id": "req_0a59df6758a65208e9fafab119be3b8f",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "17dfaba5ca4d561e5250edb0143e4d07674d52e18cc5e102eba0907233434ec1"
+     },
+     "resource_id": "tem_5cd7144a933f8967394facee6c66406f"
+    }
+   }
+  },
+  {
+   "digest": "4c8b5b996c7ac41793b638bfbef2a11d4776b704fa3f63f0cfbe1677e409c2af",
+   "name": "admit_on_a_login_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [
+      {
+       "code": "claim_not_admitted"
+      }
+     ],
+     "stage": "refused"
+    },
+    "outputs": [],
+    "provider_effect": "not_applicable",
+    "request_digest": "ad18240fe80e4e3efdc9405da34ad33ed523037dcb83f5cf0f173964e6a63fd3",
+    "request_id": "req_0a59df6758a65208e9fafab119be3b8f",
+    "schema": 1,
+    "supported_recovery": [
+     "new_governed_request"
+    ]
+   }
+  },
+  {
+   "digest": "763b4765c6e73e169c7a2b90056de820b87169c8426b0ee8e516625c7f76c1b0",
+   "name": "policy_admitting_an_email_domain",
+   "record": {
+    "admission": [
+     {
+      "actions": [
+       "read",
+       "use"
+      ],
+      "claim": "email_domain",
+      "connection_id": "con_eee105e989beb29691909bc20158fe20",
+      "equals": "example.com"
+     }
+    ],
+    "delegation_ceiling": 2,
+    "execution_authority": {
+     "duty": "finalizer",
+     "principal_id": "prn_77dcdefe4c1c00f1910e11cea631fd47"
+    },
+    "expiry_days": 30,
+    "independence": {
+     "excludes_recorded_authors": true,
+     "excludes_requester": true,
+     "excludes_sponsored_agents": true
+    },
+    "kind": "governing_policy",
+    "operations": [
+     "publish",
+     "adopt"
+    ],
+    "schema": 1,
+    "team_id": "tem_5cd7144a933f8967394facee6c66406f",
+    "threshold": 0
+   }
+  },
+  {
+   "digest": "cbef382b135a49076fa2eb39852990df6838d9821a2c18315bd3cd58ac605253",
+   "name": "admit_by_email_domain",
+   "record": {
+    "action": "policy",
+    "actor": {
+     "device_id": "dev_e2f45ae267a7641c90dce409437e98c5",
+     "principal_id": "prn_77dcdefe4c1c00f1910e11cea631fd47",
+     "profile_id": "prf_72fe61b38ab7d7fe2110906c8a266d9d"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "team.policy.set",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_5cd7144a933f8967394facee6c66406f"
+    },
+    "payload_digest": "763b4765c6e73e169c7a2b90056de820b87169c8426b0ee8e516625c7f76c1b0",
+    "policy_digests": [
+     "34bbf9fff26ea8a4e0da7077423655f46cadd8c3b18a9c5f1a85309fd9b25d93"
+    ],
+    "proof_digests": [],
+    "request_id": "req_385dfd2972fd8f2caf1901f3560b34d3",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "17dfaba5ca4d561e5250edb0143e4d07674d52e18cc5e102eba0907233434ec1"
+     },
+     "resource_id": "tem_5cd7144a933f8967394facee6c66406f"
+    }
+   }
+  },
+  {
+   "digest": "4cdd1c00b662b26b2f4a432e5c95b37eac3bc827a8e09ecf8e0600ddc0c14d44",
+   "name": "ben_claim_without_a_policy",
+   "record": {
+    "kind": "membership_record",
+    "principal_id": "prn_a2b77752611e98806213810932d883e3",
+    "schema": 1,
+    "standing": {
+     "connection_id": "con_eee105e989beb29691909bc20158fe20",
+     "how": "provider_claim",
+     "is": "active"
+    },
+    "team_id": "tem_5cd7144a933f8967394facee6c66406f"
+   }
+  },
+  {
+   "digest": "c1713359627d4b512b71ae2a5f0c574b3928aabd6d5f6722b28419e4910ec9a1",
+   "name": "admit_on_a_claim_alone",
+   "record": {
+    "action": "grant",
+    "actor": {
+     "device_id": "dev_e2f45ae267a7641c90dce409437e98c5",
+     "principal_id": "prn_77dcdefe4c1c00f1910e11cea631fd47",
+     "profile_id": "prf_72fe61b38ab7d7fe2110906c8a266d9d"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "team.membership.change",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_5cd7144a933f8967394facee6c66406f"
+    },
+    "payload_digest": "4cdd1c00b662b26b2f4a432e5c95b37eac3bc827a8e09ecf8e0600ddc0c14d44",
+    "policy_digests": [
+     "34bbf9fff26ea8a4e0da7077423655f46cadd8c3b18a9c5f1a85309fd9b25d93"
+    ],
+    "proof_digests": [
+     "ac49edbf35c74f82f4550d487659ba72ca94090664023bf7740364206c1b3119"
+    ],
+    "request_id": "req_8db6ec26347ca5115df8a5ad02e2f1ae",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "17dfaba5ca4d561e5250edb0143e4d07674d52e18cc5e102eba0907233434ec1"
+     },
+     "resource_id": "tem_5cd7144a933f8967394facee6c66406f"
+    }
+   }
+  },
+  {
+   "digest": "4f690a18b7591bf690b9ffb2e004e8fdcc7ed488da70ae32256b45b7f4993d20",
+   "name": "ben_key_named_by_email",
+   "record": {
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_e92586021015c36d5b5d2f35447a4e3b",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "email": "ben@example.com",
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_a2b77752611e98806213810932d883e3",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "ab594b1c8efe439b66e70d1cbe1eec4d0b959accb72a3bfa8c93d348b1642ccf",
+   "name": "bind_by_email",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_e92586021015c36d5b5d2f35447a4e3b",
+     "principal_id": "prn_a2b77752611e98806213810932d883e3",
+     "profile_id": "prf_4c76928f728c85e4564eba66b22fec33"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "identity.binding.add",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_a2b77752611e98806213810932d883e3"
+    },
+    "payload_digest": "4f690a18b7591bf690b9ffb2e004e8fdcc7ed488da70ae32256b45b7f4993d20",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_5ce53835b8f9fa4afc1b8835e1f6addf",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_a2b77752611e98806213810932d883e3"
+    }
+   }
+  }
+ ],
+ "says": "Ana founds a Team whose policy has no admission rule and configures a Google connection expecting the hd claim example.com. Ben signs in through it for admission on his own device; the owner verifies the callback and returns sign-in evidence, and the callback also carried his address ben@example.com. None of this admits him: Ana's membership change naming the connection, the policy in force and Ben's verified evidence is refused by the owner with claim_not_admitted. A policy that would admit by e-mail domain is refused at admission (no such claim can be written), a provider-claim membership that names no admitting policy is refused at admission, and a device-key binding that tries to carry Ben's e-mail as an identity is refused at admission. What must not happen: any membership record, policy version or binding being committed from a verified login or a matching e-mail domain alone.",
+ "spec_sha256": "1d0a6659d2c75f9006857143e3d2a0b008a8c690cc52a216d16b36ff568e13b8",
+ "steps": [
+  {
+   "carries": [
+    "team_proposal",
+    "team_rules"
+   ],
+   "head": "team_head_1",
+   "name": "found_team",
+   "process": "laptop",
+   "request": "found_team",
+   "result": "found_team_result",
+   "returns": [
+    "team_policy",
+    "team_founder_grant",
+    "team_active",
+    "team_profile"
+   ],
+   "submits": [
+    "team_rules"
+   ]
+  },
+  {
+   "carries": [
+    "google_connection_submitted"
+   ],
+   "head": "team_head_2",
+   "name": "configure_google",
+   "process": "laptop",
+   "request": "configure_google",
+   "result": "configure_google_result",
+   "returns": [
+    "google_connection"
+   ]
+  },
+  {
+   "carries": [
+    "ben_google_attempt_submitted"
+   ],
+   "name": "begin_ben_google",
+   "process": "desktop",
+   "request": "begin_ben_google",
+   "result": "begin_ben_google_result",
+   "returns": [
+    "ben_google_attempt"
+   ]
+  },
+  {
+   "carries": [
+    "ben_google_callback"
+   ],
+   "name": "complete_ben_google",
+   "process": "desktop",
+   "request": "complete_ben_google",
+   "result": "complete_ben_google_result",
+   "returns": [
+    "ben_google_evidence"
+   ]
+  },
+  {
+   "carries": [
+    "ben_claimed_membership"
+   ],
+   "name": "admit_on_a_login",
+   "process": "laptop",
+   "request": "admit_on_a_login",
+   "result": "admit_on_a_login_result",
+   "returns": []
+  },
+  {
+   "carries": [
+    "policy_admitting_an_email_domain"
+   ],
+   "name": "admit_by_email_domain",
+   "process": "laptop",
+   "refused": [
+    {
+     "code": "value_not_allowed",
+     "pointer": "/admission/0/claim",
+     "record": "policy_admitting_an_email_domain"
+    }
+   ],
+   "request": "admit_by_email_domain"
+  },
+  {
+   "carries": [
+    "ben_claim_without_a_policy"
+   ],
+   "name": "admit_on_a_claim_alone",
+   "process": "laptop",
+   "refused": [
+    {
+     "code": "variant_mismatch",
+     "pointer": "/standing",
+     "record": "ben_claim_without_a_policy"
+    }
+   ],
+   "request": "admit_on_a_claim_alone"
+  },
+  {
+   "carries": [
+    "ben_key_named_by_email"
+   ],
+   "name": "bind_by_email",
+   "process": "desktop",
+   "refused": [
+    {
+     "code": "unknown_field",
+     "pointer": "/email",
+     "record": "ben_key_named_by_email"
+    }
+   ],
+   "request": "bind_by_email"
+  }
+ ],
+ "world": {
+  "processes": [
+   "laptop",
+   "desktop"
+  ]
+ }
+}

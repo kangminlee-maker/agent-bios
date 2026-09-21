@@ -1,0 +1,1208 @@
+{
+ "case": "CAP-11",
+ "says": "A person has founded a Team alone (team.found) and selected one transcript span (source.observe). Before the extraction is saved, the owner decides admission for the capture under the current session (access.admission.decide, allowed at access generation 7), and the capture is then saved as a draft for the Team decision source it named (source.capture.record). Four later changes must each stop a late extraction from being saved or redirected, and none writes anything: an extraction still executing is cancelled by its request id (operation.cancel), and querying that id (operation.query) returns its result withdrawn with no output; the selected bytes change, a second observation of the same selection reads other bytes, and a capture of those bytes under the first observation is refused with input_not_observed; the Team is archived (team.lifecycle.apply on the head the founding committed), and the same capture for that Team sealed again is refused with team_archived; and a capture admitted at generation 7 arrives after the person signs out (access.transition sign_out, generation 8): it is refused with access_signed_out and access_generation_moved and points at sign-in, and deciding its admission again now answers not_admitted with the same two gaps. No late result is attached to another request, another target or the changed bytes.",
+ "ids": [
+  {
+   "name": "me",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "local_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "repo",
+   "prefix": "rep"
+  },
+  {
+   "name": "team",
+   "prefix": "tem"
+  },
+  {
+   "name": "team_decisions",
+   "prefix": "src"
+  },
+  {
+   "name": "repo_decisions",
+   "prefix": "src"
+  },
+  {
+   "name": "entry",
+   "prefix": "ent"
+  },
+  {
+   "name": "found_request",
+   "prefix": "req"
+  },
+  {
+   "name": "observe_request",
+   "prefix": "req"
+  },
+  {
+   "name": "reobserve_request",
+   "prefix": "req"
+  },
+  {
+   "name": "admit_request",
+   "prefix": "req"
+  },
+  {
+   "name": "capture_request",
+   "prefix": "req"
+  },
+  {
+   "name": "slow_request",
+   "prefix": "req"
+  },
+  {
+   "name": "cancel_request",
+   "prefix": "req"
+  },
+  {
+   "name": "query_request",
+   "prefix": "req"
+  },
+  {
+   "name": "moved_request",
+   "prefix": "req"
+  },
+  {
+   "name": "archive_request",
+   "prefix": "req"
+  },
+  {
+   "name": "archived_request",
+   "prefix": "req"
+  },
+  {
+   "name": "late_request",
+   "prefix": "req"
+  },
+  {
+   "name": "late_admit_request",
+   "prefix": "req"
+  },
+  {
+   "name": "readmit_request",
+   "prefix": "req"
+  },
+  {
+   "name": "sign_out_request",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "policy",
+   "from": "c08/policy_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/threshold",
+     "value": 0
+    }
+   ]
+  },
+  {
+   "name": "proposal",
+   "from": "c08/proposal_as_submitted.json",
+   "drop": [
+    "/founding_mode/nominees"
+   ],
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/founder_principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/founding_mode/mode",
+     "value": "self_founded"
+    },
+    {
+     "pointer": "/founding_mode/acknowledged_self_reviewed",
+     "value": true
+    },
+    {
+     "pointer": "/recovery/0/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#policy"
+    }
+   ]
+  },
+  {
+   "name": "found_submit",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@found_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.found"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#proposal"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    }
+   ]
+  },
+  {
+   "name": "stored_policy",
+   "from": "policy",
+   "set": [
+    {
+     "pointer": "/policy_id",
+     "value": "$pol:policy"
+    },
+    {
+     "pointer": "/policy_version",
+     "value": 1
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:founder_grant"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_state",
+   "from": "c08/archived_team.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/state",
+     "value": "active"
+    },
+    {
+     "pointer": "/since",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "selection",
+   "from": "c01/selection_of_a_transcript_span.json"
+  },
+  {
+   "name": "observe",
+   "from": "c01/observe_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@observe_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#selection"
+    }
+   ]
+  },
+  {
+   "name": "observation",
+   "from": "c01/observation_of_a_selected_transcript_span.json",
+   "set": [
+    {
+     "pointer": "/selection_digest",
+     "value": "#selection"
+    },
+    {
+     "pointer": "/read/0/digest",
+     "value": "$digest:span_bytes"
+    },
+    {
+     "pointer": "/observed_at",
+     "value": "$instant:observed_at"
+    }
+   ]
+  },
+  {
+   "name": "team_capture",
+   "from": "sources/capture_of_memory_material_submitted.json",
+   "set": [
+    {
+     "pointer": "/destination_source_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/observation_digest",
+     "value": "#observation"
+    },
+    {
+     "pointer": "/entries/0/entry_id",
+     "value": "@entry"
+    },
+    {
+     "pointer": "/processing/inputs/0/evidence_digest",
+     "value": "$digest:span_bytes"
+    },
+    {
+     "pointer": "/processing/inputs/0/permits/destinations/0/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/processing/inputs/0/permits/destinations/0/team_id",
+     "value": "@team"
+    }
+   ],
+   "drop": [
+    "/processing/inputs/0/permits/destinations/0/repository_id"
+   ]
+  },
+  {
+   "name": "capture_submit",
+   "from": "c01/capture_request.json",
+   "drop": [
+    "/owner/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@capture_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#stored_policy"
+     ]
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_capture"
+    }
+   ]
+  },
+  {
+   "name": "admit_submit",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@admit_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.admission.decide"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#capture_submit"
+    }
+   ]
+  },
+  {
+   "name": "allowed",
+   "from": "c02/allowed.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@capture_request"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@local_profile"
+    }
+   ]
+  },
+  {
+   "name": "stored_capture",
+   "from": "team_capture",
+   "set": [
+    {
+     "pointer": "/captured_at",
+     "value": "$instant:captured_at"
+    }
+   ]
+  },
+  {
+   "name": "run",
+   "from": "c01/extraction_run_of_a_packaged_adapter.json",
+   "set": [
+    {
+     "pointer": "/run_id",
+     "value": "$run:distill_run"
+    },
+    {
+     "pointer": "/ran_at",
+     "value": "$instant:ran_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_capture",
+   "from": "sources/capture_of_memory_material_submitted.json",
+   "set": [
+    {
+     "pointer": "/destination_source_id",
+     "value": "@repo_decisions"
+    },
+    {
+     "pointer": "/observation_digest",
+     "value": "#observation"
+    },
+    {
+     "pointer": "/entries/0/entry_id",
+     "value": "@entry"
+    },
+    {
+     "pointer": "/processing/inputs/0/evidence_digest",
+     "value": "$digest:span_bytes"
+    },
+    {
+     "pointer": "/processing/inputs/0/permits/destinations/0/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "slow_submit",
+   "from": "c01/capture_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@slow_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_decisions"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_capture"
+    }
+   ]
+  },
+  {
+   "name": "slow_query",
+   "from": "c03/query_by_request_id.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@slow_request"
+    }
+   ]
+  },
+  {
+   "name": "cancel_submit",
+   "from": "c03/cancel_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@cancel_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@slow_request"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#slow_query"
+    }
+   ],
+   "drop": [
+    "/owner/team_id"
+   ]
+  },
+  {
+   "name": "query_submit",
+   "from": "cancel_submit",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@query_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.query"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    }
+   ]
+  },
+  {
+   "name": "slow_withdrawn",
+   "from": "c01/capture_widening_its_scope_without_saying_so.json",
+   "drop": [
+    "/outcome/material_gaps/0"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@slow_request"
+    },
+    {
+     "pointer": "/request_digest",
+     "value": "#slow_submit"
+    },
+    {
+     "pointer": "/outcome/stage",
+     "value": "withdrawn"
+    }
+   ]
+  },
+  {
+   "name": "reobserve",
+   "from": "observe",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@reobserve_request"
+    }
+   ]
+  },
+  {
+   "name": "changed_observation",
+   "from": "observation",
+   "set": [
+    {
+     "pointer": "/read/0/digest",
+     "value": "$digest:changed_bytes"
+    },
+    {
+     "pointer": "/observed_at",
+     "value": "$instant:reobserved_at"
+    }
+   ]
+  },
+  {
+   "name": "moved_capture",
+   "from": "repo_capture",
+   "set": [
+    {
+     "pointer": "/processing/inputs/0/evidence_digest",
+     "value": "$digest:changed_bytes"
+    }
+   ]
+  },
+  {
+   "name": "moved_submit",
+   "from": "slow_submit",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@moved_request"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#moved_capture"
+    }
+   ]
+  },
+  {
+   "name": "archive",
+   "from": "c08/archive.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "archive_submit",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@archive_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.lifecycle.apply"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#stored_policy"
+     ]
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#archive"
+    }
+   ]
+  },
+  {
+   "name": "archived_state",
+   "from": "team_state",
+   "set": [
+    {
+     "pointer": "/state",
+     "value": "archived"
+    },
+    {
+     "pointer": "/since",
+     "value": "$instant:archived_at"
+    }
+   ]
+  },
+  {
+   "name": "archived_submit",
+   "from": "capture_submit",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@archived_request"
+    }
+   ]
+  },
+  {
+   "name": "late_submit",
+   "from": "slow_submit",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@late_request"
+    }
+   ]
+  },
+  {
+   "name": "late_admit_submit",
+   "from": "admit_submit",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@late_admit_request"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#late_submit"
+    }
+   ]
+  },
+  {
+   "name": "late_allowed",
+   "from": "allowed",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@late_request"
+    }
+   ]
+  },
+  {
+   "name": "sign_out",
+   "from": "c02/lock.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/change/transition",
+     "value": "sign_out"
+    }
+   ]
+  },
+  {
+   "name": "sign_out_submit",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@sign_out_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#sign_out"
+    }
+   ]
+  },
+  {
+   "name": "signed_out",
+   "from": "c02/locked_state.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/state/is",
+     "value": "signed_out"
+    },
+    {
+     "pointer": "/state/because",
+     "value": "sign_out"
+    },
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:signed_out_at"
+    }
+   ]
+  },
+  {
+   "name": "readmit_submit",
+   "from": "late_admit_submit",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@readmit_request"
+    }
+   ]
+  },
+  {
+   "name": "not_admitted",
+   "from": "c02/old_handle_after_sign_out.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@late_request"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@local_profile"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "found_team",
+   "request": "found_submit",
+   "carries": [
+    "proposal",
+    "policy"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_policy",
+     "founder_grant",
+     "team_state",
+     "team_profile"
+    ],
+    "head": "team_head"
+   },
+   "submits": [
+    "policy"
+   ]
+  },
+  {
+   "name": "observe_span",
+   "request": "observe",
+   "carries": [
+    "selection"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "observation"
+    ]
+   }
+  },
+  {
+   "name": "admit_capture",
+   "request": "admit_submit",
+   "carries": [
+    "capture_submit"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "allowed"
+    ]
+   }
+  },
+  {
+   "name": "save_capture",
+   "request": "capture_submit",
+   "carries": [
+    "team_capture"
+   ],
+   "answer": {
+    "stage": "draft",
+    "local_effect": "candidate_stored",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_capture",
+     "run"
+    ]
+   }
+  },
+  {
+   "name": "start_slow_extraction",
+   "request": "slow_submit",
+   "carries": [
+    "repo_capture"
+   ],
+   "answer": {
+    "stage": "executing",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": []
+   }
+  },
+  {
+   "name": "cancel_slow_extraction",
+   "request": "cancel_submit",
+   "carries": [
+    "slow_query"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": []
+   }
+  },
+  {
+   "name": "query_slow_extraction",
+   "request": "query_submit",
+   "carries": [
+    "slow_query"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "slow_withdrawn"
+    ]
+   }
+  },
+  {
+   "name": "reobserve_changed_span",
+   "request": "reobserve",
+   "carries": [
+    "selection"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "changed_observation"
+    ]
+   }
+  },
+  {
+   "name": "capture_moved_bytes",
+   "request": "moved_submit",
+   "carries": [
+    "moved_capture"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "input_not_observed",
+      "pointer": "/processing/inputs/0/evidence_digest"
+     }
+    ],
+    "recovery": [],
+    "returns": []
+   }
+  },
+  {
+   "name": "archive_team",
+   "request": "archive_submit",
+   "carries": [
+    "archive"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "archived_state"
+    ],
+    "head": "archived_head"
+   }
+  },
+  {
+   "name": "capture_for_archived_team",
+   "request": "archived_submit",
+   "carries": [
+    "team_capture"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "team_archived"
+     }
+    ],
+    "recovery": [],
+    "returns": []
+   }
+  },
+  {
+   "name": "admit_late_capture",
+   "request": "late_admit_submit",
+   "carries": [
+    "late_submit"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "late_allowed"
+    ]
+   }
+  },
+  {
+   "name": "sign_out",
+   "request": "sign_out_submit",
+   "carries": [
+    "sign_out"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "signed_out"
+    ]
+   }
+  },
+  {
+   "name": "deliver_late_capture",
+   "request": "late_submit",
+   "carries": [
+    "repo_capture"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "access_signed_out"
+     },
+     {
+      "code": "access_generation_moved"
+     }
+    ],
+    "recovery": [
+     "sign_in"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "readmit_late_capture",
+   "request": "readmit_submit",
+   "carries": [
+    "late_submit"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "not_admitted"
+    ]
+   }
+  }
+ ]
+}

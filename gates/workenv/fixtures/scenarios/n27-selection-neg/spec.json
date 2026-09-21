@@ -1,0 +1,374 @@
+{
+ "case": "N27-SELECTION-NEG",
+ "says": "alice selects two roots of her bound checkout to read: the directory docs/adr, which is required, and README.md, which is optional; beside docs/adr the checkout also holds docs/adr-private/notes.md, which she did not select. The owner observes the selection and writes nothing: the source_observation it returns names that selection's digest and reads the three files under docs/adr (committed, modified and untracked, each with its state) and README.md, each under the root it belongs to, and nothing under docs/adr-private. After docs/adr is removed from the working tree, the same selection is observed again: the observation lists root 0 as missing, reads only README.md, and the answer carries ref_unavailable at /roots/0. Every observation the owner writes must satisfy C01/read_within_selection against the selection it observed; what it must never write is a read outside the selected roots (the sibling docs/adr-private file), a read under a root the selection does not have, transcript records beyond the selected span, or a missing optional root reported as missing (the rule fixture's breaking records).",
+ "ids": [
+  {
+   "name": "alice",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "alice_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "bind_alice_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "work_repo",
+   "prefix": "rep"
+  },
+  {
+   "name": "bind_repo_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "observe_the_selection_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "observe_after_the_directory_is_gone_rid",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "alice_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    }
+   ]
+  },
+  {
+   "name": "bind_alice",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_alice_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#alice_key"
+    }
+   ]
+  },
+  {
+   "name": "alice_binding",
+   "from": "alice_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:alice_binding_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:alice_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_clone",
+   "from": "c01/repository_binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@work_repo"
+    }
+   ]
+  },
+  {
+   "name": "bind_repo",
+   "from": "c01/repository_bind_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_repo_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_clone"
+    }
+   ]
+  },
+  {
+   "name": "repo_bound",
+   "from": "c01/clone_shares_the_repository_id.json",
+   "set": [
+    {
+     "pointer": "/observed/working_bytes_digest",
+     "value": "$digest:checkout_bytes"
+    },
+    {
+     "pointer": "/repository_id",
+     "value": "@work_repo"
+    }
+   ]
+  },
+  {
+   "name": "adr_selection",
+   "from": "c01/selection_of_working_tree_paths.json",
+   "set": [
+    {
+     "pointer": "/roots/0/place/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/roots/1/place/repository_id",
+     "value": "@work_repo"
+    }
+   ]
+  },
+  {
+   "name": "observe_the_selection",
+   "from": "c01/observe_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@observe_the_selection_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#adr_selection"
+    }
+   ]
+  },
+  {
+   "name": "observe_the_selection_observation",
+   "from": "c01/observation_of_a_working_tree_with_dirty_and_untracked_files.json",
+   "set": [
+    {
+     "pointer": "/observed_at",
+     "value": "$instant:observe_the_selection_at"
+    },
+    {
+     "pointer": "/selection_digest",
+     "value": "#adr_selection"
+    }
+   ]
+  },
+  {
+   "name": "observe_after_the_directory_is_gone",
+   "from": "c01/observe_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@observe_after_the_directory_is_gone_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#adr_selection"
+    }
+   ]
+  },
+  {
+   "name": "observe_after_the_directory_is_gone_observation",
+   "from": "c01/observation_of_a_working_tree_with_dirty_and_untracked_files.json",
+   "drop": [
+    "/read/3",
+    "/read/2",
+    "/read/1"
+   ],
+   "set": [
+    {
+     "pointer": "/missing",
+     "value": []
+    },
+    {
+     "pointer": "/missing/-",
+     "value": 0
+    },
+    {
+     "pointer": "/observed_at",
+     "value": "$instant:observe_after_the_directory_is_gone_at"
+    },
+    {
+     "pointer": "/read/0/digest",
+     "value": "3008064aa2516ad1e16ea23e62a0672fc15340ad8543ca3ea510157c26075159"
+    },
+    {
+     "pointer": "/read/0/path",
+     "value": "README.md"
+    },
+    {
+     "pointer": "/read/0/root",
+     "value": 1
+    },
+    {
+     "pointer": "/read/0/size",
+     "value": 3120
+    },
+    {
+     "pointer": "/selection_digest",
+     "value": "#adr_selection"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_alice",
+   "request": "bind_alice",
+   "carries": [
+    "alice_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "alice_binding"
+    ]
+   }
+  },
+  {
+   "name": "bind_repo",
+   "request": "bind_repo",
+   "carries": [
+    "repo_clone"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_bound"
+    ]
+   }
+  },
+  {
+   "name": "observe_the_selection",
+   "request": "observe_the_selection",
+   "carries": [
+    "adr_selection"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "observe_the_selection_observation"
+    ]
+   }
+  },
+  {
+   "name": "observe_after_the_directory_is_gone",
+   "request": "observe_after_the_directory_is_gone",
+   "carries": [
+    "adr_selection"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "ref_unavailable",
+      "pointer": "/roots/0"
+     }
+    ],
+    "recovery": [],
+    "returns": [
+     "observe_after_the_directory_is_gone_observation"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,3105 @@
+{
+ "case": "N04-C03-NEG",
+ "says": "Alice and Bob each have a principal; Bob keeps private rules in his personal source, and Alice's repository has its own rules. Nine entrances that reach kept state are recorded with their guards (setup, session start, maintenance, the decision CLI, the studio hub, capture intake, the host launcher, supplied requests and the studio bridge), and the old corpus-store compatibility route is recorded as retired at cutover, naming the store that succeeds it. Alice then asks, through each of the nine entrances and from a root she chose (as with --repo or AGENT_BIOS_STATE_DIR pointing at another directory), for a projection of Bob's rules: every request is refused as source_not_authorized and returns nothing. Asking for her own repository's rules through capture intake and supplied requests, whose guard is the source store rather than the projection owner, or through the retired compatibility route, is refused as protected_root_bypass: the retired route names its successor and serves nothing itself. No refused request may return a projection or any body.",
+ "ids": [
+  {
+   "name": "alice",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "bind_alice_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "bob",
+   "prefix": "prn"
+  },
+  {
+   "name": "bobs_laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "bobs_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "bind_bob_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "repo",
+   "prefix": "rep"
+  },
+  {
+   "name": "bind_repository_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "repo_rules",
+   "prefix": "src"
+  },
+  {
+   "name": "author_repo_rules_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "bob_rules",
+   "prefix": "src"
+  },
+  {
+   "name": "author_bob_rules_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "setup_entrance",
+   "prefix": "ent"
+  },
+  {
+   "name": "trace_setup_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "session_start_entrance",
+   "prefix": "ent"
+  },
+  {
+   "name": "trace_session_start_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "maintenance_entrance",
+   "prefix": "ent"
+  },
+  {
+   "name": "trace_maintenance_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "decision_cli_entrance",
+   "prefix": "ent"
+  },
+  {
+   "name": "trace_decision_cli_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "studio_hub_entrance",
+   "prefix": "ent"
+  },
+  {
+   "name": "trace_studio_hub_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "capture_intake_entrance",
+   "prefix": "ent"
+  },
+  {
+   "name": "trace_capture_intake_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "host_launcher_entrance",
+   "prefix": "ent"
+  },
+  {
+   "name": "trace_host_launcher_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "supplied_request_entrance",
+   "prefix": "ent"
+  },
+  {
+   "name": "trace_supplied_request_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "studio_bridge_entrance",
+   "prefix": "ent"
+  },
+  {
+   "name": "trace_studio_bridge_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "compatibility_route_entrance",
+   "prefix": "ent"
+  },
+  {
+   "name": "trace_compatibility_route_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "deny_via_setup_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "deny_via_session_start_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "deny_via_maintenance_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "deny_via_decision_cli_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "deny_via_studio_hub_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "deny_via_capture_intake_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "deny_via_host_launcher_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "deny_via_supplied_request_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "deny_via_studio_bridge_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "bypass_via_capture_intake_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "bypass_via_supplied_request_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "bypass_via_compatibility_route_request_req",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "alice_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    }
+   ]
+  },
+  {
+   "name": "bind_alice_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.add"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@bind_alice_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#alice_key"
+    }
+   ]
+  },
+  {
+   "name": "alice_binding",
+   "from": "c01/device_key_binding.json",
+   "set": [
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:alice_binding_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:alice_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "bob_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/credential/device_id",
+     "value": "@bobs_laptop"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@bob"
+    }
+   ]
+  },
+  {
+   "name": "bind_bob_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@bobs_laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bobs_profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.add"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@bind_bob_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#bob_key"
+    }
+   ]
+  },
+  {
+   "name": "bob_binding",
+   "from": "c01/device_key_binding.json",
+   "set": [
+    {
+     "pointer": "/credential/device_id",
+     "value": "@bobs_laptop"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:bob_binding_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:bob_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_binding_submitted",
+   "from": "c01/repository_binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "bind_repository_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "repository.bind"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@bind_repository_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_binding_submitted"
+    }
+   ]
+  },
+  {
+   "name": "repo_binding",
+   "from": "c01/clone_shares_the_repository_id.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/observed/working_bytes_digest",
+     "value": "$digest:repo_bound_bytes"
+    }
+   ]
+  },
+  {
+   "name": "repo_rules_request",
+   "from": "sources/request_to_author_here.json",
+   "set": [
+    {
+     "pointer": "/destination/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/role",
+     "value": "instructions"
+    }
+   ]
+  },
+  {
+   "name": "author_repo_rules_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.revision.admit"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@author_repo_rules_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_rules"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_rules_request"
+    }
+   ]
+  },
+  {
+   "name": "repo_rules_rev",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:repo_rules_review_body"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "rules/review.md"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 2048
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:repo_rules_produced_at"
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@repo_rules"
+    }
+   ]
+  },
+  {
+   "name": "bob_rules_request",
+   "from": "sources/request_to_author_here.json",
+   "drop": [
+    "/destination/scope/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/destination/home_mode",
+     "value": "managed"
+    },
+    {
+     "pointer": "/destination/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/destination/scope/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/role",
+     "value": "instructions"
+    }
+   ]
+  },
+  {
+   "name": "author_bob_rules_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.revision.admit"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@author_bob_rules_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@bob_rules"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#bob_rules_request"
+    }
+   ]
+  },
+  {
+   "name": "bob_rules_rev",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:bob_rules_private_body"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "private.md"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 700
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:bob_rules_produced_at"
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@bob_rules"
+    }
+   ]
+  },
+  {
+   "name": "setup_disposition",
+   "from": "c03/the_store_admits_what_it_owns.json",
+   "set": [
+    {
+     "pointer": "/disposition/admits",
+     "value": [
+      "role.project",
+      "session.routing.activate"
+     ]
+    },
+    {
+     "pointer": "/disposition/owns",
+     "value": "projection_owner"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "setup"
+    },
+    {
+     "pointer": "/route/path",
+     "value": "install.sh"
+    },
+    {
+     "pointer": "/route/command",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/traced_at",
+     "value": "2026-09-21T14:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "trace_setup_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "entrance.disposition.record"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@trace_setup_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@setup_entrance"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#setup_disposition"
+    }
+   ]
+  },
+  {
+   "name": "session_start_disposition",
+   "from": "c03/a_caller_rooted_writer_routed_through_the_store.json",
+   "set": [
+    {
+     "pointer": "/disposition/choke_point",
+     "value": "projection_owner"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "session_start"
+    },
+    {
+     "pointer": "/route/path",
+     "value": "compose/instructions_session.py"
+    },
+    {
+     "pointer": "/traced_at",
+     "value": "2026-09-21T14:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "trace_session_start_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "entrance.disposition.record"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@trace_session_start_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@session_start_entrance"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#session_start_disposition"
+    }
+   ]
+  },
+  {
+   "name": "maintenance_disposition",
+   "from": "c03/a_caller_rooted_writer_routed_through_the_store.json",
+   "set": [
+    {
+     "pointer": "/disposition/choke_point",
+     "value": "projection_owner"
+    },
+    {
+     "pointer": "/route/path",
+     "value": "install.sh"
+    },
+    {
+     "pointer": "/route/command",
+     "value": "doctor"
+    },
+    {
+     "pointer": "/traced_at",
+     "value": "2026-09-21T14:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "trace_maintenance_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "entrance.disposition.record"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@trace_maintenance_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@maintenance_entrance"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#maintenance_disposition"
+    }
+   ]
+  },
+  {
+   "name": "decision_cli_disposition",
+   "from": "c03/the_store_admits_what_it_owns.json",
+   "set": [
+    {
+     "pointer": "/traced_at",
+     "value": "2026-09-21T14:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "trace_decision_cli_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "entrance.disposition.record"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@trace_decision_cli_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@decision_cli_entrance"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#decision_cli_disposition"
+    }
+   ]
+  },
+  {
+   "name": "studio_hub_disposition",
+   "from": "c03/the_store_admits_what_it_owns.json",
+   "set": [
+    {
+     "pointer": "/disposition/admits",
+     "value": [
+      "source.capture.record",
+      "source.revision.admit",
+      "source.revision.commit",
+      "source.revision.publish",
+      "memory.candidate.store",
+      "memory.record.publish"
+     ]
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "studio_hub"
+    },
+    {
+     "pointer": "/route/path",
+     "value": "compose/studio_hub.py"
+    },
+    {
+     "pointer": "/traced_at",
+     "value": "2026-09-21T14:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "trace_studio_hub_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "entrance.disposition.record"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@trace_studio_hub_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@studio_hub_entrance"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#studio_hub_disposition"
+    }
+   ]
+  },
+  {
+   "name": "capture_intake_disposition",
+   "from": "c03/a_caller_rooted_writer_routed_through_the_store.json",
+   "set": [
+    {
+     "pointer": "/entrance/name",
+     "value": "capture_intake"
+    },
+    {
+     "pointer": "/route/path",
+     "value": "learn/capture.py"
+    },
+    {
+     "pointer": "/traced_at",
+     "value": "2026-09-21T14:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "trace_capture_intake_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "entrance.disposition.record"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@trace_capture_intake_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@capture_intake_entrance"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#capture_intake_disposition"
+    }
+   ]
+  },
+  {
+   "name": "host_launcher_disposition",
+   "from": "c03/a_caller_rooted_writer_routed_through_the_store.json",
+   "set": [
+    {
+     "pointer": "/disposition/choke_point",
+     "value": "publication_lock"
+    },
+    {
+     "pointer": "/disposition/root_origin",
+     "value": "owner"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "host_launcher"
+    },
+    {
+     "pointer": "/route/path",
+     "value": "launch/agent-launch.py"
+    },
+    {
+     "pointer": "/traced_at",
+     "value": "2026-09-21T14:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "trace_host_launcher_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "entrance.disposition.record"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@trace_host_launcher_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@host_launcher_entrance"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#host_launcher_disposition"
+    }
+   ]
+  },
+  {
+   "name": "supplied_request_disposition",
+   "from": "c03/a_caller_rooted_writer_routed_through_the_store.json",
+   "set": [
+    {
+     "pointer": "/entrance/name",
+     "value": "supplied_request"
+    },
+    {
+     "pointer": "/route/path",
+     "value": "compose/instructions_import.py"
+    },
+    {
+     "pointer": "/traced_at",
+     "value": "2026-09-21T14:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "trace_supplied_request_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "entrance.disposition.record"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@trace_supplied_request_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@supplied_request_entrance"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#supplied_request_disposition"
+    }
+   ]
+  },
+  {
+   "name": "studio_bridge_disposition",
+   "from": "c03/a_caller_rooted_writer_routed_through_the_store.json",
+   "set": [
+    {
+     "pointer": "/disposition/choke_point",
+     "value": "publication_lock"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "studio_bridge"
+    },
+    {
+     "pointer": "/route/path",
+     "value": "compose/app_bridge/scripts/bridge.py"
+    },
+    {
+     "pointer": "/traced_at",
+     "value": "2026-09-21T14:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "trace_studio_bridge_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "entrance.disposition.record"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@trace_studio_bridge_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@studio_bridge_entrance"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#studio_bridge_disposition"
+    }
+   ]
+  },
+  {
+   "name": "compatibility_route_disposition",
+   "from": "c03/a_compatibility_route_names_its_successor.json",
+   "set": [
+    {
+     "pointer": "/traced_at",
+     "value": "2026-09-21T14:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "trace_compatibility_route_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "entrance.disposition.record"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@trace_compatibility_route_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@compatibility_route_entrance"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#compatibility_route_disposition"
+    }
+   ]
+  },
+  {
+   "name": "deny_via_setup_plan",
+   "from": "c04/plan_for_one_source.json",
+   "set": [
+    {
+     "pointer": "/entrance/name",
+     "value": "setup"
+    },
+    {
+     "pointer": "/entrance/root_origin",
+     "value": "caller"
+    },
+    {
+     "pointer": "/source_pins/0/revision_digest",
+     "value": "#bob_rules_rev"
+    },
+    {
+     "pointer": "/source_pins/0/source_id",
+     "value": "@bob_rules"
+    }
+   ]
+  },
+  {
+   "name": "deny_via_setup_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/operation",
+     "value": "role.project"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@deny_via_setup_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@bob_rules"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:bob_rules_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#deny_via_setup_plan"
+    }
+   ]
+  },
+  {
+   "name": "deny_via_session_start_plan",
+   "from": "c04/plan_for_one_source.json",
+   "set": [
+    {
+     "pointer": "/entrance/root_origin",
+     "value": "caller"
+    },
+    {
+     "pointer": "/source_pins/0/revision_digest",
+     "value": "#bob_rules_rev"
+    },
+    {
+     "pointer": "/source_pins/0/source_id",
+     "value": "@bob_rules"
+    }
+   ]
+  },
+  {
+   "name": "deny_via_session_start_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/operation",
+     "value": "role.project"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@deny_via_session_start_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@bob_rules"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:bob_rules_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#deny_via_session_start_plan"
+    }
+   ]
+  },
+  {
+   "name": "deny_via_maintenance_plan",
+   "from": "c04/plan_for_one_source.json",
+   "set": [
+    {
+     "pointer": "/entrance/name",
+     "value": "maintenance"
+    },
+    {
+     "pointer": "/entrance/root_origin",
+     "value": "caller"
+    },
+    {
+     "pointer": "/source_pins/0/revision_digest",
+     "value": "#bob_rules_rev"
+    },
+    {
+     "pointer": "/source_pins/0/source_id",
+     "value": "@bob_rules"
+    }
+   ]
+  },
+  {
+   "name": "deny_via_maintenance_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/operation",
+     "value": "role.project"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@deny_via_maintenance_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@bob_rules"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:bob_rules_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#deny_via_maintenance_plan"
+    }
+   ]
+  },
+  {
+   "name": "deny_via_decision_cli_plan",
+   "from": "c04/plan_for_one_source.json",
+   "set": [
+    {
+     "pointer": "/entrance/name",
+     "value": "decision_cli"
+    },
+    {
+     "pointer": "/entrance/root_origin",
+     "value": "caller"
+    },
+    {
+     "pointer": "/source_pins/0/revision_digest",
+     "value": "#bob_rules_rev"
+    },
+    {
+     "pointer": "/source_pins/0/source_id",
+     "value": "@bob_rules"
+    }
+   ]
+  },
+  {
+   "name": "deny_via_decision_cli_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/operation",
+     "value": "role.project"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@deny_via_decision_cli_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@bob_rules"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:bob_rules_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#deny_via_decision_cli_plan"
+    }
+   ]
+  },
+  {
+   "name": "deny_via_studio_hub_plan",
+   "from": "c04/plan_for_one_source.json",
+   "set": [
+    {
+     "pointer": "/entrance/name",
+     "value": "studio_hub"
+    },
+    {
+     "pointer": "/entrance/root_origin",
+     "value": "caller"
+    },
+    {
+     "pointer": "/source_pins/0/revision_digest",
+     "value": "#bob_rules_rev"
+    },
+    {
+     "pointer": "/source_pins/0/source_id",
+     "value": "@bob_rules"
+    }
+   ]
+  },
+  {
+   "name": "deny_via_studio_hub_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/operation",
+     "value": "role.project"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@deny_via_studio_hub_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@bob_rules"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:bob_rules_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#deny_via_studio_hub_plan"
+    }
+   ]
+  },
+  {
+   "name": "deny_via_capture_intake_plan",
+   "from": "c04/plan_for_one_source.json",
+   "set": [
+    {
+     "pointer": "/entrance/name",
+     "value": "capture_intake"
+    },
+    {
+     "pointer": "/entrance/root_origin",
+     "value": "caller"
+    },
+    {
+     "pointer": "/source_pins/0/revision_digest",
+     "value": "#bob_rules_rev"
+    },
+    {
+     "pointer": "/source_pins/0/source_id",
+     "value": "@bob_rules"
+    }
+   ]
+  },
+  {
+   "name": "deny_via_capture_intake_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/operation",
+     "value": "role.project"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@deny_via_capture_intake_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@bob_rules"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:bob_rules_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#deny_via_capture_intake_plan"
+    }
+   ]
+  },
+  {
+   "name": "deny_via_host_launcher_plan",
+   "from": "c04/plan_for_one_source.json",
+   "set": [
+    {
+     "pointer": "/entrance/name",
+     "value": "host_launcher"
+    },
+    {
+     "pointer": "/entrance/root_origin",
+     "value": "caller"
+    },
+    {
+     "pointer": "/source_pins/0/revision_digest",
+     "value": "#bob_rules_rev"
+    },
+    {
+     "pointer": "/source_pins/0/source_id",
+     "value": "@bob_rules"
+    }
+   ]
+  },
+  {
+   "name": "deny_via_host_launcher_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/operation",
+     "value": "role.project"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@deny_via_host_launcher_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@bob_rules"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:bob_rules_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#deny_via_host_launcher_plan"
+    }
+   ]
+  },
+  {
+   "name": "deny_via_supplied_request_plan",
+   "from": "c04/plan_for_one_source.json",
+   "set": [
+    {
+     "pointer": "/entrance/name",
+     "value": "supplied_request"
+    },
+    {
+     "pointer": "/entrance/root_origin",
+     "value": "caller"
+    },
+    {
+     "pointer": "/source_pins/0/revision_digest",
+     "value": "#bob_rules_rev"
+    },
+    {
+     "pointer": "/source_pins/0/source_id",
+     "value": "@bob_rules"
+    }
+   ]
+  },
+  {
+   "name": "deny_via_supplied_request_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/operation",
+     "value": "role.project"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@deny_via_supplied_request_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@bob_rules"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:bob_rules_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#deny_via_supplied_request_plan"
+    }
+   ]
+  },
+  {
+   "name": "deny_via_studio_bridge_plan",
+   "from": "c04/plan_for_one_source.json",
+   "set": [
+    {
+     "pointer": "/entrance/name",
+     "value": "studio_bridge"
+    },
+    {
+     "pointer": "/entrance/root_origin",
+     "value": "caller"
+    },
+    {
+     "pointer": "/source_pins/0/revision_digest",
+     "value": "#bob_rules_rev"
+    },
+    {
+     "pointer": "/source_pins/0/source_id",
+     "value": "@bob_rules"
+    }
+   ]
+  },
+  {
+   "name": "deny_via_studio_bridge_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/operation",
+     "value": "role.project"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@deny_via_studio_bridge_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@bob_rules"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:bob_rules_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#deny_via_studio_bridge_plan"
+    }
+   ]
+  },
+  {
+   "name": "bypass_via_capture_intake_plan",
+   "from": "c04/plan_for_one_source.json",
+   "set": [
+    {
+     "pointer": "/entrance/name",
+     "value": "capture_intake"
+    },
+    {
+     "pointer": "/entrance/root_origin",
+     "value": "caller"
+    },
+    {
+     "pointer": "/source_pins/0/revision_digest",
+     "value": "#repo_rules_rev"
+    },
+    {
+     "pointer": "/source_pins/0/source_id",
+     "value": "@repo_rules"
+    }
+   ]
+  },
+  {
+   "name": "bypass_via_capture_intake_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/operation",
+     "value": "role.project"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@bypass_via_capture_intake_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_rules"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:repo_rules_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#bypass_via_capture_intake_plan"
+    }
+   ]
+  },
+  {
+   "name": "bypass_via_supplied_request_plan",
+   "from": "c04/plan_for_one_source.json",
+   "set": [
+    {
+     "pointer": "/entrance/name",
+     "value": "supplied_request"
+    },
+    {
+     "pointer": "/entrance/root_origin",
+     "value": "caller"
+    },
+    {
+     "pointer": "/source_pins/0/revision_digest",
+     "value": "#repo_rules_rev"
+    },
+    {
+     "pointer": "/source_pins/0/source_id",
+     "value": "@repo_rules"
+    }
+   ]
+  },
+  {
+   "name": "bypass_via_supplied_request_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/operation",
+     "value": "role.project"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@bypass_via_supplied_request_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_rules"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:repo_rules_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#bypass_via_supplied_request_plan"
+    }
+   ]
+  },
+  {
+   "name": "bypass_via_compatibility_route_plan",
+   "from": "c04/plan_for_one_source.json",
+   "set": [
+    {
+     "pointer": "/entrance/name",
+     "value": "compatibility_route"
+    },
+    {
+     "pointer": "/entrance/root_origin",
+     "value": "caller"
+    },
+    {
+     "pointer": "/source_pins/0/revision_digest",
+     "value": "#repo_rules_rev"
+    },
+    {
+     "pointer": "/source_pins/0/source_id",
+     "value": "@repo_rules"
+    }
+   ]
+  },
+  {
+   "name": "bypass_via_compatibility_route_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/operation",
+     "value": "role.project"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@bypass_via_compatibility_route_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_rules"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:repo_rules_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#bypass_via_compatibility_route_plan"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_alice",
+   "request": "bind_alice_request",
+   "carries": [
+    "alice_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "alice_binding"
+    ]
+   }
+  },
+  {
+   "name": "bind_bob",
+   "request": "bind_bob_request",
+   "carries": [
+    "bob_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "bob_binding"
+    ]
+   }
+  },
+  {
+   "name": "bind_repository",
+   "request": "bind_repository_request",
+   "carries": [
+    "repo_binding_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_binding"
+    ]
+   }
+  },
+  {
+   "name": "author_repo_rules",
+   "request": "author_repo_rules_request",
+   "carries": [
+    "repo_rules_request"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_rules_rev"
+    ],
+    "head": "repo_rules_head"
+   }
+  },
+  {
+   "name": "author_bob_rules",
+   "request": "author_bob_rules_request",
+   "carries": [
+    "bob_rules_request"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "bob_rules_rev"
+    ],
+    "head": "bob_rules_head"
+   }
+  },
+  {
+   "name": "trace_setup",
+   "request": "trace_setup_request",
+   "carries": [
+    "setup_disposition"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "setup_disposition"
+    ]
+   }
+  },
+  {
+   "name": "trace_session_start",
+   "request": "trace_session_start_request",
+   "carries": [
+    "session_start_disposition"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "session_start_disposition"
+    ]
+   }
+  },
+  {
+   "name": "trace_maintenance",
+   "request": "trace_maintenance_request",
+   "carries": [
+    "maintenance_disposition"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "maintenance_disposition"
+    ]
+   }
+  },
+  {
+   "name": "trace_decision_cli",
+   "request": "trace_decision_cli_request",
+   "carries": [
+    "decision_cli_disposition"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "decision_cli_disposition"
+    ]
+   }
+  },
+  {
+   "name": "trace_studio_hub",
+   "request": "trace_studio_hub_request",
+   "carries": [
+    "studio_hub_disposition"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "studio_hub_disposition"
+    ]
+   }
+  },
+  {
+   "name": "trace_capture_intake",
+   "request": "trace_capture_intake_request",
+   "carries": [
+    "capture_intake_disposition"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "capture_intake_disposition"
+    ]
+   }
+  },
+  {
+   "name": "trace_host_launcher",
+   "request": "trace_host_launcher_request",
+   "carries": [
+    "host_launcher_disposition"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "host_launcher_disposition"
+    ]
+   }
+  },
+  {
+   "name": "trace_supplied_request",
+   "request": "trace_supplied_request_request",
+   "carries": [
+    "supplied_request_disposition"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "supplied_request_disposition"
+    ]
+   }
+  },
+  {
+   "name": "trace_studio_bridge",
+   "request": "trace_studio_bridge_request",
+   "carries": [
+    "studio_bridge_disposition"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "studio_bridge_disposition"
+    ]
+   }
+  },
+  {
+   "name": "trace_compatibility_route",
+   "request": "trace_compatibility_route_request",
+   "carries": [
+    "compatibility_route_disposition"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "compatibility_route_disposition"
+    ]
+   }
+  },
+  {
+   "name": "deny_via_setup",
+   "request": "deny_via_setup_request",
+   "carries": [
+    "deny_via_setup_plan"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "source_not_authorized"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "deny_via_session_start",
+   "request": "deny_via_session_start_request",
+   "carries": [
+    "deny_via_session_start_plan"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "source_not_authorized"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "deny_via_maintenance",
+   "request": "deny_via_maintenance_request",
+   "carries": [
+    "deny_via_maintenance_plan"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "source_not_authorized"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "deny_via_decision_cli",
+   "request": "deny_via_decision_cli_request",
+   "carries": [
+    "deny_via_decision_cli_plan"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "source_not_authorized"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "deny_via_studio_hub",
+   "request": "deny_via_studio_hub_request",
+   "carries": [
+    "deny_via_studio_hub_plan"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "source_not_authorized"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "deny_via_capture_intake",
+   "request": "deny_via_capture_intake_request",
+   "carries": [
+    "deny_via_capture_intake_plan"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "source_not_authorized"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "deny_via_host_launcher",
+   "request": "deny_via_host_launcher_request",
+   "carries": [
+    "deny_via_host_launcher_plan"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "source_not_authorized"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "deny_via_supplied_request",
+   "request": "deny_via_supplied_request_request",
+   "carries": [
+    "deny_via_supplied_request_plan"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "source_not_authorized"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "deny_via_studio_bridge",
+   "request": "deny_via_studio_bridge_request",
+   "carries": [
+    "deny_via_studio_bridge_plan"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "source_not_authorized"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "bypass_via_capture_intake",
+   "request": "bypass_via_capture_intake_request",
+   "carries": [
+    "bypass_via_capture_intake_plan"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "protected_root_bypass"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "bypass_via_supplied_request",
+   "request": "bypass_via_supplied_request_request",
+   "carries": [
+    "bypass_via_supplied_request_plan"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "protected_root_bypass"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "bypass_via_compatibility_route",
+   "request": "bypass_via_compatibility_route_request",
+   "carries": [
+    "bypass_via_compatibility_route_plan"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "protected_root_bypass"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   }
+  }
+ ]
+}

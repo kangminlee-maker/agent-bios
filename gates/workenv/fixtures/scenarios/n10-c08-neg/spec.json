@@ -1,0 +1,2069 @@
+{
+ "case": "N10-C08-NEG",
+ "says": "Five ways into a Team that must each grant nothing. (1) Ana seals a reviewed founding that nominates Ben as reviewer; Ben records his acceptance of that exact founding request; Ana then revises the proposal to version 2 and submits it offering Ben's acceptance of version 1, and the owner refuses it with acceptances_void_after_revision and commits nothing. (2) A reviewed founding that names no nominee is refused at admission, so a missing independent participant never selects a solo Team. (3) Ana founds the Crew Team, and a second team.found for the same Team id is refused with bootstrap_already_committed. (4) Ana invites Ben to Crew and cancels the invitation; a day later Ben, who has bound his key and kept the Team's verification of it, consents to the cancelled invitation and is refused with invitation_not_open, and a membership change naming the invitation with no consent is refused at admission. (5) Mallory, on her own device, founds a different Team also named Crew and then asks the real Crew for a grant under her own Team's policy; the owner refuses it with grant_not_held. No refused step returns a record or moves a head.",
+ "ids": [
+  {
+   "name": "ana",
+   "prefix": "prn"
+  },
+  {
+   "name": "ana_device",
+   "prefix": "dev"
+  },
+  {
+   "name": "ana_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "ben",
+   "prefix": "prn"
+  },
+  {
+   "name": "ben_device",
+   "prefix": "dev"
+  },
+  {
+   "name": "ben_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "mallory",
+   "prefix": "prn"
+  },
+  {
+   "name": "mallory_device",
+   "prefix": "dev"
+  },
+  {
+   "name": "mallory_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "bind_ben_key_request",
+   "prefix": "req"
+  },
+  {
+   "name": "team",
+   "prefix": "tem"
+  },
+  {
+   "name": "found_team_v1_request",
+   "prefix": "req"
+  },
+  {
+   "name": "accept_founding_v1_request",
+   "prefix": "req"
+  },
+  {
+   "name": "found_team_v2_request",
+   "prefix": "req"
+  },
+  {
+   "name": "found_without_nominee_request",
+   "prefix": "req"
+  },
+  {
+   "name": "crew",
+   "prefix": "tem"
+  },
+  {
+   "name": "found_crew_request",
+   "prefix": "req"
+  },
+  {
+   "name": "found_crew_again_request",
+   "prefix": "req"
+  },
+  {
+   "name": "invite_ben_request",
+   "prefix": "req"
+  },
+  {
+   "name": "cancel_ben_invitation_request",
+   "prefix": "req"
+  },
+  {
+   "name": "ben_verification",
+   "prefix": "ctl"
+  },
+  {
+   "name": "keep_ben_verification_request",
+   "prefix": "req"
+  },
+  {
+   "name": "late_consent_request",
+   "prefix": "req"
+  },
+  {
+   "name": "admit_without_consent_request",
+   "prefix": "req"
+  },
+  {
+   "name": "copycat",
+   "prefix": "tem"
+  },
+  {
+   "name": "found_copycat_request",
+   "prefix": "req"
+  },
+  {
+   "name": "issue_mallory_grant_in_crew_request",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "ben_key_submitted",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@ben"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@ben_device"
+    },
+    {
+     "pointer": "/credential/public_key",
+     "value": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI6700869c8ff7480e34a70a708b028700dbaa3a033b5"
+    },
+    {
+     "pointer": "/established_by",
+     "value": "local_creation"
+    }
+   ]
+  },
+  {
+   "name": "bind_ben_key",
+   "from": "c08/governed_change_request.json",
+   "drop": [
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_ben_key_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.add"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ben"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@ben_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@ben_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@ben"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@ben"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#ben_key_submitted"
+    }
+   ]
+  },
+  {
+   "name": "ben_key",
+   "from": "ben_key_submitted",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:ben_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:ben_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "team_rules",
+   "from": "c08/policy_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@ana"
+    }
+   ]
+  },
+  {
+   "name": "team_proposal_v1",
+   "from": "c08/proposal_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/founder_principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#team_rules"
+    },
+    {
+     "pointer": "/founding_mode/nominees/0/principal_id",
+     "value": "@ben"
+    },
+    {
+     "pointer": "/founding_mode/nominees/1/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@ana_device"
+    },
+    {
+     "pointer": "/recovery/0/principal_id",
+     "value": "@ben"
+    }
+   ]
+  },
+  {
+   "name": "found_team_v1",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@found_team_v1_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.found"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@ana_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@ana_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_proposal_v1"
+    }
+   ]
+  },
+  {
+   "name": "ben_accepts_v1_submitted",
+   "from": "c08/approval_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/request_digest",
+     "value": "#found_team_v1"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#team_rules"
+    }
+   ]
+  },
+  {
+   "name": "accept_founding_v1",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@accept_founding_v1_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.approval.record"
+    },
+    {
+     "pointer": "/action",
+     "value": "review"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ben"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@ben_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@ben_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@found_team_v1_request"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#ben_accepts_v1_submitted"
+    }
+   ]
+  },
+  {
+   "name": "ben_accepts_v1",
+   "from": "ben_accepts_v1_submitted",
+   "set": [
+    {
+     "pointer": "/approval_id",
+     "value": "$apr:ben_accepts_v1_id"
+    },
+    {
+     "pointer": "/approver_principal_id",
+     "value": "@ben"
+    },
+    {
+     "pointer": "/approver_kind/kind",
+     "value": "human"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:ben_accepted_at"
+    }
+   ]
+  },
+  {
+   "name": "team_proposal_v2",
+   "from": "team_proposal_v1",
+   "set": [
+    {
+     "pointer": "/proposal_version",
+     "value": 2
+    },
+    {
+     "pointer": "/purpose",
+     "value": "The standards this group works to, revised."
+    }
+   ]
+  },
+  {
+   "name": "found_team_v2",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@found_team_v2_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.found"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@ana_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@ana_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#ben_accepts_v1"
+     ]
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_proposal_v2"
+    }
+   ]
+  },
+  {
+   "name": "team_proposal_without_nominee",
+   "from": "team_proposal_v1",
+   "drop": [
+    "/founding_mode/nominees/1",
+    "/founding_mode/nominees/0"
+   ]
+  },
+  {
+   "name": "found_without_nominee",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@found_without_nominee_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.found"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@ana_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@ana_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_proposal_without_nominee"
+    }
+   ]
+  },
+  {
+   "name": "crew_rules",
+   "from": "c08/policy_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@crew"
+    },
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/operations",
+     "value": [
+      "publish"
+     ]
+    },
+    {
+     "pointer": "/threshold",
+     "value": 0
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 2
+    }
+   ]
+  },
+  {
+   "name": "crew_proposal",
+   "from": "c08/proposal_as_submitted.json",
+   "drop": [
+    "/founding_mode/nominees"
+   ],
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@crew"
+    },
+    {
+     "pointer": "/founder_principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/name",
+     "value": "Crew"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#crew_rules"
+    },
+    {
+     "pointer": "/founding_mode/mode",
+     "value": "self_founded"
+    },
+    {
+     "pointer": "/founding_mode/acknowledged_self_reviewed",
+     "value": true
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@ana_device"
+    },
+    {
+     "pointer": "/recovery/0/principal_id",
+     "value": "@ana"
+    }
+   ]
+  },
+  {
+   "name": "found_crew",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@found_crew_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.found"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@ana_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@ana_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@crew"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@crew"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#crew_proposal"
+    }
+   ]
+  },
+  {
+   "name": "crew_policy",
+   "from": "crew_rules",
+   "set": [
+    {
+     "pointer": "/policy_id",
+     "value": "$pol:crew_policy_id"
+    },
+    {
+     "pointer": "/policy_version",
+     "value": 1
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:crew_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "crew_founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:crew_founder_grant_id"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@crew"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "review",
+      "publish",
+      "adopt",
+      "grant",
+      "policy"
+     ]
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@crew"
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 2
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:crew_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "crew_active",
+   "from": "c08/archived_team.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@crew"
+    },
+    {
+     "pointer": "/state",
+     "value": "active"
+    },
+    {
+     "pointer": "/since",
+     "value": "$instant:crew_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "crew_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@crew"
+    },
+    {
+     "pointer": "/name",
+     "value": "Crew"
+    },
+    {
+     "pointer": "/purpose",
+     "value": "The standards this group works to."
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:crew_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "crew_proposal_again",
+   "from": "crew_proposal",
+   "set": [
+    {
+     "pointer": "/purpose",
+     "value": "Found the crew again from scratch."
+    }
+   ]
+  },
+  {
+   "name": "found_crew_again",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@found_crew_again_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.found"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@ana_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@ana_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@crew"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@crew"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#crew_proposal_again"
+    }
+   ]
+  },
+  {
+   "name": "ben_invitation_submitted",
+   "from": "c08/invitation_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@crew"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#crew_policy"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@ben"
+    },
+    {
+     "pointer": "/expires_at",
+     "value": "2026-10-01T09:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "invite_ben",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@invite_ben_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.invitation.issue"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@ana_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@ana_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#crew_policy"
+     ]
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@crew"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@crew"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:crew_head_1"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#ben_invitation_submitted"
+    }
+   ]
+  },
+  {
+   "name": "ben_invitation",
+   "from": "ben_invitation_submitted",
+   "set": [
+    {
+     "pointer": "/invitation_id",
+     "value": "$inv:ben_invitation_id"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:ben_invited_at"
+    }
+   ]
+  },
+  {
+   "name": "cancel_ben_invitation_submitted",
+   "from": "c08/invitation_cancellation_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/invitation_digest",
+     "value": "#ben_invitation"
+    }
+   ]
+  },
+  {
+   "name": "cancel_ben_invitation",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@cancel_ben_invitation_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.invitation.cancel"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@ana_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@ana_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#crew_policy"
+     ]
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@crew"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@crew"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:crew_head_2"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#cancel_ben_invitation_submitted"
+    }
+   ]
+  },
+  {
+   "name": "ben_invitation_cancelled",
+   "from": "cancel_ben_invitation_submitted",
+   "set": [
+    {
+     "pointer": "/cancelled_at",
+     "value": "$instant:ben_invitation_cancelled_at"
+    }
+   ]
+  },
+  {
+   "name": "ben_standing_cancelled",
+   "from": "c08/membership_whose_invitation_was_cancelled.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:ben_membership_id"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@crew"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@ben"
+    },
+    {
+     "pointer": "/standing/invitation_digest",
+     "value": "#ben_invitation"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:ben_invitation_cancelled_at"
+    }
+   ]
+  },
+  {
+   "name": "ben_verification_permit",
+   "from": "c02/offline_permit_for_one_device.json",
+   "set": [
+    {
+     "pointer": "/evidence_id",
+     "value": "@ben_verification"
+    },
+    {
+     "pointer": "/issuer/team_id",
+     "value": "@crew"
+    },
+    {
+     "pointer": "/issuer/authority_principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@ben"
+    },
+    {
+     "pointer": "/holder/device_id",
+     "value": "@ben_device"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@crew"
+    },
+    {
+     "pointer": "/issued_at",
+     "value": "2026-09-21T09:00:00Z"
+    },
+    {
+     "pointer": "/statement/attests",
+     "value": [
+      "#ben_key"
+     ]
+    },
+    {
+     "pointer": "/statement/valid_until",
+     "value": "2026-12-31T09:00:00Z"
+    },
+    {
+     "pointer": "/statement/offline/until",
+     "value": "2026-09-28T09:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "keep_ben_verification",
+   "from": "c08/governed_change_request.json",
+   "drop": [
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@keep_ben_verification_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.control.record"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ben"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@ben_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@ben_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@ben"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@ben_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#ben_verification_permit"
+    }
+   ]
+  },
+  {
+   "name": "ben_late_consent",
+   "from": "c08/consent_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/invitation_digest",
+     "value": "#ben_invitation"
+    },
+    {
+     "pointer": "/binding_digest",
+     "value": "#ben_key"
+    },
+    {
+     "pointer": "/verification_digest",
+     "value": "#ben_verification_permit"
+    }
+   ]
+  },
+  {
+   "name": "late_consent",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@late_consent_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.consent.record"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ben"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@ben_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@ben_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#crew_policy"
+     ]
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@crew"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@crew"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:crew_head_3"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#ben_late_consent"
+    }
+   ]
+  },
+  {
+   "name": "ben_admitted_without_consent",
+   "from": "c08/membership_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@crew"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@ben"
+    },
+    {
+     "pointer": "/standing/is",
+     "value": "active"
+    },
+    {
+     "pointer": "/standing/invitation_digest",
+     "value": "#ben_invitation"
+    }
+   ]
+  },
+  {
+   "name": "admit_without_consent",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@admit_without_consent_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.membership.change"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@ana_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@ana_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#crew_policy"
+     ]
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@crew"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@crew"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:crew_head_3"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#ben_admitted_without_consent"
+    }
+   ]
+  },
+  {
+   "name": "copycat_rules",
+   "from": "c08/policy_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@copycat"
+    },
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@mallory"
+    },
+    {
+     "pointer": "/operations",
+     "value": [
+      "publish"
+     ]
+    },
+    {
+     "pointer": "/threshold",
+     "value": 0
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 2
+    }
+   ]
+  },
+  {
+   "name": "copycat_proposal",
+   "from": "c08/proposal_as_submitted.json",
+   "drop": [
+    "/founding_mode/nominees"
+   ],
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@copycat"
+    },
+    {
+     "pointer": "/founder_principal_id",
+     "value": "@mallory"
+    },
+    {
+     "pointer": "/name",
+     "value": "Crew"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#copycat_rules"
+    },
+    {
+     "pointer": "/founding_mode/mode",
+     "value": "self_founded"
+    },
+    {
+     "pointer": "/founding_mode/acknowledged_self_reviewed",
+     "value": true
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@mallory_device"
+    },
+    {
+     "pointer": "/recovery/0/principal_id",
+     "value": "@mallory"
+    }
+   ]
+  },
+  {
+   "name": "found_copycat",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@found_copycat_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.found"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@mallory"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@mallory_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@mallory_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@copycat"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@copycat"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#copycat_proposal"
+    }
+   ]
+  },
+  {
+   "name": "copycat_policy",
+   "from": "copycat_rules",
+   "set": [
+    {
+     "pointer": "/policy_id",
+     "value": "$pol:copycat_policy_id"
+    },
+    {
+     "pointer": "/policy_version",
+     "value": 1
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:copycat_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "copycat_founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:copycat_founder_grant_id"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@copycat"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@mallory"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@mallory"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "review",
+      "publish",
+      "adopt",
+      "grant",
+      "policy"
+     ]
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@copycat"
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 2
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:copycat_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "copycat_active",
+   "from": "c08/archived_team.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@copycat"
+    },
+    {
+     "pointer": "/state",
+     "value": "active"
+    },
+    {
+     "pointer": "/since",
+     "value": "$instant:copycat_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "copycat_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@copycat"
+    },
+    {
+     "pointer": "/name",
+     "value": "Crew"
+    },
+    {
+     "pointer": "/purpose",
+     "value": "The standards this group works to."
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:copycat_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "mallory_grant_in_crew_submitted",
+   "from": "c08/grant_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@crew"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "grant"
+     ]
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 0
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@mallory"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@crew"
+    }
+   ]
+  },
+  {
+   "name": "issue_mallory_grant_in_crew",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@issue_mallory_grant_in_crew_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.grant.change"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@mallory"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@mallory_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@mallory_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#copycat_policy"
+     ]
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@crew"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@crew"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:crew_head_3"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#mallory_grant_in_crew_submitted"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_ben_key",
+   "request": "bind_ben_key",
+   "carries": [
+    "ben_key_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "ben_key"
+    ]
+   },
+   "process": "desktop"
+  },
+  {
+   "name": "accept_founding_v1",
+   "request": "accept_founding_v1",
+   "carries": [
+    "ben_accepts_v1_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "ben_accepts_v1"
+    ]
+   },
+   "process": "desktop"
+  },
+  {
+   "name": "found_revised_proposal",
+   "request": "found_team_v2",
+   "carries": [
+    "team_proposal_v2",
+    "team_rules"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "acceptances_void_after_revision"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   },
+   "submits": [
+    "team_rules"
+   ],
+   "process": "laptop"
+  },
+  {
+   "name": "found_without_nominee",
+   "request": "found_without_nominee",
+   "carries": [
+    "team_proposal_without_nominee",
+    "team_rules"
+   ],
+   "refused": [
+    {
+     "record": "team_proposal_without_nominee",
+     "code": "variant_mismatch",
+     "pointer": "/founding_mode"
+    }
+   ],
+   "submits": [
+    "team_rules"
+   ],
+   "process": "laptop"
+  },
+  {
+   "name": "found_crew",
+   "request": "found_crew",
+   "carries": [
+    "crew_proposal",
+    "crew_rules"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "crew_policy",
+     "crew_founder_grant",
+     "crew_active",
+     "crew_profile"
+    ],
+    "head": "crew_head_1"
+   },
+   "submits": [
+    "crew_rules"
+   ],
+   "process": "laptop"
+  },
+  {
+   "name": "found_crew_again",
+   "request": "found_crew_again",
+   "carries": [
+    "crew_proposal_again",
+    "crew_rules"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "bootstrap_already_committed"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   },
+   "submits": [
+    "crew_rules"
+   ],
+   "process": "laptop"
+  },
+  {
+   "name": "invite_ben",
+   "request": "invite_ben",
+   "carries": [
+    "ben_invitation_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "ben_invitation"
+    ],
+    "head": "crew_head_2"
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "cancel_ben_invitation",
+   "request": "cancel_ben_invitation",
+   "carries": [
+    "cancel_ben_invitation_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "ben_invitation_cancelled",
+     "ben_standing_cancelled"
+    ],
+    "head": "crew_head_3"
+   },
+   "process": "laptop",
+   "advance_seconds": 3600
+  },
+  {
+   "name": "keep_ben_verification",
+   "request": "keep_ben_verification",
+   "carries": [
+    "ben_verification_permit"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "ben_verification_permit"
+    ]
+   },
+   "process": "desktop",
+   "advance_seconds": 86400
+  },
+  {
+   "name": "consent_after_cancellation",
+   "request": "late_consent",
+   "carries": [
+    "ben_late_consent"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "invitation_not_open"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   },
+   "process": "desktop",
+   "advance_seconds": 60
+  },
+  {
+   "name": "admit_without_consent",
+   "request": "admit_without_consent",
+   "carries": [
+    "ben_admitted_without_consent"
+   ],
+   "refused": [
+    {
+     "record": "ben_admitted_without_consent",
+     "code": "variant_mismatch",
+     "pointer": "/standing"
+    }
+   ],
+   "process": "laptop"
+  },
+  {
+   "name": "found_copycat",
+   "request": "found_copycat",
+   "carries": [
+    "copycat_proposal",
+    "copycat_rules"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "copycat_policy",
+     "copycat_founder_grant",
+     "copycat_active",
+     "copycat_profile"
+    ],
+    "head": "copycat_head_1"
+   },
+   "submits": [
+    "copycat_rules"
+   ],
+   "process": "tablet"
+  },
+  {
+   "name": "grant_under_the_same_name",
+   "request": "issue_mallory_grant_in_crew",
+   "carries": [
+    "mallory_grant_in_crew_submitted"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "grant_not_held"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   },
+   "process": "tablet"
+  }
+ ],
+ "world": {
+  "processes": [
+   "laptop",
+   "desktop",
+   "tablet"
+  ],
+  "clock": {
+   "start": "2026-09-21T09:00:00Z"
+  }
+ }
+}

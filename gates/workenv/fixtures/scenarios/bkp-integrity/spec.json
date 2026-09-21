@@ -1,0 +1,1204 @@
+{
+ "case": "BKP-INTEGRITY",
+ "says": "On her laptop Alice commits a revision of her private notes source and takes a backup, then commits a second revision and takes a second backup. Each backup set binds the exact database snapshot and the immutable members a restore needs — the revision object and the control sequence — by path, digest and size. After the live database is lost, on a rebuilt runtime: restoring the first backup's set with a member added that only the second backup holds is refused with backup_set_incomplete, because the backup directory lacks a member its manifest names; restoring the second backup's set with its object member taken from the first backup is refused with backup_set_damaged, because what is present does not hash to what the set names. Neither refusal writes anything: a query for the second commit's request id still answers request_not_held. Restoring the second backup's set exactly as taken is reported, and the second commit's result and receipt are then returned by the same query. What must not happen: a missing, corrupt or mixed member accepted by guess, or a refused restore leaving any part of either backup in place.",
+ "ids": [
+  {
+   "name": "alice",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "alice_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "notes_source",
+   "prefix": "src"
+  },
+  {
+   "name": "notes_collection",
+   "prefix": "col"
+  },
+  {
+   "name": "bind_request",
+   "prefix": "req"
+  },
+  {
+   "name": "home_request",
+   "prefix": "req"
+  },
+  {
+   "name": "commit_request_1",
+   "prefix": "req"
+  },
+  {
+   "name": "commit_request_2",
+   "prefix": "req"
+  },
+  {
+   "name": "backup_request_1",
+   "prefix": "req"
+  },
+  {
+   "name": "backup_request_2",
+   "prefix": "req"
+  },
+  {
+   "name": "restore_request_1",
+   "prefix": "req"
+  },
+  {
+   "name": "restore_request_2",
+   "prefix": "req"
+  },
+  {
+   "name": "restore_request_3",
+   "prefix": "req"
+  },
+  {
+   "name": "ask_request_1",
+   "prefix": "req"
+  },
+  {
+   "name": "ask_request_2",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "device_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "bind_key",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.add"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#device_key"
+    }
+   ]
+  },
+  {
+   "name": "stored_key",
+   "from": "device_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:alice_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:bound_at"
+    }
+   ]
+  },
+  {
+   "name": "notes_home",
+   "from": "sources/home_of_a_managed_collection.json",
+   "drop": [
+    "/registered_at"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@notes_source"
+    },
+    {
+     "pointer": "/scope/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/acceptance_authority/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/home/collection_id",
+     "value": "@notes_collection"
+    },
+    {
+     "pointer": "/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    }
+   ]
+  },
+  {
+   "name": "register_home",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@home_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@notes_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#notes_home"
+    }
+   ]
+  },
+  {
+   "name": "stored_home",
+   "from": "notes_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:registered_at"
+    }
+   ]
+  },
+  {
+   "name": "revision_1",
+   "from": "sources/revision_submitted.json",
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@notes_source"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 4121
+    }
+   ]
+  },
+  {
+   "name": "commit_1",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_request_1"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.revision.commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@notes_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#revision_1"
+    }
+   ]
+  },
+  {
+   "name": "stored_revision_1",
+   "from": "revision_1",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:produced_at_1"
+    }
+   ]
+  },
+  {
+   "name": "take_backup_1",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base",
+    "/payload_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@backup_request_1"
+    },
+    {
+     "pointer": "/operation",
+     "value": "store.backup.create"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    }
+   ]
+  },
+  {
+   "name": "backup_1",
+   "from": "c03/backup_taken_before_the_loss.json",
+   "drop": [
+    "/members/3",
+    "/members/2"
+   ],
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/taken_at",
+     "value": "$instant:backup_1_taken_at"
+    },
+    {
+     "pointer": "/covered_through",
+     "value": "$integer:backup_1_covered_through"
+    },
+    {
+     "pointer": "/database/digest",
+     "value": "$digest:backup_1_database"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "objects/0001.json"
+    },
+    {
+     "pointer": "/members/0/holds",
+     "value": "object"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "#stored_revision_1"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 4121
+    },
+    {
+     "pointer": "/members/1/path",
+     "value": "control/sequence.json"
+    },
+    {
+     "pointer": "/members/1/holds",
+     "value": "control_state"
+    },
+    {
+     "pointer": "/members/1/digest",
+     "value": "$digest:control_1"
+    },
+    {
+     "pointer": "/members/1/size",
+     "value": 64
+    }
+   ]
+  },
+  {
+   "name": "revision_2",
+   "from": "sources/revision_submitted.json",
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@notes_source"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 4122
+    }
+   ]
+  },
+  {
+   "name": "commit_2",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_request_2"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.revision.commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@notes_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:notes_head_1"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#revision_2"
+    }
+   ]
+  },
+  {
+   "name": "stored_revision_2",
+   "from": "revision_2",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:produced_at_2"
+    }
+   ]
+  },
+  {
+   "name": "take_backup_2",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base",
+    "/payload_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@backup_request_2"
+    },
+    {
+     "pointer": "/operation",
+     "value": "store.backup.create"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    }
+   ]
+  },
+  {
+   "name": "backup_2",
+   "from": "c03/backup_taken_before_the_loss.json",
+   "drop": [
+    "/members/3",
+    "/members/2"
+   ],
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/taken_at",
+     "value": "$instant:backup_2_taken_at"
+    },
+    {
+     "pointer": "/covered_through",
+     "value": "$integer:backup_2_covered_through"
+    },
+    {
+     "pointer": "/database/digest",
+     "value": "$digest:backup_2_database"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "objects/0002.json"
+    },
+    {
+     "pointer": "/members/0/holds",
+     "value": "object"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "#stored_revision_2"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 4122
+    },
+    {
+     "pointer": "/members/1/path",
+     "value": "control/sequence.json"
+    },
+    {
+     "pointer": "/members/1/holds",
+     "value": "control_state"
+    },
+    {
+     "pointer": "/members/1/digest",
+     "value": "$digest:control_2"
+    },
+    {
+     "pointer": "/members/1/size",
+     "value": 64
+    }
+   ]
+  },
+  {
+   "name": "incomplete_set",
+   "from": "backup_1",
+   "set": [
+    {
+     "pointer": "/members/2/path",
+     "value": "objects/0002.json"
+    },
+    {
+     "pointer": "/members/2/holds",
+     "value": "object"
+    },
+    {
+     "pointer": "/members/2/digest",
+     "value": "#stored_revision_2"
+    },
+    {
+     "pointer": "/members/2/size",
+     "value": 4122
+    }
+   ]
+  },
+  {
+   "name": "restore_incomplete",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@restore_request_1"
+    },
+    {
+     "pointer": "/operation",
+     "value": "store.backup.restore"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#incomplete_set"
+    }
+   ]
+  },
+  {
+   "name": "mixed_set",
+   "from": "backup_2",
+   "set": [
+    {
+     "pointer": "/members/0/digest",
+     "value": "#stored_revision_1"
+    }
+   ]
+  },
+  {
+   "name": "restore_mixed",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@restore_request_2"
+    },
+    {
+     "pointer": "/operation",
+     "value": "store.backup.restore"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#mixed_set"
+    }
+   ]
+  },
+  {
+   "name": "commit_query",
+   "from": "c03/query_by_request_id.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_request_2"
+    }
+   ]
+  },
+  {
+   "name": "ask_1",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@ask_request_1"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.query"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@commit_request_2"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#commit_query"
+    }
+   ]
+  },
+  {
+   "name": "commit_not_held",
+   "from": "c03/query_for_a_request_never_received.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_request_2"
+    }
+   ]
+  },
+  {
+   "name": "restore_intact",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@restore_request_3"
+    },
+    {
+     "pointer": "/operation",
+     "value": "store.backup.restore"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#backup_2"
+    }
+   ]
+  },
+  {
+   "name": "report",
+   "from": "c03/restore_after_losing_the_live_database.json",
+   "set": [
+    {
+     "pointer": "/backup_digest",
+     "value": "#backup_2"
+    },
+    {
+     "pointer": "/taken_at",
+     "value": "$instant:backup_2_taken_at"
+    },
+    {
+     "pointer": "/covered_through",
+     "value": "$integer:backup_2_covered_through"
+    },
+    {
+     "pointer": "/restored_at",
+     "value": "$instant:restored_at"
+    }
+   ]
+  },
+  {
+   "name": "ask_2",
+   "from": "ask_1",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@ask_request_2"
+    }
+   ]
+  },
+  {
+   "name": "commit_receipt",
+   "from": "c03/commit_receipt.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_request_2"
+    },
+    {
+     "pointer": "/request_digest",
+     "value": "#commit_2"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@notes_source"
+    },
+    {
+     "pointer": "/head_digest",
+     "value": "$digest:notes_head_2"
+    },
+    {
+     "pointer": "/sequence",
+     "value": "$integer:sequence_2"
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:committed_at_2"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:notes_head_1"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_device_key",
+   "request": "bind_key",
+   "carries": [
+    "device_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_key"
+    ]
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "register_notes_home",
+   "request": "register_home",
+   "carries": [
+    "notes_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_home"
+    ]
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "commit_first_revision",
+   "request": "commit_1",
+   "carries": [
+    "revision_1"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_revision_1"
+    ],
+    "head": "notes_head_1"
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "take_first_backup",
+   "request": "take_backup_1",
+   "carries": [],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "backup_1"
+    ]
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "commit_second_revision",
+   "request": "commit_2",
+   "carries": [
+    "revision_2"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_revision_2"
+    ],
+    "head": "notes_head_2"
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "take_second_backup",
+   "request": "take_backup_2",
+   "carries": [],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "backup_2"
+    ]
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "restore_a_set_missing_a_member",
+   "request": "restore_incomplete",
+   "carries": [
+    "incomplete_set"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "backup_set_incomplete"
+     }
+    ],
+    "recovery": [
+     "retry_same_request"
+    ],
+    "returns": []
+   },
+   "process": "rebuilt"
+  },
+  {
+   "name": "restore_a_set_with_a_mixed_member",
+   "request": "restore_mixed",
+   "carries": [
+    "mixed_set"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "backup_set_damaged"
+     }
+    ],
+    "recovery": [
+     "retry_same_request"
+    ],
+    "returns": []
+   },
+   "process": "rebuilt"
+  },
+  {
+   "name": "query_after_the_refusals",
+   "request": "ask_1",
+   "carries": [
+    "commit_query"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "commit_not_held"
+    ]
+   },
+   "process": "rebuilt"
+  },
+  {
+   "name": "restore_the_second_backup",
+   "request": "restore_intact",
+   "carries": [
+    "backup_2"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "report"
+    ]
+   },
+   "process": "rebuilt"
+  },
+  {
+   "name": "query_after_the_restore",
+   "request": "ask_2",
+   "carries": [
+    "commit_query"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "commit_second_revision_result",
+     "commit_receipt"
+    ]
+   },
+   "process": "rebuilt"
+  }
+ ],
+ "world": {
+  "processes": [
+   "laptop",
+   "rebuilt"
+  ]
+ }
+}

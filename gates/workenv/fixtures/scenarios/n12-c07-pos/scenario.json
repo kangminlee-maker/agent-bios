@@ -1,0 +1,2092 @@
+{
+ "case": "N12-C07-POS",
+ "ids": [
+  {
+   "id": "prn_b0430bb4956ea9213f85cc5ec14ef07a",
+   "name": "alice"
+  },
+  {
+   "id": "dev_6c4e9f3444bbd71d2171708a061754e0",
+   "name": "laptop"
+  },
+  {
+   "id": "prf_a6068caf16693bd9f9400f64e1ace72d",
+   "name": "profile"
+  },
+  {
+   "id": "req_4a82984fe67d554b4b797507075fdf93",
+   "name": "bind_alice_request_req"
+  },
+  {
+   "id": "tem_cd8552be2aaf32a04545359d12048f38",
+   "name": "team"
+  },
+  {
+   "id": "req_905e88cfb1e34db6d62a0813bb44107f",
+   "name": "found_team_request_req"
+  },
+  {
+   "id": "src_37892d2f575eea98ce806905c0f0e22f",
+   "name": "team_rules"
+  },
+  {
+   "id": "req_8a60a08db568a1c1789ebd4a671f07f9",
+   "name": "author_team_rules_request_req"
+  },
+  {
+   "id": "src_80ada528ab7a2b97ecf1f04b638b94f8",
+   "name": "team_kb"
+  },
+  {
+   "id": "req_27b6656cfb066965f0e383fb30abab6c",
+   "name": "author_team_kb_request_req"
+  },
+  {
+   "id": "env_6cffa21a7fdeb94577eccec289c699f9",
+   "name": "env_base"
+  },
+  {
+   "id": "req_41a4dd57c7e80c411ee0be371e41fff6",
+   "name": "publish_base_edition_request_req"
+  },
+  {
+   "id": "req_7381a084fe0ebd20a7dff8083cf19c5c",
+   "name": "publish_rules_request_req"
+  },
+  {
+   "id": "env_6f949dcfb5478c767d1defdb1f23e9e3",
+   "name": "env_backend"
+  },
+  {
+   "id": "req_ae109361eb2c0c822758eb4e4ecc8fde",
+   "name": "publish_backend_edition_request_req"
+  },
+  {
+   "id": "req_83b435de633e0365e19904b217023156",
+   "name": "adopt_backend_request_req"
+  },
+  {
+   "id": "req_9d7cddf7a6da2adad47832b50bc8ec34",
+   "name": "compose_for_session_request_req"
+  }
+ ],
+ "joins": [
+  {
+   "digest_of": "alice_key",
+   "pointer": "/payload_digest",
+   "record": "bind_alice_request"
+  },
+  {
+   "minted": "alice_binding_id",
+   "pointer": "/binding_id",
+   "record": "alice_binding"
+  },
+  {
+   "minted": "alice_bound_at",
+   "pointer": "/created_at",
+   "record": "alice_binding"
+  },
+  {
+   "digest_of": "bind_alice_request",
+   "pointer": "/request_digest",
+   "record": "bind_alice_receipt"
+  },
+  {
+   "minted": "bind_alice_head",
+   "pointer": "/head_digest",
+   "record": "bind_alice_receipt"
+  },
+  {
+   "minted": "bind_alice_sequence",
+   "pointer": "/sequence",
+   "record": "bind_alice_receipt"
+  },
+  {
+   "minted": "bind_alice_committed_at",
+   "pointer": "/committed_at",
+   "record": "bind_alice_receipt"
+  },
+  {
+   "digest_of": "bind_alice_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "bind_alice_result"
+  },
+  {
+   "digest_of": "bind_alice_request",
+   "pointer": "/request_digest",
+   "record": "bind_alice_result"
+  },
+  {
+   "digest_of": "alice_binding",
+   "pointer": "/outputs/0/digest",
+   "record": "bind_alice_result"
+  },
+  {
+   "digest_of": "team_policy_submitted",
+   "pointer": "/policy_digest",
+   "record": "team_proposal"
+  },
+  {
+   "digest_of": "team_proposal",
+   "pointer": "/payload_digest",
+   "record": "found_team_request"
+  },
+  {
+   "minted": "team_policy_id",
+   "pointer": "/policy_id",
+   "record": "team_policy"
+  },
+  {
+   "minted": "team_founded_at",
+   "pointer": "/committed_at",
+   "record": "team_policy"
+  },
+  {
+   "minted": "team_founded_at",
+   "pointer": "/created_at",
+   "record": "alice_founding_grant"
+  },
+  {
+   "minted": "alice_grant_id",
+   "pointer": "/grant_id",
+   "record": "alice_founding_grant"
+  },
+  {
+   "minted": "team_founded_at",
+   "pointer": "/since",
+   "record": "team_state"
+  },
+  {
+   "minted": "team_founded_at",
+   "pointer": "/updated_at",
+   "record": "team_profile"
+  },
+  {
+   "digest_of": "found_team_request",
+   "pointer": "/request_digest",
+   "record": "found_team_receipt"
+  },
+  {
+   "minted": "team_head",
+   "pointer": "/head_digest",
+   "record": "found_team_receipt"
+  },
+  {
+   "minted": "found_team_sequence",
+   "pointer": "/sequence",
+   "record": "found_team_receipt"
+  },
+  {
+   "minted": "found_team_committed_at",
+   "pointer": "/committed_at",
+   "record": "found_team_receipt"
+  },
+  {
+   "digest_of": "found_team_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "found_team_request",
+   "pointer": "/request_digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "team_policy",
+   "pointer": "/outputs/0/digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "alice_founding_grant",
+   "pointer": "/outputs/1/digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "team_state",
+   "pointer": "/outputs/2/digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "team_profile",
+   "pointer": "/outputs/3/digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "team_rules_request",
+   "pointer": "/payload_digest",
+   "record": "author_team_rules_request"
+  },
+  {
+   "minted": "team_rules_review_body",
+   "pointer": "/members/0/digest",
+   "record": "team_rules_rev"
+  },
+  {
+   "minted": "team_rules_produced_at",
+   "pointer": "/produced_at",
+   "record": "team_rules_rev"
+  },
+  {
+   "digest_of": "author_team_rules_request",
+   "pointer": "/request_digest",
+   "record": "author_team_rules_receipt"
+  },
+  {
+   "minted": "team_rules_head",
+   "pointer": "/head_digest",
+   "record": "author_team_rules_receipt"
+  },
+  {
+   "minted": "author_team_rules_sequence",
+   "pointer": "/sequence",
+   "record": "author_team_rules_receipt"
+  },
+  {
+   "minted": "author_team_rules_committed_at",
+   "pointer": "/committed_at",
+   "record": "author_team_rules_receipt"
+  },
+  {
+   "digest_of": "author_team_rules_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "author_team_rules_result"
+  },
+  {
+   "digest_of": "author_team_rules_request",
+   "pointer": "/request_digest",
+   "record": "author_team_rules_result"
+  },
+  {
+   "digest_of": "team_rules_rev",
+   "pointer": "/outputs/0/digest",
+   "record": "author_team_rules_result"
+  },
+  {
+   "digest_of": "team_kb_request",
+   "pointer": "/payload_digest",
+   "record": "author_team_kb_request"
+  },
+  {
+   "minted": "team_kb_concepts_body",
+   "pointer": "/members/0/digest",
+   "record": "team_kb_rev"
+  },
+  {
+   "minted": "team_kb_produced_at",
+   "pointer": "/produced_at",
+   "record": "team_kb_rev"
+  },
+  {
+   "digest_of": "author_team_kb_request",
+   "pointer": "/request_digest",
+   "record": "author_team_kb_receipt"
+  },
+  {
+   "minted": "team_kb_head",
+   "pointer": "/head_digest",
+   "record": "author_team_kb_receipt"
+  },
+  {
+   "minted": "author_team_kb_sequence",
+   "pointer": "/sequence",
+   "record": "author_team_kb_receipt"
+  },
+  {
+   "minted": "author_team_kb_committed_at",
+   "pointer": "/committed_at",
+   "record": "author_team_kb_receipt"
+  },
+  {
+   "digest_of": "author_team_kb_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "author_team_kb_result"
+  },
+  {
+   "digest_of": "author_team_kb_request",
+   "pointer": "/request_digest",
+   "record": "author_team_kb_result"
+  },
+  {
+   "digest_of": "team_kb_rev",
+   "pointer": "/outputs/0/digest",
+   "record": "author_team_kb_result"
+  },
+  {
+   "digest_of": "team_kb_rev",
+   "pointer": "/knowledge/0/revision_digest",
+   "record": "base_edition"
+  },
+  {
+   "digest_of": "base_edition",
+   "pointer": "/payload_digest",
+   "record": "publish_base_edition_request"
+  },
+  {
+   "digest_of": "publish_base_edition_request",
+   "pointer": "/request_digest",
+   "record": "publish_base_edition_receipt"
+  },
+  {
+   "minted": "env_base_head",
+   "pointer": "/head_digest",
+   "record": "publish_base_edition_receipt"
+  },
+  {
+   "minted": "publish_base_edition_sequence",
+   "pointer": "/sequence",
+   "record": "publish_base_edition_receipt"
+  },
+  {
+   "minted": "publish_base_edition_committed_at",
+   "pointer": "/committed_at",
+   "record": "publish_base_edition_receipt"
+  },
+  {
+   "digest_of": "publish_base_edition_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "publish_base_edition_result"
+  },
+  {
+   "digest_of": "publish_base_edition_request",
+   "pointer": "/request_digest",
+   "record": "publish_base_edition_result"
+  },
+  {
+   "digest_of": "base_edition",
+   "pointer": "/outputs/0/digest",
+   "record": "publish_base_edition_result"
+  },
+  {
+   "minted": "team_rules_head",
+   "pointer": "/target/base/head_digest",
+   "record": "publish_rules_request"
+  },
+  {
+   "digest_of": "publish_rules_request",
+   "pointer": "/request_digest",
+   "record": "publish_rules_receipt"
+  },
+  {
+   "minted": "publish_rules_head",
+   "pointer": "/head_digest",
+   "record": "publish_rules_receipt"
+  },
+  {
+   "minted": "publish_rules_sequence",
+   "pointer": "/sequence",
+   "record": "publish_rules_receipt"
+  },
+  {
+   "minted": "publish_rules_committed_at",
+   "pointer": "/committed_at",
+   "record": "publish_rules_receipt"
+  },
+  {
+   "minted": "team_rules_head",
+   "pointer": "/target/base/head_digest",
+   "record": "publish_rules_receipt"
+  },
+  {
+   "digest_of": "publish_rules_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "publish_rules_result"
+  },
+  {
+   "digest_of": "publish_rules_request",
+   "pointer": "/request_digest",
+   "record": "publish_rules_result"
+  },
+  {
+   "digest_of": "team_rules_rev",
+   "pointer": "/instructions/0/revision_digest",
+   "record": "backend_edition"
+  },
+  {
+   "digest_of": "team_kb_rev",
+   "pointer": "/knowledge/0/revision_digest",
+   "record": "backend_edition"
+  },
+  {
+   "digest_of": "base_edition",
+   "pointer": "/lineage/parents/0/edition_digest",
+   "record": "backend_edition"
+  },
+  {
+   "digest_of": "team_rules_rev",
+   "pointer": "/lineage/changes/0/pin/revision_digest",
+   "record": "backend_edition"
+  },
+  {
+   "digest_of": "backend_edition",
+   "pointer": "/payload_digest",
+   "record": "publish_backend_edition_request"
+  },
+  {
+   "digest_of": "publish_backend_edition_request",
+   "pointer": "/request_digest",
+   "record": "publish_backend_edition_receipt"
+  },
+  {
+   "minted": "env_backend_head",
+   "pointer": "/head_digest",
+   "record": "publish_backend_edition_receipt"
+  },
+  {
+   "minted": "publish_backend_edition_sequence",
+   "pointer": "/sequence",
+   "record": "publish_backend_edition_receipt"
+  },
+  {
+   "minted": "publish_backend_edition_committed_at",
+   "pointer": "/committed_at",
+   "record": "publish_backend_edition_receipt"
+  },
+  {
+   "digest_of": "publish_backend_edition_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "publish_backend_edition_result"
+  },
+  {
+   "digest_of": "publish_backend_edition_request",
+   "pointer": "/request_digest",
+   "record": "publish_backend_edition_result"
+  },
+  {
+   "digest_of": "backend_edition",
+   "pointer": "/outputs/0/digest",
+   "record": "publish_backend_edition_result"
+  },
+  {
+   "minted": "env_backend_head",
+   "pointer": "/target/base/head_digest",
+   "record": "adopt_backend_request"
+  },
+  {
+   "minted": "backend_adoption_at",
+   "pointer": "/adopted_at",
+   "record": "backend_adoption"
+  },
+  {
+   "digest_of": "backend_edition",
+   "pointer": "/edition_digest",
+   "record": "backend_adoption"
+  },
+  {
+   "digest_of": "adopt_backend_request",
+   "pointer": "/request_digest",
+   "record": "adopt_backend_receipt"
+  },
+  {
+   "minted": "adopt_backend_head",
+   "pointer": "/head_digest",
+   "record": "adopt_backend_receipt"
+  },
+  {
+   "minted": "adopt_backend_sequence",
+   "pointer": "/sequence",
+   "record": "adopt_backend_receipt"
+  },
+  {
+   "minted": "adopt_backend_committed_at",
+   "pointer": "/committed_at",
+   "record": "adopt_backend_receipt"
+  },
+  {
+   "minted": "env_backend_head",
+   "pointer": "/target/base/head_digest",
+   "record": "adopt_backend_receipt"
+  },
+  {
+   "digest_of": "adopt_backend_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "adopt_backend_result"
+  },
+  {
+   "digest_of": "adopt_backend_request",
+   "pointer": "/request_digest",
+   "record": "adopt_backend_result"
+  },
+  {
+   "digest_of": "backend_adoption",
+   "pointer": "/outputs/0/digest",
+   "record": "adopt_backend_result"
+  },
+  {
+   "digest_of": "backend_adoption",
+   "pointer": "/basis/adoption_evidence_digest",
+   "record": "compose_from_adoption"
+  },
+  {
+   "digest_of": "compose_from_adoption",
+   "pointer": "/payload_digest",
+   "record": "compose_for_session_request"
+  },
+  {
+   "minted": "adopted_preparation_id",
+   "pointer": "/preparation_id",
+   "record": "adopted_preparation"
+  },
+  {
+   "minted": "adopted_preparation_at",
+   "pointer": "/prepared_at",
+   "record": "adopted_preparation"
+  },
+  {
+   "digest_of": "compose_from_adoption",
+   "pointer": "/request_digest",
+   "record": "adopted_preparation"
+  },
+  {
+   "minted": "rules_unit",
+   "pointer": "/units/0/unit_id",
+   "record": "adopted_preparation"
+  },
+  {
+   "digest_of": "team_rules_rev",
+   "pointer": "/units/0/revision_digest",
+   "record": "adopted_preparation"
+  },
+  {
+   "minted": "team_rules_review_body",
+   "pointer": "/units/0/body_digest",
+   "record": "adopted_preparation"
+  },
+  {
+   "minted": "kb_unit",
+   "pointer": "/units/1/unit_id",
+   "record": "adopted_preparation"
+  },
+  {
+   "digest_of": "team_kb_rev",
+   "pointer": "/units/1/revision_digest",
+   "record": "adopted_preparation"
+  },
+  {
+   "minted": "team_kb_concepts_body",
+   "pointer": "/units/1/body_digest",
+   "record": "adopted_preparation"
+  },
+  {
+   "digest_of": "compose_for_session_request",
+   "pointer": "/request_digest",
+   "record": "compose_for_session_receipt"
+  },
+  {
+   "minted": "compose_for_session_head",
+   "pointer": "/head_digest",
+   "record": "compose_for_session_receipt"
+  },
+  {
+   "minted": "compose_for_session_sequence",
+   "pointer": "/sequence",
+   "record": "compose_for_session_receipt"
+  },
+  {
+   "minted": "compose_for_session_committed_at",
+   "pointer": "/committed_at",
+   "record": "compose_for_session_receipt"
+  },
+  {
+   "digest_of": "compose_for_session_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "compose_for_session_result"
+  },
+  {
+   "digest_of": "compose_for_session_request",
+   "pointer": "/request_digest",
+   "record": "compose_for_session_result"
+  },
+  {
+   "digest_of": "adopted_preparation",
+   "pointer": "/outputs/0/digest",
+   "record": "compose_for_session_result"
+  }
+ ],
+ "minted": [
+  {
+   "name": "alice_binding_id",
+   "shape": "bnd",
+   "step": "bind_alice"
+  },
+  {
+   "name": "alice_bound_at",
+   "shape": "instant",
+   "step": "bind_alice"
+  },
+  {
+   "name": "bind_alice_committed_at",
+   "shape": "instant",
+   "step": "bind_alice"
+  },
+  {
+   "name": "bind_alice_head",
+   "shape": "digest",
+   "step": "bind_alice"
+  },
+  {
+   "name": "bind_alice_sequence",
+   "shape": "integer",
+   "step": "bind_alice"
+  },
+  {
+   "name": "alice_grant_id",
+   "shape": "gra",
+   "step": "found_team"
+  },
+  {
+   "name": "found_team_committed_at",
+   "shape": "instant",
+   "step": "found_team"
+  },
+  {
+   "name": "found_team_sequence",
+   "shape": "integer",
+   "step": "found_team"
+  },
+  {
+   "name": "team_founded_at",
+   "shape": "instant",
+   "step": "found_team"
+  },
+  {
+   "name": "team_head",
+   "shape": "digest",
+   "step": "found_team"
+  },
+  {
+   "name": "team_policy_id",
+   "shape": "pol",
+   "step": "found_team"
+  },
+  {
+   "name": "author_team_rules_committed_at",
+   "shape": "instant",
+   "step": "author_team_rules"
+  },
+  {
+   "name": "author_team_rules_sequence",
+   "shape": "integer",
+   "step": "author_team_rules"
+  },
+  {
+   "name": "team_rules_head",
+   "shape": "digest",
+   "step": "author_team_rules"
+  },
+  {
+   "name": "team_rules_produced_at",
+   "shape": "instant",
+   "step": "author_team_rules"
+  },
+  {
+   "name": "team_rules_review_body",
+   "shape": "digest",
+   "step": "author_team_rules"
+  },
+  {
+   "name": "author_team_kb_committed_at",
+   "shape": "instant",
+   "step": "author_team_kb"
+  },
+  {
+   "name": "author_team_kb_sequence",
+   "shape": "integer",
+   "step": "author_team_kb"
+  },
+  {
+   "name": "team_kb_concepts_body",
+   "shape": "digest",
+   "step": "author_team_kb"
+  },
+  {
+   "name": "team_kb_head",
+   "shape": "digest",
+   "step": "author_team_kb"
+  },
+  {
+   "name": "team_kb_produced_at",
+   "shape": "instant",
+   "step": "author_team_kb"
+  },
+  {
+   "name": "env_base_head",
+   "shape": "digest",
+   "step": "publish_base_edition"
+  },
+  {
+   "name": "publish_base_edition_committed_at",
+   "shape": "instant",
+   "step": "publish_base_edition"
+  },
+  {
+   "name": "publish_base_edition_sequence",
+   "shape": "integer",
+   "step": "publish_base_edition"
+  },
+  {
+   "name": "publish_rules_committed_at",
+   "shape": "instant",
+   "step": "publish_rules"
+  },
+  {
+   "name": "publish_rules_head",
+   "shape": "digest",
+   "step": "publish_rules"
+  },
+  {
+   "name": "publish_rules_sequence",
+   "shape": "integer",
+   "step": "publish_rules"
+  },
+  {
+   "name": "env_backend_head",
+   "shape": "digest",
+   "step": "publish_backend_edition"
+  },
+  {
+   "name": "publish_backend_edition_committed_at",
+   "shape": "instant",
+   "step": "publish_backend_edition"
+  },
+  {
+   "name": "publish_backend_edition_sequence",
+   "shape": "integer",
+   "step": "publish_backend_edition"
+  },
+  {
+   "name": "adopt_backend_committed_at",
+   "shape": "instant",
+   "step": "adopt_backend"
+  },
+  {
+   "name": "adopt_backend_head",
+   "shape": "digest",
+   "step": "adopt_backend"
+  },
+  {
+   "name": "adopt_backend_sequence",
+   "shape": "integer",
+   "step": "adopt_backend"
+  },
+  {
+   "name": "backend_adoption_at",
+   "shape": "instant",
+   "step": "adopt_backend"
+  },
+  {
+   "name": "adopted_preparation_at",
+   "shape": "instant",
+   "step": "compose_for_session"
+  },
+  {
+   "name": "adopted_preparation_id",
+   "shape": "prp",
+   "step": "compose_for_session"
+  },
+  {
+   "name": "compose_for_session_committed_at",
+   "shape": "instant",
+   "step": "compose_for_session"
+  },
+  {
+   "name": "compose_for_session_head",
+   "shape": "digest",
+   "step": "compose_for_session"
+  },
+  {
+   "name": "compose_for_session_sequence",
+   "shape": "integer",
+   "step": "compose_for_session"
+  },
+  {
+   "name": "kb_unit",
+   "shape": "unt",
+   "step": "compose_for_session"
+  },
+  {
+   "name": "rules_unit",
+   "shape": "unt",
+   "step": "compose_for_session"
+  }
+ ],
+ "records": [
+  {
+   "digest": "6e5b3eccc2fe762f3f283cb3e6f5997d3356178adadf1e2d20d70217cce39a8f",
+   "name": "alice_key",
+   "record": {
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_6c4e9f3444bbd71d2171708a061754e0",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_b0430bb4956ea9213f85cc5ec14ef07a",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "929b50ba516a121b100ef2bbf1dfe2260e362db7ada9715523af902526189a4d",
+   "name": "bind_alice_request",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_6c4e9f3444bbd71d2171708a061754e0",
+     "principal_id": "prn_b0430bb4956ea9213f85cc5ec14ef07a",
+     "profile_id": "prf_a6068caf16693bd9f9400f64e1ace72d"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "identity.binding.add",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_b0430bb4956ea9213f85cc5ec14ef07a"
+    },
+    "payload_digest": "6e5b3eccc2fe762f3f283cb3e6f5997d3356178adadf1e2d20d70217cce39a8f",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_4a82984fe67d554b4b797507075fdf93",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_b0430bb4956ea9213f85cc5ec14ef07a"
+    }
+   }
+  },
+  {
+   "digest": "91994888e63f786223478c6422d79092dea42d221394674f873bdb70b38a643d",
+   "name": "alice_binding",
+   "record": {
+    "binding_id": "bnd_cf3641f79ee7596e33e5cf3dd4a0b98a",
+    "created_at": "2000-01-01T00:00:00Z",
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_6c4e9f3444bbd71d2171708a061754e0",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_b0430bb4956ea9213f85cc5ec14ef07a",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "edfe841c19b8c32ecdfb6caadf5b981cb4442c63f10023ecfebf26c68df14bec",
+   "name": "bind_alice_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "f0c76921fc90a02495453096adcf1ddf45b79fd16bf5a431017d9014142a963b",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_b0430bb4956ea9213f85cc5ec14ef07a"
+    },
+    "request_digest": "929b50ba516a121b100ef2bbf1dfe2260e362db7ada9715523af902526189a4d",
+    "request_id": "req_4a82984fe67d554b4b797507075fdf93",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prn_b0430bb4956ea9213f85cc5ec14ef07a"
+    }
+   }
+  },
+  {
+   "digest": "feca586ba0efa534ddf40b89946dd0467c52ae6cffe47f98102c061752914ab1",
+   "name": "bind_alice_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "edfe841c19b8c32ecdfb6caadf5b981cb4442c63f10023ecfebf26c68df14bec",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "91994888e63f786223478c6422d79092dea42d221394674f873bdb70b38a643d",
+      "kind": "principal_binding"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "929b50ba516a121b100ef2bbf1dfe2260e362db7ada9715523af902526189a4d",
+    "request_id": "req_4a82984fe67d554b4b797507075fdf93",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "95cd311c4e6e95636272c0383e6479a3bc1b6545d7432bfb6c770522d497d172",
+   "name": "team_policy_submitted",
+   "record": {
+    "delegation_ceiling": 2,
+    "execution_authority": {
+     "duty": "finalizer",
+     "principal_id": "prn_b0430bb4956ea9213f85cc5ec14ef07a"
+    },
+    "expiry_days": 30,
+    "independence": {
+     "excludes_recorded_authors": true,
+     "excludes_requester": true,
+     "excludes_sponsored_agents": true
+    },
+    "kind": "governing_policy",
+    "operations": [
+     "publish",
+     "adopt"
+    ],
+    "schema": 1,
+    "team_id": "tem_cd8552be2aaf32a04545359d12048f38",
+    "threshold": 0
+   }
+  },
+  {
+   "digest": "2f4df30d4974bd960eadf05ac3d2b593a8c8289163cbc2d0838f2826f4fc5b17",
+   "name": "team_proposal",
+   "record": {
+    "carriers": [
+     "local",
+     "peer"
+    ],
+    "custody_target": 3,
+    "finalizer": {
+     "device_id": "dev_6c4e9f3444bbd71d2171708a061754e0",
+     "runs_on": "member_device"
+    },
+    "founder_principal_id": "prn_b0430bb4956ea9213f85cc5ec14ef07a",
+    "founding_mode": {
+     "acknowledged_self_reviewed": true,
+     "mode": "self_founded"
+    },
+    "kind": "founding_proposal",
+    "name": "Platform",
+    "policy_digest": "95cd311c4e6e95636272c0383e6479a3bc1b6545d7432bfb6c770522d497d172",
+    "proposal_version": 1,
+    "purpose": "The standards this group works to.",
+    "recovery": [
+     {
+      "duty": "recovery",
+      "principal_id": "prn_b0430bb4956ea9213f85cc5ec14ef07a"
+     }
+    ],
+    "schema": 1,
+    "team_id": "tem_cd8552be2aaf32a04545359d12048f38"
+   }
+  },
+  {
+   "digest": "982b3257b0dbafca6480b9cef1a9f492995db98068dfaa0006adbfd57b3b2d3e",
+   "name": "found_team_request",
+   "record": {
+    "action": "policy",
+    "actor": {
+     "device_id": "dev_6c4e9f3444bbd71d2171708a061754e0",
+     "principal_id": "prn_b0430bb4956ea9213f85cc5ec14ef07a",
+     "profile_id": "prf_a6068caf16693bd9f9400f64e1ace72d"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "team.found",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_cd8552be2aaf32a04545359d12048f38"
+    },
+    "payload_digest": "2f4df30d4974bd960eadf05ac3d2b593a8c8289163cbc2d0838f2826f4fc5b17",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_905e88cfb1e34db6d62a0813bb44107f",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "tem_cd8552be2aaf32a04545359d12048f38"
+    }
+   }
+  },
+  {
+   "digest": "70ee6b1a267a4331c177916a232781c17ecd326a24296da393084708e81bfce8",
+   "name": "team_policy",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "delegation_ceiling": 2,
+    "execution_authority": {
+     "duty": "finalizer",
+     "principal_id": "prn_b0430bb4956ea9213f85cc5ec14ef07a"
+    },
+    "expiry_days": 30,
+    "independence": {
+     "excludes_recorded_authors": true,
+     "excludes_requester": true,
+     "excludes_sponsored_agents": true
+    },
+    "kind": "governing_policy",
+    "operations": [
+     "publish",
+     "adopt"
+    ],
+    "policy_id": "pol_7b632a68a168845ce9aac49c8e5f82b9",
+    "policy_version": 1,
+    "schema": 1,
+    "team_id": "tem_cd8552be2aaf32a04545359d12048f38",
+    "threshold": 0
+   }
+  },
+  {
+   "digest": "df97f24f566b485f8d82dc52b19da31a1ba00ace337621d6a5244cc2f5f6ad64",
+   "name": "alice_founding_grant",
+   "record": {
+    "actions": [
+     "read",
+     "use",
+     "contribute",
+     "publish",
+     "adopt",
+     "grant",
+     "policy"
+    ],
+    "created_at": "2000-01-01T00:00:00Z",
+    "delegation_ceiling": 2,
+    "grant_id": "gra_52fb14235490c0f6e9a269f5d5825116",
+    "grant_revision": 1,
+    "holder": {
+     "principal_id": "prn_b0430bb4956ea9213f85cc5ec14ef07a",
+     "to": "principal"
+    },
+    "issuer_principal_id": "prn_b0430bb4956ea9213f85cc5ec14ef07a",
+    "kind": "grant_record",
+    "schema": 1,
+    "scope": {
+     "layer": "team",
+     "team_id": "tem_cd8552be2aaf32a04545359d12048f38"
+    },
+    "standing": "current",
+    "team_id": "tem_cd8552be2aaf32a04545359d12048f38"
+   }
+  },
+  {
+   "digest": "0fda884a29d9e0eee1d8decf1fe52cf353cf5ca151886cccf51b7b4df410bb91",
+   "name": "team_state",
+   "record": {
+    "kind": "team_state",
+    "schema": 1,
+    "since": "2000-01-01T00:00:00Z",
+    "state": "active",
+    "team_id": "tem_cd8552be2aaf32a04545359d12048f38"
+   }
+  },
+  {
+   "digest": "c3ddd8a45c7e162e569c5ec5f4b90ca73bdc76142b732d4bb68b9fe85720a53c",
+   "name": "team_profile",
+   "record": {
+    "kind": "team_profile",
+    "name": "Platform",
+    "purpose": "The standards this group works to.",
+    "schema": 1,
+    "team_id": "tem_cd8552be2aaf32a04545359d12048f38",
+    "updated_at": "2000-01-01T00:00:00Z"
+   }
+  },
+  {
+   "digest": "f549a60aef6753166776816a86a294b6982b37e9deb26b87cf60a5786998833b",
+   "name": "found_team_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "99d5c59d8eb1c2f793476635d37d3f28c29f533839e5258df967faafd95bab8a",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_cd8552be2aaf32a04545359d12048f38"
+    },
+    "request_digest": "982b3257b0dbafca6480b9cef1a9f492995db98068dfaa0006adbfd57b3b2d3e",
+    "request_id": "req_905e88cfb1e34db6d62a0813bb44107f",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "tem_cd8552be2aaf32a04545359d12048f38"
+    }
+   }
+  },
+  {
+   "digest": "4a25e9154afcf7e4391f7bcffa5b8d9f45e5f2f3f2abeda36cde93b413a58e1a",
+   "name": "found_team_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "f549a60aef6753166776816a86a294b6982b37e9deb26b87cf60a5786998833b",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "70ee6b1a267a4331c177916a232781c17ecd326a24296da393084708e81bfce8",
+      "kind": "governing_policy"
+     },
+     {
+      "digest": "df97f24f566b485f8d82dc52b19da31a1ba00ace337621d6a5244cc2f5f6ad64",
+      "kind": "grant_record"
+     },
+     {
+      "digest": "0fda884a29d9e0eee1d8decf1fe52cf353cf5ca151886cccf51b7b4df410bb91",
+      "kind": "team_state"
+     },
+     {
+      "digest": "c3ddd8a45c7e162e569c5ec5f4b90ca73bdc76142b732d4bb68b9fe85720a53c",
+      "kind": "team_profile"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "982b3257b0dbafca6480b9cef1a9f492995db98068dfaa0006adbfd57b3b2d3e",
+    "request_id": "req_905e88cfb1e34db6d62a0813bb44107f",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "a3a617db909c494ece69517f37b1a574d068b7692c8fb902d5ffff8f8d9510a3",
+   "name": "team_rules_request",
+   "record": {
+    "destination": {
+     "home_mode": "managed",
+     "scope": {
+      "layer": "team",
+      "team_id": "tem_cd8552be2aaf32a04545359d12048f38"
+     }
+    },
+    "kind": "source_request",
+    "role": "instructions",
+    "route": {
+     "route": "author_here"
+    },
+    "schema": 1
+   }
+  },
+  {
+   "digest": "4340cbf52dc57d7566329df33d694d14288917486024530c346e2281aa18b9ec",
+   "name": "author_team_rules_request",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_6c4e9f3444bbd71d2171708a061754e0",
+     "principal_id": "prn_b0430bb4956ea9213f85cc5ec14ef07a",
+     "profile_id": "prf_a6068caf16693bd9f9400f64e1ace72d"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "source.revision.admit",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_cd8552be2aaf32a04545359d12048f38"
+    },
+    "payload_digest": "a3a617db909c494ece69517f37b1a574d068b7692c8fb902d5ffff8f8d9510a3",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_8a60a08db568a1c1789ebd4a671f07f9",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_37892d2f575eea98ce806905c0f0e22f"
+    }
+   }
+  },
+  {
+   "digest": "e668c263b3651c6e60b4f518e6b4f666641f6b87207d4c2d4a6ab31d809ba20a",
+   "name": "team_rules_rev",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "2345a11a09f6111f0df5d193adc2515e365b01a66429ea0007dfc70098d8be79",
+      "path": "rules/review.md",
+      "size": 2048
+     }
+    ],
+    "produced_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "source_id": "src_37892d2f575eea98ce806905c0f0e22f"
+   }
+  },
+  {
+   "digest": "c6d8ff4e02f9c3712e79fed2c6e0cd3cb4f89209458878be22a943091581a91e",
+   "name": "author_team_rules_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "90e57e360efb9abb656cce7d3e6a533ad22163380b31c516b63913728747780d",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_cd8552be2aaf32a04545359d12048f38"
+    },
+    "request_digest": "4340cbf52dc57d7566329df33d694d14288917486024530c346e2281aa18b9ec",
+    "request_id": "req_8a60a08db568a1c1789ebd4a671f07f9",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_37892d2f575eea98ce806905c0f0e22f"
+    }
+   }
+  },
+  {
+   "digest": "be7eaeb93a5a81d64aa153a4fc11f7eaf05046ea2d9fe7593d6f26bcdf0f5385",
+   "name": "author_team_rules_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "c6d8ff4e02f9c3712e79fed2c6e0cd3cb4f89209458878be22a943091581a91e",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "e668c263b3651c6e60b4f518e6b4f666641f6b87207d4c2d4a6ab31d809ba20a",
+      "kind": "source_manifest"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "4340cbf52dc57d7566329df33d694d14288917486024530c346e2281aa18b9ec",
+    "request_id": "req_8a60a08db568a1c1789ebd4a671f07f9",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "dfe0f095ef9637e797f8585ea58f9f40bd7f0f3e2268676c260325d76cb4516e",
+   "name": "team_kb_request",
+   "record": {
+    "destination": {
+     "home_mode": "managed",
+     "scope": {
+      "layer": "team",
+      "team_id": "tem_cd8552be2aaf32a04545359d12048f38"
+     }
+    },
+    "kind": "source_request",
+    "role": "knowledge",
+    "route": {
+     "route": "author_here"
+    },
+    "schema": 1
+   }
+  },
+  {
+   "digest": "a22eb15ed8618cf1793b27a74c816ef5741e544c3cb117a4ad61b218311e25b9",
+   "name": "author_team_kb_request",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_6c4e9f3444bbd71d2171708a061754e0",
+     "principal_id": "prn_b0430bb4956ea9213f85cc5ec14ef07a",
+     "profile_id": "prf_a6068caf16693bd9f9400f64e1ace72d"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "source.revision.admit",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_cd8552be2aaf32a04545359d12048f38"
+    },
+    "payload_digest": "dfe0f095ef9637e797f8585ea58f9f40bd7f0f3e2268676c260325d76cb4516e",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_27b6656cfb066965f0e383fb30abab6c",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_80ada528ab7a2b97ecf1f04b638b94f8"
+    }
+   }
+  },
+  {
+   "digest": "1fcc54cde87a9122b8a1fe12f8dcdcd7f03c6332b66b8b9b592ba96f86f1e32c",
+   "name": "team_kb_rev",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "a0c2c38b52c865bd7db280f081b3c72d036be9bc1149c074255db05d8486452e",
+      "path": "concepts.md",
+      "size": 4120
+     }
+    ],
+    "produced_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "source_id": "src_80ada528ab7a2b97ecf1f04b638b94f8"
+   }
+  },
+  {
+   "digest": "ea1f21e1debf7df5d6b6f5629306f2b2642817c47f8d3b06a8858ac3b8cd72e8",
+   "name": "author_team_kb_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "35daa8b05ee3997156c7a1a741b951c4968edc31dae34493bf52fbe622956bdd",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_cd8552be2aaf32a04545359d12048f38"
+    },
+    "request_digest": "a22eb15ed8618cf1793b27a74c816ef5741e544c3cb117a4ad61b218311e25b9",
+    "request_id": "req_27b6656cfb066965f0e383fb30abab6c",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_80ada528ab7a2b97ecf1f04b638b94f8"
+    }
+   }
+  },
+  {
+   "digest": "414281001c79b17c02a3ee762181c4a0abdc5879e3a87aee86ed09557e721200",
+   "name": "author_team_kb_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "ea1f21e1debf7df5d6b6f5629306f2b2642817c47f8d3b06a8858ac3b8cd72e8",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "1fcc54cde87a9122b8a1fe12f8dcdcd7f03c6332b66b8b9b592ba96f86f1e32c",
+      "kind": "source_manifest"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "a22eb15ed8618cf1793b27a74c816ef5741e544c3cb117a4ad61b218311e25b9",
+    "request_id": "req_27b6656cfb066965f0e383fb30abab6c",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "d5eb340a9a1af3e99b4a483fdb53fc7e8337d601434f90cf72f28bf88697de19",
+   "name": "base_edition",
+   "record": {
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "jurisdiction",
+       "value": "KR"
+      }
+     ],
+     "states": "stated"
+    },
+    "components": {
+     "optional": [],
+     "required": [
+      {
+       "name": "session_adapter"
+      }
+     ]
+    },
+    "created_at": "2026-09-21T09:00:00Z",
+    "environment_id": "env_6cffa21a7fdeb94577eccec289c699f9",
+    "host_needs": [
+     "read",
+     "question"
+    ],
+    "instructions": [],
+    "kind": "environment_edition",
+    "knowledge": [
+     {
+      "revision_digest": "1fcc54cde87a9122b8a1fe12f8dcdcd7f03c6332b66b8b9b592ba96f86f1e32c",
+      "source_id": "src_80ada528ab7a2b97ecf1f04b638b94f8"
+     }
+    ],
+    "lineage": {
+     "derives": "nothing"
+    },
+    "memory_policy": {
+     "selectors": [],
+     "sources": []
+    },
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_cd8552be2aaf32a04545359d12048f38"
+    },
+    "purpose": "Shared knowledge for this team.",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "68db536d51ddad18d096c6398e0fac63036221a79c3ed458c272086c8ca7a886",
+   "name": "publish_base_edition_request",
+   "record": {
+    "action": "publish",
+    "actor": {
+     "device_id": "dev_6c4e9f3444bbd71d2171708a061754e0",
+     "principal_id": "prn_b0430bb4956ea9213f85cc5ec14ef07a",
+     "profile_id": "prf_a6068caf16693bd9f9400f64e1ace72d"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "environment.publish",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_cd8552be2aaf32a04545359d12048f38"
+    },
+    "payload_digest": "d5eb340a9a1af3e99b4a483fdb53fc7e8337d601434f90cf72f28bf88697de19",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_41a4dd57c7e80c411ee0be371e41fff6",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "env_6cffa21a7fdeb94577eccec289c699f9"
+    }
+   }
+  },
+  {
+   "digest": "7fbfc5b53ee759373fa4a54588cc679fe6c14cf2354be97f0823a5f032b02169",
+   "name": "publish_base_edition_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "b12d9a1994ec9969aa34c42bbd70a72874f9bf3d2e5310b80a18ba6630e09357",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_cd8552be2aaf32a04545359d12048f38"
+    },
+    "request_digest": "68db536d51ddad18d096c6398e0fac63036221a79c3ed458c272086c8ca7a886",
+    "request_id": "req_41a4dd57c7e80c411ee0be371e41fff6",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "env_6cffa21a7fdeb94577eccec289c699f9"
+    }
+   }
+  },
+  {
+   "digest": "0f597808df2aa438753f7a46ce43905d60d7616dabeaf5e0afbba3cf2addce1e",
+   "name": "publish_base_edition_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "7fbfc5b53ee759373fa4a54588cc679fe6c14cf2354be97f0823a5f032b02169",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "d5eb340a9a1af3e99b4a483fdb53fc7e8337d601434f90cf72f28bf88697de19",
+      "kind": "environment_edition"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "68db536d51ddad18d096c6398e0fac63036221a79c3ed458c272086c8ca7a886",
+    "request_id": "req_41a4dd57c7e80c411ee0be371e41fff6",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "9ce22c8c5fc4a90ebdbd363a77367f0b226602d441dafa28b84153d97240b625",
+   "name": "publish_rules_request",
+   "record": {
+    "action": "publish",
+    "actor": {
+     "device_id": "dev_6c4e9f3444bbd71d2171708a061754e0",
+     "principal_id": "prn_b0430bb4956ea9213f85cc5ec14ef07a",
+     "profile_id": "prf_a6068caf16693bd9f9400f64e1ace72d"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "source.revision.publish",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_cd8552be2aaf32a04545359d12048f38"
+    },
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_7381a084fe0ebd20a7dff8083cf19c5c",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "90e57e360efb9abb656cce7d3e6a533ad22163380b31c516b63913728747780d"
+     },
+     "resource_id": "src_37892d2f575eea98ce806905c0f0e22f"
+    }
+   }
+  },
+  {
+   "digest": "22c4a76f8203ac257d77130ccef5a7b906dc2fed33c8e626be3f7fa5541e61b1",
+   "name": "publish_rules_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "70f672d1231a5e146f11e8e53e476c43b105223f2ccb8b447e984c66b2727eae",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_cd8552be2aaf32a04545359d12048f38"
+    },
+    "request_digest": "9ce22c8c5fc4a90ebdbd363a77367f0b226602d441dafa28b84153d97240b625",
+    "request_id": "req_7381a084fe0ebd20a7dff8083cf19c5c",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "90e57e360efb9abb656cce7d3e6a533ad22163380b31c516b63913728747780d"
+     },
+     "resource_id": "src_37892d2f575eea98ce806905c0f0e22f"
+    }
+   }
+  },
+  {
+   "digest": "7c3fbed90c8127c427a7b362adc2d6db9e586593aca2ca3055718ea7e638c137",
+   "name": "publish_rules_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "22c4a76f8203ac257d77130ccef5a7b906dc2fed33c8e626be3f7fa5541e61b1",
+     "stage": "committed"
+    },
+    "outputs": [],
+    "provider_effect": "not_applicable",
+    "request_digest": "9ce22c8c5fc4a90ebdbd363a77367f0b226602d441dafa28b84153d97240b625",
+    "request_id": "req_7381a084fe0ebd20a7dff8083cf19c5c",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "d090c72120974744c76e58475432b104ef803b3a2f11730bb8f684b20a35ecca",
+   "name": "backend_edition",
+   "record": {
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "jurisdiction",
+       "value": "KR"
+      }
+     ],
+     "states": "stated"
+    },
+    "components": {
+     "optional": [],
+     "required": [
+      {
+       "name": "session_adapter"
+      }
+     ]
+    },
+    "created_at": "2026-09-21T09:00:00Z",
+    "environment_id": "env_6f949dcfb5478c767d1defdb1f23e9e3",
+    "host_needs": [
+     "read",
+     "question"
+    ],
+    "instructions": [
+     {
+      "revision_digest": "e668c263b3651c6e60b4f518e6b4f666641f6b87207d4c2d4a6ab31d809ba20a",
+      "source_id": "src_37892d2f575eea98ce806905c0f0e22f"
+     }
+    ],
+    "kind": "environment_edition",
+    "knowledge": [
+     {
+      "revision_digest": "1fcc54cde87a9122b8a1fe12f8dcdcd7f03c6332b66b8b9b592ba96f86f1e32c",
+      "source_id": "src_80ada528ab7a2b97ecf1f04b638b94f8"
+     }
+    ],
+    "lineage": {
+     "changes": [
+      {
+       "change": "addition",
+       "pin": {
+        "revision_digest": "e668c263b3651c6e60b4f518e6b4f666641f6b87207d4c2d4a6ab31d809ba20a",
+        "source_id": "src_37892d2f575eea98ce806905c0f0e22f"
+       }
+      }
+     ],
+     "derives": "parents",
+     "parents": [
+      {
+       "edition_digest": "d5eb340a9a1af3e99b4a483fdb53fc7e8337d601434f90cf72f28bf88697de19",
+       "environment_id": "env_6cffa21a7fdeb94577eccec289c699f9"
+      }
+     ]
+    },
+    "memory_policy": {
+     "selectors": [],
+     "sources": []
+    },
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_cd8552be2aaf32a04545359d12048f38"
+    },
+    "purpose": "Backend service work for this team.",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "5bb0a0fd740224bbc981a8cebbe4bfdf4a841b786b1d693c6545b0c03e3d62c8",
+   "name": "publish_backend_edition_request",
+   "record": {
+    "action": "publish",
+    "actor": {
+     "device_id": "dev_6c4e9f3444bbd71d2171708a061754e0",
+     "principal_id": "prn_b0430bb4956ea9213f85cc5ec14ef07a",
+     "profile_id": "prf_a6068caf16693bd9f9400f64e1ace72d"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "environment.publish",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_cd8552be2aaf32a04545359d12048f38"
+    },
+    "payload_digest": "d090c72120974744c76e58475432b104ef803b3a2f11730bb8f684b20a35ecca",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_ae109361eb2c0c822758eb4e4ecc8fde",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "env_6f949dcfb5478c767d1defdb1f23e9e3"
+    }
+   }
+  },
+  {
+   "digest": "a3e2acd0ce52dc4662ecd79b4a01271c7839903dca7788ef6988a3edf788ee66",
+   "name": "publish_backend_edition_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "c700b8e1c1f3cf775ac924a6f6eae4e46a18f10badb93f433fb7563c190f9d43",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_cd8552be2aaf32a04545359d12048f38"
+    },
+    "request_digest": "5bb0a0fd740224bbc981a8cebbe4bfdf4a841b786b1d693c6545b0c03e3d62c8",
+    "request_id": "req_ae109361eb2c0c822758eb4e4ecc8fde",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "env_6f949dcfb5478c767d1defdb1f23e9e3"
+    }
+   }
+  },
+  {
+   "digest": "c6d4788b99e4258445dd3fc1c76af8ab8a7b70794665a237106e2ba90db52130",
+   "name": "publish_backend_edition_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "a3e2acd0ce52dc4662ecd79b4a01271c7839903dca7788ef6988a3edf788ee66",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "d090c72120974744c76e58475432b104ef803b3a2f11730bb8f684b20a35ecca",
+      "kind": "environment_edition"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "5bb0a0fd740224bbc981a8cebbe4bfdf4a841b786b1d693c6545b0c03e3d62c8",
+    "request_id": "req_ae109361eb2c0c822758eb4e4ecc8fde",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "d9063b2ae455de845da9a096beee66900b79297a38dba436bd52be412a397ee8",
+   "name": "adopt_backend_request",
+   "record": {
+    "action": "adopt",
+    "actor": {
+     "device_id": "dev_6c4e9f3444bbd71d2171708a061754e0",
+     "principal_id": "prn_b0430bb4956ea9213f85cc5ec14ef07a",
+     "profile_id": "prf_a6068caf16693bd9f9400f64e1ace72d"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "environment.adopt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_cd8552be2aaf32a04545359d12048f38"
+    },
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_83b435de633e0365e19904b217023156",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "c700b8e1c1f3cf775ac924a6f6eae4e46a18f10badb93f433fb7563c190f9d43"
+     },
+     "resource_id": "env_6f949dcfb5478c767d1defdb1f23e9e3"
+    }
+   }
+  },
+  {
+   "digest": "f2bbedd0005df909426da0a3fd6b19b8b3645c02e861eee7dbc3d8886567dc40",
+   "name": "backend_adoption",
+   "record": {
+    "adopted_at": "2000-01-01T00:00:00Z",
+    "edition_digest": "d090c72120974744c76e58475432b104ef803b3a2f11730bb8f684b20a35ecca",
+    "environment_id": "env_6f949dcfb5478c767d1defdb1f23e9e3",
+    "into": {
+     "layer": "team",
+     "team_id": "tem_cd8552be2aaf32a04545359d12048f38"
+    },
+    "kind": "environment_adoption",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "865f3e521d7feb702cd30793d6d73150e8b499bb9b53441d1f51096e18890821",
+   "name": "adopt_backend_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "60f57c88a88bcab97def6f0c8a941b88e2ffce0cc353db7f6f53ebbf98c89406",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_cd8552be2aaf32a04545359d12048f38"
+    },
+    "request_digest": "d9063b2ae455de845da9a096beee66900b79297a38dba436bd52be412a397ee8",
+    "request_id": "req_83b435de633e0365e19904b217023156",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "c700b8e1c1f3cf775ac924a6f6eae4e46a18f10badb93f433fb7563c190f9d43"
+     },
+     "resource_id": "env_6f949dcfb5478c767d1defdb1f23e9e3"
+    }
+   }
+  },
+  {
+   "digest": "d2f27beeaad1faecab042f0c232f23d388f166bca9b0bd19d4b93ace4416595e",
+   "name": "adopt_backend_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "865f3e521d7feb702cd30793d6d73150e8b499bb9b53441d1f51096e18890821",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "f2bbedd0005df909426da0a3fd6b19b8b3645c02e861eee7dbc3d8886567dc40",
+      "kind": "environment_adoption"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "d9063b2ae455de845da9a096beee66900b79297a38dba436bd52be412a397ee8",
+    "request_id": "req_83b435de633e0365e19904b217023156",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "2e9992c61c75246d754235279f3552e93045f0e71039dbb83b433cdf8b527764",
+   "name": "compose_from_adoption",
+   "record": {
+    "basis": {
+     "adoption_evidence_digest": "f2bbedd0005df909426da0a3fd6b19b8b3645c02e861eee7dbc3d8886567dc40",
+     "environment_id": "env_6f949dcfb5478c767d1defdb1f23e9e3",
+     "from": "environment"
+    },
+    "declared_operation": {
+     "action": "use",
+     "name": "session.routing.activate"
+    },
+    "kind": "preparation_request",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "280c7a9d1755406025b1a06ff9f3537db6f18bf7f454658b5e94c3e86335312a",
+   "name": "compose_for_session_request",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_6c4e9f3444bbd71d2171708a061754e0",
+     "principal_id": "prn_b0430bb4956ea9213f85cc5ec14ef07a",
+     "profile_id": "prf_a6068caf16693bd9f9400f64e1ace72d"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "preparation.compose",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_b0430bb4956ea9213f85cc5ec14ef07a"
+    },
+    "payload_digest": "2e9992c61c75246d754235279f3552e93045f0e71039dbb83b433cdf8b527764",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_9d7cddf7a6da2adad47832b50bc8ec34",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_b0430bb4956ea9213f85cc5ec14ef07a"
+    }
+   }
+  },
+  {
+   "digest": "ad5ac8192cbd7500252817c09a7cacdcf3fdacb789b433d547d047afb54e408a",
+   "name": "adopted_preparation",
+   "record": {
+    "adapter": {
+     "name": "session_adapter",
+     "version": "0.1.0"
+    },
+    "collections": [],
+    "frontiers": [],
+    "kind": "preparation",
+    "material_gaps": [],
+    "observed": {
+     "locator": "/workspace"
+    },
+    "omissions": [],
+    "order": [
+     {
+      "layer": "team",
+      "team_id": "tem_cd8552be2aaf32a04545359d12048f38"
+     }
+    ],
+    "preparation_id": "prp_2b3adf6c50c0948713dd2e62ee407387",
+    "prepared_at": "2000-01-01T00:00:00Z",
+    "recipient": {
+     "isolation": "proven_fresh",
+     "work_scope": {
+      "layer": "team",
+      "team_id": "tem_cd8552be2aaf32a04545359d12048f38"
+     }
+    },
+    "request_digest": "2e9992c61c75246d754235279f3552e93045f0e71039dbb83b433cdf8b527764",
+    "schema": 1,
+    "units": [
+     {
+      "body_digest": "2345a11a09f6111f0df5d193adc2515e365b01a66429ea0007dfc70098d8be79",
+      "layer": "team",
+      "revision_digest": "e668c263b3651c6e60b4f518e6b4f666641f6b87207d4c2d4a6ab31d809ba20a",
+      "role": "instructions",
+      "source_id": "src_37892d2f575eea98ce806905c0f0e22f",
+      "standing": "winning",
+      "unit_id": "unt_db4a52afbf9563daf0d9378b7659c5bb"
+     },
+     {
+      "body_digest": "a0c2c38b52c865bd7db280f081b3c72d036be9bc1149c074255db05d8486452e",
+      "layer": "team",
+      "revision_digest": "1fcc54cde87a9122b8a1fe12f8dcdcd7f03c6332b66b8b9b592ba96f86f1e32c",
+      "role": "knowledge",
+      "source_id": "src_80ada528ab7a2b97ecf1f04b638b94f8",
+      "standing": "winning",
+      "unit_id": "unt_f2650721448e4c1d2c8a7b9c7d25af55"
+     }
+    ],
+    "work_support": {
+     "assessed": "not_requested"
+    }
+   }
+  },
+  {
+   "digest": "8430b68ec013a596caf28cb82aca724457fbb1ceb2247f7064345333cc89b258",
+   "name": "compose_for_session_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "5d8f0246fbddca4eb18bca6679f5bdafa5da231fc45afd22946bad581a59cd77",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_b0430bb4956ea9213f85cc5ec14ef07a"
+    },
+    "request_digest": "280c7a9d1755406025b1a06ff9f3537db6f18bf7f454658b5e94c3e86335312a",
+    "request_id": "req_9d7cddf7a6da2adad47832b50bc8ec34",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prn_b0430bb4956ea9213f85cc5ec14ef07a"
+    }
+   }
+  },
+  {
+   "digest": "56ce4c54e8b6a8e78d7f072b4b597bf7ad30bfbc0fa22fc4f309d10e6b28fcab",
+   "name": "compose_for_session_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "private_state_written",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "8430b68ec013a596caf28cb82aca724457fbb1ceb2247f7064345333cc89b258",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "ad5ac8192cbd7500252817c09a7cacdcf3fdacb789b433d547d047afb54e408a",
+      "kind": "preparation"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "280c7a9d1755406025b1a06ff9f3537db6f18bf7f454658b5e94c3e86335312a",
+    "request_id": "req_9d7cddf7a6da2adad47832b50bc8ec34",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  }
+ ],
+ "says": "Alice founds a Team alone and authors its rules (Instructions) and its knowledge as two Team sources. She publishes a first environment edition that pins the knowledge revision, then publishes the rules revision as a source on its own. She publishes a second environment whose edition derives from the exact digest of the first and adds the rules revision as an explicit change, and only then adopts that edition for the Team as a separate request. Each step answers with its own record: the source keeps its revision digest, each edition its own digest and environment id, and the adoption names the exact edition it adopted. A preparation composed from the adopted environment names the adoption record in its request and composes exactly the pinned rules and knowledge revisions. Publishing the edition must not adopt it, and adopting must not rewrite the edition or the source revision.",
+ "spec_sha256": "ffa38c64ba62369ad62e54012292f49b9a47ad17487b01a613c754d0350f2da3",
+ "steps": [
+  {
+   "carries": [
+    "alice_key"
+   ],
+   "name": "bind_alice",
+   "request": "bind_alice_request",
+   "result": "bind_alice_result",
+   "returns": [
+    "alice_binding"
+   ]
+  },
+  {
+   "carries": [
+    "team_proposal",
+    "team_policy_submitted"
+   ],
+   "head": "team_head",
+   "name": "found_team",
+   "request": "found_team_request",
+   "result": "found_team_result",
+   "returns": [
+    "team_policy",
+    "alice_founding_grant",
+    "team_state",
+    "team_profile"
+   ],
+   "submits": [
+    "team_policy_submitted"
+   ]
+  },
+  {
+   "carries": [
+    "team_rules_request"
+   ],
+   "head": "team_rules_head",
+   "name": "author_team_rules",
+   "request": "author_team_rules_request",
+   "result": "author_team_rules_result",
+   "returns": [
+    "team_rules_rev"
+   ]
+  },
+  {
+   "carries": [
+    "team_kb_request"
+   ],
+   "head": "team_kb_head",
+   "name": "author_team_kb",
+   "request": "author_team_kb_request",
+   "result": "author_team_kb_result",
+   "returns": [
+    "team_kb_rev"
+   ]
+  },
+  {
+   "carries": [
+    "base_edition"
+   ],
+   "head": "env_base_head",
+   "name": "publish_base_edition",
+   "request": "publish_base_edition_request",
+   "result": "publish_base_edition_result",
+   "returns": [
+    "base_edition"
+   ]
+  },
+  {
+   "carries": [],
+   "name": "publish_rules",
+   "request": "publish_rules_request",
+   "result": "publish_rules_result",
+   "returns": []
+  },
+  {
+   "carries": [
+    "backend_edition"
+   ],
+   "head": "env_backend_head",
+   "name": "publish_backend_edition",
+   "request": "publish_backend_edition_request",
+   "result": "publish_backend_edition_result",
+   "returns": [
+    "backend_edition"
+   ]
+  },
+  {
+   "carries": [],
+   "name": "adopt_backend",
+   "request": "adopt_backend_request",
+   "result": "adopt_backend_result",
+   "returns": [
+    "backend_adoption"
+   ]
+  },
+  {
+   "carries": [
+    "compose_from_adoption"
+   ],
+   "name": "compose_for_session",
+   "request": "compose_for_session_request",
+   "result": "compose_for_session_result",
+   "returns": [
+    "adopted_preparation"
+   ]
+  }
+ ]
+}

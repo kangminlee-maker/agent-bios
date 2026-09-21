@@ -1,0 +1,560 @@
+{
+ "case": "N27-PACKAGE-POS",
+ "says": "A person with no Team installs the knowledge package shipped in the product through the add_published_package route (source.revision.admit), naming the exact revision by the digest of the shipped manifest. The owner commits it and returns that same manifest and a provenance whose origin is the product-supplied package, whose acceptance is not_accepted and whose content-review statement is kept as an approval claim with stated_only support, never as an acceptance. Resolving an exact member (reference.resolve) returns the same manifest, whose member digest is the member the reference names, and the same provenance. Asking a question against that exact revision (knowledge.question.ask) returns a view whose members are the package's bytes in the person's own layer, cited to that revision. Nothing here adopts the package for a Team, records a Team acceptance, or gives it a priority: the provenance has no priority field and the view places it only in the layer it was installed into.",
+ "ids": [
+  {
+   "name": "me",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "bind_request",
+   "prefix": "req"
+  },
+  {
+   "name": "pkg",
+   "prefix": "pkg"
+  },
+  {
+   "name": "pkg_source",
+   "prefix": "src"
+  },
+  {
+   "name": "install_request",
+   "prefix": "req"
+  },
+  {
+   "name": "resolve_request",
+   "prefix": "req"
+  },
+  {
+   "name": "question_request",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "first_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "bind",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.add"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#first_key"
+    }
+   ]
+  },
+  {
+   "name": "stored_key",
+   "from": "c01/device_key_binding.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:first_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:bound_at"
+    }
+   ]
+  },
+  {
+   "name": "pkg_manifest",
+   "from": "sources/revision_of_a_published_package.json",
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@pkg_source"
+    }
+   ]
+  },
+  {
+   "name": "install_payload",
+   "from": "sources/request_to_add_a_published_package.json",
+   "drop": [
+    "/destination/scope/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/destination/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/destination/scope/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/route/package_id",
+     "value": "@pkg"
+    },
+    {
+     "pointer": "/route/revision_digest",
+     "value": "#pkg_manifest"
+    }
+   ]
+  },
+  {
+   "name": "install",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@install_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.revision.admit"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@pkg_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#install_payload"
+    }
+   ]
+  },
+  {
+   "name": "pkg_provenance",
+   "from": "c01/provenance_of_an_imported_record_keeping_its_own_claims.json",
+   "drop": [
+    "/claims/3",
+    "/claims/2",
+    "/claims/1",
+    "/origin/declared_origin",
+    "/origin/license_conditions"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@pkg_source"
+    },
+    {
+     "pointer": "/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/origin/origin",
+     "value": "product_supplied_package"
+    },
+    {
+     "pointer": "/origin/package_id",
+     "value": "@pkg"
+    },
+    {
+     "pointer": "/origin/publisher_evidence_digest",
+     "value": "$digest:publisher_evidence"
+    },
+    {
+     "pointer": "/acquisition/acquired_at",
+     "value": "$instant:installed_at"
+    },
+    {
+     "pointer": "/acquisition/availability_evidence_digest",
+     "value": "$digest:package_bytes"
+    },
+    {
+     "pointer": "/claims/0/claim",
+     "value": "approval"
+    },
+    {
+     "pointer": "/claims/0/as_stated",
+     "value": "Content reviewed by the publisher's tax editors for the 2026 edition"
+    }
+   ]
+  },
+  {
+   "name": "package_ref",
+   "from": "c01/exact_member_of_a_revision.json",
+   "drop": [
+    "/scope/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@pkg_source"
+    },
+    {
+     "pointer": "/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/scope/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/revision_digest",
+     "value": "#pkg_manifest"
+    },
+    {
+     "pointer": "/member/path",
+     "value": "tables/rates.csv"
+    },
+    {
+     "pointer": "/member/digest",
+     "value": "2702a48949ff2ef94c13c8f8e0a45a7a481e0e19482d3ffa8f8fc2c584a1d2c2"
+    },
+    {
+     "pointer": "/member/size",
+     "value": 918
+    }
+   ]
+  },
+  {
+   "name": "resolve",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@resolve_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "reference.resolve"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@pkg_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:pkg_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#package_ref"
+    }
+   ]
+  },
+  {
+   "name": "question",
+   "from": "c04/question_with_the_conditions_that_change_its_answer.json",
+   "drop": [
+    "/concern/conditions/1"
+   ],
+   "set": [
+    {
+     "pointer": "/source_pins/0/source_id",
+     "value": "@pkg_source"
+    },
+    {
+     "pointer": "/source_pins/0/revision_digest",
+     "value": "#pkg_manifest"
+    },
+    {
+     "pointer": "/companions",
+     "value": "optional"
+    },
+    {
+     "pointer": "/concern/question",
+     "value": "Which relief rates apply in 2026?"
+    }
+   ]
+  },
+  {
+   "name": "ask",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@question_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "knowledge.question.ask"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#question"
+    }
+   ]
+  },
+  {
+   "name": "view",
+   "from": "c04/view_with_the_evidence_behind_it.json",
+   "drop": [
+    "/companions/0"
+   ],
+   "set": [
+    {
+     "pointer": "/view_id",
+     "value": "$viw:package_view"
+    },
+    {
+     "pointer": "/question_digest",
+     "value": "#question"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:view_prepared_at"
+    },
+    {
+     "pointer": "/members/0/source_id",
+     "value": "@pkg_source"
+    },
+    {
+     "pointer": "/members/0/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "2702a48949ff2ef94c13c8f8e0a45a7a481e0e19482d3ffa8f8fc2c584a1d2c2"
+    },
+    {
+     "pointer": "/members/1/source_id",
+     "value": "@pkg_source"
+    },
+    {
+     "pointer": "/members/1/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/members/1/path",
+     "value": "concepts.md"
+    },
+    {
+     "pointer": "/members/1/digest",
+     "value": "c4933a82770781b42504ac60a6252bfd06ccfce66170394620ba473ade98365d"
+    },
+    {
+     "pointer": "/evidence/0/source_id",
+     "value": "@pkg_source"
+    },
+    {
+     "pointer": "/evidence/0/revision_digest",
+     "value": "#pkg_manifest"
+    },
+    {
+     "pointer": "/evidence/0/cited_edition",
+     "value": "2026 edition as shipped"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_device_key",
+   "request": "bind",
+   "carries": [
+    "first_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_key"
+    ]
+   }
+  },
+  {
+   "name": "install_package",
+   "request": "install",
+   "carries": [
+    "install_payload"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "pkg_manifest",
+     "pkg_provenance"
+    ],
+    "head": "pkg_head"
+   }
+  },
+  {
+   "name": "resolve_installed_member",
+   "request": "resolve",
+   "carries": [
+    "package_ref"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "none",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "pkg_manifest",
+     "pkg_provenance"
+    ]
+   }
+  },
+  {
+   "name": "ask_the_package",
+   "request": "ask",
+   "carries": [
+    "question"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "view"
+    ]
+   }
+  }
+ ]
+}

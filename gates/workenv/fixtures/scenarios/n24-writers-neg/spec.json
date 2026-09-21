@@ -1,0 +1,938 @@
+{
+ "case": "N24-WRITERS-NEG",
+ "says": "Alice binds her device key and registers the package candidate. The old runtime left one operation (old_unknown_request) with an unknown outcome. She then submits four cutover plans, each naming the registered candidate and each wrong in one way: one starts with an operation in flight, one seals only the source store and projection owner and not the publication lock, one is verified with a writer left unrouted, and one lists the unknown operation without the recovery that settles it, dropping it. Each is refused at admission by the cutover plan's own rule, at the field that breaks it, and nothing is written; a query by each refused request id afterwards is answered request_not_held, because no result, receipt or head exists for it. What must not happen: any of these plans committing, sealing or switching anything, state ownership moving off the source, or the unknown operation being forgotten.",
+ "ids": [
+  {
+   "name": "alice",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "alice_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "bind_request",
+   "prefix": "req"
+  },
+  {
+   "name": "register_request",
+   "prefix": "req"
+  },
+  {
+   "name": "old_unknown_request",
+   "prefix": "req"
+  },
+  {
+   "name": "in_flight_cutover",
+   "prefix": "req"
+  },
+  {
+   "name": "in_flight_query_request",
+   "prefix": "req"
+  },
+  {
+   "name": "two_sealed_cutover",
+   "prefix": "req"
+  },
+  {
+   "name": "two_sealed_query_request",
+   "prefix": "req"
+  },
+  {
+   "name": "unrouted_cutover",
+   "prefix": "req"
+  },
+  {
+   "name": "unrouted_query_request",
+   "prefix": "req"
+  },
+  {
+   "name": "dropped_unknown_cutover",
+   "prefix": "req"
+  },
+  {
+   "name": "dropped_unknown_query_request",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "device_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "bind_key",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.add"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#device_key"
+    }
+   ]
+  },
+  {
+   "name": "stored_key",
+   "from": "device_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:alice_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:bound_at"
+    }
+   ]
+  },
+  {
+   "name": "candidate",
+   "from": "c03/package_candidate_built_from_one_commit.json",
+   "set": [
+    {
+     "pointer": "/source_commit",
+     "value": "a184c3b26df4d7ca57c74806fd4c32273835ae3c"
+    }
+   ]
+  },
+  {
+   "name": "register",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "package.candidate.register"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#candidate"
+    }
+   ]
+  },
+  {
+   "name": "in_flight_plan",
+   "from": "c03/a_cutover_starting_with_an_operation_in_flight.json",
+   "set": [
+    {
+     "pointer": "/candidate_digest",
+     "value": "#candidate"
+    },
+    {
+     "pointer": "/data/unknown_operations/0/request_id",
+     "value": "@old_unknown_request"
+    }
+   ]
+  },
+  {
+   "name": "switch_in_flight",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@in_flight_cutover"
+    },
+    {
+     "pointer": "/operation",
+     "value": "entrance.cutover.commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#in_flight_plan"
+    }
+   ]
+  },
+  {
+   "name": "in_flight_query",
+   "from": "c03/query_by_request_id.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@in_flight_cutover"
+    }
+   ]
+  },
+  {
+   "name": "ask_in_flight",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@in_flight_query_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.query"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@in_flight_cutover"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#in_flight_query"
+    }
+   ]
+  },
+  {
+   "name": "in_flight_not_held",
+   "from": "c03/query_for_a_request_never_received.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@in_flight_cutover"
+    }
+   ]
+  },
+  {
+   "name": "two_sealed_plan",
+   "from": "c03/a_cutover_that_sealed_two_of_three.json",
+   "set": [
+    {
+     "pointer": "/candidate_digest",
+     "value": "#candidate"
+    },
+    {
+     "pointer": "/data/unknown_operations/0/request_id",
+     "value": "@old_unknown_request"
+    }
+   ]
+  },
+  {
+   "name": "switch_two_sealed",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@two_sealed_cutover"
+    },
+    {
+     "pointer": "/operation",
+     "value": "entrance.cutover.commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#two_sealed_plan"
+    }
+   ]
+  },
+  {
+   "name": "two_sealed_query",
+   "from": "c03/query_by_request_id.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@two_sealed_cutover"
+    }
+   ]
+  },
+  {
+   "name": "ask_two_sealed",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@two_sealed_query_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.query"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@two_sealed_cutover"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#two_sealed_query"
+    }
+   ]
+  },
+  {
+   "name": "two_sealed_not_held",
+   "from": "c03/query_for_a_request_never_received.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@two_sealed_cutover"
+    }
+   ]
+  },
+  {
+   "name": "unrouted_plan",
+   "from": "c03/a_cutover_verified_with_a_writer_left_unrouted.json",
+   "set": [
+    {
+     "pointer": "/candidate_digest",
+     "value": "#candidate"
+    },
+    {
+     "pointer": "/data/unknown_operations/0/request_id",
+     "value": "@old_unknown_request"
+    }
+   ]
+  },
+  {
+   "name": "switch_unrouted",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@unrouted_cutover"
+    },
+    {
+     "pointer": "/operation",
+     "value": "entrance.cutover.commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#unrouted_plan"
+    }
+   ]
+  },
+  {
+   "name": "unrouted_query",
+   "from": "c03/query_by_request_id.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@unrouted_cutover"
+    }
+   ]
+  },
+  {
+   "name": "ask_unrouted",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@unrouted_query_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.query"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@unrouted_cutover"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#unrouted_query"
+    }
+   ]
+  },
+  {
+   "name": "unrouted_not_held",
+   "from": "c03/query_for_a_request_never_received.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@unrouted_cutover"
+    }
+   ]
+  },
+  {
+   "name": "dropped_unknown_plan",
+   "from": "c03/an_unknown_operation_dropped_at_cutover.json",
+   "set": [
+    {
+     "pointer": "/candidate_digest",
+     "value": "#candidate"
+    },
+    {
+     "pointer": "/data/unknown_operations/0/request_id",
+     "value": "@old_unknown_request"
+    }
+   ]
+  },
+  {
+   "name": "switch_dropped_unknown",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@dropped_unknown_cutover"
+    },
+    {
+     "pointer": "/operation",
+     "value": "entrance.cutover.commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#dropped_unknown_plan"
+    }
+   ]
+  },
+  {
+   "name": "dropped_unknown_query",
+   "from": "c03/query_by_request_id.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@dropped_unknown_cutover"
+    }
+   ]
+  },
+  {
+   "name": "ask_dropped_unknown",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@dropped_unknown_query_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.query"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@dropped_unknown_cutover"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#dropped_unknown_query"
+    }
+   ]
+  },
+  {
+   "name": "dropped_unknown_not_held",
+   "from": "c03/query_for_a_request_never_received.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@dropped_unknown_cutover"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_device_key",
+   "request": "bind_key",
+   "carries": [
+    "device_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_key"
+    ]
+   }
+  },
+  {
+   "name": "register_candidate",
+   "request": "register",
+   "carries": [
+    "candidate"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "candidate"
+    ]
+   }
+  },
+  {
+   "name": "refuse_in_flight",
+   "request": "switch_in_flight",
+   "carries": [
+    "in_flight_plan"
+   ],
+   "refused": [
+    {
+     "record": "in_flight_plan",
+     "code": "value_not_allowed",
+     "pointer": "/quiesce/in_flight"
+    }
+   ]
+  },
+  {
+   "name": "query_in_flight",
+   "request": "ask_in_flight",
+   "carries": [
+    "in_flight_query"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "in_flight_not_held"
+    ]
+   }
+  },
+  {
+   "name": "refuse_two_sealed",
+   "request": "switch_two_sealed",
+   "carries": [
+    "two_sealed_plan"
+   ],
+   "refused": [
+    {
+     "record": "two_sealed_plan",
+     "code": "count_out_of_range",
+     "pointer": "/quiesce/sealed"
+    }
+   ]
+  },
+  {
+   "name": "query_two_sealed",
+   "request": "ask_two_sealed",
+   "carries": [
+    "two_sealed_query"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "two_sealed_not_held"
+    ]
+   }
+  },
+  {
+   "name": "refuse_unrouted",
+   "request": "switch_unrouted",
+   "carries": [
+    "unrouted_plan"
+   ],
+   "refused": [
+    {
+     "record": "unrouted_plan",
+     "code": "value_not_allowed",
+     "pointer": "/verify/unrouted_writers"
+    }
+   ]
+  },
+  {
+   "name": "query_unrouted",
+   "request": "ask_unrouted",
+   "carries": [
+    "unrouted_query"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "unrouted_not_held"
+    ]
+   }
+  },
+  {
+   "name": "refuse_dropped_unknown",
+   "request": "switch_dropped_unknown",
+   "carries": [
+    "dropped_unknown_plan"
+   ],
+   "refused": [
+    {
+     "record": "dropped_unknown_plan",
+     "code": "variant_mismatch",
+     "pointer": "/data"
+    }
+   ]
+  },
+  {
+   "name": "query_dropped_unknown",
+   "request": "ask_dropped_unknown",
+   "carries": [
+    "dropped_unknown_query"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "dropped_unknown_not_held"
+    ]
+   }
+  }
+ ]
+}

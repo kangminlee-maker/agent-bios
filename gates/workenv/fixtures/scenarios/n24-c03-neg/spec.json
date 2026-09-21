@@ -1,0 +1,506 @@
+{
+ "case": "N24-C03-NEG",
+ "says": "Alice binds her device key, registers the package candidate, and submits a cutover of one selected transfer whose quiesced capture names the source revision and outbox she captured. A source edit landed after that capture, so the owner holds the switch: stage stale, cutover_source_moved at the capture's revision_digest, nothing written, recovery reseal_on_current_head. A query by that request id returns that same held result, with no receipt, so the source still owns the state. She captures again and resubmits under a new request; this time a new outbox item arrived after the capture, and the owner holds again at outbox_digest. Only after the writers are shut down and the final quiesced revision and outbox are captured and the import validated against them does a third request commit the cutover. What must not happen: a switch while the source or outbox differs from the capture the import was validated against, or an unfinished transfer releasing or deleting the source.",
+ "ids": [
+  {
+   "name": "alice",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "alice_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "bind_request",
+   "prefix": "req"
+  },
+  {
+   "name": "register_request",
+   "prefix": "req"
+  },
+  {
+   "name": "first_cutover",
+   "prefix": "req"
+  },
+  {
+   "name": "second_cutover",
+   "prefix": "req"
+  },
+  {
+   "name": "final_cutover",
+   "prefix": "req"
+  },
+  {
+   "name": "held_query_request",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "device_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "bind_key",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.add"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#device_key"
+    }
+   ]
+  },
+  {
+   "name": "stored_key",
+   "from": "device_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:alice_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:bound_at"
+    }
+   ]
+  },
+  {
+   "name": "candidate",
+   "from": "c03/package_candidate_built_from_one_commit.json",
+   "set": [
+    {
+     "pointer": "/source_commit",
+     "value": "a184c3b26df4d7ca57c74806fd4c32273835ae3c"
+    }
+   ]
+  },
+  {
+   "name": "register",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "package.candidate.register"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#candidate"
+    }
+   ]
+  },
+  {
+   "name": "first_plan",
+   "from": "c03/one_cutover_sealed_verified_and_committed_once.json",
+   "set": [
+    {
+     "pointer": "/candidate_digest",
+     "value": "#candidate"
+    },
+    {
+     "pointer": "/data/unknown_operations",
+     "value": []
+    }
+   ]
+  },
+  {
+   "name": "switch_first",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@first_cutover"
+    },
+    {
+     "pointer": "/operation",
+     "value": "entrance.cutover.commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#first_plan"
+    }
+   ]
+  },
+  {
+   "name": "held_query",
+   "from": "c03/query_by_request_id.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@first_cutover"
+    }
+   ]
+  },
+  {
+   "name": "ask_held",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@held_query_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.query"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@first_cutover"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#held_query"
+    }
+   ]
+  },
+  {
+   "name": "second_plan",
+   "from": "first_plan",
+   "set": [
+    {
+     "pointer": "/data/quiesced/revision_digest",
+     "value": "a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7"
+    },
+    {
+     "pointer": "/data/quiesced/outbox_digest",
+     "value": "a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8"
+    },
+    {
+     "pointer": "/data/quiesced/import_digest",
+     "value": "a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9"
+    },
+    {
+     "pointer": "/planned_at",
+     "value": "2026-09-21T11:20:00Z"
+    }
+   ]
+  },
+  {
+   "name": "switch_second",
+   "from": "switch_first",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@second_cutover"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#second_plan"
+    }
+   ]
+  },
+  {
+   "name": "final_plan",
+   "from": "first_plan",
+   "set": [
+    {
+     "pointer": "/data/quiesced/revision_digest",
+     "value": "b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7"
+    },
+    {
+     "pointer": "/data/quiesced/outbox_digest",
+     "value": "b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8"
+    },
+    {
+     "pointer": "/data/quiesced/import_digest",
+     "value": "b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9"
+    },
+    {
+     "pointer": "/planned_at",
+     "value": "2026-09-21T11:40:00Z"
+    }
+   ]
+  },
+  {
+   "name": "switch_final",
+   "from": "switch_first",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@final_cutover"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#final_plan"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_device_key",
+   "request": "bind_key",
+   "carries": [
+    "device_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_key"
+    ]
+   }
+  },
+  {
+   "name": "register_candidate",
+   "request": "register",
+   "carries": [
+    "candidate"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "candidate"
+    ]
+   }
+  },
+  {
+   "name": "hold_on_source_edit",
+   "request": "switch_first",
+   "carries": [
+    "first_plan"
+   ],
+   "answer": {
+    "stage": "stale",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "cutover_source_moved",
+      "pointer": "/data/quiesced/revision_digest"
+     }
+    ],
+    "recovery": [
+     "reseal_on_current_head"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "query_held_cutover",
+   "request": "ask_held",
+   "carries": [
+    "held_query"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "hold_on_source_edit_result"
+    ]
+   }
+  },
+  {
+   "name": "hold_on_new_outbox_item",
+   "request": "switch_second",
+   "carries": [
+    "second_plan"
+   ],
+   "answer": {
+    "stage": "stale",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "cutover_source_moved",
+      "pointer": "/data/quiesced/outbox_digest"
+     }
+    ],
+    "recovery": [
+     "reseal_on_current_head"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "commit_final_capture",
+   "request": "switch_final",
+   "carries": [
+    "final_plan"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": []
+   }
+  }
+ ]
+}

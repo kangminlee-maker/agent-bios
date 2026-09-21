@@ -1,0 +1,1036 @@
+{
+ "case": "N23-PROVIDER-NEG",
+ "says": "The installed candidate (agent-bios 0.20.0) is asked about a provider callback three times, and none of them qualifies it. First, before the person's Team has configured any sign-in connection, a provider_callback probe naming no connection is stored as not offered and unsupported, and the profile says not_offered. The Team is then founded and its Google connection configured. A real probe through that connection finds the provider's authorization endpoint unreachable from this network: the probe is stored with outcome unreachable and the profile says probe_failed. A probe the harness runs against a test issuer it started (a mocked provider) is stored in fixture mode naming that fixture's digest, and although the mock answered, the profile says offered_but_unproven. Finally a sign-in begun on the connection cannot complete: the callback reports the provider unreachable, and the owner answers blocked with provider_unreachable, provider effect unknown, retry of the same request as the only recovery, and no sign-in evidence or binding. No profile this case writes marks provider_callback qualified, and nothing is verified or linked.",
+ "ids": [
+  {
+   "name": "alice",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "alice_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "bind_key_id",
+   "prefix": "req"
+  },
+  {
+   "name": "probe_unconfigured_id",
+   "prefix": "req"
+  },
+  {
+   "name": "team",
+   "prefix": "tem"
+  },
+  {
+   "name": "found_id",
+   "prefix": "req"
+  },
+  {
+   "name": "configure_id",
+   "prefix": "req"
+  },
+  {
+   "name": "probe_unreachable_id",
+   "prefix": "req"
+  },
+  {
+   "name": "probe_mocked_id",
+   "prefix": "req"
+  },
+  {
+   "name": "link_begin_id",
+   "prefix": "req"
+  },
+  {
+   "name": "link_complete_id",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "device_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "bind_key",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_key_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.add"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#device_key"
+    }
+   ]
+  },
+  {
+   "name": "stored_device_key",
+   "from": "device_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:device_key_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:key_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "unconfigured_probe",
+   "from": "c12/a_callback_probe_as_submitted.json",
+   "drop": [
+    "/connection_id"
+   ]
+  },
+  {
+   "name": "probe_unconfigured",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@probe_unconfigured_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "capability.probe"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#unconfigured_probe"
+    }
+   ]
+  },
+  {
+   "name": "no_provider_probe",
+   "from": "unconfigured_probe",
+   "set": [
+    {
+     "pointer": "/probe_id",
+     "value": "$prb:no_provider_probe"
+    },
+    {
+     "pointer": "/offered",
+     "value": false
+    },
+    {
+     "pointer": "/outcome",
+     "value": "unsupported"
+    },
+    {
+     "pointer": "/observed",
+     "value": "No sign-in connection is configured for any Team this person belongs to, so there was no provider to call back."
+    },
+    {
+     "pointer": "/mode/runs",
+     "value": "real"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:unconfigured_at"
+    }
+   ]
+  },
+  {
+   "name": "profile_without_provider",
+   "from": "c12/four_capabilities_qualified_one_at_a_time.json",
+   "drop": [
+    "/capabilities/3",
+    "/capabilities/2",
+    "/capabilities/1",
+    "/capabilities/0/state/probe_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "$cap:candidate_profile"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:unconfigured_at"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "agent-bios"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.20.0"
+    },
+    {
+     "pointer": "/wire/protocol",
+     "value": "oauth2_authorization_code"
+    },
+    {
+     "pointer": "/wire/version",
+     "value": "rfc6749"
+    },
+    {
+     "pointer": "/capabilities/0/capability",
+     "value": "provider_callback"
+    },
+    {
+     "pointer": "/capabilities/0/state/qualified",
+     "value": "no"
+    },
+    {
+     "pointer": "/capabilities/0/state/because",
+     "value": "not_offered"
+    }
+   ]
+  },
+  {
+   "name": "initial_policy",
+   "from": "c08/policy_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/threshold",
+     "value": 0
+    }
+   ]
+  },
+  {
+   "name": "proposal",
+   "from": "c08/proposal_as_submitted.json",
+   "drop": [
+    "/founding_mode/nominees"
+   ],
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/founder_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/founding_mode/mode",
+     "value": "self_founded"
+    },
+    {
+     "pointer": "/founding_mode/acknowledged_self_reviewed",
+     "value": true
+    },
+    {
+     "pointer": "/recovery/0/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#initial_policy"
+    },
+    {
+     "pointer": "/carriers",
+     "value": [
+      "local"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "found",
+   "from": "c05/memory_use_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@found_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.found"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#proposal"
+    }
+   ]
+  },
+  {
+   "name": "founding_policy",
+   "from": "initial_policy",
+   "set": [
+    {
+     "pointer": "/policy_id",
+     "value": "$pol:founding_policy"
+    },
+    {
+     "pointer": "/policy_version",
+     "value": 1
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "active_team",
+   "from": "c08/archived_team.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/state",
+     "value": "active"
+    },
+    {
+     "pointer": "/since",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "connection",
+   "from": "c02/connection_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "configure",
+   "from": "c05/memory_use_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@configure_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.connection.configure"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#connection"
+    }
+   ]
+  },
+  {
+   "name": "stored_connection",
+   "from": "connection",
+   "set": [
+    {
+     "pointer": "/connection_id",
+     "value": "$con:workspace_connection"
+    },
+    {
+     "pointer": "/configured_at",
+     "value": "$instant:configured_at"
+    }
+   ]
+  },
+  {
+   "name": "callback_probe",
+   "from": "c12/a_callback_probe_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/connection_id",
+     "value": "$con:workspace_connection"
+    }
+   ]
+  },
+  {
+   "name": "probe_unreachable",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@probe_unreachable_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "capability.probe"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#callback_probe"
+    }
+   ]
+  },
+  {
+   "name": "unreachable_probe",
+   "from": "c12/a_provider_that_could_not_be_reached.json",
+   "set": [
+    {
+     "pointer": "/connection_id",
+     "value": "$con:workspace_connection"
+    },
+    {
+     "pointer": "/probe_id",
+     "value": "$prb:unreachable_probe"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:unreachable_at"
+    }
+   ]
+  },
+  {
+   "name": "profile_after_unreachable",
+   "from": "c12/four_capabilities_qualified_one_at_a_time.json",
+   "drop": [
+    "/capabilities/3",
+    "/capabilities/2",
+    "/capabilities/1",
+    "/capabilities/0/state/probe_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "$cap:candidate_profile"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:unreachable_at"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "agent-bios"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.20.0"
+    },
+    {
+     "pointer": "/wire/protocol",
+     "value": "oauth2_authorization_code"
+    },
+    {
+     "pointer": "/wire/version",
+     "value": "rfc6749"
+    },
+    {
+     "pointer": "/capabilities/0/capability",
+     "value": "provider_callback"
+    },
+    {
+     "pointer": "/capabilities/0/state/qualified",
+     "value": "no"
+    },
+    {
+     "pointer": "/capabilities/0/state/because",
+     "value": "probe_failed"
+    }
+   ]
+  },
+  {
+   "name": "probe_mocked",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@probe_mocked_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "capability.probe"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#callback_probe"
+    }
+   ]
+  },
+  {
+   "name": "mocked_probe",
+   "from": "c12/a_provider_callback_against_a_mocked_provider.json",
+   "set": [
+    {
+     "pointer": "/connection_id",
+     "value": "$con:workspace_connection"
+    },
+    {
+     "pointer": "/probe_id",
+     "value": "$prb:mocked_probe"
+    },
+    {
+     "pointer": "/mode/fixture_digest",
+     "value": "$digest:test_issuer_fixture"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:mocked_at"
+    }
+   ]
+  },
+  {
+   "name": "profile_after_mock",
+   "from": "c12/four_capabilities_qualified_one_at_a_time.json",
+   "drop": [
+    "/capabilities/3",
+    "/capabilities/2",
+    "/capabilities/1",
+    "/capabilities/0/state/probe_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "$cap:candidate_profile"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:mocked_at"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "agent-bios"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.20.0"
+    },
+    {
+     "pointer": "/wire/protocol",
+     "value": "oauth2_authorization_code"
+    },
+    {
+     "pointer": "/wire/version",
+     "value": "rfc6749"
+    },
+    {
+     "pointer": "/capabilities/0/capability",
+     "value": "provider_callback"
+    },
+    {
+     "pointer": "/capabilities/0/state/qualified",
+     "value": "no"
+    },
+    {
+     "pointer": "/capabilities/0/state/because",
+     "value": "offered_but_unproven"
+    }
+   ]
+  },
+  {
+   "name": "link_attempt",
+   "from": "c02/sign_in_to_link_a_principal.json",
+   "set": [
+    {
+     "pointer": "/connection_id",
+     "value": "$con:workspace_connection"
+    },
+    {
+     "pointer": "/purpose/principal_id",
+     "value": "@alice"
+    }
+   ]
+  },
+  {
+   "name": "link_begin",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@link_begin_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.sign_in.begin"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#link_attempt"
+    }
+   ]
+  },
+  {
+   "name": "link_begun",
+   "from": "link_attempt",
+   "set": [
+    {
+     "pointer": "/attempt_id",
+     "value": "$sin:link_attempt"
+    },
+    {
+     "pointer": "/state_digest",
+     "value": "$digest:link_state"
+    },
+    {
+     "pointer": "/nonce_digest",
+     "value": "$digest:link_nonce"
+    },
+    {
+     "pointer": "/begun_at",
+     "value": "$instant:link_begun_at"
+    },
+    {
+     "pointer": "/expires_at",
+     "value": "$instant:link_expires_at"
+    }
+   ]
+  },
+  {
+   "name": "link_callback",
+   "from": "c02/callback_the_provider_never_answered.json",
+   "set": [
+    {
+     "pointer": "/attempt_id",
+     "value": "$sin:link_attempt"
+    },
+    {
+     "pointer": "/state_digest",
+     "value": "$digest:link_state"
+    }
+   ]
+  },
+  {
+   "name": "link_complete",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@link_complete_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.sign_in.complete"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#link_callback"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_device_key",
+   "request": "bind_key",
+   "carries": [
+    "device_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_device_key"
+    ]
+   }
+  },
+  {
+   "name": "probe_without_a_connection",
+   "request": "probe_unconfigured",
+   "carries": [
+    "unconfigured_probe"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "none",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "no_provider_probe",
+     "profile_without_provider"
+    ]
+   }
+  },
+  {
+   "name": "found_team",
+   "request": "found",
+   "carries": [
+    "proposal",
+    "initial_policy"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "founding_policy",
+     "active_team"
+    ],
+    "head": "team_head"
+   },
+   "submits": [
+    "initial_policy"
+   ]
+  },
+  {
+   "name": "configure_connection",
+   "request": "configure",
+   "carries": [
+    "connection"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_connection"
+    ],
+    "head": "team_head_with_connection"
+   }
+  },
+  {
+   "name": "probe_an_unreachable_provider",
+   "request": "probe_unreachable",
+   "carries": [
+    "callback_probe"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "none",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "unreachable_probe",
+     "profile_after_unreachable"
+    ]
+   }
+  },
+  {
+   "name": "probe_a_mocked_provider",
+   "request": "probe_mocked",
+   "carries": [
+    "callback_probe"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "none",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "mocked_probe",
+     "profile_after_mock"
+    ]
+   }
+  },
+  {
+   "name": "begin_sign_in",
+   "request": "link_begin",
+   "carries": [
+    "link_attempt"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "link_begun"
+    ]
+   }
+  },
+  {
+   "name": "complete_against_an_unreachable_provider",
+   "request": "link_complete",
+   "carries": [
+    "link_callback"
+   ],
+   "answer": {
+    "stage": "blocked",
+    "local_effect": "none",
+    "provider_effect": "unknown",
+    "gaps": [
+     {
+      "code": "provider_unreachable"
+     }
+    ],
+    "recovery": [
+     "retry_same_request"
+    ],
+    "returns": []
+   }
+  }
+ ]
+}

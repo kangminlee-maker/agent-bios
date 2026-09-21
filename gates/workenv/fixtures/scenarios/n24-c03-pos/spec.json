@@ -1,0 +1,309 @@
+{
+ "case": "N24-C03-POS",
+ "says": "Alice binds her device key and registers the package candidate the target will run: its runtime module (workenv/contracts/c03.py), an asset (the cutover plan schema) and a shipped check (compose/check-domains.py), each copied from source_commit, and provenance.json made at pack time. She then submits one cutover plan to the target: one explicit transfer of the data she selected, whose quiesced capture names the source revision and outbox captured after the old writers stopped and the import validated against exactly them; all three owners sealed with nothing in flight; the entrance trace verified with no writer left unrouted; one commit; the old source kept; and candidate_digest naming the candidate just registered. The owner commits the cutover once. What must not happen: ownership moving before the verified stage, the cutover installing any package other than the registered candidate, or the old source being deleted.",
+ "ids": [
+  {
+   "name": "alice",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "alice_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "bind_request",
+   "prefix": "req"
+  },
+  {
+   "name": "register_request",
+   "prefix": "req"
+  },
+  {
+   "name": "cutover_request",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "device_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "bind_key",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.add"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#device_key"
+    }
+   ]
+  },
+  {
+   "name": "stored_key",
+   "from": "device_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:alice_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:bound_at"
+    }
+   ]
+  },
+  {
+   "name": "candidate",
+   "from": "c03/package_listing_one_member_twice.json",
+   "set": [
+    {
+     "pointer": "/source_commit",
+     "value": "a184c3b26df4d7ca57c74806fd4c32273835ae3c"
+    },
+    {
+     "pointer": "/members/3/path",
+     "value": "compose/check-domains.py"
+    },
+    {
+     "pointer": "/members/3/size",
+     "value": 5120
+    },
+    {
+     "pointer": "/members/3/origin/copied_from",
+     "value": "compose/check-domains.py"
+    }
+   ]
+  },
+  {
+   "name": "register",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "package.candidate.register"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#candidate"
+    }
+   ]
+  },
+  {
+   "name": "transfer_plan",
+   "from": "c03/one_cutover_sealed_verified_and_committed_once.json",
+   "set": [
+    {
+     "pointer": "/candidate_digest",
+     "value": "#candidate"
+    },
+    {
+     "pointer": "/data/unknown_operations",
+     "value": []
+    }
+   ]
+  },
+  {
+   "name": "switch",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@cutover_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "entrance.cutover.commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#transfer_plan"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_device_key",
+   "request": "bind_key",
+   "carries": [
+    "device_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_key"
+    ]
+   }
+  },
+  {
+   "name": "register_candidate",
+   "request": "register",
+   "carries": [
+    "candidate"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "candidate"
+    ]
+   }
+  },
+  {
+   "name": "commit_cutover",
+   "request": "switch",
+   "carries": [
+    "transfer_plan"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": []
+   }
+  }
+ ]
+}

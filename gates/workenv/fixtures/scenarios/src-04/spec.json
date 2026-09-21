@@ -1,0 +1,754 @@
+{
+ "case": "SRC-04",
+ "says": "A person with no Team installs a product-supplied knowledge package into their own scope through the add_published_package route (source.revision.admit), naming the exact revision by the digest of the publisher's manifest. The owner commits it and returns that same manifest and a provenance whose origin is the product-supplied package with its publisher evidence, whose acceptance is not_accepted, and which keeps the package's illustrative ADR statements (author, decision date, status Accepted, a council approval) as stated_only claims. The person registers the publisher-owned home (package_published, the package id and license conditions) and resolves an exact member back to the same manifest and provenance. Negative: a commit of a manifest that edits a publisher member in place is refused with publisher_bytes_modified and nothing changes; installing records no Team acceptance, adoption or history, and asking the person's memory state for the decision the illustrative ADR describes returns no entry, because an example ADR in a package is not a past choice of this person or any Team.",
+ "ids": [
+  {
+   "name": "me",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "bind_request",
+   "prefix": "req"
+  },
+  {
+   "name": "pkg",
+   "prefix": "pkg"
+  },
+  {
+   "name": "pkg_source",
+   "prefix": "src"
+  },
+  {
+   "name": "install_request",
+   "prefix": "req"
+  },
+  {
+   "name": "home_request",
+   "prefix": "req"
+  },
+  {
+   "name": "resolve_request",
+   "prefix": "req"
+  },
+  {
+   "name": "edit_request",
+   "prefix": "req"
+  },
+  {
+   "name": "state_request",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "first_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "bind",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.add"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#first_key"
+    }
+   ]
+  },
+  {
+   "name": "stored_key",
+   "from": "c01/device_key_binding.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:first_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:bound_at"
+    }
+   ]
+  },
+  {
+   "name": "pkg_manifest",
+   "from": "sources/revision_of_a_published_package.json",
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@pkg_source"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "examples/adr-0007-journal-mode.md"
+    }
+   ]
+  },
+  {
+   "name": "install_payload",
+   "from": "sources/request_to_add_a_published_package.json",
+   "drop": [
+    "/destination/scope/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/destination/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/destination/scope/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/route/package_id",
+     "value": "@pkg"
+    },
+    {
+     "pointer": "/route/revision_digest",
+     "value": "#pkg_manifest"
+    }
+   ]
+  },
+  {
+   "name": "install",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@install_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.revision.admit"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@pkg_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#install_payload"
+    }
+   ]
+  },
+  {
+   "name": "pkg_provenance",
+   "from": "c01/provenance_of_an_imported_record_keeping_its_own_claims.json",
+   "drop": [
+    "/origin/declared_origin",
+    "/origin/license_conditions",
+    "/claims/1/support/evidence_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@pkg_source"
+    },
+    {
+     "pointer": "/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/origin/origin",
+     "value": "product_supplied_package"
+    },
+    {
+     "pointer": "/origin/package_id",
+     "value": "@pkg"
+    },
+    {
+     "pointer": "/origin/publisher_evidence_digest",
+     "value": "$digest:publisher_evidence"
+    },
+    {
+     "pointer": "/acquisition/acquired_at",
+     "value": "$instant:installed_at"
+    },
+    {
+     "pointer": "/acquisition/availability_evidence_digest",
+     "value": "$digest:package_bytes"
+    },
+    {
+     "pointer": "/claims/1/support/support",
+     "value": "stated_only"
+    },
+    {
+     "pointer": "/claims/0/as_stated",
+     "value": "Architecture group (illustrative example)"
+    },
+    {
+     "pointer": "/claims/2/as_stated",
+     "value": "Accepted"
+    },
+    {
+     "pointer": "/claims/3/as_stated",
+     "value": "Approved by the platform council"
+    }
+   ]
+  },
+  {
+   "name": "home_payload",
+   "from": "sources/home_submitted.json",
+   "drop": [
+    "/scope/team_id",
+    "/acceptance_authority/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@pkg_source"
+    },
+    {
+     "pointer": "/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/scope/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/acceptance_authority/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/acceptance_authority/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/disclosure",
+     "value": "published"
+    },
+    {
+     "pointer": "/home/package_id",
+     "value": "@pkg"
+    },
+    {
+     "pointer": "/home/publisher_evidence_digest",
+     "value": "$digest:publisher_evidence"
+    },
+    {
+     "pointer": "/home/license_conditions",
+     "value": "redistribution permitted with attribution"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    }
+   ]
+  },
+  {
+   "name": "register_home",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@home_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@pkg_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:pkg_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#home_payload"
+    }
+   ]
+  },
+  {
+   "name": "stored_home",
+   "from": "home_payload",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:home_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "package_ref",
+   "from": "c01/exact_member_of_a_revision.json",
+   "drop": [
+    "/scope/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@pkg_source"
+    },
+    {
+     "pointer": "/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/scope/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/revision_digest",
+     "value": "#pkg_manifest"
+    },
+    {
+     "pointer": "/member/path",
+     "value": "tables/rates.csv"
+    },
+    {
+     "pointer": "/member/digest",
+     "value": "2702a48949ff2ef94c13c8f8e0a45a7a481e0e19482d3ffa8f8fc2c584a1d2c2"
+    },
+    {
+     "pointer": "/member/size",
+     "value": 918
+    }
+   ]
+  },
+  {
+   "name": "resolve",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@resolve_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "reference.resolve"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@pkg_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:pkg_source_registered"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#package_ref"
+    }
+   ]
+  },
+  {
+   "name": "edited_manifest",
+   "from": "sources/revision_submitted.json",
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@pkg_source"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "examples/adr-0007-journal-mode.md"
+    },
+    {
+     "pointer": "/members/1/digest",
+     "value": "1c6c61971fa32208d3fdb6953795a43fe3cf1b0763be64c992b07348501ceb6e"
+    },
+    {
+     "pointer": "/members/1/size",
+     "value": 640
+    }
+   ]
+  },
+  {
+   "name": "edit_in_place",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@edit_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.revision.commit"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@pkg_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:pkg_source_registered"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#edited_manifest"
+    }
+   ]
+  },
+  {
+   "name": "decisions_question",
+   "from": "c05/state_question_over_three_scopes.json",
+   "drop": [
+    "/scopes/2",
+    "/scopes/0",
+    "/concern/conditions"
+   ],
+   "set": [
+    {
+     "pointer": "/scopes/0/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/concern/question",
+     "value": "Which journal mode did I decide to use?"
+    }
+   ]
+  },
+  {
+   "name": "ask_state",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@state_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.state.resolve"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#decisions_question"
+    }
+   ]
+  },
+  {
+   "name": "no_choice",
+   "from": "c05/state_over_no_source.json",
+   "set": [
+    {
+     "pointer": "/question_digest",
+     "value": "#decisions_question"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:state_prepared_at"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_device_key",
+   "request": "bind",
+   "carries": [
+    "first_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_key"
+    ]
+   }
+  },
+  {
+   "name": "install_package",
+   "request": "install",
+   "carries": [
+    "install_payload"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "pkg_manifest",
+     "pkg_provenance"
+    ],
+    "head": "pkg_head"
+   }
+  },
+  {
+   "name": "register_publisher_home",
+   "request": "register_home",
+   "carries": [
+    "home_payload"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_home"
+    ],
+    "head": "pkg_source_registered"
+   }
+  },
+  {
+   "name": "resolve_installed_member",
+   "request": "resolve",
+   "carries": [
+    "package_ref"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "none",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "pkg_manifest",
+     "pkg_provenance"
+    ]
+   }
+  },
+  {
+   "name": "edit_installed_bytes",
+   "request": "edit_in_place",
+   "carries": [
+    "edited_manifest"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "publisher_bytes_modified"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "ask_for_the_current_choice",
+   "request": "ask_state",
+   "carries": [
+    "decisions_question"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "no_choice"
+    ]
+   }
+  }
+ ]
+}

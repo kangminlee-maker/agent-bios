@@ -1,0 +1,1540 @@
+{
+ "case": "N23-PROVIDER-POS",
+ "ids": [
+  {
+   "id": "prn_a3425eec065e6ecec084e4f02d203d7e",
+   "name": "alice"
+  },
+  {
+   "id": "dev_9f77fc127e398a9171a530507f166e55",
+   "name": "laptop"
+  },
+  {
+   "id": "prf_469350d6b65aec646e45ac95c2b1416e",
+   "name": "alice_profile"
+  },
+  {
+   "id": "req_7de55de92f52c6e846aa8e720c55e5b8",
+   "name": "bind_key_id"
+  },
+  {
+   "id": "tem_061a031aec11955ec4684e95e1bcd975",
+   "name": "team"
+  },
+  {
+   "id": "req_cd0acdaabcd51cdc4984510e947bb073",
+   "name": "found_id"
+  },
+  {
+   "id": "req_c301e99bba866887bf83ca98367f2a81",
+   "name": "configure_id"
+  },
+  {
+   "id": "req_ddada53b33f620618cb44cd0e19a783a",
+   "name": "probe_callback_id"
+  },
+  {
+   "id": "req_ee837347b79342f8a4cf22c468dad972",
+   "name": "link_begin_id"
+  },
+  {
+   "id": "req_cea376a16fe41ae9b852266841563fc8",
+   "name": "link_complete_id"
+  }
+ ],
+ "joins": [
+  {
+   "digest_of": "device_key",
+   "pointer": "/payload_digest",
+   "record": "bind_key"
+  },
+  {
+   "minted": "device_key_binding",
+   "pointer": "/binding_id",
+   "record": "stored_device_key"
+  },
+  {
+   "minted": "key_bound_at",
+   "pointer": "/created_at",
+   "record": "stored_device_key"
+  },
+  {
+   "digest_of": "bind_key",
+   "pointer": "/request_digest",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "bind_device_key_head",
+   "pointer": "/head_digest",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "bind_device_key_sequence",
+   "pointer": "/sequence",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "bind_device_key_committed_at",
+   "pointer": "/committed_at",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "digest_of": "bind_device_key_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "bind_device_key_result"
+  },
+  {
+   "digest_of": "bind_key",
+   "pointer": "/request_digest",
+   "record": "bind_device_key_result"
+  },
+  {
+   "digest_of": "stored_device_key",
+   "pointer": "/outputs/0/digest",
+   "record": "bind_device_key_result"
+  },
+  {
+   "digest_of": "initial_policy",
+   "pointer": "/policy_digest",
+   "record": "proposal"
+  },
+  {
+   "digest_of": "proposal",
+   "pointer": "/payload_digest",
+   "record": "found"
+  },
+  {
+   "minted": "founding_policy",
+   "pointer": "/policy_id",
+   "record": "founding_policy"
+  },
+  {
+   "minted": "founded_at",
+   "pointer": "/committed_at",
+   "record": "founding_policy"
+  },
+  {
+   "minted": "founded_at",
+   "pointer": "/since",
+   "record": "active_team"
+  },
+  {
+   "digest_of": "found",
+   "pointer": "/request_digest",
+   "record": "found_team_receipt"
+  },
+  {
+   "minted": "team_head",
+   "pointer": "/head_digest",
+   "record": "found_team_receipt"
+  },
+  {
+   "minted": "found_team_sequence",
+   "pointer": "/sequence",
+   "record": "found_team_receipt"
+  },
+  {
+   "minted": "found_team_committed_at",
+   "pointer": "/committed_at",
+   "record": "found_team_receipt"
+  },
+  {
+   "digest_of": "found_team_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "found",
+   "pointer": "/request_digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "founding_policy",
+   "pointer": "/outputs/0/digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "active_team",
+   "pointer": "/outputs/1/digest",
+   "record": "found_team_result"
+  },
+  {
+   "minted": "team_head",
+   "pointer": "/target/base/head_digest",
+   "record": "configure"
+  },
+  {
+   "digest_of": "connection",
+   "pointer": "/payload_digest",
+   "record": "configure"
+  },
+  {
+   "minted": "workspace_connection",
+   "pointer": "/connection_id",
+   "record": "stored_connection"
+  },
+  {
+   "minted": "configured_at",
+   "pointer": "/configured_at",
+   "record": "stored_connection"
+  },
+  {
+   "digest_of": "configure",
+   "pointer": "/request_digest",
+   "record": "configure_connection_receipt"
+  },
+  {
+   "minted": "team_head_with_connection",
+   "pointer": "/head_digest",
+   "record": "configure_connection_receipt"
+  },
+  {
+   "minted": "configure_connection_sequence",
+   "pointer": "/sequence",
+   "record": "configure_connection_receipt"
+  },
+  {
+   "minted": "configure_connection_committed_at",
+   "pointer": "/committed_at",
+   "record": "configure_connection_receipt"
+  },
+  {
+   "minted": "team_head",
+   "pointer": "/target/base/head_digest",
+   "record": "configure_connection_receipt"
+  },
+  {
+   "digest_of": "configure_connection_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "configure_connection_result"
+  },
+  {
+   "digest_of": "configure",
+   "pointer": "/request_digest",
+   "record": "configure_connection_result"
+  },
+  {
+   "digest_of": "stored_connection",
+   "pointer": "/outputs/0/digest",
+   "record": "configure_connection_result"
+  },
+  {
+   "minted": "workspace_connection",
+   "pointer": "/connection_id",
+   "record": "callback_probe"
+  },
+  {
+   "digest_of": "callback_probe",
+   "pointer": "/payload_digest",
+   "record": "probe_callback"
+  },
+  {
+   "minted": "workspace_connection",
+   "pointer": "/connection_id",
+   "record": "real_callback_probe"
+  },
+  {
+   "minted": "real_callback_probe",
+   "pointer": "/probe_id",
+   "record": "real_callback_probe"
+  },
+  {
+   "minted": "probed_at",
+   "pointer": "/at",
+   "record": "real_callback_probe"
+  },
+  {
+   "minted": "candidate_profile",
+   "pointer": "/profile_id",
+   "record": "callback_profile"
+  },
+  {
+   "digest_of": "real_callback_probe",
+   "pointer": "/capabilities/0/state/probe_digest",
+   "record": "callback_profile"
+  },
+  {
+   "minted": "probed_at",
+   "pointer": "/measured_at",
+   "record": "callback_profile"
+  },
+  {
+   "digest_of": "probe_callback",
+   "pointer": "/request_digest",
+   "record": "probe_callback_receipt"
+  },
+  {
+   "minted": "probe_callback_head",
+   "pointer": "/head_digest",
+   "record": "probe_callback_receipt"
+  },
+  {
+   "minted": "probe_callback_sequence",
+   "pointer": "/sequence",
+   "record": "probe_callback_receipt"
+  },
+  {
+   "minted": "probe_callback_committed_at",
+   "pointer": "/committed_at",
+   "record": "probe_callback_receipt"
+  },
+  {
+   "digest_of": "probe_callback_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "probe_callback_result"
+  },
+  {
+   "digest_of": "probe_callback",
+   "pointer": "/request_digest",
+   "record": "probe_callback_result"
+  },
+  {
+   "digest_of": "real_callback_probe",
+   "pointer": "/outputs/0/digest",
+   "record": "probe_callback_result"
+  },
+  {
+   "digest_of": "callback_profile",
+   "pointer": "/outputs/1/digest",
+   "record": "probe_callback_result"
+  },
+  {
+   "minted": "workspace_connection",
+   "pointer": "/connection_id",
+   "record": "link_attempt"
+  },
+  {
+   "digest_of": "link_attempt",
+   "pointer": "/payload_digest",
+   "record": "link_begin"
+  },
+  {
+   "minted": "workspace_connection",
+   "pointer": "/connection_id",
+   "record": "link_begun"
+  },
+  {
+   "minted": "link_attempt",
+   "pointer": "/attempt_id",
+   "record": "link_begun"
+  },
+  {
+   "minted": "link_state",
+   "pointer": "/state_digest",
+   "record": "link_begun"
+  },
+  {
+   "minted": "link_nonce",
+   "pointer": "/nonce_digest",
+   "record": "link_begun"
+  },
+  {
+   "minted": "link_begun_at",
+   "pointer": "/begun_at",
+   "record": "link_begun"
+  },
+  {
+   "minted": "link_expires_at",
+   "pointer": "/expires_at",
+   "record": "link_begun"
+  },
+  {
+   "digest_of": "link_begin",
+   "pointer": "/request_digest",
+   "record": "begin_sign_in_receipt"
+  },
+  {
+   "minted": "begin_sign_in_head",
+   "pointer": "/head_digest",
+   "record": "begin_sign_in_receipt"
+  },
+  {
+   "minted": "begin_sign_in_sequence",
+   "pointer": "/sequence",
+   "record": "begin_sign_in_receipt"
+  },
+  {
+   "minted": "begin_sign_in_committed_at",
+   "pointer": "/committed_at",
+   "record": "begin_sign_in_receipt"
+  },
+  {
+   "digest_of": "begin_sign_in_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "begin_sign_in_result"
+  },
+  {
+   "digest_of": "link_begin",
+   "pointer": "/request_digest",
+   "record": "begin_sign_in_result"
+  },
+  {
+   "digest_of": "link_begun",
+   "pointer": "/outputs/0/digest",
+   "record": "begin_sign_in_result"
+  },
+  {
+   "minted": "link_attempt",
+   "pointer": "/attempt_id",
+   "record": "link_callback"
+  },
+  {
+   "minted": "link_state",
+   "pointer": "/state_digest",
+   "record": "link_callback"
+  },
+  {
+   "minted": "link_nonce",
+   "pointer": "/reply/nonce_digest",
+   "record": "link_callback"
+  },
+  {
+   "digest_of": "link_callback",
+   "pointer": "/payload_digest",
+   "record": "link_complete"
+  },
+  {
+   "minted": "link_attempt",
+   "pointer": "/attempt_id",
+   "record": "sign_in_evidence"
+  },
+  {
+   "minted": "workspace_connection",
+   "pointer": "/connection_id",
+   "record": "sign_in_evidence"
+  },
+  {
+   "minted": "verified_at",
+   "pointer": "/verified_at",
+   "record": "sign_in_evidence"
+  },
+  {
+   "minted": "external_binding",
+   "pointer": "/binding_id",
+   "record": "external_binding"
+  },
+  {
+   "minted": "workspace_connection",
+   "pointer": "/credential/connection_id",
+   "record": "external_binding"
+  },
+  {
+   "digest_of": "sign_in_evidence",
+   "pointer": "/evidence_digests/0",
+   "record": "external_binding"
+  },
+  {
+   "minted": "verified_at",
+   "pointer": "/created_at",
+   "record": "external_binding"
+  },
+  {
+   "digest_of": "link_complete",
+   "pointer": "/request_digest",
+   "record": "complete_sign_in_receipt"
+  },
+  {
+   "minted": "complete_sign_in_head",
+   "pointer": "/head_digest",
+   "record": "complete_sign_in_receipt"
+  },
+  {
+   "minted": "complete_sign_in_sequence",
+   "pointer": "/sequence",
+   "record": "complete_sign_in_receipt"
+  },
+  {
+   "minted": "complete_sign_in_committed_at",
+   "pointer": "/committed_at",
+   "record": "complete_sign_in_receipt"
+  },
+  {
+   "digest_of": "complete_sign_in_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "complete_sign_in_result"
+  },
+  {
+   "digest_of": "link_complete",
+   "pointer": "/request_digest",
+   "record": "complete_sign_in_result"
+  },
+  {
+   "digest_of": "sign_in_evidence",
+   "pointer": "/outputs/0/digest",
+   "record": "complete_sign_in_result"
+  },
+  {
+   "digest_of": "external_binding",
+   "pointer": "/outputs/1/digest",
+   "record": "complete_sign_in_result"
+  }
+ ],
+ "minted": [
+  {
+   "name": "bind_device_key_committed_at",
+   "shape": "instant",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "bind_device_key_head",
+   "shape": "digest",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "bind_device_key_sequence",
+   "shape": "integer",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "device_key_binding",
+   "shape": "bnd",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "key_bound_at",
+   "shape": "instant",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "found_team_committed_at",
+   "shape": "instant",
+   "step": "found_team"
+  },
+  {
+   "name": "found_team_sequence",
+   "shape": "integer",
+   "step": "found_team"
+  },
+  {
+   "name": "founded_at",
+   "shape": "instant",
+   "step": "found_team"
+  },
+  {
+   "name": "founding_policy",
+   "shape": "pol",
+   "step": "found_team"
+  },
+  {
+   "name": "team_head",
+   "shape": "digest",
+   "step": "found_team"
+  },
+  {
+   "name": "configure_connection_committed_at",
+   "shape": "instant",
+   "step": "configure_connection"
+  },
+  {
+   "name": "configure_connection_sequence",
+   "shape": "integer",
+   "step": "configure_connection"
+  },
+  {
+   "name": "configured_at",
+   "shape": "instant",
+   "step": "configure_connection"
+  },
+  {
+   "name": "team_head_with_connection",
+   "shape": "digest",
+   "step": "configure_connection"
+  },
+  {
+   "name": "workspace_connection",
+   "shape": "con",
+   "step": "configure_connection"
+  },
+  {
+   "name": "candidate_profile",
+   "shape": "cap",
+   "step": "probe_callback"
+  },
+  {
+   "name": "probe_callback_committed_at",
+   "shape": "instant",
+   "step": "probe_callback"
+  },
+  {
+   "name": "probe_callback_head",
+   "shape": "digest",
+   "step": "probe_callback"
+  },
+  {
+   "name": "probe_callback_sequence",
+   "shape": "integer",
+   "step": "probe_callback"
+  },
+  {
+   "name": "probed_at",
+   "shape": "instant",
+   "step": "probe_callback"
+  },
+  {
+   "name": "real_callback_probe",
+   "shape": "prb",
+   "step": "probe_callback"
+  },
+  {
+   "name": "begin_sign_in_committed_at",
+   "shape": "instant",
+   "step": "begin_sign_in"
+  },
+  {
+   "name": "begin_sign_in_head",
+   "shape": "digest",
+   "step": "begin_sign_in"
+  },
+  {
+   "name": "begin_sign_in_sequence",
+   "shape": "integer",
+   "step": "begin_sign_in"
+  },
+  {
+   "name": "link_attempt",
+   "shape": "sin",
+   "step": "begin_sign_in"
+  },
+  {
+   "name": "link_begun_at",
+   "shape": "instant",
+   "step": "begin_sign_in"
+  },
+  {
+   "name": "link_expires_at",
+   "shape": "instant",
+   "step": "begin_sign_in"
+  },
+  {
+   "name": "link_nonce",
+   "shape": "digest",
+   "step": "begin_sign_in"
+  },
+  {
+   "name": "link_state",
+   "shape": "digest",
+   "step": "begin_sign_in"
+  },
+  {
+   "name": "complete_sign_in_committed_at",
+   "shape": "instant",
+   "step": "complete_sign_in"
+  },
+  {
+   "name": "complete_sign_in_head",
+   "shape": "digest",
+   "step": "complete_sign_in"
+  },
+  {
+   "name": "complete_sign_in_sequence",
+   "shape": "integer",
+   "step": "complete_sign_in"
+  },
+  {
+   "name": "external_binding",
+   "shape": "bnd",
+   "step": "complete_sign_in"
+  },
+  {
+   "name": "verified_at",
+   "shape": "instant",
+   "step": "complete_sign_in"
+  }
+ ],
+ "records": [
+  {
+   "digest": "257ed92bb6e2b546e359916d1204d4265fbb0d546cd7a7413333426a2bca9d13",
+   "name": "device_key",
+   "record": {
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_9f77fc127e398a9171a530507f166e55",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_a3425eec065e6ecec084e4f02d203d7e",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "4197628d91f334ea20bad2ee99dfeebf0d295d68ffd8ad35e046847da6ffb753",
+   "name": "bind_key",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_9f77fc127e398a9171a530507f166e55",
+     "principal_id": "prn_a3425eec065e6ecec084e4f02d203d7e",
+     "profile_id": "prf_469350d6b65aec646e45ac95c2b1416e"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "identity.binding.add",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_a3425eec065e6ecec084e4f02d203d7e"
+    },
+    "payload_digest": "257ed92bb6e2b546e359916d1204d4265fbb0d546cd7a7413333426a2bca9d13",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_7de55de92f52c6e846aa8e720c55e5b8",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_a3425eec065e6ecec084e4f02d203d7e"
+    }
+   }
+  },
+  {
+   "digest": "972b605e6b579c94ddeb0bf2f8d9ce79beea67e2226bb0d5c6c0d34b3cac4221",
+   "name": "stored_device_key",
+   "record": {
+    "binding_id": "bnd_4a6b265c3244643b0d0e27190446c249",
+    "created_at": "2000-01-01T00:00:00Z",
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_9f77fc127e398a9171a530507f166e55",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_a3425eec065e6ecec084e4f02d203d7e",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "4c57c0193435350004d89087b01ecd4e67517dd403cdbdc98c82899232ed23b8",
+   "name": "bind_device_key_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "037c22291fa7d70472b2e296aa9101ef86e3ebca2d6e7c0bbc6d90fe5eaa4fc7",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_a3425eec065e6ecec084e4f02d203d7e"
+    },
+    "request_digest": "4197628d91f334ea20bad2ee99dfeebf0d295d68ffd8ad35e046847da6ffb753",
+    "request_id": "req_7de55de92f52c6e846aa8e720c55e5b8",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prn_a3425eec065e6ecec084e4f02d203d7e"
+    }
+   }
+  },
+  {
+   "digest": "bbba001d81b161782dbfe5f73eb12fa9ef0255043de88120ade31c9a41a5e986",
+   "name": "bind_device_key_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "4c57c0193435350004d89087b01ecd4e67517dd403cdbdc98c82899232ed23b8",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "972b605e6b579c94ddeb0bf2f8d9ce79beea67e2226bb0d5c6c0d34b3cac4221",
+      "kind": "principal_binding"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "4197628d91f334ea20bad2ee99dfeebf0d295d68ffd8ad35e046847da6ffb753",
+    "request_id": "req_7de55de92f52c6e846aa8e720c55e5b8",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "821bd684e337bd6ab1193efd7517968358005449c3ab636816b75b7fe29533b5",
+   "name": "initial_policy",
+   "record": {
+    "delegation_ceiling": 2,
+    "execution_authority": {
+     "duty": "finalizer",
+     "principal_id": "prn_a3425eec065e6ecec084e4f02d203d7e"
+    },
+    "expiry_days": 30,
+    "independence": {
+     "excludes_recorded_authors": true,
+     "excludes_requester": true,
+     "excludes_sponsored_agents": true
+    },
+    "kind": "governing_policy",
+    "operations": [
+     "publish",
+     "adopt"
+    ],
+    "schema": 1,
+    "team_id": "tem_061a031aec11955ec4684e95e1bcd975",
+    "threshold": 0
+   }
+  },
+  {
+   "digest": "884f0965a8439cda65de2cf55b71001df77069e5e3cf744c989d3f5d5d60f097",
+   "name": "proposal",
+   "record": {
+    "carriers": [
+     "local"
+    ],
+    "custody_target": 3,
+    "finalizer": {
+     "device_id": "dev_9f77fc127e398a9171a530507f166e55",
+     "runs_on": "member_device"
+    },
+    "founder_principal_id": "prn_a3425eec065e6ecec084e4f02d203d7e",
+    "founding_mode": {
+     "acknowledged_self_reviewed": true,
+     "mode": "self_founded"
+    },
+    "kind": "founding_proposal",
+    "name": "Platform",
+    "policy_digest": "821bd684e337bd6ab1193efd7517968358005449c3ab636816b75b7fe29533b5",
+    "proposal_version": 1,
+    "purpose": "The standards this group works to.",
+    "recovery": [
+     {
+      "duty": "recovery",
+      "principal_id": "prn_a3425eec065e6ecec084e4f02d203d7e"
+     }
+    ],
+    "schema": 1,
+    "team_id": "tem_061a031aec11955ec4684e95e1bcd975"
+   }
+  },
+  {
+   "digest": "196ec2c3cc4b8ca60be2c44802b93d24192ba0ce0e793987d986870eafc215ca",
+   "name": "found",
+   "record": {
+    "action": "policy",
+    "actor": {
+     "device_id": "dev_9f77fc127e398a9171a530507f166e55",
+     "principal_id": "prn_a3425eec065e6ecec084e4f02d203d7e",
+     "profile_id": "prf_469350d6b65aec646e45ac95c2b1416e"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "team.found",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_061a031aec11955ec4684e95e1bcd975"
+    },
+    "payload_digest": "884f0965a8439cda65de2cf55b71001df77069e5e3cf744c989d3f5d5d60f097",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_cd0acdaabcd51cdc4984510e947bb073",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "tem_061a031aec11955ec4684e95e1bcd975"
+    }
+   }
+  },
+  {
+   "digest": "eb537ef26b46300455efa0a220bad5dc25e47b25773782e6dc3223ec93bfb59b",
+   "name": "founding_policy",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "delegation_ceiling": 2,
+    "execution_authority": {
+     "duty": "finalizer",
+     "principal_id": "prn_a3425eec065e6ecec084e4f02d203d7e"
+    },
+    "expiry_days": 30,
+    "independence": {
+     "excludes_recorded_authors": true,
+     "excludes_requester": true,
+     "excludes_sponsored_agents": true
+    },
+    "kind": "governing_policy",
+    "operations": [
+     "publish",
+     "adopt"
+    ],
+    "policy_id": "pol_8ee8cf20399493a0afb60863637358ed",
+    "policy_version": 1,
+    "schema": 1,
+    "team_id": "tem_061a031aec11955ec4684e95e1bcd975",
+    "threshold": 0
+   }
+  },
+  {
+   "digest": "71ff874399edd7522ab797287dba54f24aeae937a8adf90a8265525b1f66b994",
+   "name": "active_team",
+   "record": {
+    "kind": "team_state",
+    "schema": 1,
+    "since": "2000-01-01T00:00:00Z",
+    "state": "active",
+    "team_id": "tem_061a031aec11955ec4684e95e1bcd975"
+   }
+  },
+  {
+   "digest": "3b2bf7534961d86aee68aeff179abc61a6b2dd12197c28feb439f8492d221aae",
+   "name": "found_team_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "f103426f34b05a6feeac71adcb7029ab05652da264ae32e1c85fa466ca03715c",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_061a031aec11955ec4684e95e1bcd975"
+    },
+    "request_digest": "196ec2c3cc4b8ca60be2c44802b93d24192ba0ce0e793987d986870eafc215ca",
+    "request_id": "req_cd0acdaabcd51cdc4984510e947bb073",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "tem_061a031aec11955ec4684e95e1bcd975"
+    }
+   }
+  },
+  {
+   "digest": "a4b4f0a54317274d26fd0391f690ea162d1df012ef800e0425874a974bd024c6",
+   "name": "found_team_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "3b2bf7534961d86aee68aeff179abc61a6b2dd12197c28feb439f8492d221aae",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "eb537ef26b46300455efa0a220bad5dc25e47b25773782e6dc3223ec93bfb59b",
+      "kind": "governing_policy"
+     },
+     {
+      "digest": "71ff874399edd7522ab797287dba54f24aeae937a8adf90a8265525b1f66b994",
+      "kind": "team_state"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "196ec2c3cc4b8ca60be2c44802b93d24192ba0ce0e793987d986870eafc215ca",
+    "request_id": "req_cd0acdaabcd51cdc4984510e947bb073",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "c614375ba503de639c3cf5ec064b08c9d6323686211c11a414a31bd214db2a2e",
+   "name": "connection",
+   "record": {
+    "audience": "1234567890-abcdef.apps.googleusercontent.com",
+    "exchange": {
+     "flow": "code_with_pkce",
+     "runs": "local_public_client"
+    },
+    "expected_claims": [
+     {
+      "claim": "hd",
+      "value": "example.com"
+     }
+    ],
+    "issuer": "https://accounts.google.com",
+    "kind": "provider_connection",
+    "preset": "google",
+    "schema": 1,
+    "team_id": "tem_061a031aec11955ec4684e95e1bcd975"
+   }
+  },
+  {
+   "digest": "970527f75e90ccac991b7916e3785617affcdaa921414286bb5f72c030c2b95e",
+   "name": "configure",
+   "record": {
+    "action": "policy",
+    "actor": {
+     "device_id": "dev_9f77fc127e398a9171a530507f166e55",
+     "principal_id": "prn_a3425eec065e6ecec084e4f02d203d7e",
+     "profile_id": "prf_469350d6b65aec646e45ac95c2b1416e"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "access.connection.configure",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_061a031aec11955ec4684e95e1bcd975"
+    },
+    "payload_digest": "c614375ba503de639c3cf5ec064b08c9d6323686211c11a414a31bd214db2a2e",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_c301e99bba866887bf83ca98367f2a81",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "f103426f34b05a6feeac71adcb7029ab05652da264ae32e1c85fa466ca03715c"
+     },
+     "resource_id": "tem_061a031aec11955ec4684e95e1bcd975"
+    }
+   }
+  },
+  {
+   "digest": "9e652ce5a405a3e685b5ec1566535f9a22666566dd2d07b0e532342736154ae9",
+   "name": "stored_connection",
+   "record": {
+    "audience": "1234567890-abcdef.apps.googleusercontent.com",
+    "configured_at": "2000-01-01T00:00:00Z",
+    "connection_id": "con_0a935b355112398c7a3227fc749df0dd",
+    "exchange": {
+     "flow": "code_with_pkce",
+     "runs": "local_public_client"
+    },
+    "expected_claims": [
+     {
+      "claim": "hd",
+      "value": "example.com"
+     }
+    ],
+    "issuer": "https://accounts.google.com",
+    "kind": "provider_connection",
+    "preset": "google",
+    "schema": 1,
+    "team_id": "tem_061a031aec11955ec4684e95e1bcd975"
+   }
+  },
+  {
+   "digest": "86b9533ec8db098a310dd6c6f4b51b4aaa69da25e1d702fddf3e5f89b41e38fc",
+   "name": "configure_connection_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "d72ce2d886c8b08c0dfc840856a9dab7aa36269e2350708a714de67a15ce8bbc",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_061a031aec11955ec4684e95e1bcd975"
+    },
+    "request_digest": "970527f75e90ccac991b7916e3785617affcdaa921414286bb5f72c030c2b95e",
+    "request_id": "req_c301e99bba866887bf83ca98367f2a81",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "f103426f34b05a6feeac71adcb7029ab05652da264ae32e1c85fa466ca03715c"
+     },
+     "resource_id": "tem_061a031aec11955ec4684e95e1bcd975"
+    }
+   }
+  },
+  {
+   "digest": "f73196b171249dace09ee8033ed4b4bdfe558db429778868f9a991874d14ec5d",
+   "name": "configure_connection_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "86b9533ec8db098a310dd6c6f4b51b4aaa69da25e1d702fddf3e5f89b41e38fc",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "9e652ce5a405a3e685b5ec1566535f9a22666566dd2d07b0e532342736154ae9",
+      "kind": "provider_connection"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "970527f75e90ccac991b7916e3785617affcdaa921414286bb5f72c030c2b95e",
+    "request_id": "req_c301e99bba866887bf83ca98367f2a81",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "056adcf1b6390531efd31fabc0fd856667664d922ce15ff1c21f28b57a4e5372",
+   "name": "callback_probe",
+   "record": {
+    "capability": "provider_callback",
+    "client": {
+     "name": "agent-bios",
+     "version": "0.20.0"
+    },
+    "connection_id": "con_0a935b355112398c7a3227fc749df0dd",
+    "kind": "capability_probe",
+    "schema": 1,
+    "wire": {
+     "protocol": "oauth2_authorization_code",
+     "version": "rfc6749"
+    }
+   }
+  },
+  {
+   "digest": "e409312e5228fafa967eef9ece65e2ee32b3eae1ec18959e244a6111591d06b1",
+   "name": "probe_callback",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_9f77fc127e398a9171a530507f166e55",
+     "principal_id": "prn_a3425eec065e6ecec084e4f02d203d7e",
+     "profile_id": "prf_469350d6b65aec646e45ac95c2b1416e"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "capability.probe",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_a3425eec065e6ecec084e4f02d203d7e"
+    },
+    "payload_digest": "056adcf1b6390531efd31fabc0fd856667664d922ce15ff1c21f28b57a4e5372",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_ddada53b33f620618cb44cd0e19a783a",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_469350d6b65aec646e45ac95c2b1416e"
+    }
+   }
+  },
+  {
+   "digest": "6981a2f928b21f12616fb2d80405f38681aa6c7aa9de2a5882588ba23ac3bf61",
+   "name": "real_callback_probe",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "capability": "provider_callback",
+    "client": {
+     "name": "agent-bios",
+     "version": "0.20.0"
+    },
+    "connection_id": "con_0a935b355112398c7a3227fc749df0dd",
+    "kind": "capability_probe",
+    "mode": {
+     "runs": "real"
+    },
+    "observed": "The configured workspace connection redirected to the installed candidate's callback, and the candidate checked state and audience before accepting the code.",
+    "offered": true,
+    "outcome": "worked",
+    "probe_id": "prb_188cd242fe73570999ccf959508e0dcf",
+    "schema": 1,
+    "wire": {
+     "protocol": "oauth2_authorization_code",
+     "version": "rfc6749"
+    }
+   }
+  },
+  {
+   "digest": "f8dec841f418f0557c101c329c04780d45c128de58a7f678d99c8e983dbc8869",
+   "name": "callback_profile",
+   "record": {
+    "capabilities": [
+     {
+      "capability": "provider_callback",
+      "state": {
+       "probe_digest": "6981a2f928b21f12616fb2d80405f38681aa6c7aa9de2a5882588ba23ac3bf61",
+       "qualified": "yes"
+      }
+     }
+    ],
+    "client": {
+     "name": "agent-bios",
+     "version": "0.20.0"
+    },
+    "kind": "capability_profile",
+    "measured_at": "2000-01-01T00:00:00Z",
+    "profile_id": "cap_f2610f2509f4308ac78961fbedc0e1fb",
+    "schema": 1,
+    "wire": {
+     "protocol": "oauth2_authorization_code",
+     "version": "rfc6749"
+    }
+   }
+  },
+  {
+   "digest": "e25d601e1c54eaa922b5f8cd28d57f92f9a9dbfa0b1e77dfe6401d1d2d22ce72",
+   "name": "probe_callback_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "ef43616250888d01a00202df638e8abd734eca75db538fa66dcd0eea76c1dd12",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_a3425eec065e6ecec084e4f02d203d7e"
+    },
+    "request_digest": "e409312e5228fafa967eef9ece65e2ee32b3eae1ec18959e244a6111591d06b1",
+    "request_id": "req_ddada53b33f620618cb44cd0e19a783a",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_469350d6b65aec646e45ac95c2b1416e"
+    }
+   }
+  },
+  {
+   "digest": "d2ff292750252152fa2364064f7359afda474f6a4c4a0ed0adb904428251c9ec",
+   "name": "probe_callback_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "e25d601e1c54eaa922b5f8cd28d57f92f9a9dbfa0b1e77dfe6401d1d2d22ce72",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "6981a2f928b21f12616fb2d80405f38681aa6c7aa9de2a5882588ba23ac3bf61",
+      "kind": "capability_probe"
+     },
+     {
+      "digest": "f8dec841f418f0557c101c329c04780d45c128de58a7f678d99c8e983dbc8869",
+      "kind": "capability_profile"
+     }
+    ],
+    "provider_effect": "none",
+    "request_digest": "e409312e5228fafa967eef9ece65e2ee32b3eae1ec18959e244a6111591d06b1",
+    "request_id": "req_ddada53b33f620618cb44cd0e19a783a",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "4459dede57eb0057d7d4f26e175776448cb376f29062a4abcbeec3949122ddf3",
+   "name": "link_attempt",
+   "record": {
+    "connection_id": "con_0a935b355112398c7a3227fc749df0dd",
+    "kind": "sign_in_attempt",
+    "purpose": {
+     "principal_id": "prn_a3425eec065e6ecec084e4f02d203d7e",
+     "purpose": "link"
+    },
+    "schema": 1
+   }
+  },
+  {
+   "digest": "cfc3a2df270379c5bd1c562c5d3d71208c7ff2a7882a54123d9dfb9763f4fe91",
+   "name": "link_begin",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_9f77fc127e398a9171a530507f166e55",
+     "principal_id": "prn_a3425eec065e6ecec084e4f02d203d7e",
+     "profile_id": "prf_469350d6b65aec646e45ac95c2b1416e"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "access.sign_in.begin",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_a3425eec065e6ecec084e4f02d203d7e"
+    },
+    "payload_digest": "4459dede57eb0057d7d4f26e175776448cb376f29062a4abcbeec3949122ddf3",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_ee837347b79342f8a4cf22c468dad972",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_469350d6b65aec646e45ac95c2b1416e"
+    }
+   }
+  },
+  {
+   "digest": "43e92b7c2e6c6e03623e68994c7a58f58317aaa69585c8404625d2f76fac5cb8",
+   "name": "link_begun",
+   "record": {
+    "attempt_id": "sin_64cc8692d284ca7b6013e21cb44656ae",
+    "begun_at": "2000-01-01T00:00:00Z",
+    "connection_id": "con_0a935b355112398c7a3227fc749df0dd",
+    "expires_at": "2000-01-01T00:00:00Z",
+    "kind": "sign_in_attempt",
+    "nonce_digest": "9b049e42bc165616a61f6dd25e6f34a048efdb42ba0ba9b3dbe09d5f0d107823",
+    "purpose": {
+     "principal_id": "prn_a3425eec065e6ecec084e4f02d203d7e",
+     "purpose": "link"
+    },
+    "schema": 1,
+    "state_digest": "5940c556b1ace7c4d37b7b39c85bf0df91fe19243a840c4209810f5e94f815ef"
+   }
+  },
+  {
+   "digest": "6549cb6daceb818c1d15f29a734ab9c8e39da6ad86512a9fbef6ec18775b522f",
+   "name": "begin_sign_in_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "bb856e878f09e80330683c02ffac286cd5c50edd144696f222814a23d4e69d2c",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_a3425eec065e6ecec084e4f02d203d7e"
+    },
+    "request_digest": "cfc3a2df270379c5bd1c562c5d3d71208c7ff2a7882a54123d9dfb9763f4fe91",
+    "request_id": "req_ee837347b79342f8a4cf22c468dad972",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_469350d6b65aec646e45ac95c2b1416e"
+    }
+   }
+  },
+  {
+   "digest": "1af8792e42956891a6c19f99ac3c9bebf436f9f14e4ae825f0dcd4ac30a8a0e5",
+   "name": "begin_sign_in_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "private_state_written",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "6549cb6daceb818c1d15f29a734ab9c8e39da6ad86512a9fbef6ec18775b522f",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "43e92b7c2e6c6e03623e68994c7a58f58317aaa69585c8404625d2f76fac5cb8",
+      "kind": "sign_in_attempt"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "cfc3a2df270379c5bd1c562c5d3d71208c7ff2a7882a54123d9dfb9763f4fe91",
+    "request_id": "req_ee837347b79342f8a4cf22c468dad972",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "4af95246c4770b8a23ea86a386eac585ab6167e471ca281e0ade938a52df1734",
+   "name": "link_callback",
+   "record": {
+    "attempt_id": "sin_64cc8692d284ca7b6013e21cb44656ae",
+    "kind": "provider_callback",
+    "reply": {
+     "audience": "1234567890-abcdef.apps.googleusercontent.com",
+     "claims": [
+      {
+       "claim": "hd",
+       "value": "example.com"
+      }
+     ],
+     "email": "person@example.com",
+     "expires_at": "2026-09-20T10:01:00Z",
+     "issued_at": "2026-09-20T09:01:00Z",
+     "issuer": "https://accounts.google.com",
+     "nonce_digest": "9b049e42bc165616a61f6dd25e6f34a048efdb42ba0ba9b3dbe09d5f0d107823",
+     "returned": "claims",
+     "subject": "110169484474386276334"
+    },
+    "schema": 1,
+    "state_digest": "5940c556b1ace7c4d37b7b39c85bf0df91fe19243a840c4209810f5e94f815ef"
+   }
+  },
+  {
+   "digest": "aae7b782bd4e66a5a60ff85a10ea01edfa51b2fdb92f835b648413d86216f1df",
+   "name": "link_complete",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_9f77fc127e398a9171a530507f166e55",
+     "principal_id": "prn_a3425eec065e6ecec084e4f02d203d7e",
+     "profile_id": "prf_469350d6b65aec646e45ac95c2b1416e"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "access.sign_in.complete",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_a3425eec065e6ecec084e4f02d203d7e"
+    },
+    "payload_digest": "4af95246c4770b8a23ea86a386eac585ab6167e471ca281e0ade938a52df1734",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_cea376a16fe41ae9b852266841563fc8",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_469350d6b65aec646e45ac95c2b1416e"
+    }
+   }
+  },
+  {
+   "digest": "0a44ca3220c732751da69044b49d5435a0b4aa7714a0e1827693d6b7949e14c3",
+   "name": "sign_in_evidence",
+   "record": {
+    "attempt_id": "sin_64cc8692d284ca7b6013e21cb44656ae",
+    "claims": [
+     {
+      "claim": "hd",
+      "value": "example.com"
+     }
+    ],
+    "connection_id": "con_0a935b355112398c7a3227fc749df0dd",
+    "issuer": "https://accounts.google.com",
+    "kind": "sign_in_evidence",
+    "purpose": {
+     "principal_id": "prn_a3425eec065e6ecec084e4f02d203d7e",
+     "purpose": "link"
+    },
+    "schema": 1,
+    "subject": "110169484474386276334",
+    "verified_at": "2000-01-01T00:00:00Z"
+   }
+  },
+  {
+   "digest": "5e0a4a1713cb278e23b22c375201dceeb434447ad4ceb6274db69ab07ff11c80",
+   "name": "external_binding",
+   "record": {
+    "binding_id": "bnd_620278cf08180c4bba614c2bb05c5919",
+    "created_at": "2000-01-01T00:00:00Z",
+    "credential": {
+     "connection_id": "con_0a935b355112398c7a3227fc749df0dd",
+     "credential": "external_identity",
+     "issuer": "https://accounts.google.com",
+     "subject": "110169484474386276334",
+     "tenant": "example.com"
+    },
+    "established_by": "governed_link",
+    "evidence_digests": [
+     "0a44ca3220c732751da69044b49d5435a0b4aa7714a0e1827693d6b7949e14c3"
+    ],
+    "kind": "principal_binding",
+    "principal_id": "prn_a3425eec065e6ecec084e4f02d203d7e",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "ee43b244053c6611c0caf77d8c7be0361dd6a8b764d7cba1bc7dbcc683fab298",
+   "name": "complete_sign_in_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "6dca55efffdcc85793e50b2b84306609b98316c8bdf61b6808a912b8b500adbb",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_a3425eec065e6ecec084e4f02d203d7e"
+    },
+    "request_digest": "aae7b782bd4e66a5a60ff85a10ea01edfa51b2fdb92f835b648413d86216f1df",
+    "request_id": "req_cea376a16fe41ae9b852266841563fc8",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_469350d6b65aec646e45ac95c2b1416e"
+    }
+   }
+  },
+  {
+   "digest": "fa096c9ce8abc09272de73e542675952b0e00ae156e3c9bf93981406f39babf1",
+   "name": "complete_sign_in_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "ee43b244053c6611c0caf77d8c7be0361dd6a8b764d7cba1bc7dbcc683fab298",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "0a44ca3220c732751da69044b49d5435a0b4aa7714a0e1827693d6b7949e14c3",
+      "kind": "sign_in_evidence"
+     },
+     {
+      "digest": "5e0a4a1713cb278e23b22c375201dceeb434447ad4ceb6274db69ab07ff11c80",
+      "kind": "principal_binding"
+     }
+    ],
+    "provider_effect": "committed",
+    "request_digest": "aae7b782bd4e66a5a60ff85a10ea01edfa51b2fdb92f835b648413d86216f1df",
+    "request_id": "req_cea376a16fe41ae9b852266841563fc8",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  }
+ ],
+ "says": "A person founds a Team on this installed candidate (agent-bios 0.20.0) and configures its Google workspace connection as a public client with PKCE. The candidate then probes the provider callback for real through that configured connection: the owner stores a probe that ran against the configured provider (mode real, outcome worked) and a capability profile that qualifies provider_callback by naming exactly that probe's digest. The same callback is then exercised end to end: a sign-in begun on the connection returns an attempt with the state and nonce the owner minted, and the provider's callback carrying that state, nonce and the expected hd claim is verified and linked, committing the sign-in evidence and an external-identity binding for the same principal on the same connection. The evidence level claimed is the one observed: a real run on the installed candidate, nothing inferred from the specification or a fixture.",
+ "spec_sha256": "89c0069445125cbe638027fc09cd08ad3cf0d19fa14eed3a4e9185274adeb5ee",
+ "steps": [
+  {
+   "carries": [
+    "device_key"
+   ],
+   "name": "bind_device_key",
+   "request": "bind_key",
+   "result": "bind_device_key_result",
+   "returns": [
+    "stored_device_key"
+   ]
+  },
+  {
+   "carries": [
+    "proposal",
+    "initial_policy"
+   ],
+   "head": "team_head",
+   "name": "found_team",
+   "request": "found",
+   "result": "found_team_result",
+   "returns": [
+    "founding_policy",
+    "active_team"
+   ],
+   "submits": [
+    "initial_policy"
+   ]
+  },
+  {
+   "carries": [
+    "connection"
+   ],
+   "head": "team_head_with_connection",
+   "name": "configure_connection",
+   "request": "configure",
+   "result": "configure_connection_result",
+   "returns": [
+    "stored_connection"
+   ]
+  },
+  {
+   "carries": [
+    "callback_probe"
+   ],
+   "name": "probe_callback",
+   "request": "probe_callback",
+   "result": "probe_callback_result",
+   "returns": [
+    "real_callback_probe",
+    "callback_profile"
+   ]
+  },
+  {
+   "carries": [
+    "link_attempt"
+   ],
+   "name": "begin_sign_in",
+   "request": "link_begin",
+   "result": "begin_sign_in_result",
+   "returns": [
+    "link_begun"
+   ]
+  },
+  {
+   "carries": [
+    "link_callback"
+   ],
+   "name": "complete_sign_in",
+   "request": "link_complete",
+   "result": "complete_sign_in_result",
+   "returns": [
+    "sign_in_evidence",
+    "external_binding"
+   ]
+  }
+ ]
+}

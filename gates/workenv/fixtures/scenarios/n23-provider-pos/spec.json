@@ -1,0 +1,766 @@
+{
+ "case": "N23-PROVIDER-POS",
+ "says": "A person founds a Team on this installed candidate (agent-bios 0.20.0) and configures its Google workspace connection as a public client with PKCE. The candidate then probes the provider callback for real through that configured connection: the owner stores a probe that ran against the configured provider (mode real, outcome worked) and a capability profile that qualifies provider_callback by naming exactly that probe's digest. The same callback is then exercised end to end: a sign-in begun on the connection returns an attempt with the state and nonce the owner minted, and the provider's callback carrying that state, nonce and the expected hd claim is verified and linked, committing the sign-in evidence and an external-identity binding for the same principal on the same connection. The evidence level claimed is the one observed: a real run on the installed candidate, nothing inferred from the specification or a fixture.",
+ "ids": [
+  {
+   "name": "alice",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "alice_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "bind_key_id",
+   "prefix": "req"
+  },
+  {
+   "name": "team",
+   "prefix": "tem"
+  },
+  {
+   "name": "found_id",
+   "prefix": "req"
+  },
+  {
+   "name": "configure_id",
+   "prefix": "req"
+  },
+  {
+   "name": "probe_callback_id",
+   "prefix": "req"
+  },
+  {
+   "name": "link_begin_id",
+   "prefix": "req"
+  },
+  {
+   "name": "link_complete_id",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "device_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "bind_key",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_key_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.add"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#device_key"
+    }
+   ]
+  },
+  {
+   "name": "stored_device_key",
+   "from": "device_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:device_key_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:key_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "initial_policy",
+   "from": "c08/policy_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/threshold",
+     "value": 0
+    }
+   ]
+  },
+  {
+   "name": "proposal",
+   "from": "c08/proposal_as_submitted.json",
+   "drop": [
+    "/founding_mode/nominees"
+   ],
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/founder_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/founding_mode/mode",
+     "value": "self_founded"
+    },
+    {
+     "pointer": "/founding_mode/acknowledged_self_reviewed",
+     "value": true
+    },
+    {
+     "pointer": "/recovery/0/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#initial_policy"
+    },
+    {
+     "pointer": "/carriers",
+     "value": [
+      "local"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "found",
+   "from": "c05/memory_use_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@found_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.found"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#proposal"
+    }
+   ]
+  },
+  {
+   "name": "founding_policy",
+   "from": "initial_policy",
+   "set": [
+    {
+     "pointer": "/policy_id",
+     "value": "$pol:founding_policy"
+    },
+    {
+     "pointer": "/policy_version",
+     "value": 1
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "active_team",
+   "from": "c08/archived_team.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/state",
+     "value": "active"
+    },
+    {
+     "pointer": "/since",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "connection",
+   "from": "c02/connection_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "configure",
+   "from": "c05/memory_use_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@configure_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.connection.configure"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#connection"
+    }
+   ]
+  },
+  {
+   "name": "stored_connection",
+   "from": "connection",
+   "set": [
+    {
+     "pointer": "/connection_id",
+     "value": "$con:workspace_connection"
+    },
+    {
+     "pointer": "/configured_at",
+     "value": "$instant:configured_at"
+    }
+   ]
+  },
+  {
+   "name": "callback_probe",
+   "from": "c12/a_callback_probe_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/connection_id",
+     "value": "$con:workspace_connection"
+    }
+   ]
+  },
+  {
+   "name": "probe_callback",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@probe_callback_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "capability.probe"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#callback_probe"
+    }
+   ]
+  },
+  {
+   "name": "real_callback_probe",
+   "from": "c12/a_provider_callback_observed_on_the_installed_candidate.json",
+   "set": [
+    {
+     "pointer": "/connection_id",
+     "value": "$con:workspace_connection"
+    },
+    {
+     "pointer": "/probe_id",
+     "value": "$prb:real_callback_probe"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:probed_at"
+    }
+   ]
+  },
+  {
+   "name": "callback_profile",
+   "from": "c12/a_provider_callback_qualified_by_the_probe_on_the_candidate.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "$cap:candidate_profile"
+    },
+    {
+     "pointer": "/capabilities/0/state/probe_digest",
+     "value": "#real_callback_probe"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:probed_at"
+    }
+   ]
+  },
+  {
+   "name": "link_attempt",
+   "from": "c02/sign_in_to_link_a_principal.json",
+   "set": [
+    {
+     "pointer": "/connection_id",
+     "value": "$con:workspace_connection"
+    },
+    {
+     "pointer": "/purpose/principal_id",
+     "value": "@alice"
+    }
+   ]
+  },
+  {
+   "name": "link_begin",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@link_begin_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.sign_in.begin"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#link_attempt"
+    }
+   ]
+  },
+  {
+   "name": "link_begun",
+   "from": "link_attempt",
+   "set": [
+    {
+     "pointer": "/attempt_id",
+     "value": "$sin:link_attempt"
+    },
+    {
+     "pointer": "/state_digest",
+     "value": "$digest:link_state"
+    },
+    {
+     "pointer": "/nonce_digest",
+     "value": "$digest:link_nonce"
+    },
+    {
+     "pointer": "/begun_at",
+     "value": "$instant:link_begun_at"
+    },
+    {
+     "pointer": "/expires_at",
+     "value": "$instant:link_expires_at"
+    }
+   ]
+  },
+  {
+   "name": "link_callback",
+   "from": "c02/callback_with_the_expected_claims.json",
+   "set": [
+    {
+     "pointer": "/attempt_id",
+     "value": "$sin:link_attempt"
+    },
+    {
+     "pointer": "/state_digest",
+     "value": "$digest:link_state"
+    },
+    {
+     "pointer": "/reply/nonce_digest",
+     "value": "$digest:link_nonce"
+    }
+   ]
+  },
+  {
+   "name": "link_complete",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@link_complete_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.sign_in.complete"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#link_callback"
+    }
+   ]
+  },
+  {
+   "name": "sign_in_evidence",
+   "from": "c02/identity_verified_for_a_principal.json",
+   "set": [
+    {
+     "pointer": "/attempt_id",
+     "value": "$sin:link_attempt"
+    },
+    {
+     "pointer": "/connection_id",
+     "value": "$con:workspace_connection"
+    },
+    {
+     "pointer": "/purpose/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/verified_at",
+     "value": "$instant:verified_at"
+    }
+   ]
+  },
+  {
+   "name": "external_binding",
+   "from": "c01/external_identity_binding.json",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:external_binding"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/credential/connection_id",
+     "value": "$con:workspace_connection"
+    },
+    {
+     "pointer": "/evidence_digests",
+     "value": [
+      "#sign_in_evidence"
+     ]
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:verified_at"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_device_key",
+   "request": "bind_key",
+   "carries": [
+    "device_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_device_key"
+    ]
+   }
+  },
+  {
+   "name": "found_team",
+   "request": "found",
+   "carries": [
+    "proposal",
+    "initial_policy"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "founding_policy",
+     "active_team"
+    ],
+    "head": "team_head"
+   },
+   "submits": [
+    "initial_policy"
+   ]
+  },
+  {
+   "name": "configure_connection",
+   "request": "configure",
+   "carries": [
+    "connection"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_connection"
+    ],
+    "head": "team_head_with_connection"
+   }
+  },
+  {
+   "name": "probe_callback",
+   "request": "probe_callback",
+   "carries": [
+    "callback_probe"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "none",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "real_callback_probe",
+     "callback_profile"
+    ]
+   }
+  },
+  {
+   "name": "begin_sign_in",
+   "request": "link_begin",
+   "carries": [
+    "link_attempt"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "link_begun"
+    ]
+   }
+  },
+  {
+   "name": "complete_sign_in",
+   "request": "link_complete",
+   "carries": [
+    "link_callback"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "committed",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "sign_in_evidence",
+     "external_binding"
+    ]
+   }
+  }
+ ]
+}

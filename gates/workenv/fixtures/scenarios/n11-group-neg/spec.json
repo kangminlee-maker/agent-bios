@@ -1,0 +1,3367 @@
+{
+ "case": "N11-GROUP-NEG",
+ "says": "Ana founds a Team; Ben and Cho join by invitation, verified key and consent, and Ana grants an 'editors' group read, use and contribute with Ben and Cho as its approved members. Cho, who holds no grant authority, changes the editors grant to add Dan, and the owner refuses it with group_membership_escalation. Ana removes Ben from the approved set (revision 2 lists Cho alone); Cho still contributes, but Ben's contribution offering the first revision that named him is refused with grant_not_held. Ana then configures a Google and a Slack connection, sets policy version 2 with an admission rule for the Google hosted domain, and grants a 'readers' group read and use delegated to the Google connection. Dan signs in through Slack; his verified Slack claim, offered with the readers grant to read the knowledge collection, is refused with grant_not_held because it is not a claim from the delegated connection. None of the refusals commits or moves a head.",
+ "ids": [
+  {
+   "name": "ana",
+   "prefix": "prn"
+  },
+  {
+   "name": "ana_device",
+   "prefix": "dev"
+  },
+  {
+   "name": "ana_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "ben",
+   "prefix": "prn"
+  },
+  {
+   "name": "ben_device",
+   "prefix": "dev"
+  },
+  {
+   "name": "ben_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "cho",
+   "prefix": "prn"
+  },
+  {
+   "name": "cho_device",
+   "prefix": "dev"
+  },
+  {
+   "name": "cho_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "dan",
+   "prefix": "prn"
+  },
+  {
+   "name": "dan_device",
+   "prefix": "dev"
+  },
+  {
+   "name": "dan_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "team",
+   "prefix": "tem"
+  },
+  {
+   "name": "found_team_request",
+   "prefix": "req"
+  },
+  {
+   "name": "invite_ben_request",
+   "prefix": "req"
+  },
+  {
+   "name": "bind_ben_key_request",
+   "prefix": "req"
+  },
+  {
+   "name": "ben_verification",
+   "prefix": "ctl"
+  },
+  {
+   "name": "keep_ben_verification_request",
+   "prefix": "req"
+  },
+  {
+   "name": "consent_ben_request",
+   "prefix": "req"
+  },
+  {
+   "name": "admit_ben_request",
+   "prefix": "req"
+  },
+  {
+   "name": "invite_cho_request",
+   "prefix": "req"
+  },
+  {
+   "name": "bind_cho_key_request",
+   "prefix": "req"
+  },
+  {
+   "name": "cho_verification",
+   "prefix": "ctl"
+  },
+  {
+   "name": "keep_cho_verification_request",
+   "prefix": "req"
+  },
+  {
+   "name": "consent_cho_request",
+   "prefix": "req"
+  },
+  {
+   "name": "admit_cho_request",
+   "prefix": "req"
+  },
+  {
+   "name": "editors",
+   "prefix": "grp"
+  },
+  {
+   "name": "issue_editors_grant_request",
+   "prefix": "req"
+  },
+  {
+   "name": "issue_editors_with_dan_request",
+   "prefix": "req"
+  },
+  {
+   "name": "issue_editors_without_ben_request",
+   "prefix": "req"
+  },
+  {
+   "name": "team_knowledge",
+   "prefix": "col"
+  },
+  {
+   "name": "contribute_team_knowledge_request",
+   "prefix": "req"
+  },
+  {
+   "name": "team_instructions",
+   "prefix": "col"
+  },
+  {
+   "name": "contribute_team_instructions_request",
+   "prefix": "req"
+  },
+  {
+   "name": "configure_google_request",
+   "prefix": "req"
+  },
+  {
+   "name": "configure_slack_request",
+   "prefix": "req"
+  },
+  {
+   "name": "admit_by_domain_request",
+   "prefix": "req"
+  },
+  {
+   "name": "readers",
+   "prefix": "grp"
+  },
+  {
+   "name": "issue_readers_grant_request",
+   "prefix": "req"
+  },
+  {
+   "name": "begin_dan_slack_request",
+   "prefix": "req"
+  },
+  {
+   "name": "complete_dan_slack_request",
+   "prefix": "req"
+  },
+  {
+   "name": "dan_reads_knowledge_request",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "team_rules",
+   "from": "c08/policy_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/operations",
+     "value": [
+      "publish"
+     ]
+    },
+    {
+     "pointer": "/threshold",
+     "value": 0
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 2
+    }
+   ]
+  },
+  {
+   "name": "team_proposal",
+   "from": "c08/proposal_as_submitted.json",
+   "drop": [
+    "/founding_mode/nominees"
+   ],
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/founder_principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#team_rules"
+    },
+    {
+     "pointer": "/founding_mode/mode",
+     "value": "self_founded"
+    },
+    {
+     "pointer": "/founding_mode/acknowledged_self_reviewed",
+     "value": true
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@ana_device"
+    },
+    {
+     "pointer": "/recovery/0/principal_id",
+     "value": "@ana"
+    }
+   ]
+  },
+  {
+   "name": "found_team",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@found_team_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.found"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@ana_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@ana_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_proposal"
+    }
+   ]
+  },
+  {
+   "name": "team_policy",
+   "from": "team_rules",
+   "set": [
+    {
+     "pointer": "/policy_id",
+     "value": "$pol:team_policy_id"
+    },
+    {
+     "pointer": "/policy_version",
+     "value": 1
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:team_founder_grant_id"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "review",
+      "publish",
+      "adopt",
+      "grant",
+      "policy"
+     ]
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 2
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_active",
+   "from": "c08/archived_team.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/state",
+     "value": "active"
+    },
+    {
+     "pointer": "/since",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/purpose",
+     "value": "The standards this group works to."
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "ben_invitation_submitted",
+   "from": "c08/invitation_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#team_policy"
+    },
+    {
+     "pointer": "/expires_at",
+     "value": "2026-10-01T09:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "invite_ben",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@invite_ben_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.invitation.issue"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@ana_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@ana_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_1"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#ben_invitation_submitted"
+    }
+   ]
+  },
+  {
+   "name": "ben_invitation",
+   "from": "ben_invitation_submitted",
+   "set": [
+    {
+     "pointer": "/invitation_id",
+     "value": "$inv:ben_invitation_id"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:ben_invited_at"
+    }
+   ]
+  },
+  {
+   "name": "ben_key_submitted",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@ben"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@ben_device"
+    },
+    {
+     "pointer": "/credential/public_key",
+     "value": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI6700869c8ff7480e34a70a708b028700dbaa3a033b5"
+    },
+    {
+     "pointer": "/established_by",
+     "value": "local_creation"
+    }
+   ]
+  },
+  {
+   "name": "bind_ben_key",
+   "from": "c08/governed_change_request.json",
+   "drop": [
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_ben_key_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.add"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ben"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@ben_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@ben_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@ben"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@ben"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#ben_key_submitted"
+    }
+   ]
+  },
+  {
+   "name": "ben_key",
+   "from": "ben_key_submitted",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:ben_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:ben_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "ben_verification_permit",
+   "from": "c02/offline_permit_for_one_device.json",
+   "set": [
+    {
+     "pointer": "/evidence_id",
+     "value": "@ben_verification"
+    },
+    {
+     "pointer": "/issuer/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/issuer/authority_principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@ben"
+    },
+    {
+     "pointer": "/holder/device_id",
+     "value": "@ben_device"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/issued_at",
+     "value": "2026-09-21T09:00:00Z"
+    },
+    {
+     "pointer": "/statement/attests",
+     "value": [
+      "#ben_key"
+     ]
+    },
+    {
+     "pointer": "/statement/valid_until",
+     "value": "2026-12-31T09:00:00Z"
+    },
+    {
+     "pointer": "/statement/offline/until",
+     "value": "2026-09-28T09:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "keep_ben_verification",
+   "from": "c08/governed_change_request.json",
+   "drop": [
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@keep_ben_verification_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.control.record"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ben"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@ben_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@ben_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@ben"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@ben_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#ben_verification_permit"
+    }
+   ]
+  },
+  {
+   "name": "ben_consent_submitted",
+   "from": "c08/consent_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/invitation_digest",
+     "value": "#ben_invitation"
+    },
+    {
+     "pointer": "/binding_digest",
+     "value": "#ben_key"
+    },
+    {
+     "pointer": "/verification_digest",
+     "value": "#ben_verification_permit"
+    }
+   ]
+  },
+  {
+   "name": "consent_ben",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@consent_ben_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.consent.record"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ben"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@ben_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@ben_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_2"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#ben_consent_submitted"
+    }
+   ]
+  },
+  {
+   "name": "ben_consent",
+   "from": "ben_consent_submitted",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@ben"
+    },
+    {
+     "pointer": "/consented_at",
+     "value": "$instant:ben_consented_at"
+    }
+   ]
+  },
+  {
+   "name": "ben_membership_submitted",
+   "from": "c08/membership_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@ben"
+    },
+    {
+     "pointer": "/standing/is",
+     "value": "active"
+    },
+    {
+     "pointer": "/standing/invitation_digest",
+     "value": "#ben_invitation"
+    },
+    {
+     "pointer": "/standing/consent_digest",
+     "value": "#ben_consent"
+    }
+   ]
+  },
+  {
+   "name": "admit_ben",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@admit_ben_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.membership.change"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@ana_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@ana_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_3"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#ben_membership_submitted"
+    }
+   ]
+  },
+  {
+   "name": "ben_membership",
+   "from": "ben_membership_submitted",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:ben_membership_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:ben_admitted_at"
+    }
+   ]
+  },
+  {
+   "name": "cho_invitation_submitted",
+   "from": "c08/invitation_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#team_policy"
+    },
+    {
+     "pointer": "/expires_at",
+     "value": "2026-10-01T09:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "invite_cho",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@invite_cho_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.invitation.issue"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@ana_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@ana_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_4"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#cho_invitation_submitted"
+    }
+   ]
+  },
+  {
+   "name": "cho_invitation",
+   "from": "cho_invitation_submitted",
+   "set": [
+    {
+     "pointer": "/invitation_id",
+     "value": "$inv:cho_invitation_id"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:cho_invited_at"
+    }
+   ]
+  },
+  {
+   "name": "cho_key_submitted",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@cho"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@cho_device"
+    },
+    {
+     "pointer": "/credential/public_key",
+     "value": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI560c48d6c73e72bde5e58cf4acdf867e2ab1600dbc7"
+    },
+    {
+     "pointer": "/established_by",
+     "value": "local_creation"
+    }
+   ]
+  },
+  {
+   "name": "bind_cho_key",
+   "from": "c08/governed_change_request.json",
+   "drop": [
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_cho_key_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.add"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@cho"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@cho_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@cho_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@cho"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@cho"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#cho_key_submitted"
+    }
+   ]
+  },
+  {
+   "name": "cho_key",
+   "from": "cho_key_submitted",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:cho_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:cho_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "cho_verification_permit",
+   "from": "c02/offline_permit_for_one_device.json",
+   "set": [
+    {
+     "pointer": "/evidence_id",
+     "value": "@cho_verification"
+    },
+    {
+     "pointer": "/issuer/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/issuer/authority_principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@cho"
+    },
+    {
+     "pointer": "/holder/device_id",
+     "value": "@cho_device"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/issued_at",
+     "value": "2026-09-21T09:00:00Z"
+    },
+    {
+     "pointer": "/statement/attests",
+     "value": [
+      "#cho_key"
+     ]
+    },
+    {
+     "pointer": "/statement/valid_until",
+     "value": "2026-12-31T09:00:00Z"
+    },
+    {
+     "pointer": "/statement/offline/until",
+     "value": "2026-09-28T09:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "keep_cho_verification",
+   "from": "c08/governed_change_request.json",
+   "drop": [
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@keep_cho_verification_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.control.record"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@cho"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@cho_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@cho_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@cho"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@cho_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#cho_verification_permit"
+    }
+   ]
+  },
+  {
+   "name": "cho_consent_submitted",
+   "from": "c08/consent_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/invitation_digest",
+     "value": "#cho_invitation"
+    },
+    {
+     "pointer": "/binding_digest",
+     "value": "#cho_key"
+    },
+    {
+     "pointer": "/verification_digest",
+     "value": "#cho_verification_permit"
+    }
+   ]
+  },
+  {
+   "name": "consent_cho",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@consent_cho_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.consent.record"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@cho"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@cho_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@cho_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_5"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#cho_consent_submitted"
+    }
+   ]
+  },
+  {
+   "name": "cho_consent",
+   "from": "cho_consent_submitted",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@cho"
+    },
+    {
+     "pointer": "/consented_at",
+     "value": "$instant:cho_consented_at"
+    }
+   ]
+  },
+  {
+   "name": "cho_membership_submitted",
+   "from": "c08/membership_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@cho"
+    },
+    {
+     "pointer": "/standing/is",
+     "value": "active"
+    },
+    {
+     "pointer": "/standing/invitation_digest",
+     "value": "#cho_invitation"
+    },
+    {
+     "pointer": "/standing/consent_digest",
+     "value": "#cho_consent"
+    }
+   ]
+  },
+  {
+   "name": "admit_cho",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@admit_cho_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.membership.change"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@ana_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@ana_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_6"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#cho_membership_submitted"
+    }
+   ]
+  },
+  {
+   "name": "cho_membership",
+   "from": "cho_membership_submitted",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:cho_membership_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:cho_admitted_at"
+    }
+   ]
+  },
+  {
+   "name": "editors_grant_submitted",
+   "from": "c08/group_grant_under_an_approved_member_set.json",
+   "drop": [
+    "/grant_id",
+    "/issuer_principal_id",
+    "/grant_revision",
+    "/created_at"
+   ],
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/holder/group_id",
+     "value": "@editors"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute"
+     ]
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 0
+    },
+    {
+     "pointer": "/parent_grant_id",
+     "value": "$gra:team_founder_grant_id"
+    },
+    {
+     "pointer": "/holder/membership/members",
+     "value": [
+      "@ben",
+      "@cho"
+     ]
+    },
+    {
+     "pointer": "/holder/membership/evidence_digests",
+     "value": [
+      "#ben_membership",
+      "#cho_membership"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "issue_editors_grant",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@issue_editors_grant_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.grant.change"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@ana_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@ana_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_7"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#editors_grant_submitted"
+    }
+   ]
+  },
+  {
+   "name": "editors_grant",
+   "from": "editors_grant_submitted",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:editors_grant_id"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/grant_revision",
+     "value": 1
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:editors_grant_at"
+    }
+   ]
+  },
+  {
+   "name": "editors_with_dan_submitted",
+   "from": "c08/group_grant_under_an_approved_member_set.json",
+   "drop": [
+    "/grant_id",
+    "/issuer_principal_id",
+    "/grant_revision",
+    "/created_at"
+   ],
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/holder/group_id",
+     "value": "@editors"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute"
+     ]
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 0
+    },
+    {
+     "pointer": "/parent_grant_id",
+     "value": "$gra:team_founder_grant_id"
+    },
+    {
+     "pointer": "/holder/membership/members",
+     "value": [
+      "@ben",
+      "@cho",
+      "@dan"
+     ]
+    },
+    {
+     "pointer": "/holder/membership/evidence_digests",
+     "value": [
+      "#ben_membership",
+      "#cho_membership"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "issue_editors_with_dan",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@issue_editors_with_dan_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.grant.change"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@cho"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@cho_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@cho_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$gra:editors_grant_id"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#editors_with_dan_submitted"
+    }
+   ]
+  },
+  {
+   "name": "editors_without_ben_submitted",
+   "from": "c08/group_grant_under_an_approved_member_set.json",
+   "drop": [
+    "/grant_id",
+    "/issuer_principal_id",
+    "/grant_revision",
+    "/created_at"
+   ],
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/holder/group_id",
+     "value": "@editors"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute"
+     ]
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 0
+    },
+    {
+     "pointer": "/parent_grant_id",
+     "value": "$gra:team_founder_grant_id"
+    },
+    {
+     "pointer": "/holder/membership/members",
+     "value": [
+      "@cho"
+     ]
+    },
+    {
+     "pointer": "/holder/membership/evidence_digests",
+     "value": [
+      "#cho_membership"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "issue_editors_without_ben",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@issue_editors_without_ben_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.grant.change"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@ana_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@ana_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$gra:editors_grant_id"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#editors_without_ben_submitted"
+    }
+   ]
+  },
+  {
+   "name": "editors_grant_v2",
+   "from": "editors_without_ben_submitted",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:editors_grant_id"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/grant_revision",
+     "value": 2
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:editors_grant_v2_at"
+    }
+   ]
+  },
+  {
+   "name": "team_knowledge_submitted",
+   "from": "c07/collection_as_submitted.json",
+   "drop": [
+    "/position/scope/repository_id",
+    "/drafts/0",
+    "/entries/0"
+   ],
+   "set": [
+    {
+     "pointer": "/collection_id",
+     "value": "@team_knowledge"
+    },
+    {
+     "pointer": "/position/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/position/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/position/scope/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "contribute_team_knowledge",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@contribute_team_knowledge_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "collection.change"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@cho"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@cho_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@cho_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#editors_grant_v2"
+     ]
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_knowledge"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_knowledge_submitted"
+    }
+   ]
+  },
+  {
+   "name": "team_knowledge_stored",
+   "from": "team_knowledge_submitted",
+   "set": [
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:team_knowledge_changed_at"
+    }
+   ]
+  },
+  {
+   "name": "team_instructions_submitted",
+   "from": "c07/collection_as_submitted.json",
+   "drop": [
+    "/position/scope/repository_id",
+    "/drafts/0",
+    "/entries/0"
+   ],
+   "set": [
+    {
+     "pointer": "/collection_id",
+     "value": "@team_instructions"
+    },
+    {
+     "pointer": "/position/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/position/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/position/scope/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "contribute_team_instructions",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@contribute_team_instructions_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "collection.change"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ben"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@ben_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@ben_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#editors_grant"
+     ]
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_instructions"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_instructions_submitted"
+    }
+   ]
+  },
+  {
+   "name": "google_connection_submitted",
+   "from": "c02/connection_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "configure_google",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@configure_google_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.connection.configure"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@ana_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@ana_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_8"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#google_connection_submitted"
+    }
+   ]
+  },
+  {
+   "name": "google_connection",
+   "from": "google_connection_submitted",
+   "set": [
+    {
+     "pointer": "/connection_id",
+     "value": "$con:google"
+    },
+    {
+     "pointer": "/configured_at",
+     "value": "$instant:google_configured_at"
+    }
+   ]
+  },
+  {
+   "name": "slack_connection_submitted",
+   "from": "c02/connection_whose_exchange_needs_a_secret_runs_it_in_a_team_process.json",
+   "drop": [
+    "/connection_id",
+    "/configured_at"
+   ],
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/exchange/operator_principal_id",
+     "value": "@ana"
+    }
+   ]
+  },
+  {
+   "name": "configure_slack",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@configure_slack_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.connection.configure"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@ana_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@ana_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_9"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#slack_connection_submitted"
+    }
+   ]
+  },
+  {
+   "name": "slack_connection",
+   "from": "slack_connection_submitted",
+   "set": [
+    {
+     "pointer": "/connection_id",
+     "value": "$con:slack"
+    },
+    {
+     "pointer": "/configured_at",
+     "value": "$instant:slack_configured_at"
+    }
+   ]
+  },
+  {
+   "name": "policy_admitting_the_domain",
+   "from": "c08/policy_admitting_one_workspace_claim.json",
+   "drop": [
+    "/policy_id",
+    "/policy_version",
+    "/committed_at"
+   ],
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/threshold",
+     "value": 0
+    },
+    {
+     "pointer": "/admission/0/connection_id",
+     "value": "$con:google"
+    },
+    {
+     "pointer": "/admission/0/claim",
+     "value": "hosted_domain"
+    },
+    {
+     "pointer": "/admission/0/equals",
+     "value": "example.com"
+    },
+    {
+     "pointer": "/admission/0/actions",
+     "value": [
+      "read",
+      "use"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "admit_by_domain",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@admit_by_domain_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.policy.set"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@ana_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@ana_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_10"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#policy_admitting_the_domain"
+    }
+   ]
+  },
+  {
+   "name": "team_policy_v2",
+   "from": "policy_admitting_the_domain",
+   "set": [
+    {
+     "pointer": "/policy_id",
+     "value": "$pol:team_policy_id"
+    },
+    {
+     "pointer": "/policy_version",
+     "value": 2
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:team_policy_v2_at"
+    }
+   ]
+  },
+  {
+   "name": "readers_grant_submitted",
+   "from": "c08/grant_to_a_group_names_the_connection_behind_it.json",
+   "drop": [
+    "/grant_id",
+    "/issuer_principal_id",
+    "/grant_revision",
+    "/created_at"
+   ],
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/holder/group_id",
+     "value": "@readers"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use"
+     ]
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 0
+    },
+    {
+     "pointer": "/parent_grant_id",
+     "value": "$gra:team_founder_grant_id"
+    },
+    {
+     "pointer": "/holder/membership/connection_id",
+     "value": "$con:google"
+    },
+    {
+     "pointer": "/holder/membership/policy_digest",
+     "value": "#team_policy_v2"
+    }
+   ]
+  },
+  {
+   "name": "issue_readers_grant",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@issue_readers_grant_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.grant.change"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@ana_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@ana_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy_v2"
+     ]
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_11"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#readers_grant_submitted"
+    }
+   ]
+  },
+  {
+   "name": "readers_grant",
+   "from": "readers_grant_submitted",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:readers_grant_id"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@ana"
+    },
+    {
+     "pointer": "/grant_revision",
+     "value": 1
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:readers_grant_at"
+    }
+   ]
+  },
+  {
+   "name": "dan_slack_attempt_submitted",
+   "from": "c02/sign_in_for_admission.json",
+   "set": [
+    {
+     "pointer": "/connection_id",
+     "value": "$con:slack"
+    }
+   ]
+  },
+  {
+   "name": "begin_dan_slack",
+   "from": "c08/governed_change_request.json",
+   "drop": [
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@begin_dan_slack_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.sign_in.begin"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@dan"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@dan_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@dan_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@dan"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$con:slack"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#dan_slack_attempt_submitted"
+    }
+   ]
+  },
+  {
+   "name": "dan_slack_attempt",
+   "from": "dan_slack_attempt_submitted",
+   "set": [
+    {
+     "pointer": "/attempt_id",
+     "value": "$sin:dan_slack_attempt_id"
+    },
+    {
+     "pointer": "/state_digest",
+     "value": "$digest:dan_slack_state"
+    },
+    {
+     "pointer": "/nonce_digest",
+     "value": "$digest:dan_slack_nonce"
+    },
+    {
+     "pointer": "/expires_at",
+     "value": "$instant:dan_slack_expires_at"
+    },
+    {
+     "pointer": "/begun_at",
+     "value": "$instant:dan_slack_begun_at"
+    }
+   ]
+  },
+  {
+   "name": "dan_slack_callback",
+   "from": "c02/callback_with_the_expected_claims.json",
+   "drop": [
+    "/reply/email"
+   ],
+   "set": [
+    {
+     "pointer": "/attempt_id",
+     "value": "$sin:dan_slack_attempt_id"
+    },
+    {
+     "pointer": "/state_digest",
+     "value": "$digest:dan_slack_state"
+    },
+    {
+     "pointer": "/reply/nonce_digest",
+     "value": "$digest:dan_slack_nonce"
+    },
+    {
+     "pointer": "/reply/subject",
+     "value": "subject-of-dan"
+    },
+    {
+     "pointer": "/reply/claims/0/value",
+     "value": "T0123456789"
+    },
+    {
+     "pointer": "/reply/issuer",
+     "value": "https://slack.com"
+    },
+    {
+     "pointer": "/reply/audience",
+     "value": "4123456789.5123456789"
+    },
+    {
+     "pointer": "/reply/claims/0/claim",
+     "value": "https://slack.com/team_id"
+    }
+   ]
+  },
+  {
+   "name": "complete_dan_slack",
+   "from": "c08/governed_change_request.json",
+   "drop": [
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@complete_dan_slack_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.sign_in.complete"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@dan"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@dan_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@dan_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@dan"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$con:slack"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#dan_slack_callback"
+    }
+   ]
+  },
+  {
+   "name": "dan_slack_evidence",
+   "from": "c02/identity_verified_for_an_admission.json",
+   "set": [
+    {
+     "pointer": "/attempt_id",
+     "value": "$sin:dan_slack_attempt_id"
+    },
+    {
+     "pointer": "/connection_id",
+     "value": "$con:slack"
+    },
+    {
+     "pointer": "/subject",
+     "value": "subject-of-dan"
+    },
+    {
+     "pointer": "/verified_at",
+     "value": "$instant:dan_slack_verified_at"
+    },
+    {
+     "pointer": "/claims/0/value",
+     "value": "T0123456789"
+    },
+    {
+     "pointer": "/issuer",
+     "value": "https://slack.com"
+    },
+    {
+     "pointer": "/claims/0/claim",
+     "value": "https://slack.com/team_id"
+    }
+   ]
+  },
+  {
+   "name": "dan_reads_knowledge",
+   "from": "c08/governed_change_request.json",
+   "drop": [
+    "/payload_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@dan_reads_knowledge_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "collection.read"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 7
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@dan"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@dan_device"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@dan_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy_v2"
+     ]
+    },
+    {
+     "pointer": "/control_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#readers_grant",
+      "#dan_slack_evidence"
+     ]
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_knowledge"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_knowledge_head_1"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "found_team",
+   "request": "found_team",
+   "carries": [
+    "team_proposal",
+    "team_rules"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_policy",
+     "team_founder_grant",
+     "team_active",
+     "team_profile"
+    ],
+    "head": "team_head_1"
+   },
+   "submits": [
+    "team_rules"
+   ],
+   "process": "laptop"
+  },
+  {
+   "name": "invite_ben",
+   "request": "invite_ben",
+   "carries": [
+    "ben_invitation_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "ben_invitation"
+    ],
+    "head": "team_head_2"
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "bind_ben_key",
+   "request": "bind_ben_key",
+   "carries": [
+    "ben_key_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "ben_key"
+    ]
+   },
+   "process": "desktop"
+  },
+  {
+   "name": "keep_ben_verification",
+   "request": "keep_ben_verification",
+   "carries": [
+    "ben_verification_permit"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "ben_verification_permit"
+    ]
+   },
+   "process": "desktop"
+  },
+  {
+   "name": "consent_ben",
+   "request": "consent_ben",
+   "carries": [
+    "ben_consent_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "ben_consent"
+    ],
+    "head": "team_head_3"
+   },
+   "process": "desktop"
+  },
+  {
+   "name": "admit_ben",
+   "request": "admit_ben",
+   "carries": [
+    "ben_membership_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "ben_membership"
+    ],
+    "head": "team_head_4"
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "invite_cho",
+   "request": "invite_cho",
+   "carries": [
+    "cho_invitation_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "cho_invitation"
+    ],
+    "head": "team_head_5"
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "bind_cho_key",
+   "request": "bind_cho_key",
+   "carries": [
+    "cho_key_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "cho_key"
+    ]
+   },
+   "process": "tablet"
+  },
+  {
+   "name": "keep_cho_verification",
+   "request": "keep_cho_verification",
+   "carries": [
+    "cho_verification_permit"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "cho_verification_permit"
+    ]
+   },
+   "process": "tablet"
+  },
+  {
+   "name": "consent_cho",
+   "request": "consent_cho",
+   "carries": [
+    "cho_consent_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "cho_consent"
+    ],
+    "head": "team_head_6"
+   },
+   "process": "tablet"
+  },
+  {
+   "name": "admit_cho",
+   "request": "admit_cho",
+   "carries": [
+    "cho_membership_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "cho_membership"
+    ],
+    "head": "team_head_7"
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "issue_editors_grant",
+   "request": "issue_editors_grant",
+   "carries": [
+    "editors_grant_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "editors_grant"
+    ],
+    "head": "team_head_8"
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "cho_adds_dan",
+   "request": "issue_editors_with_dan",
+   "carries": [
+    "editors_with_dan_submitted"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "group_membership_escalation"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   },
+   "process": "tablet"
+  },
+  {
+   "name": "issue_editors_without_ben",
+   "request": "issue_editors_without_ben",
+   "carries": [
+    "editors_without_ben_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "editors_grant_v2"
+    ]
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "contribute_team_knowledge",
+   "request": "contribute_team_knowledge",
+   "carries": [
+    "team_knowledge_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_knowledge_stored"
+    ],
+    "head": "team_knowledge_head_1"
+   },
+   "process": "tablet"
+  },
+  {
+   "name": "ben_contributes_after_removal",
+   "request": "contribute_team_instructions",
+   "carries": [
+    "team_instructions_submitted"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "grant_not_held"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   },
+   "process": "desktop"
+  },
+  {
+   "name": "configure_google",
+   "request": "configure_google",
+   "carries": [
+    "google_connection_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "google_connection"
+    ],
+    "head": "team_head_9"
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "configure_slack",
+   "request": "configure_slack",
+   "carries": [
+    "slack_connection_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "slack_connection"
+    ],
+    "head": "team_head_10"
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "admit_by_domain",
+   "request": "admit_by_domain",
+   "carries": [
+    "policy_admitting_the_domain"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_policy_v2"
+    ],
+    "head": "team_head_11"
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "issue_readers_grant",
+   "request": "issue_readers_grant",
+   "carries": [
+    "readers_grant_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "readers_grant"
+    ],
+    "head": "team_head_12"
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "begin_dan_slack",
+   "request": "begin_dan_slack",
+   "carries": [
+    "dan_slack_attempt_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "dan_slack_attempt"
+    ]
+   },
+   "process": "phone"
+  },
+  {
+   "name": "complete_dan_slack",
+   "request": "complete_dan_slack",
+   "carries": [
+    "dan_slack_callback"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "committed",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "dan_slack_evidence"
+    ]
+   },
+   "process": "phone"
+  },
+  {
+   "name": "dan_reads_on_another_connection",
+   "request": "dan_reads_knowledge",
+   "carries": [],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "grant_not_held"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   },
+   "process": "phone"
+  }
+ ],
+ "world": {
+  "processes": [
+   "laptop",
+   "desktop",
+   "tablet",
+   "phone"
+  ]
+ }
+}

@@ -1,0 +1,904 @@
+{
+ "case": "SRC-02",
+ "says": "A person selects two places in the checkout of repository W: docs/adr (required) and README.md (optional). source.observe reads only files under those two roots and writes nothing. A selection whose root climbs out of the checkout into a neighbouring repository (../neighbouring-repository/docs) is refused at admission and nothing is read. A selection whose required root docs/decisions is absent returns an observation that lists that root as missing, with ref_unavailable at /roots/0, instead of an empty read. With the checkout bound and a decisions source registered and committed, a capture of an ADR the observation read is stored as a draft; a capture that names the same observation but claims its input came from records 12 to 18 of a session transcript that no selection named is refused with input_not_observed at /processing/inputs/0 and nothing is stored. No step reads a path, repository, transcript or companion file outside what the person selected.",
+ "ids": [
+  {
+   "name": "me",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "laptop_key_request",
+   "prefix": "req"
+  },
+  {
+   "name": "work",
+   "prefix": "rep"
+  },
+  {
+   "name": "decisions",
+   "prefix": "src"
+  },
+  {
+   "name": "entry",
+   "prefix": "ent"
+  },
+  {
+   "name": "observe_request",
+   "prefix": "req"
+  },
+  {
+   "name": "observe_climbing_request",
+   "prefix": "req"
+  },
+  {
+   "name": "observe_absent_request",
+   "prefix": "req"
+  },
+  {
+   "name": "bind_request",
+   "prefix": "req"
+  },
+  {
+   "name": "register_request",
+   "prefix": "req"
+  },
+  {
+   "name": "commit_request",
+   "prefix": "req"
+  },
+  {
+   "name": "capture_request",
+   "prefix": "req"
+  },
+  {
+   "name": "capture_unselected_request",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "laptop_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "bind_laptop_key",
+   "from": "c01/link_request.json",
+   "drop": [
+    "/owner"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@laptop_key_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#laptop_key"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@me"
+    }
+   ]
+  },
+  {
+   "name": "stored_laptop_key",
+   "from": "laptop_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:laptop_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:laptop_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "selection",
+   "from": "c01/selection_of_working_tree_paths.json",
+   "set": [
+    {
+     "pointer": "/roots/0/place/repository_id",
+     "value": "@work"
+    },
+    {
+     "pointer": "/roots/1/place/repository_id",
+     "value": "@work"
+    }
+   ]
+  },
+  {
+   "name": "observe",
+   "from": "c01/observe_request.json",
+   "drop": [
+    "/owner",
+    "/target"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@observe_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@work"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#selection"
+    }
+   ]
+  },
+  {
+   "name": "observation",
+   "from": "c01/observation_of_a_working_tree_with_dirty_and_untracked_files.json",
+   "set": [
+    {
+     "pointer": "/selection_digest",
+     "value": "#selection"
+    },
+    {
+     "pointer": "/read/0/digest",
+     "value": "$digest:adr1_bytes"
+    },
+    {
+     "pointer": "/read/1/digest",
+     "value": "$digest:adr2_bytes"
+    },
+    {
+     "pointer": "/read/2/digest",
+     "value": "$digest:adr3_bytes"
+    },
+    {
+     "pointer": "/read/3/digest",
+     "value": "$digest:readme_bytes"
+    },
+    {
+     "pointer": "/observed_at",
+     "value": "$instant:observed_at"
+    }
+   ]
+  },
+  {
+   "name": "climbing_selection",
+   "from": "c01/selection_climbing_out_of_its_checkout.json",
+   "set": [
+    {
+     "pointer": "/roots/0/place/repository_id",
+     "value": "@work"
+    },
+    {
+     "pointer": "/roots/1/place/repository_id",
+     "value": "@work"
+    }
+   ]
+  },
+  {
+   "name": "observe_climbing",
+   "from": "observe",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@observe_climbing_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#climbing_selection"
+    }
+   ]
+  },
+  {
+   "name": "absent_selection",
+   "from": "selection",
+   "set": [
+    {
+     "pointer": "/roots/0/place/path",
+     "value": "docs/decisions"
+    }
+   ]
+  },
+  {
+   "name": "observe_absent",
+   "from": "observe",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@observe_absent_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#absent_selection"
+    }
+   ]
+  },
+  {
+   "name": "absent_observation",
+   "from": "c01/observation_missing_a_required_root.json",
+   "set": [
+    {
+     "pointer": "/selection_digest",
+     "value": "#absent_selection"
+    },
+    {
+     "pointer": "/read/0/digest",
+     "value": "$digest:readme_bytes"
+    },
+    {
+     "pointer": "/observed_at",
+     "value": "$instant:observed_absent_at"
+    }
+   ]
+  },
+  {
+   "name": "checkout",
+   "from": "c01/repository_binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@work"
+    }
+   ]
+  },
+  {
+   "name": "bind",
+   "from": "c01/repository_bind_request.json",
+   "drop": [
+    "/owner",
+    "/target"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@work"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#checkout"
+    }
+   ]
+  },
+  {
+   "name": "stored_checkout",
+   "from": "c01/clone_shares_the_repository_id.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@work"
+    },
+    {
+     "pointer": "/observed/working_bytes_digest",
+     "value": "#observation"
+    }
+   ]
+  },
+  {
+   "name": "home",
+   "from": "sources/home_of_a_repository_document.json",
+   "drop": [
+    "/registered_at"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@decisions"
+    },
+    {
+     "pointer": "/scope/repository_id",
+     "value": "@work"
+    },
+    {
+     "pointer": "/acceptance_authority/repository_id",
+     "value": "@work"
+    },
+    {
+     "pointer": "/home/repository_id",
+     "value": "@work"
+    },
+    {
+     "pointer": "/home/binding_evidence_digest",
+     "value": "#stored_checkout"
+    }
+   ]
+  },
+  {
+   "name": "register",
+   "from": "c01/repository_bind_request.json",
+   "drop": [
+    "/owner",
+    "/target"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@decisions"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#home"
+    }
+   ]
+  },
+  {
+   "name": "stored_home",
+   "from": "home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:registered_at"
+    }
+   ]
+  },
+  {
+   "name": "manifest",
+   "from": "sources/revision_submitted.json",
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@decisions"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "docs/adr/0001-journal-mode.md"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:adr1_bytes"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 1830
+    },
+    {
+     "pointer": "/members/1/path",
+     "value": "docs/adr/0002-backups.md"
+    },
+    {
+     "pointer": "/members/1/digest",
+     "value": "$digest:adr2_bytes"
+    },
+    {
+     "pointer": "/members/1/size",
+     "value": 2211
+    }
+   ]
+  },
+  {
+   "name": "commit",
+   "from": "c01/repository_bind_request.json",
+   "drop": [
+    "/owner",
+    "/target"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.revision.commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@decisions"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:decisions_registered"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#manifest"
+    }
+   ]
+  },
+  {
+   "name": "stored_manifest",
+   "from": "manifest",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:produced_at"
+    }
+   ]
+  },
+  {
+   "name": "capture",
+   "from": "c01/capture_of_a_span_of_a_modified_working_tree_file.json",
+   "drop": [
+    "/processing/inputs/0/from/bytes"
+   ],
+   "set": [
+    {
+     "pointer": "/destination_source_id",
+     "value": "@decisions"
+    },
+    {
+     "pointer": "/entries/0/entry_id",
+     "value": "@entry"
+    },
+    {
+     "pointer": "/entries/0/body_digest",
+     "value": "$digest:adr1_bytes"
+    },
+    {
+     "pointer": "/observation_digest",
+     "value": "#observation"
+    },
+    {
+     "pointer": "/revision_digest",
+     "value": "#stored_manifest"
+    },
+    {
+     "pointer": "/processing/inputs/0/evidence_digest",
+     "value": "$digest:adr1_bytes"
+    },
+    {
+     "pointer": "/processing/inputs/0/from/path",
+     "value": "docs/adr/0001-journal-mode.md"
+    },
+    {
+     "pointer": "/processing/inputs/0/from/repository_id",
+     "value": "@work"
+    },
+    {
+     "pointer": "/processing/inputs/0/permits/destinations/0/repository_id",
+     "value": "@work"
+    }
+   ]
+  },
+  {
+   "name": "capture_submit",
+   "from": "c01/capture_request.json",
+   "drop": [
+    "/owner",
+    "/target"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@capture_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@decisions"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:decisions_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#capture"
+    }
+   ]
+  },
+  {
+   "name": "stored_capture",
+   "from": "capture",
+   "set": [
+    {
+     "pointer": "/captured_at",
+     "value": "$instant:captured_at"
+    }
+   ]
+  },
+  {
+   "name": "unselected_capture",
+   "from": "capture",
+   "drop": [
+    "/processing/inputs/0/from"
+   ],
+   "set": [
+    {
+     "pointer": "/processing/inputs/0/from/from",
+     "value": "session_transcript"
+    },
+    {
+     "pointer": "/processing/inputs/0/from/first_record",
+     "value": 12
+    },
+    {
+     "pointer": "/processing/inputs/0/from/last_record",
+     "value": 18
+    },
+    {
+     "pointer": "/processing/inputs/0/from/transcript/host/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/processing/inputs/0/from/transcript/host/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/processing/inputs/0/from/transcript/session_id",
+     "value": "5f0d2c9e-7a41-4b8e-9c2d-1e6f3a8b0c47"
+    }
+   ]
+  },
+  {
+   "name": "capture_unselected",
+   "from": "capture_submit",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@capture_unselected_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#unselected_capture"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_laptop_key",
+   "request": "bind_laptop_key",
+   "carries": [
+    "laptop_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_laptop_key"
+    ]
+   }
+  },
+  {
+   "name": "observe_selected_roots",
+   "request": "observe",
+   "carries": [
+    "selection"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "observation"
+    ]
+   }
+  },
+  {
+   "name": "refuse_a_root_outside_the_checkout",
+   "request": "observe_climbing",
+   "carries": [
+    "climbing_selection"
+   ],
+   "refused": [
+    {
+     "record": "climbing_selection",
+     "code": "variant_mismatch",
+     "pointer": "/roots/0/place"
+    }
+   ]
+  },
+  {
+   "name": "observe_a_required_root_that_is_absent",
+   "request": "observe_absent",
+   "carries": [
+    "absent_selection"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "ref_unavailable",
+      "pointer": "/roots/0"
+     }
+    ],
+    "recovery": [],
+    "returns": [
+     "absent_observation"
+    ]
+   }
+  },
+  {
+   "name": "bind_checkout",
+   "request": "bind",
+   "carries": [
+    "checkout"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_checkout"
+    ]
+   }
+  },
+  {
+   "name": "register_decisions",
+   "request": "register",
+   "carries": [
+    "home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_home"
+    ],
+    "head": "decisions_registered"
+   }
+  },
+  {
+   "name": "commit_decisions",
+   "request": "commit",
+   "carries": [
+    "manifest"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_manifest"
+    ],
+    "head": "decisions_head"
+   }
+  },
+  {
+   "name": "capture_an_observed_adr",
+   "request": "capture_submit",
+   "carries": [
+    "capture"
+   ],
+   "answer": {
+    "stage": "draft",
+    "local_effect": "candidate_stored",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_capture"
+    ]
+   }
+  },
+  {
+   "name": "refuse_a_transcript_nobody_selected",
+   "request": "capture_unselected",
+   "carries": [
+    "unselected_capture"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "input_not_observed",
+      "pointer": "/processing/inputs/0"
+     }
+    ],
+    "recovery": [],
+    "returns": []
+   }
+  }
+ ]
+}

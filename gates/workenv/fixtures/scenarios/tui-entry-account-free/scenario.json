@@ -1,0 +1,1739 @@
+{
+ "case": "TUI-ENTRY-ACCOUNT-FREE",
+ "ids": [
+  {
+   "id": "prn_167283cc086c1d8c68205b07349d92f2",
+   "name": "me"
+  },
+  {
+   "id": "dev_11cdf0f322a99729d3ccc71f348bd7f0",
+   "name": "laptop"
+  },
+  {
+   "id": "prf_0252b37aaff2bcad3936588e02c02c52",
+   "name": "profile"
+  },
+  {
+   "id": "req_631ea452d77db49986b3084ca8d89648",
+   "name": "my_key_bind"
+  },
+  {
+   "id": "req_018107e587be59ff611b734b677c5442",
+   "name": "probe_run"
+  },
+  {
+   "id": "rte_4dc28444d700630fad5db3f647ef407c",
+   "name": "route_start"
+  },
+  {
+   "id": "req_f7f6841f576a0533496bdea8dee8213b",
+   "name": "offer_made"
+  },
+  {
+   "id": "req_71b8fb05606d8867a6888f3c6cf15a3e",
+   "name": "drive_request"
+  },
+  {
+   "id": "req_e57f6210104b2bcea960256ac22ac271",
+   "name": "start_request"
+  },
+  {
+   "id": "req_a227db19189abe8cfd566b7feaeb41cb",
+   "name": "select_request"
+  }
+ ],
+ "joins": [
+  {
+   "digest_of": "my_key",
+   "pointer": "/payload_digest",
+   "record": "my_key_request"
+  },
+  {
+   "minted": "my_key_binding",
+   "pointer": "/binding_id",
+   "record": "my_key_stored"
+  },
+  {
+   "minted": "my_key_bound_at",
+   "pointer": "/created_at",
+   "record": "my_key_stored"
+  },
+  {
+   "digest_of": "my_key_request",
+   "pointer": "/request_digest",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "bind_device_key_head",
+   "pointer": "/head_digest",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "bind_device_key_sequence",
+   "pointer": "/sequence",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "bind_device_key_committed_at",
+   "pointer": "/committed_at",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "digest_of": "bind_device_key_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "bind_device_key_result"
+  },
+  {
+   "digest_of": "my_key_request",
+   "pointer": "/request_digest",
+   "record": "bind_device_key_result"
+  },
+  {
+   "digest_of": "my_key_stored",
+   "pointer": "/outputs/0/digest",
+   "record": "bind_device_key_result"
+  },
+  {
+   "digest_of": "read_probe",
+   "pointer": "/payload_digest",
+   "record": "probe_request"
+  },
+  {
+   "minted": "probed_at",
+   "pointer": "/at",
+   "record": "read_probe_stored"
+  },
+  {
+   "minted": "read_probe",
+   "pointer": "/probe_id",
+   "record": "read_probe_stored"
+  },
+  {
+   "digest_of": "probe_request",
+   "pointer": "/request_digest",
+   "record": "probe_host_read_receipt"
+  },
+  {
+   "minted": "probe_host_read_head",
+   "pointer": "/head_digest",
+   "record": "probe_host_read_receipt"
+  },
+  {
+   "minted": "probe_host_read_sequence",
+   "pointer": "/sequence",
+   "record": "probe_host_read_receipt"
+  },
+  {
+   "minted": "probe_host_read_committed_at",
+   "pointer": "/committed_at",
+   "record": "probe_host_read_receipt"
+  },
+  {
+   "digest_of": "probe_host_read_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "probe_host_read_result"
+  },
+  {
+   "digest_of": "probe_request",
+   "pointer": "/request_digest",
+   "record": "probe_host_read_result"
+  },
+  {
+   "digest_of": "read_probe_stored",
+   "pointer": "/outputs/0/digest",
+   "record": "probe_host_read_result"
+  },
+  {
+   "digest_of": "read_probe_stored",
+   "pointer": "/offered/0/support/probe_digest",
+   "record": "offer"
+  },
+  {
+   "digest_of": "offer",
+   "pointer": "/payload_digest",
+   "record": "offer_request"
+  },
+  {
+   "digest_of": "read_probe_stored",
+   "pointer": "/offered/0/support/probe_digest",
+   "record": "offer_stored"
+  },
+  {
+   "minted": "offer_at",
+   "pointer": "/offered_at",
+   "record": "offer_stored"
+  },
+  {
+   "digest_of": "offer_request",
+   "pointer": "/request_digest",
+   "record": "offer_routes_receipt"
+  },
+  {
+   "minted": "offer_routes_head",
+   "pointer": "/head_digest",
+   "record": "offer_routes_receipt"
+  },
+  {
+   "minted": "offer_routes_sequence",
+   "pointer": "/sequence",
+   "record": "offer_routes_receipt"
+  },
+  {
+   "minted": "offer_routes_committed_at",
+   "pointer": "/committed_at",
+   "record": "offer_routes_receipt"
+  },
+  {
+   "digest_of": "offer_routes_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "offer_routes_result"
+  },
+  {
+   "digest_of": "offer_request",
+   "pointer": "/request_digest",
+   "record": "offer_routes_result"
+  },
+  {
+   "digest_of": "offer_stored",
+   "pointer": "/outputs/0/digest",
+   "record": "offer_routes_result"
+  },
+  {
+   "digest_of": "script",
+   "pointer": "/payload_digest",
+   "record": "script_request"
+  },
+  {
+   "minted": "script_driven_at",
+   "pointer": "/at",
+   "record": "script_trace"
+  },
+  {
+   "digest_of": "start_basis",
+   "pointer": "/payload_digest",
+   "record": "start_compose"
+  },
+  {
+   "digest_of": "start_compose",
+   "pointer": "/frames/2/calls/0/request_digest",
+   "record": "script_trace"
+  },
+  {
+   "digest_of": "script",
+   "pointer": "/script_digest",
+   "record": "script_trace"
+  },
+  {
+   "digest_of": "script_request",
+   "pointer": "/request_digest",
+   "record": "drive_entry_result"
+  },
+  {
+   "digest_of": "script_trace",
+   "pointer": "/outputs/0/digest",
+   "record": "drive_entry_result"
+  },
+  {
+   "minted": "start_preparation",
+   "pointer": "/preparation_id",
+   "record": "start_preparation"
+  },
+  {
+   "minted": "start_prepared_at",
+   "pointer": "/prepared_at",
+   "record": "start_preparation"
+  },
+  {
+   "digest_of": "start_basis",
+   "pointer": "/request_digest",
+   "record": "start_preparation"
+  },
+  {
+   "digest_of": "start_compose",
+   "pointer": "/request_digest",
+   "record": "compose_start_receipt"
+  },
+  {
+   "minted": "compose_start_head",
+   "pointer": "/head_digest",
+   "record": "compose_start_receipt"
+  },
+  {
+   "minted": "compose_start_sequence",
+   "pointer": "/sequence",
+   "record": "compose_start_receipt"
+  },
+  {
+   "minted": "compose_start_committed_at",
+   "pointer": "/committed_at",
+   "record": "compose_start_receipt"
+  },
+  {
+   "digest_of": "compose_start_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "compose_start_result"
+  },
+  {
+   "digest_of": "start_compose",
+   "pointer": "/request_digest",
+   "record": "compose_start_result"
+  },
+  {
+   "digest_of": "start_preparation",
+   "pointer": "/outputs/0/digest",
+   "record": "compose_start_result"
+  },
+  {
+   "digest_of": "offer_stored",
+   "pointer": "/offer_digest",
+   "record": "selection"
+  },
+  {
+   "digest_of": "selection",
+   "pointer": "/payload_digest",
+   "record": "selection_request"
+  },
+  {
+   "minted": "selection_at",
+   "pointer": "/at",
+   "record": "selection_outcome"
+  },
+  {
+   "digest_of": "start_preparation",
+   "pointer": "/result/output_digest",
+   "record": "selection_outcome"
+  },
+  {
+   "digest_of": "selection_request",
+   "pointer": "/request_digest",
+   "record": "select_start_receipt"
+  },
+  {
+   "minted": "select_start_head",
+   "pointer": "/head_digest",
+   "record": "select_start_receipt"
+  },
+  {
+   "minted": "select_start_sequence",
+   "pointer": "/sequence",
+   "record": "select_start_receipt"
+  },
+  {
+   "minted": "select_start_committed_at",
+   "pointer": "/committed_at",
+   "record": "select_start_receipt"
+  },
+  {
+   "digest_of": "select_start_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "select_start_result"
+  },
+  {
+   "digest_of": "selection_request",
+   "pointer": "/request_digest",
+   "record": "select_start_result"
+  },
+  {
+   "digest_of": "selection_outcome",
+   "pointer": "/outputs/0/digest",
+   "record": "select_start_result"
+  }
+ ],
+ "minted": [
+  {
+   "name": "bind_device_key_committed_at",
+   "shape": "instant",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "bind_device_key_head",
+   "shape": "digest",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "bind_device_key_sequence",
+   "shape": "integer",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "my_key_binding",
+   "shape": "bnd",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "my_key_bound_at",
+   "shape": "instant",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "probe_host_read_committed_at",
+   "shape": "instant",
+   "step": "probe_host_read"
+  },
+  {
+   "name": "probe_host_read_head",
+   "shape": "digest",
+   "step": "probe_host_read"
+  },
+  {
+   "name": "probe_host_read_sequence",
+   "shape": "integer",
+   "step": "probe_host_read"
+  },
+  {
+   "name": "probed_at",
+   "shape": "instant",
+   "step": "probe_host_read"
+  },
+  {
+   "name": "read_probe",
+   "shape": "prb",
+   "step": "probe_host_read"
+  },
+  {
+   "name": "offer_at",
+   "shape": "instant",
+   "step": "offer_routes"
+  },
+  {
+   "name": "offer_routes_committed_at",
+   "shape": "instant",
+   "step": "offer_routes"
+  },
+  {
+   "name": "offer_routes_head",
+   "shape": "digest",
+   "step": "offer_routes"
+  },
+  {
+   "name": "offer_routes_sequence",
+   "shape": "integer",
+   "step": "offer_routes"
+  },
+  {
+   "name": "script_driven_at",
+   "shape": "instant",
+   "step": "drive_entry"
+  },
+  {
+   "name": "compose_start_committed_at",
+   "shape": "instant",
+   "step": "compose_start"
+  },
+  {
+   "name": "compose_start_head",
+   "shape": "digest",
+   "step": "compose_start"
+  },
+  {
+   "name": "compose_start_sequence",
+   "shape": "integer",
+   "step": "compose_start"
+  },
+  {
+   "name": "start_preparation",
+   "shape": "prp",
+   "step": "compose_start"
+  },
+  {
+   "name": "start_prepared_at",
+   "shape": "instant",
+   "step": "compose_start"
+  },
+  {
+   "name": "select_start_committed_at",
+   "shape": "instant",
+   "step": "select_start"
+  },
+  {
+   "name": "select_start_head",
+   "shape": "digest",
+   "step": "select_start"
+  },
+  {
+   "name": "select_start_sequence",
+   "shape": "integer",
+   "step": "select_start"
+  },
+  {
+   "name": "selection_at",
+   "shape": "instant",
+   "step": "select_start"
+  }
+ ],
+ "records": [
+  {
+   "digest": "3b58d9b1c629fbcb81939d2fb12019cccf88ce0b7e2f57fba870825e8631902b",
+   "name": "my_key",
+   "record": {
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_11cdf0f322a99729d3ccc71f348bd7f0",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_167283cc086c1d8c68205b07349d92f2",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "c46ace6b49baa5c95829a42da07a1b2261710f37a94d8fb6bb7023bd94b82715",
+   "name": "my_key_request",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_11cdf0f322a99729d3ccc71f348bd7f0",
+     "principal_id": "prn_167283cc086c1d8c68205b07349d92f2",
+     "profile_id": "prf_0252b37aaff2bcad3936588e02c02c52"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "identity.binding.add",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+    },
+    "payload_digest": "3b58d9b1c629fbcb81939d2fb12019cccf88ce0b7e2f57fba870825e8631902b",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_631ea452d77db49986b3084ca8d89648",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_167283cc086c1d8c68205b07349d92f2"
+    }
+   }
+  },
+  {
+   "digest": "de0e9653b945ae19200ea860dfce47938fd21644a97ae16c8bf4672e67bdca1f",
+   "name": "my_key_stored",
+   "record": {
+    "binding_id": "bnd_688dee9eb5debdfabb134fb25955553c",
+    "created_at": "2000-01-01T00:00:00Z",
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_11cdf0f322a99729d3ccc71f348bd7f0",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_167283cc086c1d8c68205b07349d92f2",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "686124a81374714d21ae02aa44ac86d9f048e424351861e3ed69d082fd7d91f9",
+   "name": "bind_device_key_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "dbe4139e0b2890eee6c6c2763ce9702046f3df89e47acbac544cf0144713cd0c",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+    },
+    "request_digest": "c46ace6b49baa5c95829a42da07a1b2261710f37a94d8fb6bb7023bd94b82715",
+    "request_id": "req_631ea452d77db49986b3084ca8d89648",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prn_167283cc086c1d8c68205b07349d92f2"
+    }
+   }
+  },
+  {
+   "digest": "7cb7fed0c68e686eb6c2404a3234a6a3112cd8319fb3597f03c738a30f7399be",
+   "name": "bind_device_key_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "private_state_written",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "686124a81374714d21ae02aa44ac86d9f048e424351861e3ed69d082fd7d91f9",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "de0e9653b945ae19200ea860dfce47938fd21644a97ae16c8bf4672e67bdca1f",
+      "kind": "principal_binding"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "c46ace6b49baa5c95829a42da07a1b2261710f37a94d8fb6bb7023bd94b82715",
+    "request_id": "req_631ea452d77db49986b3084ca8d89648",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "955b816683b68a2cd6d11f5c8cd7ae6be9ee701cf164d4621f93c1ae3ac5f835",
+   "name": "read_probe",
+   "record": {
+    "capability": "read",
+    "client": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "kind": "capability_probe",
+    "schema": 1,
+    "wire": {
+     "protocol": "model_context_protocol",
+     "version": "2025-11-25"
+    }
+   }
+  },
+  {
+   "digest": "dbd291320f559999d8b4214aa64f5aaf7e469747587460c6b6948974bf3039d6",
+   "name": "probe_request",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_11cdf0f322a99729d3ccc71f348bd7f0",
+     "principal_id": "prn_167283cc086c1d8c68205b07349d92f2",
+     "profile_id": "prf_0252b37aaff2bcad3936588e02c02c52"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "capability.probe",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+    },
+    "payload_digest": "955b816683b68a2cd6d11f5c8cd7ae6be9ee701cf164d4621f93c1ae3ac5f835",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_018107e587be59ff611b734b677c5442",
+    "schema": 1,
+    "target": {
+     "resource_id": "dev_11cdf0f322a99729d3ccc71f348bd7f0"
+    }
+   }
+  },
+  {
+   "digest": "6535723a2e8aa40bb5716c6b1313b1044ea058255ab240680fd5894a42cf250b",
+   "name": "read_probe_stored",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "capability": "read",
+    "client": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "kind": "capability_probe",
+    "mode": {
+     "runs": "real"
+    },
+    "observed": "The host session read the prepared material it was handed.",
+    "offered": true,
+    "outcome": "worked",
+    "probe_id": "prb_e47adf163e2e53794a7d46b18967baf3",
+    "schema": 1,
+    "wire": {
+     "protocol": "model_context_protocol",
+     "version": "2025-11-25"
+    }
+   }
+  },
+  {
+   "digest": "41336c736d0b6a3eb7e6734b2c0310e51cf5d8cbf8a48800ad0704a58f0de1b0",
+   "name": "probe_host_read_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "7b69b6fd31129ab8cc37e3babaccc8e57bf6c4f3b0ea5d1f18bb2cb34354c5a7",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+    },
+    "request_digest": "dbd291320f559999d8b4214aa64f5aaf7e469747587460c6b6948974bf3039d6",
+    "request_id": "req_018107e587be59ff611b734b677c5442",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "dev_11cdf0f322a99729d3ccc71f348bd7f0"
+    }
+   }
+  },
+  {
+   "digest": "c7025da2e1ace660cada34abb9ea787efd06e672e067c15fc541b171aca25b84",
+   "name": "probe_host_read_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "private_state_written",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "41336c736d0b6a3eb7e6734b2c0310e51cf5d8cbf8a48800ad0704a58f0de1b0",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "6535723a2e8aa40bb5716c6b1313b1044ea058255ab240680fd5894a42cf250b",
+      "kind": "capability_probe"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "dbd291320f559999d8b4214aa64f5aaf7e469747587460c6b6948974bf3039d6",
+    "request_id": "req_018107e587be59ff611b734b677c5442",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "305feb0cb4dacfda32f278a7417721200b3c13fe876af95831670e329e4c0922",
+   "name": "offer",
+   "record": {
+    "entrance": {
+     "name": "host_launcher",
+     "root_origin": "owner"
+    },
+    "kind": "route_offer",
+    "offered": [
+     {
+      "recovery": [
+       "retry_same_request",
+       "query_same_request"
+      ],
+      "route_id": "rte_4dc28444d700630fad5db3f647ef407c",
+      "scope": {
+       "layer": "personal",
+       "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+      },
+      "support": {
+       "probe_digest": "6535723a2e8aa40bb5716c6b1313b1044ea058255ab240680fd5894a42cf250b",
+       "qualified": "yes"
+      },
+      "supported_action": "use"
+     }
+    ],
+    "schema": 1
+   }
+  },
+  {
+   "digest": "c4f64024c87c6ea459e46634ffbd9c9ef3d4130ba8c4a4e96bf478b56f5dc1b8",
+   "name": "offer_request",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_11cdf0f322a99729d3ccc71f348bd7f0",
+     "principal_id": "prn_167283cc086c1d8c68205b07349d92f2",
+     "profile_id": "prf_0252b37aaff2bcad3936588e02c02c52"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "route.offer",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+    },
+    "payload_digest": "305feb0cb4dacfda32f278a7417721200b3c13fe876af95831670e329e4c0922",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_f7f6841f576a0533496bdea8dee8213b",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_167283cc086c1d8c68205b07349d92f2"
+    }
+   }
+  },
+  {
+   "digest": "ed7020574f732cd89d8124afe588c1ff8784b1a0badfa48a066023080014b5b1",
+   "name": "offer_stored",
+   "record": {
+    "entrance": {
+     "name": "host_launcher",
+     "root_origin": "owner"
+    },
+    "kind": "route_offer",
+    "offered": [
+     {
+      "recovery": [
+       "retry_same_request",
+       "query_same_request"
+      ],
+      "route_id": "rte_4dc28444d700630fad5db3f647ef407c",
+      "scope": {
+       "layer": "personal",
+       "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+      },
+      "support": {
+       "probe_digest": "6535723a2e8aa40bb5716c6b1313b1044ea058255ab240680fd5894a42cf250b",
+       "qualified": "yes"
+      },
+      "supported_action": "use"
+     }
+    ],
+    "offered_at": "2000-01-01T00:00:00Z",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "3dac1bb872a901934e1addb7dc1b4806efba9aa0fa1b6c483c58d9436837040b",
+   "name": "offer_routes_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "cd72de21e2f49dd1ec68953bde0b7e016a539cb20aa7489f1a341317073fb856",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+    },
+    "request_digest": "c4f64024c87c6ea459e46634ffbd9c9ef3d4130ba8c4a4e96bf478b56f5dc1b8",
+    "request_id": "req_f7f6841f576a0533496bdea8dee8213b",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prn_167283cc086c1d8c68205b07349d92f2"
+    }
+   }
+  },
+  {
+   "digest": "1fc69ba7ba53a997b8f1687b02aee07a44e1f4f5d42c5a60808979fc7c544a73",
+   "name": "offer_routes_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "private_state_written",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "3dac1bb872a901934e1addb7dc1b4806efba9aa0fa1b6c483c58d9436837040b",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "ed7020574f732cd89d8124afe588c1ff8784b1a0badfa48a066023080014b5b1",
+      "kind": "route_offer"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "c4f64024c87c6ea459e46634ffbd9c9ef3d4130ba8c4a4e96bf478b56f5dc1b8",
+    "request_id": "req_f7f6841f576a0533496bdea8dee8213b",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "0ac15e46585b8d5bdff83e241af726c26892fa193024e495457466275445af9d",
+   "name": "script",
+   "record": {
+    "entrance": {
+     "name": "host_launcher",
+     "root_origin": "owner"
+    },
+    "inputs": [
+     {
+      "input": "key",
+      "key": "tab"
+     },
+     {
+      "input": "key",
+      "key": "enter"
+     }
+    ],
+    "kind": "surface_script",
+    "locale": "ko",
+    "schema": 1,
+    "terminal": {
+     "columns": 80,
+     "rows": 24
+    }
+   }
+  },
+  {
+   "digest": "68522b8fb592e8814d1e3549f150d7898ad5e6ab983f2dcd7a62b8267247f3e3",
+   "name": "script_request",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_11cdf0f322a99729d3ccc71f348bd7f0",
+     "principal_id": "prn_167283cc086c1d8c68205b07349d92f2",
+     "profile_id": "prf_0252b37aaff2bcad3936588e02c02c52"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "surface.drive",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+    },
+    "payload_digest": "0ac15e46585b8d5bdff83e241af726c26892fa193024e495457466275445af9d",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_71b8fb05606d8867a6888f3c6cf15a3e",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_167283cc086c1d8c68205b07349d92f2"
+    }
+   }
+  },
+  {
+   "digest": "fb21c8dffc9fbfe4d70c391db14408c626d5d9720c3e42adafda8dafa94ee763",
+   "name": "start_basis",
+   "record": {
+    "basis": {
+     "from": "ad_hoc",
+     "scopes": [
+      {
+       "layer": "personal",
+       "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+      }
+     ],
+     "source_pins": []
+    },
+    "declared_operation": {
+     "action": "use",
+     "name": "session.routing.activate"
+    },
+    "kind": "preparation_request",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "e3742a8dafc48e9f76f9f20c4a5b08ea3a9862116f0aac9b6391e00e14281118",
+   "name": "start_compose",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_11cdf0f322a99729d3ccc71f348bd7f0",
+     "principal_id": "prn_167283cc086c1d8c68205b07349d92f2",
+     "profile_id": "prf_0252b37aaff2bcad3936588e02c02c52"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "preparation.compose",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+    },
+    "payload_digest": "fb21c8dffc9fbfe4d70c391db14408c626d5d9720c3e42adafda8dafa94ee763",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_e57f6210104b2bcea960256ac22ac271",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_167283cc086c1d8c68205b07349d92f2"
+    }
+   }
+  },
+  {
+   "digest": "b91412f28718caf25be80d6c2a197aeb8f867e60e0f6a5af39be43b97b39e5d5",
+   "name": "script_trace",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "client": {
+     "name": "agent-bios",
+     "version": "0.20.0"
+    },
+    "frames": [
+     {
+      "access": "active",
+      "after": 0,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.location",
+        "executing": false,
+        "focused": false,
+        "label": "개인 · 이 기기",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "personal",
+          "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "positions.personal.instructions",
+        "executing": false,
+        "focused": true,
+        "label": "개인 지침 · 아직 없음",
+        "marks": [
+         "›",
+         "[ ]"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "instructions",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.knowledge",
+        "executing": false,
+        "focused": false,
+        "label": "개인 지식 · 아직 없음",
+        "marks": [
+         "[ ]"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "knowledge",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.memory",
+        "executing": false,
+        "focused": false,
+        "label": "개인 결정 기록 · 아직 없음",
+        "marks": [
+         "[ ]"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "memory",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
+        "focused": false,
+        "label": "도구 Claude Code 2.1.278 · 새 세션",
+        "marks": [
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": false,
+        "focused": false,
+        "label": "Claude Code 새 세션 시작",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_4dc28444d700630fad5db3f647ef407c"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "missing_bodies": [],
+       "origin": {
+        "name": "host_launcher",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "personal",
+        "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+       },
+       "view": "w01"
+      }
+     },
+     {
+      "access": "active",
+      "after": 1,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.location",
+        "executing": false,
+        "focused": false,
+        "label": "개인 · 이 기기",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "personal",
+          "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "positions.personal.instructions",
+        "executing": false,
+        "focused": false,
+        "label": "개인 지침 · 아직 없음",
+        "marks": [
+         "[ ]"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "instructions",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.knowledge",
+        "executing": false,
+        "focused": false,
+        "label": "개인 지식 · 아직 없음",
+        "marks": [
+         "[ ]"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "knowledge",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.memory",
+        "executing": false,
+        "focused": false,
+        "label": "개인 결정 기록 · 아직 없음",
+        "marks": [
+         "[ ]"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "memory",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
+        "focused": false,
+        "label": "도구 Claude Code 2.1.278 · 새 세션",
+        "marks": [
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": false,
+        "focused": true,
+        "label": "Claude Code 새 세션 시작",
+        "marks": [
+         "›"
+        ],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_4dc28444d700630fad5db3f647ef407c"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "missing_bodies": [],
+       "origin": {
+        "name": "host_launcher",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "personal",
+        "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+       },
+       "view": "w01"
+      }
+     },
+     {
+      "access": "active",
+      "after": 2,
+      "calls": [
+       {
+        "operation": "preparation.compose",
+        "reads": "nothing",
+        "request_digest": "e3742a8dafc48e9f76f9f20c4a5b08ea3a9862116f0aac9b6391e00e14281118"
+       }
+      ],
+      "dispatched": [
+       "req_e57f6210104b2bcea960256ac22ac271"
+      ],
+      "elements": [
+       {
+        "element_id": "context.location",
+        "executing": false,
+        "focused": false,
+        "label": "개인 · 이 기기",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "personal",
+          "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "positions.personal.instructions",
+        "executing": false,
+        "focused": false,
+        "label": "개인 지침 · 아직 없음",
+        "marks": [
+         "[ ]"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "instructions",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.knowledge",
+        "executing": false,
+        "focused": false,
+        "label": "개인 지식 · 아직 없음",
+        "marks": [
+         "[ ]"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "knowledge",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.memory",
+        "executing": false,
+        "focused": false,
+        "label": "개인 결정 기록 · 아직 없음",
+        "marks": [
+         "[ ]"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "memory",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
+        "focused": false,
+        "label": "도구 Claude Code 2.1.278 · 새 세션",
+        "marks": [
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": true,
+        "focused": true,
+        "label": "Claude Code 새 세션 시작",
+        "marks": [
+         "›"
+        ],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_4dc28444d700630fad5db3f647ef407c"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole",
+        "state": "pending"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "result.start",
+        "executing": false,
+        "focused": false,
+        "label": "시작 요청을 보냈습니다 · 결과 확인 중",
+        "marks": [],
+        "refers_to": {
+         "ref": "request",
+         "request_id": "req_e57f6210104b2bcea960256ac22ac271"
+        },
+        "role": "result",
+        "selection": "none",
+        "shown": "whole",
+        "state": "pending"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "missing_bodies": [],
+       "origin": {
+        "name": "host_launcher",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "personal",
+        "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+       },
+       "view": "w01"
+      }
+     }
+    ],
+    "kind": "surface_trace",
+    "mode": {
+     "runs": "real"
+    },
+    "schema": 1,
+    "script_digest": "0ac15e46585b8d5bdff83e241af726c26892fa193024e495457466275445af9d"
+   }
+  },
+  {
+   "digest": "5afbe45209238497117696b584409e93a04ec861c3f4398f84e79d5428164cbc",
+   "name": "drive_entry_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "b91412f28718caf25be80d6c2a197aeb8f867e60e0f6a5af39be43b97b39e5d5",
+      "kind": "surface_trace"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "68522b8fb592e8814d1e3549f150d7898ad5e6ab983f2dcd7a62b8267247f3e3",
+    "request_id": "req_71b8fb05606d8867a6888f3c6cf15a3e",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "5d2fd37d8505146d83ce6e46a4b238d21048fb0577685abecd193fc037350bf0",
+   "name": "start_preparation",
+   "record": {
+    "adapter": {
+     "name": "session_adapter",
+     "version": "0.1.0"
+    },
+    "collections": [],
+    "frontiers": [],
+    "kind": "preparation",
+    "material_gaps": [],
+    "observed": {
+     "locator": "/workspace"
+    },
+    "omissions": [],
+    "order": [
+     {
+      "layer": "personal",
+      "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+     }
+    ],
+    "preparation_id": "prp_e72b538a1f4f271029692d997989c6ad",
+    "prepared_at": "2000-01-01T00:00:00Z",
+    "recipient": {
+     "isolation": "proven_fresh",
+     "work_scope": {
+      "layer": "personal",
+      "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+     }
+    },
+    "request_digest": "fb21c8dffc9fbfe4d70c391db14408c626d5d9720c3e42adafda8dafa94ee763",
+    "schema": 1,
+    "units": [],
+    "work_support": {
+     "assessed": "not_requested"
+    }
+   }
+  },
+  {
+   "digest": "282bcc04bd4c9b381b43ec24efc3763a4c623d983edde641d2379167226f6b83",
+   "name": "compose_start_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "6b966282b68edcf1f391d9359104db77b6856ac4cc60a19900486bc29c22c6a7",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+    },
+    "request_digest": "e3742a8dafc48e9f76f9f20c4a5b08ea3a9862116f0aac9b6391e00e14281118",
+    "request_id": "req_e57f6210104b2bcea960256ac22ac271",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prn_167283cc086c1d8c68205b07349d92f2"
+    }
+   }
+  },
+  {
+   "digest": "3e32c9932d3a6b97d5a050dc60f0f55ce744c72082016a4a865bcace1c2aed0d",
+   "name": "compose_start_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "private_state_written",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "282bcc04bd4c9b381b43ec24efc3763a4c623d983edde641d2379167226f6b83",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "5d2fd37d8505146d83ce6e46a4b238d21048fb0577685abecd193fc037350bf0",
+      "kind": "preparation"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "e3742a8dafc48e9f76f9f20c4a5b08ea3a9862116f0aac9b6391e00e14281118",
+    "request_id": "req_e57f6210104b2bcea960256ac22ac271",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "21e69ab87abaf8f2d5d4bc56cfd2f9822852ddc575de4f7c149742a4cff1a49c",
+   "name": "selection",
+   "record": {
+    "expected": {
+     "material_gaps": [],
+     "recovery": [],
+     "stage": "prepared"
+    },
+    "focused": "rte_4dc28444d700630fad5db3f647ef407c",
+    "kind": "route_selection",
+    "offer_digest": "ed7020574f732cd89d8124afe588c1ff8784b1a0badfa48a066023080014b5b1",
+    "request_id": "req_e57f6210104b2bcea960256ac22ac271",
+    "schema": 1,
+    "selected": "rte_4dc28444d700630fad5db3f647ef407c"
+   }
+  },
+  {
+   "digest": "010fbd9a6833964e731cfd58c97ac40d3abaa32b1f49f9a3d10f6e30c9d5a213",
+   "name": "selection_request",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_11cdf0f322a99729d3ccc71f348bd7f0",
+     "principal_id": "prn_167283cc086c1d8c68205b07349d92f2",
+     "profile_id": "prf_0252b37aaff2bcad3936588e02c02c52"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "route.select",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+    },
+    "payload_digest": "21e69ab87abaf8f2d5d4bc56cfd2f9822852ddc575de4f7c149742a4cff1a49c",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_a227db19189abe8cfd566b7feaeb41cb",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_167283cc086c1d8c68205b07349d92f2"
+    }
+   }
+  },
+  {
+   "digest": "259c244e140935413875d94d0848b0dc1e3c54aec5631409f46a17c3d08c72af",
+   "name": "selection_outcome",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "capability": "read",
+    "client": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "for_request_id": "req_e57f6210104b2bcea960256ac22ac271",
+    "kind": "route_outcome",
+    "material_gaps": [],
+    "mode": {
+     "runs": "real"
+    },
+    "result": {
+     "got": "result",
+     "output_digest": "5d2fd37d8505146d83ce6e46a4b238d21048fb0577685abecd193fc037350bf0"
+    },
+    "schema": 1
+   }
+  },
+  {
+   "digest": "130880085d6a1c77f90d675dd9c7d7d3ecae1bc3c8b47afa8894e0d3ecf3f0bd",
+   "name": "select_start_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "fc72bdaac9034ef73ffa0c63c92643228ffd63b24a4b6eae1214ad9e4705cf4e",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+    },
+    "request_digest": "010fbd9a6833964e731cfd58c97ac40d3abaa32b1f49f9a3d10f6e30c9d5a213",
+    "request_id": "req_a227db19189abe8cfd566b7feaeb41cb",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prn_167283cc086c1d8c68205b07349d92f2"
+    }
+   }
+  },
+  {
+   "digest": "84b05de2ad1c03669eef4cd3f016827a0d6a7749ab3e53c80ef452e9ade3589a",
+   "name": "select_start_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "private_state_written",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "130880085d6a1c77f90d675dd9c7d7d3ecae1bc3c8b47afa8894e0d3ecf3f0bd",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "259c244e140935413875d94d0848b0dc1e3c54aec5631409f46a17c3d08c72af",
+      "kind": "route_outcome"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "010fbd9a6833964e731cfd58c97ac40d3abaa32b1f49f9a3d10f6e30c9d5a213",
+    "request_id": "req_a227db19189abe8cfd566b7feaeb41cb",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  }
+ ],
+ "says": "A first user with no Team, no account, no provider connection and no repository creates a local principal from a device key on this laptop (identity.binding.add, established by local creation, no evidence from any provider), and the host is probed for reading what a start hands it. The launcher offers one qualified personal start route. The entry (surface.drive) shows the three personal positions checked and empty, the tool as a suggestion marked '(제안)', and one start action; there is no goal or task field. Tab and Enter dispatch one preparation.compose request whose basis is the personal scope alone with no source pins and no work_request; the owner commits a preparation of nothing selected whose task support is not requested, observed at a plain local folder, and route.select answers for that request with it. Negative: no step signs in, founds or selects a Team, binds a repository or reaches a provider; no answer carries a gap or recovery that asks for sign-in, a Team or a repository; and the missing intent is neither an error nor a guessed work_request.",
+ "spec_sha256": "48a711ddd09e7d69ab3887fe31baddd386924b4704add6deb3b6124d926a892e",
+ "steps": [
+  {
+   "carries": [
+    "my_key"
+   ],
+   "name": "bind_device_key",
+   "request": "my_key_request",
+   "result": "bind_device_key_result",
+   "returns": [
+    "my_key_stored"
+   ]
+  },
+  {
+   "carries": [
+    "read_probe"
+   ],
+   "name": "probe_host_read",
+   "request": "probe_request",
+   "result": "probe_host_read_result",
+   "returns": [
+    "read_probe_stored"
+   ]
+  },
+  {
+   "carries": [
+    "offer"
+   ],
+   "name": "offer_routes",
+   "request": "offer_request",
+   "result": "offer_routes_result",
+   "returns": [
+    "offer_stored"
+   ]
+  },
+  {
+   "carries": [
+    "script"
+   ],
+   "name": "drive_entry",
+   "request": "script_request",
+   "result": "drive_entry_result",
+   "returns": [
+    "script_trace"
+   ]
+  },
+  {
+   "carries": [
+    "start_basis"
+   ],
+   "name": "compose_start",
+   "request": "start_compose",
+   "result": "compose_start_result",
+   "returns": [
+    "start_preparation"
+   ]
+  },
+  {
+   "carries": [
+    "selection"
+   ],
+   "name": "select_start",
+   "request": "selection_request",
+   "result": "select_start_result",
+   "returns": [
+    "selection_outcome"
+   ]
+  }
+ ]
+}

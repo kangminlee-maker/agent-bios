@@ -1,0 +1,3034 @@
+{
+ "case": "CMP-QUALIFIED",
+ "says": "The repository and the Team each select an Instructions source whose review.md answers review.approval as a required startup unit; the Team's knowledge position selects two sources that both answer tax.rate with no precedence between them. The repository's revision is committed, but its review.md bytes are not held on this device. The first session start must name the repository unit as the winner with no body and the gap role_body_unavailable at that unit, and the Team unit for the same concern shadowed by it: a lower layer does not silently satisfy an inaccessible winner. The two tax.rate units are named unresolved, each with same_layer_unordered, and work support reads not_requested because no task was asked for. alice explicitly deselects the repository source (switches it off); the next start names that unit disabled, the Team unit wins, and the session is activated on it although tax.rate is still unresolved: an ambiguity no actual question needs holds nothing back and asks nothing at startup. The Team then states an explicit precedence between its two tax.rate sources, and the last start names the first winning and the second shadowed, with no gap. What must not happen: the Team unit reported as satisfying review.approval while the repository winner is unavailable, or the unrelated tax.rate ambiguity becoming a startup question.",
+ "ids": [
+  {
+   "name": "alice",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "alice_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "bind_alice_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "work_repo",
+   "prefix": "rep"
+  },
+  {
+   "name": "bind_repo_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "platform",
+   "prefix": "tem"
+  },
+  {
+   "name": "found_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "repo_rules",
+   "prefix": "src"
+  },
+  {
+   "name": "register_repo_rules_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "commit_repo_rules_r1_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "team_rules",
+   "prefix": "src"
+  },
+  {
+   "name": "team_rules_store",
+   "prefix": "col"
+  },
+  {
+   "name": "register_team_rules_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "commit_team_rules_r1_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "rates_a",
+   "prefix": "src"
+  },
+  {
+   "name": "rates_a_store",
+   "prefix": "col"
+  },
+  {
+   "name": "register_rates_a_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "commit_rates_a_r1_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "rates_b",
+   "prefix": "src"
+  },
+  {
+   "name": "rates_b_store",
+   "prefix": "col"
+  },
+  {
+   "name": "register_rates_b_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "commit_rates_b_r1_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "repo_instr",
+   "prefix": "col"
+  },
+  {
+   "name": "change_repo_instr_v1_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "team_instr",
+   "prefix": "col"
+  },
+  {
+   "name": "change_team_instr_v1_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "team_know",
+   "prefix": "col"
+  },
+  {
+   "name": "change_team_know_v1_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "start_with_an_unavailable_winner_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "change_repo_instr_v2_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "start_after_deselecting_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "start_the_session_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "change_team_know_v2_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "start_with_an_explicit_precedence_rid",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "alice_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    }
+   ]
+  },
+  {
+   "name": "bind_alice",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_alice_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#alice_key"
+    }
+   ]
+  },
+  {
+   "name": "alice_binding",
+   "from": "alice_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:alice_binding_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:alice_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_clone",
+   "from": "c01/repository_binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@work_repo"
+    }
+   ]
+  },
+  {
+   "name": "bind_repo",
+   "from": "c01/repository_bind_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_repo_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_clone"
+    }
+   ]
+  },
+  {
+   "name": "repo_bound",
+   "from": "c01/clone_shares_the_repository_id.json",
+   "set": [
+    {
+     "pointer": "/observed/working_bytes_digest",
+     "value": "$digest:checkout_bytes"
+    },
+    {
+     "pointer": "/repository_id",
+     "value": "@work_repo"
+    }
+   ]
+  },
+  {
+   "name": "team_policy_draft",
+   "from": "c08/policy_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/threshold",
+     "value": 0
+    }
+   ]
+  },
+  {
+   "name": "founding",
+   "from": "c08/proposal_as_submitted.json",
+   "drop": [
+    "/founding_mode/nominees"
+   ],
+   "set": [
+    {
+     "pointer": "/carriers",
+     "value": [
+      "local"
+     ]
+    },
+    {
+     "pointer": "/custody_target",
+     "value": 1
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/founder_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/founding_mode/mode",
+     "value": "self_founded"
+    },
+    {
+     "pointer": "/founding_mode/acknowledged_self_reviewed",
+     "value": true
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#team_policy_draft"
+    },
+    {
+     "pointer": "/recovery/0/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@platform"
+    }
+   ]
+  },
+  {
+   "name": "found",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/owner/repository_id",
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@found_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.found"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#founding"
+    }
+   ]
+  },
+  {
+   "name": "team_policy",
+   "from": "c08/policy_requiring_none_and_saying_so.json",
+   "set": [
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/policy_id",
+     "value": "$pol:team_policy_id"
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "alice_team_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "publish"
+     ]
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    },
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:alice_grant_id"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@platform"
+    }
+   ]
+  },
+  {
+   "name": "team_active",
+   "from": "c08/archived_team.json",
+   "set": [
+    {
+     "pointer": "/since",
+     "value": "$instant:founded_at"
+    },
+    {
+     "pointer": "/state",
+     "value": "active"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@platform"
+    }
+   ]
+  },
+  {
+   "name": "repo_rules_home",
+   "from": "sources/home_of_a_repository_document.json",
+   "drop": [
+    "/registered_at"
+   ],
+   "set": [
+    {
+     "pointer": "/acceptance_authority/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/home/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/home/document_root",
+     "value": "rules"
+    },
+    {
+     "pointer": "/home/binding_evidence_digest",
+     "value": "#repo_bound"
+    },
+    {
+     "pointer": "/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/scope/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@repo_rules"
+    }
+   ]
+  },
+  {
+   "name": "register_repo_rules",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_repo_rules_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_rules"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_rules_home"
+    }
+   ]
+  },
+  {
+   "name": "repo_rules_home_stored",
+   "from": "repo_rules_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:repo_rules_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_rules_r1",
+   "from": "sources/revision_submitted.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/members/0/digest",
+     "value": "c21a2ee216479f4b3fc78d249986a109249be2466dba34bff524f91626ed09a0"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "rules/review.md"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 400
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@repo_rules"
+    }
+   ]
+  },
+  {
+   "name": "commit_repo_rules_r1",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_repo_rules_r1_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_rules"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:repo_rules_h0"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_rules_r1"
+    }
+   ]
+  },
+  {
+   "name": "repo_rules_r1_stored",
+   "from": "repo_rules_r1",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:repo_rules_r1_at"
+    }
+   ]
+  },
+  {
+   "name": "team_rules_home",
+   "from": "sources/home_of_a_managed_collection.json",
+   "drop": [
+    "/registered_at",
+    "/acceptance_authority/principal_id",
+    "/applicability/conditions",
+    "/home/markdown_view/path",
+    "/retention/until",
+    "/scope/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/acceptance_authority/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/acceptance_authority/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/applicability/states",
+     "value": "unstated"
+    },
+    {
+     "pointer": "/disclosure",
+     "value": "team"
+    },
+    {
+     "pointer": "/home/collection_id",
+     "value": "@team_rules_store"
+    },
+    {
+     "pointer": "/home/markdown_view/view",
+     "value": "none"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    },
+    {
+     "pointer": "/retention/keep",
+     "value": "until_withdrawn"
+    },
+    {
+     "pointer": "/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@team_rules"
+    }
+   ]
+  },
+  {
+   "name": "register_team_rules",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/owner/repository_id",
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_team_rules_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_rules"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_rules_home"
+    }
+   ]
+  },
+  {
+   "name": "team_rules_home_stored",
+   "from": "team_rules_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:team_rules_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "team_rules_r1",
+   "from": "sources/revision_submitted.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/members/0/digest",
+     "value": "fb6db4128999030f0293ae8d761adde410f2bfc33d2cf528fe7e7f566cc42431"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "rules/review.md"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 400
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@team_rules"
+    }
+   ]
+  },
+  {
+   "name": "commit_team_rules_r1",
+   "from": "bindings/storing_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_team_rules_r1_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_rules"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_rules_h0"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_rules_r1"
+    }
+   ]
+  },
+  {
+   "name": "team_rules_r1_stored",
+   "from": "team_rules_r1",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:team_rules_r1_at"
+    }
+   ]
+  },
+  {
+   "name": "rates_a_home",
+   "from": "sources/home_of_a_managed_collection.json",
+   "drop": [
+    "/registered_at",
+    "/acceptance_authority/principal_id",
+    "/applicability/conditions",
+    "/home/markdown_view/path",
+    "/retention/until",
+    "/scope/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/acceptance_authority/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/acceptance_authority/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/applicability/states",
+     "value": "unstated"
+    },
+    {
+     "pointer": "/disclosure",
+     "value": "team"
+    },
+    {
+     "pointer": "/home/collection_id",
+     "value": "@rates_a_store"
+    },
+    {
+     "pointer": "/home/markdown_view/view",
+     "value": "none"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    },
+    {
+     "pointer": "/retention/keep",
+     "value": "until_withdrawn"
+    },
+    {
+     "pointer": "/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@rates_a"
+    }
+   ]
+  },
+  {
+   "name": "register_rates_a",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/owner/repository_id",
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_rates_a_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@rates_a"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#rates_a_home"
+    }
+   ]
+  },
+  {
+   "name": "rates_a_home_stored",
+   "from": "rates_a_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:rates_a_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "rates_a_r1",
+   "from": "sources/revision_submitted.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/members/0/digest",
+     "value": "16d21f6ddd1baf3f12416e0704bc025c5ce6c2b6ee88dbc77f2f36dc8ef53298"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "tables/rates.csv"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 400
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@rates_a"
+    }
+   ]
+  },
+  {
+   "name": "commit_rates_a_r1",
+   "from": "bindings/storing_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_rates_a_r1_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@rates_a"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:rates_a_h0"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#rates_a_r1"
+    }
+   ]
+  },
+  {
+   "name": "rates_a_r1_stored",
+   "from": "rates_a_r1",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:rates_a_r1_at"
+    }
+   ]
+  },
+  {
+   "name": "rates_b_home",
+   "from": "sources/home_of_a_managed_collection.json",
+   "drop": [
+    "/registered_at",
+    "/acceptance_authority/principal_id",
+    "/applicability/conditions",
+    "/home/markdown_view/path",
+    "/retention/until",
+    "/scope/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/acceptance_authority/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/acceptance_authority/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/applicability/states",
+     "value": "unstated"
+    },
+    {
+     "pointer": "/disclosure",
+     "value": "team"
+    },
+    {
+     "pointer": "/home/collection_id",
+     "value": "@rates_b_store"
+    },
+    {
+     "pointer": "/home/markdown_view/view",
+     "value": "none"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    },
+    {
+     "pointer": "/retention/keep",
+     "value": "until_withdrawn"
+    },
+    {
+     "pointer": "/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@rates_b"
+    }
+   ]
+  },
+  {
+   "name": "register_rates_b",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/owner/repository_id",
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_rates_b_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@rates_b"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#rates_b_home"
+    }
+   ]
+  },
+  {
+   "name": "rates_b_home_stored",
+   "from": "rates_b_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:rates_b_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "rates_b_r1",
+   "from": "sources/revision_submitted.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/members/0/digest",
+     "value": "51eb95baab6ebe010b82568bfe7db9e2c0a537321b9af09dbc5474bd1be4400f"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "tables/rates.csv"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 400
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@rates_b"
+    }
+   ]
+  },
+  {
+   "name": "commit_rates_b_r1",
+   "from": "bindings/storing_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_rates_b_r1_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@rates_b"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:rates_b_h0"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#rates_b_r1"
+    }
+   ]
+  },
+  {
+   "name": "rates_b_r1_stored",
+   "from": "rates_b_r1",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:rates_b_r1_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_instr_v1",
+   "from": "c07/collection_with_one_entry_switched_off.json",
+   "drop": [
+    "/changed_at",
+    "/entries/1",
+    "/entries/0/precedence",
+    "/entries/0/units/0/needs",
+    "/position/scope/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/collection_id",
+     "value": "@repo_instr"
+    },
+    {
+     "pointer": "/entries/0/pin/revision_digest",
+     "value": "#repo_rules_r1_stored"
+    },
+    {
+     "pointer": "/entries/0/source_id",
+     "value": "@repo_rules"
+    },
+    {
+     "pointer": "/position/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/position/scope/repository_id",
+     "value": "@work_repo"
+    }
+   ]
+  },
+  {
+   "name": "change_repo_instr_v1",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@change_repo_instr_v1_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_instr"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_instr_v1"
+    }
+   ]
+  },
+  {
+   "name": "repo_instr_v1_stored",
+   "from": "repo_instr_v1",
+   "set": [
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:repo_instr_v1_at"
+    }
+   ]
+  },
+  {
+   "name": "team_instr_v1",
+   "from": "c07/collection_with_one_entry_switched_off.json",
+   "drop": [
+    "/changed_at",
+    "/entries/1",
+    "/entries/0/precedence",
+    "/entries/0/units/0/needs"
+   ],
+   "set": [
+    {
+     "pointer": "/collection_id",
+     "value": "@team_instr"
+    },
+    {
+     "pointer": "/entries/0/pin/revision_digest",
+     "value": "#team_rules_r1_stored"
+    },
+    {
+     "pointer": "/entries/0/source_id",
+     "value": "@team_rules"
+    },
+    {
+     "pointer": "/position/scope/team_id",
+     "value": "@platform"
+    }
+   ]
+  },
+  {
+   "name": "change_team_instr_v1",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/owner/repository_id",
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@change_team_instr_v1_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_instr"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_instr_v1"
+    }
+   ]
+  },
+  {
+   "name": "team_instr_v1_stored",
+   "from": "team_instr_v1",
+   "set": [
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:team_instr_v1_at"
+    }
+   ]
+  },
+  {
+   "name": "team_know_v1",
+   "from": "c07/collection_with_one_entry_switched_off.json",
+   "drop": [
+    "/changed_at",
+    "/entries/0/precedence",
+    "/entries/0/units/0/needs",
+    "/entries/1/precedence"
+   ],
+   "set": [
+    {
+     "pointer": "/collection_id",
+     "value": "@team_know"
+    },
+    {
+     "pointer": "/entries/0/pin/revision_digest",
+     "value": "#rates_a_r1_stored"
+    },
+    {
+     "pointer": "/entries/0/source_id",
+     "value": "@rates_a"
+    },
+    {
+     "pointer": "/entries/0/units/0/member",
+     "value": "tables/rates.csv"
+    },
+    {
+     "pointer": "/entries/0/units/0/startup",
+     "value": "not_required"
+    },
+    {
+     "pointer": "/entries/0/units/0/concern",
+     "value": "tax.rate"
+    },
+    {
+     "pointer": "/entries/1/pin/revision_digest",
+     "value": "#rates_b_r1_stored"
+    },
+    {
+     "pointer": "/entries/1/source_id",
+     "value": "@rates_b"
+    },
+    {
+     "pointer": "/entries/1/switch",
+     "value": "on"
+    },
+    {
+     "pointer": "/entries/1/units",
+     "value": []
+    },
+    {
+     "pointer": "/entries/1/units/0/member",
+     "value": "tables/rates.csv"
+    },
+    {
+     "pointer": "/entries/1/units/0/startup",
+     "value": "not_required"
+    },
+    {
+     "pointer": "/entries/1/units/0/concern",
+     "value": "tax.rate"
+    },
+    {
+     "pointer": "/position/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/position/scope/team_id",
+     "value": "@platform"
+    }
+   ]
+  },
+  {
+   "name": "change_team_know_v1",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/owner/repository_id",
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@change_team_know_v1_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_know"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_know_v1"
+    }
+   ]
+  },
+  {
+   "name": "team_know_v1_stored",
+   "from": "team_know_v1",
+   "set": [
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:team_know_v1_at"
+    }
+   ]
+  },
+  {
+   "name": "start_with_an_unavailable_winner_ask",
+   "from": "c07/session_start_without_a_task.json",
+   "drop": [
+    "/basis/scopes/2",
+    "/basis/scopes/1/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/basis/scopes/0/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/basis/scopes/1/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/basis/scopes/1/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/basis/source_pins",
+     "value": []
+    }
+   ]
+  },
+  {
+   "name": "start_with_an_unavailable_winner",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@start_with_an_unavailable_winner_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "preparation.compose"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#start_with_an_unavailable_winner_ask"
+    }
+   ]
+  },
+  {
+   "name": "start_with_an_unavailable_winner_prepared",
+   "from": "c07/preparation_where_the_repository_rule_wins_and_the_team_rule_gates_nothing.json",
+   "drop": [
+    "/order/2",
+    "/order/1/principal_id",
+    "/units/0/body_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/collections/0/collection_id",
+     "value": "@repo_instr"
+    },
+    {
+     "pointer": "/collections/0/head_digest",
+     "value": "$digest:repo_instr_h1"
+    },
+    {
+     "pointer": "/collections/1/collection_id",
+     "value": "@team_instr"
+    },
+    {
+     "pointer": "/collections/1/head_digest",
+     "value": "$digest:team_instr_h1"
+    },
+    {
+     "pointer": "/collections/2/collection_id",
+     "value": "@team_know"
+    },
+    {
+     "pointer": "/collections/2/head_digest",
+     "value": "$digest:team_know_h1"
+    },
+    {
+     "pointer": "/collections/2/state",
+     "value": "applied"
+    },
+    {
+     "pointer": "/frontiers",
+     "value": []
+    },
+    {
+     "pointer": "/material_gaps/0/code",
+     "value": "role_body_unavailable"
+    },
+    {
+     "pointer": "/material_gaps/0/pointer",
+     "value": "/units/0"
+    },
+    {
+     "pointer": "/material_gaps/1/code",
+     "value": "same_layer_unordered"
+    },
+    {
+     "pointer": "/material_gaps/1/pointer",
+     "value": "/units/2"
+    },
+    {
+     "pointer": "/material_gaps/2/code",
+     "value": "same_layer_unordered"
+    },
+    {
+     "pointer": "/material_gaps/2/pointer",
+     "value": "/units/3"
+    },
+    {
+     "pointer": "/observed/working_bytes_digest",
+     "value": "$digest:checkout_bytes"
+    },
+    {
+     "pointer": "/order/0/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/order/1/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/order/1/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/preparation_id",
+     "value": "$prp:start_with_an_unavailable_winner_id"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:start_with_an_unavailable_winner_at"
+    },
+    {
+     "pointer": "/recipient/work_scope/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/request_digest",
+     "value": "#start_with_an_unavailable_winner_ask"
+    },
+    {
+     "pointer": "/units/0/unit_id",
+     "value": "$unt:a_repo_review"
+    },
+    {
+     "pointer": "/units/0/source_id",
+     "value": "@repo_rules"
+    },
+    {
+     "pointer": "/units/0/revision_digest",
+     "value": "#repo_rules_r1_stored"
+    },
+    {
+     "pointer": "/units/1/unit_id",
+     "value": "$unt:a_team_review"
+    },
+    {
+     "pointer": "/units/1/source_id",
+     "value": "@team_rules"
+    },
+    {
+     "pointer": "/units/1/revision_digest",
+     "value": "#team_rules_r1_stored"
+    },
+    {
+     "pointer": "/units/1/body_digest",
+     "value": "fb6db4128999030f0293ae8d761adde410f2bfc33d2cf528fe7e7f566cc42431"
+    },
+    {
+     "pointer": "/units/1/shadowed_by",
+     "value": "$unt:a_repo_review"
+    },
+    {
+     "pointer": "/units/2/unit_id",
+     "value": "$unt:a_rates_a"
+    },
+    {
+     "pointer": "/units/2/source_id",
+     "value": "@rates_a"
+    },
+    {
+     "pointer": "/units/2/revision_digest",
+     "value": "#rates_a_r1_stored"
+    },
+    {
+     "pointer": "/units/2/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/units/2/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/units/2/standing",
+     "value": "unresolved"
+    },
+    {
+     "pointer": "/units/2/member",
+     "value": "tables/rates.csv"
+    },
+    {
+     "pointer": "/units/2/concern",
+     "value": "tax.rate"
+    },
+    {
+     "pointer": "/units/2/body_digest",
+     "value": "16d21f6ddd1baf3f12416e0704bc025c5ce6c2b6ee88dbc77f2f36dc8ef53298"
+    },
+    {
+     "pointer": "/units/3/unit_id",
+     "value": "$unt:a_rates_b"
+    },
+    {
+     "pointer": "/units/3/source_id",
+     "value": "@rates_b"
+    },
+    {
+     "pointer": "/units/3/revision_digest",
+     "value": "#rates_b_r1_stored"
+    },
+    {
+     "pointer": "/units/3/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/units/3/standing",
+     "value": "unresolved"
+    },
+    {
+     "pointer": "/units/3/member",
+     "value": "tables/rates.csv"
+    },
+    {
+     "pointer": "/units/3/concern",
+     "value": "tax.rate"
+    },
+    {
+     "pointer": "/units/3/startup",
+     "value": "not_required"
+    },
+    {
+     "pointer": "/units/3/body_digest",
+     "value": "51eb95baab6ebe010b82568bfe7db9e2c0a537321b9af09dbc5474bd1be4400f"
+    }
+   ]
+  },
+  {
+   "name": "repo_instr_v2",
+   "from": "c07/collection_with_one_entry_switched_off.json",
+   "drop": [
+    "/changed_at",
+    "/entries/1",
+    "/entries/0/precedence",
+    "/entries/0/units/0/needs",
+    "/position/scope/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/collection_id",
+     "value": "@repo_instr"
+    },
+    {
+     "pointer": "/entries/0/pin/revision_digest",
+     "value": "#repo_rules_r1_stored"
+    },
+    {
+     "pointer": "/entries/0/source_id",
+     "value": "@repo_rules"
+    },
+    {
+     "pointer": "/entries/0/switch",
+     "value": "off"
+    },
+    {
+     "pointer": "/position/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/position/scope/repository_id",
+     "value": "@work_repo"
+    }
+   ]
+  },
+  {
+   "name": "change_repo_instr_v2",
+   "from": "c07/collection_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@change_repo_instr_v2_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_instr"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:repo_instr_h1"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_instr_v2"
+    }
+   ]
+  },
+  {
+   "name": "repo_instr_v2_stored",
+   "from": "repo_instr_v2",
+   "set": [
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:repo_instr_v2_at"
+    }
+   ]
+  },
+  {
+   "name": "start_after_deselecting_ask",
+   "from": "c07/session_start_without_a_task.json",
+   "drop": [
+    "/basis/scopes/2",
+    "/basis/scopes/1/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/basis/scopes/0/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/basis/scopes/1/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/basis/scopes/1/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/basis/source_pins",
+     "value": []
+    }
+   ]
+  },
+  {
+   "name": "start_after_deselecting",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@start_after_deselecting_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "preparation.compose"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#start_after_deselecting_ask"
+    }
+   ]
+  },
+  {
+   "name": "start_after_deselecting_prepared",
+   "from": "c07/preparation_where_the_repository_rule_wins_and_the_team_rule_gates_nothing.json",
+   "drop": [
+    "/order/2",
+    "/order/1/principal_id",
+    "/units/0/body_digest",
+    "/units/1/shadowed_by"
+   ],
+   "set": [
+    {
+     "pointer": "/collections/0/collection_id",
+     "value": "@repo_instr"
+    },
+    {
+     "pointer": "/collections/0/head_digest",
+     "value": "$digest:repo_instr_h2"
+    },
+    {
+     "pointer": "/collections/1/collection_id",
+     "value": "@team_instr"
+    },
+    {
+     "pointer": "/collections/1/head_digest",
+     "value": "$digest:team_instr_h1"
+    },
+    {
+     "pointer": "/collections/2/collection_id",
+     "value": "@team_know"
+    },
+    {
+     "pointer": "/collections/2/head_digest",
+     "value": "$digest:team_know_h1"
+    },
+    {
+     "pointer": "/collections/2/state",
+     "value": "applied"
+    },
+    {
+     "pointer": "/frontiers",
+     "value": []
+    },
+    {
+     "pointer": "/material_gaps/0/code",
+     "value": "same_layer_unordered"
+    },
+    {
+     "pointer": "/material_gaps/0/pointer",
+     "value": "/units/2"
+    },
+    {
+     "pointer": "/material_gaps/1/code",
+     "value": "same_layer_unordered"
+    },
+    {
+     "pointer": "/material_gaps/1/pointer",
+     "value": "/units/3"
+    },
+    {
+     "pointer": "/observed/working_bytes_digest",
+     "value": "$digest:checkout_bytes"
+    },
+    {
+     "pointer": "/order/0/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/order/1/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/order/1/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/preparation_id",
+     "value": "$prp:start_after_deselecting_id"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:start_after_deselecting_at"
+    },
+    {
+     "pointer": "/recipient/work_scope/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/request_digest",
+     "value": "#start_after_deselecting_ask"
+    },
+    {
+     "pointer": "/units/0/unit_id",
+     "value": "$unt:b_repo_review"
+    },
+    {
+     "pointer": "/units/0/source_id",
+     "value": "@repo_rules"
+    },
+    {
+     "pointer": "/units/0/revision_digest",
+     "value": "#repo_rules_r1_stored"
+    },
+    {
+     "pointer": "/units/0/standing",
+     "value": "disabled"
+    },
+    {
+     "pointer": "/units/1/unit_id",
+     "value": "$unt:b_team_review"
+    },
+    {
+     "pointer": "/units/1/source_id",
+     "value": "@team_rules"
+    },
+    {
+     "pointer": "/units/1/revision_digest",
+     "value": "#team_rules_r1_stored"
+    },
+    {
+     "pointer": "/units/1/standing",
+     "value": "winning"
+    },
+    {
+     "pointer": "/units/1/body_digest",
+     "value": "fb6db4128999030f0293ae8d761adde410f2bfc33d2cf528fe7e7f566cc42431"
+    },
+    {
+     "pointer": "/units/2/unit_id",
+     "value": "$unt:b_rates_a"
+    },
+    {
+     "pointer": "/units/2/source_id",
+     "value": "@rates_a"
+    },
+    {
+     "pointer": "/units/2/revision_digest",
+     "value": "#rates_a_r1_stored"
+    },
+    {
+     "pointer": "/units/2/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/units/2/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/units/2/standing",
+     "value": "unresolved"
+    },
+    {
+     "pointer": "/units/2/member",
+     "value": "tables/rates.csv"
+    },
+    {
+     "pointer": "/units/2/concern",
+     "value": "tax.rate"
+    },
+    {
+     "pointer": "/units/2/body_digest",
+     "value": "16d21f6ddd1baf3f12416e0704bc025c5ce6c2b6ee88dbc77f2f36dc8ef53298"
+    },
+    {
+     "pointer": "/units/3/unit_id",
+     "value": "$unt:b_rates_b"
+    },
+    {
+     "pointer": "/units/3/source_id",
+     "value": "@rates_b"
+    },
+    {
+     "pointer": "/units/3/revision_digest",
+     "value": "#rates_b_r1_stored"
+    },
+    {
+     "pointer": "/units/3/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/units/3/standing",
+     "value": "unresolved"
+    },
+    {
+     "pointer": "/units/3/member",
+     "value": "tables/rates.csv"
+    },
+    {
+     "pointer": "/units/3/concern",
+     "value": "tax.rate"
+    },
+    {
+     "pointer": "/units/3/startup",
+     "value": "not_required"
+    },
+    {
+     "pointer": "/units/3/body_digest",
+     "value": "51eb95baab6ebe010b82568bfe7db9e2c0a537321b9af09dbc5474bd1be4400f"
+    }
+   ]
+  },
+  {
+   "name": "start_the_session_activation",
+   "from": "c04/activation_of_one_session.json",
+   "set": [
+    {
+     "pointer": "/preparation_digest",
+     "value": "#start_after_deselecting_prepared"
+    },
+    {
+     "pointer": "/session/profile_id",
+     "value": "@alice_profile"
+    }
+   ]
+  },
+  {
+   "name": "start_the_session",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@start_the_session_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "session.routing.activate"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#start_the_session_activation"
+    }
+   ]
+  },
+  {
+   "name": "start_the_session_routed",
+   "from": "session/activated_with_nothing_selected_still_carries_the_contract.json",
+   "set": [
+    {
+     "pointer": "/routed_at",
+     "value": "$instant:start_the_session_at"
+    },
+    {
+     "pointer": "/session/profile_id",
+     "value": "@alice_profile"
+    }
+   ]
+  },
+  {
+   "name": "team_know_v2",
+   "from": "c07/collection_with_one_entry_switched_off.json",
+   "drop": [
+    "/changed_at",
+    "/entries/0/units/0/needs"
+   ],
+   "set": [
+    {
+     "pointer": "/collection_id",
+     "value": "@team_know"
+    },
+    {
+     "pointer": "/entries/0/pin/revision_digest",
+     "value": "#rates_a_r1_stored"
+    },
+    {
+     "pointer": "/entries/0/source_id",
+     "value": "@rates_a"
+    },
+    {
+     "pointer": "/entries/0/units/0/member",
+     "value": "tables/rates.csv"
+    },
+    {
+     "pointer": "/entries/0/units/0/startup",
+     "value": "not_required"
+    },
+    {
+     "pointer": "/entries/0/units/0/concern",
+     "value": "tax.rate"
+    },
+    {
+     "pointer": "/entries/1/pin/revision_digest",
+     "value": "#rates_b_r1_stored"
+    },
+    {
+     "pointer": "/entries/1/source_id",
+     "value": "@rates_b"
+    },
+    {
+     "pointer": "/entries/1/switch",
+     "value": "on"
+    },
+    {
+     "pointer": "/entries/1/units",
+     "value": []
+    },
+    {
+     "pointer": "/entries/1/units/0/member",
+     "value": "tables/rates.csv"
+    },
+    {
+     "pointer": "/entries/1/units/0/startup",
+     "value": "not_required"
+    },
+    {
+     "pointer": "/entries/1/units/0/concern",
+     "value": "tax.rate"
+    },
+    {
+     "pointer": "/position/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/position/scope/team_id",
+     "value": "@platform"
+    }
+   ]
+  },
+  {
+   "name": "change_team_know_v2",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/owner/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@change_team_know_v2_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_know"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_know_h1"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_know_v2"
+    }
+   ]
+  },
+  {
+   "name": "team_know_v2_stored",
+   "from": "team_know_v2",
+   "set": [
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:team_know_v2_at"
+    }
+   ]
+  },
+  {
+   "name": "start_with_an_explicit_precedence_ask",
+   "from": "c07/session_start_without_a_task.json",
+   "drop": [
+    "/basis/scopes/2",
+    "/basis/scopes/1/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/basis/scopes/0/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/basis/scopes/1/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/basis/scopes/1/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/basis/source_pins",
+     "value": []
+    }
+   ]
+  },
+  {
+   "name": "start_with_an_explicit_precedence",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@start_with_an_explicit_precedence_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "preparation.compose"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#start_with_an_explicit_precedence_ask"
+    }
+   ]
+  },
+  {
+   "name": "start_with_an_explicit_precedence_prepared",
+   "from": "c07/preparation_where_the_repository_rule_wins_and_the_team_rule_gates_nothing.json",
+   "drop": [
+    "/order/2",
+    "/order/1/principal_id",
+    "/units/0/body_digest",
+    "/units/1/shadowed_by"
+   ],
+   "set": [
+    {
+     "pointer": "/collections/0/collection_id",
+     "value": "@repo_instr"
+    },
+    {
+     "pointer": "/collections/0/head_digest",
+     "value": "$digest:repo_instr_h2"
+    },
+    {
+     "pointer": "/collections/1/collection_id",
+     "value": "@team_instr"
+    },
+    {
+     "pointer": "/collections/1/head_digest",
+     "value": "$digest:team_instr_h1"
+    },
+    {
+     "pointer": "/collections/2/collection_id",
+     "value": "@team_know"
+    },
+    {
+     "pointer": "/collections/2/head_digest",
+     "value": "$digest:team_know_h2"
+    },
+    {
+     "pointer": "/collections/2/state",
+     "value": "applied"
+    },
+    {
+     "pointer": "/frontiers",
+     "value": []
+    },
+    {
+     "pointer": "/observed/working_bytes_digest",
+     "value": "$digest:checkout_bytes"
+    },
+    {
+     "pointer": "/order/0/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/order/1/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/order/1/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/preparation_id",
+     "value": "$prp:start_with_an_explicit_precedence_id"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:start_with_an_explicit_precedence_at"
+    },
+    {
+     "pointer": "/recipient/work_scope/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/request_digest",
+     "value": "#start_with_an_explicit_precedence_ask"
+    },
+    {
+     "pointer": "/units/0/unit_id",
+     "value": "$unt:c_repo_review"
+    },
+    {
+     "pointer": "/units/0/source_id",
+     "value": "@repo_rules"
+    },
+    {
+     "pointer": "/units/0/revision_digest",
+     "value": "#repo_rules_r1_stored"
+    },
+    {
+     "pointer": "/units/0/standing",
+     "value": "disabled"
+    },
+    {
+     "pointer": "/units/1/unit_id",
+     "value": "$unt:c_team_review"
+    },
+    {
+     "pointer": "/units/1/source_id",
+     "value": "@team_rules"
+    },
+    {
+     "pointer": "/units/1/revision_digest",
+     "value": "#team_rules_r1_stored"
+    },
+    {
+     "pointer": "/units/1/standing",
+     "value": "winning"
+    },
+    {
+     "pointer": "/units/1/body_digest",
+     "value": "fb6db4128999030f0293ae8d761adde410f2bfc33d2cf528fe7e7f566cc42431"
+    },
+    {
+     "pointer": "/units/2/unit_id",
+     "value": "$unt:c_rates_a"
+    },
+    {
+     "pointer": "/units/2/source_id",
+     "value": "@rates_a"
+    },
+    {
+     "pointer": "/units/2/revision_digest",
+     "value": "#rates_a_r1_stored"
+    },
+    {
+     "pointer": "/units/2/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/units/2/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/units/2/standing",
+     "value": "winning"
+    },
+    {
+     "pointer": "/units/2/member",
+     "value": "tables/rates.csv"
+    },
+    {
+     "pointer": "/units/2/concern",
+     "value": "tax.rate"
+    },
+    {
+     "pointer": "/units/2/body_digest",
+     "value": "16d21f6ddd1baf3f12416e0704bc025c5ce6c2b6ee88dbc77f2f36dc8ef53298"
+    },
+    {
+     "pointer": "/units/3/unit_id",
+     "value": "$unt:c_rates_b"
+    },
+    {
+     "pointer": "/units/3/source_id",
+     "value": "@rates_b"
+    },
+    {
+     "pointer": "/units/3/revision_digest",
+     "value": "#rates_b_r1_stored"
+    },
+    {
+     "pointer": "/units/3/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/units/3/standing",
+     "value": "shadowed"
+    },
+    {
+     "pointer": "/units/3/member",
+     "value": "tables/rates.csv"
+    },
+    {
+     "pointer": "/units/3/concern",
+     "value": "tax.rate"
+    },
+    {
+     "pointer": "/units/3/startup",
+     "value": "not_required"
+    },
+    {
+     "pointer": "/units/3/body_digest",
+     "value": "51eb95baab6ebe010b82568bfe7db9e2c0a537321b9af09dbc5474bd1be4400f"
+    },
+    {
+     "pointer": "/units/3/shadowed_by",
+     "value": "$unt:c_rates_a"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_alice",
+   "request": "bind_alice",
+   "carries": [
+    "alice_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "alice_binding"
+    ]
+   }
+  },
+  {
+   "name": "bind_repo",
+   "request": "bind_repo",
+   "carries": [
+    "repo_clone"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_bound"
+    ]
+   }
+  },
+  {
+   "name": "found_team",
+   "request": "found",
+   "carries": [
+    "founding",
+    "team_policy_draft"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_policy",
+     "alice_team_grant",
+     "team_active"
+    ],
+    "head": "platform_h1"
+   },
+   "submits": [
+    "team_policy_draft"
+   ]
+  },
+  {
+   "name": "register_repo_rules",
+   "request": "register_repo_rules",
+   "carries": [
+    "repo_rules_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_rules_home_stored"
+    ],
+    "head": "repo_rules_h0"
+   }
+  },
+  {
+   "name": "commit_repo_rules_r1",
+   "request": "commit_repo_rules_r1",
+   "carries": [
+    "repo_rules_r1"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_rules_r1_stored"
+    ],
+    "head": "repo_rules_h1"
+   }
+  },
+  {
+   "name": "register_team_rules",
+   "request": "register_team_rules",
+   "carries": [
+    "team_rules_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_rules_home_stored"
+    ],
+    "head": "team_rules_h0"
+   }
+  },
+  {
+   "name": "commit_team_rules_r1",
+   "request": "commit_team_rules_r1",
+   "carries": [
+    "team_rules_r1"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_rules_r1_stored"
+    ],
+    "head": "team_rules_h1"
+   }
+  },
+  {
+   "name": "register_rates_a",
+   "request": "register_rates_a",
+   "carries": [
+    "rates_a_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "rates_a_home_stored"
+    ],
+    "head": "rates_a_h0"
+   }
+  },
+  {
+   "name": "commit_rates_a_r1",
+   "request": "commit_rates_a_r1",
+   "carries": [
+    "rates_a_r1"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "rates_a_r1_stored"
+    ],
+    "head": "rates_a_h1"
+   }
+  },
+  {
+   "name": "register_rates_b",
+   "request": "register_rates_b",
+   "carries": [
+    "rates_b_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "rates_b_home_stored"
+    ],
+    "head": "rates_b_h0"
+   }
+  },
+  {
+   "name": "commit_rates_b_r1",
+   "request": "commit_rates_b_r1",
+   "carries": [
+    "rates_b_r1"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "rates_b_r1_stored"
+    ],
+    "head": "rates_b_h1"
+   }
+  },
+  {
+   "name": "change_repo_instr_v1",
+   "request": "change_repo_instr_v1",
+   "carries": [
+    "repo_instr_v1"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_instr_v1_stored"
+    ],
+    "head": "repo_instr_h1"
+   }
+  },
+  {
+   "name": "change_team_instr_v1",
+   "request": "change_team_instr_v1",
+   "carries": [
+    "team_instr_v1"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_instr_v1_stored"
+    ],
+    "head": "team_instr_h1"
+   }
+  },
+  {
+   "name": "change_team_know_v1",
+   "request": "change_team_know_v1",
+   "carries": [
+    "team_know_v1"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_know_v1_stored"
+    ],
+    "head": "team_know_h1"
+   }
+  },
+  {
+   "name": "start_with_an_unavailable_winner",
+   "request": "start_with_an_unavailable_winner",
+   "carries": [
+    "start_with_an_unavailable_winner_ask"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "role_body_unavailable",
+      "pointer": "/units/0"
+     },
+     {
+      "code": "same_layer_unordered",
+      "pointer": "/units/2"
+     },
+     {
+      "code": "same_layer_unordered",
+      "pointer": "/units/3"
+     }
+    ],
+    "recovery": [],
+    "returns": [
+     "start_with_an_unavailable_winner_prepared"
+    ]
+   }
+  },
+  {
+   "name": "deselect_the_unavailable_source",
+   "request": "change_repo_instr_v2",
+   "carries": [
+    "repo_instr_v2"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_instr_v2_stored"
+    ],
+    "head": "repo_instr_h2"
+   }
+  },
+  {
+   "name": "start_after_deselecting",
+   "request": "start_after_deselecting",
+   "carries": [
+    "start_after_deselecting_ask"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "same_layer_unordered",
+      "pointer": "/units/2"
+     },
+     {
+      "code": "same_layer_unordered",
+      "pointer": "/units/3"
+     }
+    ],
+    "recovery": [],
+    "returns": [
+     "start_after_deselecting_prepared"
+    ]
+   }
+  },
+  {
+   "name": "start_the_session",
+   "request": "start_the_session",
+   "carries": [
+    "start_the_session_activation"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "start_the_session_routed"
+    ]
+   }
+  },
+  {
+   "name": "order_the_two_rate_sources",
+   "request": "change_team_know_v2",
+   "carries": [
+    "team_know_v2"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_know_v2_stored"
+    ],
+    "head": "team_know_h2"
+   }
+  },
+  {
+   "name": "start_with_an_explicit_precedence",
+   "request": "start_with_an_explicit_precedence",
+   "carries": [
+    "start_with_an_explicit_precedence_ask"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "start_with_an_explicit_precedence_prepared"
+    ]
+   }
+  }
+ ]
+}

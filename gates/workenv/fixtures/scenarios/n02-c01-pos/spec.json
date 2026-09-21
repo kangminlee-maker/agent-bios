@@ -1,0 +1,763 @@
+{
+ "case": "N02-C01-POS",
+ "says": "Alice starts personal work on her laptop with no Team, account, sign-up or network: the runtime wrote her profile at first use, and she binds her first device key, which creates her principal. She locks the profile and unlocks it at a terminal with that key, and names the profile 'Laptop'. She then rotates her credential: a second key, signed by the first as proof of control, is bound to the same principal, and the first binding is revoked. Every answer names the same principal id and profile id: the second binding, and the profile after a second rename, carry alice's principal id and the profile's original creation time. No step reaches a provider, a Team or the network. What must not happen: a new principal id after the rotation, a profile whose identity moves with its name, or any step that needs an account or Team.",
+ "ids": [
+  {
+   "name": "alice",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "alice_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "bind_first_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "lock_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "unlock_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "rename_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "bind_rotated_id",
+   "prefix": "req"
+  },
+  {
+   "name": "revoke_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "rename_again_id",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "alice_laptop_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/credential/key_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/credential/public_key",
+     "value": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    {
+     "pointer": "/established_by",
+     "value": "local_creation"
+    }
+   ]
+  },
+  {
+   "name": "alice_laptop_binding",
+   "from": "alice_laptop_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:first_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:first_binding_at"
+    }
+   ]
+  },
+  {
+   "name": "bind_alice_laptop",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_first_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.add"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#alice_laptop_key"
+    }
+   ]
+  },
+  {
+   "name": "lock_profile_change",
+   "from": "c02/lock.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/expected_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/change/transition",
+     "value": "lock"
+    }
+   ]
+  },
+  {
+   "name": "lock_profile_state",
+   "from": "c02/locked_state.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/state/is",
+     "value": "locked"
+    },
+    {
+     "pointer": "/state/because",
+     "value": "lock"
+    },
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:lock_profile_at"
+    }
+   ]
+  },
+  {
+   "name": "lock_profile_request",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@lock_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.transition"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#lock_profile_change"
+    }
+   ]
+  },
+  {
+   "name": "unlock_at_terminal_change",
+   "from": "c02/unlock_at_a_terminal.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/expected_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/change/transition",
+     "value": "unlock"
+    },
+    {
+     "pointer": "/change/method",
+     "value": "device_key_at_terminal"
+    }
+   ]
+  },
+  {
+   "name": "unlock_at_terminal_state",
+   "from": "c02/locked_state.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/state/is",
+     "value": "active"
+    },
+    {
+     "pointer": "/state/because",
+     "value": "unlock"
+    },
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:unlock_at_terminal_at"
+    }
+   ]
+  },
+  {
+   "name": "unlock_at_terminal_request",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@unlock_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.transition"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#unlock_at_terminal_change"
+    }
+   ]
+  },
+  {
+   "name": "laptop_label",
+   "from": "c02/label_for_a_rename.json",
+   "set": [
+    {
+     "pointer": "/display_name",
+     "value": "Laptop"
+    }
+   ]
+  },
+  {
+   "name": "named_profile",
+   "from": "c02/profile_after_a_rename.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/display_name",
+     "value": "Laptop"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:profile_created"
+    }
+   ]
+  },
+  {
+   "name": "rename_request",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@rename_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.profile.rename"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#laptop_label"
+    }
+   ]
+  },
+  {
+   "name": "rotated_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/credential/key_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/credential/public_key",
+     "value": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHk9Ws3cV7bNm2QxP4rTy8uLe1oA6dGfJ5hZi0KsWq3E"
+    },
+    {
+     "pointer": "/established_by",
+     "value": "enrollment"
+    }
+   ]
+  },
+  {
+   "name": "rotation_proof",
+   "from": "bindings/signature_over_a_manifest.json",
+   "set": [
+    {
+     "pointer": "/namespace",
+     "value": "agent-bios/principal_binding"
+    },
+    {
+     "pointer": "/signed_digest",
+     "value": "#rotated_key"
+    },
+    {
+     "pointer": "/signer_binding_id",
+     "value": "$bnd:first_binding"
+    }
+   ]
+  },
+  {
+   "name": "rotated_binding",
+   "from": "rotated_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:second_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:second_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "bind_rotated_request",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_rotated_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.add"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#rotated_key"
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#rotation_proof"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "revoke_request",
+   "from": "c02/lock_request.json",
+   "drop": [
+    "/payload_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@revoke_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.revoke"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$bnd:first_binding"
+    }
+   ]
+  },
+  {
+   "name": "work_label",
+   "from": "c02/label_for_a_rename.json",
+   "set": [
+    {
+     "pointer": "/display_name",
+     "value": "Work laptop"
+    }
+   ]
+  },
+  {
+   "name": "renamed_profile",
+   "from": "named_profile",
+   "set": [
+    {
+     "pointer": "/display_name",
+     "value": "Work laptop"
+    }
+   ]
+  },
+  {
+   "name": "rename_again_request",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@rename_again_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.profile.rename"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#work_label"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_first_key",
+   "request": "bind_alice_laptop",
+   "carries": [
+    "alice_laptop_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "alice_laptop_binding"
+    ]
+   }
+  },
+  {
+   "name": "lock_profile",
+   "request": "lock_profile_request",
+   "carries": [
+    "lock_profile_change"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "lock_profile_state"
+    ]
+   }
+  },
+  {
+   "name": "unlock_at_terminal",
+   "request": "unlock_at_terminal_request",
+   "carries": [
+    "unlock_at_terminal_change"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "unlock_at_terminal_state"
+    ]
+   }
+  },
+  {
+   "name": "name_profile",
+   "request": "rename_request",
+   "carries": [
+    "laptop_label"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "named_profile"
+    ]
+   }
+  },
+  {
+   "name": "bind_second_key",
+   "request": "bind_rotated_request",
+   "carries": [
+    "rotated_key",
+    "rotation_proof"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "rotated_binding"
+    ]
+   }
+  },
+  {
+   "name": "revoke_first_key",
+   "request": "revoke_request",
+   "carries": [],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": []
+   }
+  },
+  {
+   "name": "rename_after_rotation",
+   "request": "rename_again_request",
+   "carries": [
+    "work_label"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "renamed_profile"
+    ]
+   }
+  }
+ ]
+}

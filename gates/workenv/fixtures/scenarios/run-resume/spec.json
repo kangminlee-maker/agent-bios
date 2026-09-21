@@ -1,0 +1,24 @@
+{
+  "case": "RUN-RESUME",
+  "says": "The runner is given P02 with one change to its own file and is stopped at a fault point, then run again with the same invocation. Positive: without a fault the change is applied once and P02 recorded passed; after a stop with the attempt only in flight, the restart reconciles that attempt by its id and dispatches P02 under no other; after a stop with P02's result written but not integrated, the restart reports result_not_integrated, integrates it once under the same attempt, keeps its evidence and records P02 passed; after a stop with the change integrated but not recorded, it reports changes_in_tree and keeps the evidence. Negative: in none of these may the restart start a second attempt of P02, apply the change a second time, or drop the stopped attempt's evidence.",
+  "ids": [],
+  "records": [],
+  "steps": [
+    {
+      "name": "uninterrupted",
+      "runner": "uninterrupted"
+    },
+    {
+      "name": "stopped_after_in_flight",
+      "runner": "stopped_after_in_flight"
+    },
+    {
+      "name": "stopped_after_result",
+      "runner": "stopped_after_result"
+    },
+    {
+      "name": "stopped_after_integration",
+      "runner": "stopped_after_integration"
+    }
+  ]
+}

@@ -1,0 +1,4023 @@
+{
+ "case": "DH-PENDING",
+ "says": "Two concerns are in conflict for this person: the test runner (the repository says pytest, their own decisions say unittest) and the journal mode (WAL against a rollback journal). In an attended Claude Code conversation whose ordinary-message route is qualified by a real probe, they were asked about the test runner, chose pytest and kept it until the choices change: the owner recorded the verified answer, admitted the use and recorded the keep preference over both runner records. The journal use then arises in a headless Codex CLI run, whose real probe declined with nobody present. The owner seals the journal question and stores it pending before asking; the process is killed after that commit and restarted, and the same request returns the same pending question. Asking through the headless run is recorded with no channel and answer_origin_unverified; ten minutes later its reply is a timeout, which the owner records as a timed_out non-answer, and resuming with it is refused with answer_not_from_a_person, so no default and no first option is chosen. Preparing the same use again finds the same question version and use rather than minting another; an attempt under a question id nobody sealed is recorded as retry_under_a_new_id_refused; routing the question to the agent-bios management screen is recorded as management_detour_refused. Meanwhile an independent use of the test-runner concern is admitted on the kept preference without a new question. When the person reconnects in a new Claude Code conversation, the same question version is asked there, they choose WAL, the owner records a verified answer, and resuming admits the original journal use under its existing identity.",
+ "ids": [
+  {
+   "name": "alice",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "alice_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "repo",
+   "prefix": "rep"
+  },
+  {
+   "name": "repo_decisions",
+   "prefix": "src"
+  },
+  {
+   "name": "my_decisions",
+   "prefix": "src"
+  },
+  {
+   "name": "bind_key_id",
+   "prefix": "req"
+  },
+  {
+   "name": "runner_concern",
+   "prefix": "cnc"
+  },
+  {
+   "name": "publish_runner_repo_choice_id",
+   "prefix": "req"
+  },
+  {
+   "name": "publish_runner_personal_choice_id",
+   "prefix": "req"
+  },
+  {
+   "name": "journal_concern",
+   "prefix": "cnc"
+  },
+  {
+   "name": "publish_journal_repo_choice_id",
+   "prefix": "req"
+  },
+  {
+   "name": "publish_journal_personal_choice_id",
+   "prefix": "req"
+  },
+  {
+   "name": "open_chat_id",
+   "prefix": "req"
+  },
+  {
+   "name": "probe_message_probe_id",
+   "prefix": "req"
+  },
+  {
+   "name": "prepare_runner_id",
+   "prefix": "req"
+  },
+  {
+   "name": "ask_runner_attempt_id",
+   "prefix": "req"
+  },
+  {
+   "name": "record_runner_reply_id",
+   "prefix": "req"
+  },
+  {
+   "name": "resume_runner_id",
+   "prefix": "req"
+  },
+  {
+   "name": "runner_unit",
+   "prefix": "unt"
+  },
+  {
+   "name": "record_runner_preference_id",
+   "prefix": "req"
+  },
+  {
+   "name": "open_headless_id",
+   "prefix": "req"
+  },
+  {
+   "name": "probe_headless_probe_id",
+   "prefix": "req"
+  },
+  {
+   "name": "prepare_journal_id",
+   "prefix": "req"
+  },
+  {
+   "name": "ask_headless_attempt_id",
+   "prefix": "req"
+  },
+  {
+   "name": "record_timeout_reply_id",
+   "prefix": "req"
+  },
+  {
+   "name": "resume_with_timeout_id",
+   "prefix": "req"
+  },
+  {
+   "name": "prepare_journal_again_id",
+   "prefix": "req"
+  },
+  {
+   "name": "unsealed_question",
+   "prefix": "qst"
+  },
+  {
+   "name": "ask_renamed_attempt_id",
+   "prefix": "req"
+  },
+  {
+   "name": "open_studio_id",
+   "prefix": "req"
+  },
+  {
+   "name": "ask_studio_attempt_id",
+   "prefix": "req"
+  },
+  {
+   "name": "prepare_runner_again_id",
+   "prefix": "req"
+  },
+  {
+   "name": "open_reconnected_id",
+   "prefix": "req"
+  },
+  {
+   "name": "ask_reconnected_attempt_id",
+   "prefix": "req"
+  },
+  {
+   "name": "record_journal_reply_id",
+   "prefix": "req"
+  },
+  {
+   "name": "resume_journal_id",
+   "prefix": "req"
+  },
+  {
+   "name": "journal_unit",
+   "prefix": "unt"
+  }
+ ],
+ "records": [
+  {
+   "name": "device_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "bind_key",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_key_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.add"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#device_key"
+    }
+   ]
+  },
+  {
+   "name": "stored_device_key",
+   "from": "device_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:device_key_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:key_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "runner_repo_choice",
+   "from": "c05/choice_as_submitted.json",
+   "drop": [
+    "/basis"
+   ],
+   "set": [
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/workstream_ids",
+     "value": []
+    },
+    {
+     "pointer": "/question",
+     "value": "Which test runner does this repository use?"
+    },
+    {
+     "pointer": "/choice",
+     "value": "pytest, run through the repository's make target."
+    }
+   ]
+  },
+  {
+   "name": "publish_runner_repo_choice",
+   "from": "c05/memory_use_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@publish_runner_repo_choice_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.record.publish"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_decisions"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#runner_repo_choice"
+    },
+    {
+     "pointer": "/work_scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/work_scope/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "stored_runner_repo_choice",
+   "from": "runner_repo_choice",
+   "set": [
+    {
+     "pointer": "/record_id",
+     "value": "$rec:runner_repo_choice"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:runner_repo_choice_recorded_at"
+    }
+   ]
+  },
+  {
+   "name": "runner_personal_choice",
+   "from": "runner_repo_choice",
+   "drop": [
+    "/home/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/home/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/home/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/choice",
+     "value": "unittest, run directly with python -m unittest."
+    },
+    {
+     "pointer": "/alternatives/0/choice",
+     "value": "pytest, run through the repository's make target."
+    },
+    {
+     "pointer": "/alternatives/0/reason",
+     "value": "It does not work where this person works."
+    },
+    {
+     "pointer": "/reason",
+     "value": "This person's sandbox has no make."
+    },
+    {
+     "pointer": "/context",
+     "value": "Recorded for this person's own working setup."
+    },
+    {
+     "pointer": "/expected_consequences",
+     "value": "Runs differ from the repository's default."
+    },
+    {
+     "pointer": "/revisit_condition",
+     "value": "The working setup changes."
+    }
+   ]
+  },
+  {
+   "name": "publish_runner_personal_choice",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@publish_runner_personal_choice_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.record.publish"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@my_decisions"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#runner_personal_choice"
+    }
+   ]
+  },
+  {
+   "name": "stored_runner_personal_choice",
+   "from": "runner_personal_choice",
+   "set": [
+    {
+     "pointer": "/record_id",
+     "value": "$rec:runner_personal_choice"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:runner_personal_choice_recorded_at"
+    }
+   ]
+  },
+  {
+   "name": "journal_repo_choice",
+   "from": "c05/choice_as_submitted.json",
+   "drop": [
+    "/basis"
+   ],
+   "set": [
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/workstream_ids",
+     "value": []
+    },
+    {
+     "pointer": "/question",
+     "value": "Which journal mode applies here?"
+    },
+    {
+     "pointer": "/choice",
+     "value": "WAL, with synchronous FULL."
+    }
+   ]
+  },
+  {
+   "name": "publish_journal_repo_choice",
+   "from": "c05/memory_use_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@publish_journal_repo_choice_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.record.publish"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_decisions"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:runner_repo_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#journal_repo_choice"
+    },
+    {
+     "pointer": "/work_scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/work_scope/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "stored_journal_repo_choice",
+   "from": "journal_repo_choice",
+   "set": [
+    {
+     "pointer": "/record_id",
+     "value": "$rec:journal_repo_choice"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:journal_repo_choice_recorded_at"
+    }
+   ]
+  },
+  {
+   "name": "journal_personal_choice",
+   "from": "journal_repo_choice",
+   "drop": [
+    "/home/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/home/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/home/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/choice",
+     "value": "A rollback journal with synchronous EXTRA."
+    },
+    {
+     "pointer": "/alternatives/0/choice",
+     "value": "WAL, with synchronous FULL."
+    },
+    {
+     "pointer": "/alternatives/0/reason",
+     "value": "It does not work where this person works."
+    },
+    {
+     "pointer": "/reason",
+     "value": "The work directory sits on a network volume."
+    },
+    {
+     "pointer": "/context",
+     "value": "Recorded for this person's own working setup."
+    },
+    {
+     "pointer": "/expected_consequences",
+     "value": "Runs differ from the repository's default."
+    },
+    {
+     "pointer": "/revisit_condition",
+     "value": "The working setup changes."
+    }
+   ]
+  },
+  {
+   "name": "publish_journal_personal_choice",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@publish_journal_personal_choice_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.record.publish"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@my_decisions"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:runner_my_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#journal_personal_choice"
+    }
+   ]
+  },
+  {
+   "name": "stored_journal_personal_choice",
+   "from": "journal_personal_choice",
+   "set": [
+    {
+     "pointer": "/record_id",
+     "value": "$rec:journal_personal_choice"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:journal_personal_choice_recorded_at"
+    }
+   ]
+  },
+  {
+   "name": "chat_link",
+   "from": "c11/link_as_submitted.json",
+   "drop": [
+    "/rights_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/host/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/host/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/destination/destination_kind",
+     "value": "conversation"
+    },
+    {
+     "pointer": "/destination/destination_digest",
+     "value": "df52341b0001922b045d89c33f28412fba55ecf56259939b0b0ae8b30635f4e5"
+    },
+    {
+     "pointer": "/work_scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/isolation",
+     "value": "proven_fresh"
+    }
+   ]
+  },
+  {
+   "name": "open_chat",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@open_chat_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.link.open"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#chat_link"
+    }
+   ]
+  },
+  {
+   "name": "stored_chat_link",
+   "from": "chat_link",
+   "set": [
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:chat_link"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:chat_linked_at"
+    }
+   ]
+  },
+  {
+   "name": "message_probe_submitted",
+   "from": "c12/probe_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/capability",
+     "value": "user_event"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/wire/protocol",
+     "value": "model_context_protocol"
+    },
+    {
+     "pointer": "/wire/version",
+     "value": "2025-11-25"
+    }
+   ]
+  },
+  {
+   "name": "probe_message_probe",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@probe_message_probe_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "capability.probe"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#message_probe_submitted"
+    }
+   ]
+  },
+  {
+   "name": "message_probe",
+   "from": "c12/a_probe_that_worked.json",
+   "set": [
+    {
+     "pointer": "/capability",
+     "value": "user_event"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/wire/protocol",
+     "value": "model_context_protocol"
+    },
+    {
+     "pointer": "/wire/version",
+     "value": "2025-11-25"
+    },
+    {
+     "pointer": "/offered",
+     "value": true
+    },
+    {
+     "pointer": "/outcome",
+     "value": "worked"
+    },
+    {
+     "pointer": "/observed",
+     "value": "With hooks disabled, a message the person typed in the conversation produced the host's user-prompt event; an assistant turn, a tool result and a scripted session produced none."
+    },
+    {
+     "pointer": "/probe_id",
+     "value": "$prb:message_probe"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:message_probe_at"
+    }
+   ]
+  },
+  {
+   "name": "claude_profile",
+   "from": "c12/four_capabilities_qualified_one_at_a_time.json",
+   "drop": [
+    "/capabilities/3",
+    "/capabilities/2",
+    "/capabilities/0/state/probe_digest",
+    "/capabilities/1/state/because"
+   ],
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "$cap:claude_profile"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:message_probe_at"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/wire/protocol",
+     "value": "model_context_protocol"
+    },
+    {
+     "pointer": "/wire/version",
+     "value": "2025-11-25"
+    },
+    {
+     "pointer": "/capabilities/0/capability",
+     "value": "question"
+    },
+    {
+     "pointer": "/capabilities/0/state/qualified",
+     "value": "no"
+    },
+    {
+     "pointer": "/capabilities/0/state/because",
+     "value": "offered_but_unproven"
+    },
+    {
+     "pointer": "/capabilities/1/capability",
+     "value": "user_event"
+    },
+    {
+     "pointer": "/capabilities/1/state/qualified",
+     "value": "yes"
+    },
+    {
+     "pointer": "/capabilities/1/state/probe_digest",
+     "value": "#message_probe"
+    }
+   ]
+  },
+  {
+   "name": "runner_envelope",
+   "from": "c06/envelope_asking_about_a_concern.json",
+   "set": [
+    {
+     "pointer": "/work_scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/required/0/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/required/0/source_id",
+     "value": "@repo_decisions"
+    },
+    {
+     "pointer": "/required/1/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/required/1/source_id",
+     "value": "@my_decisions"
+    },
+    {
+     "pointer": "/role_view/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/role_view/view",
+     "value": "consumer"
+    },
+    {
+     "pointer": "/selector/concern/question",
+     "value": "Which test runner does this repository use?"
+    }
+   ]
+  },
+  {
+   "name": "prepare_runner",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@prepare_runner_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.use.prepare"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@runner_concern"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#runner_envelope"
+    }
+   ]
+  },
+  {
+   "name": "runner_basis",
+   "from": "c05/basis_of_two_applicable_choices.json",
+   "drop": [
+    "/scopes/1/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/concern/question",
+     "value": "Which test runner does this repository use?"
+    },
+    {
+     "pointer": "/participants/0/record_id",
+     "value": "$rec:runner_repo_choice"
+    },
+    {
+     "pointer": "/participants/0/source_id",
+     "value": "@repo_decisions"
+    },
+    {
+     "pointer": "/participants/0/revision_digest",
+     "value": "$digest:runner_repo_head"
+    },
+    {
+     "pointer": "/participants/1/record_id",
+     "value": "$rec:runner_personal_choice"
+    },
+    {
+     "pointer": "/participants/1/source_id",
+     "value": "@my_decisions"
+    },
+    {
+     "pointer": "/participants/1/revision_digest",
+     "value": "$digest:runner_my_head"
+    },
+    {
+     "pointer": "/participants/1/lifecycle",
+     "value": "accepted"
+    },
+    {
+     "pointer": "/scopes/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/scopes/1/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/scopes/1/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/generation",
+     "value": 1
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:runner_basis_prepared_at"
+    }
+   ]
+  },
+  {
+   "name": "runner_question",
+   "from": "c06/question_sealed_against_its_basis.json",
+   "drop": [
+    "/alternatives/1/scope/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/question_id",
+     "value": "$qst:runner_question"
+    },
+    {
+     "pointer": "/question_version",
+     "value": 1
+    },
+    {
+     "pointer": "/use_id",
+     "value": "$use:runner_use"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/concern/question",
+     "value": "Which test runner does this repository use?"
+    },
+    {
+     "pointer": "/alternatives/0/record_id",
+     "value": "$rec:runner_repo_choice"
+    },
+    {
+     "pointer": "/alternatives/0/source_id",
+     "value": "@repo_decisions"
+    },
+    {
+     "pointer": "/alternatives/0/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/alternatives/0/summary",
+     "value": "pytest, run through the repository's make target."
+    },
+    {
+     "pointer": "/alternatives/1/record_id",
+     "value": "$rec:runner_personal_choice"
+    },
+    {
+     "pointer": "/alternatives/1/source_id",
+     "value": "@my_decisions"
+    },
+    {
+     "pointer": "/alternatives/1/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/alternatives/1/scope/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/alternatives/1/summary",
+     "value": "unittest, run directly with python -m unittest."
+    },
+    {
+     "pointer": "/basis_digest",
+     "value": "#runner_basis"
+    },
+    {
+     "pointer": "/asked_through/route",
+     "value": "conversation"
+    },
+    {
+     "pointer": "/asked_through/host",
+     "value": "claude-code 2.1.278"
+    },
+    {
+     "pointer": "/asked_through/qualified",
+     "value": true
+    },
+    {
+     "pointer": "/standing",
+     "value": "pending"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:runner_question_sealed_at"
+    }
+   ]
+  },
+  {
+   "name": "runner_waiting",
+   "from": "c06/result_waiting_on_the_person.json",
+   "set": [
+    {
+     "pointer": "/envelope_digest",
+     "value": "#runner_envelope"
+    },
+    {
+     "pointer": "/outcome/frontiers/0/source_id",
+     "value": "@repo_decisions"
+    },
+    {
+     "pointer": "/outcome/frontiers/0/checkpoint_digest",
+     "value": "$digest:journal_repo_head"
+    },
+    {
+     "pointer": "/outcome/frontiers/1/source_id",
+     "value": "@my_decisions"
+    },
+    {
+     "pointer": "/outcome/frontiers/1/checkpoint_digest",
+     "value": "$digest:journal_my_head"
+    },
+    {
+     "pointer": "/outcome/consumed/examined",
+     "value": 2
+    },
+    {
+     "pointer": "/outcome/use/use_id",
+     "value": "$use:runner_use"
+    },
+    {
+     "pointer": "/outcome/use/question_id",
+     "value": "$qst:runner_question"
+    },
+    {
+     "pointer": "/outcome/use/question_version",
+     "value": 1
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:runner_waiting_at"
+    }
+   ]
+  },
+  {
+   "name": "runner_attempt_submitted",
+   "from": "c11/attempt_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/use_id",
+     "value": "$use:runner_use"
+    },
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:chat_link"
+    },
+    {
+     "pointer": "/requested/question_id",
+     "value": "$qst:runner_question"
+    },
+    {
+     "pointer": "/requested/question_version",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "name": "ask_runner_attempt",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@ask_runner_attempt_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.delivery.attempt"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#runner_attempt_submitted"
+    }
+   ]
+  },
+  {
+   "name": "runner_attempt",
+   "from": "runner_attempt_submitted",
+   "set": [
+    {
+     "pointer": "/supported",
+     "value": true
+    },
+    {
+     "pointer": "/observed/saw",
+     "value": "still_waiting"
+    },
+    {
+     "pointer": "/material_gaps",
+     "value": []
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:runner_attempt_at"
+    }
+   ]
+  },
+  {
+   "name": "runner_reply",
+   "from": "c11/host_reply_with_a_choice.json",
+   "set": [
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:chat_link"
+    },
+    {
+     "pointer": "/use_id",
+     "value": "$use:runner_use"
+    },
+    {
+     "pointer": "/question_id",
+     "value": "$qst:runner_question"
+    },
+    {
+     "pointer": "/question_version",
+     "value": 1
+    },
+    {
+     "pointer": "/route",
+     "value": "conversation"
+    },
+    {
+     "pointer": "/reply/answer/selected/record_id",
+     "value": "$rec:runner_repo_choice"
+    },
+    {
+     "pointer": "/reply/answer/mode",
+     "value": "keep_until_change"
+    },
+    {
+     "pointer": "/reply/separation_evidence_digest",
+     "value": "#message_probe"
+    }
+   ]
+  },
+  {
+   "name": "record_runner_reply",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@record_runner_reply_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.answer.record"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#runner_reply"
+    }
+   ]
+  },
+  {
+   "name": "runner_reply_evidence",
+   "from": "c11/an_answer_that_names_what_separated_a_person_from_the_automation.json",
+   "set": [
+    {
+     "pointer": "/evidence_id",
+     "value": "$ans:runner_reply_evidence"
+    },
+    {
+     "pointer": "/host/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/host/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:chat_link"
+    },
+    {
+     "pointer": "/measured_configuration_digest",
+     "value": "$digest:runner_reply_evidence_configuration"
+    },
+    {
+     "pointer": "/observed_at",
+     "value": "$instant:runner_reply_evidence_at"
+    },
+    {
+     "pointer": "/question_id",
+     "value": "$qst:runner_question"
+    },
+    {
+     "pointer": "/question_version",
+     "value": 1
+    },
+    {
+     "pointer": "/route",
+     "value": "conversation"
+    },
+    {
+     "pointer": "/use_id",
+     "value": "$use:runner_use"
+    },
+    {
+     "pointer": "/origin/origin",
+     "value": "verified_native_user_event"
+    },
+    {
+     "pointer": "/origin/separation_evidence_digest",
+     "value": "#message_probe"
+    },
+    {
+     "pointer": "/origin/answer/selected/record_id",
+     "value": "$rec:runner_repo_choice"
+    },
+    {
+     "pointer": "/origin/answer/mode",
+     "value": "keep_until_change"
+    }
+   ]
+  },
+  {
+   "name": "resume_runner_submitted",
+   "from": "c06/resume_with_the_answer_named_by_digest.json",
+   "set": [
+    {
+     "pointer": "/use_id",
+     "value": "$use:runner_use"
+    },
+    {
+     "pointer": "/question_id",
+     "value": "$qst:runner_question"
+    },
+    {
+     "pointer": "/question_version",
+     "value": 1
+    },
+    {
+     "pointer": "/answer_evidence_digest",
+     "value": "#runner_reply_evidence"
+    }
+   ]
+  },
+  {
+   "name": "resume_runner",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@resume_runner_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "reader.use.resume"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@runner_concern"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#resume_runner_submitted"
+    }
+   ]
+  },
+  {
+   "name": "resume_runner_result_admitted",
+   "from": "c06/result_admitting_the_use.json",
+   "drop": [
+    "/outcome/units/1"
+   ],
+   "set": [
+    {
+     "pointer": "/envelope_digest",
+     "value": "#runner_envelope"
+    },
+    {
+     "pointer": "/outcome/frontiers/0/source_id",
+     "value": "@repo_decisions"
+    },
+    {
+     "pointer": "/outcome/frontiers/0/checkpoint_digest",
+     "value": "$digest:journal_repo_head"
+    },
+    {
+     "pointer": "/outcome/frontiers/1/source_id",
+     "value": "@my_decisions"
+    },
+    {
+     "pointer": "/outcome/frontiers/1/checkpoint_digest",
+     "value": "$digest:journal_my_head"
+    },
+    {
+     "pointer": "/outcome/units/0/unit_id",
+     "value": "@runner_unit"
+    },
+    {
+     "pointer": "/outcome/units/0/source_id",
+     "value": "@repo_decisions"
+    },
+    {
+     "pointer": "/outcome/units/0/revision_digest",
+     "value": "$digest:runner_repo_head"
+    },
+    {
+     "pointer": "/outcome/units/0/body_digest",
+     "value": "#stored_runner_repo_choice"
+    },
+    {
+     "pointer": "/outcome/units/0/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/outcome/units/0/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/outcome/consumed/units",
+     "value": 1
+    },
+    {
+     "pointer": "/outcome/use/use_id",
+     "value": "$use:runner_use"
+    },
+    {
+     "pointer": "/outcome/use/state_digest",
+     "value": "$digest:resume_runner_result_admitted_state"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:resume_runner_result_admitted_at"
+    }
+   ]
+  },
+  {
+   "name": "record_runner_preference",
+   "from": "c05/memory_use_request.json",
+   "drop": [
+    "/payload_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@record_runner_preference_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.preference.record"
+    },
+    {
+     "pointer": "/action",
+     "value": "decide"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@runner_concern"
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#runner_reply_evidence"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "runner_preference",
+   "from": "c05/kept_until_the_choices_change.json",
+   "drop": [
+    "/scopes/1/team_id",
+    "/concern/conditions"
+   ],
+   "set": [
+    {
+     "pointer": "/answer_evidence_digest",
+     "value": "#runner_reply_evidence"
+    },
+    {
+     "pointer": "/concern/question",
+     "value": "Which test runner does this repository use?"
+    },
+    {
+     "pointer": "/lineage_digest",
+     "value": "$digest:runner_lineage"
+    },
+    {
+     "pointer": "/preference_id",
+     "value": "$pre:runner_preference"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/scopes/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/scopes/1/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/scopes/1/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/standing/participants/0/record_id",
+     "value": "$rec:runner_repo_choice"
+    },
+    {
+     "pointer": "/standing/participants/0/source_id",
+     "value": "@repo_decisions"
+    },
+    {
+     "pointer": "/standing/participants/0/revision_digest",
+     "value": "$digest:runner_repo_head"
+    },
+    {
+     "pointer": "/standing/participants/1/record_id",
+     "value": "$rec:runner_personal_choice"
+    },
+    {
+     "pointer": "/standing/participants/1/source_id",
+     "value": "@my_decisions"
+    },
+    {
+     "pointer": "/standing/participants/1/revision_digest",
+     "value": "$digest:runner_my_head"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:runner_preference_at"
+    }
+   ]
+  },
+  {
+   "name": "headless_link",
+   "from": "c11/link_as_submitted.json",
+   "drop": [
+    "/rights_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/host/name",
+     "value": "codex-cli"
+    },
+    {
+     "pointer": "/host/version",
+     "value": "0.155.1"
+    },
+    {
+     "pointer": "/destination/destination_kind",
+     "value": "conversation"
+    },
+    {
+     "pointer": "/destination/destination_digest",
+     "value": "df52341b0001922b045d89c33f28412fba55ecf56259939b0b0ae8b30635f4e5"
+    },
+    {
+     "pointer": "/work_scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/isolation",
+     "value": "proven_fresh"
+    }
+   ]
+  },
+  {
+   "name": "open_headless",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@open_headless_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.link.open"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#headless_link"
+    }
+   ]
+  },
+  {
+   "name": "stored_headless_link",
+   "from": "headless_link",
+   "set": [
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:headless_link"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:headless_linked_at"
+    }
+   ]
+  },
+  {
+   "name": "headless_probe_submitted",
+   "from": "c12/probe_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/capability",
+     "value": "question"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "codex-cli"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.155.1"
+    },
+    {
+     "pointer": "/wire/protocol",
+     "value": "model_context_protocol"
+    },
+    {
+     "pointer": "/wire/version",
+     "value": "2025-06-18"
+    }
+   ]
+  },
+  {
+   "name": "probe_headless_probe",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@probe_headless_probe_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "capability.probe"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#headless_probe_submitted"
+    }
+   ]
+  },
+  {
+   "name": "headless_probe",
+   "from": "c12/a_probe_that_worked.json",
+   "set": [
+    {
+     "pointer": "/capability",
+     "value": "question"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "codex-cli"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.155.1"
+    },
+    {
+     "pointer": "/wire/protocol",
+     "value": "model_context_protocol"
+    },
+    {
+     "pointer": "/wire/version",
+     "value": "2025-06-18"
+    },
+    {
+     "pointer": "/offered",
+     "value": true
+    },
+    {
+     "pointer": "/outcome",
+     "value": "refused"
+    },
+    {
+     "pointer": "/observed",
+     "value": "Codex declared form elicitation and declined within 2 ms with nobody present."
+    },
+    {
+     "pointer": "/probe_id",
+     "value": "$prb:headless_probe"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:headless_probe_at"
+    }
+   ]
+  },
+  {
+   "name": "codex_profile",
+   "from": "c12/four_capabilities_qualified_one_at_a_time.json",
+   "drop": [
+    "/capabilities/3",
+    "/capabilities/2",
+    "/capabilities/0/state/probe_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "$cap:codex_profile"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:headless_probe_at"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "codex-cli"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.155.1"
+    },
+    {
+     "pointer": "/wire/protocol",
+     "value": "model_context_protocol"
+    },
+    {
+     "pointer": "/wire/version",
+     "value": "2025-06-18"
+    },
+    {
+     "pointer": "/capabilities/0/capability",
+     "value": "question"
+    },
+    {
+     "pointer": "/capabilities/0/state/qualified",
+     "value": "no"
+    },
+    {
+     "pointer": "/capabilities/0/state/because",
+     "value": "probe_failed"
+    },
+    {
+     "pointer": "/capabilities/1/capability",
+     "value": "user_event"
+    },
+    {
+     "pointer": "/capabilities/1/state/qualified",
+     "value": "no"
+    },
+    {
+     "pointer": "/capabilities/1/state/because",
+     "value": "not_offered"
+    }
+   ]
+  },
+  {
+   "name": "journal_envelope",
+   "from": "c06/envelope_asking_about_a_concern.json",
+   "set": [
+    {
+     "pointer": "/work_scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/required/0/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/required/0/source_id",
+     "value": "@repo_decisions"
+    },
+    {
+     "pointer": "/required/1/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/required/1/source_id",
+     "value": "@my_decisions"
+    },
+    {
+     "pointer": "/role_view/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/role_view/view",
+     "value": "consumer"
+    },
+    {
+     "pointer": "/selector/concern/question",
+     "value": "Which journal mode applies here?"
+    }
+   ]
+  },
+  {
+   "name": "prepare_journal",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@prepare_journal_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.use.prepare"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@journal_concern"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#journal_envelope"
+    }
+   ]
+  },
+  {
+   "name": "journal_basis",
+   "from": "c05/basis_of_two_applicable_choices.json",
+   "drop": [
+    "/scopes/1/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/concern/question",
+     "value": "Which journal mode applies here?"
+    },
+    {
+     "pointer": "/participants/0/record_id",
+     "value": "$rec:journal_repo_choice"
+    },
+    {
+     "pointer": "/participants/0/source_id",
+     "value": "@repo_decisions"
+    },
+    {
+     "pointer": "/participants/0/revision_digest",
+     "value": "$digest:journal_repo_head"
+    },
+    {
+     "pointer": "/participants/1/record_id",
+     "value": "$rec:journal_personal_choice"
+    },
+    {
+     "pointer": "/participants/1/source_id",
+     "value": "@my_decisions"
+    },
+    {
+     "pointer": "/participants/1/revision_digest",
+     "value": "$digest:journal_my_head"
+    },
+    {
+     "pointer": "/participants/1/lifecycle",
+     "value": "accepted"
+    },
+    {
+     "pointer": "/scopes/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/scopes/1/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/scopes/1/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/generation",
+     "value": 1
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:journal_basis_prepared_at"
+    }
+   ]
+  },
+  {
+   "name": "journal_question",
+   "from": "c06/question_sealed_against_its_basis.json",
+   "drop": [
+    "/alternatives/1/scope/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/question_id",
+     "value": "$qst:journal_question"
+    },
+    {
+     "pointer": "/question_version",
+     "value": 1
+    },
+    {
+     "pointer": "/use_id",
+     "value": "$use:journal_use"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/concern/question",
+     "value": "Which journal mode applies here?"
+    },
+    {
+     "pointer": "/alternatives/0/record_id",
+     "value": "$rec:journal_repo_choice"
+    },
+    {
+     "pointer": "/alternatives/0/source_id",
+     "value": "@repo_decisions"
+    },
+    {
+     "pointer": "/alternatives/0/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/alternatives/0/summary",
+     "value": "WAL, with synchronous FULL."
+    },
+    {
+     "pointer": "/alternatives/1/record_id",
+     "value": "$rec:journal_personal_choice"
+    },
+    {
+     "pointer": "/alternatives/1/source_id",
+     "value": "@my_decisions"
+    },
+    {
+     "pointer": "/alternatives/1/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/alternatives/1/scope/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/alternatives/1/summary",
+     "value": "A rollback journal with synchronous EXTRA."
+    },
+    {
+     "pointer": "/basis_digest",
+     "value": "#journal_basis"
+    },
+    {
+     "pointer": "/asked_through/route",
+     "value": "conversation"
+    },
+    {
+     "pointer": "/asked_through/host",
+     "value": "codex-cli 0.155.1"
+    },
+    {
+     "pointer": "/asked_through/qualified",
+     "value": false
+    },
+    {
+     "pointer": "/standing",
+     "value": "pending"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:journal_question_sealed_at"
+    }
+   ]
+  },
+  {
+   "name": "journal_waiting",
+   "from": "c06/result_waiting_on_the_person.json",
+   "set": [
+    {
+     "pointer": "/envelope_digest",
+     "value": "#journal_envelope"
+    },
+    {
+     "pointer": "/outcome/frontiers/0/source_id",
+     "value": "@repo_decisions"
+    },
+    {
+     "pointer": "/outcome/frontiers/0/checkpoint_digest",
+     "value": "$digest:journal_repo_head"
+    },
+    {
+     "pointer": "/outcome/frontiers/1/source_id",
+     "value": "@my_decisions"
+    },
+    {
+     "pointer": "/outcome/frontiers/1/checkpoint_digest",
+     "value": "$digest:journal_my_head"
+    },
+    {
+     "pointer": "/outcome/consumed/examined",
+     "value": 2
+    },
+    {
+     "pointer": "/outcome/use/use_id",
+     "value": "$use:journal_use"
+    },
+    {
+     "pointer": "/outcome/use/question_id",
+     "value": "$qst:journal_question"
+    },
+    {
+     "pointer": "/outcome/use/question_version",
+     "value": 1
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:journal_waiting_at"
+    }
+   ]
+  },
+  {
+   "name": "headless_attempt_submitted",
+   "from": "c11/attempt_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/use_id",
+     "value": "$use:journal_use"
+    },
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:headless_link"
+    },
+    {
+     "pointer": "/requested/question_id",
+     "value": "$qst:journal_question"
+    },
+    {
+     "pointer": "/requested/question_version",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "name": "ask_headless_attempt",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@ask_headless_attempt_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.delivery.attempt"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#headless_attempt_submitted"
+    }
+   ]
+  },
+  {
+   "name": "headless_attempt",
+   "from": "headless_attempt_submitted",
+   "set": [
+    {
+     "pointer": "/supported",
+     "value": false
+    },
+    {
+     "pointer": "/observed/saw",
+     "value": "no_channel"
+    },
+    {
+     "pointer": "/material_gaps",
+     "value": []
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:headless_attempt_at"
+    },
+    {
+     "pointer": "/material_gaps/0/code",
+     "value": "answer_origin_unverified"
+    }
+   ]
+  },
+  {
+   "name": "timeout_reply",
+   "from": "c11/host_reply_the_person_cancelled.json",
+   "set": [
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:headless_link"
+    },
+    {
+     "pointer": "/use_id",
+     "value": "$use:journal_use"
+    },
+    {
+     "pointer": "/question_id",
+     "value": "$qst:journal_question"
+    },
+    {
+     "pointer": "/question_version",
+     "value": 1
+    },
+    {
+     "pointer": "/route",
+     "value": "conversation"
+    },
+    {
+     "pointer": "/reply/because",
+     "value": "timed_out"
+    }
+   ]
+  },
+  {
+   "name": "record_timeout_reply",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@record_timeout_reply_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.answer.record"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#timeout_reply"
+    }
+   ]
+  },
+  {
+   "name": "timeout_reply_evidence",
+   "from": "c11/an_answer_that_names_what_separated_a_person_from_the_automation.json",
+   "drop": [
+    "/origin/separation_evidence_digest",
+    "/origin/answer"
+   ],
+   "set": [
+    {
+     "pointer": "/evidence_id",
+     "value": "$ans:timeout_reply_evidence"
+    },
+    {
+     "pointer": "/host/name",
+     "value": "codex-cli"
+    },
+    {
+     "pointer": "/host/version",
+     "value": "0.155.1"
+    },
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:headless_link"
+    },
+    {
+     "pointer": "/measured_configuration_digest",
+     "value": "$digest:timeout_reply_evidence_configuration"
+    },
+    {
+     "pointer": "/observed_at",
+     "value": "$instant:timeout_reply_evidence_at"
+    },
+    {
+     "pointer": "/question_id",
+     "value": "$qst:journal_question"
+    },
+    {
+     "pointer": "/question_version",
+     "value": 1
+    },
+    {
+     "pointer": "/route",
+     "value": "conversation"
+    },
+    {
+     "pointer": "/use_id",
+     "value": "$use:journal_use"
+    },
+    {
+     "pointer": "/origin/origin",
+     "value": "timed_out"
+    }
+   ]
+  },
+  {
+   "name": "resume_with_timeout_submitted",
+   "from": "c06/resume_with_the_answer_named_by_digest.json",
+   "set": [
+    {
+     "pointer": "/use_id",
+     "value": "$use:journal_use"
+    },
+    {
+     "pointer": "/question_id",
+     "value": "$qst:journal_question"
+    },
+    {
+     "pointer": "/question_version",
+     "value": 1
+    },
+    {
+     "pointer": "/answer_evidence_digest",
+     "value": "#timeout_reply_evidence"
+    }
+   ]
+  },
+  {
+   "name": "resume_with_timeout",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@resume_with_timeout_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "reader.use.resume"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@journal_concern"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#resume_with_timeout_submitted"
+    }
+   ]
+  },
+  {
+   "name": "prepare_journal_again",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@prepare_journal_again_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.use.prepare"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@journal_concern"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#journal_envelope"
+    }
+   ]
+  },
+  {
+   "name": "journal_waiting_again",
+   "from": "c06/result_waiting_on_the_person.json",
+   "set": [
+    {
+     "pointer": "/envelope_digest",
+     "value": "#journal_envelope"
+    },
+    {
+     "pointer": "/outcome/frontiers/0/source_id",
+     "value": "@repo_decisions"
+    },
+    {
+     "pointer": "/outcome/frontiers/0/checkpoint_digest",
+     "value": "$digest:journal_repo_head"
+    },
+    {
+     "pointer": "/outcome/frontiers/1/source_id",
+     "value": "@my_decisions"
+    },
+    {
+     "pointer": "/outcome/frontiers/1/checkpoint_digest",
+     "value": "$digest:journal_my_head"
+    },
+    {
+     "pointer": "/outcome/consumed/examined",
+     "value": 2
+    },
+    {
+     "pointer": "/outcome/use/use_id",
+     "value": "$use:journal_use"
+    },
+    {
+     "pointer": "/outcome/use/question_id",
+     "value": "$qst:journal_question"
+    },
+    {
+     "pointer": "/outcome/use/question_version",
+     "value": 1
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:journal_waiting_again_at"
+    }
+   ]
+  },
+  {
+   "name": "renamed_attempt_submitted",
+   "from": "c11/attempt_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/use_id",
+     "value": "$use:journal_use"
+    },
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:headless_link"
+    },
+    {
+     "pointer": "/requested/question_id",
+     "value": "@unsealed_question"
+    },
+    {
+     "pointer": "/requested/question_version",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "name": "ask_renamed_attempt",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@ask_renamed_attempt_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.delivery.attempt"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#renamed_attempt_submitted"
+    }
+   ]
+  },
+  {
+   "name": "renamed_attempt",
+   "from": "renamed_attempt_submitted",
+   "set": [
+    {
+     "pointer": "/supported",
+     "value": true
+    },
+    {
+     "pointer": "/observed/saw",
+     "value": "no_channel"
+    },
+    {
+     "pointer": "/material_gaps",
+     "value": []
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:renamed_attempt_at"
+    },
+    {
+     "pointer": "/material_gaps/0/code",
+     "value": "retry_under_a_new_id_refused"
+    }
+   ]
+  },
+  {
+   "name": "studio_link",
+   "from": "c11/link_as_submitted.json",
+   "drop": [
+    "/rights_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/host/name",
+     "value": "agent-bios"
+    },
+    {
+     "pointer": "/host/version",
+     "value": "0.20.0"
+    },
+    {
+     "pointer": "/destination/destination_kind",
+     "value": "native_form"
+    },
+    {
+     "pointer": "/destination/destination_digest",
+     "value": "593d664cace926d6fe9e0ee7ab89a63418f9d6a9cf087aa14b71fe8baa1a3c73"
+    },
+    {
+     "pointer": "/work_scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/isolation",
+     "value": "proven_fresh"
+    }
+   ]
+  },
+  {
+   "name": "open_studio",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@open_studio_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.link.open"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#studio_link"
+    }
+   ]
+  },
+  {
+   "name": "stored_studio_link",
+   "from": "studio_link",
+   "set": [
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:studio_link"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:studio_linked_at"
+    }
+   ]
+  },
+  {
+   "name": "studio_attempt_submitted",
+   "from": "c11/attempt_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/use_id",
+     "value": "$use:journal_use"
+    },
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:studio_link"
+    },
+    {
+     "pointer": "/requested/question_id",
+     "value": "$qst:journal_question"
+    },
+    {
+     "pointer": "/requested/question_version",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "name": "ask_studio_attempt",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@ask_studio_attempt_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.delivery.attempt"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#studio_attempt_submitted"
+    }
+   ]
+  },
+  {
+   "name": "studio_attempt",
+   "from": "studio_attempt_submitted",
+   "set": [
+    {
+     "pointer": "/supported",
+     "value": true
+    },
+    {
+     "pointer": "/observed/saw",
+     "value": "no_channel"
+    },
+    {
+     "pointer": "/material_gaps",
+     "value": []
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:studio_attempt_at"
+    },
+    {
+     "pointer": "/material_gaps/0/code",
+     "value": "management_detour_refused"
+    }
+   ]
+  },
+  {
+   "name": "prepare_runner_again",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@prepare_runner_again_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.use.prepare"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@runner_concern"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#runner_envelope"
+    }
+   ]
+  },
+  {
+   "name": "runner_kept_result",
+   "from": "c06/result_admitting_the_use.json",
+   "drop": [
+    "/outcome/units/1"
+   ],
+   "set": [
+    {
+     "pointer": "/envelope_digest",
+     "value": "#runner_envelope"
+    },
+    {
+     "pointer": "/outcome/frontiers/0/source_id",
+     "value": "@repo_decisions"
+    },
+    {
+     "pointer": "/outcome/frontiers/0/checkpoint_digest",
+     "value": "$digest:journal_repo_head"
+    },
+    {
+     "pointer": "/outcome/frontiers/1/source_id",
+     "value": "@my_decisions"
+    },
+    {
+     "pointer": "/outcome/frontiers/1/checkpoint_digest",
+     "value": "$digest:journal_my_head"
+    },
+    {
+     "pointer": "/outcome/units/0/unit_id",
+     "value": "@runner_unit"
+    },
+    {
+     "pointer": "/outcome/units/0/source_id",
+     "value": "@repo_decisions"
+    },
+    {
+     "pointer": "/outcome/units/0/revision_digest",
+     "value": "$digest:runner_repo_head"
+    },
+    {
+     "pointer": "/outcome/units/0/body_digest",
+     "value": "#stored_runner_repo_choice"
+    },
+    {
+     "pointer": "/outcome/units/0/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/outcome/units/0/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/outcome/consumed/units",
+     "value": 1
+    },
+    {
+     "pointer": "/outcome/use/use_id",
+     "value": "$use:runner_second_use"
+    },
+    {
+     "pointer": "/outcome/use/state_digest",
+     "value": "$digest:runner_kept_result_state"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:runner_kept_result_at"
+    }
+   ]
+  },
+  {
+   "name": "reconnected_link",
+   "from": "c11/link_as_submitted.json",
+   "drop": [
+    "/rights_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/host/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/host/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/destination/destination_kind",
+     "value": "conversation"
+    },
+    {
+     "pointer": "/destination/destination_digest",
+     "value": "df52341b0001922b045d89c33f28412fba55ecf56259939b0b0ae8b30635f4e5"
+    },
+    {
+     "pointer": "/work_scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/isolation",
+     "value": "proven_fresh"
+    }
+   ]
+  },
+  {
+   "name": "open_reconnected",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@open_reconnected_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.link.open"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#reconnected_link"
+    }
+   ]
+  },
+  {
+   "name": "stored_reconnected_link",
+   "from": "reconnected_link",
+   "set": [
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:reconnected_link"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:reconnected_linked_at"
+    }
+   ]
+  },
+  {
+   "name": "reconnected_attempt_submitted",
+   "from": "c11/attempt_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/use_id",
+     "value": "$use:journal_use"
+    },
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:reconnected_link"
+    },
+    {
+     "pointer": "/requested/question_id",
+     "value": "$qst:journal_question"
+    },
+    {
+     "pointer": "/requested/question_version",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "name": "ask_reconnected_attempt",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@ask_reconnected_attempt_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.delivery.attempt"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#reconnected_attempt_submitted"
+    }
+   ]
+  },
+  {
+   "name": "reconnected_attempt",
+   "from": "reconnected_attempt_submitted",
+   "set": [
+    {
+     "pointer": "/supported",
+     "value": true
+    },
+    {
+     "pointer": "/observed/saw",
+     "value": "still_waiting"
+    },
+    {
+     "pointer": "/material_gaps",
+     "value": []
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:reconnected_attempt_at"
+    }
+   ]
+  },
+  {
+   "name": "journal_reply",
+   "from": "c11/host_reply_with_a_choice.json",
+   "set": [
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:reconnected_link"
+    },
+    {
+     "pointer": "/use_id",
+     "value": "$use:journal_use"
+    },
+    {
+     "pointer": "/question_id",
+     "value": "$qst:journal_question"
+    },
+    {
+     "pointer": "/question_version",
+     "value": 1
+    },
+    {
+     "pointer": "/route",
+     "value": "conversation"
+    },
+    {
+     "pointer": "/reply/answer/selected/record_id",
+     "value": "$rec:journal_repo_choice"
+    },
+    {
+     "pointer": "/reply/answer/mode",
+     "value": "keep_until_change"
+    },
+    {
+     "pointer": "/reply/separation_evidence_digest",
+     "value": "#message_probe"
+    }
+   ]
+  },
+  {
+   "name": "record_journal_reply",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@record_journal_reply_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.answer.record"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#journal_reply"
+    }
+   ]
+  },
+  {
+   "name": "journal_reply_evidence",
+   "from": "c11/an_answer_that_names_what_separated_a_person_from_the_automation.json",
+   "set": [
+    {
+     "pointer": "/evidence_id",
+     "value": "$ans:journal_reply_evidence"
+    },
+    {
+     "pointer": "/host/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/host/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:reconnected_link"
+    },
+    {
+     "pointer": "/measured_configuration_digest",
+     "value": "$digest:journal_reply_evidence_configuration"
+    },
+    {
+     "pointer": "/observed_at",
+     "value": "$instant:journal_reply_evidence_at"
+    },
+    {
+     "pointer": "/question_id",
+     "value": "$qst:journal_question"
+    },
+    {
+     "pointer": "/question_version",
+     "value": 1
+    },
+    {
+     "pointer": "/route",
+     "value": "conversation"
+    },
+    {
+     "pointer": "/use_id",
+     "value": "$use:journal_use"
+    },
+    {
+     "pointer": "/origin/origin",
+     "value": "verified_native_user_event"
+    },
+    {
+     "pointer": "/origin/separation_evidence_digest",
+     "value": "#message_probe"
+    },
+    {
+     "pointer": "/origin/answer/selected/record_id",
+     "value": "$rec:journal_repo_choice"
+    },
+    {
+     "pointer": "/origin/answer/mode",
+     "value": "keep_until_change"
+    }
+   ]
+  },
+  {
+   "name": "resume_journal_submitted",
+   "from": "c06/resume_with_the_answer_named_by_digest.json",
+   "set": [
+    {
+     "pointer": "/use_id",
+     "value": "$use:journal_use"
+    },
+    {
+     "pointer": "/question_id",
+     "value": "$qst:journal_question"
+    },
+    {
+     "pointer": "/question_version",
+     "value": 1
+    },
+    {
+     "pointer": "/answer_evidence_digest",
+     "value": "#journal_reply_evidence"
+    }
+   ]
+  },
+  {
+   "name": "resume_journal",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@resume_journal_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "reader.use.resume"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@journal_concern"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#resume_journal_submitted"
+    }
+   ]
+  },
+  {
+   "name": "resume_journal_result_admitted",
+   "from": "c06/result_admitting_the_use.json",
+   "drop": [
+    "/outcome/units/1"
+   ],
+   "set": [
+    {
+     "pointer": "/envelope_digest",
+     "value": "#journal_envelope"
+    },
+    {
+     "pointer": "/outcome/frontiers/0/source_id",
+     "value": "@repo_decisions"
+    },
+    {
+     "pointer": "/outcome/frontiers/0/checkpoint_digest",
+     "value": "$digest:journal_repo_head"
+    },
+    {
+     "pointer": "/outcome/frontiers/1/source_id",
+     "value": "@my_decisions"
+    },
+    {
+     "pointer": "/outcome/frontiers/1/checkpoint_digest",
+     "value": "$digest:journal_my_head"
+    },
+    {
+     "pointer": "/outcome/units/0/unit_id",
+     "value": "@journal_unit"
+    },
+    {
+     "pointer": "/outcome/units/0/source_id",
+     "value": "@repo_decisions"
+    },
+    {
+     "pointer": "/outcome/units/0/revision_digest",
+     "value": "$digest:journal_repo_head"
+    },
+    {
+     "pointer": "/outcome/units/0/body_digest",
+     "value": "#stored_journal_repo_choice"
+    },
+    {
+     "pointer": "/outcome/units/0/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/outcome/units/0/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/outcome/consumed/units",
+     "value": 1
+    },
+    {
+     "pointer": "/outcome/use/use_id",
+     "value": "$use:journal_use"
+    },
+    {
+     "pointer": "/outcome/use/state_digest",
+     "value": "$digest:resume_journal_result_admitted_state"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:resume_journal_result_admitted_at"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_device_key",
+   "request": "bind_key",
+   "carries": [
+    "device_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_device_key"
+    ]
+   }
+  },
+  {
+   "name": "publish_the_repository_runner_choice",
+   "request": "publish_runner_repo_choice",
+   "carries": [
+    "runner_repo_choice"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_runner_repo_choice"
+    ],
+    "head": "runner_repo_head"
+   }
+  },
+  {
+   "name": "publish_the_personal_runner_choice",
+   "request": "publish_runner_personal_choice",
+   "carries": [
+    "runner_personal_choice"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_runner_personal_choice"
+    ],
+    "head": "runner_my_head"
+   }
+  },
+  {
+   "name": "publish_the_repository_journal_choice",
+   "request": "publish_journal_repo_choice",
+   "carries": [
+    "journal_repo_choice"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_journal_repo_choice"
+    ],
+    "head": "journal_repo_head"
+   }
+  },
+  {
+   "name": "publish_the_personal_journal_choice",
+   "request": "publish_journal_personal_choice",
+   "carries": [
+    "journal_personal_choice"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_journal_personal_choice"
+    ],
+    "head": "journal_my_head"
+   }
+  },
+  {
+   "name": "open_the_chat_link",
+   "request": "open_chat",
+   "carries": [
+    "chat_link"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_chat_link"
+    ]
+   }
+  },
+  {
+   "name": "probe_message_probe",
+   "request": "probe_message_probe",
+   "carries": [
+    "message_probe_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "none",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "message_probe",
+     "claude_profile"
+    ]
+   }
+  },
+  {
+   "name": "prepare_the_runner_use",
+   "request": "prepare_runner",
+   "carries": [
+    "runner_envelope"
+   ],
+   "answer": {
+    "stage": "blocked",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "choice_conflict_unresolved"
+     }
+    ],
+    "recovery": [],
+    "returns": [
+     "runner_waiting",
+     "runner_question",
+     "runner_basis"
+    ]
+   }
+  },
+  {
+   "name": "ask_about_the_runner",
+   "request": "ask_runner_attempt",
+   "carries": [
+    "runner_attempt_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "runner_attempt"
+    ]
+   }
+  },
+  {
+   "name": "record_the_runner_answer",
+   "request": "record_runner_reply",
+   "carries": [
+    "runner_reply"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "runner_reply_evidence"
+    ]
+   }
+  },
+  {
+   "name": "resume_the_runner_use",
+   "request": "resume_runner",
+   "carries": [
+    "resume_runner_submitted"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "resume_runner_result_admitted"
+    ]
+   }
+  },
+  {
+   "name": "keep_the_runner_choice",
+   "request": "record_runner_preference",
+   "carries": [],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "runner_preference"
+    ]
+   }
+  },
+  {
+   "name": "open_the_headless_link",
+   "request": "open_headless",
+   "carries": [
+    "headless_link"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_headless_link"
+    ]
+   }
+  },
+  {
+   "name": "probe_headless_probe",
+   "request": "probe_headless_probe",
+   "carries": [
+    "headless_probe_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "none",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "headless_probe",
+     "codex_profile"
+    ]
+   }
+  },
+  {
+   "name": "prepare_the_journal_use",
+   "request": "prepare_journal",
+   "carries": [
+    "journal_envelope"
+   ],
+   "answer": {
+    "stage": "blocked",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "choice_conflict_unresolved"
+     }
+    ],
+    "recovery": [],
+    "returns": [
+     "journal_waiting",
+     "journal_question",
+     "journal_basis"
+    ]
+   }
+  },
+  {
+   "name": "ask_in_the_headless_run",
+   "request": "ask_headless_attempt",
+   "carries": [
+    "headless_attempt_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "headless_attempt"
+    ]
+   }
+  },
+  {
+   "name": "record_the_timeout",
+   "request": "record_timeout_reply",
+   "carries": [
+    "timeout_reply"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "timeout_reply_evidence"
+    ]
+   },
+   "advance_seconds": 600
+  },
+  {
+   "name": "resume_with_the_timeout",
+   "request": "resume_with_timeout",
+   "carries": [
+    "resume_with_timeout_submitted"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "answer_not_from_a_person"
+     }
+    ],
+    "recovery": [],
+    "returns": []
+   }
+  },
+  {
+   "name": "prepare_the_same_use_again",
+   "request": "prepare_journal_again",
+   "carries": [
+    "journal_envelope"
+   ],
+   "answer": {
+    "stage": "blocked",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "choice_conflict_unresolved"
+     }
+    ],
+    "recovery": [],
+    "returns": [
+     "journal_waiting_again",
+     "journal_question",
+     "journal_basis"
+    ]
+   }
+  },
+  {
+   "name": "ask_under_a_new_question_id",
+   "request": "ask_renamed_attempt",
+   "carries": [
+    "renamed_attempt_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "renamed_attempt"
+    ]
+   }
+  },
+  {
+   "name": "open_the_studio_link",
+   "request": "open_studio",
+   "carries": [
+    "studio_link"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_studio_link"
+    ]
+   }
+  },
+  {
+   "name": "route_the_question_to_the_management_screen",
+   "request": "ask_studio_attempt",
+   "carries": [
+    "studio_attempt_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "studio_attempt"
+    ]
+   }
+  },
+  {
+   "name": "use_the_kept_runner_choice",
+   "request": "prepare_runner_again",
+   "carries": [
+    "runner_envelope"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "runner_kept_result"
+    ]
+   }
+  },
+  {
+   "name": "open_the_reconnected_link",
+   "request": "open_reconnected",
+   "carries": [
+    "reconnected_link"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_reconnected_link"
+    ]
+   },
+   "advance_seconds": 3600
+  },
+  {
+   "name": "ask_again_after_reconnecting",
+   "request": "ask_reconnected_attempt",
+   "carries": [
+    "reconnected_attempt_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "reconnected_attempt"
+    ]
+   }
+  },
+  {
+   "name": "record_the_journal_answer",
+   "request": "record_journal_reply",
+   "carries": [
+    "journal_reply"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "journal_reply_evidence"
+    ]
+   }
+  },
+  {
+   "name": "resume_the_journal_use",
+   "request": "resume_journal",
+   "carries": [
+    "resume_journal_submitted"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "resume_journal_result_admitted"
+    ]
+   }
+  }
+ ],
+ "world": {
+  "clock": {
+   "start": "2026-09-21T09:00:00Z"
+  },
+  "faults": [
+   {
+    "step": "prepare_the_journal_use",
+    "point": "after_commit_before_return"
+   }
+  ]
+ }
+}

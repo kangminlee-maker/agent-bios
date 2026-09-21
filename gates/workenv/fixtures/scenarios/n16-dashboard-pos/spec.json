@@ -1,0 +1,1622 @@
+{
+ "case": "N16-DASHBOARD-POS",
+ "says": "alice binds her laptop key and founds the Team Platform. In the Team's scope she publishes two decisions: the owner cannot learn whether the first reached the peer (unknown, outcome_unknown) and the second committed locally and only partly beyond (partial). She renames the Team, then submits a second rename sealed on the old head, which comes back stale. operation.history.read over the Team scope returns those four requests with the stage each was last confirmed at, local_only coverage and the recovery each supports. The dashboard, driven from the Studio hub, shows one signal each for the unknown, partial and stale requests (the committed rename raises none), states that the Team was checked by this installation's owner only, and shows the personal scope as not checked rather than as zero. Enter on the unknown signal opens that same publish request in W08 in the Team's scope, with the recoveries its history entry names; the only owner call is operation.query of that request id, which returns the same unknown result. No frame dispatches a request, so following a signal starts nothing new and retries nothing.",
+ "ids": [
+  {
+   "name": "alice",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "bind_request",
+   "prefix": "req"
+  },
+  {
+   "name": "team",
+   "prefix": "tem"
+  },
+  {
+   "name": "found_request",
+   "prefix": "req"
+  },
+  {
+   "name": "decisions_a",
+   "prefix": "src"
+  },
+  {
+   "name": "decisions_b",
+   "prefix": "src"
+  },
+  {
+   "name": "publish_a_request",
+   "prefix": "req"
+  },
+  {
+   "name": "publish_b_request",
+   "prefix": "req"
+  },
+  {
+   "name": "rename_a_request",
+   "prefix": "req"
+  },
+  {
+   "name": "rename_b_request",
+   "prefix": "req"
+  },
+  {
+   "name": "history_request",
+   "prefix": "req"
+  },
+  {
+   "name": "drive_request",
+   "prefix": "req"
+  },
+  {
+   "name": "query_request",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "first_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "bind",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#first_key"
+    }
+   ]
+  },
+  {
+   "name": "stored_key",
+   "from": "c01/device_key_binding.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:alice_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:bound_at"
+    }
+   ]
+  },
+  {
+   "name": "proposed_policy",
+   "from": "c08/policy_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/threshold",
+     "value": 0
+    }
+   ]
+  },
+  {
+   "name": "founding",
+   "from": "c08/solo_team_that_says_it_reviewed_itself.json",
+   "drop": [
+    "/created_at",
+    "/proposal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/carriers",
+     "value": [
+      "local"
+     ]
+    },
+    {
+     "pointer": "/custody_target",
+     "value": 1
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/founder_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#proposed_policy"
+    },
+    {
+     "pointer": "/recovery/0/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "found",
+   "from": "c03/history_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.found"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@found_request"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#founding"
+    }
+   ]
+  },
+  {
+   "name": "team_active",
+   "from": "c08/team_closed_for_good.json",
+   "set": [
+    {
+     "pointer": "/since",
+     "value": "$instant:founded_at"
+    },
+    {
+     "pointer": "/state",
+     "value": "active"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "team_named",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_policy",
+   "from": "c08/policy_requiring_none_and_saying_so.json",
+   "set": [
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:founded_at"
+    },
+    {
+     "pointer": "/policy_id",
+     "value": "$pol:team_policy"
+    }
+   ]
+  },
+  {
+   "name": "founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "review",
+      "publish",
+      "adopt",
+      "decide",
+      "grant",
+      "policy"
+     ]
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    },
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:founder_grant"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "journal_choice",
+   "from": "c05/choice_as_submitted.json",
+   "drop": [
+    "/alternatives",
+    "/basis",
+    "/context",
+    "/expected_consequences",
+    "/revisit_condition",
+    "/applicability/period",
+    "/home/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/home/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/home/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/question",
+     "value": "Which journal mode does the shared state use?"
+    },
+    {
+     "pointer": "/reason",
+     "value": "Measured on the Team's shared volume."
+    },
+    {
+     "pointer": "/workstream_ids",
+     "value": []
+    }
+   ]
+  },
+  {
+   "name": "publish_a",
+   "from": "c03/history_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.record.publish"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@publish_a_request"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@decisions_a"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#journal_choice"
+    }
+   ]
+  },
+  {
+   "name": "retry_choice",
+   "from": "c05/choice_as_submitted.json",
+   "drop": [
+    "/alternatives",
+    "/basis",
+    "/context",
+    "/expected_consequences",
+    "/revisit_condition",
+    "/applicability/period",
+    "/home/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/choice",
+     "value": "Three times, then stop."
+    },
+    {
+     "pointer": "/home/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/home/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/question",
+     "value": "How many times does a failed sync retry?"
+    },
+    {
+     "pointer": "/reason",
+     "value": "Measured on the Team's shared volume."
+    },
+    {
+     "pointer": "/workstream_ids",
+     "value": []
+    }
+   ]
+  },
+  {
+   "name": "publish_b",
+   "from": "c03/history_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.record.publish"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@publish_b_request"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@decisions_b"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#retry_choice"
+    }
+   ]
+  },
+  {
+   "name": "new_name",
+   "from": "c08/profile_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "rename_a",
+   "from": "c03/history_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.profile.set"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@rename_a_request"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:founded_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#new_name"
+    }
+   ]
+  },
+  {
+   "name": "renamed",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:renamed_at"
+    }
+   ]
+  },
+  {
+   "name": "other_name",
+   "from": "c08/profile_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/name",
+     "value": "Platform guild"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "rename_b",
+   "from": "c03/history_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.profile.set"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@rename_b_request"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:founded_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#other_name"
+    }
+   ]
+  },
+  {
+   "name": "team_scope_history",
+   "from": "c03/history_asked_of_one_repository.json",
+   "drop": [
+    "/scope/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "history",
+   "from": "c03/history_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@history_request"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_scope_history"
+    }
+   ]
+  },
+  {
+   "name": "team_history",
+   "from": "c03/an_unknown_request_and_a_dated_checkpoint.json",
+   "drop": [
+    "/scope/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/checkpoints",
+     "value": []
+    },
+    {
+     "pointer": "/entries/0/confirmed_at",
+     "value": "$instant:publish_a_request_confirmed_at"
+    },
+    {
+     "pointer": "/entries/0/recovery",
+     "value": [
+      "query_same_request",
+      "retry_same_request"
+     ]
+    },
+    {
+     "pointer": "/entries/0/request_digest",
+     "value": "#publish_a"
+    },
+    {
+     "pointer": "/entries/0/request_id",
+     "value": "@publish_a_request"
+    },
+    {
+     "pointer": "/entries/1/confirmed_at",
+     "value": "$instant:publish_b_request_confirmed_at"
+    },
+    {
+     "pointer": "/entries/1/confirmed_stage",
+     "value": "partial"
+    },
+    {
+     "pointer": "/entries/1/coverage",
+     "value": "local_only"
+    },
+    {
+     "pointer": "/entries/1/operation",
+     "value": "memory.record.publish"
+    },
+    {
+     "pointer": "/entries/1/recovery",
+     "value": [
+      "query_same_request"
+     ]
+    },
+    {
+     "pointer": "/entries/1/request_digest",
+     "value": "#publish_b"
+    },
+    {
+     "pointer": "/entries/1/request_id",
+     "value": "@publish_b_request"
+    },
+    {
+     "pointer": "/entries/2/confirmed_at",
+     "value": "$instant:rename_a_request_confirmed_at"
+    },
+    {
+     "pointer": "/entries/2/confirmed_stage",
+     "value": "committed"
+    },
+    {
+     "pointer": "/entries/2/coverage",
+     "value": "local_only"
+    },
+    {
+     "pointer": "/entries/2/operation",
+     "value": "team.profile.set"
+    },
+    {
+     "pointer": "/entries/2/recovery",
+     "value": []
+    },
+    {
+     "pointer": "/entries/2/request_digest",
+     "value": "#rename_a"
+    },
+    {
+     "pointer": "/entries/2/request_id",
+     "value": "@rename_a_request"
+    },
+    {
+     "pointer": "/entries/3/confirmed_at",
+     "value": "$instant:rename_b_request_confirmed_at"
+    },
+    {
+     "pointer": "/entries/3/confirmed_stage",
+     "value": "stale"
+    },
+    {
+     "pointer": "/entries/3/coverage",
+     "value": "local_only"
+    },
+    {
+     "pointer": "/entries/3/operation",
+     "value": "team.profile.set"
+    },
+    {
+     "pointer": "/entries/3/recovery",
+     "value": [
+      "reseal_on_current_head"
+     ]
+    },
+    {
+     "pointer": "/entries/3/request_digest",
+     "value": "#rename_b"
+    },
+    {
+     "pointer": "/entries/3/request_id",
+     "value": "@rename_b_request"
+    },
+    {
+     "pointer": "/observed_at",
+     "value": "$instant:history_observed_at"
+    },
+    {
+     "pointer": "/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "dashboard_keys",
+   "from": "c12/a_launcher_driven_at_80_by_24.json",
+   "drop": [
+    "/inputs/3",
+    "/inputs/2",
+    "/inputs/1"
+   ],
+   "set": [
+    {
+     "pointer": "/entrance/name",
+     "value": "studio_hub"
+    },
+    {
+     "pointer": "/inputs/0/key",
+     "value": "enter"
+    }
+   ]
+  },
+  {
+   "name": "drive",
+   "from": "c03/history_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "surface.drive"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@drive_request"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#dashboard_keys"
+    }
+   ]
+  },
+  {
+   "name": "same_request",
+   "from": "c03/query_by_request_id.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@publish_a_request"
+    }
+   ]
+  },
+  {
+   "name": "query",
+   "from": "c03/history_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.query"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@query_request"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@publish_a_request"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#same_request"
+    }
+   ]
+  },
+  {
+   "name": "dashboard_trace",
+   "from": "c12/a_launcher_trace_where_focus_moved_and_one_selection_changed.json",
+   "drop": [
+    "/candidate_digest",
+    "/frames/4",
+    "/frames/3",
+    "/frames/2",
+    "/frames/0/elements/7",
+    "/frames/0/elements/6",
+    "/frames/0/elements/0/refers_to/scope",
+    "/frames/0/elements/2/refers_to/position",
+    "/frames/0/elements/2/refers_to/view",
+    "/frames/0/elements/3/refers_to/position",
+    "/frames/0/elements/3/refers_to/view",
+    "/frames/0/elements/4/refers_to/position",
+    "/frames/0/elements/4/refers_to/view",
+    "/frames/0/elements/5/effects",
+    "/frames/0/view/selected_scope/repository_id",
+    "/frames/1/elements/7",
+    "/frames/1/elements/6",
+    "/frames/1/elements/5",
+    "/frames/1/elements/0/refers_to/scope/repository_id",
+    "/frames/1/elements/2/state",
+    "/frames/1/elements/2/refers_to/position",
+    "/frames/1/elements/2/refers_to/view",
+    "/frames/1/elements/3/state",
+    "/frames/1/elements/3/refers_to/position",
+    "/frames/1/elements/3/refers_to/view",
+    "/frames/1/elements/4/refers_to",
+    "/frames/1/elements/4/state",
+    "/frames/1/view/selected_scope/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/at",
+     "value": "$instant:driven_at"
+    },
+    {
+     "pointer": "/frames/0/elements/0/element_id",
+     "value": "coverage.team"
+    },
+    {
+     "pointer": "/frames/0/elements/0/label",
+     "value": "팀 Platform · 이 설치의 소유자만 확인함 · 제공자 결과는 확인 안 함"
+    },
+    {
+     "pointer": "/frames/0/elements/0/role",
+     "value": "qualification"
+    },
+    {
+     "pointer": "/frames/0/elements/0/state",
+     "value": "partial"
+    },
+    {
+     "pointer": "/frames/0/elements/0/refers_to/ref",
+     "value": "record"
+    },
+    {
+     "pointer": "/frames/0/elements/0/refers_to/digest",
+     "value": "#team_history"
+    },
+    {
+     "pointer": "/frames/0/elements/1/element_id",
+     "value": "coverage.personal"
+    },
+    {
+     "pointer": "/frames/0/elements/1/label",
+     "value": "개인 범위 · 확인 안 함"
+    },
+    {
+     "pointer": "/frames/0/elements/1/role",
+     "value": "qualification"
+    },
+    {
+     "pointer": "/frames/0/elements/1/state",
+     "value": "not_checked"
+    },
+    {
+     "pointer": "/frames/0/elements/1/refers_to/ref",
+     "value": "scope"
+    },
+    {
+     "pointer": "/frames/0/elements/1/refers_to/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/frames/0/elements/1/refers_to/scope/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/frames/0/elements/2/element_id",
+     "value": "signal.publish_a"
+    },
+    {
+     "pointer": "/frames/0/elements/2/label",
+     "value": "결과 모름 · 팀 결정 게시 (저널 모드) · 로컬만 확인"
+    },
+    {
+     "pointer": "/frames/0/elements/2/marks",
+     "value": [
+      "›",
+      "?"
+     ]
+    },
+    {
+     "pointer": "/frames/0/elements/2/role",
+     "value": "signal"
+    },
+    {
+     "pointer": "/frames/0/elements/2/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/0/elements/2/state",
+     "value": "unknown"
+    },
+    {
+     "pointer": "/frames/0/elements/2/refers_to/ref",
+     "value": "request"
+    },
+    {
+     "pointer": "/frames/0/elements/2/refers_to/request_id",
+     "value": "@publish_a_request"
+    },
+    {
+     "pointer": "/frames/0/elements/3/element_id",
+     "value": "signal.publish_b"
+    },
+    {
+     "pointer": "/frames/0/elements/3/label",
+     "value": "일부만 됨 · 팀 결정 게시 (재시도 횟수) · 로컬만 확인"
+    },
+    {
+     "pointer": "/frames/0/elements/3/marks",
+     "value": [
+      "~"
+     ]
+    },
+    {
+     "pointer": "/frames/0/elements/3/role",
+     "value": "signal"
+    },
+    {
+     "pointer": "/frames/0/elements/3/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/0/elements/3/state",
+     "value": "partial"
+    },
+    {
+     "pointer": "/frames/0/elements/3/refers_to/ref",
+     "value": "request"
+    },
+    {
+     "pointer": "/frames/0/elements/3/refers_to/request_id",
+     "value": "@publish_b_request"
+    },
+    {
+     "pointer": "/frames/0/elements/4/element_id",
+     "value": "signal.rename_b"
+    },
+    {
+     "pointer": "/frames/0/elements/4/label",
+     "value": "기준이 바뀜 · 팀 이름 변경 · 로컬만 확인"
+    },
+    {
+     "pointer": "/frames/0/elements/4/marks",
+     "value": [
+      "!"
+     ]
+    },
+    {
+     "pointer": "/frames/0/elements/4/role",
+     "value": "signal"
+    },
+    {
+     "pointer": "/frames/0/elements/4/state",
+     "value": "blocked"
+    },
+    {
+     "pointer": "/frames/0/elements/4/refers_to/ref",
+     "value": "request"
+    },
+    {
+     "pointer": "/frames/0/elements/4/refers_to/request_id",
+     "value": "@rename_b_request"
+    },
+    {
+     "pointer": "/frames/0/elements/5/element_id",
+     "value": "help.keys"
+    },
+    {
+     "pointer": "/frames/0/elements/5/label",
+     "value": "↑↓ 이동 · Enter 열기 · Esc 뒤로"
+    },
+    {
+     "pointer": "/frames/0/elements/5/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/0/elements/5/role",
+     "value": "help"
+    },
+    {
+     "pointer": "/frames/0/elements/5/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/0/view/view",
+     "value": "dashboard"
+    },
+    {
+     "pointer": "/frames/0/view/origin/name",
+     "value": "studio_hub"
+    },
+    {
+     "pointer": "/frames/0/view/browse_scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/frames/0/view/browse_scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/frames/0/view/selected_scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/frames/0/view/selected_scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/frames/1/calls/0/operation",
+     "value": "operation.query"
+    },
+    {
+     "pointer": "/frames/1/calls/0/reads",
+     "value": "nothing"
+    },
+    {
+     "pointer": "/frames/1/calls/0/request_digest",
+     "value": "#query"
+    },
+    {
+     "pointer": "/frames/1/elements/0/element_id",
+     "value": "context.scope"
+    },
+    {
+     "pointer": "/frames/1/elements/0/label",
+     "value": "팀 · Platform"
+    },
+    {
+     "pointer": "/frames/1/elements/0/refers_to/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/frames/1/elements/0/refers_to/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/frames/1/elements/1/element_id",
+     "value": "detail.request"
+    },
+    {
+     "pointer": "/frames/1/elements/1/label",
+     "value": "팀 결정 게시 (저널 모드) · 마지막으로 확인된 단계: 결과 모름 · 로컬만 확인"
+    },
+    {
+     "pointer": "/frames/1/elements/1/role",
+     "value": "detail"
+    },
+    {
+     "pointer": "/frames/1/elements/1/state",
+     "value": "unknown"
+    },
+    {
+     "pointer": "/frames/1/elements/1/refers_to/ref",
+     "value": "request"
+    },
+    {
+     "pointer": "/frames/1/elements/1/refers_to/request_id",
+     "value": "@publish_a_request"
+    },
+    {
+     "pointer": "/frames/1/elements/2/element_id",
+     "value": "action.query_same"
+    },
+    {
+     "pointer": "/frames/1/elements/2/focused",
+     "value": true
+    },
+    {
+     "pointer": "/frames/1/elements/2/label",
+     "value": "같은 요청 다시 확인"
+    },
+    {
+     "pointer": "/frames/1/elements/2/marks",
+     "value": [
+      "›"
+     ]
+    },
+    {
+     "pointer": "/frames/1/elements/2/role",
+     "value": "action"
+    },
+    {
+     "pointer": "/frames/1/elements/2/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/1/elements/2/refers_to/ref",
+     "value": "request"
+    },
+    {
+     "pointer": "/frames/1/elements/2/refers_to/request_id",
+     "value": "@publish_a_request"
+    },
+    {
+     "pointer": "/frames/1/elements/3/element_id",
+     "value": "action.retry_same"
+    },
+    {
+     "pointer": "/frames/1/elements/3/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/3/label",
+     "value": "같은 요청 다시 보내기"
+    },
+    {
+     "pointer": "/frames/1/elements/3/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/1/elements/3/role",
+     "value": "action"
+    },
+    {
+     "pointer": "/frames/1/elements/3/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/1/elements/3/refers_to/ref",
+     "value": "request"
+    },
+    {
+     "pointer": "/frames/1/elements/3/refers_to/request_id",
+     "value": "@publish_a_request"
+    },
+    {
+     "pointer": "/frames/1/elements/4/element_id",
+     "value": "help.keys"
+    },
+    {
+     "pointer": "/frames/1/elements/4/label",
+     "value": "Enter 실행 · Esc 대시보드로"
+    },
+    {
+     "pointer": "/frames/1/elements/4/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/1/elements/4/role",
+     "value": "help"
+    },
+    {
+     "pointer": "/frames/1/view/view",
+     "value": "w08"
+    },
+    {
+     "pointer": "/frames/1/view/origin/name",
+     "value": "studio_hub"
+    },
+    {
+     "pointer": "/frames/1/view/browse_scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/frames/1/view/browse_scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/frames/1/view/selected_scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/frames/1/view/selected_scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/frames/1/view/target/ref",
+     "value": "request"
+    },
+    {
+     "pointer": "/frames/1/view/target/request_id",
+     "value": "@publish_a_request"
+    },
+    {
+     "pointer": "/frames/1/view/return_view",
+     "value": "dashboard"
+    },
+    {
+     "pointer": "/script_digest",
+     "value": "#dashboard_keys"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_first_key",
+   "request": "bind",
+   "carries": [
+    "first_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_key"
+    ]
+   }
+  },
+  {
+   "name": "found_team",
+   "request": "found",
+   "carries": [
+    "founding",
+    "proposed_policy"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_active",
+     "team_named",
+     "team_policy",
+     "founder_grant"
+    ],
+    "head": "founded_head"
+   },
+   "submits": [
+    "proposed_policy"
+   ]
+  },
+  {
+   "name": "publish_journal_choice",
+   "request": "publish_a",
+   "carries": [
+    "journal_choice"
+   ],
+   "answer": {
+    "stage": "unknown",
+    "local_effect": "objects_staged",
+    "provider_effect": "unknown",
+    "gaps": [
+     {
+      "code": "outcome_unknown"
+     }
+    ],
+    "recovery": [
+     "query_same_request",
+     "retry_same_request"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "publish_retry_choice",
+   "request": "publish_b",
+   "carries": [
+    "retry_choice"
+   ],
+   "answer": {
+    "stage": "partial",
+    "local_effect": "committed",
+    "provider_effect": "dispatched",
+    "gaps": [
+     {
+      "code": "outcome_partial"
+     }
+    ],
+    "recovery": [
+     "query_same_request"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "rename_team",
+   "request": "rename_a",
+   "carries": [
+    "new_name"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "renamed"
+    ],
+    "head": "renamed_head"
+   }
+  },
+  {
+   "name": "rename_on_the_old_head",
+   "request": "rename_b",
+   "carries": [
+    "other_name"
+   ],
+   "answer": {
+    "stage": "stale",
+    "local_effect": "none",
+    "provider_effect": "none",
+    "gaps": [
+     {
+      "code": "stale_base"
+     }
+    ],
+    "recovery": [
+     "reseal_on_current_head"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "read_team_history",
+   "request": "history",
+   "carries": [
+    "team_scope_history"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_history"
+    ]
+   }
+  },
+  {
+   "name": "open_the_dashboard",
+   "request": "drive",
+   "carries": [
+    "dashboard_keys"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "dashboard_trace"
+    ]
+   }
+  },
+  {
+   "name": "query_the_same_request",
+   "request": "query",
+   "carries": [
+    "same_request"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "publish_journal_choice_result"
+    ]
+   }
+  }
+ ]
+}

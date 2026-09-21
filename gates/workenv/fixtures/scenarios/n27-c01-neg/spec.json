@@ -1,0 +1,1486 @@
+{
+ "case": "N27-C01-NEG",
+ "says": "The repository keeps a repository-authored source at its first revision, and the Team platform has installed a published package source at the publisher's revision. Three requests must each be refused by the owner, with nothing written: registering a second, managed home for the repository source (source_home_conflict: one source keeps one home); committing a revision of the installed package whose member bytes differ from the publisher's (publisher_bytes_modified: an addition is a derived source of its own, never an edit in place); and bob, who holds no grant from the Team, asking for a projection of the Team's package source (source_not_authorized). Unrelated and unaccepted state must be untouched afterwards: the repository source's next revision still commits on the head its first revision left, and resolving the package's member still returns the publisher's revision.",
+ "ids": [
+  {
+   "name": "alice",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "alice_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "bind_alice_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "bob",
+   "prefix": "prn"
+  },
+  {
+   "name": "bob_laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "bob_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "bind_bob_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "work_repo",
+   "prefix": "rep"
+  },
+  {
+   "name": "bind_repo_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "platform",
+   "prefix": "tem"
+  },
+  {
+   "name": "found_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "repo_rules",
+   "prefix": "src"
+  },
+  {
+   "name": "register_repo_rules_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "commit_repo_rules_r1_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "repo_rules_twin_store",
+   "prefix": "col"
+  },
+  {
+   "name": "register_a_second_home_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "tax_package",
+   "prefix": "src"
+  },
+  {
+   "name": "tax_package_package",
+   "prefix": "pkg"
+  },
+  {
+   "name": "register_tax_package_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "commit_tax_package_r1_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "commit_tax_package_r2_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "bob_projects_the_package_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "commit_repo_rules_r2_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "resolve_the_publishers_member_rid",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "alice_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    }
+   ]
+  },
+  {
+   "name": "bind_alice",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_alice_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#alice_key"
+    }
+   ]
+  },
+  {
+   "name": "alice_binding",
+   "from": "alice_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:alice_binding_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:alice_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "bob_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/credential/device_id",
+     "value": "@bob_laptop"
+    },
+    {
+     "pointer": "/credential/public_key",
+     "value": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHm2Z1bE7q0N4Kc9Vx8R2sJtPq5LwYd3fA6uGk1oTnBe"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@bob"
+    }
+   ]
+  },
+  {
+   "name": "bind_bob",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_bob_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@bob_laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bob_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#bob_key"
+    }
+   ]
+  },
+  {
+   "name": "bob_binding",
+   "from": "bob_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:bob_binding_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:bob_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_clone",
+   "from": "c01/repository_binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/repository_id",
+     "value": "@work_repo"
+    }
+   ]
+  },
+  {
+   "name": "bind_repo",
+   "from": "c01/repository_bind_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_repo_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_clone"
+    }
+   ]
+  },
+  {
+   "name": "repo_bound",
+   "from": "c01/clone_shares_the_repository_id.json",
+   "set": [
+    {
+     "pointer": "/observed/working_bytes_digest",
+     "value": "$digest:checkout_bytes"
+    },
+    {
+     "pointer": "/repository_id",
+     "value": "@work_repo"
+    }
+   ]
+  },
+  {
+   "name": "team_policy_draft",
+   "from": "c08/policy_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/threshold",
+     "value": 0
+    }
+   ]
+  },
+  {
+   "name": "founding",
+   "from": "c08/proposal_as_submitted.json",
+   "drop": [
+    "/founding_mode/nominees"
+   ],
+   "set": [
+    {
+     "pointer": "/carriers",
+     "value": [
+      "local"
+     ]
+    },
+    {
+     "pointer": "/custody_target",
+     "value": 1
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/founder_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/founding_mode/mode",
+     "value": "self_founded"
+    },
+    {
+     "pointer": "/founding_mode/acknowledged_self_reviewed",
+     "value": true
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#team_policy_draft"
+    },
+    {
+     "pointer": "/recovery/0/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@platform"
+    }
+   ]
+  },
+  {
+   "name": "found",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/owner/repository_id",
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@found_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.found"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#founding"
+    }
+   ]
+  },
+  {
+   "name": "team_policy",
+   "from": "c08/policy_requiring_none_and_saying_so.json",
+   "set": [
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/policy_id",
+     "value": "$pol:team_policy_id"
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "alice_team_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "publish"
+     ]
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    },
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:alice_grant_id"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@platform"
+    }
+   ]
+  },
+  {
+   "name": "team_active",
+   "from": "c08/archived_team.json",
+   "set": [
+    {
+     "pointer": "/since",
+     "value": "$instant:founded_at"
+    },
+    {
+     "pointer": "/state",
+     "value": "active"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@platform"
+    }
+   ]
+  },
+  {
+   "name": "repo_rules_home",
+   "from": "sources/home_of_a_repository_document.json",
+   "drop": [
+    "/registered_at"
+   ],
+   "set": [
+    {
+     "pointer": "/acceptance_authority/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/home/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/home/document_root",
+     "value": "rules"
+    },
+    {
+     "pointer": "/home/binding_evidence_digest",
+     "value": "#repo_bound"
+    },
+    {
+     "pointer": "/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/scope/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@repo_rules"
+    }
+   ]
+  },
+  {
+   "name": "register_repo_rules",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_repo_rules_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_rules"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_rules_home"
+    }
+   ]
+  },
+  {
+   "name": "repo_rules_home_stored",
+   "from": "repo_rules_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:repo_rules_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_rules_r1",
+   "from": "sources/revision_submitted.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/members/0/digest",
+     "value": "c21a2ee216479f4b3fc78d249986a109249be2466dba34bff524f91626ed09a0"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "rules/review.md"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 400
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@repo_rules"
+    }
+   ]
+  },
+  {
+   "name": "commit_repo_rules_r1",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_repo_rules_r1_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_rules"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:repo_rules_h0"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_rules_r1"
+    }
+   ]
+  },
+  {
+   "name": "repo_rules_r1_stored",
+   "from": "repo_rules_r1",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:repo_rules_r1_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_rules_second_home",
+   "from": "sources/home_of_a_managed_collection.json",
+   "drop": [
+    "/registered_at",
+    "/applicability/conditions",
+    "/home/markdown_view/path",
+    "/retention/until"
+   ],
+   "set": [
+    {
+     "pointer": "/acceptance_authority/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/applicability/states",
+     "value": "unstated"
+    },
+    {
+     "pointer": "/home/collection_id",
+     "value": "@repo_rules_twin_store"
+    },
+    {
+     "pointer": "/home/markdown_view/view",
+     "value": "none"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    },
+    {
+     "pointer": "/retention/keep",
+     "value": "until_withdrawn"
+    },
+    {
+     "pointer": "/scope/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@repo_rules"
+    }
+   ]
+  },
+  {
+   "name": "register_a_second_home",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/owner/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_a_second_home_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_rules"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:repo_rules_h1"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_rules_second_home"
+    }
+   ]
+  },
+  {
+   "name": "tax_package_home",
+   "from": "sources/home_of_a_published_package.json",
+   "drop": [
+    "/registered_at",
+    "/applicability/conditions"
+   ],
+   "set": [
+    {
+     "pointer": "/acceptance_authority/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/applicability/states",
+     "value": "unstated"
+    },
+    {
+     "pointer": "/home/package_id",
+     "value": "@tax_package_package"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@tax_package"
+    }
+   ]
+  },
+  {
+   "name": "register_tax_package",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/owner/repository_id",
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_tax_package_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@tax_package"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#tax_package_home"
+    }
+   ]
+  },
+  {
+   "name": "tax_package_home_stored",
+   "from": "tax_package_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:tax_package_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "tax_package_r1",
+   "from": "sources/revision_submitted.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/members/0/digest",
+     "value": "22321ab8ea5b572202d11f1855b3243b40101acb681ad6989bfaad5b98a1088e"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "tables/rates.csv"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 400
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@tax_package"
+    }
+   ]
+  },
+  {
+   "name": "commit_tax_package_r1",
+   "from": "bindings/storing_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_tax_package_r1_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@tax_package"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:tax_package_h0"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#tax_package_r1"
+    }
+   ]
+  },
+  {
+   "name": "tax_package_r1_stored",
+   "from": "tax_package_r1",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:tax_package_r1_at"
+    }
+   ]
+  },
+  {
+   "name": "tax_package_r2",
+   "from": "sources/revision_submitted.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/members/0/digest",
+     "value": "7fa2919b9e4402da1bda2c7abecf9421e8b47b900a2c4d7265a45864a40afea7"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "tables/rates.csv"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 431
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@tax_package"
+    }
+   ]
+  },
+  {
+   "name": "commit_tax_package_r2",
+   "from": "bindings/storing_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_tax_package_r2_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@tax_package"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:tax_package_h1"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#tax_package_r2"
+    }
+   ]
+  },
+  {
+   "name": "bob_projects_the_package_plan",
+   "from": "c04/plan_over_three_layers_in_a_stated_order.json",
+   "drop": [
+    "/order/2",
+    "/order/1/principal_id",
+    "/source_pins/2",
+    "/source_pins/1"
+   ],
+   "set": [
+    {
+     "pointer": "/order/0/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/order/1/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/order/1/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/source_pins/0/revision_digest",
+     "value": "#tax_package_r1_stored"
+    },
+    {
+     "pointer": "/source_pins/0/source_id",
+     "value": "@tax_package"
+    }
+   ]
+  },
+  {
+   "name": "bob_projects_the_package",
+   "from": "c04/projection_request.json",
+   "drop": [
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bob_projects_the_package_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@bob_laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bob_profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#bob_projects_the_package_plan"
+    }
+   ]
+  },
+  {
+   "name": "repo_rules_r2",
+   "from": "sources/revision_submitted.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/members/0/digest",
+     "value": "819e9049f2e550cb8bc0ac1a268edbc288bda0531660751e124eefba92963082"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "rules/review.md"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 512
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@repo_rules"
+    }
+   ]
+  },
+  {
+   "name": "commit_repo_rules_r2",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_repo_rules_r2_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_rules"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:repo_rules_h1"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_rules_r2"
+    }
+   ]
+  },
+  {
+   "name": "repo_rules_r2_stored",
+   "from": "repo_rules_r2",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:repo_rules_r2_at"
+    }
+   ]
+  },
+  {
+   "name": "resolve_the_publishers_member_ref",
+   "from": "c01/exact_member_of_a_revision.json",
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@tax_package"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/revision_digest",
+     "value": "#tax_package_r1_stored"
+    },
+    {
+     "pointer": "/member/digest",
+     "value": "22321ab8ea5b572202d11f1855b3243b40101acb681ad6989bfaad5b98a1088e"
+    },
+    {
+     "pointer": "/member/size",
+     "value": 400
+    }
+   ]
+  },
+  {
+   "name": "resolve_the_publishers_member",
+   "from": "c01/resolve_request.json",
+   "drop": [
+    "/owner/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@resolve_the_publishers_member_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@tax_package"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:tax_package_h1"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#resolve_the_publishers_member_ref"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_alice",
+   "request": "bind_alice",
+   "carries": [
+    "alice_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "alice_binding"
+    ]
+   }
+  },
+  {
+   "name": "bind_bob",
+   "request": "bind_bob",
+   "carries": [
+    "bob_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "bob_binding"
+    ]
+   }
+  },
+  {
+   "name": "bind_repo",
+   "request": "bind_repo",
+   "carries": [
+    "repo_clone"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_bound"
+    ]
+   }
+  },
+  {
+   "name": "found_team",
+   "request": "found",
+   "carries": [
+    "founding",
+    "team_policy_draft"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_policy",
+     "alice_team_grant",
+     "team_active"
+    ],
+    "head": "platform_h1"
+   },
+   "submits": [
+    "team_policy_draft"
+   ]
+  },
+  {
+   "name": "register_repo_rules",
+   "request": "register_repo_rules",
+   "carries": [
+    "repo_rules_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_rules_home_stored"
+    ],
+    "head": "repo_rules_h0"
+   }
+  },
+  {
+   "name": "commit_repo_rules_r1",
+   "request": "commit_repo_rules_r1",
+   "carries": [
+    "repo_rules_r1"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_rules_r1_stored"
+    ],
+    "head": "repo_rules_h1"
+   }
+  },
+  {
+   "name": "register_a_second_home",
+   "request": "register_a_second_home",
+   "carries": [
+    "repo_rules_second_home"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "source_home_conflict"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "register_tax_package",
+   "request": "register_tax_package",
+   "carries": [
+    "tax_package_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "tax_package_home_stored"
+    ],
+    "head": "tax_package_h0"
+   }
+  },
+  {
+   "name": "commit_tax_package_r1",
+   "request": "commit_tax_package_r1",
+   "carries": [
+    "tax_package_r1"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "tax_package_r1_stored"
+    ],
+    "head": "tax_package_h1"
+   }
+  },
+  {
+   "name": "edit_the_installed_bytes",
+   "request": "commit_tax_package_r2",
+   "carries": [
+    "tax_package_r2"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "publisher_bytes_modified"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "bob_projects_the_package",
+   "request": "bob_projects_the_package",
+   "carries": [
+    "bob_projects_the_package_plan"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "source_not_authorized"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "commit_on_the_untouched_head",
+   "request": "commit_repo_rules_r2",
+   "carries": [
+    "repo_rules_r2"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_rules_r2_stored"
+    ],
+    "head": "repo_rules_h2"
+   }
+  },
+  {
+   "name": "resolve_the_publishers_member",
+   "request": "resolve_the_publishers_member",
+   "carries": [
+    "resolve_the_publishers_member_ref"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "tax_package_r1_stored"
+    ]
+   }
+  }
+ ]
+}

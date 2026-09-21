@@ -1,0 +1,1946 @@
+{
+ "case": "N05-CONTROL-NEG",
+ "says": "Alice founds a Team alone on her laptop and then changes her own grant in it eight times, each change expecting the Team head the previous one moved to, while the process is killed at a different durable boundary of each control commit — before staging, after the member write before sync, after staging before rename, after rename before the directory sync, after that sync before the transaction begins, inside the transaction before commit, after commit before the answer returns, and during the checkpoint that follows — and restarted. Each request is then answered once, committed, and the next change is accepted on the head it expects, so no control was applied twice or left half applied. The change killed inside its transaction, whose answer the caller never saw, is settled by querying its request id: the original result and its receipt. The same request id with other bytes (another grant) is refused with request_id_conflict; a change still expecting a Team head that has since advanced is refused as stale with stale_base; a cancellation of the last committed change reaches the owner after its commit and is refused with cancel_too_late; and querying that change afterwards still returns its committed result and receipt. What must not happen: a duplicate or second grant revision from one request, a refused request moving the Team head, or the late cancellation undoing the commit.",
+ "ids": [
+  {
+   "name": "alice",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "alice_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "team",
+   "prefix": "tem"
+  },
+  {
+   "name": "bind_request",
+   "prefix": "req"
+  },
+  {
+   "name": "found_request",
+   "prefix": "req"
+  },
+  {
+   "name": "change_request_1",
+   "prefix": "req"
+  },
+  {
+   "name": "change_request_2",
+   "prefix": "req"
+  },
+  {
+   "name": "change_request_3",
+   "prefix": "req"
+  },
+  {
+   "name": "change_request_4",
+   "prefix": "req"
+  },
+  {
+   "name": "change_request_5",
+   "prefix": "req"
+  },
+  {
+   "name": "change_request_6",
+   "prefix": "req"
+  },
+  {
+   "name": "change_request_7",
+   "prefix": "req"
+  },
+  {
+   "name": "change_request_8",
+   "prefix": "req"
+  },
+  {
+   "name": "settle_request",
+   "prefix": "req"
+  },
+  {
+   "name": "stale_request",
+   "prefix": "req"
+  },
+  {
+   "name": "cancel_request",
+   "prefix": "req"
+  },
+  {
+   "name": "ask_last_request",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "device_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "bind_key",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.add"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#device_key"
+    }
+   ]
+  },
+  {
+   "name": "stored_key",
+   "from": "device_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:alice_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:bound_at"
+    }
+   ]
+  },
+  {
+   "name": "founding_policy",
+   "from": "c08/policy_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@alice"
+    }
+   ]
+  },
+  {
+   "name": "proposal",
+   "from": "c08/proposal_as_submitted.json",
+   "drop": [
+    "/founding_mode/nominees"
+   ],
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/founder_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/founding_mode/mode",
+     "value": "self_founded"
+    },
+    {
+     "pointer": "/founding_mode/acknowledged_self_reviewed",
+     "value": true
+    },
+    {
+     "pointer": "/recovery/0/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#founding_policy"
+    },
+    {
+     "pointer": "/name",
+     "value": "Storage"
+    }
+   ]
+  },
+  {
+   "name": "found",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@found_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.found"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#proposal"
+    }
+   ]
+  },
+  {
+   "name": "stored_policy",
+   "from": "founding_policy",
+   "set": [
+    {
+     "pointer": "/policy_id",
+     "value": "$pol:team_policy"
+    },
+    {
+     "pointer": "/policy_version",
+     "value": 1
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:policy_at"
+    }
+   ]
+  },
+  {
+   "name": "team_active",
+   "from": "c08/archived_team.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/state",
+     "value": "active"
+    },
+    {
+     "pointer": "/since",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "grant_1",
+   "from": "c08/grant_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "change_1",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@change_request_1"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.grant.change"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_0"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#grant_1"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#stored_policy"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "stored_grant_1",
+   "from": "grant_1",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:alice_grant"
+    },
+    {
+     "pointer": "/grant_revision",
+     "value": 1
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:granted_at_1"
+    }
+   ]
+  },
+  {
+   "name": "grant_2",
+   "from": "c08/grant_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "change_2",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@change_request_2"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.grant.change"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_1"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#grant_2"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#stored_policy"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "stored_grant_2",
+   "from": "grant_2",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:alice_grant"
+    },
+    {
+     "pointer": "/grant_revision",
+     "value": 2
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:granted_at_2"
+    }
+   ]
+  },
+  {
+   "name": "grant_3",
+   "from": "c08/grant_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "change_3",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@change_request_3"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.grant.change"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_2"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#grant_3"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#stored_policy"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "stored_grant_3",
+   "from": "grant_3",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:alice_grant"
+    },
+    {
+     "pointer": "/grant_revision",
+     "value": 3
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:granted_at_3"
+    }
+   ]
+  },
+  {
+   "name": "grant_4",
+   "from": "c08/grant_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "contribute"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "change_4",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@change_request_4"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.grant.change"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_3"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#grant_4"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#stored_policy"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "stored_grant_4",
+   "from": "grant_4",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:alice_grant"
+    },
+    {
+     "pointer": "/grant_revision",
+     "value": 4
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:granted_at_4"
+    }
+   ]
+  },
+  {
+   "name": "grant_5",
+   "from": "c08/grant_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "use"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "change_5",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@change_request_5"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.grant.change"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_4"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#grant_5"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#stored_policy"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "stored_grant_5",
+   "from": "grant_5",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:alice_grant"
+    },
+    {
+     "pointer": "/grant_revision",
+     "value": 5
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:granted_at_5"
+    }
+   ]
+  },
+  {
+   "name": "grant_6",
+   "from": "c08/grant_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "use",
+      "contribute"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "change_6",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@change_request_6"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.grant.change"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_5"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#grant_6"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#stored_policy"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "stored_grant_6",
+   "from": "grant_6",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:alice_grant"
+    },
+    {
+     "pointer": "/grant_revision",
+     "value": 6
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:granted_at_6"
+    }
+   ]
+  },
+  {
+   "name": "grant_7",
+   "from": "c08/grant_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "change_7",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@change_request_7"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.grant.change"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_6"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#grant_7"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#stored_policy"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "stored_grant_7",
+   "from": "grant_7",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:alice_grant"
+    },
+    {
+     "pointer": "/grant_revision",
+     "value": 7
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:granted_at_7"
+    }
+   ]
+  },
+  {
+   "name": "grant_8",
+   "from": "c08/grant_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "change_8",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@change_request_8"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.grant.change"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_7"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#grant_8"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#stored_policy"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "stored_grant_8",
+   "from": "grant_8",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:alice_grant"
+    },
+    {
+     "pointer": "/grant_revision",
+     "value": 8
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:granted_at_8"
+    }
+   ]
+  },
+  {
+   "name": "settle_query",
+   "from": "c03/query_by_request_id.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@change_request_6"
+    }
+   ]
+  },
+  {
+   "name": "settle",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@settle_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.query"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@change_request_6"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#settle_query"
+    }
+   ]
+  },
+  {
+   "name": "receipt_6",
+   "from": "c03/commit_receipt.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@change_request_6"
+    },
+    {
+     "pointer": "/request_digest",
+     "value": "#change_6"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_5"
+    },
+    {
+     "pointer": "/head_digest",
+     "value": "$digest:team_head_6"
+    },
+    {
+     "pointer": "/sequence",
+     "value": "$integer:sequence_6"
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:committed_at_6"
+    }
+   ]
+  },
+  {
+   "name": "other_grant",
+   "from": "c08/grant_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "contribute"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "same_id_other_bytes",
+   "from": "change_6",
+   "set": [
+    {
+     "pointer": "/payload_digest",
+     "value": "#other_grant"
+    }
+   ]
+  },
+  {
+   "name": "late_grant",
+   "from": "c08/grant_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "stale_change",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@stale_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.grant.change"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_7"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#late_grant"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#stored_policy"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "cancel_payload",
+   "from": "c03/query_by_request_id.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@change_request_8"
+    }
+   ]
+  },
+  {
+   "name": "cancel",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@cancel_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.cancel"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@change_request_8"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#cancel_payload"
+    }
+   ]
+  },
+  {
+   "name": "last_query",
+   "from": "c03/query_by_request_id.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@change_request_8"
+    }
+   ]
+  },
+  {
+   "name": "ask_last",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@ask_last_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.query"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@change_request_8"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#last_query"
+    }
+   ]
+  },
+  {
+   "name": "receipt_8",
+   "from": "c03/commit_receipt.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@change_request_8"
+    },
+    {
+     "pointer": "/request_digest",
+     "value": "#change_8"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_7"
+    },
+    {
+     "pointer": "/head_digest",
+     "value": "$digest:team_head_8"
+    },
+    {
+     "pointer": "/sequence",
+     "value": "$integer:sequence_8"
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:committed_at_8"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_device_key",
+   "request": "bind_key",
+   "carries": [
+    "device_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_key"
+    ]
+   }
+  },
+  {
+   "name": "found_the_team",
+   "request": "found",
+   "carries": [
+    "proposal",
+    "founding_policy"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_policy",
+     "team_active"
+    ],
+    "head": "team_head_0"
+   },
+   "submits": [
+    "founding_policy"
+   ]
+  },
+  {
+   "name": "change_grant_1",
+   "request": "change_1",
+   "carries": [
+    "grant_1"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_grant_1"
+    ],
+    "head": "team_head_1"
+   }
+  },
+  {
+   "name": "change_grant_2",
+   "request": "change_2",
+   "carries": [
+    "grant_2"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_grant_2"
+    ],
+    "head": "team_head_2"
+   }
+  },
+  {
+   "name": "change_grant_3",
+   "request": "change_3",
+   "carries": [
+    "grant_3"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_grant_3"
+    ],
+    "head": "team_head_3"
+   }
+  },
+  {
+   "name": "change_grant_4",
+   "request": "change_4",
+   "carries": [
+    "grant_4"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_grant_4"
+    ],
+    "head": "team_head_4"
+   }
+  },
+  {
+   "name": "change_grant_5",
+   "request": "change_5",
+   "carries": [
+    "grant_5"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_grant_5"
+    ],
+    "head": "team_head_5"
+   }
+  },
+  {
+   "name": "change_grant_6",
+   "request": "change_6",
+   "carries": [
+    "grant_6"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_grant_6"
+    ],
+    "head": "team_head_6"
+   }
+  },
+  {
+   "name": "change_grant_7",
+   "request": "change_7",
+   "carries": [
+    "grant_7"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_grant_7"
+    ],
+    "head": "team_head_7"
+   }
+  },
+  {
+   "name": "change_grant_8",
+   "request": "change_8",
+   "carries": [
+    "grant_8"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_grant_8"
+    ],
+    "head": "team_head_8"
+   }
+  },
+  {
+   "name": "settle_the_change_killed_in_its_transaction",
+   "request": "settle",
+   "carries": [
+    "settle_query"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "change_grant_6_result",
+     "receipt_6"
+    ]
+   }
+  },
+  {
+   "name": "resubmit_that_id_with_other_bytes",
+   "request": "same_id_other_bytes",
+   "carries": [
+    "other_grant"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "none",
+    "gaps": [
+     {
+      "code": "request_id_conflict"
+     }
+    ],
+    "recovery": [
+     "query_same_request"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "change_on_a_team_head_that_advanced",
+   "request": "stale_change",
+   "carries": [
+    "late_grant"
+   ],
+   "answer": {
+    "stage": "stale",
+    "local_effect": "none",
+    "provider_effect": "none",
+    "gaps": [
+     {
+      "code": "stale_base"
+     }
+    ],
+    "recovery": [
+     "reseal_on_current_head"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "cancel_after_the_commit",
+   "request": "cancel",
+   "carries": [
+    "cancel_payload"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "none",
+    "gaps": [
+     {
+      "code": "cancel_too_late"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "query_the_change_after_the_late_cancel",
+   "request": "ask_last",
+   "carries": [
+    "last_query"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "change_grant_8_result",
+     "receipt_8"
+    ]
+   }
+  }
+ ],
+ "world": {
+  "faults": [
+   {
+    "step": "change_grant_1",
+    "point": "before_stage"
+   },
+   {
+    "step": "change_grant_2",
+    "point": "after_member_write_before_sync"
+   },
+   {
+    "step": "change_grant_3",
+    "point": "after_stage_before_rename"
+   },
+   {
+    "step": "change_grant_4",
+    "point": "after_rename_before_dirsync"
+   },
+   {
+    "step": "change_grant_5",
+    "point": "after_dirsync_before_begin"
+   },
+   {
+    "step": "change_grant_6",
+    "point": "in_txn_before_commit"
+   },
+   {
+    "step": "change_grant_7",
+    "point": "after_commit_before_return"
+   },
+   {
+    "step": "change_grant_8",
+    "point": "during_checkpoint"
+   }
+  ]
+ }
+}

@@ -1,0 +1,1231 @@
+{
+ "case": "N18-EXCHANGE-NEG",
+ "says": "Alice founds a Team and configures a Slack connection whose code exchange needs a client secret; the connection declares that the exchange runs in a Team-protected process she operates, and the stored connection carries no secret. A connection submitted with its client secret, and one declaring a protected exchange without saying who operates it, are refused at admission. She begins linking her Slack identity: a callback carrying the identity token itself is refused at admission, and the callback carrying only the verified claims links her identity, returning sign-in evidence and a binding with no token or secret in either. A Team permit carrying a refresh token is refused at admission when her device tries to keep it. What must not happen: a secret or token stored in the connection, the evidence, the binding or any record kept on the client.",
+ "ids": [
+  {
+   "name": "alice",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "alice_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "bind_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "team",
+   "prefix": "tem"
+  },
+  {
+   "name": "found_team_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "configure_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "connection_with_its_secret_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "exchange_with_no_operator_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "attempt_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "token_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "complete_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "permit_with_a_refresh_token_id",
+   "prefix": "ctl"
+  },
+  {
+   "name": "permit_request_id",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "alice_laptop_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/credential/key_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/credential/public_key",
+     "value": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    {
+     "pointer": "/established_by",
+     "value": "local_creation"
+    }
+   ]
+  },
+  {
+   "name": "alice_laptop_binding",
+   "from": "alice_laptop_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:alice_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:alice_binding_at"
+    }
+   ]
+  },
+  {
+   "name": "bind_alice_laptop",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.add"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#alice_laptop_key"
+    }
+   ]
+  },
+  {
+   "name": "team_policy_draft",
+   "from": "c08/policy_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/operations",
+     "value": [
+      "publish",
+      "adopt"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "team_proposal",
+   "from": "c08/proposal_as_submitted.json",
+   "drop": [
+    "/founding_mode/nominees"
+   ],
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/founder_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/founding_mode/mode",
+     "value": "self_founded"
+    },
+    {
+     "pointer": "/founding_mode/acknowledged_self_reviewed",
+     "value": true
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recovery/0/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#team_policy_draft"
+    }
+   ]
+  },
+  {
+   "name": "team_policy",
+   "from": "team_policy_draft",
+   "set": [
+    {
+     "pointer": "/policy_id",
+     "value": "$pol:team_policy"
+    },
+    {
+     "pointer": "/policy_version",
+     "value": 1
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:team_policy_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:team_founder_grant"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "grant",
+      "policy"
+     ]
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_granted_at"
+    }
+   ]
+  },
+  {
+   "name": "team_state",
+   "from": "c08/archived_team.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/state",
+     "value": "active"
+    },
+    {
+     "pointer": "/since",
+     "value": "$instant:team_since"
+    }
+   ]
+  },
+  {
+   "name": "team_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:team_profile_at"
+    }
+   ]
+  },
+  {
+   "name": "found_team",
+   "from": "c02/lock_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@found_team_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.found"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_proposal"
+    }
+   ]
+  },
+  {
+   "name": "slack_submitted",
+   "from": "c02/connection_whose_exchange_needs_a_secret_runs_it_in_a_team_process.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/exchange/operator_principal_id",
+     "value": "@alice"
+    }
+   ],
+   "drop": [
+    "/connection_id",
+    "/configured_at"
+   ]
+  },
+  {
+   "name": "slack_stored",
+   "from": "slack_submitted",
+   "set": [
+    {
+     "pointer": "/connection_id",
+     "value": "$con:slack"
+    },
+    {
+     "pointer": "/configured_at",
+     "value": "$instant:slack_at"
+    }
+   ]
+  },
+  {
+   "name": "configure_slack_request",
+   "from": "c02/lock_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@configure_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.connection.configure"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#slack_submitted"
+    }
+   ]
+  },
+  {
+   "name": "secret_connection",
+   "from": "slack_submitted",
+   "set": [
+    {
+     "pointer": "/client_secret",
+     "value": "not-a-real-one"
+    }
+   ]
+  },
+  {
+   "name": "connection_with_its_secret_request",
+   "from": "c02/lock_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@connection_with_its_secret_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.connection.configure"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_2"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#secret_connection"
+    }
+   ]
+  },
+  {
+   "name": "operatorless_connection",
+   "from": "slack_submitted",
+   "drop": [
+    "/exchange/operator_principal_id"
+   ]
+  },
+  {
+   "name": "exchange_with_no_operator_request",
+   "from": "c02/lock_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@exchange_with_no_operator_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.connection.configure"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_2"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#operatorless_connection"
+    }
+   ]
+  },
+  {
+   "name": "slack_attempt_asked",
+   "from": "c02/sign_in_to_link_a_principal.json",
+   "set": [
+    {
+     "pointer": "/connection_id",
+     "value": "$con:slack"
+    },
+    {
+     "pointer": "/purpose/purpose",
+     "value": "link"
+    },
+    {
+     "pointer": "/purpose/principal_id",
+     "value": "@alice"
+    }
+   ]
+  },
+  {
+   "name": "slack_attempt_begun",
+   "from": "slack_attempt_asked",
+   "set": [
+    {
+     "pointer": "/attempt_id",
+     "value": "$sin:slack_attempt"
+    },
+    {
+     "pointer": "/state_digest",
+     "value": "$digest:slack_attempt_state"
+    },
+    {
+     "pointer": "/nonce_digest",
+     "value": "$digest:slack_attempt_nonce"
+    },
+    {
+     "pointer": "/expires_at",
+     "value": "$instant:slack_attempt_expires"
+    },
+    {
+     "pointer": "/begun_at",
+     "value": "$instant:slack_attempt_begun_at"
+    }
+   ]
+  },
+  {
+   "name": "begin_link_request",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@attempt_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.sign_in.begin"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$con:slack"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#slack_attempt_asked"
+    }
+   ]
+  },
+  {
+   "name": "callback_with_its_token",
+   "from": "c02/callback_with_the_expected_claims.json",
+   "set": [
+    {
+     "pointer": "/attempt_id",
+     "value": "$sin:slack_attempt"
+    },
+    {
+     "pointer": "/state_digest",
+     "value": "$digest:slack_attempt_state"
+    },
+    {
+     "pointer": "/reply/nonce_digest",
+     "value": "$digest:slack_attempt_nonce"
+    },
+    {
+     "pointer": "/reply/issuer",
+     "value": "https://slack.com"
+    },
+    {
+     "pointer": "/reply/audience",
+     "value": "4123456789.5123456789"
+    },
+    {
+     "pointer": "/reply/claims/0/claim",
+     "value": "https://slack.com/team_id"
+    },
+    {
+     "pointer": "/reply/claims/0/value",
+     "value": "T0123456789"
+    },
+    {
+     "pointer": "/reply/subject",
+     "value": "U0ALICE42"
+    },
+    {
+     "pointer": "/reply/email",
+     "value": "alice@example.com"
+    },
+    {
+     "pointer": "/id_token",
+     "value": "eyJ.not.real"
+    }
+   ]
+  },
+  {
+   "name": "token_request",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@token_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.sign_in.complete"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$con:slack"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#callback_with_its_token"
+    }
+   ]
+  },
+  {
+   "name": "callback_with_claims",
+   "from": "c02/callback_with_the_expected_claims.json",
+   "set": [
+    {
+     "pointer": "/attempt_id",
+     "value": "$sin:slack_attempt"
+    },
+    {
+     "pointer": "/state_digest",
+     "value": "$digest:slack_attempt_state"
+    },
+    {
+     "pointer": "/reply/nonce_digest",
+     "value": "$digest:slack_attempt_nonce"
+    },
+    {
+     "pointer": "/reply/issuer",
+     "value": "https://slack.com"
+    },
+    {
+     "pointer": "/reply/audience",
+     "value": "4123456789.5123456789"
+    },
+    {
+     "pointer": "/reply/claims/0/claim",
+     "value": "https://slack.com/team_id"
+    },
+    {
+     "pointer": "/reply/claims/0/value",
+     "value": "T0123456789"
+    },
+    {
+     "pointer": "/reply/subject",
+     "value": "U0ALICE42"
+    },
+    {
+     "pointer": "/reply/email",
+     "value": "alice@example.com"
+    }
+   ]
+  },
+  {
+   "name": "slack_evidence",
+   "from": "c02/identity_verified_for_a_principal.json",
+   "set": [
+    {
+     "pointer": "/attempt_id",
+     "value": "$sin:slack_attempt"
+    },
+    {
+     "pointer": "/connection_id",
+     "value": "$con:slack"
+    },
+    {
+     "pointer": "/purpose/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/issuer",
+     "value": "https://slack.com"
+    },
+    {
+     "pointer": "/subject",
+     "value": "U0ALICE42"
+    },
+    {
+     "pointer": "/claims/0/claim",
+     "value": "https://slack.com/team_id"
+    },
+    {
+     "pointer": "/claims/0/value",
+     "value": "T0123456789"
+    },
+    {
+     "pointer": "/verified_at",
+     "value": "$instant:slack_verified_at"
+    }
+   ]
+  },
+  {
+   "name": "slack_binding",
+   "from": "c01/external_identity_binding.json",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:slack_binding"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/credential/connection_id",
+     "value": "$con:slack"
+    },
+    {
+     "pointer": "/credential/issuer",
+     "value": "https://slack.com"
+    },
+    {
+     "pointer": "/credential/subject",
+     "value": "U0ALICE42"
+    },
+    {
+     "pointer": "/credential/tenant",
+     "value": "T0123456789"
+    },
+    {
+     "pointer": "/evidence_digests",
+     "value": [
+      "#slack_evidence"
+     ]
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:slack_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "complete_request",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@complete_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.sign_in.complete"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$con:slack"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#callback_with_claims"
+    }
+   ]
+  },
+  {
+   "name": "permit_with_a_refresh_token",
+   "from": "c02/offline_permit_for_one_device.json",
+   "set": [
+    {
+     "pointer": "/evidence_id",
+     "value": "@permit_with_a_refresh_token_id"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/holder/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/issuer/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/issuer/authority_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/statement/attests",
+     "value": [
+      "#team_founder_grant"
+     ]
+    },
+    {
+     "pointer": "/issued_at",
+     "value": "2026-09-21T09:00:00Z"
+    },
+    {
+     "pointer": "/statement/offline/until",
+     "value": "2026-09-28T09:00:00Z"
+    },
+    {
+     "pointer": "/statement/valid_until",
+     "value": "2026-10-21T09:00:00Z"
+    },
+    {
+     "pointer": "/refresh_token",
+     "value": "1//not-real"
+    }
+   ]
+  },
+  {
+   "name": "permit_request",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@permit_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.control.record"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#permit_with_a_refresh_token"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_key",
+   "request": "bind_alice_laptop",
+   "carries": [
+    "alice_laptop_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "alice_laptop_binding"
+    ]
+   }
+  },
+  {
+   "name": "found_team",
+   "request": "found_team",
+   "carries": [
+    "team_proposal",
+    "team_policy_draft"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_policy",
+     "team_founder_grant",
+     "team_state",
+     "team_profile"
+    ],
+    "head": "team_head"
+   },
+   "submits": [
+    "team_policy_draft"
+   ]
+  },
+  {
+   "name": "configure_slack",
+   "request": "configure_slack_request",
+   "carries": [
+    "slack_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "slack_stored"
+    ],
+    "head": "team_head_2"
+   }
+  },
+  {
+   "name": "connection_with_its_secret",
+   "request": "connection_with_its_secret_request",
+   "carries": [
+    "secret_connection"
+   ],
+   "refused": [
+    {
+     "record": "secret_connection",
+     "code": "unknown_field",
+     "pointer": "/client_secret"
+    }
+   ]
+  },
+  {
+   "name": "exchange_with_no_operator",
+   "request": "exchange_with_no_operator_request",
+   "carries": [
+    "operatorless_connection"
+   ],
+   "refused": [
+    {
+     "record": "operatorless_connection",
+     "code": "variant_mismatch",
+     "pointer": "/exchange"
+    }
+   ]
+  },
+  {
+   "name": "begin_link",
+   "request": "begin_link_request",
+   "carries": [
+    "slack_attempt_asked"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "slack_attempt_begun"
+    ]
+   }
+  },
+  {
+   "name": "callback_carrying_the_token",
+   "request": "token_request",
+   "carries": [
+    "callback_with_its_token"
+   ],
+   "refused": [
+    {
+     "record": "callback_with_its_token",
+     "code": "unknown_field",
+     "pointer": "/id_token"
+    }
+   ]
+  },
+  {
+   "name": "link_with_claims_only",
+   "request": "complete_request",
+   "carries": [
+    "callback_with_claims"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "committed",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "slack_evidence",
+     "slack_binding"
+    ]
+   }
+  },
+  {
+   "name": "permit_carrying_a_token",
+   "request": "permit_request",
+   "carries": [
+    "permit_with_a_refresh_token"
+   ],
+   "refused": [
+    {
+     "record": "permit_with_a_refresh_token",
+     "code": "unknown_field",
+     "pointer": "/refresh_token"
+    }
+   ]
+  }
+ ],
+ "world": {
+  "clock": {
+   "start": "2026-09-21T09:00:00Z"
+  }
+ }
+}

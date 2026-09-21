@@ -1,0 +1,1112 @@
+{
+ "case": "CAP-12",
+ "ids": [
+  {
+   "name": "me",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "local_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "repo",
+   "prefix": "rep"
+  },
+  {
+   "name": "team",
+   "prefix": "tem"
+  },
+  {
+   "name": "team_decisions",
+   "prefix": "src"
+  },
+  {
+   "name": "lane",
+   "prefix": "wst"
+  },
+  {
+   "name": "measured_source",
+   "prefix": "src"
+  },
+  {
+   "name": "entry",
+   "prefix": "ent"
+  },
+  {
+   "name": "found_request",
+   "prefix": "req"
+  },
+  {
+   "name": "observe_request",
+   "prefix": "req"
+  },
+  {
+   "name": "wide_request",
+   "prefix": "req"
+  },
+  {
+   "name": "candidate_request",
+   "prefix": "req"
+  },
+  {
+   "name": "derivations_request",
+   "prefix": "req"
+  },
+  {
+   "name": "plan_request",
+   "prefix": "req"
+  },
+  {
+   "name": "ungoverned_request",
+   "prefix": "req"
+  },
+  {
+   "name": "evict_candidate_request",
+   "prefix": "req"
+  },
+  {
+   "name": "removal_request",
+   "prefix": "req"
+  },
+  {
+   "name": "after_request",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "policy",
+   "from": "c08/policy_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/threshold",
+     "value": 0
+    }
+   ]
+  },
+  {
+   "name": "proposal",
+   "from": "c08/proposal_as_submitted.json",
+   "drop": [
+    "/founding_mode/nominees"
+   ],
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/founder_principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/founding_mode/mode",
+     "value": "self_founded"
+    },
+    {
+     "pointer": "/founding_mode/acknowledged_self_reviewed",
+     "value": true
+    },
+    {
+     "pointer": "/recovery/0/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#policy"
+    }
+   ]
+  },
+  {
+   "name": "found_submit",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@found_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.found"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#proposal"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    }
+   ]
+  },
+  {
+   "name": "stored_policy",
+   "from": "policy",
+   "set": [
+    {
+     "pointer": "/policy_id",
+     "value": "$pol:policy"
+    },
+    {
+     "pointer": "/policy_version",
+     "value": 1
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:founder_grant"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_state",
+   "from": "c08/archived_team.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/state",
+     "value": "active"
+    },
+    {
+     "pointer": "/since",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "selection",
+   "from": "c01/selection_of_a_transcript_span.json"
+  },
+  {
+   "name": "observe",
+   "from": "c01/observe_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@observe_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#selection"
+    }
+   ]
+  },
+  {
+   "name": "observation",
+   "from": "c01/observation_of_a_selected_transcript_span.json",
+   "set": [
+    {
+     "pointer": "/selection_digest",
+     "value": "#selection"
+    },
+    {
+     "pointer": "/read/0/digest",
+     "value": "$digest:span_bytes"
+    },
+    {
+     "pointer": "/observed_at",
+     "value": "$instant:observed_at"
+    }
+   ]
+  },
+  {
+   "name": "wide_capture",
+   "from": "c01/capture_proposed_for_a_wider_scope.json",
+   "set": [
+    {
+     "pointer": "/destination_source_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/observation_digest",
+     "value": "#observation"
+    },
+    {
+     "pointer": "/entries/0/entry_id",
+     "value": "@entry"
+    },
+    {
+     "pointer": "/processing/inputs/0/evidence_digest",
+     "value": "$digest:span_bytes"
+    },
+    {
+     "pointer": "/processing/inputs/0/permits/destinations/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/processing/inputs/0/permits/destinations/1/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/widens/from_scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/widens/authority_evidence_digest",
+     "value": "#founder_grant"
+    }
+   ]
+  },
+  {
+   "name": "wide_submit",
+   "from": "c01/capture_request.json",
+   "drop": [
+    "/owner/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@wide_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#stored_policy"
+     ]
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#wide_capture"
+    }
+   ]
+  },
+  {
+   "name": "stored_wide_capture",
+   "from": "wide_capture",
+   "set": [
+    {
+     "pointer": "/captured_at",
+     "value": "$instant:captured_at"
+    }
+   ]
+  },
+  {
+   "name": "run",
+   "from": "c01/extraction_run_of_a_packaged_adapter.json",
+   "set": [
+    {
+     "pointer": "/run_id",
+     "value": "$run:distill_run"
+    },
+    {
+     "pointer": "/ran_at",
+     "value": "$instant:ran_at"
+    }
+   ]
+  },
+  {
+   "name": "candidate",
+   "from": "c05/candidate_from_a_capture.json",
+   "set": [
+    {
+     "pointer": "/destination_source_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/origin/capture_digest",
+     "value": "#stored_wide_capture"
+    },
+    {
+     "pointer": "/origin/evidence_digests/0",
+     "value": "$digest:span_bytes"
+    },
+    {
+     "pointer": "/proposed/home/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/proposed/home/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/proposed/workstream_ids/0",
+     "value": "@lane"
+    },
+    {
+     "pointer": "/proposed/basis/0/source_id",
+     "value": "@measured_source"
+    },
+    {
+     "pointer": "/proposed/applicability/conditions/0/dimension",
+     "value": "storage"
+    },
+    {
+     "pointer": "/proposed/applicability/conditions/0/value",
+     "value": "a shared network volume"
+    }
+   ],
+   "drop": [
+    "/proposed/home/repository_id"
+   ]
+  },
+  {
+   "name": "candidate_submit",
+   "from": "c03/candidate_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@candidate_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#candidate"
+    }
+   ]
+  },
+  {
+   "name": "stored_candidate",
+   "from": "candidate",
+   "set": [
+    {
+     "pointer": "/candidate_id",
+     "value": "$cnd:candidate"
+    },
+    {
+     "pointer": "/version",
+     "value": 1
+    },
+    {
+     "pointer": "/standing/is",
+     "value": "candidate"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:candidate_at"
+    }
+   ]
+  },
+  {
+   "name": "derivation_query",
+   "from": "c10/derivations_of_one_object.json",
+   "set": [
+    {
+     "pointer": "/object_digest",
+     "value": "#stored_wide_capture"
+    }
+   ]
+  },
+  {
+   "name": "derivations_submit",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@derivations_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "retention.derivations.read"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#stored_policy"
+     ]
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#derivation_query"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head"
+    }
+   ]
+  },
+  {
+   "name": "derivation_map",
+   "from": "c10/what_was_derived_from_one_piece_of_evidence.json",
+   "set": [
+    {
+     "pointer": "/object_digest",
+     "value": "#stored_wide_capture"
+    },
+    {
+     "pointer": "/derivatives/0/digest",
+     "value": "$digest:excerpt"
+    },
+    {
+     "pointer": "/derivatives/1/digest",
+     "value": "$digest:capture_index"
+    },
+    {
+     "pointer": "/derivatives/2/digest",
+     "value": "#stored_candidate"
+    },
+    {
+     "pointer": "/derivatives/2/derived_as",
+     "value": "candidate"
+    },
+    {
+     "pointer": "/read_at",
+     "value": "$instant:derivations_read_at"
+    }
+   ]
+  },
+  {
+   "name": "plan",
+   "from": "c10/cleanup_of_candidates_and_prompts.json",
+   "set": [
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/promised/0/digest",
+     "value": "#stored_wide_capture"
+    },
+    {
+     "pointer": "/promised/0/object_kind",
+     "value": "memory_capture"
+    },
+    {
+     "pointer": "/evictable/0/digest",
+     "value": "$digest:capture_index"
+    },
+    {
+     "pointer": "/cleanup/governed_by",
+     "value": "#stored_policy"
+    }
+   ]
+  },
+  {
+   "name": "plan_submit",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@plan_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "retention.plan.set"
+    },
+    {
+     "pointer": "/action",
+     "value": "retain_delete"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#stored_policy"
+     ]
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#plan"
+    }
+   ]
+  },
+  {
+   "name": "ungoverned_plan",
+   "from": "plan",
+   "drop": [
+    "/cleanup/governed_by"
+   ]
+  },
+  {
+   "name": "ungoverned_submit",
+   "from": "plan_submit",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@ungoverned_request"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#ungoverned_plan"
+    }
+   ]
+  },
+  {
+   "name": "evict_candidate_plan",
+   "from": "plan",
+   "set": [
+    {
+     "pointer": "/evictable/0/digest",
+     "value": "#stored_candidate"
+    },
+    {
+     "pointer": "/evictable/0/object_kind",
+     "value": "candidate"
+    }
+   ]
+  },
+  {
+   "name": "evict_candidate_submit",
+   "from": "plan_submit",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@evict_candidate_request"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#evict_candidate_plan"
+    }
+   ]
+  },
+  {
+   "name": "removal",
+   "from": "c10/removal_of_one_object.json",
+   "set": [
+    {
+     "pointer": "/object_digest",
+     "value": "#stored_wide_capture"
+    }
+   ]
+  },
+  {
+   "name": "removal_submit",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@removal_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "removal.execute"
+    },
+    {
+     "pointer": "/action",
+     "value": "retain_delete"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:plan_head"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#stored_policy"
+     ]
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#removal"
+    }
+   ]
+  },
+  {
+   "name": "removal_outcome",
+   "from": "c10/removal_of_evidence_and_what_was_derived_from_it.json",
+   "set": [
+    {
+     "pointer": "/for_request_id",
+     "value": "@removal_request"
+    },
+    {
+     "pointer": "/object_digest",
+     "value": "#stored_wide_capture"
+    },
+    {
+     "pointer": "/per_copy/0/holder/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/per_copy/0/tombstone_digest",
+     "value": "$digest:capture_tombstone"
+    },
+    {
+     "pointer": "/derived_copies/0/object_digest",
+     "value": "$digest:excerpt"
+    },
+    {
+     "pointer": "/derived_copies/0/per_copy/0/holder/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/derived_copies/0/per_copy/0/tombstone_digest",
+     "value": "$digest:excerpt_tombstone"
+    },
+    {
+     "pointer": "/derived_copies/1/object_digest",
+     "value": "$digest:capture_index"
+    },
+    {
+     "pointer": "/derived_copies/1/per_copy/0/holder/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/derived_copies/1/per_copy/0/tombstone_digest",
+     "value": "$digest:index_tombstone"
+    },
+    {
+     "pointer": "/derived_copies/2/object_digest",
+     "value": "#stored_candidate"
+    },
+    {
+     "pointer": "/derived_copies/2/per_copy/0/outcome",
+     "value": "confirmed"
+    },
+    {
+     "pointer": "/derived_copies/2/per_copy/0/holder/holds_on",
+     "value": "device"
+    },
+    {
+     "pointer": "/derived_copies/2/per_copy/0/holder/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/derived_copies/2/per_copy/0/tombstone_digest",
+     "value": "$digest:candidate_tombstone"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:removed_at"
+    }
+   ]
+  },
+  {
+   "name": "after_submit",
+   "from": "derivations_submit",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@after_request"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:removal_head"
+    }
+   ]
+  },
+  {
+   "name": "empty_map",
+   "from": "derivation_map",
+   "drop": [
+    "/derivatives/2",
+    "/derivatives/1",
+    "/derivatives/0"
+   ],
+   "set": [
+    {
+     "pointer": "/read_at",
+     "value": "$instant:after_read_at"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "found_team",
+   "request": "found_submit",
+   "carries": [
+    "proposal",
+    "policy"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_policy",
+     "founder_grant",
+     "team_state",
+     "team_profile"
+    ],
+    "head": "team_head"
+   },
+   "submits": [
+    "policy"
+   ]
+  },
+  {
+   "name": "observe_span",
+   "request": "observe",
+   "carries": [
+    "selection"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "observation"
+    ]
+   }
+  },
+  {
+   "name": "capture_for_the_team",
+   "request": "wide_submit",
+   "carries": [
+    "wide_capture"
+   ],
+   "answer": {
+    "stage": "draft",
+    "local_effect": "candidate_stored",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_wide_capture",
+     "run"
+    ]
+   }
+  },
+  {
+   "name": "store_candidate",
+   "request": "candidate_submit",
+   "carries": [
+    "candidate"
+   ],
+   "answer": {
+    "stage": "draft",
+    "local_effect": "candidate_stored",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_candidate"
+    ]
+   }
+  },
+  {
+   "name": "read_derivations",
+   "request": "derivations_submit",
+   "carries": [
+    "derivation_query"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "derivation_map"
+    ]
+   }
+  },
+  {
+   "name": "plan_without_a_governing_policy",
+   "request": "ungoverned_submit",
+   "carries": [
+    "ungoverned_plan"
+   ],
+   "refused": [
+    {
+     "record": "ungoverned_plan",
+     "code": "missing_field",
+     "pointer": "/cleanup/governed_by"
+    }
+   ]
+  },
+  {
+   "name": "plan_evicting_the_candidate",
+   "request": "evict_candidate_submit",
+   "carries": [
+    "evict_candidate_plan"
+   ],
+   "refused": [
+    {
+     "record": "evict_candidate_plan",
+     "code": "value_not_allowed",
+     "pointer": "/evictable/0/object_kind"
+    }
+   ]
+  },
+  {
+   "name": "set_retention",
+   "request": "plan_submit",
+   "carries": [
+    "plan"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "plan"
+    ],
+    "head": "plan_head"
+   }
+  },
+  {
+   "name": "remove_the_evidence",
+   "request": "removal_submit",
+   "carries": [
+    "removal"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "removal_outcome"
+    ],
+    "head": "removal_head"
+   }
+  },
+  {
+   "name": "read_derivations_after_removal",
+   "request": "after_submit",
+   "carries": [
+    "derivation_query"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "empty_map"
+    ]
+   }
+  }
+ ],
+ "says": "A person founds a Team alone (team.found), selects one transcript span (source.observe), captures a memory entry from it for a Team decision source with the widening and its authority stated (source.capture.record), and stores a candidate from that capture (memory.candidate.store). Reading what the store derived from the capture (retention.derivations.read) returns its derivation map: an excerpt, an index and the candidate, each by digest. The person sets the Team's retention plan (retention.plan.set): the capture is promised, only the rebuildable index is evictable, and cleanup of candidates, prompts and excerpts is governed by the Team's committed policy. Two plans are refused at admission and write nothing: one whose cleanup names no governing policy (missing_field at /cleanup/governed_by) and one offering the candidate for eviction (value_not_allowed at /evictable/0/object_kind). The person then removes the capture (removal.execute). The removal outcome names the laptop's copy as confirmed with its tombstone and, under derived_copies, every object the derivation map named, each confirmed with its own tombstone, and states erasure_not_promised; nothing names a replacement proof. Reading the derivations of the removed capture afterwards returns an empty map, so no excerpt, index or candidate is silently kept."
+}

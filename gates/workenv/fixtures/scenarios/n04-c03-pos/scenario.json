@@ -1,0 +1,2836 @@
+{
+ "case": "N04-C03-POS",
+ "ids": [
+  {
+   "id": "prn_630b59abb31c4c437d6e6d0b76175346",
+   "name": "alice"
+  },
+  {
+   "id": "dev_26fc1a67b0b422425bcd73ba423c799b",
+   "name": "laptop"
+  },
+  {
+   "id": "prf_bb4e47b2fd39ab63d754af4a43700f84",
+   "name": "profile"
+  },
+  {
+   "id": "req_cacaa23b65885c619fff0db16de37575",
+   "name": "bind_alice_request_req"
+  },
+  {
+   "id": "rep_dd0bbb5181d59816c36a0389958bf1b0",
+   "name": "repo"
+  },
+  {
+   "id": "req_a51ca833a714728a0252cb4eb5809468",
+   "name": "bind_repository_request_req"
+  },
+  {
+   "id": "src_9fcfb24e8f6b2fe84b22c42f31e7fea9",
+   "name": "repo_rules"
+  },
+  {
+   "id": "req_c9f5c217f270bbf17f585bf8e11bd7f2",
+   "name": "author_repo_rules_request_req"
+  },
+  {
+   "id": "ent_7faec31f7cddd0ee25063c0a31c38f7e",
+   "name": "setup_entrance"
+  },
+  {
+   "id": "req_33c5bad768ca645334881ec77284a0fc",
+   "name": "trace_setup_request_req"
+  },
+  {
+   "id": "ent_e20366874e20410ab57c36a79661177f",
+   "name": "session_start_entrance"
+  },
+  {
+   "id": "req_d2d21e23eae1a218affbc6e93a7b5d2c",
+   "name": "trace_session_start_request_req"
+  },
+  {
+   "id": "ent_4d91f0afedfbc6f4765405c5f8950e85",
+   "name": "maintenance_entrance"
+  },
+  {
+   "id": "req_9d43b40778f3d4c06a34d694da08c4ef",
+   "name": "trace_maintenance_request_req"
+  },
+  {
+   "id": "ent_d6082f0802d924bec427751dce017e03",
+   "name": "decision_cli_entrance"
+  },
+  {
+   "id": "req_fd91dfcfe82c3e1ca01d337a3ea55971",
+   "name": "trace_decision_cli_request_req"
+  },
+  {
+   "id": "ent_cd72339b495891c251e5488b1e1f58cc",
+   "name": "studio_hub_entrance"
+  },
+  {
+   "id": "req_88d25264590410de9f97ccc6667c89e0",
+   "name": "trace_studio_hub_request_req"
+  },
+  {
+   "id": "req_e75a9ab09b06e82bfd56af5a29062974",
+   "name": "project_via_setup_request_req"
+  },
+  {
+   "id": "req_e04514177523ba3d6e8e7d63532dadf6",
+   "name": "admit_setup_request_req"
+  },
+  {
+   "id": "req_c0e303ab79489b9ce1d6dbd210e8c57d",
+   "name": "project_via_session_start_request_req"
+  },
+  {
+   "id": "req_9a565f3e72e100b294c494ed8b57a7ab",
+   "name": "project_via_maintenance_request_req"
+  },
+  {
+   "id": "wst_502f30ed17b0b24acd71f89d0be3569d",
+   "name": "storage_work"
+  },
+  {
+   "id": "req_b53e6b4528883b36542add83e7a66c7d",
+   "name": "open_storage_work_request_req"
+  },
+  {
+   "id": "src_c1dfb3f7ead70ec18dc196cf2634227f",
+   "name": "repo_memory"
+  },
+  {
+   "id": "req_6d3cb0bbf67e569746e6417a1f78a6c1",
+   "name": "author_repo_memory_request_req"
+  },
+  {
+   "id": "req_f54b7d3a5cb90dbb19cfff90f0fdff68",
+   "name": "record_through_decision_cli_request_req"
+  }
+ ],
+ "joins": [
+  {
+   "digest_of": "alice_key",
+   "pointer": "/payload_digest",
+   "record": "bind_alice_request"
+  },
+  {
+   "minted": "alice_binding_id",
+   "pointer": "/binding_id",
+   "record": "alice_binding"
+  },
+  {
+   "minted": "alice_bound_at",
+   "pointer": "/created_at",
+   "record": "alice_binding"
+  },
+  {
+   "digest_of": "bind_alice_request",
+   "pointer": "/request_digest",
+   "record": "bind_alice_receipt"
+  },
+  {
+   "minted": "bind_alice_head",
+   "pointer": "/head_digest",
+   "record": "bind_alice_receipt"
+  },
+  {
+   "minted": "bind_alice_sequence",
+   "pointer": "/sequence",
+   "record": "bind_alice_receipt"
+  },
+  {
+   "minted": "bind_alice_committed_at",
+   "pointer": "/committed_at",
+   "record": "bind_alice_receipt"
+  },
+  {
+   "digest_of": "bind_alice_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "bind_alice_result"
+  },
+  {
+   "digest_of": "bind_alice_request",
+   "pointer": "/request_digest",
+   "record": "bind_alice_result"
+  },
+  {
+   "digest_of": "alice_binding",
+   "pointer": "/outputs/0/digest",
+   "record": "bind_alice_result"
+  },
+  {
+   "digest_of": "repo_binding_submitted",
+   "pointer": "/payload_digest",
+   "record": "bind_repository_request"
+  },
+  {
+   "minted": "repo_bound_bytes",
+   "pointer": "/observed/working_bytes_digest",
+   "record": "repo_binding"
+  },
+  {
+   "digest_of": "bind_repository_request",
+   "pointer": "/request_digest",
+   "record": "bind_repository_receipt"
+  },
+  {
+   "minted": "bind_repository_head",
+   "pointer": "/head_digest",
+   "record": "bind_repository_receipt"
+  },
+  {
+   "minted": "bind_repository_sequence",
+   "pointer": "/sequence",
+   "record": "bind_repository_receipt"
+  },
+  {
+   "minted": "bind_repository_committed_at",
+   "pointer": "/committed_at",
+   "record": "bind_repository_receipt"
+  },
+  {
+   "digest_of": "bind_repository_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "bind_repository_result"
+  },
+  {
+   "digest_of": "bind_repository_request",
+   "pointer": "/request_digest",
+   "record": "bind_repository_result"
+  },
+  {
+   "digest_of": "repo_binding",
+   "pointer": "/outputs/0/digest",
+   "record": "bind_repository_result"
+  },
+  {
+   "digest_of": "repo_rules_request",
+   "pointer": "/payload_digest",
+   "record": "author_repo_rules_request"
+  },
+  {
+   "minted": "repo_rules_review_body",
+   "pointer": "/members/0/digest",
+   "record": "repo_rules_rev"
+  },
+  {
+   "minted": "repo_rules_produced_at",
+   "pointer": "/produced_at",
+   "record": "repo_rules_rev"
+  },
+  {
+   "digest_of": "author_repo_rules_request",
+   "pointer": "/request_digest",
+   "record": "author_repo_rules_receipt"
+  },
+  {
+   "minted": "repo_rules_head",
+   "pointer": "/head_digest",
+   "record": "author_repo_rules_receipt"
+  },
+  {
+   "minted": "author_repo_rules_sequence",
+   "pointer": "/sequence",
+   "record": "author_repo_rules_receipt"
+  },
+  {
+   "minted": "author_repo_rules_committed_at",
+   "pointer": "/committed_at",
+   "record": "author_repo_rules_receipt"
+  },
+  {
+   "digest_of": "author_repo_rules_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "author_repo_rules_result"
+  },
+  {
+   "digest_of": "author_repo_rules_request",
+   "pointer": "/request_digest",
+   "record": "author_repo_rules_result"
+  },
+  {
+   "digest_of": "repo_rules_rev",
+   "pointer": "/outputs/0/digest",
+   "record": "author_repo_rules_result"
+  },
+  {
+   "digest_of": "setup_disposition",
+   "pointer": "/payload_digest",
+   "record": "trace_setup_request"
+  },
+  {
+   "digest_of": "trace_setup_request",
+   "pointer": "/request_digest",
+   "record": "trace_setup_receipt"
+  },
+  {
+   "minted": "trace_setup_head",
+   "pointer": "/head_digest",
+   "record": "trace_setup_receipt"
+  },
+  {
+   "minted": "trace_setup_sequence",
+   "pointer": "/sequence",
+   "record": "trace_setup_receipt"
+  },
+  {
+   "minted": "trace_setup_committed_at",
+   "pointer": "/committed_at",
+   "record": "trace_setup_receipt"
+  },
+  {
+   "digest_of": "trace_setup_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "trace_setup_result"
+  },
+  {
+   "digest_of": "trace_setup_request",
+   "pointer": "/request_digest",
+   "record": "trace_setup_result"
+  },
+  {
+   "digest_of": "setup_disposition",
+   "pointer": "/outputs/0/digest",
+   "record": "trace_setup_result"
+  },
+  {
+   "digest_of": "session_start_disposition",
+   "pointer": "/payload_digest",
+   "record": "trace_session_start_request"
+  },
+  {
+   "digest_of": "trace_session_start_request",
+   "pointer": "/request_digest",
+   "record": "trace_session_start_receipt"
+  },
+  {
+   "minted": "trace_session_start_head",
+   "pointer": "/head_digest",
+   "record": "trace_session_start_receipt"
+  },
+  {
+   "minted": "trace_session_start_sequence",
+   "pointer": "/sequence",
+   "record": "trace_session_start_receipt"
+  },
+  {
+   "minted": "trace_session_start_committed_at",
+   "pointer": "/committed_at",
+   "record": "trace_session_start_receipt"
+  },
+  {
+   "digest_of": "trace_session_start_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "trace_session_start_result"
+  },
+  {
+   "digest_of": "trace_session_start_request",
+   "pointer": "/request_digest",
+   "record": "trace_session_start_result"
+  },
+  {
+   "digest_of": "session_start_disposition",
+   "pointer": "/outputs/0/digest",
+   "record": "trace_session_start_result"
+  },
+  {
+   "digest_of": "maintenance_disposition",
+   "pointer": "/payload_digest",
+   "record": "trace_maintenance_request"
+  },
+  {
+   "digest_of": "trace_maintenance_request",
+   "pointer": "/request_digest",
+   "record": "trace_maintenance_receipt"
+  },
+  {
+   "minted": "trace_maintenance_head",
+   "pointer": "/head_digest",
+   "record": "trace_maintenance_receipt"
+  },
+  {
+   "minted": "trace_maintenance_sequence",
+   "pointer": "/sequence",
+   "record": "trace_maintenance_receipt"
+  },
+  {
+   "minted": "trace_maintenance_committed_at",
+   "pointer": "/committed_at",
+   "record": "trace_maintenance_receipt"
+  },
+  {
+   "digest_of": "trace_maintenance_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "trace_maintenance_result"
+  },
+  {
+   "digest_of": "trace_maintenance_request",
+   "pointer": "/request_digest",
+   "record": "trace_maintenance_result"
+  },
+  {
+   "digest_of": "maintenance_disposition",
+   "pointer": "/outputs/0/digest",
+   "record": "trace_maintenance_result"
+  },
+  {
+   "digest_of": "decision_cli_disposition",
+   "pointer": "/payload_digest",
+   "record": "trace_decision_cli_request"
+  },
+  {
+   "digest_of": "trace_decision_cli_request",
+   "pointer": "/request_digest",
+   "record": "trace_decision_cli_receipt"
+  },
+  {
+   "minted": "trace_decision_cli_head",
+   "pointer": "/head_digest",
+   "record": "trace_decision_cli_receipt"
+  },
+  {
+   "minted": "trace_decision_cli_sequence",
+   "pointer": "/sequence",
+   "record": "trace_decision_cli_receipt"
+  },
+  {
+   "minted": "trace_decision_cli_committed_at",
+   "pointer": "/committed_at",
+   "record": "trace_decision_cli_receipt"
+  },
+  {
+   "digest_of": "trace_decision_cli_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "trace_decision_cli_result"
+  },
+  {
+   "digest_of": "trace_decision_cli_request",
+   "pointer": "/request_digest",
+   "record": "trace_decision_cli_result"
+  },
+  {
+   "digest_of": "decision_cli_disposition",
+   "pointer": "/outputs/0/digest",
+   "record": "trace_decision_cli_result"
+  },
+  {
+   "digest_of": "studio_hub_disposition",
+   "pointer": "/payload_digest",
+   "record": "trace_studio_hub_request"
+  },
+  {
+   "digest_of": "trace_studio_hub_request",
+   "pointer": "/request_digest",
+   "record": "trace_studio_hub_receipt"
+  },
+  {
+   "minted": "trace_studio_hub_head",
+   "pointer": "/head_digest",
+   "record": "trace_studio_hub_receipt"
+  },
+  {
+   "minted": "trace_studio_hub_sequence",
+   "pointer": "/sequence",
+   "record": "trace_studio_hub_receipt"
+  },
+  {
+   "minted": "trace_studio_hub_committed_at",
+   "pointer": "/committed_at",
+   "record": "trace_studio_hub_receipt"
+  },
+  {
+   "digest_of": "trace_studio_hub_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "trace_studio_hub_result"
+  },
+  {
+   "digest_of": "trace_studio_hub_request",
+   "pointer": "/request_digest",
+   "record": "trace_studio_hub_result"
+  },
+  {
+   "digest_of": "studio_hub_disposition",
+   "pointer": "/outputs/0/digest",
+   "record": "trace_studio_hub_result"
+  },
+  {
+   "minted": "repo_rules_head",
+   "pointer": "/target/base/head_digest",
+   "record": "project_via_setup_request"
+  },
+  {
+   "digest_of": "repo_rules_rev",
+   "pointer": "/source_pins/0/revision_digest",
+   "record": "project_via_setup_plan"
+  },
+  {
+   "digest_of": "project_via_setup_plan",
+   "pointer": "/payload_digest",
+   "record": "project_via_setup_request"
+  },
+  {
+   "digest_of": "project_via_setup_request",
+   "pointer": "/payload_digest",
+   "record": "admit_setup_request"
+  },
+  {
+   "digest_of": "admit_setup_request",
+   "pointer": "/request_digest",
+   "record": "admit_setup_projection_result"
+  },
+  {
+   "digest_of": "setup_admitted",
+   "pointer": "/outputs/0/digest",
+   "record": "admit_setup_projection_result"
+  },
+  {
+   "digest_of": "project_via_setup_plan",
+   "pointer": "/plan_digest",
+   "record": "setup_projection"
+  },
+  {
+   "minted": "setup_projection_at",
+   "pointer": "/prepared_at",
+   "record": "setup_projection"
+  },
+  {
+   "minted": "setup_projection_id",
+   "pointer": "/projection_id",
+   "record": "setup_projection"
+  },
+  {
+   "minted": "repo_rules_review_body",
+   "pointer": "/units/0/body_digest",
+   "record": "setup_projection"
+  },
+  {
+   "digest_of": "repo_rules_rev",
+   "pointer": "/units/0/revision_digest",
+   "record": "setup_projection"
+  },
+  {
+   "minted": "setup_projection_unit",
+   "pointer": "/units/0/unit_id",
+   "record": "setup_projection"
+  },
+  {
+   "digest_of": "project_via_setup_request",
+   "pointer": "/request_digest",
+   "record": "project_via_setup_result"
+  },
+  {
+   "digest_of": "setup_projection",
+   "pointer": "/outputs/0/digest",
+   "record": "project_via_setup_result"
+  },
+  {
+   "minted": "repo_rules_head",
+   "pointer": "/target/base/head_digest",
+   "record": "project_via_session_start_request"
+  },
+  {
+   "digest_of": "repo_rules_rev",
+   "pointer": "/source_pins/0/revision_digest",
+   "record": "project_via_session_start_plan"
+  },
+  {
+   "digest_of": "project_via_session_start_plan",
+   "pointer": "/payload_digest",
+   "record": "project_via_session_start_request"
+  },
+  {
+   "digest_of": "project_via_session_start_plan",
+   "pointer": "/plan_digest",
+   "record": "session_start_projection"
+  },
+  {
+   "minted": "session_start_projection_at",
+   "pointer": "/prepared_at",
+   "record": "session_start_projection"
+  },
+  {
+   "minted": "session_start_projection_id",
+   "pointer": "/projection_id",
+   "record": "session_start_projection"
+  },
+  {
+   "minted": "repo_rules_review_body",
+   "pointer": "/units/0/body_digest",
+   "record": "session_start_projection"
+  },
+  {
+   "digest_of": "repo_rules_rev",
+   "pointer": "/units/0/revision_digest",
+   "record": "session_start_projection"
+  },
+  {
+   "minted": "session_start_projection_unit",
+   "pointer": "/units/0/unit_id",
+   "record": "session_start_projection"
+  },
+  {
+   "digest_of": "project_via_session_start_request",
+   "pointer": "/request_digest",
+   "record": "project_via_session_start_result"
+  },
+  {
+   "digest_of": "session_start_projection",
+   "pointer": "/outputs/0/digest",
+   "record": "project_via_session_start_result"
+  },
+  {
+   "minted": "repo_rules_head",
+   "pointer": "/target/base/head_digest",
+   "record": "project_via_maintenance_request"
+  },
+  {
+   "digest_of": "repo_rules_rev",
+   "pointer": "/source_pins/0/revision_digest",
+   "record": "project_via_maintenance_plan"
+  },
+  {
+   "digest_of": "project_via_maintenance_plan",
+   "pointer": "/payload_digest",
+   "record": "project_via_maintenance_request"
+  },
+  {
+   "digest_of": "project_via_maintenance_plan",
+   "pointer": "/plan_digest",
+   "record": "maintenance_projection"
+  },
+  {
+   "minted": "maintenance_projection_at",
+   "pointer": "/prepared_at",
+   "record": "maintenance_projection"
+  },
+  {
+   "minted": "maintenance_projection_id",
+   "pointer": "/projection_id",
+   "record": "maintenance_projection"
+  },
+  {
+   "minted": "repo_rules_review_body",
+   "pointer": "/units/0/body_digest",
+   "record": "maintenance_projection"
+  },
+  {
+   "digest_of": "repo_rules_rev",
+   "pointer": "/units/0/revision_digest",
+   "record": "maintenance_projection"
+  },
+  {
+   "minted": "maintenance_projection_unit",
+   "pointer": "/units/0/unit_id",
+   "record": "maintenance_projection"
+  },
+  {
+   "digest_of": "project_via_maintenance_request",
+   "pointer": "/request_digest",
+   "record": "project_via_maintenance_result"
+  },
+  {
+   "digest_of": "maintenance_projection",
+   "pointer": "/outputs/0/digest",
+   "record": "project_via_maintenance_result"
+  },
+  {
+   "digest_of": "storage_work_submitted",
+   "pointer": "/payload_digest",
+   "record": "open_storage_work_request"
+  },
+  {
+   "minted": "storage_work_id",
+   "pointer": "/workstream_id",
+   "record": "storage_work_stored"
+  },
+  {
+   "minted": "storage_work_at",
+   "pointer": "/created_at",
+   "record": "storage_work_stored"
+  },
+  {
+   "digest_of": "open_storage_work_request",
+   "pointer": "/request_digest",
+   "record": "open_storage_work_receipt"
+  },
+  {
+   "minted": "open_storage_work_head",
+   "pointer": "/head_digest",
+   "record": "open_storage_work_receipt"
+  },
+  {
+   "minted": "open_storage_work_sequence",
+   "pointer": "/sequence",
+   "record": "open_storage_work_receipt"
+  },
+  {
+   "minted": "open_storage_work_committed_at",
+   "pointer": "/committed_at",
+   "record": "open_storage_work_receipt"
+  },
+  {
+   "digest_of": "open_storage_work_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "open_storage_work_result"
+  },
+  {
+   "digest_of": "open_storage_work_request",
+   "pointer": "/request_digest",
+   "record": "open_storage_work_result"
+  },
+  {
+   "digest_of": "storage_work_stored",
+   "pointer": "/outputs/0/digest",
+   "record": "open_storage_work_result"
+  },
+  {
+   "digest_of": "repo_memory_request",
+   "pointer": "/payload_digest",
+   "record": "author_repo_memory_request"
+  },
+  {
+   "minted": "repo_memory_decisions_body",
+   "pointer": "/members/0/digest",
+   "record": "repo_memory_rev"
+  },
+  {
+   "minted": "repo_memory_produced_at",
+   "pointer": "/produced_at",
+   "record": "repo_memory_rev"
+  },
+  {
+   "digest_of": "author_repo_memory_request",
+   "pointer": "/request_digest",
+   "record": "author_repo_memory_receipt"
+  },
+  {
+   "minted": "repo_memory_head",
+   "pointer": "/head_digest",
+   "record": "author_repo_memory_receipt"
+  },
+  {
+   "minted": "author_repo_memory_sequence",
+   "pointer": "/sequence",
+   "record": "author_repo_memory_receipt"
+  },
+  {
+   "minted": "author_repo_memory_committed_at",
+   "pointer": "/committed_at",
+   "record": "author_repo_memory_receipt"
+  },
+  {
+   "digest_of": "author_repo_memory_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "author_repo_memory_result"
+  },
+  {
+   "digest_of": "author_repo_memory_request",
+   "pointer": "/request_digest",
+   "record": "author_repo_memory_result"
+  },
+  {
+   "digest_of": "repo_memory_rev",
+   "pointer": "/outputs/0/digest",
+   "record": "author_repo_memory_result"
+  },
+  {
+   "minted": "repo_memory_head",
+   "pointer": "/target/base/head_digest",
+   "record": "record_through_decision_cli_request"
+  },
+  {
+   "minted": "storage_work_id",
+   "pointer": "/workstream_ids/0",
+   "record": "record_through_decision_cli_choice"
+  },
+  {
+   "digest_of": "record_through_decision_cli_choice",
+   "pointer": "/payload_digest",
+   "record": "record_through_decision_cli_request"
+  },
+  {
+   "minted": "storage_work_id",
+   "pointer": "/workstream_ids/0",
+   "record": "record_through_decision_cli_record"
+  },
+  {
+   "minted": "record_through_decision_cli_record_id",
+   "pointer": "/record_id",
+   "record": "record_through_decision_cli_record"
+  },
+  {
+   "minted": "record_through_decision_cli_at",
+   "pointer": "/recorded_at",
+   "record": "record_through_decision_cli_record"
+  },
+  {
+   "minted": "record_through_decision_cli_member",
+   "pointer": "/members/0/digest",
+   "record": "record_through_decision_cli_revision"
+  },
+  {
+   "minted": "record_through_decision_cli_at",
+   "pointer": "/produced_at",
+   "record": "record_through_decision_cli_revision"
+  },
+  {
+   "digest_of": "record_through_decision_cli_request",
+   "pointer": "/request_digest",
+   "record": "record_through_decision_cli_receipt"
+  },
+  {
+   "minted": "record_through_decision_cli_head",
+   "pointer": "/head_digest",
+   "record": "record_through_decision_cli_receipt"
+  },
+  {
+   "minted": "record_through_decision_cli_sequence",
+   "pointer": "/sequence",
+   "record": "record_through_decision_cli_receipt"
+  },
+  {
+   "minted": "record_through_decision_cli_committed_at",
+   "pointer": "/committed_at",
+   "record": "record_through_decision_cli_receipt"
+  },
+  {
+   "minted": "repo_memory_head",
+   "pointer": "/target/base/head_digest",
+   "record": "record_through_decision_cli_receipt"
+  },
+  {
+   "digest_of": "record_through_decision_cli_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "record_through_decision_cli_result"
+  },
+  {
+   "digest_of": "record_through_decision_cli_request",
+   "pointer": "/request_digest",
+   "record": "record_through_decision_cli_result"
+  },
+  {
+   "digest_of": "record_through_decision_cli_record",
+   "pointer": "/outputs/0/digest",
+   "record": "record_through_decision_cli_result"
+  },
+  {
+   "digest_of": "record_through_decision_cli_revision",
+   "pointer": "/outputs/1/digest",
+   "record": "record_through_decision_cli_result"
+  }
+ ],
+ "minted": [
+  {
+   "name": "alice_binding_id",
+   "shape": "bnd",
+   "step": "bind_alice"
+  },
+  {
+   "name": "alice_bound_at",
+   "shape": "instant",
+   "step": "bind_alice"
+  },
+  {
+   "name": "bind_alice_committed_at",
+   "shape": "instant",
+   "step": "bind_alice"
+  },
+  {
+   "name": "bind_alice_head",
+   "shape": "digest",
+   "step": "bind_alice"
+  },
+  {
+   "name": "bind_alice_sequence",
+   "shape": "integer",
+   "step": "bind_alice"
+  },
+  {
+   "name": "bind_repository_committed_at",
+   "shape": "instant",
+   "step": "bind_repository"
+  },
+  {
+   "name": "bind_repository_head",
+   "shape": "digest",
+   "step": "bind_repository"
+  },
+  {
+   "name": "bind_repository_sequence",
+   "shape": "integer",
+   "step": "bind_repository"
+  },
+  {
+   "name": "repo_bound_bytes",
+   "shape": "digest",
+   "step": "bind_repository"
+  },
+  {
+   "name": "author_repo_rules_committed_at",
+   "shape": "instant",
+   "step": "author_repo_rules"
+  },
+  {
+   "name": "author_repo_rules_sequence",
+   "shape": "integer",
+   "step": "author_repo_rules"
+  },
+  {
+   "name": "repo_rules_head",
+   "shape": "digest",
+   "step": "author_repo_rules"
+  },
+  {
+   "name": "repo_rules_produced_at",
+   "shape": "instant",
+   "step": "author_repo_rules"
+  },
+  {
+   "name": "repo_rules_review_body",
+   "shape": "digest",
+   "step": "author_repo_rules"
+  },
+  {
+   "name": "trace_setup_committed_at",
+   "shape": "instant",
+   "step": "trace_setup"
+  },
+  {
+   "name": "trace_setup_head",
+   "shape": "digest",
+   "step": "trace_setup"
+  },
+  {
+   "name": "trace_setup_sequence",
+   "shape": "integer",
+   "step": "trace_setup"
+  },
+  {
+   "name": "trace_session_start_committed_at",
+   "shape": "instant",
+   "step": "trace_session_start"
+  },
+  {
+   "name": "trace_session_start_head",
+   "shape": "digest",
+   "step": "trace_session_start"
+  },
+  {
+   "name": "trace_session_start_sequence",
+   "shape": "integer",
+   "step": "trace_session_start"
+  },
+  {
+   "name": "trace_maintenance_committed_at",
+   "shape": "instant",
+   "step": "trace_maintenance"
+  },
+  {
+   "name": "trace_maintenance_head",
+   "shape": "digest",
+   "step": "trace_maintenance"
+  },
+  {
+   "name": "trace_maintenance_sequence",
+   "shape": "integer",
+   "step": "trace_maintenance"
+  },
+  {
+   "name": "trace_decision_cli_committed_at",
+   "shape": "instant",
+   "step": "trace_decision_cli"
+  },
+  {
+   "name": "trace_decision_cli_head",
+   "shape": "digest",
+   "step": "trace_decision_cli"
+  },
+  {
+   "name": "trace_decision_cli_sequence",
+   "shape": "integer",
+   "step": "trace_decision_cli"
+  },
+  {
+   "name": "trace_studio_hub_committed_at",
+   "shape": "instant",
+   "step": "trace_studio_hub"
+  },
+  {
+   "name": "trace_studio_hub_head",
+   "shape": "digest",
+   "step": "trace_studio_hub"
+  },
+  {
+   "name": "trace_studio_hub_sequence",
+   "shape": "integer",
+   "step": "trace_studio_hub"
+  },
+  {
+   "name": "setup_projection_at",
+   "shape": "instant",
+   "step": "project_via_setup"
+  },
+  {
+   "name": "setup_projection_id",
+   "shape": "prj",
+   "step": "project_via_setup"
+  },
+  {
+   "name": "setup_projection_unit",
+   "shape": "unt",
+   "step": "project_via_setup"
+  },
+  {
+   "name": "session_start_projection_at",
+   "shape": "instant",
+   "step": "project_via_session_start"
+  },
+  {
+   "name": "session_start_projection_id",
+   "shape": "prj",
+   "step": "project_via_session_start"
+  },
+  {
+   "name": "session_start_projection_unit",
+   "shape": "unt",
+   "step": "project_via_session_start"
+  },
+  {
+   "name": "maintenance_projection_at",
+   "shape": "instant",
+   "step": "project_via_maintenance"
+  },
+  {
+   "name": "maintenance_projection_id",
+   "shape": "prj",
+   "step": "project_via_maintenance"
+  },
+  {
+   "name": "maintenance_projection_unit",
+   "shape": "unt",
+   "step": "project_via_maintenance"
+  },
+  {
+   "name": "open_storage_work_committed_at",
+   "shape": "instant",
+   "step": "open_storage_work"
+  },
+  {
+   "name": "open_storage_work_head",
+   "shape": "digest",
+   "step": "open_storage_work"
+  },
+  {
+   "name": "open_storage_work_sequence",
+   "shape": "integer",
+   "step": "open_storage_work"
+  },
+  {
+   "name": "storage_work_at",
+   "shape": "instant",
+   "step": "open_storage_work"
+  },
+  {
+   "name": "storage_work_id",
+   "shape": "wst",
+   "step": "open_storage_work"
+  },
+  {
+   "name": "author_repo_memory_committed_at",
+   "shape": "instant",
+   "step": "author_repo_memory"
+  },
+  {
+   "name": "author_repo_memory_sequence",
+   "shape": "integer",
+   "step": "author_repo_memory"
+  },
+  {
+   "name": "repo_memory_decisions_body",
+   "shape": "digest",
+   "step": "author_repo_memory"
+  },
+  {
+   "name": "repo_memory_head",
+   "shape": "digest",
+   "step": "author_repo_memory"
+  },
+  {
+   "name": "repo_memory_produced_at",
+   "shape": "instant",
+   "step": "author_repo_memory"
+  },
+  {
+   "name": "record_through_decision_cli_at",
+   "shape": "instant",
+   "step": "record_through_decision_cli"
+  },
+  {
+   "name": "record_through_decision_cli_committed_at",
+   "shape": "instant",
+   "step": "record_through_decision_cli"
+  },
+  {
+   "name": "record_through_decision_cli_head",
+   "shape": "digest",
+   "step": "record_through_decision_cli"
+  },
+  {
+   "name": "record_through_decision_cli_member",
+   "shape": "digest",
+   "step": "record_through_decision_cli"
+  },
+  {
+   "name": "record_through_decision_cli_record_id",
+   "shape": "rec",
+   "step": "record_through_decision_cli"
+  },
+  {
+   "name": "record_through_decision_cli_sequence",
+   "shape": "integer",
+   "step": "record_through_decision_cli"
+  }
+ ],
+ "records": [
+  {
+   "digest": "3001cab0ba9b152e6b238728a34a1789c9199155f7f96ef00ee3815919a0c356",
+   "name": "alice_key",
+   "record": {
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_26fc1a67b0b422425bcd73ba423c799b",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "9f39f43440c03d0b894f8c77178294ecabafb897ee394f08eda6917f54a89d05",
+   "name": "bind_alice_request",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_26fc1a67b0b422425bcd73ba423c799b",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346",
+     "profile_id": "prf_bb4e47b2fd39ab63d754af4a43700f84"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "identity.binding.add",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346"
+    },
+    "payload_digest": "3001cab0ba9b152e6b238728a34a1789c9199155f7f96ef00ee3815919a0c356",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_cacaa23b65885c619fff0db16de37575",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_630b59abb31c4c437d6e6d0b76175346"
+    }
+   }
+  },
+  {
+   "digest": "fae9bc737892a3988df47b8f6a87eded6eb9cc5e29cda186cb4877e875d8cee1",
+   "name": "alice_binding",
+   "record": {
+    "binding_id": "bnd_d9594ed0ec3ce47ac2f81a6407dd1823",
+    "created_at": "2000-01-01T00:00:00Z",
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_26fc1a67b0b422425bcd73ba423c799b",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "e47a2bf07bc04e0de7023c4fd7d001b2d08a985252915bc59695228cb51b8e27",
+   "name": "bind_alice_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "7a0468fe8b060e2dbba82915fea8a8242c92f901a733b2ad7ce4c183e140373a",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346"
+    },
+    "request_digest": "9f39f43440c03d0b894f8c77178294ecabafb897ee394f08eda6917f54a89d05",
+    "request_id": "req_cacaa23b65885c619fff0db16de37575",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prn_630b59abb31c4c437d6e6d0b76175346"
+    }
+   }
+  },
+  {
+   "digest": "18bd3125cea42dea0d2cb9f9a8ef3f180f79bceb94e5ab3d868860bcd372156e",
+   "name": "bind_alice_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "e47a2bf07bc04e0de7023c4fd7d001b2d08a985252915bc59695228cb51b8e27",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "fae9bc737892a3988df47b8f6a87eded6eb9cc5e29cda186cb4877e875d8cee1",
+      "kind": "principal_binding"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "9f39f43440c03d0b894f8c77178294ecabafb897ee394f08eda6917f54a89d05",
+    "request_id": "req_cacaa23b65885c619fff0db16de37575",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "7f7ffd101a1c5e0d444e4edb4f4bf392c75073157b337ef4e0d421a9233cd354",
+   "name": "repo_binding_submitted",
+   "record": {
+    "kind": "repository_binding",
+    "relation": {
+     "how": "clone"
+    },
+    "repository_id": "rep_dd0bbb5181d59816c36a0389958bf1b0",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "483655e3e22ffdf08657ba6a12bc4cba63924562636aaacd87936dbb0b9059c2",
+   "name": "bind_repository_request",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_26fc1a67b0b422425bcd73ba423c799b",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346",
+     "profile_id": "prf_bb4e47b2fd39ab63d754af4a43700f84"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "repository.bind",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346"
+    },
+    "payload_digest": "7f7ffd101a1c5e0d444e4edb4f4bf392c75073157b337ef4e0d421a9233cd354",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_a51ca833a714728a0252cb4eb5809468",
+    "schema": 1,
+    "target": {
+     "resource_id": "rep_dd0bbb5181d59816c36a0389958bf1b0"
+    }
+   }
+  },
+  {
+   "digest": "74b38cf582780e78384292fbd61c59820d0cb3f8b666cd17f1f74f35f9e1f80c",
+   "name": "repo_binding",
+   "record": {
+    "kind": "repository_binding",
+    "observed": {
+     "branch": "main",
+     "commit": "0123456789abcdef0123456789abcdef01234567",
+     "locator": "git@github.com:example/work.git",
+     "working_bytes_digest": "32e64f672ae859040b736e9c378085f811c7b31b4c523f8f4d1c58414332f6d3"
+    },
+    "relation": {
+     "how": "clone"
+    },
+    "repository_id": "rep_dd0bbb5181d59816c36a0389958bf1b0",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "1ad1a9e60d5ff2c3748068921be9f2b84c42540cb2589950c97ed5fd9685fbd3",
+   "name": "bind_repository_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "470c5a03c1ac7a2d586c80363b766027edf93b0d0b95e04d1051bcac1815a529",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346"
+    },
+    "request_digest": "483655e3e22ffdf08657ba6a12bc4cba63924562636aaacd87936dbb0b9059c2",
+    "request_id": "req_a51ca833a714728a0252cb4eb5809468",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "rep_dd0bbb5181d59816c36a0389958bf1b0"
+    }
+   }
+  },
+  {
+   "digest": "b19962a34a8a8e07d22b91dc88d87fec8e9524889204384aeb3ffe8e3e479243",
+   "name": "bind_repository_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "1ad1a9e60d5ff2c3748068921be9f2b84c42540cb2589950c97ed5fd9685fbd3",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "74b38cf582780e78384292fbd61c59820d0cb3f8b666cd17f1f74f35f9e1f80c",
+      "kind": "repository_binding"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "483655e3e22ffdf08657ba6a12bc4cba63924562636aaacd87936dbb0b9059c2",
+    "request_id": "req_a51ca833a714728a0252cb4eb5809468",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "a4b072c75a84df53b7d39785d85c498bcf243276ef451b42f05c90650375ac21",
+   "name": "repo_rules_request",
+   "record": {
+    "destination": {
+     "home_mode": "repository_authored",
+     "scope": {
+      "layer": "repository",
+      "repository_id": "rep_dd0bbb5181d59816c36a0389958bf1b0"
+     }
+    },
+    "kind": "source_request",
+    "role": "instructions",
+    "route": {
+     "route": "author_here"
+    },
+    "schema": 1
+   }
+  },
+  {
+   "digest": "a74afed5d23f13335101f7776021c600d790d0e61f407b4adca8845f9139058a",
+   "name": "author_repo_rules_request",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_26fc1a67b0b422425bcd73ba423c799b",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346",
+     "profile_id": "prf_bb4e47b2fd39ab63d754af4a43700f84"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "source.revision.admit",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_dd0bbb5181d59816c36a0389958bf1b0"
+    },
+    "payload_digest": "a4b072c75a84df53b7d39785d85c498bcf243276ef451b42f05c90650375ac21",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_c9f5c217f270bbf17f585bf8e11bd7f2",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_9fcfb24e8f6b2fe84b22c42f31e7fea9"
+    }
+   }
+  },
+  {
+   "digest": "f4c0105a4e07c6747ca65afa8dcaf72c6ba0ff8d659a5632b0b7d20fde3a7692",
+   "name": "repo_rules_rev",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "2641fea60c8c32d8645fb78263bd5141ee952f5be11ebb7f79a08594eb0b7d06",
+      "path": "rules/review.md",
+      "size": 2048
+     }
+    ],
+    "produced_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "source_id": "src_9fcfb24e8f6b2fe84b22c42f31e7fea9"
+   }
+  },
+  {
+   "digest": "3543f6bed2ea82dae6a3e08b5bcaf4e01637da46c86624073285c095a21db51d",
+   "name": "author_repo_rules_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "367b9b4ad9ff521ef7e0e168e816de318f281518ebee14f724384f3047e4d914",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_dd0bbb5181d59816c36a0389958bf1b0"
+    },
+    "request_digest": "a74afed5d23f13335101f7776021c600d790d0e61f407b4adca8845f9139058a",
+    "request_id": "req_c9f5c217f270bbf17f585bf8e11bd7f2",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_9fcfb24e8f6b2fe84b22c42f31e7fea9"
+    }
+   }
+  },
+  {
+   "digest": "7c29da8b02aa7bfa54a29d461f0e261b8f868a87421526cad204213d473e35a4",
+   "name": "author_repo_rules_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "3543f6bed2ea82dae6a3e08b5bcaf4e01637da46c86624073285c095a21db51d",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "f4c0105a4e07c6747ca65afa8dcaf72c6ba0ff8d659a5632b0b7d20fde3a7692",
+      "kind": "source_manifest"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "a74afed5d23f13335101f7776021c600d790d0e61f407b4adca8845f9139058a",
+    "request_id": "req_c9f5c217f270bbf17f585bf8e11bd7f2",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "ffb09f3a928246e826639b961adb1d7f22ba5e7db5307e80a4706406e71a69de",
+   "name": "setup_disposition",
+   "record": {
+    "disposition": {
+     "admits": [
+      "role.project",
+      "session.routing.activate"
+     ],
+     "owns": "projection_owner",
+     "root_origin": "caller",
+     "state": "choke_point"
+    },
+    "entrance": {
+     "name": "setup"
+    },
+    "kind": "entrance_disposition",
+    "route": {
+     "command": "instructions",
+     "path": "install.sh"
+    },
+    "schema": 1,
+    "traced_at": "2026-09-21T14:00:00Z"
+   }
+  },
+  {
+   "digest": "4feaa195af563cd398eb076e70e06dae861ae78a9b83e2bf290d4de1d6c8383b",
+   "name": "trace_setup_request",
+   "record": {
+    "action": "policy",
+    "actor": {
+     "device_id": "dev_26fc1a67b0b422425bcd73ba423c799b",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346",
+     "profile_id": "prf_bb4e47b2fd39ab63d754af4a43700f84"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "entrance.disposition.record",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346"
+    },
+    "payload_digest": "ffb09f3a928246e826639b961adb1d7f22ba5e7db5307e80a4706406e71a69de",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_33c5bad768ca645334881ec77284a0fc",
+    "schema": 1,
+    "target": {
+     "resource_id": "ent_7faec31f7cddd0ee25063c0a31c38f7e"
+    }
+   }
+  },
+  {
+   "digest": "78e1ff29753e38d0fa90708ba2d9347f024a822669b780d0a1ba4f5793e83600",
+   "name": "trace_setup_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "429688e5c31463f75ecee92b4b13e1580849cb4dba866e744d0dc92c5c801e2e",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346"
+    },
+    "request_digest": "4feaa195af563cd398eb076e70e06dae861ae78a9b83e2bf290d4de1d6c8383b",
+    "request_id": "req_33c5bad768ca645334881ec77284a0fc",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "ent_7faec31f7cddd0ee25063c0a31c38f7e"
+    }
+   }
+  },
+  {
+   "digest": "4126d414cf12827852976359e43285e156d6fa652675bee6bd65d706f982e5b1",
+   "name": "trace_setup_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "78e1ff29753e38d0fa90708ba2d9347f024a822669b780d0a1ba4f5793e83600",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "ffb09f3a928246e826639b961adb1d7f22ba5e7db5307e80a4706406e71a69de",
+      "kind": "entrance_disposition"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "4feaa195af563cd398eb076e70e06dae861ae78a9b83e2bf290d4de1d6c8383b",
+    "request_id": "req_33c5bad768ca645334881ec77284a0fc",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "f399108abb2eda6cf1f448d566f3d500f87d29e8fa36308d9b7fe891fe7a31f8",
+   "name": "session_start_disposition",
+   "record": {
+    "disposition": {
+     "choke_point": "projection_owner",
+     "root_origin": "caller",
+     "state": "routed"
+    },
+    "entrance": {
+     "name": "session_start"
+    },
+    "kind": "entrance_disposition",
+    "route": {
+     "path": "compose/instructions_session.py"
+    },
+    "schema": 1,
+    "traced_at": "2026-09-21T14:00:00Z"
+   }
+  },
+  {
+   "digest": "62bbc22392ede8388613defd13b35de3d5db97c6eed025dcb0f6ec48b7121b55",
+   "name": "trace_session_start_request",
+   "record": {
+    "action": "policy",
+    "actor": {
+     "device_id": "dev_26fc1a67b0b422425bcd73ba423c799b",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346",
+     "profile_id": "prf_bb4e47b2fd39ab63d754af4a43700f84"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "entrance.disposition.record",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346"
+    },
+    "payload_digest": "f399108abb2eda6cf1f448d566f3d500f87d29e8fa36308d9b7fe891fe7a31f8",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_d2d21e23eae1a218affbc6e93a7b5d2c",
+    "schema": 1,
+    "target": {
+     "resource_id": "ent_e20366874e20410ab57c36a79661177f"
+    }
+   }
+  },
+  {
+   "digest": "d9e014d93c01f86aecd9ce5645ddc15beea922c3c1d2932805c141e282e29a74",
+   "name": "trace_session_start_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "61e356c8d6b52bfbd0876850423dc0e427e03eced9f9e2c6b60cddb7252508f5",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346"
+    },
+    "request_digest": "62bbc22392ede8388613defd13b35de3d5db97c6eed025dcb0f6ec48b7121b55",
+    "request_id": "req_d2d21e23eae1a218affbc6e93a7b5d2c",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "ent_e20366874e20410ab57c36a79661177f"
+    }
+   }
+  },
+  {
+   "digest": "b1fecb3f19a4a1b18030565c549517492cb1698bda76f16ff78afeeee16f710c",
+   "name": "trace_session_start_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "d9e014d93c01f86aecd9ce5645ddc15beea922c3c1d2932805c141e282e29a74",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "f399108abb2eda6cf1f448d566f3d500f87d29e8fa36308d9b7fe891fe7a31f8",
+      "kind": "entrance_disposition"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "62bbc22392ede8388613defd13b35de3d5db97c6eed025dcb0f6ec48b7121b55",
+    "request_id": "req_d2d21e23eae1a218affbc6e93a7b5d2c",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "d3748846bb5def97fce4e4c7608048de91a7830dee4b648f80bb676fb6f8eb98",
+   "name": "maintenance_disposition",
+   "record": {
+    "disposition": {
+     "choke_point": "projection_owner",
+     "root_origin": "caller",
+     "state": "routed"
+    },
+    "entrance": {
+     "name": "maintenance"
+    },
+    "kind": "entrance_disposition",
+    "route": {
+     "command": "doctor",
+     "path": "install.sh"
+    },
+    "schema": 1,
+    "traced_at": "2026-09-21T14:00:00Z"
+   }
+  },
+  {
+   "digest": "2285c019ae34ebc7f2d3fddf4ecb32e23854e514c785c3b26c2e4a64cfe57dc7",
+   "name": "trace_maintenance_request",
+   "record": {
+    "action": "policy",
+    "actor": {
+     "device_id": "dev_26fc1a67b0b422425bcd73ba423c799b",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346",
+     "profile_id": "prf_bb4e47b2fd39ab63d754af4a43700f84"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "entrance.disposition.record",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346"
+    },
+    "payload_digest": "d3748846bb5def97fce4e4c7608048de91a7830dee4b648f80bb676fb6f8eb98",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_9d43b40778f3d4c06a34d694da08c4ef",
+    "schema": 1,
+    "target": {
+     "resource_id": "ent_4d91f0afedfbc6f4765405c5f8950e85"
+    }
+   }
+  },
+  {
+   "digest": "b2355e5bd870fba502079c023109ffd0e716098e756fe255b0ac427ab32e6510",
+   "name": "trace_maintenance_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "d629247c1939775c493460576f7f9f953660522bc3359916f6e6f507dabaf706",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346"
+    },
+    "request_digest": "2285c019ae34ebc7f2d3fddf4ecb32e23854e514c785c3b26c2e4a64cfe57dc7",
+    "request_id": "req_9d43b40778f3d4c06a34d694da08c4ef",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "ent_4d91f0afedfbc6f4765405c5f8950e85"
+    }
+   }
+  },
+  {
+   "digest": "167015de91a63d69076abe64b108443fdc90eec771009109e3c6a0d6533e4b95",
+   "name": "trace_maintenance_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "b2355e5bd870fba502079c023109ffd0e716098e756fe255b0ac427ab32e6510",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "d3748846bb5def97fce4e4c7608048de91a7830dee4b648f80bb676fb6f8eb98",
+      "kind": "entrance_disposition"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "2285c019ae34ebc7f2d3fddf4ecb32e23854e514c785c3b26c2e4a64cfe57dc7",
+    "request_id": "req_9d43b40778f3d4c06a34d694da08c4ef",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "46dce368308ca0328ad673fb2ea7e8c62c3082a7089e766f8331c450ec9f2e7b",
+   "name": "decision_cli_disposition",
+   "record": {
+    "disposition": {
+     "admits": [
+      "memory.candidate.store",
+      "memory.record.publish"
+     ],
+     "owns": "source_store",
+     "root_origin": "caller",
+     "state": "choke_point"
+    },
+    "entrance": {
+     "name": "decision_cli"
+    },
+    "kind": "entrance_disposition",
+    "route": {
+     "path": "compose/instructions_store.py"
+    },
+    "schema": 1,
+    "traced_at": "2026-09-21T14:00:00Z"
+   }
+  },
+  {
+   "digest": "e37cffb27fe95207d505468b57e749627b2c3ca7b9a209e690bee38f23caecef",
+   "name": "trace_decision_cli_request",
+   "record": {
+    "action": "policy",
+    "actor": {
+     "device_id": "dev_26fc1a67b0b422425bcd73ba423c799b",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346",
+     "profile_id": "prf_bb4e47b2fd39ab63d754af4a43700f84"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "entrance.disposition.record",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346"
+    },
+    "payload_digest": "46dce368308ca0328ad673fb2ea7e8c62c3082a7089e766f8331c450ec9f2e7b",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_fd91dfcfe82c3e1ca01d337a3ea55971",
+    "schema": 1,
+    "target": {
+     "resource_id": "ent_d6082f0802d924bec427751dce017e03"
+    }
+   }
+  },
+  {
+   "digest": "2e5f53bbf806e2a2b1a63235bd4e8c722da06ff5a5ff40f048f6ac8c83da3b78",
+   "name": "trace_decision_cli_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "0ba9564085db0c43177281664f11479f3d44ec71d2175197656e6ab9dcdaa1e2",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346"
+    },
+    "request_digest": "e37cffb27fe95207d505468b57e749627b2c3ca7b9a209e690bee38f23caecef",
+    "request_id": "req_fd91dfcfe82c3e1ca01d337a3ea55971",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "ent_d6082f0802d924bec427751dce017e03"
+    }
+   }
+  },
+  {
+   "digest": "1e2f99047eaaace4d81591d20a4a3aa9bf72e7449993b9e3230d63d7b9f33644",
+   "name": "trace_decision_cli_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "2e5f53bbf806e2a2b1a63235bd4e8c722da06ff5a5ff40f048f6ac8c83da3b78",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "46dce368308ca0328ad673fb2ea7e8c62c3082a7089e766f8331c450ec9f2e7b",
+      "kind": "entrance_disposition"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "e37cffb27fe95207d505468b57e749627b2c3ca7b9a209e690bee38f23caecef",
+    "request_id": "req_fd91dfcfe82c3e1ca01d337a3ea55971",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "5b68e5114288eefc49cf554f7975e3cff0a2214224ac9ca04aa3455aa0684083",
+   "name": "studio_hub_disposition",
+   "record": {
+    "disposition": {
+     "admits": [
+      "source.capture.record",
+      "source.revision.admit",
+      "source.revision.commit",
+      "source.revision.publish",
+      "memory.candidate.store",
+      "memory.record.publish"
+     ],
+     "owns": "source_store",
+     "root_origin": "caller",
+     "state": "choke_point"
+    },
+    "entrance": {
+     "name": "studio_hub"
+    },
+    "kind": "entrance_disposition",
+    "route": {
+     "path": "compose/studio_hub.py"
+    },
+    "schema": 1,
+    "traced_at": "2026-09-21T14:00:00Z"
+   }
+  },
+  {
+   "digest": "8b827a84c05471c667bad1782be8b63f0b0dc625f8749462ec09592b2ca3beb6",
+   "name": "trace_studio_hub_request",
+   "record": {
+    "action": "policy",
+    "actor": {
+     "device_id": "dev_26fc1a67b0b422425bcd73ba423c799b",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346",
+     "profile_id": "prf_bb4e47b2fd39ab63d754af4a43700f84"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "entrance.disposition.record",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346"
+    },
+    "payload_digest": "5b68e5114288eefc49cf554f7975e3cff0a2214224ac9ca04aa3455aa0684083",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_88d25264590410de9f97ccc6667c89e0",
+    "schema": 1,
+    "target": {
+     "resource_id": "ent_cd72339b495891c251e5488b1e1f58cc"
+    }
+   }
+  },
+  {
+   "digest": "7598c28ca1b19f159474af39e3af40ec99d52a80107190bc4f5973a58a22db31",
+   "name": "trace_studio_hub_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "9a0783f73d01413553cfe2f5aca7b0c444fdb0b643801784af5d0e0ecd812399",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346"
+    },
+    "request_digest": "8b827a84c05471c667bad1782be8b63f0b0dc625f8749462ec09592b2ca3beb6",
+    "request_id": "req_88d25264590410de9f97ccc6667c89e0",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "ent_cd72339b495891c251e5488b1e1f58cc"
+    }
+   }
+  },
+  {
+   "digest": "9906f9cb10723a6d1c1508e2e9322cf012c3a564c7b436091e36b6ab4584f402",
+   "name": "trace_studio_hub_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "7598c28ca1b19f159474af39e3af40ec99d52a80107190bc4f5973a58a22db31",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "5b68e5114288eefc49cf554f7975e3cff0a2214224ac9ca04aa3455aa0684083",
+      "kind": "entrance_disposition"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "8b827a84c05471c667bad1782be8b63f0b0dc625f8749462ec09592b2ca3beb6",
+    "request_id": "req_88d25264590410de9f97ccc6667c89e0",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "0dfd1f7af061f015a9c1c8490290c1bc8ad9c632090665c71a5ff539c486cdb0",
+   "name": "project_via_setup_plan",
+   "record": {
+    "entrance": {
+     "name": "setup",
+     "root_origin": "caller"
+    },
+    "kind": "projection_plan",
+    "recipient_view": "executor",
+    "role": "instructions",
+    "schema": 1,
+    "source_pins": [
+     {
+      "revision_digest": "f4c0105a4e07c6747ca65afa8dcaf72c6ba0ff8d659a5632b0b7d20fde3a7692",
+      "source_id": "src_9fcfb24e8f6b2fe84b22c42f31e7fea9"
+     }
+    ]
+   }
+  },
+  {
+   "digest": "6db027b4894c5e8f16c341ecacc1abda396daa4e51e07bc472b18fdd4874af05",
+   "name": "project_via_setup_request",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_26fc1a67b0b422425bcd73ba423c799b",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346",
+     "profile_id": "prf_bb4e47b2fd39ab63d754af4a43700f84"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "role.project",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_dd0bbb5181d59816c36a0389958bf1b0"
+    },
+    "payload_digest": "0dfd1f7af061f015a9c1c8490290c1bc8ad9c632090665c71a5ff539c486cdb0",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_e75a9ab09b06e82bfd56af5a29062974",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "367b9b4ad9ff521ef7e0e168e816de318f281518ebee14f724384f3047e4d914"
+     },
+     "resource_id": "src_9fcfb24e8f6b2fe84b22c42f31e7fea9"
+    }
+   }
+  },
+  {
+   "digest": "16ea34f9722a969a268055e3de7c74f8591b53b4361600b4376573be728d631b",
+   "name": "admit_setup_request",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_26fc1a67b0b422425bcd73ba423c799b",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346",
+     "profile_id": "prf_bb4e47b2fd39ab63d754af4a43700f84"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "access.admission.decide",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346"
+    },
+    "payload_digest": "6db027b4894c5e8f16c341ecacc1abda396daa4e51e07bc472b18fdd4874af05",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_e04514177523ba3d6e8e7d63532dadf6",
+    "schema": 1,
+    "target": {
+     "resource_id": "req_e75a9ab09b06e82bfd56af5a29062974"
+    }
+   }
+  },
+  {
+   "digest": "8308f50a82e0cc9abf3ba9a784efdecd1bdb70fca3e30469c8bced27e4474d71",
+   "name": "setup_admitted",
+   "record": {
+    "access_generation": 7,
+    "kind": "access_admission",
+    "outcome": {
+     "admission": "allowed"
+    },
+    "profile_id": "prf_bb4e47b2fd39ab63d754af4a43700f84",
+    "request_id": "req_e75a9ab09b06e82bfd56af5a29062974",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "f205ca09e99bd814c8ed5850b4889081f6be15ac8f7dfc5f1e1639dbc0987e81",
+   "name": "admit_setup_projection_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "8308f50a82e0cc9abf3ba9a784efdecd1bdb70fca3e30469c8bced27e4474d71",
+      "kind": "access_admission"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "16ea34f9722a969a268055e3de7c74f8591b53b4361600b4376573be728d631b",
+    "request_id": "req_e04514177523ba3d6e8e7d63532dadf6",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "10dbd845d09240165160e0671548be3d09c45594904d38b0328944cc4a754f8b",
+   "name": "setup_projection",
+   "record": {
+    "kind": "role_projection",
+    "material_gaps": [],
+    "plan_digest": "0dfd1f7af061f015a9c1c8490290c1bc8ad9c632090665c71a5ff539c486cdb0",
+    "prepared_at": "2000-01-01T00:00:00Z",
+    "projection_id": "prj_fc084987c65461c555167ec4b2944508",
+    "recipient_view": "executor",
+    "role": "instructions",
+    "schema": 1,
+    "units": [
+     {
+      "body_digest": "2641fea60c8c32d8645fb78263bd5141ee952f5be11ebb7f79a08594eb0b7d06",
+      "layer": "repository",
+      "revision_digest": "f4c0105a4e07c6747ca65afa8dcaf72c6ba0ff8d659a5632b0b7d20fde3a7692",
+      "source_id": "src_9fcfb24e8f6b2fe84b22c42f31e7fea9",
+      "source_role": "instructions",
+      "standing": "layered",
+      "unit_id": "unt_409ef82fc906bae00a3fefaf629f0922"
+     }
+    ]
+   }
+  },
+  {
+   "digest": "81f2e14467b61e35dc96ca572dd8d021d8bf423318b7a7950db1bfb0c02f05f0",
+   "name": "project_via_setup_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "10dbd845d09240165160e0671548be3d09c45594904d38b0328944cc4a754f8b",
+      "kind": "role_projection"
+     }
+    ],
+    "provider_effect": "none",
+    "request_digest": "6db027b4894c5e8f16c341ecacc1abda396daa4e51e07bc472b18fdd4874af05",
+    "request_id": "req_e75a9ab09b06e82bfd56af5a29062974",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "c8d298d061df69cf9f8907738fef98a69868f20fcf510af243216cdf6d12c4af",
+   "name": "project_via_session_start_plan",
+   "record": {
+    "entrance": {
+     "name": "session_start",
+     "root_origin": "caller"
+    },
+    "kind": "projection_plan",
+    "recipient_view": "executor",
+    "role": "instructions",
+    "schema": 1,
+    "source_pins": [
+     {
+      "revision_digest": "f4c0105a4e07c6747ca65afa8dcaf72c6ba0ff8d659a5632b0b7d20fde3a7692",
+      "source_id": "src_9fcfb24e8f6b2fe84b22c42f31e7fea9"
+     }
+    ]
+   }
+  },
+  {
+   "digest": "d30fd239063de200dbc2baea4e571eab3a7b204ee339ca94ca5595a148d0d914",
+   "name": "project_via_session_start_request",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_26fc1a67b0b422425bcd73ba423c799b",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346",
+     "profile_id": "prf_bb4e47b2fd39ab63d754af4a43700f84"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "role.project",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_dd0bbb5181d59816c36a0389958bf1b0"
+    },
+    "payload_digest": "c8d298d061df69cf9f8907738fef98a69868f20fcf510af243216cdf6d12c4af",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_c0e303ab79489b9ce1d6dbd210e8c57d",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "367b9b4ad9ff521ef7e0e168e816de318f281518ebee14f724384f3047e4d914"
+     },
+     "resource_id": "src_9fcfb24e8f6b2fe84b22c42f31e7fea9"
+    }
+   }
+  },
+  {
+   "digest": "bfd650e1f126246b82c323d14bf9716dcfdabdebe8c29ae0b51862b3d9789395",
+   "name": "session_start_projection",
+   "record": {
+    "kind": "role_projection",
+    "material_gaps": [],
+    "plan_digest": "c8d298d061df69cf9f8907738fef98a69868f20fcf510af243216cdf6d12c4af",
+    "prepared_at": "2000-01-01T00:00:00Z",
+    "projection_id": "prj_da4df5d1ddac92d5c9c526be7deacc45",
+    "recipient_view": "executor",
+    "role": "instructions",
+    "schema": 1,
+    "units": [
+     {
+      "body_digest": "2641fea60c8c32d8645fb78263bd5141ee952f5be11ebb7f79a08594eb0b7d06",
+      "layer": "repository",
+      "revision_digest": "f4c0105a4e07c6747ca65afa8dcaf72c6ba0ff8d659a5632b0b7d20fde3a7692",
+      "source_id": "src_9fcfb24e8f6b2fe84b22c42f31e7fea9",
+      "source_role": "instructions",
+      "standing": "layered",
+      "unit_id": "unt_6f3feb65b023deef23bf1346ee9c5514"
+     }
+    ]
+   }
+  },
+  {
+   "digest": "036957a86c1f488b36206b30fe89c8225c55c685d802d081d2dfdadfe82b0f51",
+   "name": "project_via_session_start_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "bfd650e1f126246b82c323d14bf9716dcfdabdebe8c29ae0b51862b3d9789395",
+      "kind": "role_projection"
+     }
+    ],
+    "provider_effect": "none",
+    "request_digest": "d30fd239063de200dbc2baea4e571eab3a7b204ee339ca94ca5595a148d0d914",
+    "request_id": "req_c0e303ab79489b9ce1d6dbd210e8c57d",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "485c579d016bc58aa8ac9911852f63592de808a1b18b9d1c20aade32438c2fb5",
+   "name": "project_via_maintenance_plan",
+   "record": {
+    "entrance": {
+     "name": "maintenance",
+     "root_origin": "caller"
+    },
+    "kind": "projection_plan",
+    "recipient_view": "executor",
+    "role": "instructions",
+    "schema": 1,
+    "source_pins": [
+     {
+      "revision_digest": "f4c0105a4e07c6747ca65afa8dcaf72c6ba0ff8d659a5632b0b7d20fde3a7692",
+      "source_id": "src_9fcfb24e8f6b2fe84b22c42f31e7fea9"
+     }
+    ]
+   }
+  },
+  {
+   "digest": "d3d67b330f77977f448951cce68c1199ec2e8291b4a320908b770f3372d93cd5",
+   "name": "project_via_maintenance_request",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_26fc1a67b0b422425bcd73ba423c799b",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346",
+     "profile_id": "prf_bb4e47b2fd39ab63d754af4a43700f84"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "role.project",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_dd0bbb5181d59816c36a0389958bf1b0"
+    },
+    "payload_digest": "485c579d016bc58aa8ac9911852f63592de808a1b18b9d1c20aade32438c2fb5",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_9a565f3e72e100b294c494ed8b57a7ab",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "367b9b4ad9ff521ef7e0e168e816de318f281518ebee14f724384f3047e4d914"
+     },
+     "resource_id": "src_9fcfb24e8f6b2fe84b22c42f31e7fea9"
+    }
+   }
+  },
+  {
+   "digest": "c7727c4c766b23986ee6c078cf553b5b5e3ca6efd92124756f310c1246c1765c",
+   "name": "maintenance_projection",
+   "record": {
+    "kind": "role_projection",
+    "material_gaps": [],
+    "plan_digest": "485c579d016bc58aa8ac9911852f63592de808a1b18b9d1c20aade32438c2fb5",
+    "prepared_at": "2000-01-01T00:00:00Z",
+    "projection_id": "prj_0cf7aea521d57d5100984f921a96c926",
+    "recipient_view": "executor",
+    "role": "instructions",
+    "schema": 1,
+    "units": [
+     {
+      "body_digest": "2641fea60c8c32d8645fb78263bd5141ee952f5be11ebb7f79a08594eb0b7d06",
+      "layer": "repository",
+      "revision_digest": "f4c0105a4e07c6747ca65afa8dcaf72c6ba0ff8d659a5632b0b7d20fde3a7692",
+      "source_id": "src_9fcfb24e8f6b2fe84b22c42f31e7fea9",
+      "source_role": "instructions",
+      "standing": "layered",
+      "unit_id": "unt_0b5d73d70caee2da7c29ebb1d4d0ed63"
+     }
+    ]
+   }
+  },
+  {
+   "digest": "73a8e0db4c69b67701042946d3d5a398ad563e6641cd8ca784e273110bf92fc2",
+   "name": "project_via_maintenance_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "c7727c4c766b23986ee6c078cf553b5b5e3ca6efd92124756f310c1246c1765c",
+      "kind": "role_projection"
+     }
+    ],
+    "provider_effect": "none",
+    "request_digest": "d3d67b330f77977f448951cce68c1199ec2e8291b4a320908b770f3372d93cd5",
+    "request_id": "req_9a565f3e72e100b294c494ed8b57a7ab",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "77caace2f85bb17a1f2fbedd8f168a587122f534acfd91543a95319ff2c837ca",
+   "name": "storage_work_submitted",
+   "record": {
+    "home": {
+     "layer": "repository",
+     "repository_id": "rep_dd0bbb5181d59816c36a0389958bf1b0"
+    },
+    "kind": "workstream",
+    "name": "Storage and durability",
+    "purpose": "Where records live and what a restart must preserve.",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "d1aec0dcebd2f8506de52cf65d2246f8192975d15b99fe91631a2a876e5f3828",
+   "name": "open_storage_work_request",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_26fc1a67b0b422425bcd73ba423c799b",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346",
+     "profile_id": "prf_bb4e47b2fd39ab63d754af4a43700f84"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "workstream.open",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_dd0bbb5181d59816c36a0389958bf1b0"
+    },
+    "payload_digest": "77caace2f85bb17a1f2fbedd8f168a587122f534acfd91543a95319ff2c837ca",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_b53e6b4528883b36542add83e7a66c7d",
+    "schema": 1,
+    "target": {
+     "resource_id": "wst_502f30ed17b0b24acd71f89d0be3569d"
+    }
+   }
+  },
+  {
+   "digest": "37fb0ea8d61f51c61d01d4edf383746b398eae24459ab863e9c8518fc7339411",
+   "name": "storage_work_stored",
+   "record": {
+    "created_at": "2000-01-01T00:00:00Z",
+    "home": {
+     "layer": "repository",
+     "repository_id": "rep_dd0bbb5181d59816c36a0389958bf1b0"
+    },
+    "kind": "workstream",
+    "name": "Storage and durability",
+    "purpose": "Where records live and what a restart must preserve.",
+    "schema": 1,
+    "workstream_id": "wst_72d04d5acbcb228a5b39ec0ad66f2e27"
+   }
+  },
+  {
+   "digest": "3c9ab29f59c50c7de03a22b4fffb9c3b58a49e4c237944a8c0739bff4b919cff",
+   "name": "open_storage_work_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "63aa1e2907156dd19bc8d0a41f19c3a707500ae2a51c36de778dd1b3e00613da",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_dd0bbb5181d59816c36a0389958bf1b0"
+    },
+    "request_digest": "d1aec0dcebd2f8506de52cf65d2246f8192975d15b99fe91631a2a876e5f3828",
+    "request_id": "req_b53e6b4528883b36542add83e7a66c7d",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "wst_502f30ed17b0b24acd71f89d0be3569d"
+    }
+   }
+  },
+  {
+   "digest": "8e77fb814dbf86391869efe458fbdd1aee1a9ade2e749e156130f9671bc9840f",
+   "name": "open_storage_work_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "3c9ab29f59c50c7de03a22b4fffb9c3b58a49e4c237944a8c0739bff4b919cff",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "37fb0ea8d61f51c61d01d4edf383746b398eae24459ab863e9c8518fc7339411",
+      "kind": "workstream"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "d1aec0dcebd2f8506de52cf65d2246f8192975d15b99fe91631a2a876e5f3828",
+    "request_id": "req_b53e6b4528883b36542add83e7a66c7d",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "414889ba4a51a4b7b1449e04931bf2a5f8862f7a1e498bb0ded57ceb262913ea",
+   "name": "repo_memory_request",
+   "record": {
+    "destination": {
+     "home_mode": "repository_authored",
+     "scope": {
+      "layer": "repository",
+      "repository_id": "rep_dd0bbb5181d59816c36a0389958bf1b0"
+     }
+    },
+    "kind": "source_request",
+    "role": "memory",
+    "route": {
+     "route": "author_here"
+    },
+    "schema": 1
+   }
+  },
+  {
+   "digest": "499112e2829f185717f4542c5c666fb911d28a7d864577c082948e325a5a09df",
+   "name": "author_repo_memory_request",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_26fc1a67b0b422425bcd73ba423c799b",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346",
+     "profile_id": "prf_bb4e47b2fd39ab63d754af4a43700f84"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "source.revision.admit",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_dd0bbb5181d59816c36a0389958bf1b0"
+    },
+    "payload_digest": "414889ba4a51a4b7b1449e04931bf2a5f8862f7a1e498bb0ded57ceb262913ea",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_6d3cb0bbf67e569746e6417a1f78a6c1",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_c1dfb3f7ead70ec18dc196cf2634227f"
+    }
+   }
+  },
+  {
+   "digest": "47b9a1971fa8dbefb7d45da59e5e157c650b51936a996d170d51bebab0a16116",
+   "name": "repo_memory_rev",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "486cc6da44c711a3ea862de192ac924db4f36c68d540e40311b837846966338c",
+      "path": "decisions.jsonl",
+      "size": 512
+     }
+    ],
+    "produced_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "source_id": "src_c1dfb3f7ead70ec18dc196cf2634227f"
+   }
+  },
+  {
+   "digest": "82cc7fe9338fef361c0f253d77668ac905c5e78d1f2691393fe2e9f49ae1a72a",
+   "name": "author_repo_memory_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "e4e1adbda8402a5107fed61e3ff77734bccbee882bd0a3131ac657c3d9760c44",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_dd0bbb5181d59816c36a0389958bf1b0"
+    },
+    "request_digest": "499112e2829f185717f4542c5c666fb911d28a7d864577c082948e325a5a09df",
+    "request_id": "req_6d3cb0bbf67e569746e6417a1f78a6c1",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_c1dfb3f7ead70ec18dc196cf2634227f"
+    }
+   }
+  },
+  {
+   "digest": "41f63de5330951466981ea3fb7bbf7a011a56dbe9995cde0b8836fc74717a84e",
+   "name": "author_repo_memory_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "82cc7fe9338fef361c0f253d77668ac905c5e78d1f2691393fe2e9f49ae1a72a",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "47b9a1971fa8dbefb7d45da59e5e157c650b51936a996d170d51bebab0a16116",
+      "kind": "source_manifest"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "499112e2829f185717f4542c5c666fb911d28a7d864577c082948e325a5a09df",
+    "request_id": "req_6d3cb0bbf67e569746e6417a1f78a6c1",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "8db91e2dd051751ecf1a8d609571c2001ab8ea40b6621411dc70757961412d88",
+   "name": "record_through_decision_cli_choice",
+   "record": {
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "jurisdiction",
+       "value": "KR"
+      }
+     ],
+     "period": {
+      "effective_from": "2026-01-01"
+     },
+     "states": "stated"
+    },
+    "choice": "WAL, with synchronous FULL.",
+    "home": {
+     "layer": "repository",
+     "repository_id": "rep_dd0bbb5181d59816c36a0389958bf1b0"
+    },
+    "kind": "choice_record",
+    "question": "Which journal mode does the local state database use?",
+    "reason": "4.11 ms per commit against 11.76.",
+    "schema": 1,
+    "workstream_ids": [
+     "wst_72d04d5acbcb228a5b39ec0ad66f2e27"
+    ]
+   }
+  },
+  {
+   "digest": "95d95c0e2b6670b8a133cbc36c353802abd2a931fb76311909aea4303ee4fb88",
+   "name": "record_through_decision_cli_request",
+   "record": {
+    "action": "publish",
+    "actor": {
+     "device_id": "dev_26fc1a67b0b422425bcd73ba423c799b",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346",
+     "profile_id": "prf_bb4e47b2fd39ab63d754af4a43700f84"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "memory.record.publish",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_dd0bbb5181d59816c36a0389958bf1b0"
+    },
+    "payload_digest": "8db91e2dd051751ecf1a8d609571c2001ab8ea40b6621411dc70757961412d88",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_f54b7d3a5cb90dbb19cfff90f0fdff68",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "e4e1adbda8402a5107fed61e3ff77734bccbee882bd0a3131ac657c3d9760c44"
+     },
+     "resource_id": "src_c1dfb3f7ead70ec18dc196cf2634227f"
+    }
+   }
+  },
+  {
+   "digest": "4e024dc04e18c17166eef8f4665d39d2293d65daa1021b3234c84e40bdc770bc",
+   "name": "record_through_decision_cli_record",
+   "record": {
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "jurisdiction",
+       "value": "KR"
+      }
+     ],
+     "period": {
+      "effective_from": "2026-01-01"
+     },
+     "states": "stated"
+    },
+    "choice": "WAL, with synchronous FULL.",
+    "home": {
+     "layer": "repository",
+     "repository_id": "rep_dd0bbb5181d59816c36a0389958bf1b0"
+    },
+    "kind": "choice_record",
+    "question": "Which journal mode does the local state database use?",
+    "reason": "4.11 ms per commit against 11.76.",
+    "record_id": "rec_f03e74635f4dd8f7381571cff9a8b105",
+    "recorded_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "workstream_ids": [
+     "wst_72d04d5acbcb228a5b39ec0ad66f2e27"
+    ]
+   }
+  },
+  {
+   "digest": "a2f4c8cc280f0c28b670e3a56cf07128466f67502a1ecec2f6ff211179762270",
+   "name": "record_through_decision_cli_revision",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "8c1b6e086a603e19c9bcacfa49be65546fa94e2a8b9b7e121b087c051dfd55bc",
+      "path": "decisions.jsonl",
+      "size": 1024
+     }
+    ],
+    "produced_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "source_id": "src_c1dfb3f7ead70ec18dc196cf2634227f"
+   }
+  },
+  {
+   "digest": "62843069e291d1f13644f33d895f1d45d9db1bc295fd8cd10eb9d582bccb4e5a",
+   "name": "record_through_decision_cli_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "34ff39afd71f1b322304c948cb233bdc27ff52967ae74ef29880803daeeeb6b8",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_dd0bbb5181d59816c36a0389958bf1b0"
+    },
+    "request_digest": "95d95c0e2b6670b8a133cbc36c353802abd2a931fb76311909aea4303ee4fb88",
+    "request_id": "req_f54b7d3a5cb90dbb19cfff90f0fdff68",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "e4e1adbda8402a5107fed61e3ff77734bccbee882bd0a3131ac657c3d9760c44"
+     },
+     "resource_id": "src_c1dfb3f7ead70ec18dc196cf2634227f"
+    }
+   }
+  },
+  {
+   "digest": "46a10c72f185329e7807a1b6c152802b0788189c535473a0c55135a6868a886d",
+   "name": "record_through_decision_cli_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "62843069e291d1f13644f33d895f1d45d9db1bc295fd8cd10eb9d582bccb4e5a",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "4e024dc04e18c17166eef8f4665d39d2293d65daa1021b3234c84e40bdc770bc",
+      "kind": "choice_record"
+     },
+     {
+      "digest": "a2f4c8cc280f0c28b670e3a56cf07128466f67502a1ecec2f6ff211179762270",
+      "kind": "source_manifest"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "95d95c0e2b6670b8a133cbc36c353802abd2a931fb76311909aea4303ee4fb88",
+    "request_id": "req_f54b7d3a5cb90dbb19cfff90f0fdff68",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  }
+ ],
+ "says": "Five entrances are traced and recorded with the guard each reaches kept state through: setup is a choke point of the projection owner admitting role.project and session.routing.activate; session start and a maintenance command, both with roots the caller chooses, are routed through the projection owner; the decision CLI and the studio hub are choke points of the source store admitting source and memory writes. A repository's rules revision is then projected for the executor view through each entrance whose guard is the projection owner - setup, session start and maintenance - and each projection succeeds with the rules body; for setup, the access owner first answers that exact request as allowed. The memory write the decision CLI's store admits, publishing a choice to the repository's memory, succeeds as well. Nothing is projected through the store's entrances, because their dispositions do not admit role.project, and no entrance is asked for an operation its disposition does not name.",
+ "spec_sha256": "c46ad04484582d8c52f329ba227556b38f7787544f9c4b3d78faf21d303c6926",
+ "steps": [
+  {
+   "carries": [
+    "alice_key"
+   ],
+   "name": "bind_alice",
+   "request": "bind_alice_request",
+   "result": "bind_alice_result",
+   "returns": [
+    "alice_binding"
+   ]
+  },
+  {
+   "carries": [
+    "repo_binding_submitted"
+   ],
+   "name": "bind_repository",
+   "request": "bind_repository_request",
+   "result": "bind_repository_result",
+   "returns": [
+    "repo_binding"
+   ]
+  },
+  {
+   "carries": [
+    "repo_rules_request"
+   ],
+   "head": "repo_rules_head",
+   "name": "author_repo_rules",
+   "request": "author_repo_rules_request",
+   "result": "author_repo_rules_result",
+   "returns": [
+    "repo_rules_rev"
+   ]
+  },
+  {
+   "carries": [
+    "setup_disposition"
+   ],
+   "name": "trace_setup",
+   "request": "trace_setup_request",
+   "result": "trace_setup_result",
+   "returns": [
+    "setup_disposition"
+   ]
+  },
+  {
+   "carries": [
+    "session_start_disposition"
+   ],
+   "name": "trace_session_start",
+   "request": "trace_session_start_request",
+   "result": "trace_session_start_result",
+   "returns": [
+    "session_start_disposition"
+   ]
+  },
+  {
+   "carries": [
+    "maintenance_disposition"
+   ],
+   "name": "trace_maintenance",
+   "request": "trace_maintenance_request",
+   "result": "trace_maintenance_result",
+   "returns": [
+    "maintenance_disposition"
+   ]
+  },
+  {
+   "carries": [
+    "decision_cli_disposition"
+   ],
+   "name": "trace_decision_cli",
+   "request": "trace_decision_cli_request",
+   "result": "trace_decision_cli_result",
+   "returns": [
+    "decision_cli_disposition"
+   ]
+  },
+  {
+   "carries": [
+    "studio_hub_disposition"
+   ],
+   "name": "trace_studio_hub",
+   "request": "trace_studio_hub_request",
+   "result": "trace_studio_hub_result",
+   "returns": [
+    "studio_hub_disposition"
+   ]
+  },
+  {
+   "carries": [
+    "project_via_setup_request"
+   ],
+   "name": "admit_setup_projection",
+   "request": "admit_setup_request",
+   "result": "admit_setup_projection_result",
+   "returns": [
+    "setup_admitted"
+   ]
+  },
+  {
+   "carries": [
+    "project_via_setup_plan"
+   ],
+   "name": "project_via_setup",
+   "request": "project_via_setup_request",
+   "result": "project_via_setup_result",
+   "returns": [
+    "setup_projection"
+   ]
+  },
+  {
+   "carries": [
+    "project_via_session_start_plan"
+   ],
+   "name": "project_via_session_start",
+   "request": "project_via_session_start_request",
+   "result": "project_via_session_start_result",
+   "returns": [
+    "session_start_projection"
+   ]
+  },
+  {
+   "carries": [
+    "project_via_maintenance_plan"
+   ],
+   "name": "project_via_maintenance",
+   "request": "project_via_maintenance_request",
+   "result": "project_via_maintenance_result",
+   "returns": [
+    "maintenance_projection"
+   ]
+  },
+  {
+   "carries": [
+    "storage_work_submitted"
+   ],
+   "name": "open_storage_work",
+   "request": "open_storage_work_request",
+   "result": "open_storage_work_result",
+   "returns": [
+    "storage_work_stored"
+   ]
+  },
+  {
+   "carries": [
+    "repo_memory_request"
+   ],
+   "head": "repo_memory_head",
+   "name": "author_repo_memory",
+   "request": "author_repo_memory_request",
+   "result": "author_repo_memory_result",
+   "returns": [
+    "repo_memory_rev"
+   ]
+  },
+  {
+   "carries": [
+    "record_through_decision_cli_choice"
+   ],
+   "head": "record_through_decision_cli_head",
+   "name": "record_through_decision_cli",
+   "request": "record_through_decision_cli_request",
+   "result": "record_through_decision_cli_result",
+   "returns": [
+    "record_through_decision_cli_record",
+    "record_through_decision_cli_revision"
+   ]
+  }
+ ]
+}

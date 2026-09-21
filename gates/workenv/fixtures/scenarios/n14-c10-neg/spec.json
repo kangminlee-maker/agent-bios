@@ -1,0 +1,2261 @@
+{
+ "case": "N14-C10-NEG",
+ "says": "Alice's Team is founded on her laptop, which is also its finalizer; her enrolled desktop takes a backup of its own store, then imports and keeps a complete package and acknowledges custody of it at storage generation 1. While the two cannot reach each other, the desktop's commit to the Team's source is blocked with finalizer_unavailable and is not finalized on the desktop; retried by the same request once the laptop is reachable, the laptop finalizes it once. The desktop's storage is then reset: its acknowledgment at generation 2 states storage_generation_reset. A second complete package whose body never arrived stops at received with body_missing. A package presenting two successors of the founding epoch stops at received with fork_evidence. A package whose successor continuity carries the key it copied is refused at admission. Restoring the desktop's old backup reports passive authority and names nothing after the backup as known. What must not happen: a shared commit finalized anywhere but the finalizer, the reset holder counted as still keeping its promise, an incomplete package or two successors producing a complete copy or authority, a copied key accepted as continuity, or the rolled-back disk becoming active authority.",
+ "ids": [
+  {
+   "name": "desktop_peer",
+   "prefix": "per"
+  },
+  {
+   "name": "laptop_peer",
+   "prefix": "per"
+  },
+  {
+   "name": "alice",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "alice_laptop",
+   "prefix": "prf"
+  },
+  {
+   "name": "bind_laptop_request",
+   "prefix": "req"
+  },
+  {
+   "name": "team",
+   "prefix": "tem"
+  },
+  {
+   "name": "found_request",
+   "prefix": "req"
+  },
+  {
+   "name": "knowledge_source",
+   "prefix": "src"
+  },
+  {
+   "name": "knowledge_collection",
+   "prefix": "col"
+  },
+  {
+   "name": "home_request",
+   "prefix": "req"
+  },
+  {
+   "name": "commit_first_request",
+   "prefix": "req"
+  },
+  {
+   "name": "desktop",
+   "prefix": "dev"
+  },
+  {
+   "name": "alice_desktop",
+   "prefix": "prf"
+  },
+  {
+   "name": "bind_desktop_request",
+   "prefix": "req"
+  },
+  {
+   "name": "backup_request",
+   "prefix": "req"
+  },
+  {
+   "name": "stage_full_request",
+   "prefix": "req"
+  },
+  {
+   "name": "accept_full_request",
+   "prefix": "req"
+  },
+  {
+   "name": "custody_request",
+   "prefix": "req"
+  },
+  {
+   "name": "ack_1_request",
+   "prefix": "req"
+  },
+  {
+   "name": "desktop_commit_request",
+   "prefix": "req"
+  },
+  {
+   "name": "ack_2_request",
+   "prefix": "req"
+  },
+  {
+   "name": "accept_missing_request",
+   "prefix": "req"
+  },
+  {
+   "name": "accept_forked_request",
+   "prefix": "req"
+  },
+  {
+   "name": "accept_copied_request",
+   "prefix": "req"
+  },
+  {
+   "name": "restore_request",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "laptop_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/established_by",
+     "value": "local_creation"
+    },
+    {
+     "pointer": "/evidence_digests",
+     "value": []
+    }
+   ]
+  },
+  {
+   "name": "bind_laptop",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_laptop_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.add"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_laptop"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#laptop_key"
+    }
+   ]
+  },
+  {
+   "name": "stored_laptop_key",
+   "from": "laptop_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:laptop_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:laptop_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "initial_policy",
+   "from": "c08/policy_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/threshold",
+     "value": 0
+    }
+   ]
+  },
+  {
+   "name": "founding",
+   "from": "c08/proposal_as_submitted.json",
+   "drop": [
+    "/founding_mode/nominees"
+   ],
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/founder_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/founding_mode/mode",
+     "value": "self_founded"
+    },
+    {
+     "pointer": "/founding_mode/acknowledged_self_reviewed",
+     "value": true
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recovery/0/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#initial_policy"
+    },
+    {
+     "pointer": "/carriers",
+     "value": [
+      "local",
+      "peer"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "found",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@found_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.found"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_laptop"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#founding"
+    }
+   ]
+  },
+  {
+   "name": "team_policy",
+   "from": "initial_policy",
+   "set": [
+    {
+     "pointer": "/policy_id",
+     "value": "$pol:team_policy"
+    },
+    {
+     "pointer": "/policy_version",
+     "value": 1
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:policy_committed_at"
+    }
+   ]
+  },
+  {
+   "name": "team_active",
+   "from": "c08/archived_team.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/state",
+     "value": "active"
+    },
+    {
+     "pointer": "/since",
+     "value": "$instant:team_active_since"
+    }
+   ]
+  },
+  {
+   "name": "knowledge_home",
+   "from": "sources/home_of_a_managed_collection.json",
+   "drop": [
+    "/registered_at",
+    "/scope/principal_id",
+    "/acceptance_authority/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@knowledge_source"
+    },
+    {
+     "pointer": "/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/acceptance_authority/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/acceptance_authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/home/collection_id",
+     "value": "@knowledge_collection"
+    },
+    {
+     "pointer": "/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/disclosure",
+     "value": "team"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    }
+   ]
+  },
+  {
+   "name": "register_home",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@home_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_laptop"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@knowledge_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#knowledge_home"
+    }
+   ]
+  },
+  {
+   "name": "stored_home",
+   "from": "knowledge_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:home_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "first_revision",
+   "from": "sources/revision_submitted.json",
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@knowledge_source"
+    }
+   ]
+  },
+  {
+   "name": "commit_first",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_first_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.revision.commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_laptop"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@knowledge_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#first_revision"
+    }
+   ]
+  },
+  {
+   "name": "stored_revision",
+   "from": "first_revision",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:first_produced_at"
+    }
+   ]
+  },
+  {
+   "name": "desktop_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/established_by",
+     "value": "enrollment"
+    },
+    {
+     "pointer": "/evidence_digests",
+     "value": [
+      "#stored_laptop_key"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "bind_desktop",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_desktop_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.add"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_desktop"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#desktop_key"
+    }
+   ]
+  },
+  {
+   "name": "stored_desktop_key",
+   "from": "desktop_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:desktop_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:desktop_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "take_backup",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base",
+    "/payload_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@backup_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "store.backup.create"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_desktop"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_desktop"
+    }
+   ]
+  },
+  {
+   "name": "desktop_backup",
+   "from": "c03/backup_taken_before_the_loss.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_desktop"
+    },
+    {
+     "pointer": "/taken_at",
+     "value": "$instant:backup_taken_at"
+    },
+    {
+     "pointer": "/covered_through",
+     "value": "$integer:backup_sequence"
+    }
+   ]
+  },
+  {
+   "name": "full_envelope",
+   "from": "c09/complete_transfer.json",
+   "drop": [
+    "/recipient/permitted_scope/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/namespace/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/recipient/permitted_scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/recipient/permitted_scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/continuity_evidence_digests",
+     "value": [
+      "#founding_epoch"
+     ]
+    },
+    {
+     "pointer": "/recipient/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/inventory/0/path",
+     "value": "objects/0000.json"
+    },
+    {
+     "pointer": "/inventory/0/digest",
+     "value": "#stored_revision"
+    },
+    {
+     "pointer": "/inventory/0/size",
+     "value": 4096
+    },
+    {
+     "pointer": "/inventory/0/object_kind",
+     "value": "source_manifest"
+    }
+   ]
+  },
+  {
+   "name": "stage_full",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@stage_full_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "transfer.stage"
+    },
+    {
+     "pointer": "/action",
+     "value": "transfer"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_laptop"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#full_envelope"
+    }
+   ]
+  },
+  {
+   "name": "full_exported",
+   "from": "c09/exported.json",
+   "set": [
+    {
+     "pointer": "/envelope_digest",
+     "value": "#full_envelope"
+    },
+    {
+     "pointer": "/stage/route/peer_id",
+     "value": "@desktop_peer"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:full_exported_at"
+    }
+   ]
+  },
+  {
+   "name": "accept_full",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@accept_full_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "transfer.accept"
+    },
+    {
+     "pointer": "/action",
+     "value": "transfer"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_desktop"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#full_envelope"
+    }
+   ]
+  },
+  {
+   "name": "full_received",
+   "from": "c09/received_but_not_yet_verified.json",
+   "set": [
+    {
+     "pointer": "/envelope_digest",
+     "value": "#full_envelope"
+    },
+    {
+     "pointer": "/stage/route/via",
+     "value": "peer"
+    },
+    {
+     "pointer": "/stage/route/peer_id",
+     "value": "@laptop_peer"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:full_received_at"
+    }
+   ]
+  },
+  {
+   "name": "full_controls",
+   "from": "c09/controls_verified_before_bodies.json",
+   "set": [
+    {
+     "pointer": "/envelope_digest",
+     "value": "#full_envelope"
+    },
+    {
+     "pointer": "/stage/controls_applied",
+     "value": [
+      "#founding_epoch"
+     ]
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:full_controls_at"
+    }
+   ]
+  },
+  {
+   "name": "full_verified",
+   "from": "c09/verified.json",
+   "set": [
+    {
+     "pointer": "/envelope_digest",
+     "value": "#full_envelope"
+    },
+    {
+     "pointer": "/stage/controls_record_digest",
+     "value": "#full_controls"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:full_verified_at"
+    }
+   ]
+  },
+  {
+   "name": "full_committed",
+   "from": "c09/committed.json",
+   "set": [
+    {
+     "pointer": "/envelope_digest",
+     "value": "#full_envelope"
+    },
+    {
+     "pointer": "/receipt_digest",
+     "value": "$digest:accept_full_package_receipt"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:full_committed_at"
+    }
+   ]
+  },
+  {
+   "name": "desktop_commitment",
+   "from": "c10/commitment_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/holder/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/storage_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/promised/0/digest",
+     "value": "#stored_revision"
+    },
+    {
+     "pointer": "/promised/1/digest",
+     "value": "#founding_epoch"
+    },
+    {
+     "pointer": "/promised/1/object_kind",
+     "value": "authority_continuity"
+    }
+   ]
+  },
+  {
+   "name": "commit_custody",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@custody_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "custody.commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "retain_delete"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_desktop"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#desktop_commitment"
+    }
+   ]
+  },
+  {
+   "name": "stored_commitment",
+   "from": "desktop_commitment",
+   "set": [
+    {
+     "pointer": "/commitment_id",
+     "value": "$cus:desktop_commitment"
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:custody_at"
+    }
+   ]
+  },
+  {
+   "name": "observed_at_generation_1",
+   "from": "c10/acknowledgment_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/for_commitment_id",
+     "value": "$cus:desktop_commitment"
+    },
+    {
+     "pointer": "/holder/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/storage_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/observed/0/digest",
+     "value": "#stored_revision"
+    },
+    {
+     "pointer": "/observed/1/digest",
+     "value": "#founding_epoch"
+    }
+   ]
+  },
+  {
+   "name": "acknowledge_1",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@ack_1_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "custody.acknowledge"
+    },
+    {
+     "pointer": "/action",
+     "value": "retain_delete"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_desktop"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$cus:desktop_commitment"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#observed_at_generation_1"
+    }
+   ]
+  },
+  {
+   "name": "ack_1",
+   "from": "observed_at_generation_1",
+   "set": [
+    {
+     "pointer": "/material_gaps",
+     "value": []
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:ack_1_at"
+    }
+   ]
+  },
+  {
+   "name": "desktop_revision",
+   "from": "first_revision",
+   "set": [
+    {
+     "pointer": "/members/0/size",
+     "value": 5000
+    }
+   ]
+  },
+  {
+   "name": "desktop_commit",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@desktop_commit_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.revision.commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_desktop"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@knowledge_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:source_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#desktop_revision"
+    }
+   ]
+  },
+  {
+   "name": "stored_desktop_revision",
+   "from": "desktop_revision",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:desktop_rev_at"
+    }
+   ]
+  },
+  {
+   "name": "observed_at_generation_2",
+   "from": "observed_at_generation_1",
+   "set": [
+    {
+     "pointer": "/storage_generation",
+     "value": 2
+    }
+   ]
+  },
+  {
+   "name": "acknowledge_2",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@ack_2_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "custody.acknowledge"
+    },
+    {
+     "pointer": "/action",
+     "value": "retain_delete"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_desktop"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$cus:desktop_commitment"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#observed_at_generation_2"
+    }
+   ]
+  },
+  {
+   "name": "ack_after_reset",
+   "from": "observed_at_generation_2",
+   "set": [
+    {
+     "pointer": "/material_gaps",
+     "value": []
+    },
+    {
+     "pointer": "/material_gaps/0/code",
+     "value": "storage_generation_reset"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:ack_2_at"
+    }
+   ]
+  },
+  {
+   "name": "second_full_envelope",
+   "from": "c09/complete_transfer.json",
+   "drop": [
+    "/recipient/permitted_scope/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/namespace/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/recipient/permitted_scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/recipient/permitted_scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/continuity_evidence_digests",
+     "value": [
+      "#founding_epoch"
+     ]
+    },
+    {
+     "pointer": "/recipient/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/inventory/0/path",
+     "value": "objects/0000.json"
+    },
+    {
+     "pointer": "/inventory/0/digest",
+     "value": "#stored_desktop_revision"
+    },
+    {
+     "pointer": "/inventory/0/size",
+     "value": 5000
+    },
+    {
+     "pointer": "/inventory/0/object_kind",
+     "value": "source_manifest"
+    }
+   ]
+  },
+  {
+   "name": "missing_received",
+   "from": "c09/inventory_whose_body_is_absent.json",
+   "set": [
+    {
+     "pointer": "/envelope_digest",
+     "value": "#second_full_envelope"
+    },
+    {
+     "pointer": "/stage/route/via",
+     "value": "peer"
+    },
+    {
+     "pointer": "/stage/route/peer_id",
+     "value": "@laptop_peer"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:missing_at"
+    }
+   ]
+  },
+  {
+   "name": "accept_missing",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@accept_missing_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "transfer.accept"
+    },
+    {
+     "pointer": "/action",
+     "value": "transfer"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_desktop"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:desktop_team_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#second_full_envelope"
+    }
+   ]
+  },
+  {
+   "name": "successor_a",
+   "from": "c09/successor_that_fences_the_old_finalizer.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:source_head_2"
+    },
+    {
+     "pointer": "/succession/predecessor_digest",
+     "value": "#founding_epoch"
+    },
+    {
+     "pointer": "/succession/fences/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/finalizer/runs_on",
+     "value": "internal_service"
+    }
+   ]
+  },
+  {
+   "name": "successor_b",
+   "from": "c09/successor_that_fences_the_old_finalizer.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:source_head_2"
+    },
+    {
+     "pointer": "/succession/predecessor_digest",
+     "value": "#founding_epoch"
+    },
+    {
+     "pointer": "/succession/fences/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/finalizer/runs_on",
+     "value": "member_device"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@desktop"
+    }
+   ]
+  },
+  {
+   "name": "forked_envelope",
+   "from": "c09/complete_transfer.json",
+   "drop": [
+    "/recipient/permitted_scope/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/namespace/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/recipient/permitted_scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/recipient/permitted_scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/continuity_evidence_digests",
+     "value": [
+      "#founding_epoch"
+     ]
+    },
+    {
+     "pointer": "/recipient/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/inventory/0/path",
+     "value": "objects/0000.json"
+    },
+    {
+     "pointer": "/inventory/0/digest",
+     "value": "#stored_revision"
+    },
+    {
+     "pointer": "/inventory/0/size",
+     "value": 4096
+    },
+    {
+     "pointer": "/inventory/0/object_kind",
+     "value": "source_manifest"
+    },
+    {
+     "pointer": "/continuity_evidence_digests",
+     "value": [
+      "#successor_a",
+      "#successor_b"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "fork_received",
+   "from": "c09/two_authoritative_successors.json",
+   "set": [
+    {
+     "pointer": "/envelope_digest",
+     "value": "#forked_envelope"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:fork_at"
+    }
+   ]
+  },
+  {
+   "name": "accept_forked",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@accept_forked_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "transfer.accept"
+    },
+    {
+     "pointer": "/action",
+     "value": "transfer"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_desktop"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:desktop_team_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#forked_envelope"
+    }
+   ]
+  },
+  {
+   "name": "copied_successor",
+   "from": "c09/successor_carrying_the_key_it_copied.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:source_head_2"
+    },
+    {
+     "pointer": "/succession/predecessor_digest",
+     "value": "#founding_epoch"
+    },
+    {
+     "pointer": "/succession/fences/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "copied_key_envelope",
+   "from": "c09/complete_transfer.json",
+   "drop": [
+    "/recipient/permitted_scope/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/namespace/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/recipient/permitted_scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/recipient/permitted_scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/continuity_evidence_digests",
+     "value": [
+      "#founding_epoch"
+     ]
+    },
+    {
+     "pointer": "/recipient/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/inventory/0/path",
+     "value": "objects/0000.json"
+    },
+    {
+     "pointer": "/inventory/0/digest",
+     "value": "#stored_revision"
+    },
+    {
+     "pointer": "/inventory/0/size",
+     "value": 4096
+    },
+    {
+     "pointer": "/inventory/0/object_kind",
+     "value": "source_manifest"
+    },
+    {
+     "pointer": "/continuity_evidence_digests",
+     "value": [
+      "#copied_successor"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "accept_copied",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@accept_copied_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "transfer.accept"
+    },
+    {
+     "pointer": "/action",
+     "value": "transfer"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_desktop"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:desktop_team_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#copied_key_envelope"
+    }
+   ]
+  },
+  {
+   "name": "restore_old_disk",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@restore_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "store.backup.restore"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_desktop"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_desktop"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#desktop_backup"
+    }
+   ]
+  },
+  {
+   "name": "old_disk_report",
+   "from": "c03/restore_after_losing_the_live_database.json",
+   "set": [
+    {
+     "pointer": "/backup_digest",
+     "value": "#desktop_backup"
+    },
+    {
+     "pointer": "/covered_through",
+     "value": "$integer:backup_sequence"
+    },
+    {
+     "pointer": "/taken_at",
+     "value": "$instant:backup_taken_at"
+    },
+    {
+     "pointer": "/restored_at",
+     "value": "$instant:restored_at"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_laptop_key",
+   "request": "bind_laptop",
+   "carries": [
+    "laptop_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_laptop_key"
+    ]
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "found_team",
+   "request": "found",
+   "carries": [
+    "founding",
+    "initial_policy"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_policy",
+     "team_active"
+    ],
+    "head": "team_head"
+   },
+   "submits": [
+    "initial_policy"
+   ],
+   "process": "laptop"
+  },
+  {
+   "name": "register_knowledge_home",
+   "request": "register_home",
+   "carries": [
+    "knowledge_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_home"
+    ]
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "commit_first_revision",
+   "request": "commit_first",
+   "carries": [
+    "first_revision"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_revision"
+    ],
+    "head": "source_head"
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "enroll_desktop_key",
+   "request": "bind_desktop",
+   "carries": [
+    "desktop_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_desktop_key"
+    ]
+   },
+   "process": "desktop"
+  },
+  {
+   "name": "desktop_takes_a_backup",
+   "request": "take_backup",
+   "carries": [],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "desktop_backup"
+    ]
+   },
+   "process": "desktop",
+   "advance_seconds": 60
+  },
+  {
+   "name": "stage_full_package",
+   "request": "stage_full",
+   "carries": [
+    "full_envelope"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "full_exported"
+    ]
+   },
+   "process": "laptop",
+   "advance_seconds": 60
+  },
+  {
+   "name": "accept_full_package",
+   "request": "accept_full",
+   "carries": [
+    "full_envelope",
+    "founding_epoch"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "full_received",
+     "full_controls",
+     "full_verified",
+     "full_committed"
+    ],
+    "head": "desktop_team_head"
+   },
+   "process": "desktop",
+   "advance_seconds": 60
+  },
+  {
+   "name": "desktop_undertakes_custody",
+   "request": "commit_custody",
+   "carries": [
+    "desktop_commitment"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_commitment"
+    ]
+   },
+   "process": "desktop",
+   "advance_seconds": 60
+  },
+  {
+   "name": "desktop_acknowledges_custody",
+   "request": "acknowledge_1",
+   "carries": [
+    "observed_at_generation_1"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "ack_1"
+    ]
+   },
+   "process": "desktop",
+   "advance_seconds": 60
+  },
+  {
+   "name": "desktop_commit_while_cut_off",
+   "request": "desktop_commit",
+   "carries": [
+    "desktop_revision"
+   ],
+   "answer": {
+    "stage": "blocked",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "finalizer_unavailable"
+     }
+    ],
+    "recovery": [
+     "query_same_request",
+     "retry_same_request"
+    ],
+    "returns": []
+   },
+   "process": "desktop",
+   "advance_seconds": 3600
+  },
+  {
+   "name": "desktop_commit_retried",
+   "request": "desktop_commit",
+   "carries": [
+    "desktop_revision"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_desktop_revision"
+    ],
+    "head": "source_head_2"
+   },
+   "process": "desktop",
+   "advance_seconds": 86400
+  },
+  {
+   "name": "desktop_acknowledges_after_reset",
+   "request": "acknowledge_2",
+   "carries": [
+    "observed_at_generation_2"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "ack_after_reset"
+    ]
+   },
+   "process": "desktop",
+   "advance_seconds": 60
+  },
+  {
+   "name": "accept_package_missing_its_body",
+   "request": "accept_missing",
+   "carries": [
+    "second_full_envelope",
+    "founding_epoch"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "body_missing"
+     }
+    ],
+    "recovery": [
+     "retry_same_request"
+    ],
+    "returns": [
+     "missing_received"
+    ]
+   },
+   "process": "desktop",
+   "advance_seconds": 60
+  },
+  {
+   "name": "accept_package_with_two_successors",
+   "request": "accept_forked",
+   "carries": [
+    "forked_envelope",
+    "successor_a",
+    "successor_b"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "fork_evidence"
+     }
+    ],
+    "recovery": [],
+    "returns": [
+     "fork_received"
+    ]
+   },
+   "process": "desktop",
+   "advance_seconds": 60
+  },
+  {
+   "name": "accept_package_with_a_copied_key",
+   "request": "accept_copied",
+   "carries": [
+    "copied_key_envelope",
+    "copied_successor"
+   ],
+   "refused": [
+    {
+     "record": "copied_successor",
+     "code": "unknown_field",
+     "pointer": "/private_key"
+    }
+   ],
+   "process": "desktop",
+   "advance_seconds": 60
+  },
+  {
+   "name": "restore_the_old_disk",
+   "request": "restore_old_disk",
+   "carries": [
+    "desktop_backup"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "old_disk_report"
+    ]
+   },
+   "process": "desktop",
+   "advance_seconds": 60
+  }
+ ],
+ "world": {
+  "processes": [
+   "laptop",
+   "desktop"
+  ],
+  "clock": {
+   "start": "2026-09-21T09:00:00Z"
+  },
+  "partitions": [
+   {
+    "between": [
+     "laptop",
+     "desktop"
+    ],
+    "from": "desktop_commit_while_cut_off",
+    "until": "desktop_commit_retried"
+   }
+  ]
+ }
+}

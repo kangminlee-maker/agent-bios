@@ -1,0 +1,836 @@
+{
+ "case": "CAP-06",
+ "ids": [
+  {
+   "id": "prn_eae2b2b011300dde98a07c3b008e24e1",
+   "name": "alice"
+  },
+  {
+   "id": "dev_06cc9e74f5cd8d26c4890a2500e74983",
+   "name": "laptop"
+  },
+  {
+   "id": "prf_5e04fc8fb97c67eaecbf52a5c90c5b5d",
+   "name": "profile"
+  },
+  {
+   "id": "rep_dff40b8cbcad382da33200fb2bcb8e79",
+   "name": "repo"
+  },
+  {
+   "id": "req_163cd155848fa98b1487679bf0465736",
+   "name": "bind_key"
+  },
+  {
+   "id": "req_f377118ce4c9d2f8788f994e42ae68c8",
+   "name": "bind_repo"
+  },
+  {
+   "id": "src_bcbba776a21f6388f758514014cc0c85",
+   "name": "adr_source"
+  },
+  {
+   "id": "req_0a2452fbf184bc4b3ed6b4642758fa37",
+   "name": "import_adr_rid"
+  },
+  {
+   "id": "req_253b8e209dd2f93fee991e94c0d588ab",
+   "name": "resolve_adr_rid"
+  }
+ ],
+ "joins": [
+  {
+   "digest_of": "alice_key_submitted",
+   "pointer": "/payload_digest",
+   "record": "bind_key_request"
+  },
+  {
+   "minted": "alice_binding",
+   "pointer": "/binding_id",
+   "record": "alice_key"
+  },
+  {
+   "minted": "alice_bound_at",
+   "pointer": "/created_at",
+   "record": "alice_key"
+  },
+  {
+   "digest_of": "bind_key_request",
+   "pointer": "/request_digest",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "bind_device_key_head",
+   "pointer": "/head_digest",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "bind_device_key_sequence",
+   "pointer": "/sequence",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "bind_device_key_committed_at",
+   "pointer": "/committed_at",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "digest_of": "bind_device_key_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "bind_device_key_result"
+  },
+  {
+   "digest_of": "bind_key_request",
+   "pointer": "/request_digest",
+   "record": "bind_device_key_result"
+  },
+  {
+   "digest_of": "alice_key",
+   "pointer": "/outputs/0/digest",
+   "record": "bind_device_key_result"
+  },
+  {
+   "digest_of": "repo_binding_submitted",
+   "pointer": "/payload_digest",
+   "record": "bind_repo_request"
+  },
+  {
+   "minted": "checkout_bytes",
+   "pointer": "/observed/working_bytes_digest",
+   "record": "repo_binding"
+  },
+  {
+   "digest_of": "bind_repo_request",
+   "pointer": "/request_digest",
+   "record": "bind_repository_receipt"
+  },
+  {
+   "minted": "bind_repository_head",
+   "pointer": "/head_digest",
+   "record": "bind_repository_receipt"
+  },
+  {
+   "minted": "bind_repository_sequence",
+   "pointer": "/sequence",
+   "record": "bind_repository_receipt"
+  },
+  {
+   "minted": "bind_repository_committed_at",
+   "pointer": "/committed_at",
+   "record": "bind_repository_receipt"
+  },
+  {
+   "digest_of": "bind_repository_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "bind_repository_result"
+  },
+  {
+   "digest_of": "bind_repo_request",
+   "pointer": "/request_digest",
+   "record": "bind_repository_result"
+  },
+  {
+   "digest_of": "repo_binding",
+   "pointer": "/outputs/0/digest",
+   "record": "bind_repository_result"
+  },
+  {
+   "digest_of": "import_request_payload",
+   "pointer": "/payload_digest",
+   "record": "import_request"
+  },
+  {
+   "minted": "adr_revision_at",
+   "pointer": "/produced_at",
+   "record": "adr_revision"
+  },
+  {
+   "minted": "adr_acquired_at",
+   "pointer": "/acquisition/acquired_at",
+   "record": "adr_provenance"
+  },
+  {
+   "minted": "adr_availability",
+   "pointer": "/acquisition/availability_evidence_digest",
+   "record": "adr_provenance"
+  },
+  {
+   "minted": "adr_decision_date_evidence",
+   "pointer": "/claims/1/support/evidence_digest",
+   "record": "adr_provenance"
+  },
+  {
+   "digest_of": "import_request",
+   "pointer": "/request_digest",
+   "record": "import_adr_receipt"
+  },
+  {
+   "minted": "adr_head",
+   "pointer": "/head_digest",
+   "record": "import_adr_receipt"
+  },
+  {
+   "minted": "import_adr_sequence",
+   "pointer": "/sequence",
+   "record": "import_adr_receipt"
+  },
+  {
+   "minted": "import_adr_committed_at",
+   "pointer": "/committed_at",
+   "record": "import_adr_receipt"
+  },
+  {
+   "digest_of": "import_adr_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "import_adr_result"
+  },
+  {
+   "digest_of": "import_request",
+   "pointer": "/request_digest",
+   "record": "import_adr_result"
+  },
+  {
+   "digest_of": "adr_revision",
+   "pointer": "/outputs/0/digest",
+   "record": "import_adr_result"
+  },
+  {
+   "digest_of": "adr_provenance",
+   "pointer": "/outputs/1/digest",
+   "record": "import_adr_result"
+  },
+  {
+   "minted": "adr_head",
+   "pointer": "/target/base/head_digest",
+   "record": "resolve_request"
+  },
+  {
+   "digest_of": "adr_revision",
+   "pointer": "/revision_digest",
+   "record": "adr_ref"
+  },
+  {
+   "digest_of": "adr_ref",
+   "pointer": "/payload_digest",
+   "record": "resolve_request"
+  },
+  {
+   "digest_of": "resolve_request",
+   "pointer": "/request_digest",
+   "record": "resolve_imported_adr_result"
+  },
+  {
+   "digest_of": "adr_revision",
+   "pointer": "/outputs/0/digest",
+   "record": "resolve_imported_adr_result"
+  },
+  {
+   "digest_of": "adr_provenance",
+   "pointer": "/outputs/1/digest",
+   "record": "resolve_imported_adr_result"
+  }
+ ],
+ "minted": [
+  {
+   "name": "alice_binding",
+   "shape": "bnd",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "alice_bound_at",
+   "shape": "instant",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "bind_device_key_committed_at",
+   "shape": "instant",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "bind_device_key_head",
+   "shape": "digest",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "bind_device_key_sequence",
+   "shape": "integer",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "bind_repository_committed_at",
+   "shape": "instant",
+   "step": "bind_repository"
+  },
+  {
+   "name": "bind_repository_head",
+   "shape": "digest",
+   "step": "bind_repository"
+  },
+  {
+   "name": "bind_repository_sequence",
+   "shape": "integer",
+   "step": "bind_repository"
+  },
+  {
+   "name": "checkout_bytes",
+   "shape": "digest",
+   "step": "bind_repository"
+  },
+  {
+   "name": "adr_acquired_at",
+   "shape": "instant",
+   "step": "import_adr"
+  },
+  {
+   "name": "adr_availability",
+   "shape": "digest",
+   "step": "import_adr"
+  },
+  {
+   "name": "adr_decision_date_evidence",
+   "shape": "digest",
+   "step": "import_adr"
+  },
+  {
+   "name": "adr_head",
+   "shape": "digest",
+   "step": "import_adr"
+  },
+  {
+   "name": "adr_revision_at",
+   "shape": "instant",
+   "step": "import_adr"
+  },
+  {
+   "name": "import_adr_committed_at",
+   "shape": "instant",
+   "step": "import_adr"
+  },
+  {
+   "name": "import_adr_sequence",
+   "shape": "integer",
+   "step": "import_adr"
+  }
+ ],
+ "records": [
+  {
+   "digest": "e5d5160b1db625750e65f2ce9fca88ca63aee4137e903871ad55b73b8000cde2",
+   "name": "alice_key_submitted",
+   "record": {
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_06cc9e74f5cd8d26c4890a2500e74983",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_eae2b2b011300dde98a07c3b008e24e1",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "0991e2b78ff6d54b6e68774f986707b7d18eae4d9e18f9838013c93b7ac9f16c",
+   "name": "bind_key_request",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_06cc9e74f5cd8d26c4890a2500e74983",
+     "principal_id": "prn_eae2b2b011300dde98a07c3b008e24e1",
+     "profile_id": "prf_5e04fc8fb97c67eaecbf52a5c90c5b5d"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "identity.binding.add",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_eae2b2b011300dde98a07c3b008e24e1"
+    },
+    "payload_digest": "e5d5160b1db625750e65f2ce9fca88ca63aee4137e903871ad55b73b8000cde2",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_163cd155848fa98b1487679bf0465736",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_eae2b2b011300dde98a07c3b008e24e1"
+    }
+   }
+  },
+  {
+   "digest": "e0f515c7632e4032717f72af98e2ab8b662241f38c8660783da6f1a2e5f0676f",
+   "name": "alice_key",
+   "record": {
+    "binding_id": "bnd_4d6bfdb0f6e9b3dce352c186a6cb7d48",
+    "created_at": "2000-01-01T00:00:00Z",
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_06cc9e74f5cd8d26c4890a2500e74983",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_eae2b2b011300dde98a07c3b008e24e1",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "8f58532db0667451c4646efd6891a684c300b8cae3bc15edb08a1d6bc5e16103",
+   "name": "bind_device_key_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "65c7c2937c0d165e1a9f9cdc57a82dd92ff7dbbf5765b466d31ad26920fd4b07",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_eae2b2b011300dde98a07c3b008e24e1"
+    },
+    "request_digest": "0991e2b78ff6d54b6e68774f986707b7d18eae4d9e18f9838013c93b7ac9f16c",
+    "request_id": "req_163cd155848fa98b1487679bf0465736",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prn_eae2b2b011300dde98a07c3b008e24e1"
+    }
+   }
+  },
+  {
+   "digest": "7223f0a9639a63e19fbfb8d252b223b2c5f78a6693dd54229dbb5ca06350a527",
+   "name": "bind_device_key_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "8f58532db0667451c4646efd6891a684c300b8cae3bc15edb08a1d6bc5e16103",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "e0f515c7632e4032717f72af98e2ab8b662241f38c8660783da6f1a2e5f0676f",
+      "kind": "principal_binding"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "0991e2b78ff6d54b6e68774f986707b7d18eae4d9e18f9838013c93b7ac9f16c",
+    "request_id": "req_163cd155848fa98b1487679bf0465736",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "59b3ffc5ee79ed9c2d27ba1fd27da70c1a871657bbcfe2d023317eb73bafa3be",
+   "name": "repo_binding_submitted",
+   "record": {
+    "kind": "repository_binding",
+    "relation": {
+     "how": "clone"
+    },
+    "repository_id": "rep_dff40b8cbcad382da33200fb2bcb8e79",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "34b1a7294e203a209bcdb01d3c70b36826b1d54ddc155233aa3f10221fcc8996",
+   "name": "bind_repo_request",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_06cc9e74f5cd8d26c4890a2500e74983",
+     "principal_id": "prn_eae2b2b011300dde98a07c3b008e24e1",
+     "profile_id": "prf_5e04fc8fb97c67eaecbf52a5c90c5b5d"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "repository.bind",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_eae2b2b011300dde98a07c3b008e24e1"
+    },
+    "payload_digest": "59b3ffc5ee79ed9c2d27ba1fd27da70c1a871657bbcfe2d023317eb73bafa3be",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_f377118ce4c9d2f8788f994e42ae68c8",
+    "schema": 1,
+    "target": {
+     "resource_id": "rep_dff40b8cbcad382da33200fb2bcb8e79"
+    }
+   }
+  },
+  {
+   "digest": "775da2fd34699b84f98781eed58c3e79722d842472039cd04fe425147e68dee7",
+   "name": "repo_binding",
+   "record": {
+    "kind": "repository_binding",
+    "observed": {
+     "branch": "main",
+     "commit": "0123456789abcdef0123456789abcdef01234567",
+     "locator": "git@github.com:example/work.git",
+     "working_bytes_digest": "ae5572322515c5f2f29d89abaa36bcb1f5ad8560eb7f357a206068dc349b0fd6"
+    },
+    "relation": {
+     "how": "clone"
+    },
+    "repository_id": "rep_dff40b8cbcad382da33200fb2bcb8e79",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "1c1576e1c97875afc72eaf2001a6cec21a3be6bee5dfecc52e67dd580d00e47e",
+   "name": "bind_repository_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "01d96e6ef5d532f408847d1307c2a85027298064fc7911f3d8adb05fd8eefa8e",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_eae2b2b011300dde98a07c3b008e24e1"
+    },
+    "request_digest": "34b1a7294e203a209bcdb01d3c70b36826b1d54ddc155233aa3f10221fcc8996",
+    "request_id": "req_f377118ce4c9d2f8788f994e42ae68c8",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "rep_dff40b8cbcad382da33200fb2bcb8e79"
+    }
+   }
+  },
+  {
+   "digest": "b88984a765629a89c1b56e5b176d0c2005af421bb0bf106a8dd21ad2f416b85e",
+   "name": "bind_repository_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "1c1576e1c97875afc72eaf2001a6cec21a3be6bee5dfecc52e67dd580d00e47e",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "775da2fd34699b84f98781eed58c3e79722d842472039cd04fe425147e68dee7",
+      "kind": "repository_binding"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "34b1a7294e203a209bcdb01d3c70b36826b1d54ddc155233aa3f10221fcc8996",
+    "request_id": "req_f377118ce4c9d2f8788f994e42ae68c8",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "c17461a6c0a193ae33f2898784cafb30be7248cbc6c4141a0407f8d9f4296f80",
+   "name": "import_request_payload",
+   "record": {
+    "destination": {
+     "home_mode": "package_published",
+     "scope": {
+      "layer": "repository",
+      "repository_id": "rep_dff40b8cbcad382da33200fb2bcb8e79"
+     }
+    },
+    "kind": "source_request",
+    "role": "memory",
+    "route": {
+     "declared_origin": "the ADR directory of a repository this team inherited",
+     "license_conditions": "attribution required, redistribution permitted",
+     "revision_digest": "e79118c1c48cba3d1c82dc40b67b7b6b65cd71dab3621c686d48fa9828595015",
+     "route": "import_external_package"
+    },
+    "schema": 1
+   }
+  },
+  {
+   "digest": "a59143cd0d4c9998c74ca62e1c432e742e08c046a04a9b8e966e6f0b1497c71c",
+   "name": "import_request",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_06cc9e74f5cd8d26c4890a2500e74983",
+     "principal_id": "prn_eae2b2b011300dde98a07c3b008e24e1",
+     "profile_id": "prf_5e04fc8fb97c67eaecbf52a5c90c5b5d"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "source.revision.admit",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_dff40b8cbcad382da33200fb2bcb8e79"
+    },
+    "payload_digest": "c17461a6c0a193ae33f2898784cafb30be7248cbc6c4141a0407f8d9f4296f80",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_0a2452fbf184bc4b3ed6b4642758fa37",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_bcbba776a21f6388f758514014cc0c85"
+    }
+   }
+  },
+  {
+   "digest": "0ae6e038e7ade500a1f2cf5ccb4403b53aa2fe5996685499043c7f962633c0c8",
+   "name": "adr_revision",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "c4933a82770781b42504ac60a6252bfd06ccfce66170394620ba473ade98365d",
+      "path": "adr/0007-journal-mode.md",
+      "size": 4120
+     }
+    ],
+    "produced_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "source_id": "src_bcbba776a21f6388f758514014cc0c85"
+   }
+  },
+  {
+   "digest": "174f9f7caed971e30391a324700bcdd46fc44fd1fb68d51ad59237a1e3aba205",
+   "name": "adr_provenance",
+   "record": {
+    "acceptance": {
+     "state": "not_accepted"
+    },
+    "acquisition": {
+     "acquired_at": "2000-01-01T00:00:00Z",
+     "availability_evidence_digest": "5380a0dfc5229b5cf251c7722e00267e40c8c6d11344d2faa6c546f1e3b56042"
+    },
+    "claims": [
+     {
+      "as_stated": "Architecture group",
+      "claim": "author",
+      "support": {
+       "support": "stated_only"
+      }
+     },
+     {
+      "as_stated": "2025-11-04",
+      "claim": "decided_at",
+      "support": {
+       "evidence_digest": "ebf603ea50192273b52fffd7656fa0cabfa4ae98c8064731d1c0f88c49fa4f22",
+       "support": "verified"
+      }
+     },
+     {
+      "as_stated": "Accepted",
+      "claim": "status",
+      "support": {
+       "support": "stated_only"
+      }
+     },
+     {
+      "as_stated": "Approved by the platform council",
+      "claim": "approval",
+      "support": {
+       "support": "stated_only"
+      }
+     }
+    ],
+    "kind": "source_provenance",
+    "origin": {
+     "declared_origin": "the ADR directory of a repository this team inherited",
+     "license_conditions": "attribution required, redistribution permitted",
+     "origin": "added_external_package"
+    },
+    "role": "memory",
+    "schema": 1,
+    "source_id": "src_bcbba776a21f6388f758514014cc0c85"
+   }
+  },
+  {
+   "digest": "6e36dc787c3a2da92888008e38bbf1a44eb688dda70aa6b7752789169c4f59dc",
+   "name": "import_adr_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "4dc82d245792cf814d7c6b15a4c7634310f0fc43cc1b5fea3af14c7c1d686350",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_dff40b8cbcad382da33200fb2bcb8e79"
+    },
+    "request_digest": "a59143cd0d4c9998c74ca62e1c432e742e08c046a04a9b8e966e6f0b1497c71c",
+    "request_id": "req_0a2452fbf184bc4b3ed6b4642758fa37",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_bcbba776a21f6388f758514014cc0c85"
+    }
+   }
+  },
+  {
+   "digest": "12baf4b412b12fa26c6135bbae779a20d942f4b8731dcea6be8df611058c9eb6",
+   "name": "import_adr_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "6e36dc787c3a2da92888008e38bbf1a44eb688dda70aa6b7752789169c4f59dc",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "0ae6e038e7ade500a1f2cf5ccb4403b53aa2fe5996685499043c7f962633c0c8",
+      "kind": "source_manifest"
+     },
+     {
+      "digest": "174f9f7caed971e30391a324700bcdd46fc44fd1fb68d51ad59237a1e3aba205",
+      "kind": "source_provenance"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "a59143cd0d4c9998c74ca62e1c432e742e08c046a04a9b8e966e6f0b1497c71c",
+    "request_id": "req_0a2452fbf184bc4b3ed6b4642758fa37",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "5ce326004aec33d454a53e2662e566c21c17f806633938cb25219a7441cd2e1e",
+   "name": "adr_ref",
+   "record": {
+    "kind": "source_ref",
+    "member": {
+     "digest": "c4933a82770781b42504ac60a6252bfd06ccfce66170394620ba473ade98365d",
+     "path": "adr/0007-journal-mode.md",
+     "size": 4120
+    },
+    "revision_digest": "0ae6e038e7ade500a1f2cf5ccb4403b53aa2fe5996685499043c7f962633c0c8",
+    "role": "memory",
+    "schema": 1,
+    "scope": {
+     "layer": "repository",
+     "repository_id": "rep_dff40b8cbcad382da33200fb2bcb8e79"
+    },
+    "source_id": "src_bcbba776a21f6388f758514014cc0c85"
+   }
+  },
+  {
+   "digest": "666bdf067ff5f7de27e291956c55c25ca2d1f3bb151db1834146a9fb4bd43e99",
+   "name": "resolve_request",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_06cc9e74f5cd8d26c4890a2500e74983",
+     "principal_id": "prn_eae2b2b011300dde98a07c3b008e24e1",
+     "profile_id": "prf_5e04fc8fb97c67eaecbf52a5c90c5b5d"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "reference.resolve",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_dff40b8cbcad382da33200fb2bcb8e79"
+    },
+    "payload_digest": "5ce326004aec33d454a53e2662e566c21c17f806633938cb25219a7441cd2e1e",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_253b8e209dd2f93fee991e94c0d588ab",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "4dc82d245792cf814d7c6b15a4c7634310f0fc43cc1b5fea3af14c7c1d686350"
+     },
+     "resource_id": "src_bcbba776a21f6388f758514014cc0c85"
+    }
+   }
+  },
+  {
+   "digest": "a676c1cff9955be14e11f17aefcfc9e6c66e36341898bec87c420edc42f22c85",
+   "name": "resolve_imported_adr_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "0ae6e038e7ade500a1f2cf5ccb4403b53aa2fe5996685499043c7f962633c0c8",
+      "kind": "source_manifest"
+     },
+     {
+      "digest": "174f9f7caed971e30391a324700bcdd46fc44fd1fb68d51ad59237a1e3aba205",
+      "kind": "source_provenance"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "666bdf067ff5f7de27e291956c55c25ca2d1f3bb151db1834146a9fb4bd43e99",
+    "request_id": "req_253b8e209dd2f93fee991e94c0d588ab",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  }
+ ],
+ "says": "A person binds this device's key and the checkout, then imports an architecture decision record from an inherited repository's ADR directory into a memory source of this repository (source.revision.admit, import_external_package with its declared origin, license conditions and exact package revision). The owner commits the revision and its provenance. The provenance keeps what the ADR says about its own history as claims, each with how far it is supported: its author 'Architecture group' as stated only, its decision date 2025-11-04 as verified against evidence, its status 'Accepted' and 'Approved by the platform council' as stated only. The person who imported it is not named as its author anywhere, and nothing is accepted: acceptance stays not_accepted and no Team receipt exists. Resolving the committed revision later returns the same manifest and the same provenance, so the ADR's status string and stated approval never became an acceptance by being imported, read or committed.",
+ "spec_sha256": "a370bbb301704846fbd2b7988ee020b6846cfd934d5424b4682d8a173ee66c48",
+ "steps": [
+  {
+   "carries": [
+    "alice_key_submitted"
+   ],
+   "name": "bind_device_key",
+   "request": "bind_key_request",
+   "result": "bind_device_key_result",
+   "returns": [
+    "alice_key"
+   ]
+  },
+  {
+   "carries": [
+    "repo_binding_submitted"
+   ],
+   "name": "bind_repository",
+   "request": "bind_repo_request",
+   "result": "bind_repository_result",
+   "returns": [
+    "repo_binding"
+   ]
+  },
+  {
+   "carries": [
+    "import_request_payload"
+   ],
+   "head": "adr_head",
+   "name": "import_adr",
+   "request": "import_request",
+   "result": "import_adr_result",
+   "returns": [
+    "adr_revision",
+    "adr_provenance"
+   ]
+  },
+  {
+   "carries": [
+    "adr_ref"
+   ],
+   "name": "resolve_imported_adr",
+   "request": "resolve_request",
+   "result": "resolve_imported_adr_result",
+   "returns": [
+    "adr_revision",
+    "adr_provenance"
+   ]
+  }
+ ]
+}

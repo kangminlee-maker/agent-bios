@@ -1,0 +1,1180 @@
+{
+ "case": "N23-VALIDATOR-POS",
+ "ids": [
+  {
+   "id": "prn_49187c93e1f9313f65484d0e692e3e90",
+   "name": "alice"
+  },
+  {
+   "id": "dev_deb0bdc6747b0b2c5ee23995920dff1c",
+   "name": "laptop"
+  },
+  {
+   "id": "prf_15d5a26e2bec4b7ad51b45b6039d9483",
+   "name": "alice_profile"
+  },
+  {
+   "id": "req_c2eddeda6c89784a5b52a9accf659411",
+   "name": "bind_key_id"
+  },
+  {
+   "id": "src_697f9a799ccd6e3f6f794e9dadc1290f",
+   "name": "package_source"
+  },
+  {
+   "id": "src_87daf85a02f861772e0effe6a3bfb499",
+   "name": "rates_source"
+  },
+  {
+   "id": "req_23d9d0e992b44f310d0b5fca903e48ef",
+   "name": "commit_package_id"
+  },
+  {
+   "id": "req_f4e4f318e0a8570b9cf2815feda21fd4",
+   "name": "commit_rates_id"
+  },
+  {
+   "id": "req_6ac08cf3b87b29fc8236ad26b0463139",
+   "name": "probe_validator_id"
+  },
+  {
+   "id": "req_6a175e737ebfc5bfe3967e4f6a407715",
+   "name": "validation_submit_id"
+  }
+ ],
+ "joins": [
+  {
+   "digest_of": "device_key",
+   "pointer": "/payload_digest",
+   "record": "bind_key"
+  },
+  {
+   "minted": "device_key_binding",
+   "pointer": "/binding_id",
+   "record": "stored_device_key"
+  },
+  {
+   "minted": "key_bound_at",
+   "pointer": "/created_at",
+   "record": "stored_device_key"
+  },
+  {
+   "digest_of": "bind_key",
+   "pointer": "/request_digest",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "bind_device_key_head",
+   "pointer": "/head_digest",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "bind_device_key_sequence",
+   "pointer": "/sequence",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "bind_device_key_committed_at",
+   "pointer": "/committed_at",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "digest_of": "bind_device_key_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "bind_device_key_result"
+  },
+  {
+   "digest_of": "bind_key",
+   "pointer": "/request_digest",
+   "record": "bind_device_key_result"
+  },
+  {
+   "digest_of": "stored_device_key",
+   "pointer": "/outputs/0/digest",
+   "record": "bind_device_key_result"
+  },
+  {
+   "digest_of": "package_manifest",
+   "pointer": "/payload_digest",
+   "record": "commit_package"
+  },
+  {
+   "minted": "package_committed_at",
+   "pointer": "/produced_at",
+   "record": "stored_package"
+  },
+  {
+   "digest_of": "commit_package",
+   "pointer": "/request_digest",
+   "record": "commit_the_domain_package_receipt"
+  },
+  {
+   "minted": "package_head",
+   "pointer": "/head_digest",
+   "record": "commit_the_domain_package_receipt"
+  },
+  {
+   "minted": "commit_the_domain_package_sequence",
+   "pointer": "/sequence",
+   "record": "commit_the_domain_package_receipt"
+  },
+  {
+   "minted": "commit_the_domain_package_committed_at",
+   "pointer": "/committed_at",
+   "record": "commit_the_domain_package_receipt"
+  },
+  {
+   "digest_of": "commit_the_domain_package_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "commit_the_domain_package_result"
+  },
+  {
+   "digest_of": "commit_package",
+   "pointer": "/request_digest",
+   "record": "commit_the_domain_package_result"
+  },
+  {
+   "digest_of": "stored_package",
+   "pointer": "/outputs/0/digest",
+   "record": "commit_the_domain_package_result"
+  },
+  {
+   "digest_of": "rates_manifest",
+   "pointer": "/payload_digest",
+   "record": "commit_rates"
+  },
+  {
+   "minted": "rates_committed_at",
+   "pointer": "/produced_at",
+   "record": "stored_rates"
+  },
+  {
+   "digest_of": "commit_rates",
+   "pointer": "/request_digest",
+   "record": "commit_the_rates_table_receipt"
+  },
+  {
+   "minted": "rates_head",
+   "pointer": "/head_digest",
+   "record": "commit_the_rates_table_receipt"
+  },
+  {
+   "minted": "commit_the_rates_table_sequence",
+   "pointer": "/sequence",
+   "record": "commit_the_rates_table_receipt"
+  },
+  {
+   "minted": "commit_the_rates_table_committed_at",
+   "pointer": "/committed_at",
+   "record": "commit_the_rates_table_receipt"
+  },
+  {
+   "digest_of": "commit_the_rates_table_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "commit_the_rates_table_result"
+  },
+  {
+   "digest_of": "commit_rates",
+   "pointer": "/request_digest",
+   "record": "commit_the_rates_table_result"
+  },
+  {
+   "digest_of": "stored_rates",
+   "pointer": "/outputs/0/digest",
+   "record": "commit_the_rates_table_result"
+  },
+  {
+   "digest_of": "validator_probe",
+   "pointer": "/payload_digest",
+   "record": "probe_validator"
+  },
+  {
+   "minted": "real_validator_probe",
+   "pointer": "/probe_id",
+   "record": "real_validator_probe"
+  },
+  {
+   "minted": "validator_probed_at",
+   "pointer": "/at",
+   "record": "real_validator_probe"
+  },
+  {
+   "minted": "validator_profile",
+   "pointer": "/profile_id",
+   "record": "validator_profile"
+  },
+  {
+   "minted": "validator_probed_at",
+   "pointer": "/measured_at",
+   "record": "validator_profile"
+  },
+  {
+   "digest_of": "real_validator_probe",
+   "pointer": "/capabilities/0/state/probe_digest",
+   "record": "validator_profile"
+  },
+  {
+   "digest_of": "probe_validator",
+   "pointer": "/request_digest",
+   "record": "probe_the_validator_receipt"
+  },
+  {
+   "minted": "probe_the_validator_head",
+   "pointer": "/head_digest",
+   "record": "probe_the_validator_receipt"
+  },
+  {
+   "minted": "probe_the_validator_sequence",
+   "pointer": "/sequence",
+   "record": "probe_the_validator_receipt"
+  },
+  {
+   "minted": "probe_the_validator_committed_at",
+   "pointer": "/committed_at",
+   "record": "probe_the_validator_receipt"
+  },
+  {
+   "digest_of": "probe_the_validator_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "probe_the_validator_result"
+  },
+  {
+   "digest_of": "probe_validator",
+   "pointer": "/request_digest",
+   "record": "probe_the_validator_result"
+  },
+  {
+   "digest_of": "real_validator_probe",
+   "pointer": "/outputs/0/digest",
+   "record": "probe_the_validator_result"
+  },
+  {
+   "digest_of": "validator_profile",
+   "pointer": "/outputs/1/digest",
+   "record": "probe_the_validator_result"
+  },
+  {
+   "minted": "rates_head",
+   "pointer": "/target/base/head_digest",
+   "record": "validation_submit"
+  },
+  {
+   "digest_of": "stored_rates",
+   "pointer": "/targets/0",
+   "record": "validation"
+  },
+  {
+   "digest_of": "stored_package",
+   "pointer": "/package_digest",
+   "record": "validation"
+  },
+  {
+   "digest_of": "validation",
+   "pointer": "/payload_digest",
+   "record": "validation_submit"
+  },
+  {
+   "digest_of": "validation",
+   "pointer": "/request_digest",
+   "record": "run_with_a_finding"
+  },
+  {
+   "digest_of": "stored_rates",
+   "pointer": "/verdict/checks/0/target_digest",
+   "record": "run_with_a_finding"
+  },
+  {
+   "digest_of": "stored_rates",
+   "pointer": "/verdict/findings/0/target_digest",
+   "record": "run_with_a_finding"
+  },
+  {
+   "minted": "finding_evidence",
+   "pointer": "/verdict/findings/0/evidence_digest",
+   "record": "run_with_a_finding"
+  },
+  {
+   "minted": "validator_output",
+   "pointer": "/verdict/output_digest",
+   "record": "run_with_a_finding"
+  },
+  {
+   "minted": "validated_at",
+   "pointer": "/at",
+   "record": "run_with_a_finding"
+  },
+  {
+   "digest_of": "validation_submit",
+   "pointer": "/request_digest",
+   "record": "run_the_pinned_validation_receipt"
+  },
+  {
+   "minted": "run_the_pinned_validation_head",
+   "pointer": "/head_digest",
+   "record": "run_the_pinned_validation_receipt"
+  },
+  {
+   "minted": "run_the_pinned_validation_sequence",
+   "pointer": "/sequence",
+   "record": "run_the_pinned_validation_receipt"
+  },
+  {
+   "minted": "run_the_pinned_validation_committed_at",
+   "pointer": "/committed_at",
+   "record": "run_the_pinned_validation_receipt"
+  },
+  {
+   "minted": "rates_head",
+   "pointer": "/target/base/head_digest",
+   "record": "run_the_pinned_validation_receipt"
+  },
+  {
+   "digest_of": "run_the_pinned_validation_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "run_the_pinned_validation_result"
+  },
+  {
+   "digest_of": "validation_submit",
+   "pointer": "/request_digest",
+   "record": "run_the_pinned_validation_result"
+  },
+  {
+   "digest_of": "run_with_a_finding",
+   "pointer": "/outputs/0/digest",
+   "record": "run_the_pinned_validation_result"
+  }
+ ],
+ "minted": [
+  {
+   "name": "bind_device_key_committed_at",
+   "shape": "instant",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "bind_device_key_head",
+   "shape": "digest",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "bind_device_key_sequence",
+   "shape": "integer",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "device_key_binding",
+   "shape": "bnd",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "key_bound_at",
+   "shape": "instant",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "commit_the_domain_package_committed_at",
+   "shape": "instant",
+   "step": "commit_the_domain_package"
+  },
+  {
+   "name": "commit_the_domain_package_sequence",
+   "shape": "integer",
+   "step": "commit_the_domain_package"
+  },
+  {
+   "name": "package_committed_at",
+   "shape": "instant",
+   "step": "commit_the_domain_package"
+  },
+  {
+   "name": "package_head",
+   "shape": "digest",
+   "step": "commit_the_domain_package"
+  },
+  {
+   "name": "commit_the_rates_table_committed_at",
+   "shape": "instant",
+   "step": "commit_the_rates_table"
+  },
+  {
+   "name": "commit_the_rates_table_sequence",
+   "shape": "integer",
+   "step": "commit_the_rates_table"
+  },
+  {
+   "name": "rates_committed_at",
+   "shape": "instant",
+   "step": "commit_the_rates_table"
+  },
+  {
+   "name": "rates_head",
+   "shape": "digest",
+   "step": "commit_the_rates_table"
+  },
+  {
+   "name": "probe_the_validator_committed_at",
+   "shape": "instant",
+   "step": "probe_the_validator"
+  },
+  {
+   "name": "probe_the_validator_head",
+   "shape": "digest",
+   "step": "probe_the_validator"
+  },
+  {
+   "name": "probe_the_validator_sequence",
+   "shape": "integer",
+   "step": "probe_the_validator"
+  },
+  {
+   "name": "real_validator_probe",
+   "shape": "prb",
+   "step": "probe_the_validator"
+  },
+  {
+   "name": "validator_probed_at",
+   "shape": "instant",
+   "step": "probe_the_validator"
+  },
+  {
+   "name": "validator_profile",
+   "shape": "cap",
+   "step": "probe_the_validator"
+  },
+  {
+   "name": "finding_evidence",
+   "shape": "digest",
+   "step": "run_the_pinned_validation"
+  },
+  {
+   "name": "run_the_pinned_validation_committed_at",
+   "shape": "instant",
+   "step": "run_the_pinned_validation"
+  },
+  {
+   "name": "run_the_pinned_validation_head",
+   "shape": "digest",
+   "step": "run_the_pinned_validation"
+  },
+  {
+   "name": "run_the_pinned_validation_sequence",
+   "shape": "integer",
+   "step": "run_the_pinned_validation"
+  },
+  {
+   "name": "validated_at",
+   "shape": "instant",
+   "step": "run_the_pinned_validation"
+  },
+  {
+   "name": "validator_output",
+   "shape": "digest",
+   "step": "run_the_pinned_validation"
+  }
+ ],
+ "records": [
+  {
+   "digest": "2ad7c1c7780a96357584b9529fa6a88b83d90bd78d0e554cc5e8b1abfdcb9ffb",
+   "name": "device_key",
+   "record": {
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_deb0bdc6747b0b2c5ee23995920dff1c",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_49187c93e1f9313f65484d0e692e3e90",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "92ce2349d6ea1d9ece1b73935ab2f17f1e393ee91a38ac639400e7a60c9812db",
+   "name": "bind_key",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_deb0bdc6747b0b2c5ee23995920dff1c",
+     "principal_id": "prn_49187c93e1f9313f65484d0e692e3e90",
+     "profile_id": "prf_15d5a26e2bec4b7ad51b45b6039d9483"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "identity.binding.add",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_49187c93e1f9313f65484d0e692e3e90"
+    },
+    "payload_digest": "2ad7c1c7780a96357584b9529fa6a88b83d90bd78d0e554cc5e8b1abfdcb9ffb",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_c2eddeda6c89784a5b52a9accf659411",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_49187c93e1f9313f65484d0e692e3e90"
+    }
+   }
+  },
+  {
+   "digest": "e1e4ff99fa158e2add2322393cb4b35a9edae085702527fd12c2b0527a28b61f",
+   "name": "stored_device_key",
+   "record": {
+    "binding_id": "bnd_829860f3018348cc3f17d0db9b0a3696",
+    "created_at": "2000-01-01T00:00:00Z",
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_deb0bdc6747b0b2c5ee23995920dff1c",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_49187c93e1f9313f65484d0e692e3e90",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "867fc08a0d6dbe51b69f6fa255413d13f382f415df2ea576fef501dbe5588478",
+   "name": "bind_device_key_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "6bb7bc8fb94483db0935ed8cccd9d7111c02a46e940d93a67fcac7bf21d2ddf0",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_49187c93e1f9313f65484d0e692e3e90"
+    },
+    "request_digest": "92ce2349d6ea1d9ece1b73935ab2f17f1e393ee91a38ac639400e7a60c9812db",
+    "request_id": "req_c2eddeda6c89784a5b52a9accf659411",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prn_49187c93e1f9313f65484d0e692e3e90"
+    }
+   }
+  },
+  {
+   "digest": "cc455635760a682d297e85a47052ad6b00a00c60711f96dfc967a1dcb009662d",
+   "name": "bind_device_key_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "867fc08a0d6dbe51b69f6fa255413d13f382f415df2ea576fef501dbe5588478",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "e1e4ff99fa158e2add2322393cb4b35a9edae085702527fd12c2b0527a28b61f",
+      "kind": "principal_binding"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "92ce2349d6ea1d9ece1b73935ab2f17f1e393ee91a38ac639400e7a60c9812db",
+    "request_id": "req_c2eddeda6c89784a5b52a9accf659411",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "2899514fdac23786e5bd963fea526f4aa9cad7f74a5125f37e7c5be9b4ca2f3c",
+   "name": "package_manifest",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "94a38f0f980a166840a2c692982b1afad66d81420f455da5312a00e4e0daf17e",
+      "path": "lenses/table_consistency/2.json",
+      "size": 2210
+     },
+     {
+      "digest": "ac807cc9a6b8bf1333468e8992c1ccbebcda8cb71a2a92db57f7cc0a605f39ff",
+      "path": "questions/declined_card_retry.json",
+      "size": 640
+     }
+    ],
+    "schema": 1,
+    "source_id": "src_697f9a799ccd6e3f6f794e9dadc1290f"
+   }
+  },
+  {
+   "digest": "ef1baa91c591f28428c4ea31899ce1b299e93f5b94e0f9b8921b7e3e5c6b2efe",
+   "name": "commit_package",
+   "record": {
+    "action": "publish",
+    "actor": {
+     "device_id": "dev_deb0bdc6747b0b2c5ee23995920dff1c",
+     "principal_id": "prn_49187c93e1f9313f65484d0e692e3e90",
+     "profile_id": "prf_15d5a26e2bec4b7ad51b45b6039d9483"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "source.revision.commit",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_49187c93e1f9313f65484d0e692e3e90"
+    },
+    "payload_digest": "2899514fdac23786e5bd963fea526f4aa9cad7f74a5125f37e7c5be9b4ca2f3c",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_23d9d0e992b44f310d0b5fca903e48ef",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_697f9a799ccd6e3f6f794e9dadc1290f"
+    }
+   }
+  },
+  {
+   "digest": "39f6a5927e92a298a6ff4e4fdc042bad48ac815322103433f0f9016e3a1b4bf2",
+   "name": "stored_package",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "94a38f0f980a166840a2c692982b1afad66d81420f455da5312a00e4e0daf17e",
+      "path": "lenses/table_consistency/2.json",
+      "size": 2210
+     },
+     {
+      "digest": "ac807cc9a6b8bf1333468e8992c1ccbebcda8cb71a2a92db57f7cc0a605f39ff",
+      "path": "questions/declined_card_retry.json",
+      "size": 640
+     }
+    ],
+    "produced_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "source_id": "src_697f9a799ccd6e3f6f794e9dadc1290f"
+   }
+  },
+  {
+   "digest": "054a7d2fd6606ce52f38a4f525d3c6b5692abe98174900c4b622f893756dcb0b",
+   "name": "commit_the_domain_package_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "f2d158a62af6abf9d6ff655139232a3a28e475bad58a4d870493ccab038cb08e",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_49187c93e1f9313f65484d0e692e3e90"
+    },
+    "request_digest": "ef1baa91c591f28428c4ea31899ce1b299e93f5b94e0f9b8921b7e3e5c6b2efe",
+    "request_id": "req_23d9d0e992b44f310d0b5fca903e48ef",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_697f9a799ccd6e3f6f794e9dadc1290f"
+    }
+   }
+  },
+  {
+   "digest": "799546c57eba7829d43e78e4ea9c1ba57c2124551ca8a57179e09fa92455aec4",
+   "name": "commit_the_domain_package_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "054a7d2fd6606ce52f38a4f525d3c6b5692abe98174900c4b622f893756dcb0b",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "39f6a5927e92a298a6ff4e4fdc042bad48ac815322103433f0f9016e3a1b4bf2",
+      "kind": "source_manifest"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "ef1baa91c591f28428c4ea31899ce1b299e93f5b94e0f9b8921b7e3e5c6b2efe",
+    "request_id": "req_23d9d0e992b44f310d0b5fca903e48ef",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "8ae5f23230faed0c5abb88a197fdbace65ffe7875fdeca21a5b9d1ccce706f49",
+   "name": "rates_manifest",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "c4933a82770781b42504ac60a6252bfd06ccfce66170394620ba473ade98365d",
+      "path": "concepts.md",
+      "size": 4120
+     },
+     {
+      "digest": "2702a48949ff2ef94c13c8f8e0a45a7a481e0e19482d3ffa8f8fc2c584a1d2c2",
+      "path": "tables/rates.csv",
+      "size": 918
+     }
+    ],
+    "schema": 1,
+    "source_id": "src_87daf85a02f861772e0effe6a3bfb499"
+   }
+  },
+  {
+   "digest": "f1105455437e84d6a1618823b8dcdac240b5c54cc0e0cd69112f4045e1a30a08",
+   "name": "commit_rates",
+   "record": {
+    "action": "publish",
+    "actor": {
+     "device_id": "dev_deb0bdc6747b0b2c5ee23995920dff1c",
+     "principal_id": "prn_49187c93e1f9313f65484d0e692e3e90",
+     "profile_id": "prf_15d5a26e2bec4b7ad51b45b6039d9483"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "source.revision.commit",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_49187c93e1f9313f65484d0e692e3e90"
+    },
+    "payload_digest": "8ae5f23230faed0c5abb88a197fdbace65ffe7875fdeca21a5b9d1ccce706f49",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_f4e4f318e0a8570b9cf2815feda21fd4",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_87daf85a02f861772e0effe6a3bfb499"
+    }
+   }
+  },
+  {
+   "digest": "34cc1d4fe36711963adc1bd849bb0496c6801fdd9019ad6615112b49104ffea5",
+   "name": "stored_rates",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "c4933a82770781b42504ac60a6252bfd06ccfce66170394620ba473ade98365d",
+      "path": "concepts.md",
+      "size": 4120
+     },
+     {
+      "digest": "2702a48949ff2ef94c13c8f8e0a45a7a481e0e19482d3ffa8f8fc2c584a1d2c2",
+      "path": "tables/rates.csv",
+      "size": 918
+     }
+    ],
+    "produced_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "source_id": "src_87daf85a02f861772e0effe6a3bfb499"
+   }
+  },
+  {
+   "digest": "c7eb36c6f5bd0577a045311b416cef631aee29a35f8d365bee9d925bd4c4f262",
+   "name": "commit_the_rates_table_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "59546c60ad73bb61c35af961f7b4c2871109a3e3bc6e3800e194bcfe70851c20",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_49187c93e1f9313f65484d0e692e3e90"
+    },
+    "request_digest": "f1105455437e84d6a1618823b8dcdac240b5c54cc0e0cd69112f4045e1a30a08",
+    "request_id": "req_f4e4f318e0a8570b9cf2815feda21fd4",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_87daf85a02f861772e0effe6a3bfb499"
+    }
+   }
+  },
+  {
+   "digest": "a5db08ce41bdd9f1be1ff261c583431bc0d51368ca6793e24f7182e85e4dbea0",
+   "name": "commit_the_rates_table_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "c7eb36c6f5bd0577a045311b416cef631aee29a35f8d365bee9d925bd4c4f262",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "34cc1d4fe36711963adc1bd849bb0496c6801fdd9019ad6615112b49104ffea5",
+      "kind": "source_manifest"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "f1105455437e84d6a1618823b8dcdac240b5c54cc0e0cd69112f4045e1a30a08",
+    "request_id": "req_f4e4f318e0a8570b9cf2815feda21fd4",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "15fc925bfa9c082dbd2b679b153dabd8bd25f80fed0573ee9d0eefb701244907",
+   "name": "validator_probe",
+   "record": {
+    "capability": "validation",
+    "client": {
+     "name": "domain-lens-runner",
+     "version": "1.4.0"
+    },
+    "kind": "capability_probe",
+    "schema": 1,
+    "wire": {
+     "protocol": "agent_bios_validation",
+     "version": "1"
+    }
+   }
+  },
+  {
+   "digest": "91ce1db45b72b7b3f903187ad8125e9e29efc571adcd834a2446e343efeab9a2",
+   "name": "probe_validator",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_deb0bdc6747b0b2c5ee23995920dff1c",
+     "principal_id": "prn_49187c93e1f9313f65484d0e692e3e90",
+     "profile_id": "prf_15d5a26e2bec4b7ad51b45b6039d9483"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "capability.probe",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_49187c93e1f9313f65484d0e692e3e90"
+    },
+    "payload_digest": "15fc925bfa9c082dbd2b679b153dabd8bd25f80fed0573ee9d0eefb701244907",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_6ac08cf3b87b29fc8236ad26b0463139",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_15d5a26e2bec4b7ad51b45b6039d9483"
+    }
+   }
+  },
+  {
+   "digest": "8f8d03fe1915dcbdfafa9230d4f4b71ee14ab1123b7467161518e52b063fb151",
+   "name": "real_validator_probe",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "capability": "validation",
+    "client": {
+     "name": "domain-lens-runner",
+     "version": "1.4.0"
+    },
+    "kind": "capability_probe",
+    "mode": {
+     "runs": "real"
+    },
+    "observed": "The runner loaded the pinned lens by digest and returned findings for the one target it was given.",
+    "offered": true,
+    "outcome": "worked",
+    "probe_id": "prb_9b4660a5930b5c6428d987883703fcdf",
+    "schema": 1,
+    "wire": {
+     "protocol": "agent_bios_validation",
+     "version": "1"
+    }
+   }
+  },
+  {
+   "digest": "9915155fa48f8e13080c5033c6b934be0e08b617a564a5c75592dd56a5c676c7",
+   "name": "validator_profile",
+   "record": {
+    "capabilities": [
+     {
+      "capability": "validation",
+      "state": {
+       "probe_digest": "8f8d03fe1915dcbdfafa9230d4f4b71ee14ab1123b7467161518e52b063fb151",
+       "qualified": "yes"
+      }
+     }
+    ],
+    "client": {
+     "name": "domain-lens-runner",
+     "version": "1.4.0"
+    },
+    "kind": "capability_profile",
+    "measured_at": "2000-01-01T00:00:00Z",
+    "profile_id": "cap_b8c52739447c5823bf748c02eef33d71",
+    "schema": 1,
+    "wire": {
+     "protocol": "agent_bios_validation",
+     "version": "1"
+    }
+   }
+  },
+  {
+   "digest": "09c3b797b2a59939fe82e7fe20e6c547dfefc7c0d46a0ee1904ccbfb1b2a5032",
+   "name": "probe_the_validator_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "db3139ab3cee24a69f2d8a07ef96e4f6e262be8927d4b9a960f41a69ad1871d6",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_49187c93e1f9313f65484d0e692e3e90"
+    },
+    "request_digest": "91ce1db45b72b7b3f903187ad8125e9e29efc571adcd834a2446e343efeab9a2",
+    "request_id": "req_6ac08cf3b87b29fc8236ad26b0463139",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_15d5a26e2bec4b7ad51b45b6039d9483"
+    }
+   }
+  },
+  {
+   "digest": "c4be020fcc128b7993404dbe3d9a01c38d2d6a3cecf920c26f0baf66d1a2a3c2",
+   "name": "probe_the_validator_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "09c3b797b2a59939fe82e7fe20e6c547dfefc7c0d46a0ee1904ccbfb1b2a5032",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "8f8d03fe1915dcbdfafa9230d4f4b71ee14ab1123b7467161518e52b063fb151",
+      "kind": "capability_probe"
+     },
+     {
+      "digest": "9915155fa48f8e13080c5033c6b934be0e08b617a564a5c75592dd56a5c676c7",
+      "kind": "capability_profile"
+     }
+    ],
+    "provider_effect": "none",
+    "request_digest": "91ce1db45b72b7b3f903187ad8125e9e29efc571adcd834a2446e343efeab9a2",
+    "request_id": "req_6ac08cf3b87b29fc8236ad26b0463139",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "d7cb0ef0721d97d1c2925963742f5f5b293e3927340b5b94a75e019ad1ff814a",
+   "name": "validation",
+   "record": {
+    "kind": "validation_request",
+    "lenses": [
+     {
+      "digest": "94a38f0f980a166840a2c692982b1afad66d81420f455da5312a00e4e0daf17e",
+      "name": "table_consistency",
+      "version": "2"
+     }
+    ],
+    "package_digest": "39f6a5927e92a298a6ff4e4fdc042bad48ac815322103433f0f9016e3a1b4bf2",
+    "questions": [
+     "ac807cc9a6b8bf1333468e8992c1ccbebcda8cb71a2a92db57f7cc0a605f39ff"
+    ],
+    "schema": 1,
+    "targets": [
+     "34cc1d4fe36711963adc1bd849bb0496c6801fdd9019ad6615112b49104ffea5"
+    ]
+   }
+  },
+  {
+   "digest": "85b7608ec1a5c1e2c97ee37d31cb211c98cc1d3a9a64c5048fac6319e7809e7a",
+   "name": "validation_submit",
+   "record": {
+    "action": "review",
+    "actor": {
+     "device_id": "dev_deb0bdc6747b0b2c5ee23995920dff1c",
+     "principal_id": "prn_49187c93e1f9313f65484d0e692e3e90",
+     "profile_id": "prf_15d5a26e2bec4b7ad51b45b6039d9483"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "validation.run",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_49187c93e1f9313f65484d0e692e3e90"
+    },
+    "payload_digest": "d7cb0ef0721d97d1c2925963742f5f5b293e3927340b5b94a75e019ad1ff814a",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_6a175e737ebfc5bfe3967e4f6a407715",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "59546c60ad73bb61c35af961f7b4c2871109a3e3bc6e3800e194bcfe70851c20"
+     },
+     "resource_id": "src_87daf85a02f861772e0effe6a3bfb499"
+    }
+   }
+  },
+  {
+   "digest": "2383c6f460b314ade1cad12cda5063b9c4a5fe6663532440b512639899b54a1e",
+   "name": "run_with_a_finding",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "kind": "validation_run",
+    "mode": {
+     "runs": "real"
+    },
+    "request_digest": "d7cb0ef0721d97d1c2925963742f5f5b293e3927340b5b94a75e019ad1ff814a",
+    "schema": 1,
+    "validator": {
+     "name": "domain-lens-runner",
+     "version": "1.4.0"
+    },
+    "verdict": {
+     "checks": [
+      {
+       "lens": "table_consistency",
+       "status": "ran",
+       "target_digest": "34cc1d4fe36711963adc1bd849bb0496c6801fdd9019ad6615112b49104ffea5"
+      }
+     ],
+     "findings": [
+      {
+       "evidence_digest": "d018291fba5d2a0f2372ca94c6e2bcdbf3835b509e9e149da5bec7f42fc2943b",
+       "lens": "table_consistency",
+       "statement": "Row 12 retries a declined card, which the policy's exception forbids.",
+       "target_digest": "34cc1d4fe36711963adc1bd849bb0496c6801fdd9019ad6615112b49104ffea5"
+      }
+     ],
+     "output_digest": "7b87b36174fc92ca04a9101766a97160cff078dc1f4b36703e822bcdbe0619c0",
+     "verdict": "findings"
+    }
+   }
+  },
+  {
+   "digest": "2e97b3ee2454d543e415864cc96ddb931a7152fb86da6aacf6ac3c4a93686931",
+   "name": "run_the_pinned_validation_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "ac36e39bdcf03c8b02a9cfe8e5430219fd8f1bd496a5f31bda29d3fa55fb44a6",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_49187c93e1f9313f65484d0e692e3e90"
+    },
+    "request_digest": "85b7608ec1a5c1e2c97ee37d31cb211c98cc1d3a9a64c5048fac6319e7809e7a",
+    "request_id": "req_6a175e737ebfc5bfe3967e4f6a407715",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "59546c60ad73bb61c35af961f7b4c2871109a3e3bc6e3800e194bcfe70851c20"
+     },
+     "resource_id": "src_87daf85a02f861772e0effe6a3bfb499"
+    }
+   }
+  },
+  {
+   "digest": "70bf39fe4713d1d206ad2587daa84983c8075d195cf9f1ae3d7e6e482e1c721d",
+   "name": "run_the_pinned_validation_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "2e97b3ee2454d543e415864cc96ddb931a7152fb86da6aacf6ac3c4a93686931",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "2383c6f460b314ade1cad12cda5063b9c4a5fe6663532440b512639899b54a1e",
+      "kind": "validation_run"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "85b7608ec1a5c1e2c97ee37d31cb211c98cc1d3a9a64c5048fac6319e7809e7a",
+    "request_id": "req_6a175e737ebfc5bfe3967e4f6a407715",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  }
+ ],
+ "says": "A person commits a domain package holding the pinned lens table_consistency version 2 and its question, and a rates table to validate, each through source.revision.commit. The validator adapter (domain-lens-runner 1.4.0 on the agent_bios_validation wire) is probed for real: it loads the pinned lens by digest and returns findings, so the owner stores the probe (mode real, outcome worked) and a profile that qualifies validation by naming that probe. A validation request then pins exactly the committed rates revision as its target, the committed package by digest, the question and the lens by name, version and digest, expecting the head the commit moved to. The owner answers with a validation_run in real mode from that qualified validator, naming the request it ran, a check that ran for the one pinned target and lens, the finding it produced against that target, and the digest of the output the validator produced; every check it rests on ran, and nothing outside what the request pinned is checked.",
+ "spec_sha256": "a62c739c2ea2a9afd000831794a069f8e8ad374f941b1ef3838c8b09a8a591c9",
+ "steps": [
+  {
+   "carries": [
+    "device_key"
+   ],
+   "name": "bind_device_key",
+   "request": "bind_key",
+   "result": "bind_device_key_result",
+   "returns": [
+    "stored_device_key"
+   ]
+  },
+  {
+   "carries": [
+    "package_manifest"
+   ],
+   "head": "package_head",
+   "name": "commit_the_domain_package",
+   "request": "commit_package",
+   "result": "commit_the_domain_package_result",
+   "returns": [
+    "stored_package"
+   ]
+  },
+  {
+   "carries": [
+    "rates_manifest"
+   ],
+   "head": "rates_head",
+   "name": "commit_the_rates_table",
+   "request": "commit_rates",
+   "result": "commit_the_rates_table_result",
+   "returns": [
+    "stored_rates"
+   ]
+  },
+  {
+   "carries": [
+    "validator_probe"
+   ],
+   "name": "probe_the_validator",
+   "request": "probe_validator",
+   "result": "probe_the_validator_result",
+   "returns": [
+    "real_validator_probe",
+    "validator_profile"
+   ]
+  },
+  {
+   "carries": [
+    "validation"
+   ],
+   "name": "run_the_pinned_validation",
+   "request": "validation_submit",
+   "result": "run_the_pinned_validation_result",
+   "returns": [
+    "run_with_a_finding"
+   ]
+  }
+ ]
+}

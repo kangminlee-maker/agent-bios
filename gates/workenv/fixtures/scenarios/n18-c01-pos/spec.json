@@ -1,0 +1,1565 @@
+{
+ "case": "N18-C01-POS",
+ "says": "Alice founds a Team and configures a Google connection for it that trusts one hosted domain, then sets the Team's policy so that a verified Google identity in that domain is admitted to read and use. Bob, on his own laptop with his own device key and no account, begins linking his Google identity to his principal. The callback matches the attempt's state and nonce and the connection's issuer, audience and domain: the answer is the sign-in evidence and an external-identity binding for Bob's principal, established by governed link. Bob is admitted as a member through the provider claim under the policy that admits it. Later Bob loses his laptop. On a new desktop he explicitly begins a recovery sign-in for his principal; the verified evidence is what a new device key is then bound on, established by governed recovery, to the same principal id. What must not happen: the link or the membership landing on any principal but Bob's, a membership without the policy that admits the claim, or the recovery minting a new principal.",
+ "ids": [
+  {
+   "name": "alice",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "alice_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "bob",
+   "prefix": "prn"
+  },
+  {
+   "name": "bob_laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "bob_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "bob_desktop",
+   "prefix": "dev"
+  },
+  {
+   "name": "bob_desktop_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "bind_alice_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "team",
+   "prefix": "tem"
+  },
+  {
+   "name": "found_team_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "configure_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "policy_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "bind_bob_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "bob_attempt_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "bob_callback_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "membership_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "recovery_attempt_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "recovery_callback_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "recover_key_request_id",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "alice_laptop_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/credential/key_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/credential/public_key",
+     "value": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    {
+     "pointer": "/established_by",
+     "value": "local_creation"
+    }
+   ]
+  },
+  {
+   "name": "alice_laptop_binding",
+   "from": "alice_laptop_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:alice_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:alice_binding_at"
+    }
+   ]
+  },
+  {
+   "name": "bind_alice_laptop",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_alice_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.add"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#alice_laptop_key"
+    }
+   ]
+  },
+  {
+   "name": "team_policy_draft",
+   "from": "c08/policy_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/operations",
+     "value": [
+      "publish",
+      "adopt"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "team_proposal",
+   "from": "c08/proposal_as_submitted.json",
+   "drop": [
+    "/founding_mode/nominees"
+   ],
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/founder_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/founding_mode/mode",
+     "value": "self_founded"
+    },
+    {
+     "pointer": "/founding_mode/acknowledged_self_reviewed",
+     "value": true
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/recovery/0/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#team_policy_draft"
+    }
+   ]
+  },
+  {
+   "name": "team_policy",
+   "from": "team_policy_draft",
+   "set": [
+    {
+     "pointer": "/policy_id",
+     "value": "$pol:team_policy"
+    },
+    {
+     "pointer": "/policy_version",
+     "value": 1
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:team_policy_at"
+    }
+   ]
+  },
+  {
+   "name": "team_founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:team_founder_grant"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "grant",
+      "policy"
+     ]
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_granted_at"
+    }
+   ]
+  },
+  {
+   "name": "team_state",
+   "from": "c08/archived_team.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/state",
+     "value": "active"
+    },
+    {
+     "pointer": "/since",
+     "value": "$instant:team_since"
+    }
+   ]
+  },
+  {
+   "name": "team_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:team_profile_at"
+    }
+   ]
+  },
+  {
+   "name": "found_team",
+   "from": "c02/lock_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@found_team_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.found"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_proposal"
+    }
+   ]
+  },
+  {
+   "name": "google_submitted",
+   "from": "c02/connection_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "google_stored",
+   "from": "google_submitted",
+   "set": [
+    {
+     "pointer": "/connection_id",
+     "value": "$con:google"
+    },
+    {
+     "pointer": "/configured_at",
+     "value": "$instant:google_at"
+    }
+   ]
+  },
+  {
+   "name": "configure_google_request",
+   "from": "c02/lock_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@configure_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.connection.configure"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#google_submitted"
+    }
+   ]
+  },
+  {
+   "name": "admitting_policy_draft",
+   "from": "c08/policy_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/admission/0/connection_id",
+     "value": "$con:google"
+    },
+    {
+     "pointer": "/admission/0/claim",
+     "value": "hosted_domain"
+    },
+    {
+     "pointer": "/admission/0/equals",
+     "value": "example.com"
+    },
+    {
+     "pointer": "/admission/0/actions",
+     "value": [
+      "read",
+      "use"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "admitting_policy",
+   "from": "admitting_policy_draft",
+   "set": [
+    {
+     "pointer": "/policy_id",
+     "value": "$pol:team_policy"
+    },
+    {
+     "pointer": "/policy_version",
+     "value": 2
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:admitting_policy_at"
+    }
+   ]
+  },
+  {
+   "name": "policy_request",
+   "from": "c02/lock_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@policy_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.policy.set"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_2"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#admitting_policy_draft"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "bob_laptop_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@bob_laptop"
+    },
+    {
+     "pointer": "/credential/key_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/credential/public_key",
+     "value": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPq4Rt7yU2iOp9AsD3fGh6jKl1ZxC8vBn5Mq0WeRt2Yu"
+    },
+    {
+     "pointer": "/established_by",
+     "value": "local_creation"
+    }
+   ]
+  },
+  {
+   "name": "bob_laptop_binding",
+   "from": "bob_laptop_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:bob_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:bob_binding_at"
+    }
+   ]
+  },
+  {
+   "name": "bind_bob_laptop",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_bob_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.add"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@bob_laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bob_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#bob_laptop_key"
+    }
+   ]
+  },
+  {
+   "name": "bob_attempt_asked",
+   "from": "c02/sign_in_to_link_a_principal.json",
+   "set": [
+    {
+     "pointer": "/connection_id",
+     "value": "$con:google"
+    },
+    {
+     "pointer": "/purpose/purpose",
+     "value": "link"
+    },
+    {
+     "pointer": "/purpose/principal_id",
+     "value": "@bob"
+    }
+   ]
+  },
+  {
+   "name": "bob_attempt_begun",
+   "from": "bob_attempt_asked",
+   "set": [
+    {
+     "pointer": "/attempt_id",
+     "value": "$sin:bob_attempt"
+    },
+    {
+     "pointer": "/state_digest",
+     "value": "$digest:bob_attempt_state"
+    },
+    {
+     "pointer": "/nonce_digest",
+     "value": "$digest:bob_attempt_nonce"
+    },
+    {
+     "pointer": "/expires_at",
+     "value": "$instant:bob_attempt_expires"
+    },
+    {
+     "pointer": "/begun_at",
+     "value": "$instant:bob_attempt_begun_at"
+    }
+   ]
+  },
+  {
+   "name": "begin_bob_link_request",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bob_attempt_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.sign_in.begin"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@bob_laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bob_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$con:google"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#bob_attempt_asked"
+    }
+   ]
+  },
+  {
+   "name": "bob_callback",
+   "from": "c02/callback_with_the_expected_claims.json",
+   "set": [
+    {
+     "pointer": "/attempt_id",
+     "value": "$sin:bob_attempt"
+    },
+    {
+     "pointer": "/state_digest",
+     "value": "$digest:bob_attempt_state"
+    },
+    {
+     "pointer": "/reply/nonce_digest",
+     "value": "$digest:bob_attempt_nonce"
+    },
+    {
+     "pointer": "/reply/subject",
+     "value": "108222333444555666777"
+    },
+    {
+     "pointer": "/reply/email",
+     "value": "bob@example.com"
+    },
+    {
+     "pointer": "/reply/issued_at",
+     "value": "2026-09-21T09:01:00Z"
+    },
+    {
+     "pointer": "/reply/expires_at",
+     "value": "2026-09-21T10:01:00Z"
+    }
+   ]
+  },
+  {
+   "name": "bob_evidence",
+   "from": "c02/identity_verified_for_a_principal.json",
+   "set": [
+    {
+     "pointer": "/attempt_id",
+     "value": "$sin:bob_attempt"
+    },
+    {
+     "pointer": "/connection_id",
+     "value": "$con:google"
+    },
+    {
+     "pointer": "/purpose/purpose",
+     "value": "link"
+    },
+    {
+     "pointer": "/verified_at",
+     "value": "$instant:bob_evidence_at"
+    },
+    {
+     "pointer": "/purpose/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/subject",
+     "value": "108222333444555666777"
+    }
+   ]
+  },
+  {
+   "name": "bob_google_binding",
+   "from": "c01/external_identity_binding.json",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:bob_google_binding"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/credential/connection_id",
+     "value": "$con:google"
+    },
+    {
+     "pointer": "/established_by",
+     "value": "governed_link"
+    },
+    {
+     "pointer": "/evidence_digests",
+     "value": [
+      "#bob_evidence"
+     ]
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:bob_google_binding_at"
+    },
+    {
+     "pointer": "/credential/subject",
+     "value": "108222333444555666777"
+    }
+   ]
+  },
+  {
+   "name": "complete_bob_link_request",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bob_callback_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.sign_in.complete"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@bob_laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bob_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$con:google"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#bob_callback"
+    }
+   ]
+  },
+  {
+   "name": "bob_membership_claim",
+   "from": "c08/admission_through_a_provider_claim_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/standing/connection_id",
+     "value": "$con:google"
+    },
+    {
+     "pointer": "/standing/policy_digest",
+     "value": "#admitting_policy"
+    }
+   ]
+  },
+  {
+   "name": "bob_membership",
+   "from": "bob_membership_claim",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:bob_membership"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:bob_member_at"
+    }
+   ]
+  },
+  {
+   "name": "membership_request",
+   "from": "c02/lock_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@membership_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.membership.change"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@bob_laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bob_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_3"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#bob_membership_claim"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#admitting_policy"
+     ]
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#bob_evidence"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "recovery_attempt_asked",
+   "from": "c02/sign_in_to_link_a_principal.json",
+   "set": [
+    {
+     "pointer": "/connection_id",
+     "value": "$con:google"
+    },
+    {
+     "pointer": "/purpose/purpose",
+     "value": "recover"
+    },
+    {
+     "pointer": "/purpose/principal_id",
+     "value": "@bob"
+    }
+   ]
+  },
+  {
+   "name": "recovery_attempt_begun",
+   "from": "recovery_attempt_asked",
+   "set": [
+    {
+     "pointer": "/attempt_id",
+     "value": "$sin:recovery_attempt"
+    },
+    {
+     "pointer": "/state_digest",
+     "value": "$digest:recovery_attempt_state"
+    },
+    {
+     "pointer": "/nonce_digest",
+     "value": "$digest:recovery_attempt_nonce"
+    },
+    {
+     "pointer": "/expires_at",
+     "value": "$instant:recovery_attempt_expires"
+    },
+    {
+     "pointer": "/begun_at",
+     "value": "$instant:recovery_attempt_begun_at"
+    }
+   ]
+  },
+  {
+   "name": "begin_bob_recovery_request",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@recovery_attempt_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.sign_in.begin"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@bob_desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bob_desktop_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$con:google"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#recovery_attempt_asked"
+    }
+   ]
+  },
+  {
+   "name": "recovery_callback",
+   "from": "c02/callback_with_the_expected_claims.json",
+   "set": [
+    {
+     "pointer": "/attempt_id",
+     "value": "$sin:recovery_attempt"
+    },
+    {
+     "pointer": "/state_digest",
+     "value": "$digest:recovery_attempt_state"
+    },
+    {
+     "pointer": "/reply/nonce_digest",
+     "value": "$digest:recovery_attempt_nonce"
+    },
+    {
+     "pointer": "/reply/subject",
+     "value": "108222333444555666777"
+    },
+    {
+     "pointer": "/reply/email",
+     "value": "bob@example.com"
+    },
+    {
+     "pointer": "/reply/issued_at",
+     "value": "2026-09-21T09:30:00Z"
+    },
+    {
+     "pointer": "/reply/expires_at",
+     "value": "2026-09-21T10:30:00Z"
+    }
+   ]
+  },
+  {
+   "name": "recovery_evidence",
+   "from": "c02/identity_verified_for_a_principal.json",
+   "set": [
+    {
+     "pointer": "/attempt_id",
+     "value": "$sin:recovery_attempt"
+    },
+    {
+     "pointer": "/connection_id",
+     "value": "$con:google"
+    },
+    {
+     "pointer": "/purpose/purpose",
+     "value": "recover"
+    },
+    {
+     "pointer": "/verified_at",
+     "value": "$instant:recovery_evidence_at"
+    },
+    {
+     "pointer": "/purpose/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/subject",
+     "value": "108222333444555666777"
+    }
+   ]
+  },
+  {
+   "name": "complete_bob_recovery_request",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@recovery_callback_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.sign_in.complete"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@bob_desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bob_desktop_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$con:google"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#recovery_callback"
+    }
+   ]
+  },
+  {
+   "name": "bob_desktop_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@bob_desktop"
+    },
+    {
+     "pointer": "/credential/key_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/credential/public_key",
+     "value": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMn8Bv2cX5zLk7Jh4Gf1Ds9Aq3Wp6Oi0Uy2Tr8Ee5Qw9"
+    },
+    {
+     "pointer": "/established_by",
+     "value": "governed_recovery"
+    },
+    {
+     "pointer": "/evidence_digests",
+     "value": [
+      "#recovery_evidence"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "bob_desktop_binding",
+   "from": "bob_desktop_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:bob_desktop_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:bob_desktop_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "recover_key_request",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@recover_key_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.add"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@bob_desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bob_desktop_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#bob_desktop_key"
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#recovery_evidence"
+     ]
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_alice_key",
+   "request": "bind_alice_laptop",
+   "carries": [
+    "alice_laptop_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "alice_laptop_binding"
+    ]
+   }
+  },
+  {
+   "name": "found_team",
+   "request": "found_team",
+   "carries": [
+    "team_proposal",
+    "team_policy_draft"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_policy",
+     "team_founder_grant",
+     "team_state",
+     "team_profile"
+    ],
+    "head": "team_head"
+   },
+   "submits": [
+    "team_policy_draft"
+   ]
+  },
+  {
+   "name": "configure_google",
+   "request": "configure_google_request",
+   "carries": [
+    "google_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "google_stored"
+    ],
+    "head": "team_head_2"
+   }
+  },
+  {
+   "name": "admit_the_domain",
+   "request": "policy_request",
+   "carries": [
+    "admitting_policy_draft"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "admitting_policy"
+    ],
+    "head": "team_head_3"
+   }
+  },
+  {
+   "name": "bind_bob_key",
+   "request": "bind_bob_laptop",
+   "carries": [
+    "bob_laptop_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "bob_laptop_binding"
+    ]
+   }
+  },
+  {
+   "name": "begin_bob_link",
+   "request": "begin_bob_link_request",
+   "carries": [
+    "bob_attempt_asked"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "bob_attempt_begun"
+    ]
+   }
+  },
+  {
+   "name": "complete_bob_link",
+   "request": "complete_bob_link_request",
+   "carries": [
+    "bob_callback"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "committed",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "bob_evidence",
+     "bob_google_binding"
+    ]
+   }
+  },
+  {
+   "name": "admit_bob_by_claim",
+   "request": "membership_request",
+   "carries": [
+    "bob_membership_claim"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "bob_membership"
+    ],
+    "head": "team_head_4"
+   }
+  },
+  {
+   "name": "begin_bob_recovery",
+   "request": "begin_bob_recovery_request",
+   "carries": [
+    "recovery_attempt_asked"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "recovery_attempt_begun"
+    ]
+   }
+  },
+  {
+   "name": "complete_bob_recovery",
+   "request": "complete_bob_recovery_request",
+   "carries": [
+    "recovery_callback"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "committed",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "recovery_evidence"
+    ]
+   }
+  },
+  {
+   "name": "bind_recovered_key",
+   "request": "recover_key_request",
+   "carries": [
+    "bob_desktop_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "bob_desktop_binding"
+    ]
+   }
+  }
+ ],
+ "world": {
+  "clock": {
+   "start": "2026-09-21T09:00:00Z"
+  }
+ }
+}

@@ -1,0 +1,1687 @@
+{
+ "case": "DEL-PERSONAL",
+ "says": "Alice binds her device key, authors a personal Instructions source whose revision the owner returns with the body digest it computed, and selects that exact revision in her personal Instructions position. She opens a recipient link to the conversation her work is in, and composes a preparation bound to that link: one winning unit whose body is the revision's member. Delivering that preparation's body to the current recipient on that link returns an attempt that received exactly that body, and observing the preparation returns an inventory naming the unit, source, revision and body that arrived for that recipient. Three negatives follow, none of which may claim a delivery: the same bodies sent on a second link she opened for another conversation are refused as recipient_mismatch, because the preparation names its recipient; an attempt naming a link id the runtime never issued is refused as recipient_link_unknown and sees no channel; and a rehydrated recipient offered only the body's hash is refused as rehydration_needs_bodies. After them the observation of the preparation is unchanged: no refused attempt added a body, a recipient or a second delivery.",
+ "ids": [
+  {
+   "name": "alice",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "alice_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "bind_alice_id",
+   "prefix": "req"
+  },
+  {
+   "name": "rules",
+   "prefix": "src"
+  },
+  {
+   "name": "admit_rules_rev_id",
+   "prefix": "req"
+  },
+  {
+   "name": "rules_collection",
+   "prefix": "col"
+  },
+  {
+   "name": "change_rules_selection_id",
+   "prefix": "req"
+  },
+  {
+   "name": "open_work_link_id",
+   "prefix": "req"
+  },
+  {
+   "name": "compose_preparation_id",
+   "prefix": "req"
+  },
+  {
+   "name": "session_use",
+   "prefix": "use"
+  },
+  {
+   "name": "attempt_deliver_id",
+   "prefix": "req"
+  },
+  {
+   "name": "observe_observed_id",
+   "prefix": "req"
+  },
+  {
+   "name": "open_other_link_id",
+   "prefix": "req"
+  },
+  {
+   "name": "attempt_wrong_id",
+   "prefix": "req"
+  },
+  {
+   "name": "invented_link",
+   "prefix": "lnk"
+  },
+  {
+   "name": "attempt_invented_id",
+   "prefix": "req"
+  },
+  {
+   "name": "attempt_rehydrate_id",
+   "prefix": "req"
+  },
+  {
+   "name": "observe_again_id",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "alice_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "bind_alice",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_alice_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.add"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#alice_key"
+    }
+   ]
+  },
+  {
+   "name": "alice_binding",
+   "from": "alice_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:alice_binding_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:alice_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "rules_rev_request",
+   "from": "sources/request_to_author_here.json",
+   "drop": [
+    "/destination/scope/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/destination/home_mode",
+     "value": "managed"
+    },
+    {
+     "pointer": "/destination/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/destination/scope/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/role",
+     "value": "instructions"
+    }
+   ]
+  },
+  {
+   "name": "admit_rules_rev",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base/head_digest",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@admit_rules_rev_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.revision.admit"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@rules"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#rules_rev_request"
+    }
+   ]
+  },
+  {
+   "name": "rules_rev",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@rules"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "rules/review.md"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:review_body"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 2048
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:rules_rev_at"
+    }
+   ]
+  },
+  {
+   "name": "rules_selection_submitted",
+   "from": "c07/collection_as_submitted.json",
+   "drop": [
+    "/position/scope/repository_id",
+    "/entries/0/units/1"
+   ],
+   "set": [
+    {
+     "pointer": "/collection_id",
+     "value": "@rules_collection"
+    },
+    {
+     "pointer": "/position/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/position/scope/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/position/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/drafts",
+     "value": []
+    },
+    {
+     "pointer": "/entries/0/source_id",
+     "value": "@rules"
+    },
+    {
+     "pointer": "/entries/0/pin/revision_digest",
+     "value": "#rules_rev"
+    },
+    {
+     "pointer": "/entries/0/switch",
+     "value": "on"
+    },
+    {
+     "pointer": "/entries/0/units/0/member",
+     "value": "rules/review.md"
+    },
+    {
+     "pointer": "/entries/0/units/0/concern",
+     "value": "review.approval"
+    },
+    {
+     "pointer": "/entries/0/units/0/startup",
+     "value": "required"
+    }
+   ]
+  },
+  {
+   "name": "change_rules_selection",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base/head_digest",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@change_rules_selection_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "collection.change"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@rules_collection"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#rules_selection_submitted"
+    }
+   ]
+  },
+  {
+   "name": "rules_selection",
+   "from": "rules_selection_submitted",
+   "set": [
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:rules_selection_at"
+    }
+   ]
+  },
+  {
+   "name": "work_link_submitted",
+   "from": "c11/link_as_submitted.json",
+   "drop": [
+    "/rights_digest",
+    "/work_scope/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/work_scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/work_scope/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/host/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/host/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/destination/destination_kind",
+     "value": "conversation"
+    },
+    {
+     "pointer": "/destination/destination_digest",
+     "value": "700999987c26840fcbdcce10c397035d5a34ef059267b2acaf5bc3d2b578264b"
+    },
+    {
+     "pointer": "/isolation",
+     "value": "proven_fresh"
+    }
+   ]
+  },
+  {
+   "name": "open_work_link",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@open_work_link_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.link.open"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#work_link_submitted"
+    }
+   ]
+  },
+  {
+   "name": "work_link",
+   "from": "work_link_submitted",
+   "set": [
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:work_link"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:work_link_at"
+    }
+   ]
+  },
+  {
+   "name": "preparation_request",
+   "from": "c07/personal_preparation_with_nothing_selected.json",
+   "set": [
+    {
+     "pointer": "/basis/scopes/0/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/basis/scopes/0/principal_id",
+     "value": "@alice"
+    }
+   ]
+  },
+  {
+   "name": "compose_preparation",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@compose_preparation_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "preparation.compose"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#preparation_request"
+    },
+    {
+     "pointer": "/recipient_digest",
+     "value": "#work_link"
+    }
+   ]
+  },
+  {
+   "name": "preparation",
+   "from": "c07/preparation_where_a_winning_unit_keeps_what_it_needs.json",
+   "drop": [
+    "/order/2",
+    "/order/1",
+    "/order/0/repository_id",
+    "/recipient/work_scope/repository_id",
+    "/units/2",
+    "/units/1"
+   ],
+   "set": [
+    {
+     "pointer": "/preparation_id",
+     "value": "$prp:preparation"
+    },
+    {
+     "pointer": "/request_digest",
+     "value": "#preparation_request"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:preparation_at"
+    },
+    {
+     "pointer": "/order/0/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/order/0/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/collections/0/collection_id",
+     "value": "@rules_collection"
+    },
+    {
+     "pointer": "/collections/0/head_digest",
+     "value": "$digest:collection_head"
+    },
+    {
+     "pointer": "/collections/0/state",
+     "value": "applied"
+    },
+    {
+     "pointer": "/frontiers",
+     "value": []
+    },
+    {
+     "pointer": "/observed/working_bytes_digest",
+     "value": "$digest:preparation_checkout"
+    },
+    {
+     "pointer": "/recipient/work_scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/recipient/work_scope/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/recipient/recipient_digest",
+     "value": "#work_link"
+    },
+    {
+     "pointer": "/units/0/unit_id",
+     "value": "$unt:preparation_review"
+    },
+    {
+     "pointer": "/units/0/source_id",
+     "value": "@rules"
+    },
+    {
+     "pointer": "/units/0/revision_digest",
+     "value": "#rules_rev"
+    },
+    {
+     "pointer": "/units/0/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/units/0/standing",
+     "value": "winning"
+    },
+    {
+     "pointer": "/units/0/body_digest",
+     "value": "$digest:review_body"
+    }
+   ]
+  },
+  {
+   "name": "deliver_submitted",
+   "from": "c11/bodies_for_a_child_recipient_requested.json",
+   "set": [
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:work_link"
+    },
+    {
+     "pointer": "/use_id",
+     "value": "@session_use"
+    },
+    {
+     "pointer": "/requested/recipient",
+     "value": "current"
+    },
+    {
+     "pointer": "/requested/preparation_digest",
+     "value": "#preparation"
+    },
+    {
+     "pointer": "/requested/bodies",
+     "value": [
+      "$digest:review_body"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "attempt_deliver",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@attempt_deliver_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.delivery.attempt"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$lnk:work_link"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#deliver_submitted"
+    }
+   ]
+  },
+  {
+   "name": "delivered",
+   "from": "deliver_submitted",
+   "set": [
+    {
+     "pointer": "/supported",
+     "value": true
+    },
+    {
+     "pointer": "/observed/saw",
+     "value": "received"
+    },
+    {
+     "pointer": "/observed/received",
+     "value": [
+      "$digest:review_body"
+     ]
+    },
+    {
+     "pointer": "/observed/evidence_digest",
+     "value": "$digest:delivered_receipt_evidence"
+    },
+    {
+     "pointer": "/material_gaps",
+     "value": []
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:delivered_at"
+    }
+   ]
+  },
+  {
+   "name": "observe_observed",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base",
+    "/payload_digest",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@observe_observed_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "delivery.observe"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$prp:preparation"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    }
+   ]
+  },
+  {
+   "name": "observed",
+   "from": "c07/delivery_observed.json",
+   "set": [
+    {
+     "pointer": "/preparation_id",
+     "value": "$prp:preparation"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:observed_at"
+    },
+    {
+     "pointer": "/requested/recipient_kind",
+     "value": "host_session"
+    },
+    {
+     "pointer": "/observed/at",
+     "value": "$instant:observed_seen_at"
+    },
+    {
+     "pointer": "/observed/evidence_digest",
+     "value": "$digest:observed_evidence"
+    },
+    {
+     "pointer": "/requested/recipient_digest",
+     "value": "#work_link"
+    },
+    {
+     "pointer": "/observed/inventory/0/unit_id",
+     "value": "$unt:preparation_review"
+    },
+    {
+     "pointer": "/observed/inventory/0/source_id",
+     "value": "@rules"
+    },
+    {
+     "pointer": "/observed/inventory/0/revision_digest",
+     "value": "#rules_rev"
+    },
+    {
+     "pointer": "/observed/inventory/0/body_digest",
+     "value": "$digest:review_body"
+    }
+   ]
+  },
+  {
+   "name": "other_link_submitted",
+   "from": "c11/link_as_submitted.json",
+   "drop": [
+    "/rights_digest",
+    "/work_scope/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/work_scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/work_scope/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/host/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/host/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/destination/destination_kind",
+     "value": "conversation"
+    },
+    {
+     "pointer": "/destination/destination_digest",
+     "value": "f9beae3213ff51cba305a6652b3fbeee082a984046356ebcdb416e216a85b57d"
+    },
+    {
+     "pointer": "/isolation",
+     "value": "proven_fresh"
+    }
+   ]
+  },
+  {
+   "name": "open_other_link",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@open_other_link_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.link.open"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#other_link_submitted"
+    }
+   ]
+  },
+  {
+   "name": "other_link",
+   "from": "other_link_submitted",
+   "set": [
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:other_link"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:other_link_at"
+    }
+   ]
+  },
+  {
+   "name": "wrong_submitted",
+   "from": "c11/bodies_for_a_child_recipient_requested.json",
+   "set": [
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:other_link"
+    },
+    {
+     "pointer": "/use_id",
+     "value": "@session_use"
+    },
+    {
+     "pointer": "/requested/recipient",
+     "value": "current"
+    },
+    {
+     "pointer": "/requested/preparation_digest",
+     "value": "#preparation"
+    },
+    {
+     "pointer": "/requested/bodies",
+     "value": [
+      "$digest:review_body"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "attempt_wrong",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@attempt_wrong_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.delivery.attempt"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$lnk:other_link"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#wrong_submitted"
+    }
+   ]
+  },
+  {
+   "name": "invented_submitted",
+   "from": "c11/bodies_for_a_child_recipient_requested.json",
+   "set": [
+    {
+     "pointer": "/link_id",
+     "value": "@invented_link"
+    },
+    {
+     "pointer": "/use_id",
+     "value": "@session_use"
+    },
+    {
+     "pointer": "/requested/recipient",
+     "value": "current"
+    },
+    {
+     "pointer": "/requested/preparation_digest",
+     "value": "#preparation"
+    },
+    {
+     "pointer": "/requested/bodies",
+     "value": [
+      "$digest:review_body"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "attempt_invented",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@attempt_invented_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.delivery.attempt"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@invented_link"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#invented_submitted"
+    }
+   ]
+  },
+  {
+   "name": "unknown_link_attempt",
+   "from": "invented_submitted",
+   "set": [
+    {
+     "pointer": "/supported",
+     "value": true
+    },
+    {
+     "pointer": "/observed/saw",
+     "value": "no_channel"
+    },
+    {
+     "pointer": "/material_gaps",
+     "value": []
+    },
+    {
+     "pointer": "/material_gaps/0/code",
+     "value": "recipient_link_unknown"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:unknown_link_attempt_at"
+    }
+   ]
+  },
+  {
+   "name": "rehydrate_submitted",
+   "from": "c11/bodies_for_a_child_recipient_requested.json",
+   "set": [
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:work_link"
+    },
+    {
+     "pointer": "/use_id",
+     "value": "@session_use"
+    },
+    {
+     "pointer": "/requested/recipient",
+     "value": "rehydrated"
+    },
+    {
+     "pointer": "/requested/preparation_digest",
+     "value": "#preparation"
+    },
+    {
+     "pointer": "/requested/bodies",
+     "value": [
+      "$digest:review_body"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "attempt_rehydrate",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@attempt_rehydrate_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.delivery.attempt"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$lnk:work_link"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#rehydrate_submitted"
+    }
+   ]
+  },
+  {
+   "name": "hash_only_attempt",
+   "from": "rehydrate_submitted",
+   "set": [
+    {
+     "pointer": "/supported",
+     "value": true
+    },
+    {
+     "pointer": "/observed/saw",
+     "value": "lost"
+    },
+    {
+     "pointer": "/material_gaps",
+     "value": []
+    },
+    {
+     "pointer": "/material_gaps/0/code",
+     "value": "rehydration_needs_bodies"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:hash_only_attempt_at"
+    }
+   ]
+  },
+  {
+   "name": "observe_again",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base",
+    "/payload_digest",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@observe_again_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "delivery.observe"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$prp:preparation"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_alice_key",
+   "request": "bind_alice",
+   "carries": [
+    "alice_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "alice_binding"
+    ]
+   }
+  },
+  {
+   "name": "author_rules_rev",
+   "request": "admit_rules_rev",
+   "carries": [
+    "rules_rev_request"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "rules_rev"
+    ],
+    "head": "rules_head"
+   }
+  },
+  {
+   "name": "select_rules_selection",
+   "request": "change_rules_selection",
+   "carries": [
+    "rules_selection_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "rules_selection"
+    ],
+    "head": "collection_head"
+   }
+  },
+  {
+   "name": "open_work_link",
+   "request": "open_work_link",
+   "carries": [
+    "work_link_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "work_link"
+    ]
+   }
+  },
+  {
+   "name": "compose_preparation",
+   "request": "compose_preparation",
+   "carries": [
+    "preparation_request"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "preparation"
+    ]
+   }
+  },
+  {
+   "name": "deliver_the_body",
+   "request": "attempt_deliver",
+   "carries": [
+    "deliver_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "delivered"
+    ]
+   }
+  },
+  {
+   "name": "observe_the_delivery",
+   "request": "observe_observed",
+   "carries": [],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "observed"
+    ]
+   }
+  },
+  {
+   "name": "open_another_conversation",
+   "request": "open_other_link",
+   "carries": [
+    "other_link_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "other_link"
+    ]
+   }
+  },
+  {
+   "name": "deliver_to_the_wrong_recipient",
+   "request": "attempt_wrong",
+   "carries": [
+    "wrong_submitted"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "recipient_mismatch"
+     }
+    ],
+    "recovery": [],
+    "returns": []
+   }
+  },
+  {
+   "name": "deliver_on_an_invented_link",
+   "request": "attempt_invented",
+   "carries": [
+    "invented_submitted"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "recipient_link_unknown"
+     }
+    ],
+    "recovery": [],
+    "returns": [
+     "unknown_link_attempt"
+    ]
+   }
+  },
+  {
+   "name": "rehydrate_from_a_hash",
+   "request": "attempt_rehydrate",
+   "carries": [
+    "rehydrate_submitted"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "rehydration_needs_bodies"
+     }
+    ],
+    "recovery": [],
+    "returns": [
+     "hash_only_attempt"
+    ]
+   }
+  },
+  {
+   "name": "observe_after_the_refusals",
+   "request": "observe_again",
+   "carries": [],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "observed"
+    ]
+   }
+  }
+ ]
+}

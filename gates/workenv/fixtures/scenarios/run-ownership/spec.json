@@ -1,0 +1,24 @@
+{
+  "case": "RUN-OWNERSHIP",
+  "says": "The runner integrates worker changes into a synthetic tree one at a time against the current bytes. Positive: P03's change to a path it owns is applied once and P03 recorded passed; two changes to one shared integrator path from the same base are serialized, one applied and the other refused as stale. Negative: P02's change to a path P03 owns is refused outside_owned_paths, and a change to a shared path prepared against a revision the tree has moved past is refused stale_base; neither is merged, the path's bytes stay as they were, and P02 must not be recorded passed.",
+  "ids": [],
+  "records": [],
+  "steps": [
+    {
+      "name": "outside_owned_paths",
+      "runner": "outside_owned_paths"
+    },
+    {
+      "name": "shared_path",
+      "runner": "shared_path"
+    },
+    {
+      "name": "stale_base",
+      "runner": "stale_base"
+    },
+    {
+      "name": "own_path",
+      "runner": "own_path"
+    }
+  ]
+}

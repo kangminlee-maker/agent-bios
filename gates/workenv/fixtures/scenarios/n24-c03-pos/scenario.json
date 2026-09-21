@@ -1,0 +1,592 @@
+{
+ "case": "N24-C03-POS",
+ "ids": [
+  {
+   "id": "prn_e67bc53286bbad1a6d7f523ab03e1ac6",
+   "name": "alice"
+  },
+  {
+   "id": "dev_b2d7a1ccb1c0d16b0db5262b60ccb9dd",
+   "name": "laptop"
+  },
+  {
+   "id": "prf_d94b05fbcccb0a571c4f9238f0f20f29",
+   "name": "alice_profile"
+  },
+  {
+   "id": "req_3e40b51946beb7afe308da07592581a8",
+   "name": "bind_request"
+  },
+  {
+   "id": "req_85a9303f100d7ce17eed068165f255e1",
+   "name": "register_request"
+  },
+  {
+   "id": "req_6d9b0fc38f23122d2aac114fdbcdafcb",
+   "name": "cutover_request"
+  }
+ ],
+ "joins": [
+  {
+   "digest_of": "device_key",
+   "pointer": "/payload_digest",
+   "record": "bind_key"
+  },
+  {
+   "minted": "alice_binding",
+   "pointer": "/binding_id",
+   "record": "stored_key"
+  },
+  {
+   "minted": "bound_at",
+   "pointer": "/created_at",
+   "record": "stored_key"
+  },
+  {
+   "digest_of": "bind_key",
+   "pointer": "/request_digest",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "bind_device_key_head",
+   "pointer": "/head_digest",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "bind_device_key_sequence",
+   "pointer": "/sequence",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "minted": "bind_device_key_committed_at",
+   "pointer": "/committed_at",
+   "record": "bind_device_key_receipt"
+  },
+  {
+   "digest_of": "bind_device_key_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "bind_device_key_result"
+  },
+  {
+   "digest_of": "bind_key",
+   "pointer": "/request_digest",
+   "record": "bind_device_key_result"
+  },
+  {
+   "digest_of": "stored_key",
+   "pointer": "/outputs/0/digest",
+   "record": "bind_device_key_result"
+  },
+  {
+   "digest_of": "candidate",
+   "pointer": "/payload_digest",
+   "record": "register"
+  },
+  {
+   "digest_of": "register",
+   "pointer": "/request_digest",
+   "record": "register_candidate_receipt"
+  },
+  {
+   "minted": "register_candidate_head",
+   "pointer": "/head_digest",
+   "record": "register_candidate_receipt"
+  },
+  {
+   "minted": "register_candidate_sequence",
+   "pointer": "/sequence",
+   "record": "register_candidate_receipt"
+  },
+  {
+   "minted": "register_candidate_committed_at",
+   "pointer": "/committed_at",
+   "record": "register_candidate_receipt"
+  },
+  {
+   "digest_of": "register_candidate_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "register_candidate_result"
+  },
+  {
+   "digest_of": "register",
+   "pointer": "/request_digest",
+   "record": "register_candidate_result"
+  },
+  {
+   "digest_of": "candidate",
+   "pointer": "/outputs/0/digest",
+   "record": "register_candidate_result"
+  },
+  {
+   "digest_of": "candidate",
+   "pointer": "/candidate_digest",
+   "record": "transfer_plan"
+  },
+  {
+   "digest_of": "transfer_plan",
+   "pointer": "/payload_digest",
+   "record": "switch"
+  },
+  {
+   "digest_of": "switch",
+   "pointer": "/request_digest",
+   "record": "commit_cutover_receipt"
+  },
+  {
+   "minted": "commit_cutover_head",
+   "pointer": "/head_digest",
+   "record": "commit_cutover_receipt"
+  },
+  {
+   "minted": "commit_cutover_sequence",
+   "pointer": "/sequence",
+   "record": "commit_cutover_receipt"
+  },
+  {
+   "minted": "commit_cutover_committed_at",
+   "pointer": "/committed_at",
+   "record": "commit_cutover_receipt"
+  },
+  {
+   "digest_of": "commit_cutover_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "commit_cutover_result"
+  },
+  {
+   "digest_of": "switch",
+   "pointer": "/request_digest",
+   "record": "commit_cutover_result"
+  }
+ ],
+ "minted": [
+  {
+   "name": "alice_binding",
+   "shape": "bnd",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "bind_device_key_committed_at",
+   "shape": "instant",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "bind_device_key_head",
+   "shape": "digest",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "bind_device_key_sequence",
+   "shape": "integer",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "bound_at",
+   "shape": "instant",
+   "step": "bind_device_key"
+  },
+  {
+   "name": "register_candidate_committed_at",
+   "shape": "instant",
+   "step": "register_candidate"
+  },
+  {
+   "name": "register_candidate_head",
+   "shape": "digest",
+   "step": "register_candidate"
+  },
+  {
+   "name": "register_candidate_sequence",
+   "shape": "integer",
+   "step": "register_candidate"
+  },
+  {
+   "name": "commit_cutover_committed_at",
+   "shape": "instant",
+   "step": "commit_cutover"
+  },
+  {
+   "name": "commit_cutover_head",
+   "shape": "digest",
+   "step": "commit_cutover"
+  },
+  {
+   "name": "commit_cutover_sequence",
+   "shape": "integer",
+   "step": "commit_cutover"
+  }
+ ],
+ "records": [
+  {
+   "digest": "6594ab5f0922fb23e8933c0f98fb28b4d6ea129e591673dea3fb6e20bb564f77",
+   "name": "device_key",
+   "record": {
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_b2d7a1ccb1c0d16b0db5262b60ccb9dd",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_e67bc53286bbad1a6d7f523ab03e1ac6",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "81d1c743845f6ddf3918c1e5ea72114b29239ec2201f5a6cd11180bebc2d8bfe",
+   "name": "bind_key",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_b2d7a1ccb1c0d16b0db5262b60ccb9dd",
+     "principal_id": "prn_e67bc53286bbad1a6d7f523ab03e1ac6",
+     "profile_id": "prf_d94b05fbcccb0a571c4f9238f0f20f29"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "identity.binding.add",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_e67bc53286bbad1a6d7f523ab03e1ac6"
+    },
+    "payload_digest": "6594ab5f0922fb23e8933c0f98fb28b4d6ea129e591673dea3fb6e20bb564f77",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_3e40b51946beb7afe308da07592581a8",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_e67bc53286bbad1a6d7f523ab03e1ac6"
+    }
+   }
+  },
+  {
+   "digest": "01fa8fea7553b327bc8cba2acf2947bb0c2c254abba696ec9c5fb9dafaccf1b1",
+   "name": "stored_key",
+   "record": {
+    "binding_id": "bnd_9e98d75ab1f117061591a20dd4209b03",
+    "created_at": "2000-01-01T00:00:00Z",
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_b2d7a1ccb1c0d16b0db5262b60ccb9dd",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_e67bc53286bbad1a6d7f523ab03e1ac6",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "b42ee3a7331de591695bd33b2328e9ba139fe4aef7114628cfd2e6c18811d272",
+   "name": "bind_device_key_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "2cbe7c940bd66a014a399edda7fc858b4ca7e2f315089010dbffe1bafd3838b6",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_e67bc53286bbad1a6d7f523ab03e1ac6"
+    },
+    "request_digest": "81d1c743845f6ddf3918c1e5ea72114b29239ec2201f5a6cd11180bebc2d8bfe",
+    "request_id": "req_3e40b51946beb7afe308da07592581a8",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prn_e67bc53286bbad1a6d7f523ab03e1ac6"
+    }
+   }
+  },
+  {
+   "digest": "7f533de9f5c2b6b6422b7c378e44bb5be5ff960d4d12d5f49926efeb4f02fab5",
+   "name": "bind_device_key_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "b42ee3a7331de591695bd33b2328e9ba139fe4aef7114628cfd2e6c18811d272",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "01fa8fea7553b327bc8cba2acf2947bb0c2c254abba696ec9c5fb9dafaccf1b1",
+      "kind": "principal_binding"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "81d1c743845f6ddf3918c1e5ea72114b29239ec2201f5a6cd11180bebc2d8bfe",
+    "request_id": "req_3e40b51946beb7afe308da07592581a8",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "21c9089539bc86bfd0b876aa509748ee91a5896debaf44ba52ddeb5f6a8cc580",
+   "name": "candidate",
+   "record": {
+    "kind": "package_candidate",
+    "members": [
+     {
+      "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "origin": {
+       "copied_from": "workenv/contracts/c03.py"
+      },
+      "path": "workenv/contracts/c03.py",
+      "size": 9120
+     },
+     {
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "origin": {
+       "copied_from": "workenv/contracts/schemas/c03_cutover_plan.schema.json"
+      },
+      "path": "workenv/contracts/schemas/c03_cutover_plan.schema.json",
+      "size": 6211
+     },
+     {
+      "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "origin": {
+       "made": "at_pack_time"
+      },
+      "path": "provenance.json",
+      "size": 312
+     },
+     {
+      "digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "origin": {
+       "copied_from": "compose/check-domains.py"
+      },
+      "path": "compose/check-domains.py",
+      "size": 5120
+     }
+    ],
+    "schema": 1,
+    "source_commit": "a184c3b26df4d7ca57c74806fd4c32273835ae3c",
+    "tarball": {
+     "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 482113
+    }
+   }
+  },
+  {
+   "digest": "f7aa80e86de69598ede2de6dd59c68a2e17f8cb4bcc1f9f1af2158c6377434a3",
+   "name": "register",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_b2d7a1ccb1c0d16b0db5262b60ccb9dd",
+     "principal_id": "prn_e67bc53286bbad1a6d7f523ab03e1ac6",
+     "profile_id": "prf_d94b05fbcccb0a571c4f9238f0f20f29"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "package.candidate.register",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_e67bc53286bbad1a6d7f523ab03e1ac6"
+    },
+    "payload_digest": "21c9089539bc86bfd0b876aa509748ee91a5896debaf44ba52ddeb5f6a8cc580",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_85a9303f100d7ce17eed068165f255e1",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_d94b05fbcccb0a571c4f9238f0f20f29"
+    }
+   }
+  },
+  {
+   "digest": "53c95d058faf0f9cc37b9bbe683c145c0b58a62b3c60f42e9731c811434628f6",
+   "name": "register_candidate_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "410ab360ccc54707416ef8003a44a1c2a8cd150610baa084e9b57782174bd3ff",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_e67bc53286bbad1a6d7f523ab03e1ac6"
+    },
+    "request_digest": "f7aa80e86de69598ede2de6dd59c68a2e17f8cb4bcc1f9f1af2158c6377434a3",
+    "request_id": "req_85a9303f100d7ce17eed068165f255e1",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_d94b05fbcccb0a571c4f9238f0f20f29"
+    }
+   }
+  },
+  {
+   "digest": "8707675b1a3cd57380279294bc8d8bad338ccf4f07a7a1dafadf72197992c6e6",
+   "name": "register_candidate_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "53c95d058faf0f9cc37b9bbe683c145c0b58a62b3c60f42e9731c811434628f6",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "21c9089539bc86bfd0b876aa509748ee91a5896debaf44ba52ddeb5f6a8cc580",
+      "kind": "package_candidate"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "f7aa80e86de69598ede2de6dd59c68a2e17f8cb4bcc1f9f1af2158c6377434a3",
+    "request_id": "req_85a9303f100d7ce17eed068165f255e1",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "28b24e856b704746da6557a5794046710862ad9553d53d33e4dd22eba52e1202",
+   "name": "transfer_plan",
+   "record": {
+    "abortable_until": "commit",
+    "candidate_digest": "21c9089539bc86bfd0b876aa509748ee91a5896debaf44ba52ddeb5f6a8cc580",
+    "commit": {
+     "commits": 1,
+     "head_after": "2222222222222222222222222222222222222222222222222222222222222222",
+     "head_before": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    "data": {
+     "carries": "selected",
+     "export_baseline_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+     "quiesced": {
+      "import_digest": "9999999999999999999999999999999999999999999999999999999999999999",
+      "outbox_digest": "8888888888888888888888888888888888888888888888888888888888888888",
+      "revision_digest": "7777777777777777777777777777777777777777777777777777777777777777"
+     },
+     "selection_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+     "source_after": "kept",
+     "unknown_operations": []
+    },
+    "kind": "cutover_plan",
+    "planned_at": "2026-09-21T11:00:00Z",
+    "quiesce": {
+     "in_flight": 0,
+     "sealed": [
+      "source_store",
+      "projection_owner",
+      "publication_lock"
+     ]
+    },
+    "schema": 1,
+    "verify": {
+     "evidence_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+     "unrouted_writers": 0
+    }
+   }
+  },
+  {
+   "digest": "0eacd6f34cb9a50b730afa7b62e8149999a9e35be50409b7643734c221ffa833",
+   "name": "switch",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_b2d7a1ccb1c0d16b0db5262b60ccb9dd",
+     "principal_id": "prn_e67bc53286bbad1a6d7f523ab03e1ac6",
+     "profile_id": "prf_d94b05fbcccb0a571c4f9238f0f20f29"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "entrance.cutover.commit",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_e67bc53286bbad1a6d7f523ab03e1ac6"
+    },
+    "payload_digest": "28b24e856b704746da6557a5794046710862ad9553d53d33e4dd22eba52e1202",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_6d9b0fc38f23122d2aac114fdbcdafcb",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_d94b05fbcccb0a571c4f9238f0f20f29"
+    }
+   }
+  },
+  {
+   "digest": "70abe3e26081ea6c1eeed8d7a2e1571e49d1516019273110fd5456200d0183f0",
+   "name": "commit_cutover_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "c17af2be767d99d9ff4651deca63d06845b31d95c2e276256374116e7068cbe9",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_e67bc53286bbad1a6d7f523ab03e1ac6"
+    },
+    "request_digest": "0eacd6f34cb9a50b730afa7b62e8149999a9e35be50409b7643734c221ffa833",
+    "request_id": "req_6d9b0fc38f23122d2aac114fdbcdafcb",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_d94b05fbcccb0a571c4f9238f0f20f29"
+    }
+   }
+  },
+  {
+   "digest": "78a08f67134e8ae960165cd56c8ce8b1ec8a572cdbf404e2344efbaf54a4a399",
+   "name": "commit_cutover_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "70abe3e26081ea6c1eeed8d7a2e1571e49d1516019273110fd5456200d0183f0",
+     "stage": "committed"
+    },
+    "outputs": [],
+    "provider_effect": "not_applicable",
+    "request_digest": "0eacd6f34cb9a50b730afa7b62e8149999a9e35be50409b7643734c221ffa833",
+    "request_id": "req_6d9b0fc38f23122d2aac114fdbcdafcb",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  }
+ ],
+ "says": "Alice binds her device key and registers the package candidate the target will run: its runtime module (workenv/contracts/c03.py), an asset (the cutover plan schema) and a shipped check (compose/check-domains.py), each copied from source_commit, and provenance.json made at pack time. She then submits one cutover plan to the target: one explicit transfer of the data she selected, whose quiesced capture names the source revision and outbox captured after the old writers stopped and the import validated against exactly them; all three owners sealed with nothing in flight; the entrance trace verified with no writer left unrouted; one commit; the old source kept; and candidate_digest naming the candidate just registered. The owner commits the cutover once. What must not happen: ownership moving before the verified stage, the cutover installing any package other than the registered candidate, or the old source being deleted.",
+ "spec_sha256": "862c4c511ff02bc33a3f09bfc8487b983a318c96cc761efe6fb215c721fe3ed1",
+ "steps": [
+  {
+   "carries": [
+    "device_key"
+   ],
+   "name": "bind_device_key",
+   "request": "bind_key",
+   "result": "bind_device_key_result",
+   "returns": [
+    "stored_key"
+   ]
+  },
+  {
+   "carries": [
+    "candidate"
+   ],
+   "name": "register_candidate",
+   "request": "register",
+   "result": "register_candidate_result",
+   "returns": [
+    "candidate"
+   ]
+  },
+  {
+   "carries": [
+    "transfer_plan"
+   ],
+   "name": "commit_cutover",
+   "request": "switch",
+   "result": "commit_cutover_result",
+   "returns": []
+  }
+ ]
+}

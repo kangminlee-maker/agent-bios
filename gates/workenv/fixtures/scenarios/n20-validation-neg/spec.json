@@ -1,0 +1,816 @@
+{
+ "case": "N20-VALIDATION-NEG",
+ "says": "A knowledge source is registered and two revisions are committed, the second correcting the rate table. A validation request pins both revisions and one lens; the validator checks only the first, so the run the owner records is unverified (partial_run) and its checks name the first revision as ran and the second as not run, never a clean verdict over part of what was pinned. A second request pins only the second revision under the same lens; the run finds a problem and records one check and one finding, both on that revision under that lens, naming no target or lens the request did not pin. A third request on the second revision times out and is recorded unverified. Every validation_run the owner writes here covers exactly the targets and lenses its request pinned (C12/validation_covers_its_request); the breaking records stay in the rule fixture.",
+ "ids": [
+  {
+   "name": "rates",
+   "prefix": "src"
+  },
+  {
+   "name": "repo",
+   "prefix": "rep"
+  },
+  {
+   "name": "register_rates_id",
+   "prefix": "req"
+  },
+  {
+   "name": "me",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "commit_rates_rev1_id",
+   "prefix": "req"
+  },
+  {
+   "name": "commit_rates_rev2_id",
+   "prefix": "req"
+  },
+  {
+   "name": "validate_both_revisions_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "validate_the_second_revision_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "validate_again_request_id",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "rates_home",
+   "from": "sources/home_submitted.json",
+   "drop": [
+    "/home/license_conditions",
+    "/home/package_id",
+    "/home/publisher_evidence_digest",
+    "/acceptance_authority/team_id",
+    "/scope/team_id",
+    "/applicability/conditions/1"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@rates"
+    },
+    {
+     "pointer": "/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/disclosure",
+     "value": "private"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    },
+    {
+     "pointer": "/home/mode",
+     "value": "repository_authored"
+    },
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/document_root",
+     "value": "docs/knowledge"
+    },
+    {
+     "pointer": "/home/binding_evidence_digest",
+     "value": "47a017af61158bae8401475d7156faf45fe1f355b9b2c2f9fc8ebc54de98a9e4"
+    },
+    {
+     "pointer": "/acceptance_authority/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/acceptance_authority/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/applicability/period/effective_from",
+     "value": "2026-01-01"
+    }
+   ]
+  },
+  {
+   "name": "rates_home_stored",
+   "from": "rates_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:rates_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "register_rates",
+   "from": "c04/model_check_request.json",
+   "drop": [
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_rates_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@rates"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#rates_home"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "rates_rev1_submitted",
+   "from": "sources/revision_submitted.json",
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@rates"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "tables/rates.csv"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "82f5aa8d50cf761e7731a8ccd43c6ea17c06504385f4f8dac62f74851f3790cb"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 2048
+    },
+    {
+     "pointer": "/members/1/path",
+     "value": "concepts.md"
+    },
+    {
+     "pointer": "/members/1/digest",
+     "value": "4876e236e3b0623954adb10a0d23c94041088fc2913e6addd63f77a3b9a12efd"
+    },
+    {
+     "pointer": "/members/1/size",
+     "value": 4120
+    }
+   ]
+  },
+  {
+   "name": "rates_rev1",
+   "from": "rates_rev1_submitted",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:rates_rev1_at"
+    }
+   ]
+  },
+  {
+   "name": "commit_rates_rev1",
+   "from": "c04/model_check_request.json",
+   "drop": [
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_rates_rev1_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.revision.commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@rates"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#rates_rev1_submitted"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "rates_rev2_submitted",
+   "from": "sources/revision_submitted.json",
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@rates"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "tables/rates.csv"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "2702a48949ff2ef94c13c8f8e0a45a7a481e0e19482d3ffa8f8fc2c584a1d2c2"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 2071
+    },
+    {
+     "pointer": "/members/1/path",
+     "value": "concepts.md"
+    },
+    {
+     "pointer": "/members/1/digest",
+     "value": "4876e236e3b0623954adb10a0d23c94041088fc2913e6addd63f77a3b9a12efd"
+    },
+    {
+     "pointer": "/members/1/size",
+     "value": 4120
+    }
+   ]
+  },
+  {
+   "name": "rates_rev2",
+   "from": "rates_rev2_submitted",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:rates_rev2_at"
+    }
+   ]
+  },
+  {
+   "name": "commit_rates_rev2",
+   "from": "c04/model_check_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_rates_rev2_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.revision.commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@rates"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:rates_head1"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#rates_rev2_submitted"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "both_revisions",
+   "from": "c12/a_validation_pinned_to_one_revision_and_one_lens.json",
+   "drop": [
+    "/expected",
+    "/questions"
+   ],
+   "set": [
+    {
+     "pointer": "/targets",
+     "value": [
+      "#rates_rev1",
+      "#rates_rev2"
+     ]
+    },
+    {
+     "pointer": "/package_digest",
+     "value": "#rates_rev2"
+    },
+    {
+     "pointer": "/lenses/0/name",
+     "value": "table_consistency"
+    },
+    {
+     "pointer": "/lenses/0/version",
+     "value": "2"
+    },
+    {
+     "pointer": "/lenses/0/digest",
+     "value": "94a38f0f980a166840a2c692982b1afad66d81420f455da5312a00e4e0daf17e"
+    }
+   ]
+  },
+  {
+   "name": "partial_run",
+   "from": "c12/a_run_that_timed_out_and_stays_unverified.json",
+   "set": [
+    {
+     "pointer": "/request_digest",
+     "value": "#both_revisions"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:partial_run_at"
+    },
+    {
+     "pointer": "/verdict/checks/0/target_digest",
+     "value": "#rates_rev1"
+    },
+    {
+     "pointer": "/verdict/checks/0/lens",
+     "value": "table_consistency"
+    },
+    {
+     "pointer": "/verdict/checks/0/status",
+     "value": "ran"
+    },
+    {
+     "pointer": "/verdict/checks/1/target_digest",
+     "value": "#rates_rev2"
+    },
+    {
+     "pointer": "/verdict/checks/1/lens",
+     "value": "table_consistency"
+    },
+    {
+     "pointer": "/verdict/checks/1/status",
+     "value": "not_run"
+    },
+    {
+     "pointer": "/verdict/because",
+     "value": [
+      "partial_run"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "validate_both_revisions_request",
+   "from": "c04/model_check_request.json",
+   "drop": [
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@validate_both_revisions_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "validation.run"
+    },
+    {
+     "pointer": "/action",
+     "value": "review"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#both_revisions"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "second_revision",
+   "from": "c12/a_validation_pinned_to_one_revision_and_one_lens.json",
+   "drop": [
+    "/expected",
+    "/questions"
+   ],
+   "set": [
+    {
+     "pointer": "/targets",
+     "value": [
+      "#rates_rev2"
+     ]
+    },
+    {
+     "pointer": "/package_digest",
+     "value": "#rates_rev2"
+    },
+    {
+     "pointer": "/lenses/0/name",
+     "value": "table_consistency"
+    },
+    {
+     "pointer": "/lenses/0/version",
+     "value": "2"
+    },
+    {
+     "pointer": "/lenses/0/digest",
+     "value": "94a38f0f980a166840a2c692982b1afad66d81420f455da5312a00e4e0daf17e"
+    }
+   ]
+  },
+  {
+   "name": "run_with_a_finding",
+   "from": "c12/a_run_that_found_one_problem.json",
+   "set": [
+    {
+     "pointer": "/request_digest",
+     "value": "#second_revision"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:run_with_a_finding_at"
+    },
+    {
+     "pointer": "/verdict/checks/0/target_digest",
+     "value": "#rates_rev2"
+    },
+    {
+     "pointer": "/verdict/checks/0/lens",
+     "value": "table_consistency"
+    },
+    {
+     "pointer": "/verdict/checks/0/status",
+     "value": "ran"
+    },
+    {
+     "pointer": "/verdict/output_digest",
+     "value": "$digest:run_with_a_finding_output"
+    },
+    {
+     "pointer": "/verdict/findings/0/target_digest",
+     "value": "#rates_rev2"
+    },
+    {
+     "pointer": "/verdict/findings/0/lens",
+     "value": "table_consistency"
+    },
+    {
+     "pointer": "/verdict/findings/0/statement",
+     "value": "The 2026 rate for the second bracket is lower than the first."
+    },
+    {
+     "pointer": "/verdict/findings/0/evidence_digest",
+     "value": "2702a48949ff2ef94c13c8f8e0a45a7a481e0e19482d3ffa8f8fc2c584a1d2c2"
+    }
+   ]
+  },
+  {
+   "name": "validate_the_second_revision_request",
+   "from": "c04/model_check_request.json",
+   "drop": [
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@validate_the_second_revision_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "validation.run"
+    },
+    {
+     "pointer": "/action",
+     "value": "review"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#second_revision"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
+   "name": "second_revision_again",
+   "from": "second_revision"
+  },
+  {
+   "name": "timed_out_run",
+   "from": "c12/a_run_that_timed_out_and_stays_unverified.json",
+   "set": [
+    {
+     "pointer": "/request_digest",
+     "value": "#second_revision_again"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:timed_out_run_at"
+    },
+    {
+     "pointer": "/verdict/checks/0/target_digest",
+     "value": "#rates_rev2"
+    },
+    {
+     "pointer": "/verdict/checks/0/lens",
+     "value": "table_consistency"
+    },
+    {
+     "pointer": "/verdict/checks/0/status",
+     "value": "timed_out"
+    },
+    {
+     "pointer": "/verdict/because",
+     "value": [
+      "timed_out"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "validate_again_request",
+   "from": "c04/model_check_request.json",
+   "drop": [
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@validate_again_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "validation.run"
+    },
+    {
+     "pointer": "/action",
+     "value": "review"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#second_revision_again"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "register_rates_home",
+   "request": "register_rates",
+   "carries": [
+    "rates_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "rates_home_stored"
+    ]
+   }
+  },
+  {
+   "name": "commit_rates_revision_1",
+   "request": "commit_rates_rev1",
+   "carries": [
+    "rates_rev1_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "rates_rev1"
+    ],
+    "head": "rates_head1"
+   }
+  },
+  {
+   "name": "commit_rates_revision_2",
+   "request": "commit_rates_rev2",
+   "carries": [
+    "rates_rev2_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "rates_rev2"
+    ],
+    "head": "rates_head2"
+   }
+  },
+  {
+   "name": "validate_both_revisions",
+   "request": "validate_both_revisions_request",
+   "carries": [
+    "both_revisions"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "partial_run"
+    ]
+   }
+  },
+  {
+   "name": "validate_the_second_revision",
+   "request": "validate_the_second_revision_request",
+   "carries": [
+    "second_revision"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "run_with_a_finding"
+    ]
+   }
+  },
+  {
+   "name": "validate_again_and_time_out",
+   "request": "validate_again_request",
+   "carries": [
+    "second_revision_again"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "timed_out_run"
+    ]
+   }
+  }
+ ]
+}

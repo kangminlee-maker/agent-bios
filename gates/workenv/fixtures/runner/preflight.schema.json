@@ -432,7 +432,7 @@
     "stub": {
       "type": "object",
       "additionalProperties": false,
-      "description": "What the stub worker does when the named node is dispatched. A dispatched node with no stub row passes with no change.",
+      "description": "What the stub worker does when the named node is dispatched. A dispatched node with no stub row passes with no change. `evidence: none` makes the stub write no evidence file and list none in its result, so the result is a status with nothing behind it. `result: none` makes it write its evidence file and exit without writing any worker_result, as a worker that ended before reporting would; its `outcome` and `appends` are then never read, and a row states `passed` and no appends.",
       "required": [
         "node_id",
         "outcome",
@@ -459,6 +459,16 @@
           "items": {
             "$ref": "#/$defs/append"
           }
+        },
+        "result": {
+          "enum": [
+            "none"
+          ]
+        },
+        "evidence": {
+          "enum": [
+            "none"
+          ]
         }
       }
     },
@@ -508,7 +518,7 @@
     "stopped_and_restarted": {
       "type": "object",
       "additionalProperties": false,
-      "description": "A round stopped at the fault point, then a restart round. The driver first confirms the point was reached, from the files alone: for `after_in_flight_written`, the run file's `in_flight` names the node and holds no new record for it; for `after_integration_before_record`, the node's stub appended line is in the tree and the run file holds no new record for it. A point not reached fails the situation as not exercised.",
+      "description": "A round stopped at the fault point, then a restart round. The driver first confirms the point was reached, from the files alone: for `after_in_flight_written`, the run file's `in_flight` names the node and holds no new record for it; for `after_result_before_integration`, a worker_result for the node's attempt is at its packet's `result_path`, the node's stub appended line is not in the tree, and the run file holds no new record for it; for `after_integration_before_record`, the node's stub appended line is in the tree and the run file holds no new record for it. A point not reached fails the situation as not exercised.",
       "required": [
         "stop_at"
       ],
@@ -521,7 +531,7 @@
     "stop": {
       "type": "object",
       "additionalProperties": false,
-      "description": "A fault point. When the round reaches it for the named node's attempt, the adapter ends at once and writes nothing more, as a crash would. Its exit status is not read: the files show whether the point was hit. `after_in_flight_written`: the node's attempt is durably in `in_flight` and no record for the node is written. `after_integration_before_record`: the attempt's changes are in the tree and no record for the node is written.",
+      "description": "A fault point. When the round reaches it for the named node's attempt, the adapter ends at once and writes nothing more, as a crash would. Its exit status is not read: the files show whether the point was hit. `after_in_flight_written`: the node's attempt is durably in `in_flight` and no record for the node is written. `after_result_before_integration`: the node's worker has exited leaving its worker_result at the packet's `result_path`, none of the attempt's changes is in the tree, and no record for the node is written. `after_integration_before_record`: the attempt's changes are in the tree and no record for the node is written.",
       "required": [
         "point",
         "node_id"
@@ -530,6 +540,7 @@
         "point": {
           "enum": [
             "after_in_flight_written",
+            "after_result_before_integration",
             "after_integration_before_record"
           ]
         },

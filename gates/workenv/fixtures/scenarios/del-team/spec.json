@@ -1,0 +1,3060 @@
+{
+ "case": "DEL-TEAM",
+ "says": "Alice founds a Team alone; she invites Bob, Bob consents with the device key he bound, Alice admits him as an active member and grants him read and use in the Team, each against the Team head the previous change moved to. Alice authors the Team's Instructions source and selects its exact revision in the Team's Instructions position. Bob opens a link to his Team conversation and composes a preparation of the Team position bound to that link. Before delivering, the owner assesses Bob's delivery request: he may act, on a current Team grant for use. The attempt delivers the exact Team body to the current recipient, and observing the preparation names the Team unit, source, revision and body that arrived for his conversation. None of the following may certify a delivery: the same bodies sent on a personal conversation of his that the preparation does not name are refused as recipient_mismatch; a child session this route cannot reach is recorded as child_route_unsupported, and observing the preparation then names the host session's delivery beside a child session that was not observed (delivery_unobserved), because the parent's receipt proves nothing of the child; and a rehydrated resume the route cannot carry is refused as route_unsupported. Alice then revokes Bob's grant; the owner's assessment of his next delivery request says he may not act (grant_not_held, the grant seen as revoked), and that delivery is refused as grant_not_held and delivers nothing.",
+ "ids": [
+  {
+   "name": "alice",
+   "prefix": "prn"
+  },
+  {
+   "name": "laptop",
+   "prefix": "dev"
+  },
+  {
+   "name": "alice_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "bind_alice_id",
+   "prefix": "req"
+  },
+  {
+   "name": "bob",
+   "prefix": "prn"
+  },
+  {
+   "name": "desktop",
+   "prefix": "dev"
+  },
+  {
+   "name": "bob_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "bind_bob_id",
+   "prefix": "req"
+  },
+  {
+   "name": "team",
+   "prefix": "tem"
+  },
+  {
+   "name": "found_id",
+   "prefix": "req"
+  },
+  {
+   "name": "invite_id",
+   "prefix": "req"
+  },
+  {
+   "name": "consent_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "admit_id",
+   "prefix": "req"
+  },
+  {
+   "name": "grant_bob_id",
+   "prefix": "req"
+  },
+  {
+   "name": "team_rules",
+   "prefix": "src"
+  },
+  {
+   "name": "admit_team_rules_rev_id",
+   "prefix": "req"
+  },
+  {
+   "name": "team_collection",
+   "prefix": "col"
+  },
+  {
+   "name": "change_team_selection_id",
+   "prefix": "req"
+  },
+  {
+   "name": "open_bob_link_id",
+   "prefix": "req"
+  },
+  {
+   "name": "compose_team_preparation_id",
+   "prefix": "req"
+  },
+  {
+   "name": "bob_use",
+   "prefix": "use"
+  },
+  {
+   "name": "attempt_deliver_id",
+   "prefix": "req"
+  },
+  {
+   "name": "assess_delivery_id",
+   "prefix": "req"
+  },
+  {
+   "name": "observe_first_id",
+   "prefix": "req"
+  },
+  {
+   "name": "open_bob_personal_link_id",
+   "prefix": "req"
+  },
+  {
+   "name": "wrong_use",
+   "prefix": "use"
+  },
+  {
+   "name": "attempt_wrong_id",
+   "prefix": "req"
+  },
+  {
+   "name": "child_use",
+   "prefix": "use"
+  },
+  {
+   "name": "attempt_child_id",
+   "prefix": "req"
+  },
+  {
+   "name": "observe_children_id",
+   "prefix": "req"
+  },
+  {
+   "name": "resume_use",
+   "prefix": "use"
+  },
+  {
+   "name": "attempt_resume_id",
+   "prefix": "req"
+  },
+  {
+   "name": "revoke_bob_id",
+   "prefix": "req"
+  },
+  {
+   "name": "late_use",
+   "prefix": "use"
+  },
+  {
+   "name": "attempt_late_id",
+   "prefix": "req"
+  },
+  {
+   "name": "reassess_delivery_id",
+   "prefix": "req"
+  }
+ ],
+ "records": [
+  {
+   "name": "alice_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "bind_alice",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_alice_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.add"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#alice_key"
+    }
+   ]
+  },
+  {
+   "name": "alice_binding",
+   "from": "alice_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:alice_binding_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:alice_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "bob_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/credential/device_id",
+     "value": "@desktop"
+    }
+   ]
+  },
+  {
+   "name": "bind_bob",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_bob_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "identity.binding.add"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bob_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#bob_key"
+    }
+   ]
+  },
+  {
+   "name": "bob_binding",
+   "from": "bob_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:bob_binding_id"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:bob_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "team_policy_submitted",
+   "from": "c08/policy_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/threshold",
+     "value": 0
+    }
+   ]
+  },
+  {
+   "name": "team_proposal",
+   "from": "c08/proposal_as_submitted.json",
+   "drop": [
+    "/founding_mode/nominees"
+   ],
+   "set": [
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/founder_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/founding_mode/acknowledged_self_reviewed",
+     "value": true
+    },
+    {
+     "pointer": "/founding_mode/mode",
+     "value": "self_founded"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#team_policy_submitted"
+    },
+    {
+     "pointer": "/recovery/0/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "found",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/target/base/head_digest",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@found_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.found"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_proposal"
+    }
+   ]
+  },
+  {
+   "name": "team_policy",
+   "from": "c08/policy_requiring_none_and_saying_so.json",
+   "set": [
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/policy_id",
+     "value": "$pol:team_policy_id"
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "alice_founding_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "publish",
+      "adopt",
+      "grant",
+      "policy"
+     ]
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_founded_at"
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 2
+    },
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:alice_grant"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "team_state",
+   "from": "c08/archived_team.json",
+   "set": [
+    {
+     "pointer": "/since",
+     "value": "$instant:team_founded_at"
+    },
+    {
+     "pointer": "/state",
+     "value": "active"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "team_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:team_founded_at"
+    }
+   ]
+  },
+  {
+   "name": "invitation",
+   "from": "c08/invitation_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#team_policy"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/expires_at",
+     "value": "2026-10-01T09:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "invite",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@invite_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.invitation.issue"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_0"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#invitation"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "stored_invitation",
+   "from": "invitation",
+   "set": [
+    {
+     "pointer": "/invitation_id",
+     "value": "$inv:bob_invitation"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:invited_at"
+    }
+   ]
+  },
+  {
+   "name": "consent",
+   "from": "c08/consent_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/binding_digest",
+     "value": "#bob_binding"
+    },
+    {
+     "pointer": "/invitation_digest",
+     "value": "#stored_invitation"
+    }
+   ]
+  },
+  {
+   "name": "consent_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@consent_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.consent.record"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bob_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_1"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#consent"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "stored_consent",
+   "from": "consent",
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/consented_at",
+     "value": "$instant:consented_at"
+    }
+   ]
+  },
+  {
+   "name": "bob_membership",
+   "from": "c08/membership_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/standing/is",
+     "value": "active"
+    },
+    {
+     "pointer": "/standing/invitation_digest",
+     "value": "#stored_invitation"
+    },
+    {
+     "pointer": "/standing/consent_digest",
+     "value": "#stored_consent"
+    }
+   ]
+  },
+  {
+   "name": "admit",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@admit_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.membership.change"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_2"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#bob_membership"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "stored_membership",
+   "from": "bob_membership",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:bob_membership"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:member_at"
+    }
+   ]
+  },
+  {
+   "name": "bob_grant",
+   "from": "c08/grant_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "grant_bob",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@grant_bob_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.grant.change"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_3"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#bob_grant"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "stored_bob_grant",
+   "from": "bob_grant",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:bob_grant"
+    },
+    {
+     "pointer": "/grant_revision",
+     "value": 1
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:granted_at"
+    }
+   ]
+  },
+  {
+   "name": "team_rules_rev_request",
+   "from": "sources/request_to_author_here.json",
+   "drop": [
+    "/destination/scope/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/destination/home_mode",
+     "value": "managed"
+    },
+    {
+     "pointer": "/destination/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/destination/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/role",
+     "value": "instructions"
+    }
+   ]
+  },
+  {
+   "name": "admit_team_rules_rev",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/target/base/head_digest",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@admit_team_rules_rev_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.revision.admit"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_rules"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_rules_rev_request"
+    }
+   ]
+  },
+  {
+   "name": "team_rules_rev",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@team_rules"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "rules/review.md"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:team_review_body"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 2048
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:team_rules_rev_at"
+    }
+   ]
+  },
+  {
+   "name": "team_selection_submitted",
+   "from": "c07/collection_as_submitted.json",
+   "drop": [
+    "/position/scope/repository_id",
+    "/entries/0/units/1"
+   ],
+   "set": [
+    {
+     "pointer": "/collection_id",
+     "value": "@team_collection"
+    },
+    {
+     "pointer": "/position/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/position/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/position/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/drafts",
+     "value": []
+    },
+    {
+     "pointer": "/entries/0/source_id",
+     "value": "@team_rules"
+    },
+    {
+     "pointer": "/entries/0/pin/revision_digest",
+     "value": "#team_rules_rev"
+    },
+    {
+     "pointer": "/entries/0/switch",
+     "value": "on"
+    },
+    {
+     "pointer": "/entries/0/units/0/member",
+     "value": "rules/review.md"
+    },
+    {
+     "pointer": "/entries/0/units/0/concern",
+     "value": "review.approval"
+    },
+    {
+     "pointer": "/entries/0/units/0/startup",
+     "value": "required"
+    }
+   ]
+  },
+  {
+   "name": "change_team_selection",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/target/base/head_digest",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@change_team_selection_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "collection.change"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_collection"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_selection_submitted"
+    }
+   ]
+  },
+  {
+   "name": "team_selection",
+   "from": "team_selection_submitted",
+   "set": [
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:team_selection_at"
+    }
+   ]
+  },
+  {
+   "name": "bob_link_submitted",
+   "from": "c11/link_as_submitted.json",
+   "drop": [
+    "/rights_digest",
+    "/work_scope/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/work_scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/work_scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/host/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/host/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/destination/destination_kind",
+     "value": "conversation"
+    },
+    {
+     "pointer": "/destination/destination_digest",
+     "value": "264efee8fdd8fbed953a3f20d4b6d5a1c909e16cde67a9e9fe2b7735991eecb0"
+    },
+    {
+     "pointer": "/isolation",
+     "value": "proven_fresh"
+    }
+   ]
+  },
+  {
+   "name": "open_bob_link",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/target/base",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@open_bob_link_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.link.open"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bob_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#bob_link_submitted"
+    }
+   ]
+  },
+  {
+   "name": "bob_link",
+   "from": "bob_link_submitted",
+   "set": [
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:bob_link"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:bob_link_at"
+    }
+   ]
+  },
+  {
+   "name": "team_preparation_request",
+   "from": "c07/personal_preparation_with_nothing_selected.json",
+   "drop": [
+    "/basis/scopes/0/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/basis/scopes/0/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/basis/scopes/0/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "compose_team_preparation",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@compose_team_preparation_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "preparation.compose"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bob_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_preparation_request"
+    },
+    {
+     "pointer": "/recipient_digest",
+     "value": "#bob_link"
+    }
+   ]
+  },
+  {
+   "name": "team_preparation",
+   "from": "c07/preparation_where_a_winning_unit_keeps_what_it_needs.json",
+   "drop": [
+    "/order/2",
+    "/order/1",
+    "/order/0/repository_id",
+    "/recipient/work_scope/repository_id",
+    "/units/2",
+    "/units/1"
+   ],
+   "set": [
+    {
+     "pointer": "/preparation_id",
+     "value": "$prp:team_preparation"
+    },
+    {
+     "pointer": "/request_digest",
+     "value": "#team_preparation_request"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:team_preparation_at"
+    },
+    {
+     "pointer": "/order/0/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/order/0/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/collections/0/collection_id",
+     "value": "@team_collection"
+    },
+    {
+     "pointer": "/collections/0/head_digest",
+     "value": "$digest:team_collection_head"
+    },
+    {
+     "pointer": "/collections/0/state",
+     "value": "applied"
+    },
+    {
+     "pointer": "/frontiers",
+     "value": []
+    },
+    {
+     "pointer": "/observed/working_bytes_digest",
+     "value": "$digest:team_preparation_checkout"
+    },
+    {
+     "pointer": "/recipient/work_scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/recipient/work_scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/recipient/recipient_digest",
+     "value": "#bob_link"
+    },
+    {
+     "pointer": "/units/0/unit_id",
+     "value": "$unt:team_preparation_review"
+    },
+    {
+     "pointer": "/units/0/source_id",
+     "value": "@team_rules"
+    },
+    {
+     "pointer": "/units/0/revision_digest",
+     "value": "#team_rules_rev"
+    },
+    {
+     "pointer": "/units/0/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/units/0/standing",
+     "value": "winning"
+    },
+    {
+     "pointer": "/units/0/body_digest",
+     "value": "$digest:team_review_body"
+    }
+   ]
+  },
+  {
+   "name": "deliver_submitted",
+   "from": "c11/bodies_for_a_child_recipient_requested.json",
+   "set": [
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:bob_link"
+    },
+    {
+     "pointer": "/use_id",
+     "value": "@bob_use"
+    },
+    {
+     "pointer": "/requested/recipient",
+     "value": "current"
+    },
+    {
+     "pointer": "/requested/preparation_digest",
+     "value": "#team_preparation"
+    },
+    {
+     "pointer": "/requested/bodies",
+     "value": [
+      "$digest:team_review_body"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "attempt_deliver",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/target/base",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@attempt_deliver_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.delivery.attempt"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bob_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$lnk:bob_link"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#deliver_submitted"
+    }
+   ]
+  },
+  {
+   "name": "assess_delivery",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/target/base",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@assess_delivery_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "preparation.assess"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bob_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#attempt_deliver"
+    }
+   ]
+  },
+  {
+   "name": "bob_may_act",
+   "from": "c07/actor_may_act.json",
+   "set": [
+    {
+     "pointer": "/request_digest",
+     "value": "#attempt_deliver"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bob_profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.delivery.attempt"
+    },
+    {
+     "pointer": "/scopes/0/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/grants_seen/0/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/grants_seen/0/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/grants_seen/0/standing",
+     "value": "current"
+    },
+    {
+     "pointer": "/assessed_at",
+     "value": "$instant:bob_may_act_at"
+    }
+   ]
+  },
+  {
+   "name": "delivered",
+   "from": "deliver_submitted",
+   "set": [
+    {
+     "pointer": "/supported",
+     "value": true
+    },
+    {
+     "pointer": "/observed/saw",
+     "value": "received"
+    },
+    {
+     "pointer": "/observed/received",
+     "value": [
+      "$digest:team_review_body"
+     ]
+    },
+    {
+     "pointer": "/observed/evidence_digest",
+     "value": "$digest:delivered_receipt_evidence"
+    },
+    {
+     "pointer": "/material_gaps",
+     "value": []
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:delivered_at"
+    }
+   ]
+  },
+  {
+   "name": "host_observed",
+   "from": "c07/delivery_observed.json",
+   "set": [
+    {
+     "pointer": "/preparation_id",
+     "value": "$prp:team_preparation"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:host_observed_at"
+    },
+    {
+     "pointer": "/requested/recipient_kind",
+     "value": "host_session"
+    },
+    {
+     "pointer": "/observed/at",
+     "value": "$instant:host_observed_seen_at"
+    },
+    {
+     "pointer": "/observed/evidence_digest",
+     "value": "$digest:host_observed_evidence"
+    },
+    {
+     "pointer": "/requested/recipient_digest",
+     "value": "#bob_link"
+    },
+    {
+     "pointer": "/observed/inventory/0/unit_id",
+     "value": "$unt:team_preparation_review"
+    },
+    {
+     "pointer": "/observed/inventory/0/source_id",
+     "value": "@team_rules"
+    },
+    {
+     "pointer": "/observed/inventory/0/revision_digest",
+     "value": "#team_rules_rev"
+    },
+    {
+     "pointer": "/observed/inventory/0/body_digest",
+     "value": "$digest:team_review_body"
+    }
+   ]
+  },
+  {
+   "name": "observe_first",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/target/base",
+    "/payload_digest",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@observe_first_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "delivery.observe"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bob_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$prp:team_preparation"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "bob_personal_link_submitted",
+   "from": "c11/link_as_submitted.json",
+   "drop": [
+    "/rights_digest",
+    "/work_scope/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/work_scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/work_scope/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/host/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/host/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/destination/destination_kind",
+     "value": "conversation"
+    },
+    {
+     "pointer": "/destination/destination_digest",
+     "value": "417312e58cdd3824605c898933e320396b99eaea2a8dd4a0d1e3d37997617966"
+    },
+    {
+     "pointer": "/isolation",
+     "value": "proven_fresh"
+    }
+   ]
+  },
+  {
+   "name": "open_bob_personal_link",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@open_bob_personal_link_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.link.open"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bob_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#bob_personal_link_submitted"
+    }
+   ]
+  },
+  {
+   "name": "bob_personal_link",
+   "from": "bob_personal_link_submitted",
+   "set": [
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:bob_personal_link"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:bob_personal_link_at"
+    }
+   ]
+  },
+  {
+   "name": "wrong_submitted",
+   "from": "c11/bodies_for_a_child_recipient_requested.json",
+   "set": [
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:bob_personal_link"
+    },
+    {
+     "pointer": "/use_id",
+     "value": "@wrong_use"
+    },
+    {
+     "pointer": "/requested/recipient",
+     "value": "current"
+    },
+    {
+     "pointer": "/requested/preparation_digest",
+     "value": "#team_preparation"
+    },
+    {
+     "pointer": "/requested/bodies",
+     "value": [
+      "$digest:team_review_body"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "attempt_wrong",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/target/base",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@attempt_wrong_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.delivery.attempt"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bob_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$lnk:bob_personal_link"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#wrong_submitted"
+    }
+   ]
+  },
+  {
+   "name": "child_submitted",
+   "from": "c11/bodies_for_a_child_recipient_requested.json",
+   "set": [
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:bob_link"
+    },
+    {
+     "pointer": "/use_id",
+     "value": "@child_use"
+    },
+    {
+     "pointer": "/requested/recipient",
+     "value": "child"
+    },
+    {
+     "pointer": "/requested/preparation_digest",
+     "value": "#team_preparation"
+    },
+    {
+     "pointer": "/requested/bodies",
+     "value": [
+      "$digest:team_review_body"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "attempt_child",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/target/base",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@attempt_child_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.delivery.attempt"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bob_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$lnk:bob_link"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#child_submitted"
+    }
+   ]
+  },
+  {
+   "name": "child_unsupported",
+   "from": "child_submitted",
+   "set": [
+    {
+     "pointer": "/supported",
+     "value": false
+    },
+    {
+     "pointer": "/observed/saw",
+     "value": "no_channel"
+    },
+    {
+     "pointer": "/material_gaps",
+     "value": []
+    },
+    {
+     "pointer": "/material_gaps/0/code",
+     "value": "child_route_unsupported"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:child_unsupported_at"
+    }
+   ]
+  },
+  {
+   "name": "observe_children",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/target/base",
+    "/payload_digest",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@observe_children_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "delivery.observe"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bob_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$prp:team_preparation"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "child_unobserved",
+   "from": "c07/child_delivery_the_parents_receipt_does_not_prove.json",
+   "set": [
+    {
+     "pointer": "/preparation_id",
+     "value": "$prp:team_preparation"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:child_unobserved_at"
+    },
+    {
+     "pointer": "/requested/recipient_kind",
+     "value": "child_session"
+    }
+   ]
+  },
+  {
+   "name": "resume_submitted",
+   "from": "c11/bodies_for_a_child_recipient_requested.json",
+   "set": [
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:bob_link"
+    },
+    {
+     "pointer": "/use_id",
+     "value": "@resume_use"
+    },
+    {
+     "pointer": "/requested/recipient",
+     "value": "rehydrated"
+    },
+    {
+     "pointer": "/requested/preparation_digest",
+     "value": "#team_preparation"
+    },
+    {
+     "pointer": "/requested/bodies",
+     "value": [
+      "$digest:team_review_body"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "attempt_resume",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/target/base",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@attempt_resume_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.delivery.attempt"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bob_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$lnk:bob_link"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#resume_submitted"
+    }
+   ]
+  },
+  {
+   "name": "unsupported_resume",
+   "from": "resume_submitted",
+   "set": [
+    {
+     "pointer": "/supported",
+     "value": false
+    },
+    {
+     "pointer": "/observed/saw",
+     "value": "no_channel"
+    },
+    {
+     "pointer": "/material_gaps",
+     "value": []
+    },
+    {
+     "pointer": "/material_gaps/0/code",
+     "value": "route_unsupported"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:unsupported_resume_at"
+    }
+   ]
+  },
+  {
+   "name": "bob_grant_revoked",
+   "from": "bob_grant",
+   "set": [
+    {
+     "pointer": "/standing",
+     "value": "revoked"
+    }
+   ]
+  },
+  {
+   "name": "revoke_bob",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/target/base",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@revoke_bob_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.grant.change"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$gra:bob_grant"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#bob_grant_revoked"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "stored_bob_grant_revoked",
+   "from": "bob_grant_revoked",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:bob_grant"
+    },
+    {
+     "pointer": "/grant_revision",
+     "value": 2
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:revoked_at"
+    }
+   ]
+  },
+  {
+   "name": "late_submitted",
+   "from": "c11/bodies_for_a_child_recipient_requested.json",
+   "set": [
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:bob_link"
+    },
+    {
+     "pointer": "/use_id",
+     "value": "@late_use"
+    },
+    {
+     "pointer": "/requested/recipient",
+     "value": "current"
+    },
+    {
+     "pointer": "/requested/preparation_digest",
+     "value": "#team_preparation"
+    },
+    {
+     "pointer": "/requested/bodies",
+     "value": [
+      "$digest:team_review_body"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "attempt_late",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/target/base",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@attempt_late_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.delivery.attempt"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bob_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$lnk:bob_link"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#late_submitted"
+    }
+   ]
+  },
+  {
+   "name": "reassess_delivery",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/target/base",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@reassess_delivery_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "preparation.assess"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bob_profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#attempt_late"
+    }
+   ]
+  },
+  {
+   "name": "bob_may_not_act",
+   "from": "c07/actor_may_not_act.json",
+   "set": [
+    {
+     "pointer": "/request_digest",
+     "value": "#attempt_late"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bob_profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.delivery.attempt"
+    },
+    {
+     "pointer": "/scopes/0/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/grants_seen/0/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/grants_seen/0/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/grants_seen/0/standing",
+     "value": "revoked"
+    },
+    {
+     "pointer": "/assessed_at",
+     "value": "$instant:bob_may_not_act_at"
+    },
+    {
+     "pointer": "/eligibility/material_gaps/0/code",
+     "value": "grant_not_held"
+    }
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "name": "bind_alice_key",
+   "request": "bind_alice",
+   "carries": [
+    "alice_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "alice_binding"
+    ]
+   }
+  },
+  {
+   "name": "bind_bob_key",
+   "request": "bind_bob",
+   "carries": [
+    "bob_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "bob_binding"
+    ]
+   }
+  },
+  {
+   "name": "found_the_team",
+   "request": "found",
+   "carries": [
+    "team_proposal",
+    "team_policy_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_policy",
+     "alice_founding_grant",
+     "team_state",
+     "team_profile"
+    ],
+    "head": "team_head_0"
+   },
+   "submits": [
+    "team_policy_submitted"
+   ]
+  },
+  {
+   "name": "invite_bob",
+   "request": "invite",
+   "carries": [
+    "invitation"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_invitation"
+    ],
+    "head": "team_head_1"
+   }
+  },
+  {
+   "name": "bob_consents",
+   "request": "consent_request",
+   "carries": [
+    "consent"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_consent"
+    ],
+    "head": "team_head_2"
+   }
+  },
+  {
+   "name": "admit_bob",
+   "request": "admit",
+   "carries": [
+    "bob_membership"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_membership"
+    ],
+    "head": "team_head_3"
+   }
+  },
+  {
+   "name": "grant_bob_use",
+   "request": "grant_bob",
+   "carries": [
+    "bob_grant"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_bob_grant"
+    ],
+    "head": "team_head_4"
+   }
+  },
+  {
+   "name": "author_team_rules_rev",
+   "request": "admit_team_rules_rev",
+   "carries": [
+    "team_rules_rev_request"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_rules_rev"
+    ],
+    "head": "team_rules_head"
+   }
+  },
+  {
+   "name": "select_team_selection",
+   "request": "change_team_selection",
+   "carries": [
+    "team_selection_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_selection"
+    ],
+    "head": "team_collection_head"
+   }
+  },
+  {
+   "name": "open_bob_link",
+   "request": "open_bob_link",
+   "carries": [
+    "bob_link_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "bob_link"
+    ]
+   }
+  },
+  {
+   "name": "compose_team_preparation",
+   "request": "compose_team_preparation",
+   "carries": [
+    "team_preparation_request"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_preparation"
+    ]
+   }
+  },
+  {
+   "name": "assess_the_delivery",
+   "request": "assess_delivery",
+   "carries": [
+    "attempt_deliver"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "bob_may_act"
+    ]
+   }
+  },
+  {
+   "name": "deliver_the_team_body",
+   "request": "attempt_deliver",
+   "carries": [
+    "deliver_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "delivered"
+    ]
+   }
+  },
+  {
+   "name": "observe_the_team_delivery",
+   "request": "observe_first",
+   "carries": [],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "host_observed"
+    ]
+   }
+  },
+  {
+   "name": "open_a_personal_conversation",
+   "request": "open_bob_personal_link",
+   "carries": [
+    "bob_personal_link_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "bob_personal_link"
+    ]
+   }
+  },
+  {
+   "name": "deliver_to_the_wrong_recipient",
+   "request": "attempt_wrong",
+   "carries": [
+    "wrong_submitted"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "recipient_mismatch"
+     }
+    ],
+    "recovery": [],
+    "returns": []
+   }
+  },
+  {
+   "name": "deliver_to_a_child_session",
+   "request": "attempt_child",
+   "carries": [
+    "child_submitted"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "child_route_unsupported"
+     }
+    ],
+    "recovery": [],
+    "returns": [
+     "child_unsupported"
+    ]
+   }
+  },
+  {
+   "name": "observe_parent_and_child",
+   "request": "observe_children",
+   "carries": [],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "host_observed",
+     "child_unobserved"
+    ]
+   }
+  },
+  {
+   "name": "resume_where_the_route_cannot",
+   "request": "attempt_resume",
+   "carries": [
+    "resume_submitted"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "route_unsupported"
+     }
+    ],
+    "recovery": [],
+    "returns": [
+     "unsupported_resume"
+    ]
+   }
+  },
+  {
+   "name": "revoke_bobs_grant",
+   "request": "revoke_bob",
+   "carries": [
+    "bob_grant_revoked"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_bob_grant_revoked"
+    ]
+   }
+  },
+  {
+   "name": "assess_after_the_revocation",
+   "request": "reassess_delivery",
+   "carries": [
+    "attempt_late"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "bob_may_not_act"
+    ]
+   }
+  },
+  {
+   "name": "deliver_after_the_revocation",
+   "request": "attempt_late",
+   "carries": [
+    "late_submitted"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "grant_not_held"
+     }
+    ],
+    "recovery": [],
+    "returns": []
+   }
+  }
+ ]
+}

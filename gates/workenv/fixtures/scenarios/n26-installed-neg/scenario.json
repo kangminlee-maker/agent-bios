@@ -1,0 +1,1947 @@
+{
+ "case": "N26-INSTALLED-NEG",
+ "ids": [
+  {
+   "id": "prn_4005d566319e49d9317e63c61582f426",
+   "name": "alice"
+  },
+  {
+   "id": "dev_7a7411c1ed91ecdbba0448c9f6abcf15",
+   "name": "laptop"
+  },
+  {
+   "id": "prf_570f67a32d8dacedf0c782302f3bd0c1",
+   "name": "alice_profile"
+  },
+  {
+   "id": "req_044e2c707bbac5093e83894b556ceee3",
+   "name": "register_candidate_id"
+  },
+  {
+   "id": "req_1959844be829f6447580080d06ce6860",
+   "name": "record_protocol_id"
+  },
+  {
+   "id": "req_a274f2cbfa6efee0ece1ff6c17be2058",
+   "name": "observe_p3_session_id"
+  },
+  {
+   "id": "req_e6b21f06d82c8334db3e0775cb206341",
+   "name": "record_p3_share_id"
+  },
+  {
+   "id": "req_0c7602f6438f8c26976d5de1332da789",
+   "name": "record_p3_start_id"
+  },
+  {
+   "id": "req_4a568eadae1020a964809d26b7ee6ab7",
+   "name": "record_p3_start_unsaid_hint_id"
+  },
+  {
+   "id": "req_e587d85f70713a88307f2d0fb40c1c72",
+   "name": "observe_prototype_session_id"
+  },
+  {
+   "id": "req_3d3698806dcaace45bb149832a1d5168",
+   "name": "observe_synthetic_session_id"
+  },
+  {
+   "id": "req_ca5d2fb6ce8b64574abf176a4c180518",
+   "name": "submit_prototype_claim_id"
+  },
+  {
+   "id": "req_b116eec84cd64566162bfee4198c069f",
+   "name": "submit_host_generated_claim_id"
+  },
+  {
+   "id": "req_defe507b2702ffc7f9205e6bd578d5a8",
+   "name": "submit_deterministic_claim_id"
+  }
+ ],
+ "joins": [
+  {
+   "digest_of": "candidate",
+   "pointer": "/payload_digest",
+   "record": "register_candidate"
+  },
+  {
+   "digest_of": "register_candidate",
+   "pointer": "/request_digest",
+   "record": "register_the_installed_candidate_receipt"
+  },
+  {
+   "minted": "register_the_installed_candidate_head",
+   "pointer": "/head_digest",
+   "record": "register_the_installed_candidate_receipt"
+  },
+  {
+   "minted": "register_the_installed_candidate_sequence",
+   "pointer": "/sequence",
+   "record": "register_the_installed_candidate_receipt"
+  },
+  {
+   "minted": "register_the_installed_candidate_committed_at",
+   "pointer": "/committed_at",
+   "record": "register_the_installed_candidate_receipt"
+  },
+  {
+   "digest_of": "register_the_installed_candidate_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "register_the_installed_candidate_result"
+  },
+  {
+   "digest_of": "register_candidate",
+   "pointer": "/request_digest",
+   "record": "register_the_installed_candidate_result"
+  },
+  {
+   "digest_of": "candidate",
+   "pointer": "/outputs/0/digest",
+   "record": "register_the_installed_candidate_result"
+  },
+  {
+   "digest_of": "protocol",
+   "pointer": "/payload_digest",
+   "record": "record_protocol"
+  },
+  {
+   "minted": "protocol_at",
+   "pointer": "/recorded_at",
+   "record": "stored_protocol"
+  },
+  {
+   "digest_of": "record_protocol",
+   "pointer": "/request_digest",
+   "record": "fix_the_protocol_first_receipt"
+  },
+  {
+   "minted": "fix_the_protocol_first_head",
+   "pointer": "/head_digest",
+   "record": "fix_the_protocol_first_receipt"
+  },
+  {
+   "minted": "fix_the_protocol_first_sequence",
+   "pointer": "/sequence",
+   "record": "fix_the_protocol_first_receipt"
+  },
+  {
+   "minted": "fix_the_protocol_first_committed_at",
+   "pointer": "/committed_at",
+   "record": "fix_the_protocol_first_receipt"
+  },
+  {
+   "digest_of": "fix_the_protocol_first_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "fix_the_protocol_first_result"
+  },
+  {
+   "digest_of": "record_protocol",
+   "pointer": "/request_digest",
+   "record": "fix_the_protocol_first_result"
+  },
+  {
+   "digest_of": "stored_protocol",
+   "pointer": "/outputs/0/digest",
+   "record": "fix_the_protocol_first_result"
+  },
+  {
+   "digest_of": "candidate",
+   "pointer": "/subject/candidate_digest",
+   "record": "p3_session_submitted"
+  },
+  {
+   "digest_of": "p3_session_submitted",
+   "pointer": "/payload_digest",
+   "record": "observe_p3_session"
+  },
+  {
+   "digest_of": "candidate",
+   "pointer": "/subject/candidate_digest",
+   "record": "p3_session"
+  },
+  {
+   "minted": "p3_session",
+   "pointer": "/observation_id",
+   "record": "p3_session"
+  },
+  {
+   "minted": "p3_session_at",
+   "pointer": "/observed_at",
+   "record": "p3_session"
+  },
+  {
+   "digest_of": "observe_p3_session",
+   "pointer": "/request_digest",
+   "record": "observe_novice_p3_receipt"
+  },
+  {
+   "minted": "observe_novice_p3_head",
+   "pointer": "/head_digest",
+   "record": "observe_novice_p3_receipt"
+  },
+  {
+   "minted": "observe_novice_p3_sequence",
+   "pointer": "/sequence",
+   "record": "observe_novice_p3_receipt"
+  },
+  {
+   "minted": "observe_novice_p3_committed_at",
+   "pointer": "/committed_at",
+   "record": "observe_novice_p3_receipt"
+  },
+  {
+   "digest_of": "observe_novice_p3_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "observe_novice_p3_result"
+  },
+  {
+   "digest_of": "observe_p3_session",
+   "pointer": "/request_digest",
+   "record": "observe_novice_p3_result"
+  },
+  {
+   "digest_of": "p3_session",
+   "pointer": "/outputs/0/digest",
+   "record": "observe_novice_p3_result"
+  },
+  {
+   "minted": "p3_session",
+   "pointer": "/target/resource_id",
+   "record": "record_p3_share"
+  },
+  {
+   "minted": "p3_session",
+   "pointer": "/observation_id",
+   "record": "p3_share"
+  },
+  {
+   "digest_of": "stored_protocol",
+   "pointer": "/protocol_digest",
+   "record": "p3_share"
+  },
+  {
+   "digest_of": "p3_share",
+   "pointer": "/payload_digest",
+   "record": "record_p3_share"
+  },
+  {
+   "digest_of": "record_p3_share",
+   "pointer": "/request_digest",
+   "record": "record_a_wrong_scope_action_receipt"
+  },
+  {
+   "minted": "record_a_wrong_scope_action_head",
+   "pointer": "/head_digest",
+   "record": "record_a_wrong_scope_action_receipt"
+  },
+  {
+   "minted": "record_a_wrong_scope_action_sequence",
+   "pointer": "/sequence",
+   "record": "record_a_wrong_scope_action_receipt"
+  },
+  {
+   "minted": "record_a_wrong_scope_action_committed_at",
+   "pointer": "/committed_at",
+   "record": "record_a_wrong_scope_action_receipt"
+  },
+  {
+   "minted": "p3_session",
+   "pointer": "/target/resource_id",
+   "record": "record_a_wrong_scope_action_receipt"
+  },
+  {
+   "digest_of": "record_a_wrong_scope_action_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "record_a_wrong_scope_action_result"
+  },
+  {
+   "digest_of": "record_p3_share",
+   "pointer": "/request_digest",
+   "record": "record_a_wrong_scope_action_result"
+  },
+  {
+   "digest_of": "p3_share",
+   "pointer": "/outputs/0/digest",
+   "record": "record_a_wrong_scope_action_result"
+  },
+  {
+   "minted": "p3_session",
+   "pointer": "/target/resource_id",
+   "record": "record_p3_start"
+  },
+  {
+   "minted": "p3_session",
+   "pointer": "/observation_id",
+   "record": "p3_start"
+  },
+  {
+   "digest_of": "stored_protocol",
+   "pointer": "/protocol_digest",
+   "record": "p3_start"
+  },
+  {
+   "digest_of": "p3_start",
+   "pointer": "/payload_digest",
+   "record": "record_p3_start"
+  },
+  {
+   "digest_of": "record_p3_start",
+   "pointer": "/request_digest",
+   "record": "record_a_recovery_with_its_hint_receipt"
+  },
+  {
+   "minted": "record_a_recovery_with_its_hint_head",
+   "pointer": "/head_digest",
+   "record": "record_a_recovery_with_its_hint_receipt"
+  },
+  {
+   "minted": "record_a_recovery_with_its_hint_sequence",
+   "pointer": "/sequence",
+   "record": "record_a_recovery_with_its_hint_receipt"
+  },
+  {
+   "minted": "record_a_recovery_with_its_hint_committed_at",
+   "pointer": "/committed_at",
+   "record": "record_a_recovery_with_its_hint_receipt"
+  },
+  {
+   "minted": "p3_session",
+   "pointer": "/target/resource_id",
+   "record": "record_a_recovery_with_its_hint_receipt"
+  },
+  {
+   "digest_of": "record_a_recovery_with_its_hint_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "record_a_recovery_with_its_hint_result"
+  },
+  {
+   "digest_of": "record_p3_start",
+   "pointer": "/request_digest",
+   "record": "record_a_recovery_with_its_hint_result"
+  },
+  {
+   "digest_of": "p3_start",
+   "pointer": "/outputs/0/digest",
+   "record": "record_a_recovery_with_its_hint_result"
+  },
+  {
+   "minted": "p3_session",
+   "pointer": "/target/resource_id",
+   "record": "record_p3_start_unsaid_hint"
+  },
+  {
+   "minted": "p3_session",
+   "pointer": "/observation_id",
+   "record": "p3_start_unsaid_hint"
+  },
+  {
+   "digest_of": "stored_protocol",
+   "pointer": "/protocol_digest",
+   "record": "p3_start_unsaid_hint"
+  },
+  {
+   "digest_of": "p3_start_unsaid_hint",
+   "pointer": "/payload_digest",
+   "record": "record_p3_start_unsaid_hint"
+  },
+  {
+   "digest_of": "prototype_submitted",
+   "pointer": "/payload_digest",
+   "record": "observe_prototype_session"
+  },
+  {
+   "minted": "prototype_session",
+   "pointer": "/observation_id",
+   "record": "prototype_session"
+  },
+  {
+   "minted": "prototype_session_at",
+   "pointer": "/observed_at",
+   "record": "prototype_session"
+  },
+  {
+   "digest_of": "observe_prototype_session",
+   "pointer": "/request_digest",
+   "record": "observe_a_prototype_rendering_receipt"
+  },
+  {
+   "minted": "observe_a_prototype_rendering_head",
+   "pointer": "/head_digest",
+   "record": "observe_a_prototype_rendering_receipt"
+  },
+  {
+   "minted": "observe_a_prototype_rendering_sequence",
+   "pointer": "/sequence",
+   "record": "observe_a_prototype_rendering_receipt"
+  },
+  {
+   "minted": "observe_a_prototype_rendering_committed_at",
+   "pointer": "/committed_at",
+   "record": "observe_a_prototype_rendering_receipt"
+  },
+  {
+   "digest_of": "observe_a_prototype_rendering_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "observe_a_prototype_rendering_result"
+  },
+  {
+   "digest_of": "observe_prototype_session",
+   "pointer": "/request_digest",
+   "record": "observe_a_prototype_rendering_result"
+  },
+  {
+   "digest_of": "prototype_session",
+   "pointer": "/outputs/0/digest",
+   "record": "observe_a_prototype_rendering_result"
+  },
+  {
+   "digest_of": "candidate",
+   "pointer": "/subject/candidate_digest",
+   "record": "synthetic_submitted"
+  },
+  {
+   "digest_of": "synthetic_submitted",
+   "pointer": "/payload_digest",
+   "record": "observe_synthetic_session"
+  },
+  {
+   "digest_of": "candidate",
+   "pointer": "/subject/candidate_digest",
+   "record": "synthetic_session"
+  },
+  {
+   "minted": "synthetic_session",
+   "pointer": "/observation_id",
+   "record": "synthetic_session"
+  },
+  {
+   "minted": "synthetic_session_at",
+   "pointer": "/observed_at",
+   "record": "synthetic_session"
+  },
+  {
+   "digest_of": "observe_synthetic_session",
+   "pointer": "/request_digest",
+   "record": "observe_a_session_the_host_answered_for_receipt"
+  },
+  {
+   "minted": "observe_a_session_the_host_answered_for_head",
+   "pointer": "/head_digest",
+   "record": "observe_a_session_the_host_answered_for_receipt"
+  },
+  {
+   "minted": "observe_a_session_the_host_answered_for_sequence",
+   "pointer": "/sequence",
+   "record": "observe_a_session_the_host_answered_for_receipt"
+  },
+  {
+   "minted": "observe_a_session_the_host_answered_for_committed_at",
+   "pointer": "/committed_at",
+   "record": "observe_a_session_the_host_answered_for_receipt"
+  },
+  {
+   "digest_of": "observe_a_session_the_host_answered_for_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "observe_a_session_the_host_answered_for_result"
+  },
+  {
+   "digest_of": "observe_synthetic_session",
+   "pointer": "/request_digest",
+   "record": "observe_a_session_the_host_answered_for_result"
+  },
+  {
+   "digest_of": "synthetic_session",
+   "pointer": "/outputs/0/digest",
+   "record": "observe_a_session_the_host_answered_for_result"
+  },
+  {
+   "digest_of": "prototype_claim",
+   "pointer": "/payload_digest",
+   "record": "submit_prototype_claim"
+  },
+  {
+   "digest_of": "candidate",
+   "pointer": "/subject/candidate_digest",
+   "record": "host_generated_claim"
+  },
+  {
+   "digest_of": "host_generated_claim",
+   "pointer": "/payload_digest",
+   "record": "submit_host_generated_claim"
+  },
+  {
+   "digest_of": "candidate",
+   "pointer": "/subject/candidate_digest",
+   "record": "deterministic_claim"
+  },
+  {
+   "digest_of": "deterministic_claim",
+   "pointer": "/payload_digest",
+   "record": "submit_deterministic_claim"
+  }
+ ],
+ "minted": [
+  {
+   "name": "register_the_installed_candidate_committed_at",
+   "shape": "instant",
+   "step": "register_the_installed_candidate"
+  },
+  {
+   "name": "register_the_installed_candidate_head",
+   "shape": "digest",
+   "step": "register_the_installed_candidate"
+  },
+  {
+   "name": "register_the_installed_candidate_sequence",
+   "shape": "integer",
+   "step": "register_the_installed_candidate"
+  },
+  {
+   "name": "fix_the_protocol_first_committed_at",
+   "shape": "instant",
+   "step": "fix_the_protocol_first"
+  },
+  {
+   "name": "fix_the_protocol_first_head",
+   "shape": "digest",
+   "step": "fix_the_protocol_first"
+  },
+  {
+   "name": "fix_the_protocol_first_sequence",
+   "shape": "integer",
+   "step": "fix_the_protocol_first"
+  },
+  {
+   "name": "protocol_at",
+   "shape": "instant",
+   "step": "fix_the_protocol_first"
+  },
+  {
+   "name": "observe_novice_p3_committed_at",
+   "shape": "instant",
+   "step": "observe_novice_p3"
+  },
+  {
+   "name": "observe_novice_p3_head",
+   "shape": "digest",
+   "step": "observe_novice_p3"
+  },
+  {
+   "name": "observe_novice_p3_sequence",
+   "shape": "integer",
+   "step": "observe_novice_p3"
+  },
+  {
+   "name": "p3_session",
+   "shape": "obs",
+   "step": "observe_novice_p3"
+  },
+  {
+   "name": "p3_session_at",
+   "shape": "instant",
+   "step": "observe_novice_p3"
+  },
+  {
+   "name": "record_a_wrong_scope_action_committed_at",
+   "shape": "instant",
+   "step": "record_a_wrong_scope_action"
+  },
+  {
+   "name": "record_a_wrong_scope_action_head",
+   "shape": "digest",
+   "step": "record_a_wrong_scope_action"
+  },
+  {
+   "name": "record_a_wrong_scope_action_sequence",
+   "shape": "integer",
+   "step": "record_a_wrong_scope_action"
+  },
+  {
+   "name": "record_a_recovery_with_its_hint_committed_at",
+   "shape": "instant",
+   "step": "record_a_recovery_with_its_hint"
+  },
+  {
+   "name": "record_a_recovery_with_its_hint_head",
+   "shape": "digest",
+   "step": "record_a_recovery_with_its_hint"
+  },
+  {
+   "name": "record_a_recovery_with_its_hint_sequence",
+   "shape": "integer",
+   "step": "record_a_recovery_with_its_hint"
+  },
+  {
+   "name": "observe_a_prototype_rendering_committed_at",
+   "shape": "instant",
+   "step": "observe_a_prototype_rendering"
+  },
+  {
+   "name": "observe_a_prototype_rendering_head",
+   "shape": "digest",
+   "step": "observe_a_prototype_rendering"
+  },
+  {
+   "name": "observe_a_prototype_rendering_sequence",
+   "shape": "integer",
+   "step": "observe_a_prototype_rendering"
+  },
+  {
+   "name": "prototype_session",
+   "shape": "obs",
+   "step": "observe_a_prototype_rendering"
+  },
+  {
+   "name": "prototype_session_at",
+   "shape": "instant",
+   "step": "observe_a_prototype_rendering"
+  },
+  {
+   "name": "observe_a_session_the_host_answered_for_committed_at",
+   "shape": "instant",
+   "step": "observe_a_session_the_host_answered_for"
+  },
+  {
+   "name": "observe_a_session_the_host_answered_for_head",
+   "shape": "digest",
+   "step": "observe_a_session_the_host_answered_for"
+  },
+  {
+   "name": "observe_a_session_the_host_answered_for_sequence",
+   "shape": "integer",
+   "step": "observe_a_session_the_host_answered_for"
+  },
+  {
+   "name": "synthetic_session",
+   "shape": "obs",
+   "step": "observe_a_session_the_host_answered_for"
+  },
+  {
+   "name": "synthetic_session_at",
+   "shape": "instant",
+   "step": "observe_a_session_the_host_answered_for"
+  }
+ ],
+ "records": [
+  {
+   "digest": "7861c85d87e2dd4a63a5fee8377c062124ffddd93581a5e22b36da9b8b0745f4",
+   "name": "candidate",
+   "record": {
+    "kind": "package_candidate",
+    "members": [
+     {
+      "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "origin": {
+       "copied_from": "workenv/contracts/c03.py"
+      },
+      "path": "workenv/contracts/c03.py",
+      "size": 9120
+     },
+     {
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "origin": {
+       "copied_from": "workenv/contracts/schemas/c03_cutover_plan.schema.json"
+      },
+      "path": "workenv/contracts/schemas/c03_cutover_plan.schema.json",
+      "size": 6211
+     },
+     {
+      "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "origin": {
+       "made": "at_pack_time"
+      },
+      "path": "provenance.json",
+      "size": 312
+     }
+    ],
+    "schema": 1,
+    "source_commit": "d360f26444444444444444444444444444444444",
+    "tarball": {
+     "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 482113
+    }
+   }
+  },
+  {
+   "digest": "95bdd6671c9f2c118828a4d47f07c341e031e141f74df02384777102b0415a31",
+   "name": "register_candidate",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_7a7411c1ed91ecdbba0448c9f6abcf15",
+     "principal_id": "prn_4005d566319e49d9317e63c61582f426",
+     "profile_id": "prf_570f67a32d8dacedf0c782302f3bd0c1"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "package.candidate.register",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_4005d566319e49d9317e63c61582f426"
+    },
+    "payload_digest": "7861c85d87e2dd4a63a5fee8377c062124ffddd93581a5e22b36da9b8b0745f4",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_044e2c707bbac5093e83894b556ceee3",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_570f67a32d8dacedf0c782302f3bd0c1"
+    }
+   }
+  },
+  {
+   "digest": "2c682f055e6c48f9a483af6e8e389613c3888113d4997fed65f99143afa1b930",
+   "name": "register_the_installed_candidate_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "f24beedaee28068211032c2491ea4feb830dd86b78c1ace1452a5d4b96a326a0",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_4005d566319e49d9317e63c61582f426"
+    },
+    "request_digest": "95bdd6671c9f2c118828a4d47f07c341e031e141f74df02384777102b0415a31",
+    "request_id": "req_044e2c707bbac5093e83894b556ceee3",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_570f67a32d8dacedf0c782302f3bd0c1"
+    }
+   }
+  },
+  {
+   "digest": "d9a6c849a4fa69b0bc6af163c0e921be7014fe4dfe322efcb21f3f4e2c50fe7b",
+   "name": "register_the_installed_candidate_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "2c682f055e6c48f9a483af6e8e389613c3888113d4997fed65f99143afa1b930",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "7861c85d87e2dd4a63a5fee8377c062124ffddd93581a5e22b36da9b8b0745f4",
+      "kind": "package_candidate"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "95bdd6671c9f2c118828a4d47f07c341e031e141f74df02384777102b0415a31",
+    "request_id": "req_044e2c707bbac5093e83894b556ceee3",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "335c80c54d9724122fd68a1ec561b92cbec760c120bdf9448fd2bcff97418461",
+   "name": "protocol",
+   "record": {
+    "cells": [
+     {
+      "input_routes": [
+       "keyboard"
+      ],
+      "locale": "ko",
+      "minimum_trials": 1,
+      "participants": "novice",
+      "task_id": "start_prepared_work",
+      "terminal": "apple_terminal"
+     },
+     {
+      "input_routes": [
+       "keyboard"
+      ],
+      "locale": "ko",
+      "minimum_trials": 1,
+      "participants": "novice",
+      "task_id": "share_a_note",
+      "terminal": "apple_terminal"
+     }
+    ],
+    "critical_misinterpretations": [
+     "Took saving a draft for publishing or adopting it.",
+     "Took installed or selected material for context the session actually received.",
+     "Expected an action to affect another scope, Team or recipient than the one it affected.",
+     "Took focus for a selection, or expected a default to start without choosing it."
+    ],
+    "kind": "study_protocol",
+    "schema": 1,
+    "tasks": [
+     {
+      "case": "TUI-OBS-ENTRY-COMPREHENSION",
+      "prompt": "이 저장소에서 평소처럼 작업을 시작하세요. 시작하기 전에 고를 수 있는 것, 고른 것, 시작하면 무엇이 어디에 일어날지를 말해 주세요.",
+      "task_id": "start_prepared_work"
+     },
+     {
+      "case": "TUI-OBS-ENTRY-COMPREHENSION",
+      "prompt": "릴리스 체크리스트에 대한 메모를 팀과 공유하세요. 누르기 전에 무엇이 일어날지 말해 주세요.",
+      "task_id": "share_a_note"
+     }
+    ],
+    "version": 1
+   }
+  },
+  {
+   "digest": "4b9ac3a63cbe5762977aae40b757e32cef8fbd8d8821c1a90f5e5731eb77a6a3",
+   "name": "record_protocol",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_7a7411c1ed91ecdbba0448c9f6abcf15",
+     "principal_id": "prn_4005d566319e49d9317e63c61582f426",
+     "profile_id": "prf_570f67a32d8dacedf0c782302f3bd0c1"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "surface.protocol.record",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_4005d566319e49d9317e63c61582f426"
+    },
+    "payload_digest": "335c80c54d9724122fd68a1ec561b92cbec760c120bdf9448fd2bcff97418461",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_1959844be829f6447580080d06ce6860",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_570f67a32d8dacedf0c782302f3bd0c1"
+    }
+   }
+  },
+  {
+   "digest": "7258542115480c0b7fa9471ae08014820a2c2474958add977eec37b0f42d8633",
+   "name": "stored_protocol",
+   "record": {
+    "cells": [
+     {
+      "input_routes": [
+       "keyboard"
+      ],
+      "locale": "ko",
+      "minimum_trials": 1,
+      "participants": "novice",
+      "task_id": "start_prepared_work",
+      "terminal": "apple_terminal"
+     },
+     {
+      "input_routes": [
+       "keyboard"
+      ],
+      "locale": "ko",
+      "minimum_trials": 1,
+      "participants": "novice",
+      "task_id": "share_a_note",
+      "terminal": "apple_terminal"
+     }
+    ],
+    "critical_misinterpretations": [
+     "Took saving a draft for publishing or adopting it.",
+     "Took installed or selected material for context the session actually received.",
+     "Expected an action to affect another scope, Team or recipient than the one it affected.",
+     "Took focus for a selection, or expected a default to start without choosing it."
+    ],
+    "kind": "study_protocol",
+    "recorded_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "tasks": [
+     {
+      "case": "TUI-OBS-ENTRY-COMPREHENSION",
+      "prompt": "이 저장소에서 평소처럼 작업을 시작하세요. 시작하기 전에 고를 수 있는 것, 고른 것, 시작하면 무엇이 어디에 일어날지를 말해 주세요.",
+      "task_id": "start_prepared_work"
+     },
+     {
+      "case": "TUI-OBS-ENTRY-COMPREHENSION",
+      "prompt": "릴리스 체크리스트에 대한 메모를 팀과 공유하세요. 누르기 전에 무엇이 일어날지 말해 주세요.",
+      "task_id": "share_a_note"
+     }
+    ],
+    "version": 1
+   }
+  },
+  {
+   "digest": "ffc9f02f48d52493f15086f725e601b4ec2df52b08a259f0414d9f6494647d98",
+   "name": "fix_the_protocol_first_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "14d03cf44a9e058c625342b0f5dc4bd06f2f70968705c110950f40f9fa798292",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_4005d566319e49d9317e63c61582f426"
+    },
+    "request_digest": "4b9ac3a63cbe5762977aae40b757e32cef8fbd8d8821c1a90f5e5731eb77a6a3",
+    "request_id": "req_1959844be829f6447580080d06ce6860",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_570f67a32d8dacedf0c782302f3bd0c1"
+    }
+   }
+  },
+  {
+   "digest": "9e0a8b0bc77f02ba53a41db809ee39385b0ba75a58802b759e82547b4bdcff59",
+   "name": "fix_the_protocol_first_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "ffc9f02f48d52493f15086f725e601b4ec2df52b08a259f0414d9f6494647d98",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "7258542115480c0b7fa9471ae08014820a2c2474958add977eec37b0f42d8633",
+      "kind": "study_protocol"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "4b9ac3a63cbe5762977aae40b757e32cef8fbd8d8821c1a90f5e5731eb77a6a3",
+    "request_id": "req_1959844be829f6447580080d06ce6860",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "25db9c2603c533fa8bcdeb51b6c9d2d829c88a1d58e55f7f4b5ebfaa10a15be3",
+   "name": "p3_session_submitted",
+   "record": {
+    "evidence_class": "observed",
+    "input_routes": [
+     "keyboard"
+    ],
+    "kind": "surface_observation",
+    "locale": "ko",
+    "observed_in": {
+     "columns": 80,
+     "reported_as": "Apple_Terminal",
+     "rows": 24
+    },
+    "schema": 1,
+    "subject": {
+     "candidate_digest": "7861c85d87e2dd4a63a5fee8377c062124ffddd93581a5e22b36da9b8b0745f4",
+     "evidence": {
+      "families": [
+       "N26"
+      ],
+      "origin": {
+       "origin": "verified_native_user_event",
+       "separation_evidence_digest": "f0310728d2a8b9f8491fd79347e938277157e9fcf3e20fda8f50d2a2a02f8da2"
+      },
+      "qualifies": "yes"
+     },
+     "is": "product_candidate"
+    }
+   }
+  },
+  {
+   "digest": "8a562a8713d6087b2e000b529b8792ddb7911b387d63e7cd013f81e69c821226",
+   "name": "observe_p3_session",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_7a7411c1ed91ecdbba0448c9f6abcf15",
+     "principal_id": "prn_4005d566319e49d9317e63c61582f426",
+     "profile_id": "prf_570f67a32d8dacedf0c782302f3bd0c1"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "surface.observe",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_4005d566319e49d9317e63c61582f426"
+    },
+    "payload_digest": "25db9c2603c533fa8bcdeb51b6c9d2d829c88a1d58e55f7f4b5ebfaa10a15be3",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_a274f2cbfa6efee0ece1ff6c17be2058",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_570f67a32d8dacedf0c782302f3bd0c1"
+    }
+   }
+  },
+  {
+   "digest": "ac9fba7c4d37cd002dd6d07e793582a3783979a4574fb235cec5135ff5b1a545",
+   "name": "p3_session",
+   "record": {
+    "evidence_class": "observed",
+    "input_routes": [
+     "keyboard"
+    ],
+    "kind": "surface_observation",
+    "locale": "ko",
+    "observation_id": "obs_904c461fd8c78f306e6e167d3d1fc00b",
+    "observed_at": "2000-01-01T00:00:00Z",
+    "observed_in": {
+     "columns": 80,
+     "reported_as": "Apple_Terminal",
+     "rows": 24
+    },
+    "schema": 1,
+    "subject": {
+     "candidate_digest": "7861c85d87e2dd4a63a5fee8377c062124ffddd93581a5e22b36da9b8b0745f4",
+     "evidence": {
+      "families": [
+       "N26"
+      ],
+      "origin": {
+       "origin": "verified_native_user_event",
+       "separation_evidence_digest": "f0310728d2a8b9f8491fd79347e938277157e9fcf3e20fda8f50d2a2a02f8da2"
+      },
+      "qualifies": "yes"
+     },
+     "is": "product_candidate"
+    }
+   }
+  },
+  {
+   "digest": "e62bd4f089476ddf2cbc2b46082338b7020bc71f08c7fd44f5f546bebbabcfe3",
+   "name": "observe_novice_p3_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "ac27eb641f9c3254b8cf5e085e2bf4fd00091d8d9bcd1704471b3a92718bb750",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_4005d566319e49d9317e63c61582f426"
+    },
+    "request_digest": "8a562a8713d6087b2e000b529b8792ddb7911b387d63e7cd013f81e69c821226",
+    "request_id": "req_a274f2cbfa6efee0ece1ff6c17be2058",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_570f67a32d8dacedf0c782302f3bd0c1"
+    }
+   }
+  },
+  {
+   "digest": "bd71fa8387bce2316dd38c594f5e74426b9914cd62d144ca1028f32411a0d409",
+   "name": "observe_novice_p3_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "e62bd4f089476ddf2cbc2b46082338b7020bc71f08c7fd44f5f546bebbabcfe3",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "ac9fba7c4d37cd002dd6d07e793582a3783979a4574fb235cec5135ff5b1a545",
+      "kind": "surface_observation"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "8a562a8713d6087b2e000b529b8792ddb7911b387d63e7cd013f81e69c821226",
+    "request_id": "req_a274f2cbfa6efee0ece1ff6c17be2058",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "5a0b07f878fa87d6d990755178868982b994f66bd22183b34018c054360c4e75",
+   "name": "p3_share",
+   "record": {
+    "assistance": {
+     "given": "none"
+    },
+    "confusion": [
+     "Asked whether the saved note was visible to others."
+    ],
+    "kind": "exposure_trial",
+    "observation_id": "obs_904c461fd8c78f306e6e167d3d1fc00b",
+    "observed_at": "2026-09-21T10:00:00Z",
+    "observed_outcome": "A draft was saved; the team could not see it.",
+    "participant": {
+     "class": "novice",
+     "code": "P3",
+     "sample": "People who had not seen the installed candidate before"
+    },
+    "protocol_digest": "7258542115480c0b7fa9471ae08014820a2c2474958add977eec37b0f42d8633",
+    "schema": 1,
+    "stated": {
+     "options": [
+      "Save draft",
+      "Publish to team",
+      "Cancel"
+     ],
+     "predicted_effect": "The team can read the note now.",
+     "predicted_target": "the team's release checklist",
+     "selection": "Save draft"
+    },
+    "task_id": "share_a_note",
+    "task_prompt": "릴리스 체크리스트에 대한 메모를 팀과 공유하세요. 누르기 전에 무엇이 일어날지 말해 주세요.",
+    "ui_subject": "Save draft button on the contribution screen",
+    "unresolved_misinterpretations": [
+     "Took saving a draft for publishing or adopting it."
+    ]
+   }
+  },
+  {
+   "digest": "410948dfa2a62c0272765baf2b938b39eaf66e69a5d2e644b9baca0b1007d6cb",
+   "name": "record_p3_share",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_7a7411c1ed91ecdbba0448c9f6abcf15",
+     "principal_id": "prn_4005d566319e49d9317e63c61582f426",
+     "profile_id": "prf_570f67a32d8dacedf0c782302f3bd0c1"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "surface.observe",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_4005d566319e49d9317e63c61582f426"
+    },
+    "payload_digest": "5a0b07f878fa87d6d990755178868982b994f66bd22183b34018c054360c4e75",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_e6b21f06d82c8334db3e0775cb206341",
+    "schema": 1,
+    "target": {
+     "resource_id": "obs_904c461fd8c78f306e6e167d3d1fc00b"
+    }
+   }
+  },
+  {
+   "digest": "ea54f0c93601e4507025e51159679d61ff9542e2bedd56789f1ae22110a1b6e4",
+   "name": "record_a_wrong_scope_action_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "8c045ffc76b9fa67a39cbb07cfee58d4357c8c0f3f41cdb24e3f916dda83b573",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_4005d566319e49d9317e63c61582f426"
+    },
+    "request_digest": "410948dfa2a62c0272765baf2b938b39eaf66e69a5d2e644b9baca0b1007d6cb",
+    "request_id": "req_e6b21f06d82c8334db3e0775cb206341",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "obs_904c461fd8c78f306e6e167d3d1fc00b"
+    }
+   }
+  },
+  {
+   "digest": "ad294df2305c96def9da04e13d482f4cc8e5629facf91544d139bb881ba43912",
+   "name": "record_a_wrong_scope_action_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "ea54f0c93601e4507025e51159679d61ff9542e2bedd56789f1ae22110a1b6e4",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "5a0b07f878fa87d6d990755178868982b994f66bd22183b34018c054360c4e75",
+      "kind": "exposure_trial"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "410948dfa2a62c0272765baf2b938b39eaf66e69a5d2e644b9baca0b1007d6cb",
+    "request_id": "req_e6b21f06d82c8334db3e0775cb206341",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "0d1f738ed16d93f0848808888c9aaa2d0981de96dac52c78d19c50f06305ea33",
+   "name": "p3_start",
+   "record": {
+    "assistance": {
+     "given": "hint",
+     "what": "Said that setup changes settings and does not start work."
+    },
+    "confusion": [
+     "Expected setup to start the session."
+    ],
+    "kind": "exposure_trial",
+    "observation_id": "obs_904c461fd8c78f306e6e167d3d1fc00b",
+    "observed_at": "2026-09-21T10:20:00Z",
+    "observed_outcome": "Setup opened and no session started; after the hint P3 went back and started the prepared work.",
+    "participant": {
+     "class": "novice",
+     "code": "P3",
+     "sample": "People who had not seen the installed candidate before"
+    },
+    "protocol_digest": "7258542115480c0b7fa9471ae08014820a2c2474958add977eec37b0f42d8633",
+    "schema": 1,
+    "stated": {
+     "options": [
+      "Start with the repository's prepared work",
+      "Start without an environment",
+      "Open setup"
+     ],
+     "predicted_effect": "Setup opens and then the session starts.",
+     "predicted_target": "a new session in this repository",
+     "selection": "Open setup"
+    },
+    "task_id": "start_prepared_work",
+    "task_prompt": "이 저장소에서 평소처럼 작업을 시작하세요. 시작하기 전에 고를 수 있는 것, 고른 것, 시작하면 무엇이 어디에 일어날지를 말해 주세요.",
+    "ui_subject": "Open setup row on the launcher's entry screen",
+    "unresolved_misinterpretations": []
+   }
+  },
+  {
+   "digest": "ecea9e5a0ccd0da7f28bd2cdc7b1f40aa4d3d2d7e63815e5f0508eeab0c99ef8",
+   "name": "record_p3_start",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_7a7411c1ed91ecdbba0448c9f6abcf15",
+     "principal_id": "prn_4005d566319e49d9317e63c61582f426",
+     "profile_id": "prf_570f67a32d8dacedf0c782302f3bd0c1"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "surface.observe",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_4005d566319e49d9317e63c61582f426"
+    },
+    "payload_digest": "0d1f738ed16d93f0848808888c9aaa2d0981de96dac52c78d19c50f06305ea33",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_0c7602f6438f8c26976d5de1332da789",
+    "schema": 1,
+    "target": {
+     "resource_id": "obs_904c461fd8c78f306e6e167d3d1fc00b"
+    }
+   }
+  },
+  {
+   "digest": "22f56feef4542f32b3b7a1e14fb8f7055c2c61264d2950c4450867225239c8f8",
+   "name": "record_a_recovery_with_its_hint_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "4353f4be990ea8b907f42b770a79df3638a33202354738c7d47cbf49e92246c2",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_4005d566319e49d9317e63c61582f426"
+    },
+    "request_digest": "ecea9e5a0ccd0da7f28bd2cdc7b1f40aa4d3d2d7e63815e5f0508eeab0c99ef8",
+    "request_id": "req_0c7602f6438f8c26976d5de1332da789",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "obs_904c461fd8c78f306e6e167d3d1fc00b"
+    }
+   }
+  },
+  {
+   "digest": "f1d3e0f17886e6f7658beec8ec2352e79044c059517de3b3468682c0fe202eb5",
+   "name": "record_a_recovery_with_its_hint_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "22f56feef4542f32b3b7a1e14fb8f7055c2c61264d2950c4450867225239c8f8",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "0d1f738ed16d93f0848808888c9aaa2d0981de96dac52c78d19c50f06305ea33",
+      "kind": "exposure_trial"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "ecea9e5a0ccd0da7f28bd2cdc7b1f40aa4d3d2d7e63815e5f0508eeab0c99ef8",
+    "request_id": "req_0c7602f6438f8c26976d5de1332da789",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "c16f1ab4ca9054c41cb92b3d56ce97de0ded10f1df960a928f5df588370dd0f5",
+   "name": "p3_start_unsaid_hint",
+   "record": {
+    "assistance": {
+     "given": "hint"
+    },
+    "confusion": [],
+    "kind": "exposure_trial",
+    "observation_id": "obs_904c461fd8c78f306e6e167d3d1fc00b",
+    "observed_at": "2026-09-21T10:21:00Z",
+    "observed_outcome": "Setup opened; P3 recovered after help.",
+    "participant": {
+     "class": "novice",
+     "code": "P3",
+     "sample": "People who had not seen the installed candidate before"
+    },
+    "protocol_digest": "7258542115480c0b7fa9471ae08014820a2c2474958add977eec37b0f42d8633",
+    "schema": 1,
+    "stated": {
+     "options": [
+      "Start with the repository's prepared work",
+      "Start without an environment",
+      "Open setup"
+     ],
+     "predicted_effect": "Setup opens and then the session starts.",
+     "predicted_target": "a new session in this repository",
+     "selection": "Open setup"
+    },
+    "task_id": "start_prepared_work",
+    "task_prompt": "이 저장소에서 평소처럼 작업을 시작하세요. 시작하기 전에 고를 수 있는 것, 고른 것, 시작하면 무엇이 어디에 일어날지를 말해 주세요.",
+    "ui_subject": "Open setup row on the launcher's entry screen",
+    "unresolved_misinterpretations": []
+   }
+  },
+  {
+   "digest": "81e4ab1e20b1760d13406b73861b32be9b3501c9816cffe4c23afb6a9cc5de00",
+   "name": "record_p3_start_unsaid_hint",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_7a7411c1ed91ecdbba0448c9f6abcf15",
+     "principal_id": "prn_4005d566319e49d9317e63c61582f426",
+     "profile_id": "prf_570f67a32d8dacedf0c782302f3bd0c1"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "surface.observe",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_4005d566319e49d9317e63c61582f426"
+    },
+    "payload_digest": "c16f1ab4ca9054c41cb92b3d56ce97de0ded10f1df960a928f5df588370dd0f5",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_4a568eadae1020a964809d26b7ee6ab7",
+    "schema": 1,
+    "target": {
+     "resource_id": "obs_904c461fd8c78f306e6e167d3d1fc00b"
+    }
+   }
+  },
+  {
+   "digest": "1135e8a97b430db108e101b35a031d4a1f954dd34581b8e213cd4507e88ec97a",
+   "name": "prototype_submitted",
+   "record": {
+    "evidence_class": "observed",
+    "input_routes": [
+     "keyboard"
+    ],
+    "kind": "surface_observation",
+    "locale": "en",
+    "observed_in": {
+     "columns": 120,
+     "reported_as": "an unlisted terminal",
+     "rows": 40
+    },
+    "schema": 1,
+    "subject": {
+     "establishes": "neither_product_nor_human_evidence",
+     "evidence": {
+      "origin": {
+       "origin": "hook_generated"
+      },
+      "qualifies": "no"
+     },
+     "is": "prototype"
+    }
+   }
+  },
+  {
+   "digest": "75e39ce65a4a2669c105650c3007d9ce88b309d05a9e085f78edea441066c79d",
+   "name": "observe_prototype_session",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_7a7411c1ed91ecdbba0448c9f6abcf15",
+     "principal_id": "prn_4005d566319e49d9317e63c61582f426",
+     "profile_id": "prf_570f67a32d8dacedf0c782302f3bd0c1"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "surface.observe",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_4005d566319e49d9317e63c61582f426"
+    },
+    "payload_digest": "1135e8a97b430db108e101b35a031d4a1f954dd34581b8e213cd4507e88ec97a",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_e587d85f70713a88307f2d0fb40c1c72",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_570f67a32d8dacedf0c782302f3bd0c1"
+    }
+   }
+  },
+  {
+   "digest": "45e011427ee06ea3d383e639c3b2031a33d58d9bd7fb360adf88407cd6b7611a",
+   "name": "prototype_session",
+   "record": {
+    "evidence_class": "observed",
+    "input_routes": [
+     "keyboard"
+    ],
+    "kind": "surface_observation",
+    "locale": "en",
+    "observation_id": "obs_4c605b6a3264854bb94f7c258af29b9f",
+    "observed_at": "2000-01-01T00:00:00Z",
+    "observed_in": {
+     "columns": 120,
+     "reported_as": "an unlisted terminal",
+     "rows": 40
+    },
+    "schema": 1,
+    "subject": {
+     "establishes": "neither_product_nor_human_evidence",
+     "evidence": {
+      "origin": {
+       "origin": "hook_generated"
+      },
+      "qualifies": "no"
+     },
+     "is": "prototype"
+    }
+   }
+  },
+  {
+   "digest": "71487092ae52a876e5858d2056b95160c09dcfa1e6270a16efce0344687d741d",
+   "name": "observe_a_prototype_rendering_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "cad8cbf5dbd53ca488c5586cbf9b89953d8434cb9821089751b83f820ab57cec",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_4005d566319e49d9317e63c61582f426"
+    },
+    "request_digest": "75e39ce65a4a2669c105650c3007d9ce88b309d05a9e085f78edea441066c79d",
+    "request_id": "req_e587d85f70713a88307f2d0fb40c1c72",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_570f67a32d8dacedf0c782302f3bd0c1"
+    }
+   }
+  },
+  {
+   "digest": "5b1f676f3f6726eb4aa45479c0e51c2b2d02904ec51c180235cc0407fdf28b1c",
+   "name": "observe_a_prototype_rendering_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "71487092ae52a876e5858d2056b95160c09dcfa1e6270a16efce0344687d741d",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "45e011427ee06ea3d383e639c3b2031a33d58d9bd7fb360adf88407cd6b7611a",
+      "kind": "surface_observation"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "75e39ce65a4a2669c105650c3007d9ce88b309d05a9e085f78edea441066c79d",
+    "request_id": "req_e587d85f70713a88307f2d0fb40c1c72",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "b032aa868d277fee37f542d14787e20592f64731d0f1c8f3f884ea6777891c91",
+   "name": "synthetic_submitted",
+   "record": {
+    "evidence_class": "observed",
+    "input_routes": [
+     "keyboard",
+     "ime",
+     "paste"
+    ],
+    "kind": "surface_observation",
+    "locale": "ko",
+    "observed_in": {
+     "columns": 80,
+     "reported_as": "Apple_Terminal",
+     "rows": 24
+    },
+    "schema": 1,
+    "subject": {
+     "candidate_digest": "7861c85d87e2dd4a63a5fee8377c062124ffddd93581a5e22b36da9b8b0745f4",
+     "evidence": {
+      "origin": {
+       "origin": "hook_generated"
+      },
+      "qualifies": "no"
+     },
+     "is": "product_candidate"
+    }
+   }
+  },
+  {
+   "digest": "f04426ae7cf985209daae76d24c481fd1a6427e8836e5988f565136b820410dc",
+   "name": "observe_synthetic_session",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_7a7411c1ed91ecdbba0448c9f6abcf15",
+     "principal_id": "prn_4005d566319e49d9317e63c61582f426",
+     "profile_id": "prf_570f67a32d8dacedf0c782302f3bd0c1"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "surface.observe",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_4005d566319e49d9317e63c61582f426"
+    },
+    "payload_digest": "b032aa868d277fee37f542d14787e20592f64731d0f1c8f3f884ea6777891c91",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_3d3698806dcaace45bb149832a1d5168",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_570f67a32d8dacedf0c782302f3bd0c1"
+    }
+   }
+  },
+  {
+   "digest": "c53329ea53d1d35da929abb96d5572dd47996dde978d439f034d45715c086bd6",
+   "name": "synthetic_session",
+   "record": {
+    "evidence_class": "observed",
+    "input_routes": [
+     "keyboard",
+     "ime",
+     "paste"
+    ],
+    "kind": "surface_observation",
+    "locale": "ko",
+    "observation_id": "obs_9b78409eb6d044ba51d4473401f7c5f4",
+    "observed_at": "2000-01-01T00:00:00Z",
+    "observed_in": {
+     "columns": 80,
+     "reported_as": "Apple_Terminal",
+     "rows": 24
+    },
+    "schema": 1,
+    "subject": {
+     "candidate_digest": "7861c85d87e2dd4a63a5fee8377c062124ffddd93581a5e22b36da9b8b0745f4",
+     "evidence": {
+      "origin": {
+       "origin": "hook_generated"
+      },
+      "qualifies": "no"
+     },
+     "is": "product_candidate"
+    }
+   }
+  },
+  {
+   "digest": "9a0ee2445263e81d92b627c5a9443dbee23102bc03bf580f6fe507e67b8b039e",
+   "name": "observe_a_session_the_host_answered_for_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "730ebafefb4b27c538724fc4b85ed0fa9c1d84e90abf1da9e5e4495c538900a6",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_4005d566319e49d9317e63c61582f426"
+    },
+    "request_digest": "f04426ae7cf985209daae76d24c481fd1a6427e8836e5988f565136b820410dc",
+    "request_id": "req_3d3698806dcaace45bb149832a1d5168",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_570f67a32d8dacedf0c782302f3bd0c1"
+    }
+   }
+  },
+  {
+   "digest": "ad2e261930a486daa0172234c357572ce08e427117452f69aa2b78db9a141bd3",
+   "name": "observe_a_session_the_host_answered_for_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "9a0ee2445263e81d92b627c5a9443dbee23102bc03bf580f6fe507e67b8b039e",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "c53329ea53d1d35da929abb96d5572dd47996dde978d439f034d45715c086bd6",
+      "kind": "surface_observation"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "f04426ae7cf985209daae76d24c481fd1a6427e8836e5988f565136b820410dc",
+    "request_id": "req_3d3698806dcaace45bb149832a1d5168",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "44ecfd84e0f2bf56d938b92af6870d884f9f0d3b706a8913ac2ad6be930f622b",
+   "name": "prototype_claim",
+   "record": {
+    "evidence_class": "observed",
+    "input_routes": [
+     "keyboard"
+    ],
+    "kind": "surface_observation",
+    "locale": "en",
+    "observed_in": {
+     "columns": 120,
+     "reported_as": "an unlisted terminal",
+     "rows": 40
+    },
+    "schema": 1,
+    "subject": {
+     "claim": {
+      "state": {
+       "evidence_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+       "state": "observed"
+      },
+      "terminal": "apple_terminal"
+     },
+     "establishes": "neither_product_nor_human_evidence",
+     "evidence": {
+      "origin": {
+       "origin": "hook_generated"
+      },
+      "qualifies": "no"
+     },
+     "is": "prototype"
+    }
+   }
+  },
+  {
+   "digest": "aa6f1d079b4f1f42330a468469f975412e571215d5339370b9eb040506755da0",
+   "name": "submit_prototype_claim",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_7a7411c1ed91ecdbba0448c9f6abcf15",
+     "principal_id": "prn_4005d566319e49d9317e63c61582f426",
+     "profile_id": "prf_570f67a32d8dacedf0c782302f3bd0c1"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "surface.observe",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_4005d566319e49d9317e63c61582f426"
+    },
+    "payload_digest": "44ecfd84e0f2bf56d938b92af6870d884f9f0d3b706a8913ac2ad6be930f622b",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_ca5d2fb6ce8b64574abf176a4c180518",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_570f67a32d8dacedf0c782302f3bd0c1"
+    }
+   }
+  },
+  {
+   "digest": "9dd5485dc56fab887f77f8cb7f3ca49f98c2cb8cb1d27685b37408a0d4acc908",
+   "name": "host_generated_claim",
+   "record": {
+    "evidence_class": "observed",
+    "input_routes": [
+     "keyboard",
+     "ime",
+     "paste"
+    ],
+    "kind": "surface_observation",
+    "locale": "ko",
+    "observed_in": {
+     "columns": 80,
+     "reported_as": "Apple_Terminal",
+     "rows": 24
+    },
+    "schema": 1,
+    "subject": {
+     "candidate_digest": "7861c85d87e2dd4a63a5fee8377c062124ffddd93581a5e22b36da9b8b0745f4",
+     "claim": {
+      "state": {
+       "needs": [
+        "a first-exposure observation of the integrated candidate"
+       ],
+       "state": "pending"
+      },
+      "terminal": "apple_terminal"
+     },
+     "evidence": {
+      "families": [
+       "N23"
+      ],
+      "origin": {
+       "origin": "hook_generated"
+      },
+      "qualifies": "yes"
+     },
+     "is": "product_candidate"
+    }
+   }
+  },
+  {
+   "digest": "0f6d73d8f0edf52dd7d6368cfcd37a9a202cf4ed51a82c17842f2978e56967cb",
+   "name": "submit_host_generated_claim",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_7a7411c1ed91ecdbba0448c9f6abcf15",
+     "principal_id": "prn_4005d566319e49d9317e63c61582f426",
+     "profile_id": "prf_570f67a32d8dacedf0c782302f3bd0c1"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "surface.observe",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_4005d566319e49d9317e63c61582f426"
+    },
+    "payload_digest": "9dd5485dc56fab887f77f8cb7f3ca49f98c2cb8cb1d27685b37408a0d4acc908",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_b116eec84cd64566162bfee4198c069f",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_570f67a32d8dacedf0c782302f3bd0c1"
+    }
+   }
+  },
+  {
+   "digest": "0eeca4a884e8606dff704cea0334a02e50cb55716d06fbee7eb2a755c16ce36d",
+   "name": "deterministic_claim",
+   "record": {
+    "evidence_class": "deterministic",
+    "input_routes": [
+     "keyboard",
+     "ime",
+     "paste"
+    ],
+    "kind": "surface_observation",
+    "locale": "ko",
+    "observed_in": {
+     "columns": 80,
+     "reported_as": "Apple_Terminal",
+     "rows": 24
+    },
+    "schema": 1,
+    "subject": {
+     "candidate_digest": "7861c85d87e2dd4a63a5fee8377c062124ffddd93581a5e22b36da9b8b0745f4",
+     "claim": {
+      "state": {
+       "needs": [
+        "a first-exposure observation of the integrated candidate"
+       ],
+       "state": "pending"
+      },
+      "terminal": "apple_terminal"
+     },
+     "evidence": {
+      "families": [
+       "N26"
+      ],
+      "origin": {
+       "origin": "verified_native_user_event",
+       "separation_evidence_digest": "f0310728d2a8b9f8491fd79347e938277157e9fcf3e20fda8f50d2a2a02f8da2"
+      },
+      "qualifies": "yes"
+     },
+     "is": "product_candidate"
+    }
+   }
+  },
+  {
+   "digest": "6aa2b9580fb8c1302c11bc10a89d171f4c5b42771d95f7e0d393971dfccf08ce",
+   "name": "submit_deterministic_claim",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_7a7411c1ed91ecdbba0448c9f6abcf15",
+     "principal_id": "prn_4005d566319e49d9317e63c61582f426",
+     "profile_id": "prf_570f67a32d8dacedf0c782302f3bd0c1"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "surface.observe",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_4005d566319e49d9317e63c61582f426"
+    },
+    "payload_digest": "0eeca4a884e8606dff704cea0334a02e50cb55716d06fbee7eb2a755c16ce36d",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_defe507b2702ffc7f9205e6bd578d5a8",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_570f67a32d8dacedf0c782302f3bd0c1"
+    }
+   }
+  }
+ ],
+ "says": "The conductor registers the installed candidate and records the protocol before any trial. Novice P3 meets the candidate for the first time: asked to share a note with the team, P3 picks Save draft predicting the team can read it now, asks whether the note is visible to others, and ends with a draft the team cannot see. The trial is recorded with that confusion and the unresolved critical misinterpretation (saving a draft taken for publishing, an action on the wrong scope). Asked to start prepared work, P3 needs a hint to recover after choosing setup; the hint is recorded with what was said, and a recovery hint whose content is not said is refused at admission. Synthetic and prototype evidence qualifies nothing: an observation of a prototype rendering is recorded as establishing neither product nor human evidence; an observation of the candidate whose only answer the host generated is recorded as not qualifying; and submissions that would let them count — a prototype claiming terminal support, a host-generated answer offered as qualifying evidence, an observation called deterministic — are refused at admission. What must not happen: a confusion, wrong-scope action or recovery error left out of a trial, or a usability claim resting on synthetic clicks or a prototype.",
+ "spec_sha256": "26829ef2a647cb81c1314d7f4adb2c0b9b36417bed8c9354cc272988ad0b7c7c",
+ "steps": [
+  {
+   "carries": [
+    "candidate"
+   ],
+   "name": "register_the_installed_candidate",
+   "request": "register_candidate",
+   "result": "register_the_installed_candidate_result",
+   "returns": [
+    "candidate"
+   ]
+  },
+  {
+   "carries": [
+    "protocol"
+   ],
+   "name": "fix_the_protocol_first",
+   "request": "record_protocol",
+   "result": "fix_the_protocol_first_result",
+   "returns": [
+    "stored_protocol"
+   ]
+  },
+  {
+   "carries": [
+    "p3_session_submitted"
+   ],
+   "name": "observe_novice_p3",
+   "request": "observe_p3_session",
+   "result": "observe_novice_p3_result",
+   "returns": [
+    "p3_session"
+   ]
+  },
+  {
+   "carries": [
+    "p3_share"
+   ],
+   "name": "record_a_wrong_scope_action",
+   "request": "record_p3_share",
+   "result": "record_a_wrong_scope_action_result",
+   "returns": [
+    "p3_share"
+   ]
+  },
+  {
+   "carries": [
+    "p3_start"
+   ],
+   "name": "record_a_recovery_with_its_hint",
+   "request": "record_p3_start",
+   "result": "record_a_recovery_with_its_hint_result",
+   "returns": [
+    "p3_start"
+   ]
+  },
+  {
+   "carries": [
+    "p3_start_unsaid_hint"
+   ],
+   "name": "refuse_help_that_does_not_say_what",
+   "refused": [
+    {
+     "code": "variant_mismatch",
+     "pointer": "/assistance",
+     "record": "p3_start_unsaid_hint"
+    }
+   ],
+   "request": "record_p3_start_unsaid_hint"
+  },
+  {
+   "carries": [
+    "prototype_submitted"
+   ],
+   "name": "observe_a_prototype_rendering",
+   "request": "observe_prototype_session",
+   "result": "observe_a_prototype_rendering_result",
+   "returns": [
+    "prototype_session"
+   ]
+  },
+  {
+   "carries": [
+    "synthetic_submitted"
+   ],
+   "name": "observe_a_session_the_host_answered_for",
+   "request": "observe_synthetic_session",
+   "result": "observe_a_session_the_host_answered_for_result",
+   "returns": [
+    "synthetic_session"
+   ]
+  },
+  {
+   "carries": [
+    "prototype_claim"
+   ],
+   "name": "refuse_a_prototype_claiming_support",
+   "refused": [
+    {
+     "code": "variant_mismatch",
+     "pointer": "/subject",
+     "record": "prototype_claim"
+    }
+   ],
+   "request": "submit_prototype_claim"
+  },
+  {
+   "carries": [
+    "host_generated_claim"
+   ],
+   "name": "refuse_host_generated_evidence_as_qualifying",
+   "refused": [
+    {
+     "code": "variant_mismatch",
+     "pointer": "/subject",
+     "record": "host_generated_claim"
+    }
+   ],
+   "request": "submit_host_generated_claim"
+  },
+  {
+   "carries": [
+    "deterministic_claim"
+   ],
+   "name": "refuse_an_observation_called_deterministic",
+   "refused": [
+    {
+     "code": "value_not_allowed",
+     "pointer": "/evidence_class",
+     "record": "deterministic_claim"
+    }
+   ],
+   "request": "submit_deterministic_claim"
+  }
+ ]
+}

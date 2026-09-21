@@ -98,7 +98,7 @@
     "change": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Set one leaf. A missing parent object is created; `-` as the last segment appends to an array.",
+      "description": "Set one leaf. A missing parent is created — an array when the next segment is 0 or `-`, an object otherwise — and an index one past an array's end appends a new object there; `-` as the last segment appends a value to an array.",
       "required": [
         "pointer",
         "value"
@@ -153,6 +153,9 @@
         },
         {
           "$ref": "#/$defs/runner_step"
+        },
+        {
+          "$ref": "#/$defs/replayed_step"
         }
       ]
     },
@@ -215,6 +218,14 @@
         "advance_seconds": {
           "type": "integer",
           "minimum": 1
+        },
+        "submits": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/name"
+          }
         }
       }
     },
@@ -237,7 +248,7 @@
     "answer": {
       "type": "object",
       "additionalProperties": false,
-      "description": "The result the owner writes, stated by what the contract fixes. The generator builds the operation_result from it and the request and holds it against the result schema, so an answer the contract cannot give cannot be written here either.",
+      "description": "The result the owner writes, stated by what the contract fixes. The generator builds the operation_result from it and the request and holds it against the result schema, so an answer the contract cannot give cannot be written here either. A committed answer's receipt is generated as `<step>_receipt`; `head` names the head_digest it states, so a later request's base can expect it as $digest:<head>.",
       "required": [
         "stage",
         "local_effect",
@@ -277,13 +288,16 @@
           "items": {
             "$ref": "#/$defs/name"
           }
+        },
+        "head": {
+          "$ref": "#/$defs/name"
         }
       }
     },
     "answered_step": {
       "type": "object",
       "additionalProperties": false,
-      "description": "One request, admitted, and what its owner answers. `carries` are the records whose digests the request names (payload, policies, controls, proofs, recipient) or its payload names (a batch's item requests); a digest the request names must be one of them or a value an earlier step minted.",
+      "description": "One request, admitted, and what its owner answers. `carries` are the records whose digests the request names (payload, policies, controls, proofs, recipient) or its payload names (a batch's item requests); a digest the request names must be one of them or a value an earlier step minted. `submits` names carried records, besides the payload, that are submitted with the request rather than held by the store (a new policy a founding proposal names); they are read in submit mode.",
       "required": [
         "name",
         "request",
@@ -313,6 +327,14 @@
         "advance_seconds": {
           "type": "integer",
           "minimum": 1
+        },
+        "submits": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/name"
+          }
         }
       }
     },
@@ -416,6 +438,50 @@
         },
         "runner": {
           "$ref": "#/$defs/name"
+        }
+      }
+    },
+    "replayed_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The same request bytes as an earlier answered step, submitted again: the owner answers with that step's result and receipt and writes nothing new.",
+      "required": [
+        "name",
+        "request",
+        "carries",
+        "replays"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/name"
+        },
+        "request": {
+          "$ref": "#/$defs/name"
+        },
+        "carries": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/name"
+          }
+        },
+        "submits": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/name"
+          }
+        },
+        "replays": {
+          "$ref": "#/$defs/name"
+        },
+        "process": {
+          "$ref": "#/$defs/name"
+        },
+        "advance_seconds": {
+          "type": "integer",
+          "minimum": 1
         }
       }
     }

@@ -11,7 +11,7 @@
   "construction": {
     "run": "The driver loads the current plan, its catalog, the dated evaluator (`validator`) and the regression suite (`regression_tests`) beside it; builds the suite's `Fixture(evaluator, plan, catalog, <situation directory>, unattended=<base is unattended>)`; applies the situation's changes in order to the Fixture's run; and writes that run as `run.json` in the Fixture's artifact directory, so record artifacts resolve beside it. Every record carries the suite's marker SYNTHETIC-AUTHOR-REGRESSION-NOT-PRODUCT-EVIDENCE. The run's `runner_fingerprint` is the Fixture's own; the adapter under qualification is what R0's real record will bind, not this synthetic value.",
     "tree": "A new git repository `tree` in the situation directory, with one commit holding revision 1 of every listed file and, when any file has two revisions, a second commit adding revision 2 of those. An empty file list still makes one commit, of an empty `.keep` file. HEAD after these commits is the base every packet must name.",
-    "stubs": "The invocation's `worker_command` runs the driver's stub worker with the packet path. For each packet the stub appends a start line and, on finishing, an end line to the driver's stub log, each naming the node id, the attempt id and the sha256 of the packet bytes; writes one evidence file `stub-evidence.txt` in the packet's `evidence_dir` holding `SYNTHETIC-RUNNER-EVIDENCE <node_id> <attempt_id>` and a newline; and writes its worker_result at the packet's `result_path`: the stub row's outcome, one change per append with `base_digest` the sha256 of the bytes it read, and the evidence file.",
+    "stubs": "The invocation's `worker_command` runs the driver's stub worker with the packet path. For each packet the stub appends a start line and, on finishing, an end line to the driver's stub log, each naming the node id, the attempt id and the sha256 of the packet bytes; writes one evidence file `stub-evidence.txt` in the packet's `evidence_dir` holding `SYNTHETIC-RUNNER-EVIDENCE <node_id> <attempt_id>` and a newline, unless its row says `evidence: none`; and writes its worker_result at the packet's `result_path`: the stub row's outcome, one change per append with `base_digest` the sha256 of the bytes it read, and the evidence file when it wrote one. A row saying `result: none` writes the evidence file and no worker_result; its outcome and appends are not read.",
     "restart": "After a stopped round the driver leaves the situation directory exactly as the round left it (run file, tree, results, evidence, stub log) and runs the same invocation without `stop_at`. `always` applies to every round that was not stopped; a situation's checks read the state after its last round."
   },
   "always": [
@@ -227,6 +227,265 @@
               ]
             }
           ]
+        },
+        {
+          "name": "terminal_passed",
+          "says": "The positive control for the three situations after it: with every node but R0 and the terminal M4 accepted, the runner dispatches M4, its worker's result says passed with its evidence, M4 is recorded passed, and the report claims the terminal acceptance the evaluator then gives.",
+          "given": {
+            "base": "coordinator",
+            "changes": [
+              {
+                "change": "keep_records",
+                "node_ids": [
+                  "P00",
+                  "P01",
+                  "P02",
+                  "P03",
+                  "P04",
+                  "P05",
+                  "P06",
+                  "P07",
+                  "P08",
+                  "P09",
+                  "P10",
+                  "P11",
+                  "P12",
+                  "P13",
+                  "P14",
+                  "P15",
+                  "P16",
+                  "P17",
+                  "P18",
+                  "P19",
+                  "M1",
+                  "M2",
+                  "M3"
+                ]
+              }
+            ]
+          },
+          "tree": {
+            "files": []
+          },
+          "stubs": [
+            {
+              "node_id": "M4",
+              "outcome": "passed",
+              "appends": []
+            }
+          ],
+          "rounds": {
+            "stop_at": "none"
+          },
+          "checks": [
+            {
+              "check": "dispatched",
+              "node_ids": [
+                "M4"
+              ]
+            },
+            {
+              "check": "recorded_passed",
+              "node_id": "M4"
+            }
+          ]
+        },
+        {
+          "name": "failed_result",
+          "says": "The same run, but M4's worker writes a result whose outcome is failed: M4 is not recorded passed, and the report claims no terminal acceptance although every other claim holds.",
+          "given": {
+            "base": "coordinator",
+            "changes": [
+              {
+                "change": "keep_records",
+                "node_ids": [
+                  "P00",
+                  "P01",
+                  "P02",
+                  "P03",
+                  "P04",
+                  "P05",
+                  "P06",
+                  "P07",
+                  "P08",
+                  "P09",
+                  "P10",
+                  "P11",
+                  "P12",
+                  "P13",
+                  "P14",
+                  "P15",
+                  "P16",
+                  "P17",
+                  "P18",
+                  "P19",
+                  "M1",
+                  "M2",
+                  "M3"
+                ]
+              }
+            ]
+          },
+          "tree": {
+            "files": []
+          },
+          "stubs": [
+            {
+              "node_id": "M4",
+              "outcome": "failed",
+              "appends": []
+            }
+          ],
+          "rounds": {
+            "stop_at": "none"
+          },
+          "checks": [
+            {
+              "check": "dispatched",
+              "node_ids": [
+                "M4"
+              ]
+            },
+            {
+              "check": "not_recorded_passed",
+              "node_id": "M4"
+            },
+            {
+              "check": "no_terminal_claim"
+            }
+          ]
+        },
+        {
+          "name": "missing_result",
+          "says": "The same run, but M4's worker exits without writing any result: the runner does not treat the absent result as a pass, M4 is not recorded passed, and the report claims no terminal acceptance.",
+          "given": {
+            "base": "coordinator",
+            "changes": [
+              {
+                "change": "keep_records",
+                "node_ids": [
+                  "P00",
+                  "P01",
+                  "P02",
+                  "P03",
+                  "P04",
+                  "P05",
+                  "P06",
+                  "P07",
+                  "P08",
+                  "P09",
+                  "P10",
+                  "P11",
+                  "P12",
+                  "P13",
+                  "P14",
+                  "P15",
+                  "P16",
+                  "P17",
+                  "P18",
+                  "P19",
+                  "M1",
+                  "M2",
+                  "M3"
+                ]
+              }
+            ]
+          },
+          "tree": {
+            "files": []
+          },
+          "stubs": [
+            {
+              "node_id": "M4",
+              "outcome": "passed",
+              "appends": [],
+              "result": "none"
+            }
+          ],
+          "rounds": {
+            "stop_at": "none"
+          },
+          "checks": [
+            {
+              "check": "dispatched",
+              "node_ids": [
+                "M4"
+              ]
+            },
+            {
+              "check": "not_recorded_passed",
+              "node_id": "M4"
+            },
+            {
+              "check": "no_terminal_claim"
+            }
+          ]
+        },
+        {
+          "name": "missing_evidence",
+          "says": "The same run, but M4's worker writes a result saying passed with no evidence file behind it: a status alone is not accepted, so M4 is not recorded passed and the report claims no terminal acceptance.",
+          "given": {
+            "base": "coordinator",
+            "changes": [
+              {
+                "change": "keep_records",
+                "node_ids": [
+                  "P00",
+                  "P01",
+                  "P02",
+                  "P03",
+                  "P04",
+                  "P05",
+                  "P06",
+                  "P07",
+                  "P08",
+                  "P09",
+                  "P10",
+                  "P11",
+                  "P12",
+                  "P13",
+                  "P14",
+                  "P15",
+                  "P16",
+                  "P17",
+                  "P18",
+                  "P19",
+                  "M1",
+                  "M2",
+                  "M3"
+                ]
+              }
+            ]
+          },
+          "tree": {
+            "files": []
+          },
+          "stubs": [
+            {
+              "node_id": "M4",
+              "outcome": "passed",
+              "appends": [],
+              "evidence": "none"
+            }
+          ],
+          "rounds": {
+            "stop_at": "none"
+          },
+          "checks": [
+            {
+              "check": "dispatched",
+              "node_ids": [
+                "M4"
+              ]
+            },
+            {
+              "check": "not_recorded_passed",
+              "node_id": "M4"
+            },
+            {
+              "check": "no_terminal_claim"
+            }
+          ]
         }
       ]
     },
@@ -337,6 +596,72 @@
               "check": "applied_at_most_once",
               "node_id": "P02",
               "path": "workenv/identity.py"
+            }
+          ]
+        },
+        {
+          "name": "stopped_after_result",
+          "says": "Ended after P02's worker left its result and before any of its changes was integrated, the restarted runner finds the result written but not integrated, integrates it once under the same attempt, keeps the attempt's evidence and records P02 passed.",
+          "given": {
+            "base": "coordinator",
+            "changes": [
+              {
+                "change": "keep_records",
+                "node_ids": [
+                  "P00",
+                  "P01"
+                ]
+              }
+            ]
+          },
+          "tree": {
+            "files": [
+              {
+                "path": "workenv/identity.py",
+                "revisions": 1
+              }
+            ]
+          },
+          "stubs": [
+            {
+              "node_id": "P02",
+              "outcome": "passed",
+              "appends": [
+                {
+                  "path": "workenv/identity.py",
+                  "base": "current"
+                }
+              ]
+            }
+          ],
+          "rounds": {
+            "stop_at": {
+              "point": "after_result_before_integration",
+              "node_id": "P02"
+            }
+          },
+          "checks": [
+            {
+              "check": "reconciled",
+              "node_id": "P02",
+              "found": "result_not_integrated"
+            },
+            {
+              "check": "same_attempt",
+              "node_id": "P02"
+            },
+            {
+              "check": "applied_once",
+              "node_id": "P02",
+              "path": "workenv/identity.py"
+            },
+            {
+              "check": "evidence_kept",
+              "node_id": "P02"
+            },
+            {
+              "check": "recorded_passed",
+              "node_id": "P02"
             }
           ]
         },

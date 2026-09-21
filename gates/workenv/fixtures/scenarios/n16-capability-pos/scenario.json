@@ -1,0 +1,3143 @@
+{
+ "case": "N16-CAPABILITY-POS",
+ "ids": [
+  {
+   "id": "prn_1d2a928f2257ddf06d73f01ee4a08ac9",
+   "name": "alice"
+  },
+  {
+   "id": "dev_51881f7bb314869fe8412eb2398e54d9",
+   "name": "laptop"
+  },
+  {
+   "id": "prf_0896e17890ebcb1be241dcd6e2feee57",
+   "name": "profile"
+  },
+  {
+   "id": "req_3fc6ab3dcf7bf13efe590735bdaac99a",
+   "name": "bind_request"
+  },
+  {
+   "id": "tem_4b20d42aeaba481ed313cea125f335ed",
+   "name": "team"
+  },
+  {
+   "id": "req_03de708cabd3330c8877423c0ef4bbff",
+   "name": "found_request"
+  },
+  {
+   "id": "req_827de858701613cf234e61a0632dcb5e",
+   "name": "read_probe_request"
+  },
+  {
+   "id": "req_88497db4e8c3c04afcf69244193a0c52",
+   "name": "question_probe_request"
+  },
+  {
+   "id": "req_ccfeab1e5cc44d8fdfd848fec4dc8298",
+   "name": "offer_request"
+  },
+  {
+   "id": "req_a79546ad5d327077dc5c18dc248c20fc",
+   "name": "drive_w02_request"
+  },
+  {
+   "id": "req_3835015dae730f7d726d1549feddcba4",
+   "name": "drive_w10_request"
+  },
+  {
+   "id": "req_565dc04f7d77ec2822c7f0f614237616",
+   "name": "select_w02_request"
+  },
+  {
+   "id": "req_7478d55a4be6e51e263ea99ca831907a",
+   "name": "select_w10_request"
+  },
+  {
+   "id": "req_bbaf3c6fb5cc7c9fd56c6890a867be53",
+   "name": "w02_read_request"
+  },
+  {
+   "id": "req_cb46c2516a658abff69746d2f7591eef",
+   "name": "w10_read_request"
+  },
+  {
+   "id": "rte_eb20a2154ba3f37c2330b42c0c570b4f",
+   "name": "route_w02"
+  },
+  {
+   "id": "rte_d2e9c49758b3b7d5f109b4a1eea13267",
+   "name": "route_w10"
+  },
+  {
+   "id": "rte_673942e12d437ea680a759a48211cd37",
+   "name": "route_decide"
+  }
+ ],
+ "joins": [
+  {
+   "digest_of": "first_key",
+   "pointer": "/payload_digest",
+   "record": "bind"
+  },
+  {
+   "minted": "alice_binding",
+   "pointer": "/binding_id",
+   "record": "stored_key"
+  },
+  {
+   "minted": "bound_at",
+   "pointer": "/created_at",
+   "record": "stored_key"
+  },
+  {
+   "digest_of": "bind",
+   "pointer": "/request_digest",
+   "record": "bind_first_key_receipt"
+  },
+  {
+   "minted": "bind_first_key_head",
+   "pointer": "/head_digest",
+   "record": "bind_first_key_receipt"
+  },
+  {
+   "minted": "bind_first_key_sequence",
+   "pointer": "/sequence",
+   "record": "bind_first_key_receipt"
+  },
+  {
+   "minted": "bind_first_key_committed_at",
+   "pointer": "/committed_at",
+   "record": "bind_first_key_receipt"
+  },
+  {
+   "digest_of": "bind_first_key_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "bind_first_key_result"
+  },
+  {
+   "digest_of": "bind",
+   "pointer": "/request_digest",
+   "record": "bind_first_key_result"
+  },
+  {
+   "digest_of": "stored_key",
+   "pointer": "/outputs/0/digest",
+   "record": "bind_first_key_result"
+  },
+  {
+   "digest_of": "proposed_policy",
+   "pointer": "/policy_digest",
+   "record": "founding"
+  },
+  {
+   "digest_of": "founding",
+   "pointer": "/payload_digest",
+   "record": "found"
+  },
+  {
+   "minted": "founded_at",
+   "pointer": "/since",
+   "record": "team_active"
+  },
+  {
+   "minted": "founded_at",
+   "pointer": "/updated_at",
+   "record": "team_named"
+  },
+  {
+   "minted": "founded_at",
+   "pointer": "/committed_at",
+   "record": "team_policy"
+  },
+  {
+   "minted": "team_policy",
+   "pointer": "/policy_id",
+   "record": "team_policy"
+  },
+  {
+   "minted": "founded_at",
+   "pointer": "/created_at",
+   "record": "founder_grant"
+  },
+  {
+   "minted": "founder_grant",
+   "pointer": "/grant_id",
+   "record": "founder_grant"
+  },
+  {
+   "digest_of": "found",
+   "pointer": "/request_digest",
+   "record": "found_team_receipt"
+  },
+  {
+   "minted": "founded_head",
+   "pointer": "/head_digest",
+   "record": "found_team_receipt"
+  },
+  {
+   "minted": "found_team_sequence",
+   "pointer": "/sequence",
+   "record": "found_team_receipt"
+  },
+  {
+   "minted": "found_team_committed_at",
+   "pointer": "/committed_at",
+   "record": "found_team_receipt"
+  },
+  {
+   "digest_of": "found_team_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "found",
+   "pointer": "/request_digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "team_active",
+   "pointer": "/outputs/0/digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "team_named",
+   "pointer": "/outputs/1/digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "team_policy",
+   "pointer": "/outputs/2/digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "founder_grant",
+   "pointer": "/outputs/3/digest",
+   "record": "found_team_result"
+  },
+  {
+   "digest_of": "read_probe",
+   "pointer": "/payload_digest",
+   "record": "probe_read"
+  },
+  {
+   "minted": "read_probed_at",
+   "pointer": "/at",
+   "record": "read_probe_stored"
+  },
+  {
+   "minted": "read_probe",
+   "pointer": "/probe_id",
+   "record": "read_probe_stored"
+  },
+  {
+   "digest_of": "read_probe_stored",
+   "pointer": "/capabilities/0/state/probe_digest",
+   "record": "profile_after_read"
+  },
+  {
+   "minted": "read_probed_at",
+   "pointer": "/measured_at",
+   "record": "profile_after_read"
+  },
+  {
+   "minted": "client_profile",
+   "pointer": "/profile_id",
+   "record": "profile_after_read"
+  },
+  {
+   "digest_of": "probe_read",
+   "pointer": "/request_digest",
+   "record": "probe_read_receipt"
+  },
+  {
+   "minted": "probe_read_head",
+   "pointer": "/head_digest",
+   "record": "probe_read_receipt"
+  },
+  {
+   "minted": "probe_read_sequence",
+   "pointer": "/sequence",
+   "record": "probe_read_receipt"
+  },
+  {
+   "minted": "probe_read_committed_at",
+   "pointer": "/committed_at",
+   "record": "probe_read_receipt"
+  },
+  {
+   "digest_of": "probe_read_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "probe_read_result"
+  },
+  {
+   "digest_of": "probe_read",
+   "pointer": "/request_digest",
+   "record": "probe_read_result"
+  },
+  {
+   "digest_of": "read_probe_stored",
+   "pointer": "/outputs/0/digest",
+   "record": "probe_read_result"
+  },
+  {
+   "digest_of": "profile_after_read",
+   "pointer": "/outputs/1/digest",
+   "record": "probe_read_result"
+  },
+  {
+   "digest_of": "question_probe",
+   "pointer": "/payload_digest",
+   "record": "probe_question"
+  },
+  {
+   "minted": "question_probed_at",
+   "pointer": "/at",
+   "record": "question_probe_stored"
+  },
+  {
+   "minted": "question_probe",
+   "pointer": "/probe_id",
+   "record": "question_probe_stored"
+  },
+  {
+   "digest_of": "read_probe_stored",
+   "pointer": "/capabilities/0/state/probe_digest",
+   "record": "profile_after_question"
+  },
+  {
+   "minted": "question_probed_at",
+   "pointer": "/measured_at",
+   "record": "profile_after_question"
+  },
+  {
+   "minted": "client_profile",
+   "pointer": "/profile_id",
+   "record": "profile_after_question"
+  },
+  {
+   "digest_of": "probe_question",
+   "pointer": "/request_digest",
+   "record": "probe_question_receipt"
+  },
+  {
+   "minted": "probe_question_head",
+   "pointer": "/head_digest",
+   "record": "probe_question_receipt"
+  },
+  {
+   "minted": "probe_question_sequence",
+   "pointer": "/sequence",
+   "record": "probe_question_receipt"
+  },
+  {
+   "minted": "probe_question_committed_at",
+   "pointer": "/committed_at",
+   "record": "probe_question_receipt"
+  },
+  {
+   "digest_of": "probe_question_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "probe_question_result"
+  },
+  {
+   "digest_of": "probe_question",
+   "pointer": "/request_digest",
+   "record": "probe_question_result"
+  },
+  {
+   "digest_of": "question_probe_stored",
+   "pointer": "/outputs/0/digest",
+   "record": "probe_question_result"
+  },
+  {
+   "digest_of": "profile_after_question",
+   "pointer": "/outputs/1/digest",
+   "record": "probe_question_result"
+  },
+  {
+   "digest_of": "read_probe_stored",
+   "pointer": "/offered/0/support/probe_digest",
+   "record": "hub_offer"
+  },
+  {
+   "digest_of": "read_probe_stored",
+   "pointer": "/offered/1/support/probe_digest",
+   "record": "hub_offer"
+  },
+  {
+   "digest_of": "hub_offer",
+   "pointer": "/payload_digest",
+   "record": "offer"
+  },
+  {
+   "digest_of": "read_probe_stored",
+   "pointer": "/offered/0/support/probe_digest",
+   "record": "stored_offer"
+  },
+  {
+   "digest_of": "read_probe_stored",
+   "pointer": "/offered/1/support/probe_digest",
+   "record": "stored_offer"
+  },
+  {
+   "minted": "offered_at",
+   "pointer": "/offered_at",
+   "record": "stored_offer"
+  },
+  {
+   "digest_of": "offer",
+   "pointer": "/request_digest",
+   "record": "offer_hub_routes_receipt"
+  },
+  {
+   "minted": "offer_hub_routes_head",
+   "pointer": "/head_digest",
+   "record": "offer_hub_routes_receipt"
+  },
+  {
+   "minted": "offer_hub_routes_sequence",
+   "pointer": "/sequence",
+   "record": "offer_hub_routes_receipt"
+  },
+  {
+   "minted": "offer_hub_routes_committed_at",
+   "pointer": "/committed_at",
+   "record": "offer_hub_routes_receipt"
+  },
+  {
+   "digest_of": "offer_hub_routes_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "offer_hub_routes_result"
+  },
+  {
+   "digest_of": "offer",
+   "pointer": "/request_digest",
+   "record": "offer_hub_routes_result"
+  },
+  {
+   "digest_of": "stored_offer",
+   "pointer": "/outputs/0/digest",
+   "record": "offer_hub_routes_result"
+  },
+  {
+   "digest_of": "keys_to_w02",
+   "pointer": "/payload_digest",
+   "record": "drive_w02"
+  },
+  {
+   "minted": "w02_driven_at",
+   "pointer": "/at",
+   "record": "w02_trace"
+  },
+  {
+   "digest_of": "read_probe_stored",
+   "pointer": "/frames/0/elements/2/refers_to/digest",
+   "record": "w02_trace"
+  },
+  {
+   "digest_of": "read_probe_stored",
+   "pointer": "/frames/0/elements/4/refers_to/digest",
+   "record": "w02_trace"
+  },
+  {
+   "digest_of": "question_probe_stored",
+   "pointer": "/frames/0/elements/6/refers_to/digest",
+   "record": "w02_trace"
+  },
+  {
+   "digest_of": "read_probe_stored",
+   "pointer": "/frames/1/elements/2/refers_to/digest",
+   "record": "w02_trace"
+  },
+  {
+   "digest_of": "read_probe_stored",
+   "pointer": "/frames/1/elements/4/refers_to/digest",
+   "record": "w02_trace"
+  },
+  {
+   "digest_of": "question_probe_stored",
+   "pointer": "/frames/1/elements/6/refers_to/digest",
+   "record": "w02_trace"
+  },
+  {
+   "digest_of": "stored_offer",
+   "pointer": "/offer_digest",
+   "record": "w02_selection"
+  },
+  {
+   "digest_of": "w02_selection",
+   "pointer": "/payload_digest",
+   "record": "select_w02"
+  },
+  {
+   "digest_of": "select_w02",
+   "pointer": "/frames/2/calls/0/request_digest",
+   "record": "w02_trace"
+  },
+  {
+   "digest_of": "keys_to_w02",
+   "pointer": "/script_digest",
+   "record": "w02_trace"
+  },
+  {
+   "digest_of": "drive_w02",
+   "pointer": "/request_digest",
+   "record": "drive_to_w02_result"
+  },
+  {
+   "digest_of": "w02_trace",
+   "pointer": "/outputs/0/digest",
+   "record": "drive_to_w02_result"
+  },
+  {
+   "minted": "w02_opened_at",
+   "pointer": "/at",
+   "record": "w02_outcome"
+  },
+  {
+   "minted": "w02_view",
+   "pointer": "/result/output_digest",
+   "record": "w02_outcome"
+  },
+  {
+   "digest_of": "select_w02",
+   "pointer": "/request_digest",
+   "record": "select_w02_receipt"
+  },
+  {
+   "minted": "select_w02_head",
+   "pointer": "/head_digest",
+   "record": "select_w02_receipt"
+  },
+  {
+   "minted": "select_w02_sequence",
+   "pointer": "/sequence",
+   "record": "select_w02_receipt"
+  },
+  {
+   "minted": "select_w02_committed_at",
+   "pointer": "/committed_at",
+   "record": "select_w02_receipt"
+  },
+  {
+   "digest_of": "select_w02_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "select_w02_result"
+  },
+  {
+   "digest_of": "select_w02",
+   "pointer": "/request_digest",
+   "record": "select_w02_result"
+  },
+  {
+   "digest_of": "w02_outcome",
+   "pointer": "/outputs/0/digest",
+   "record": "select_w02_result"
+  },
+  {
+   "digest_of": "keys_to_w10",
+   "pointer": "/payload_digest",
+   "record": "drive_w10"
+  },
+  {
+   "minted": "w10_driven_at",
+   "pointer": "/at",
+   "record": "w10_trace"
+  },
+  {
+   "digest_of": "read_probe_stored",
+   "pointer": "/frames/0/elements/2/refers_to/digest",
+   "record": "w10_trace"
+  },
+  {
+   "digest_of": "read_probe_stored",
+   "pointer": "/frames/0/elements/4/refers_to/digest",
+   "record": "w10_trace"
+  },
+  {
+   "digest_of": "question_probe_stored",
+   "pointer": "/frames/0/elements/6/refers_to/digest",
+   "record": "w10_trace"
+  },
+  {
+   "digest_of": "read_probe_stored",
+   "pointer": "/frames/1/elements/2/refers_to/digest",
+   "record": "w10_trace"
+  },
+  {
+   "digest_of": "read_probe_stored",
+   "pointer": "/frames/1/elements/4/refers_to/digest",
+   "record": "w10_trace"
+  },
+  {
+   "digest_of": "question_probe_stored",
+   "pointer": "/frames/1/elements/6/refers_to/digest",
+   "record": "w10_trace"
+  },
+  {
+   "digest_of": "read_probe_stored",
+   "pointer": "/frames/2/elements/2/refers_to/digest",
+   "record": "w10_trace"
+  },
+  {
+   "digest_of": "read_probe_stored",
+   "pointer": "/frames/2/elements/4/refers_to/digest",
+   "record": "w10_trace"
+  },
+  {
+   "digest_of": "question_probe_stored",
+   "pointer": "/frames/2/elements/6/refers_to/digest",
+   "record": "w10_trace"
+  },
+  {
+   "digest_of": "stored_offer",
+   "pointer": "/offer_digest",
+   "record": "w10_selection"
+  },
+  {
+   "digest_of": "w10_selection",
+   "pointer": "/payload_digest",
+   "record": "select_w10"
+  },
+  {
+   "digest_of": "select_w10",
+   "pointer": "/frames/3/calls/0/request_digest",
+   "record": "w10_trace"
+  },
+  {
+   "digest_of": "keys_to_w10",
+   "pointer": "/script_digest",
+   "record": "w10_trace"
+  },
+  {
+   "digest_of": "drive_w10",
+   "pointer": "/request_digest",
+   "record": "drive_to_w10_result"
+  },
+  {
+   "digest_of": "w10_trace",
+   "pointer": "/outputs/0/digest",
+   "record": "drive_to_w10_result"
+  },
+  {
+   "minted": "w10_opened_at",
+   "pointer": "/at",
+   "record": "w10_outcome"
+  },
+  {
+   "minted": "w10_view",
+   "pointer": "/result/output_digest",
+   "record": "w10_outcome"
+  },
+  {
+   "digest_of": "select_w10",
+   "pointer": "/request_digest",
+   "record": "select_w10_receipt"
+  },
+  {
+   "minted": "select_w10_head",
+   "pointer": "/head_digest",
+   "record": "select_w10_receipt"
+  },
+  {
+   "minted": "select_w10_sequence",
+   "pointer": "/sequence",
+   "record": "select_w10_receipt"
+  },
+  {
+   "minted": "select_w10_committed_at",
+   "pointer": "/committed_at",
+   "record": "select_w10_receipt"
+  },
+  {
+   "digest_of": "select_w10_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "select_w10_result"
+  },
+  {
+   "digest_of": "select_w10",
+   "pointer": "/request_digest",
+   "record": "select_w10_result"
+  },
+  {
+   "digest_of": "w10_outcome",
+   "pointer": "/outputs/0/digest",
+   "record": "select_w10_result"
+  }
+ ],
+ "minted": [
+  {
+   "name": "alice_binding",
+   "shape": "bnd",
+   "step": "bind_first_key"
+  },
+  {
+   "name": "bind_first_key_committed_at",
+   "shape": "instant",
+   "step": "bind_first_key"
+  },
+  {
+   "name": "bind_first_key_head",
+   "shape": "digest",
+   "step": "bind_first_key"
+  },
+  {
+   "name": "bind_first_key_sequence",
+   "shape": "integer",
+   "step": "bind_first_key"
+  },
+  {
+   "name": "bound_at",
+   "shape": "instant",
+   "step": "bind_first_key"
+  },
+  {
+   "name": "found_team_committed_at",
+   "shape": "instant",
+   "step": "found_team"
+  },
+  {
+   "name": "found_team_sequence",
+   "shape": "integer",
+   "step": "found_team"
+  },
+  {
+   "name": "founded_at",
+   "shape": "instant",
+   "step": "found_team"
+  },
+  {
+   "name": "founded_head",
+   "shape": "digest",
+   "step": "found_team"
+  },
+  {
+   "name": "founder_grant",
+   "shape": "gra",
+   "step": "found_team"
+  },
+  {
+   "name": "team_policy",
+   "shape": "pol",
+   "step": "found_team"
+  },
+  {
+   "name": "client_profile",
+   "shape": "cap",
+   "step": "probe_read"
+  },
+  {
+   "name": "probe_read_committed_at",
+   "shape": "instant",
+   "step": "probe_read"
+  },
+  {
+   "name": "probe_read_head",
+   "shape": "digest",
+   "step": "probe_read"
+  },
+  {
+   "name": "probe_read_sequence",
+   "shape": "integer",
+   "step": "probe_read"
+  },
+  {
+   "name": "read_probe",
+   "shape": "prb",
+   "step": "probe_read"
+  },
+  {
+   "name": "read_probed_at",
+   "shape": "instant",
+   "step": "probe_read"
+  },
+  {
+   "name": "probe_question_committed_at",
+   "shape": "instant",
+   "step": "probe_question"
+  },
+  {
+   "name": "probe_question_head",
+   "shape": "digest",
+   "step": "probe_question"
+  },
+  {
+   "name": "probe_question_sequence",
+   "shape": "integer",
+   "step": "probe_question"
+  },
+  {
+   "name": "question_probe",
+   "shape": "prb",
+   "step": "probe_question"
+  },
+  {
+   "name": "question_probed_at",
+   "shape": "instant",
+   "step": "probe_question"
+  },
+  {
+   "name": "offer_hub_routes_committed_at",
+   "shape": "instant",
+   "step": "offer_hub_routes"
+  },
+  {
+   "name": "offer_hub_routes_head",
+   "shape": "digest",
+   "step": "offer_hub_routes"
+  },
+  {
+   "name": "offer_hub_routes_sequence",
+   "shape": "integer",
+   "step": "offer_hub_routes"
+  },
+  {
+   "name": "offered_at",
+   "shape": "instant",
+   "step": "offer_hub_routes"
+  },
+  {
+   "name": "w02_driven_at",
+   "shape": "instant",
+   "step": "drive_to_w02"
+  },
+  {
+   "name": "select_w02_committed_at",
+   "shape": "instant",
+   "step": "select_w02"
+  },
+  {
+   "name": "select_w02_head",
+   "shape": "digest",
+   "step": "select_w02"
+  },
+  {
+   "name": "select_w02_sequence",
+   "shape": "integer",
+   "step": "select_w02"
+  },
+  {
+   "name": "w02_opened_at",
+   "shape": "instant",
+   "step": "select_w02"
+  },
+  {
+   "name": "w02_view",
+   "shape": "digest",
+   "step": "select_w02"
+  },
+  {
+   "name": "w10_driven_at",
+   "shape": "instant",
+   "step": "drive_to_w10"
+  },
+  {
+   "name": "select_w10_committed_at",
+   "shape": "instant",
+   "step": "select_w10"
+  },
+  {
+   "name": "select_w10_head",
+   "shape": "digest",
+   "step": "select_w10"
+  },
+  {
+   "name": "select_w10_sequence",
+   "shape": "integer",
+   "step": "select_w10"
+  },
+  {
+   "name": "w10_opened_at",
+   "shape": "instant",
+   "step": "select_w10"
+  },
+  {
+   "name": "w10_view",
+   "shape": "digest",
+   "step": "select_w10"
+  }
+ ],
+ "records": [
+  {
+   "digest": "4df018fc97a2227a8704c751c6bb64a1da73295ca1f4ab702e87588fa752849f",
+   "name": "first_key",
+   "record": {
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_51881f7bb314869fe8412eb2398e54d9",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_1d2a928f2257ddf06d73f01ee4a08ac9",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "cf16bcc4f690a15a536ad9fcb9ef7f20f06a23f9c793136e069a8b52bc6fa8ea",
+   "name": "bind",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_51881f7bb314869fe8412eb2398e54d9",
+     "principal_id": "prn_1d2a928f2257ddf06d73f01ee4a08ac9",
+     "profile_id": "prf_0896e17890ebcb1be241dcd6e2feee57"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "identity.binding.add",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_1d2a928f2257ddf06d73f01ee4a08ac9"
+    },
+    "payload_digest": "4df018fc97a2227a8704c751c6bb64a1da73295ca1f4ab702e87588fa752849f",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_3fc6ab3dcf7bf13efe590735bdaac99a",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_1d2a928f2257ddf06d73f01ee4a08ac9"
+    }
+   }
+  },
+  {
+   "digest": "20261dd17d2dbc78df2a7a173bfcefb0cc3c42e022ccb9d78734d93f585bb191",
+   "name": "stored_key",
+   "record": {
+    "binding_id": "bnd_5ff03e56478e9982ee29a3d08961e8d2",
+    "created_at": "2000-01-01T00:00:00Z",
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_51881f7bb314869fe8412eb2398e54d9",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
+    },
+    "established_by": "local_creation",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_1d2a928f2257ddf06d73f01ee4a08ac9",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "0e92f9aa5abf463bf59a6d84fd5495a64945bafaae45f533a4130850d1f40fbe",
+   "name": "bind_first_key_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "77babd5e42ad8a967b9c8fdb15a59fd500f746c037cbdf23f79b235f8494ed52",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_1d2a928f2257ddf06d73f01ee4a08ac9"
+    },
+    "request_digest": "cf16bcc4f690a15a536ad9fcb9ef7f20f06a23f9c793136e069a8b52bc6fa8ea",
+    "request_id": "req_3fc6ab3dcf7bf13efe590735bdaac99a",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prn_1d2a928f2257ddf06d73f01ee4a08ac9"
+    }
+   }
+  },
+  {
+   "digest": "3865300e05b5c564a6dda8007769348b24c00429bfc0a67a53e0abfb1798fbc0",
+   "name": "bind_first_key_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "0e92f9aa5abf463bf59a6d84fd5495a64945bafaae45f533a4130850d1f40fbe",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "20261dd17d2dbc78df2a7a173bfcefb0cc3c42e022ccb9d78734d93f585bb191",
+      "kind": "principal_binding"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "cf16bcc4f690a15a536ad9fcb9ef7f20f06a23f9c793136e069a8b52bc6fa8ea",
+    "request_id": "req_3fc6ab3dcf7bf13efe590735bdaac99a",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "a03d4bc77196835c54e604cd402d5fbaa0c4bb2b85cdd8d274e7168d96ec0fee",
+   "name": "proposed_policy",
+   "record": {
+    "delegation_ceiling": 2,
+    "execution_authority": {
+     "duty": "finalizer",
+     "principal_id": "prn_1d2a928f2257ddf06d73f01ee4a08ac9"
+    },
+    "expiry_days": 30,
+    "independence": {
+     "excludes_recorded_authors": true,
+     "excludes_requester": true,
+     "excludes_sponsored_agents": true
+    },
+    "kind": "governing_policy",
+    "operations": [
+     "publish",
+     "adopt"
+    ],
+    "schema": 1,
+    "team_id": "tem_4b20d42aeaba481ed313cea125f335ed",
+    "threshold": 0
+   }
+  },
+  {
+   "digest": "745aaefb76014f38990f633892f9e63847280326cd3076540cc89da2803d436a",
+   "name": "founding",
+   "record": {
+    "carriers": [
+     "local"
+    ],
+    "custody_target": 1,
+    "finalizer": {
+     "device_id": "dev_51881f7bb314869fe8412eb2398e54d9",
+     "runs_on": "member_device"
+    },
+    "founder_principal_id": "prn_1d2a928f2257ddf06d73f01ee4a08ac9",
+    "founding_mode": {
+     "acknowledged_self_reviewed": true,
+     "mode": "self_founded"
+    },
+    "kind": "founding_proposal",
+    "name": "Platform",
+    "policy_digest": "a03d4bc77196835c54e604cd402d5fbaa0c4bb2b85cdd8d274e7168d96ec0fee",
+    "proposal_version": 1,
+    "purpose": "The standards this group works to.",
+    "recovery": [
+     {
+      "duty": "recovery",
+      "principal_id": "prn_1d2a928f2257ddf06d73f01ee4a08ac9"
+     }
+    ],
+    "schema": 1,
+    "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+   }
+  },
+  {
+   "digest": "c6a94e91b863b43c9808d19299c97073235409c7bf9bf63a1fa1a669655dc04f",
+   "name": "found",
+   "record": {
+    "action": "policy",
+    "actor": {
+     "device_id": "dev_51881f7bb314869fe8412eb2398e54d9",
+     "principal_id": "prn_1d2a928f2257ddf06d73f01ee4a08ac9",
+     "profile_id": "prf_0896e17890ebcb1be241dcd6e2feee57"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "team.found",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+    },
+    "payload_digest": "745aaefb76014f38990f633892f9e63847280326cd3076540cc89da2803d436a",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_03de708cabd3330c8877423c0ef4bbff",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+    }
+   }
+  },
+  {
+   "digest": "02517d5f229c9b2ec0e0197d20c9324f489ac67f0e1b7b69bf7a3ff62a7fd4da",
+   "name": "team_active",
+   "record": {
+    "kind": "team_state",
+    "schema": 1,
+    "since": "2000-01-01T00:00:00Z",
+    "state": "active",
+    "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+   }
+  },
+  {
+   "digest": "f21001966fa383de7adeec2fe07ca3f69aecba446b60b4317cb28aff0551c985",
+   "name": "team_named",
+   "record": {
+    "kind": "team_profile",
+    "name": "Platform",
+    "purpose": "The standards this group works to.",
+    "schema": 1,
+    "team_id": "tem_4b20d42aeaba481ed313cea125f335ed",
+    "updated_at": "2000-01-01T00:00:00Z"
+   }
+  },
+  {
+   "digest": "0918e019c0a23cff26dd5acbc9007a7d08bb6871a5dd69b3179defd2c9900d8a",
+   "name": "team_policy",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "delegation_ceiling": 2,
+    "execution_authority": {
+     "duty": "finalizer",
+     "principal_id": "prn_1d2a928f2257ddf06d73f01ee4a08ac9"
+    },
+    "expiry_days": 30,
+    "independence": {
+     "excludes_recorded_authors": true,
+     "excludes_requester": true,
+     "excludes_sponsored_agents": true
+    },
+    "kind": "governing_policy",
+    "operations": [
+     "publish",
+     "adopt"
+    ],
+    "policy_id": "pol_8025bb78c78ee5d42e326d6bec596b6a",
+    "policy_version": 1,
+    "schema": 1,
+    "team_id": "tem_4b20d42aeaba481ed313cea125f335ed",
+    "threshold": 0
+   }
+  },
+  {
+   "digest": "c5374e9428d37b226b130ab31f214c7a59ed45a5b82c196710631f3794cfcbcd",
+   "name": "founder_grant",
+   "record": {
+    "actions": [
+     "read",
+     "use",
+     "contribute",
+     "review",
+     "publish",
+     "adopt",
+     "decide",
+     "grant",
+     "policy"
+    ],
+    "created_at": "2000-01-01T00:00:00Z",
+    "delegation_ceiling": 1,
+    "grant_id": "gra_a810b901ec5e4773d9db428daceadec9",
+    "grant_revision": 1,
+    "holder": {
+     "principal_id": "prn_1d2a928f2257ddf06d73f01ee4a08ac9",
+     "to": "principal"
+    },
+    "issuer_principal_id": "prn_1d2a928f2257ddf06d73f01ee4a08ac9",
+    "kind": "grant_record",
+    "schema": 1,
+    "scope": {
+     "layer": "team",
+     "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+    },
+    "standing": "current",
+    "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+   }
+  },
+  {
+   "digest": "22634c4b6fe01b60016d83b6ea05dedf28d8827edc4003104bdd16dae5713d77",
+   "name": "found_team_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "e16d58bf2926256ff127167f660d6df99cf420a878718f61e77c161c5c52cd29",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+    },
+    "request_digest": "c6a94e91b863b43c9808d19299c97073235409c7bf9bf63a1fa1a669655dc04f",
+    "request_id": "req_03de708cabd3330c8877423c0ef4bbff",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+    }
+   }
+  },
+  {
+   "digest": "18846d6bd68761eca1750dff891a14f00dc50707d20968283e75dd864126a9c2",
+   "name": "found_team_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "22634c4b6fe01b60016d83b6ea05dedf28d8827edc4003104bdd16dae5713d77",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "02517d5f229c9b2ec0e0197d20c9324f489ac67f0e1b7b69bf7a3ff62a7fd4da",
+      "kind": "team_state"
+     },
+     {
+      "digest": "f21001966fa383de7adeec2fe07ca3f69aecba446b60b4317cb28aff0551c985",
+      "kind": "team_profile"
+     },
+     {
+      "digest": "0918e019c0a23cff26dd5acbc9007a7d08bb6871a5dd69b3179defd2c9900d8a",
+      "kind": "governing_policy"
+     },
+     {
+      "digest": "c5374e9428d37b226b130ab31f214c7a59ed45a5b82c196710631f3794cfcbcd",
+      "kind": "grant_record"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "c6a94e91b863b43c9808d19299c97073235409c7bf9bf63a1fa1a669655dc04f",
+    "request_id": "req_03de708cabd3330c8877423c0ef4bbff",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "838620cd5512c10c6c1a938a593f9450cca5e84fdc628228fc6495df7c3283d7",
+   "name": "read_probe",
+   "record": {
+    "capability": "read",
+    "client": {
+     "name": "agent-bios",
+     "version": "0.20.0"
+    },
+    "kind": "capability_probe",
+    "schema": 1,
+    "wire": {
+     "protocol": "model_context_protocol",
+     "version": "2025-11-25"
+    }
+   }
+  },
+  {
+   "digest": "419f0bf1fad359baee12724c529f9b72208783ce2ad6ff37ad359dfecd7bc284",
+   "name": "probe_read",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_51881f7bb314869fe8412eb2398e54d9",
+     "principal_id": "prn_1d2a928f2257ddf06d73f01ee4a08ac9",
+     "profile_id": "prf_0896e17890ebcb1be241dcd6e2feee57"
+    },
+    "control_digests": [],
+    "effect_class": "durable_candidate",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "capability.probe",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_1d2a928f2257ddf06d73f01ee4a08ac9"
+    },
+    "payload_digest": "838620cd5512c10c6c1a938a593f9450cca5e84fdc628228fc6495df7c3283d7",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_827de858701613cf234e61a0632dcb5e",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_0896e17890ebcb1be241dcd6e2feee57"
+    }
+   }
+  },
+  {
+   "digest": "1d32ccefe55fd3adbb84e000e97f0582f54333d57e89c08c751f21f89fa06037",
+   "name": "read_probe_stored",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "capability": "read",
+    "client": {
+     "name": "agent-bios",
+     "version": "0.20.0"
+    },
+    "kind": "capability_probe",
+    "mode": {
+     "runs": "real"
+    },
+    "observed": "The installed client read the Team's state through the owner and showed it.",
+    "offered": true,
+    "outcome": "worked",
+    "probe_id": "prb_b0ea80afe7fd955864ff9e75a04903b8",
+    "schema": 1,
+    "wire": {
+     "protocol": "model_context_protocol",
+     "version": "2025-11-25"
+    }
+   }
+  },
+  {
+   "digest": "f46132c873c5117baecbb97299377b418b5941d8b5642419fc05aafe1f26149c",
+   "name": "profile_after_read",
+   "record": {
+    "capabilities": [
+     {
+      "capability": "read",
+      "state": {
+       "probe_digest": "1d32ccefe55fd3adbb84e000e97f0582f54333d57e89c08c751f21f89fa06037",
+       "qualified": "yes"
+      }
+     }
+    ],
+    "client": {
+     "name": "agent-bios",
+     "version": "0.20.0"
+    },
+    "kind": "capability_profile",
+    "measured_at": "2000-01-01T00:00:00Z",
+    "profile_id": "cap_aabd23691504d93b287bd991e9ef553e",
+    "schema": 1,
+    "wire": {
+     "protocol": "model_context_protocol",
+     "version": "2025-11-25"
+    }
+   }
+  },
+  {
+   "digest": "998319cdf3574fe2f060c07c7662c313d24bc54088cb82b661d31b3d849c5014",
+   "name": "probe_read_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "ee5760e65d2a42047c89170a20e4033257d522414a299e8f6b56415ecff39353",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_1d2a928f2257ddf06d73f01ee4a08ac9"
+    },
+    "request_digest": "419f0bf1fad359baee12724c529f9b72208783ce2ad6ff37ad359dfecd7bc284",
+    "request_id": "req_827de858701613cf234e61a0632dcb5e",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_0896e17890ebcb1be241dcd6e2feee57"
+    }
+   }
+  },
+  {
+   "digest": "13715d86bff93610f497ba4522edca723e3fc7e589b1b080819df25b7a49f384",
+   "name": "probe_read_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "998319cdf3574fe2f060c07c7662c313d24bc54088cb82b661d31b3d849c5014",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "1d32ccefe55fd3adbb84e000e97f0582f54333d57e89c08c751f21f89fa06037",
+      "kind": "capability_probe"
+     },
+     {
+      "digest": "f46132c873c5117baecbb97299377b418b5941d8b5642419fc05aafe1f26149c",
+      "kind": "capability_profile"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "419f0bf1fad359baee12724c529f9b72208783ce2ad6ff37ad359dfecd7bc284",
+    "request_id": "req_827de858701613cf234e61a0632dcb5e",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "dedfc81ff467fd12e7d344d582ad08a51d4289d6a0b6ccda77974032ffcf89ef",
+   "name": "question_probe",
+   "record": {
+    "capability": "question",
+    "client": {
+     "name": "agent-bios",
+     "version": "0.20.0"
+    },
+    "kind": "capability_probe",
+    "schema": 1,
+    "wire": {
+     "protocol": "model_context_protocol",
+     "version": "2025-11-25"
+    }
+   }
+  },
+  {
+   "digest": "428d107976224f5b309bfa95fb7249525db92f377c205eaedc9bf93bfdc55b78",
+   "name": "probe_question",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_51881f7bb314869fe8412eb2398e54d9",
+     "principal_id": "prn_1d2a928f2257ddf06d73f01ee4a08ac9",
+     "profile_id": "prf_0896e17890ebcb1be241dcd6e2feee57"
+    },
+    "control_digests": [],
+    "effect_class": "durable_candidate",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "capability.probe",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_1d2a928f2257ddf06d73f01ee4a08ac9"
+    },
+    "payload_digest": "dedfc81ff467fd12e7d344d582ad08a51d4289d6a0b6ccda77974032ffcf89ef",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_88497db4e8c3c04afcf69244193a0c52",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_0896e17890ebcb1be241dcd6e2feee57"
+    }
+   }
+  },
+  {
+   "digest": "67f50ae186267cd2e2b5eb2f19695ea82efdc68cf932c48fd56011d7daadacbe",
+   "name": "question_probe_stored",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "capability": "question",
+    "client": {
+     "name": "agent-bios",
+     "version": "0.20.0"
+    },
+    "kind": "capability_probe",
+    "mode": {
+     "runs": "real"
+    },
+    "observed": "The installed client declared no way to put a question to a person.",
+    "offered": false,
+    "outcome": "unsupported",
+    "probe_id": "prb_b26c634f7784b30f2e6974ece8753d06",
+    "schema": 1,
+    "wire": {
+     "protocol": "model_context_protocol",
+     "version": "2025-11-25"
+    }
+   }
+  },
+  {
+   "digest": "0a6802a5f3d6f118020029d0eebbf90e742193bdbce9909daa66396f52ef038f",
+   "name": "profile_after_question",
+   "record": {
+    "capabilities": [
+     {
+      "capability": "read",
+      "state": {
+       "probe_digest": "1d32ccefe55fd3adbb84e000e97f0582f54333d57e89c08c751f21f89fa06037",
+       "qualified": "yes"
+      }
+     },
+     {
+      "capability": "question",
+      "state": {
+       "because": "not_offered",
+       "qualified": "no"
+      }
+     }
+    ],
+    "client": {
+     "name": "agent-bios",
+     "version": "0.20.0"
+    },
+    "kind": "capability_profile",
+    "measured_at": "2000-01-01T00:00:00Z",
+    "profile_id": "cap_aabd23691504d93b287bd991e9ef553e",
+    "schema": 1,
+    "wire": {
+     "protocol": "model_context_protocol",
+     "version": "2025-11-25"
+    }
+   }
+  },
+  {
+   "digest": "23252778e820618ea74225505331ac79adf742f65c8251fffb4bf6273aea36f1",
+   "name": "probe_question_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "b56d11e35d8cf9e838cb7b7ec1c4e91c1160a48ca2e4ecd14cb6626f243fc69e",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_1d2a928f2257ddf06d73f01ee4a08ac9"
+    },
+    "request_digest": "428d107976224f5b309bfa95fb7249525db92f377c205eaedc9bf93bfdc55b78",
+    "request_id": "req_88497db4e8c3c04afcf69244193a0c52",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_0896e17890ebcb1be241dcd6e2feee57"
+    }
+   }
+  },
+  {
+   "digest": "04fcef37adf5aa52760bd726de9895610ac1a63852d1cfb31e0658e9520a378a",
+   "name": "probe_question_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "23252778e820618ea74225505331ac79adf742f65c8251fffb4bf6273aea36f1",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "67f50ae186267cd2e2b5eb2f19695ea82efdc68cf932c48fd56011d7daadacbe",
+      "kind": "capability_probe"
+     },
+     {
+      "digest": "0a6802a5f3d6f118020029d0eebbf90e742193bdbce9909daa66396f52ef038f",
+      "kind": "capability_profile"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "428d107976224f5b309bfa95fb7249525db92f377c205eaedc9bf93bfdc55b78",
+    "request_id": "req_88497db4e8c3c04afcf69244193a0c52",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "32f1ac65ebab2e9f3db6cc18b42466ace325f4b550b015bb2b9edeccf4330d16",
+   "name": "hub_offer",
+   "record": {
+    "entrance": {
+     "name": "studio_hub",
+     "root_origin": "owner"
+    },
+    "kind": "route_offer",
+    "offered": [
+     {
+      "recovery": [
+       "retry_same_request",
+       "query_same_request"
+      ],
+      "route_id": "rte_eb20a2154ba3f37c2330b42c0c570b4f",
+      "scope": {
+       "layer": "team",
+       "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+      },
+      "support": {
+       "probe_digest": "1d32ccefe55fd3adbb84e000e97f0582f54333d57e89c08c751f21f89fa06037",
+       "qualified": "yes"
+      },
+      "supported_action": "read"
+     },
+     {
+      "recovery": [
+       "retry_same_request",
+       "query_same_request"
+      ],
+      "route_id": "rte_d2e9c49758b3b7d5f109b4a1eea13267",
+      "scope": {
+       "layer": "team",
+       "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+      },
+      "support": {
+       "probe_digest": "1d32ccefe55fd3adbb84e000e97f0582f54333d57e89c08c751f21f89fa06037",
+       "qualified": "yes"
+      },
+      "supported_action": "read"
+     },
+     {
+      "recovery": [],
+      "route_id": "rte_673942e12d437ea680a759a48211cd37",
+      "scope": {
+       "layer": "team",
+       "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+      },
+      "support": {
+       "because": "not_offered",
+       "qualified": "no"
+      },
+      "supported_action": "decide"
+     }
+    ],
+    "schema": 1
+   }
+  },
+  {
+   "digest": "9c02926e53d99d22a6b298d6ba320afeaf5f5af2b1a7373d0f68b6f2f002e9eb",
+   "name": "offer",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_51881f7bb314869fe8412eb2398e54d9",
+     "principal_id": "prn_1d2a928f2257ddf06d73f01ee4a08ac9",
+     "profile_id": "prf_0896e17890ebcb1be241dcd6e2feee57"
+    },
+    "control_digests": [],
+    "effect_class": "durable_candidate",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "route.offer",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+    },
+    "payload_digest": "32f1ac65ebab2e9f3db6cc18b42466ace325f4b550b015bb2b9edeccf4330d16",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_ccfeab1e5cc44d8fdfd848fec4dc8298",
+    "schema": 1,
+    "target": {
+     "resource_id": "rte_eb20a2154ba3f37c2330b42c0c570b4f"
+    }
+   }
+  },
+  {
+   "digest": "b931d5ac49cf17a2cc568240a0e554e3c379edcdf05339769b156b2df54d3536",
+   "name": "stored_offer",
+   "record": {
+    "entrance": {
+     "name": "studio_hub",
+     "root_origin": "owner"
+    },
+    "kind": "route_offer",
+    "offered": [
+     {
+      "recovery": [
+       "retry_same_request",
+       "query_same_request"
+      ],
+      "route_id": "rte_eb20a2154ba3f37c2330b42c0c570b4f",
+      "scope": {
+       "layer": "team",
+       "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+      },
+      "support": {
+       "probe_digest": "1d32ccefe55fd3adbb84e000e97f0582f54333d57e89c08c751f21f89fa06037",
+       "qualified": "yes"
+      },
+      "supported_action": "read"
+     },
+     {
+      "recovery": [
+       "retry_same_request",
+       "query_same_request"
+      ],
+      "route_id": "rte_d2e9c49758b3b7d5f109b4a1eea13267",
+      "scope": {
+       "layer": "team",
+       "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+      },
+      "support": {
+       "probe_digest": "1d32ccefe55fd3adbb84e000e97f0582f54333d57e89c08c751f21f89fa06037",
+       "qualified": "yes"
+      },
+      "supported_action": "read"
+     },
+     {
+      "recovery": [],
+      "route_id": "rte_673942e12d437ea680a759a48211cd37",
+      "scope": {
+       "layer": "team",
+       "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+      },
+      "support": {
+       "because": "not_offered",
+       "qualified": "no"
+      },
+      "supported_action": "decide"
+     }
+    ],
+    "offered_at": "2000-01-01T00:00:00Z",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "398072fdf87c9b08ec4b58e8d81e4b1b3bf97abf0811fe527c69ea2c391dcc99",
+   "name": "offer_hub_routes_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "5550f4ef70dbd1fa8148a14882182c39e10e1eb04417ed91aa7d1e6fd9c33f46",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+    },
+    "request_digest": "9c02926e53d99d22a6b298d6ba320afeaf5f5af2b1a7373d0f68b6f2f002e9eb",
+    "request_id": "req_ccfeab1e5cc44d8fdfd848fec4dc8298",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "rte_eb20a2154ba3f37c2330b42c0c570b4f"
+    }
+   }
+  },
+  {
+   "digest": "767b7b518445c796f77c86085375e2361155b48e927578b61cff66d65264f63f",
+   "name": "offer_hub_routes_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "398072fdf87c9b08ec4b58e8d81e4b1b3bf97abf0811fe527c69ea2c391dcc99",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "b931d5ac49cf17a2cc568240a0e554e3c379edcdf05339769b156b2df54d3536",
+      "kind": "route_offer"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "9c02926e53d99d22a6b298d6ba320afeaf5f5af2b1a7373d0f68b6f2f002e9eb",
+    "request_id": "req_ccfeab1e5cc44d8fdfd848fec4dc8298",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "a2b3cef9cd9c458cf1d5798ac402d2e564552c4541e4e91268d0f629dee187be",
+   "name": "keys_to_w02",
+   "record": {
+    "entrance": {
+     "name": "studio_hub",
+     "root_origin": "owner"
+    },
+    "inputs": [
+     {
+      "input": "key",
+      "key": "down"
+     },
+     {
+      "input": "key",
+      "key": "enter"
+     }
+    ],
+    "kind": "surface_script",
+    "locale": "ko",
+    "schema": 1,
+    "terminal": {
+     "columns": 80,
+     "rows": 24
+    }
+   }
+  },
+  {
+   "digest": "b25561ed5b25a80588ef382145887e06a838bd45ff8892159d02bb0952dda030",
+   "name": "drive_w02",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_51881f7bb314869fe8412eb2398e54d9",
+     "principal_id": "prn_1d2a928f2257ddf06d73f01ee4a08ac9",
+     "profile_id": "prf_0896e17890ebcb1be241dcd6e2feee57"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "surface.drive",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+    },
+    "payload_digest": "a2b3cef9cd9c458cf1d5798ac402d2e564552c4541e4e91268d0f629dee187be",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_a79546ad5d327077dc5c18dc248c20fc",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_0896e17890ebcb1be241dcd6e2feee57"
+    }
+   }
+  },
+  {
+   "digest": "485296e11eed18dcc171caf549b2b83a38858b6e5d8ef669d2a4040761fa06a9",
+   "name": "w02_selection",
+   "record": {
+    "expected": {
+     "material_gaps": [],
+     "recovery": [
+      "retry_same_request"
+     ],
+     "stage": "prepared"
+    },
+    "focused": "rte_eb20a2154ba3f37c2330b42c0c570b4f",
+    "kind": "route_selection",
+    "offer_digest": "b931d5ac49cf17a2cc568240a0e554e3c379edcdf05339769b156b2df54d3536",
+    "request_id": "req_bbaf3c6fb5cc7c9fd56c6890a867be53",
+    "schema": 1,
+    "selected": "rte_eb20a2154ba3f37c2330b42c0c570b4f"
+   }
+  },
+  {
+   "digest": "c1658614de2c4e17749477ce1fae3a79f63f4495206b8ae2ad1fe87e1ef28fe6",
+   "name": "select_w02",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_51881f7bb314869fe8412eb2398e54d9",
+     "principal_id": "prn_1d2a928f2257ddf06d73f01ee4a08ac9",
+     "profile_id": "prf_0896e17890ebcb1be241dcd6e2feee57"
+    },
+    "control_digests": [],
+    "effect_class": "durable_candidate",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "route.select",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+    },
+    "payload_digest": "485296e11eed18dcc171caf549b2b83a38858b6e5d8ef669d2a4040761fa06a9",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_565dc04f7d77ec2822c7f0f614237616",
+    "schema": 1,
+    "target": {
+     "resource_id": "rte_eb20a2154ba3f37c2330b42c0c570b4f"
+    }
+   }
+  },
+  {
+   "digest": "1847fc3d121b07c2c40eb61b8332bfd024a8242e6bd4e48e78b7aab8fd8afe22",
+   "name": "w02_trace",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "client": {
+     "name": "agent-bios",
+     "version": "0.20.0"
+    },
+    "frames": [
+     {
+      "access": "active",
+      "after": 0,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.scope",
+        "executing": false,
+        "focused": false,
+        "label": "팀 · Platform",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "team",
+          "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "routes.w02",
+        "executing": false,
+        "focused": false,
+        "label": "환경 구성 (W02)",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_eb20a2154ba3f37c2330b42c0c570b4f"
+        },
+        "role": "choice",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "qualification.w02",
+        "executing": false,
+        "focused": false,
+        "label": "읽기 · 이 설치에서 확인됨",
+        "marks": [],
+        "refers_to": {
+         "digest": "1d32ccefe55fd3adbb84e000e97f0582f54333d57e89c08c751f21f89fa06037",
+         "ref": "record"
+        },
+        "role": "qualification",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "routes.w10",
+        "executing": false,
+        "focused": false,
+        "label": "검색과 일괄 작업 (W10)",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_d2e9c49758b3b7d5f109b4a1eea13267"
+        },
+        "role": "choice",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "qualification.w10",
+        "executing": false,
+        "focused": false,
+        "label": "읽기 · 이 설치에서 확인됨",
+        "marks": [],
+        "refers_to": {
+         "digest": "1d32ccefe55fd3adbb84e000e97f0582f54333d57e89c08c751f21f89fa06037",
+         "ref": "record"
+        },
+        "role": "qualification",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "routes.decide",
+        "executing": false,
+        "focused": false,
+        "label": "결정 이해 (W04) · 이 클라이언트에서 지원 안 함",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_673942e12d437ea680a759a48211cd37"
+        },
+        "role": "choice",
+        "selection": "none",
+        "shown": "whole",
+        "state": "unavailable"
+       },
+       {
+        "element_id": "qualification.decide",
+        "executing": false,
+        "focused": false,
+        "label": "질문 · 이 클라이언트가 제공하지 않음",
+        "marks": [],
+        "refers_to": {
+         "digest": "67f50ae186267cd2e2b5eb2f19695ea82efdc68cf932c48fd56011d7daadacbe",
+         "ref": "record"
+        },
+        "role": "qualification",
+        "selection": "none",
+        "shown": "whole",
+        "state": "unavailable"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "↑↓ 이동 · Enter 열기 · Esc 뒤로",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "browse_scope": {
+        "layer": "team",
+        "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+       },
+       "missing_bodies": [],
+       "origin": {
+        "name": "studio_hub",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "team",
+        "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+       },
+       "view": "hub"
+      }
+     },
+     {
+      "access": "active",
+      "after": 1,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.scope",
+        "executing": false,
+        "focused": false,
+        "label": "팀 · Platform",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "team",
+          "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "routes.w02",
+        "executing": false,
+        "focused": true,
+        "label": "환경 구성 (W02)",
+        "marks": [
+         "›"
+        ],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_eb20a2154ba3f37c2330b42c0c570b4f"
+        },
+        "role": "choice",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "qualification.w02",
+        "executing": false,
+        "focused": false,
+        "label": "읽기 · 이 설치에서 확인됨",
+        "marks": [],
+        "refers_to": {
+         "digest": "1d32ccefe55fd3adbb84e000e97f0582f54333d57e89c08c751f21f89fa06037",
+         "ref": "record"
+        },
+        "role": "qualification",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "routes.w10",
+        "executing": false,
+        "focused": false,
+        "label": "검색과 일괄 작업 (W10)",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_d2e9c49758b3b7d5f109b4a1eea13267"
+        },
+        "role": "choice",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "qualification.w10",
+        "executing": false,
+        "focused": false,
+        "label": "읽기 · 이 설치에서 확인됨",
+        "marks": [],
+        "refers_to": {
+         "digest": "1d32ccefe55fd3adbb84e000e97f0582f54333d57e89c08c751f21f89fa06037",
+         "ref": "record"
+        },
+        "role": "qualification",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "routes.decide",
+        "executing": false,
+        "focused": false,
+        "label": "결정 이해 (W04) · 이 클라이언트에서 지원 안 함",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_673942e12d437ea680a759a48211cd37"
+        },
+        "role": "choice",
+        "selection": "none",
+        "shown": "whole",
+        "state": "unavailable"
+       },
+       {
+        "element_id": "qualification.decide",
+        "executing": false,
+        "focused": false,
+        "label": "질문 · 이 클라이언트가 제공하지 않음",
+        "marks": [],
+        "refers_to": {
+         "digest": "67f50ae186267cd2e2b5eb2f19695ea82efdc68cf932c48fd56011d7daadacbe",
+         "ref": "record"
+        },
+        "role": "qualification",
+        "selection": "none",
+        "shown": "whole",
+        "state": "unavailable"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "↑↓ 이동 · Enter 열기 · Esc 뒤로",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "browse_scope": {
+        "layer": "team",
+        "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+       },
+       "missing_bodies": [],
+       "origin": {
+        "name": "studio_hub",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "team",
+        "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+       },
+       "view": "hub"
+      }
+     },
+     {
+      "access": "active",
+      "after": 2,
+      "calls": [
+       {
+        "operation": "route.select",
+        "reads": "nothing",
+        "request_digest": "c1658614de2c4e17749477ce1fae3a79f63f4495206b8ae2ad1fe87e1ef28fe6"
+       }
+      ],
+      "dispatched": [
+       "req_565dc04f7d77ec2822c7f0f614237616"
+      ],
+      "elements": [
+       {
+        "element_id": "context.scope",
+        "executing": false,
+        "focused": false,
+        "label": "팀 · Platform",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "team",
+          "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "view.w02",
+        "executing": false,
+        "focused": false,
+        "label": "환경 구성 · Platform",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_eb20a2154ba3f37c2330b42c0c570b4f"
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "result.w02",
+        "executing": false,
+        "focused": false,
+        "label": "팀 상태를 읽는 중",
+        "marks": [],
+        "refers_to": {
+         "ref": "request",
+         "request_id": "req_bbaf3c6fb5cc7c9fd56c6890a867be53"
+        },
+        "role": "result",
+        "selection": "none",
+        "shown": "whole",
+        "state": "pending"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Esc 허브로",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "browse_scope": {
+        "layer": "team",
+        "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+       },
+       "missing_bodies": [],
+       "origin": {
+        "name": "studio_hub",
+        "root_origin": "owner"
+       },
+       "return_view": "hub",
+       "selected_scope": {
+        "layer": "team",
+        "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+       },
+       "view": "w02"
+      }
+     }
+    ],
+    "kind": "surface_trace",
+    "mode": {
+     "runs": "real"
+    },
+    "schema": 1,
+    "script_digest": "a2b3cef9cd9c458cf1d5798ac402d2e564552c4541e4e91268d0f629dee187be"
+   }
+  },
+  {
+   "digest": "15f3f9b4527765f47a27d29efa06ef3f538cb6d2c972f571eafdb73c30ce7ac1",
+   "name": "drive_to_w02_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "1847fc3d121b07c2c40eb61b8332bfd024a8242e6bd4e48e78b7aab8fd8afe22",
+      "kind": "surface_trace"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "b25561ed5b25a80588ef382145887e06a838bd45ff8892159d02bb0952dda030",
+    "request_id": "req_a79546ad5d327077dc5c18dc248c20fc",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "aa861a308bcc068567c45e563c275a9331d41e4f98d3ad6866c30505c629155e",
+   "name": "w02_outcome",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "capability": "read",
+    "client": {
+     "name": "agent-bios",
+     "version": "0.20.0"
+    },
+    "for_request_id": "req_bbaf3c6fb5cc7c9fd56c6890a867be53",
+    "kind": "route_outcome",
+    "material_gaps": [],
+    "mode": {
+     "runs": "real"
+    },
+    "result": {
+     "got": "result",
+     "output_digest": "deb11e7648668d2827e303e6e0838a618f7937ebe51d76ab0f09ec5e5db3a905"
+    },
+    "schema": 1
+   }
+  },
+  {
+   "digest": "f6d7a5b0e80f6a0ae3f40ada8decb8e72b30d3f0c6255f19d0349c7b3fa360ba",
+   "name": "select_w02_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "517acd37077db4734c0edd336f4dbbe48dadfb2f4ca3e99e58751fc74aa2b468",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+    },
+    "request_digest": "c1658614de2c4e17749477ce1fae3a79f63f4495206b8ae2ad1fe87e1ef28fe6",
+    "request_id": "req_565dc04f7d77ec2822c7f0f614237616",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "rte_eb20a2154ba3f37c2330b42c0c570b4f"
+    }
+   }
+  },
+  {
+   "digest": "dc3acb907db9bd49a8056aaf321d73c066de3c7c0bb8c1a8dc0eb826a2deedc2",
+   "name": "select_w02_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "f6d7a5b0e80f6a0ae3f40ada8decb8e72b30d3f0c6255f19d0349c7b3fa360ba",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "aa861a308bcc068567c45e563c275a9331d41e4f98d3ad6866c30505c629155e",
+      "kind": "route_outcome"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "c1658614de2c4e17749477ce1fae3a79f63f4495206b8ae2ad1fe87e1ef28fe6",
+    "request_id": "req_565dc04f7d77ec2822c7f0f614237616",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "72b7430d0572a2e7894a31d1206dc4b1da0457efd8014c22000290426fee5cf8",
+   "name": "keys_to_w10",
+   "record": {
+    "entrance": {
+     "name": "studio_hub",
+     "root_origin": "owner"
+    },
+    "inputs": [
+     {
+      "input": "key",
+      "key": "down"
+     },
+     {
+      "input": "key",
+      "key": "down"
+     },
+     {
+      "input": "key",
+      "key": "enter"
+     }
+    ],
+    "kind": "surface_script",
+    "locale": "ko",
+    "schema": 1,
+    "terminal": {
+     "columns": 80,
+     "rows": 24
+    }
+   }
+  },
+  {
+   "digest": "33d201289db4f4b57858b741698ef7287adf41eca4f7ff468ea3ef1dac34c1b5",
+   "name": "drive_w10",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_51881f7bb314869fe8412eb2398e54d9",
+     "principal_id": "prn_1d2a928f2257ddf06d73f01ee4a08ac9",
+     "profile_id": "prf_0896e17890ebcb1be241dcd6e2feee57"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "surface.drive",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+    },
+    "payload_digest": "72b7430d0572a2e7894a31d1206dc4b1da0457efd8014c22000290426fee5cf8",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_3835015dae730f7d726d1549feddcba4",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_0896e17890ebcb1be241dcd6e2feee57"
+    }
+   }
+  },
+  {
+   "digest": "12483fbd7b2965b34c8a32b078731b1b43e2469866236cff3ec932745b3edd50",
+   "name": "w10_selection",
+   "record": {
+    "expected": {
+     "material_gaps": [],
+     "recovery": [
+      "retry_same_request"
+     ],
+     "stage": "prepared"
+    },
+    "focused": "rte_d2e9c49758b3b7d5f109b4a1eea13267",
+    "kind": "route_selection",
+    "offer_digest": "b931d5ac49cf17a2cc568240a0e554e3c379edcdf05339769b156b2df54d3536",
+    "request_id": "req_cb46c2516a658abff69746d2f7591eef",
+    "schema": 1,
+    "selected": "rte_d2e9c49758b3b7d5f109b4a1eea13267"
+   }
+  },
+  {
+   "digest": "1b4f9cc2b4e78e4197e0b35cd9ef6d9f5b9cc9b806260fe6b49c4b1baea08eb4",
+   "name": "select_w10",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_51881f7bb314869fe8412eb2398e54d9",
+     "principal_id": "prn_1d2a928f2257ddf06d73f01ee4a08ac9",
+     "profile_id": "prf_0896e17890ebcb1be241dcd6e2feee57"
+    },
+    "control_digests": [],
+    "effect_class": "durable_candidate",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "route.select",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+    },
+    "payload_digest": "12483fbd7b2965b34c8a32b078731b1b43e2469866236cff3ec932745b3edd50",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_7478d55a4be6e51e263ea99ca831907a",
+    "schema": 1,
+    "target": {
+     "resource_id": "rte_d2e9c49758b3b7d5f109b4a1eea13267"
+    }
+   }
+  },
+  {
+   "digest": "b786331c88a6994338ebe306c3d24cfc30e85bccfe9d2e6f6c46fbc9e59d4dfd",
+   "name": "w10_trace",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "client": {
+     "name": "agent-bios",
+     "version": "0.20.0"
+    },
+    "frames": [
+     {
+      "access": "active",
+      "after": 0,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.scope",
+        "executing": false,
+        "focused": false,
+        "label": "팀 · Platform",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "team",
+          "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "routes.w02",
+        "executing": false,
+        "focused": false,
+        "label": "환경 구성 (W02)",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_eb20a2154ba3f37c2330b42c0c570b4f"
+        },
+        "role": "choice",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "qualification.w02",
+        "executing": false,
+        "focused": false,
+        "label": "읽기 · 이 설치에서 확인됨",
+        "marks": [],
+        "refers_to": {
+         "digest": "1d32ccefe55fd3adbb84e000e97f0582f54333d57e89c08c751f21f89fa06037",
+         "ref": "record"
+        },
+        "role": "qualification",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "routes.w10",
+        "executing": false,
+        "focused": false,
+        "label": "검색과 일괄 작업 (W10)",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_d2e9c49758b3b7d5f109b4a1eea13267"
+        },
+        "role": "choice",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "qualification.w10",
+        "executing": false,
+        "focused": false,
+        "label": "읽기 · 이 설치에서 확인됨",
+        "marks": [],
+        "refers_to": {
+         "digest": "1d32ccefe55fd3adbb84e000e97f0582f54333d57e89c08c751f21f89fa06037",
+         "ref": "record"
+        },
+        "role": "qualification",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "routes.decide",
+        "executing": false,
+        "focused": false,
+        "label": "결정 이해 (W04) · 이 클라이언트에서 지원 안 함",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_673942e12d437ea680a759a48211cd37"
+        },
+        "role": "choice",
+        "selection": "none",
+        "shown": "whole",
+        "state": "unavailable"
+       },
+       {
+        "element_id": "qualification.decide",
+        "executing": false,
+        "focused": false,
+        "label": "질문 · 이 클라이언트가 제공하지 않음",
+        "marks": [],
+        "refers_to": {
+         "digest": "67f50ae186267cd2e2b5eb2f19695ea82efdc68cf932c48fd56011d7daadacbe",
+         "ref": "record"
+        },
+        "role": "qualification",
+        "selection": "none",
+        "shown": "whole",
+        "state": "unavailable"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "↑↓ 이동 · Enter 열기 · Esc 뒤로",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "browse_scope": {
+        "layer": "team",
+        "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+       },
+       "missing_bodies": [],
+       "origin": {
+        "name": "studio_hub",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "team",
+        "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+       },
+       "view": "hub"
+      }
+     },
+     {
+      "access": "active",
+      "after": 1,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.scope",
+        "executing": false,
+        "focused": false,
+        "label": "팀 · Platform",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "team",
+          "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "routes.w02",
+        "executing": false,
+        "focused": true,
+        "label": "환경 구성 (W02)",
+        "marks": [
+         "›"
+        ],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_eb20a2154ba3f37c2330b42c0c570b4f"
+        },
+        "role": "choice",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "qualification.w02",
+        "executing": false,
+        "focused": false,
+        "label": "읽기 · 이 설치에서 확인됨",
+        "marks": [],
+        "refers_to": {
+         "digest": "1d32ccefe55fd3adbb84e000e97f0582f54333d57e89c08c751f21f89fa06037",
+         "ref": "record"
+        },
+        "role": "qualification",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "routes.w10",
+        "executing": false,
+        "focused": false,
+        "label": "검색과 일괄 작업 (W10)",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_d2e9c49758b3b7d5f109b4a1eea13267"
+        },
+        "role": "choice",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "qualification.w10",
+        "executing": false,
+        "focused": false,
+        "label": "읽기 · 이 설치에서 확인됨",
+        "marks": [],
+        "refers_to": {
+         "digest": "1d32ccefe55fd3adbb84e000e97f0582f54333d57e89c08c751f21f89fa06037",
+         "ref": "record"
+        },
+        "role": "qualification",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "routes.decide",
+        "executing": false,
+        "focused": false,
+        "label": "결정 이해 (W04) · 이 클라이언트에서 지원 안 함",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_673942e12d437ea680a759a48211cd37"
+        },
+        "role": "choice",
+        "selection": "none",
+        "shown": "whole",
+        "state": "unavailable"
+       },
+       {
+        "element_id": "qualification.decide",
+        "executing": false,
+        "focused": false,
+        "label": "질문 · 이 클라이언트가 제공하지 않음",
+        "marks": [],
+        "refers_to": {
+         "digest": "67f50ae186267cd2e2b5eb2f19695ea82efdc68cf932c48fd56011d7daadacbe",
+         "ref": "record"
+        },
+        "role": "qualification",
+        "selection": "none",
+        "shown": "whole",
+        "state": "unavailable"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "↑↓ 이동 · Enter 열기 · Esc 뒤로",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "browse_scope": {
+        "layer": "team",
+        "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+       },
+       "missing_bodies": [],
+       "origin": {
+        "name": "studio_hub",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "team",
+        "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+       },
+       "view": "hub"
+      }
+     },
+     {
+      "access": "active",
+      "after": 2,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.scope",
+        "executing": false,
+        "focused": false,
+        "label": "팀 · Platform",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "team",
+          "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "routes.w02",
+        "executing": false,
+        "focused": false,
+        "label": "환경 구성 (W02)",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_eb20a2154ba3f37c2330b42c0c570b4f"
+        },
+        "role": "choice",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "qualification.w02",
+        "executing": false,
+        "focused": false,
+        "label": "읽기 · 이 설치에서 확인됨",
+        "marks": [],
+        "refers_to": {
+         "digest": "1d32ccefe55fd3adbb84e000e97f0582f54333d57e89c08c751f21f89fa06037",
+         "ref": "record"
+        },
+        "role": "qualification",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "routes.w10",
+        "executing": false,
+        "focused": true,
+        "label": "검색과 일괄 작업 (W10)",
+        "marks": [
+         "›"
+        ],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_d2e9c49758b3b7d5f109b4a1eea13267"
+        },
+        "role": "choice",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "qualification.w10",
+        "executing": false,
+        "focused": false,
+        "label": "읽기 · 이 설치에서 확인됨",
+        "marks": [],
+        "refers_to": {
+         "digest": "1d32ccefe55fd3adbb84e000e97f0582f54333d57e89c08c751f21f89fa06037",
+         "ref": "record"
+        },
+        "role": "qualification",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "routes.decide",
+        "executing": false,
+        "focused": false,
+        "label": "결정 이해 (W04) · 이 클라이언트에서 지원 안 함",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_673942e12d437ea680a759a48211cd37"
+        },
+        "role": "choice",
+        "selection": "none",
+        "shown": "whole",
+        "state": "unavailable"
+       },
+       {
+        "element_id": "qualification.decide",
+        "executing": false,
+        "focused": false,
+        "label": "질문 · 이 클라이언트가 제공하지 않음",
+        "marks": [],
+        "refers_to": {
+         "digest": "67f50ae186267cd2e2b5eb2f19695ea82efdc68cf932c48fd56011d7daadacbe",
+         "ref": "record"
+        },
+        "role": "qualification",
+        "selection": "none",
+        "shown": "whole",
+        "state": "unavailable"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "↑↓ 이동 · Enter 열기 · Esc 뒤로",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "browse_scope": {
+        "layer": "team",
+        "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+       },
+       "missing_bodies": [],
+       "origin": {
+        "name": "studio_hub",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "team",
+        "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+       },
+       "view": "hub"
+      }
+     },
+     {
+      "access": "active",
+      "after": 3,
+      "calls": [
+       {
+        "operation": "route.select",
+        "reads": "nothing",
+        "request_digest": "1b4f9cc2b4e78e4197e0b35cd9ef6d9f5b9cc9b806260fe6b49c4b1baea08eb4"
+       }
+      ],
+      "dispatched": [
+       "req_7478d55a4be6e51e263ea99ca831907a"
+      ],
+      "elements": [
+       {
+        "element_id": "context.scope",
+        "executing": false,
+        "focused": false,
+        "label": "팀 · Platform",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "team",
+          "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "view.w10",
+        "executing": false,
+        "focused": false,
+        "label": "검색과 일괄 작업 · Platform",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_d2e9c49758b3b7d5f109b4a1eea13267"
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "result.w10",
+        "executing": false,
+        "focused": false,
+        "label": "팀 상태를 읽는 중",
+        "marks": [],
+        "refers_to": {
+         "ref": "request",
+         "request_id": "req_cb46c2516a658abff69746d2f7591eef"
+        },
+        "role": "result",
+        "selection": "none",
+        "shown": "whole",
+        "state": "pending"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Esc 허브로",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "browse_scope": {
+        "layer": "team",
+        "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+       },
+       "missing_bodies": [],
+       "origin": {
+        "name": "studio_hub",
+        "root_origin": "owner"
+       },
+       "return_view": "hub",
+       "selected_scope": {
+        "layer": "team",
+        "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+       },
+       "view": "w10"
+      }
+     }
+    ],
+    "kind": "surface_trace",
+    "mode": {
+     "runs": "real"
+    },
+    "schema": 1,
+    "script_digest": "72b7430d0572a2e7894a31d1206dc4b1da0457efd8014c22000290426fee5cf8"
+   }
+  },
+  {
+   "digest": "59b9b711e76c297f8945970e9964811de868cc5090d8fe771266470cb2dfe4e9",
+   "name": "drive_to_w10_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "b786331c88a6994338ebe306c3d24cfc30e85bccfe9d2e6f6c46fbc9e59d4dfd",
+      "kind": "surface_trace"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "33d201289db4f4b57858b741698ef7287adf41eca4f7ff468ea3ef1dac34c1b5",
+    "request_id": "req_3835015dae730f7d726d1549feddcba4",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "a0396352290c8425be277438578259b88694509dafeeb67ec4bf3a65e6b6b6a5",
+   "name": "w10_outcome",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "capability": "read",
+    "client": {
+     "name": "agent-bios",
+     "version": "0.20.0"
+    },
+    "for_request_id": "req_cb46c2516a658abff69746d2f7591eef",
+    "kind": "route_outcome",
+    "material_gaps": [],
+    "mode": {
+     "runs": "real"
+    },
+    "result": {
+     "got": "result",
+     "output_digest": "2fe884d114527103677c574316b758bccbb37e6901a212b9acce526a9c6259fd"
+    },
+    "schema": 1
+   }
+  },
+  {
+   "digest": "1e66c7bdaf708ef68cace957b5dea1c564f0bddb12bd9aff90d31068f4892cf6",
+   "name": "select_w10_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "f34cc2d0a61bc38d7367707efa4713ca7ff7b957fd80c7e27842830a154e58e3",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_4b20d42aeaba481ed313cea125f335ed"
+    },
+    "request_digest": "1b4f9cc2b4e78e4197e0b35cd9ef6d9f5b9cc9b806260fe6b49c4b1baea08eb4",
+    "request_id": "req_7478d55a4be6e51e263ea99ca831907a",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "rte_d2e9c49758b3b7d5f109b4a1eea13267"
+    }
+   }
+  },
+  {
+   "digest": "d2f19b681d4db8aadb2932acdfbc95befa760833edd9f97c39883190fd95b070",
+   "name": "select_w10_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "1e66c7bdaf708ef68cace957b5dea1c564f0bddb12bd9aff90d31068f4892cf6",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "a0396352290c8425be277438578259b88694509dafeeb67ec4bf3a65e6b6b6a5",
+      "kind": "route_outcome"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "1b4f9cc2b4e78e4197e0b35cd9ef6d9f5b9cc9b806260fe6b49c4b1baea08eb4",
+    "request_id": "req_7478d55a4be6e51e263ea99ca831907a",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  }
+ ],
+ "says": "alice binds her laptop key and founds the Team Platform. The installed client is probed twice: reading works, so the capability profile qualifies read by naming that probe; putting a question to a person is not offered, so the profile marks question not qualified (not_offered). The Studio hub's route.offer then lists the two Team views this client implements, environment composition (W02) and search and bulk work (W10), each qualified by the digest of the same read probe the profile names, and the decide route marked not_offered exactly as the profile says. Driven from the hub, arrowing to W02 and pressing Enter opens W02 in the Team's scope and dispatches one route.select, which names the read it produces and expects it prepared; the owner answers with a real run that produced a result. The same shell reaches W10 the same way. No view is reached except through route.offer and route.select, and no offered route carries a qualification other than the one its probe gave it.",
+ "spec_sha256": "574e5756acf937a09c493d67855847c239746103e4371e2b9f39a45fe9bf1f29",
+ "steps": [
+  {
+   "carries": [
+    "first_key"
+   ],
+   "name": "bind_first_key",
+   "request": "bind",
+   "result": "bind_first_key_result",
+   "returns": [
+    "stored_key"
+   ]
+  },
+  {
+   "carries": [
+    "founding",
+    "proposed_policy"
+   ],
+   "head": "founded_head",
+   "name": "found_team",
+   "request": "found",
+   "result": "found_team_result",
+   "returns": [
+    "team_active",
+    "team_named",
+    "team_policy",
+    "founder_grant"
+   ],
+   "submits": [
+    "proposed_policy"
+   ]
+  },
+  {
+   "carries": [
+    "read_probe"
+   ],
+   "name": "probe_read",
+   "request": "probe_read",
+   "result": "probe_read_result",
+   "returns": [
+    "read_probe_stored",
+    "profile_after_read"
+   ]
+  },
+  {
+   "carries": [
+    "question_probe"
+   ],
+   "name": "probe_question",
+   "request": "probe_question",
+   "result": "probe_question_result",
+   "returns": [
+    "question_probe_stored",
+    "profile_after_question"
+   ]
+  },
+  {
+   "carries": [
+    "hub_offer"
+   ],
+   "name": "offer_hub_routes",
+   "request": "offer",
+   "result": "offer_hub_routes_result",
+   "returns": [
+    "stored_offer"
+   ]
+  },
+  {
+   "carries": [
+    "keys_to_w02"
+   ],
+   "name": "drive_to_w02",
+   "request": "drive_w02",
+   "result": "drive_to_w02_result",
+   "returns": [
+    "w02_trace"
+   ]
+  },
+  {
+   "carries": [
+    "w02_selection"
+   ],
+   "name": "select_w02",
+   "request": "select_w02",
+   "result": "select_w02_result",
+   "returns": [
+    "w02_outcome"
+   ]
+  },
+  {
+   "carries": [
+    "keys_to_w10"
+   ],
+   "name": "drive_to_w10",
+   "request": "drive_w10",
+   "result": "drive_to_w10_result",
+   "returns": [
+    "w10_trace"
+   ]
+  },
+  {
+   "carries": [
+    "w10_selection"
+   ],
+   "name": "select_w10",
+   "request": "select_w10",
+   "result": "select_w10_result",
+   "returns": [
+    "w10_outcome"
+   ]
+  }
+ ]
+}

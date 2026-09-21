@@ -22,6 +22,11 @@ with a new id and payload. A string value may name instead of state:
 `joins` in the generated file lists every place a name was resolved, so a driver can put the
 owner's real value in each minted place, and recompute every digest over it, before submitting.
 A digest of a record a step returns is likewise the digest of what the owner actually returned.
+A committed step's receipt is generated too, as the record `<step>_receipt` its result names:
+the owner mints its sequence and time, and its head, which the answer may name (`head`) for a
+later request whose base expects that head. A later operation.query can return the receipt by
+that name. A step that `replays` an earlier one resubmits the same request bytes and is answered
+with that step's result and receipt; the owner writes nothing new.
 
 `world` is the harness around the steps, never a contract record: isolated processes, each step
 naming the one it runs on; a controlled clock that each step may move forward, the generated step
@@ -32,9 +37,10 @@ step names a situation of the same case in the runner's preflight cases instead 
 
 What can be decided from the spec alone is checked here and fails by name:
   - every record resolves, and every name it uses is defined;
-  - an answered step's request and payload pass their schemas in submit mode and every other
-    record it carries passes in stored mode; a refused step's records fail with exactly the
-    refusals it states;
+  - an answered step's request and payload pass their schemas in submit mode, as does each
+    record its `submits` names (a new policy a founding proposal names), and every other record
+    it carries passes in stored mode; a refused step's records fail with exactly the refusals it
+    states;
   - the digests a request names are exactly those of the records the step carries, apart from
     records an earlier step returned and values it minted; a carried record the request does not
     name must be named by its payload (a batch's item requests);
@@ -129,6 +135,7 @@ class _Scenario:
         self.joins: list[dict] = []
         self.open: list[str] = []
         self.returned: set[str] = set()          # records an earlier step's answer returned
+        self.results: dict[str, dict] = {}       # answered step -> its request, result, returns
         preflight = canonical.parse(PREFLIGHT.read_bytes())
         self.situations = {s["name"] for row in preflight["cases"] if row["case"] == self.case
                            for s in row["situations"]}
@@ -210,8 +217,11 @@ class _Scenario:
             else:
                 parent[key] = self.value(change["value"], name, f"{at}/{key}")
         self.open.pop()
+        try:
+            self.digests[name] = canonical.digest_of(value)
+        except canonical.CanonicalError as error:
+            self.fail(name, f"is not a record canonical JSON can hold: {error}")
         self.built[name] = value
-        self.digests[name] = canonical.digest_of(value)
         return value
 
     def unjoin(self, name: str, pointer: str) -> None:
@@ -223,8 +233,10 @@ class _Scenario:
     def locate(self, document, pointer: str, name: str, create: bool):
         *path, last = _segments(pointer)
         node = document
-        for part in path:
+        for at, part in enumerate(path):
             if isinstance(node, list):
+                if create and part.isdigit() and int(part) == len(node):
+                    node.append({})
                 if not part.isdigit() or int(part) >= len(node):
                     self.fail(f"{name}{pointer}", f"no item {part}")
                 node = node[int(part)]
@@ -232,7 +244,8 @@ class _Scenario:
                 if part not in node:
                     if not create:
                         self.fail(f"{name}{pointer}", f"no field {part}")
-                    node[part] = {}
+                    # A missing field followed by index 0 or `-` is a new array.
+                    node[part] = [] if (path + [last])[at + 1] in ("0", "-") else {}
                 node = node[part]
             else:
                 self.fail(f"{name}{pointer}", "passes through a value that is not a container")
@@ -252,6 +265,28 @@ class _Scenario:
             value = request.get(field, [])
             found.extend(value if isinstance(value, list) else [value])
         return found
+
+    def receipt(self, name: str, request_name: str, request: dict, head: str, step: str) -> None:
+        """The receipt a committed step's owner writes, joined to its request and head."""
+        self.uses[name] = set()
+        receipt = {"kind": "operation_receipt", "schema": 1, "request_id": request["request_id"],
+                   "request_digest": self.value(f"#{request_name}", name, "/request_digest"),
+                   "owner": request["owner"], "target": request["target"],
+                   "head_digest": self.value(f"$digest:{head}", name, "/head_digest"),
+                   "sequence": self.value(f"$integer:{step}_sequence", name, "/sequence"),
+                   "committed_at": self.value(f"$instant:{step}_committed_at", name,
+                                              "/committed_at")}
+        # The owner and target are the request's, and so are the names resolved inside them.
+        for join in [j for j in self.joins if j["record"] == request_name
+                     and j["pointer"].startswith(("/owner/", "/target/"))]:
+            self.joins.append({**join, "record": name})
+            if "minted" in join:
+                self.uses[name].add(join["minted"])
+        found = _violations(receipt, STORED, self.schemas)
+        if found:
+            self.fail(step, f"no receipt the contract permits answers this request: {found}")
+        self.built[name] = receipt
+        self.digests[name] = canonical.digest_of(receipt)
 
     def placed(self, row: dict) -> dict:
         """The step's name, and where and when it runs when the world says."""
@@ -285,8 +320,13 @@ class _Scenario:
                          if d not in named and d not in inner)
         if unnamed:
             self.fail(name, f"carries {unnamed}, which the request does not name")
-        modes = {row["request"]: SUBMIT, **{n: (SUBMIT if n == payload else STORED)
-                                            for n in carried}}
+        submits = row.get("submits", [])
+        for extra in submits:
+            if extra not in carried or extra == payload:
+                self.fail(name, f"submits {extra}, which is not a record it carries besides "
+                                "its payload")
+        modes = {row["request"]: SUBMIT, **{n: (SUBMIT if n == payload or n in submits
+                                                else STORED) for n in carried}}
         if "refused" in row:
             stated: dict[str, list] = {}
             for refusal in row["refused"]:
@@ -301,11 +341,20 @@ class _Scenario:
                     self.fail(name, f"{record} is refused with {found}, "
                                     f"not {stated.get(record, [])}")
             return {**self.placed(row), "request": row["request"], "carries": row["carries"],
-                    "refused": row["refused"]}, []
+                    **({"submits": submits} if submits else {}), "refused": row["refused"]}, []
         for record, mode in modes.items():
             found = _violations(self.built[record], mode, self.schemas)
             if found:
                 self.fail(name, f"{record} is refused in {mode} mode: {found}")
+        if "replays" in row:
+            earlier = self.results.get(row["replays"])
+            if earlier is None:
+                self.fail(name, f"replays {row['replays']}, which is no earlier answered step")
+            if self.digests[earlier["request"]] != self.digests[row["request"]]:
+                self.fail(name, f"replays {row['replays']} with other request bytes")
+            return ({**self.placed(row), "request": row["request"], "carries": row["carries"],
+                     **({"submits": submits} if submits else {}), "replays": row["replays"],
+                     "result": earlier["result"], "returns": earlier["returns"]}, [])
         operation = request["operation"]
         takes, returns = table[operation]["takes"], table[operation]["returns"]
         if payload is None and takes:
@@ -320,13 +369,20 @@ class _Scenario:
             found = _violations(self.built[returned], STORED, self.schemas)
             if found:
                 self.fail(name, f"{returned} is not a record its owner could store: {found}")
-        result_name = f"{name}_result"
-        if result_name in self.specs:
-            self.fail(name, f"{result_name} is the name of this step's generated result")
+        head = answer.get("head")
+        if head is not None and answer["stage"] != "committed":
+            self.fail(name, "names a head, and only a committed answer moves one")
+        result_name, receipt_name = f"{name}_result", f"{name}_receipt"
+        for generated in (result_name, receipt_name):
+            if generated in self.specs:
+                self.fail(name, f"{generated} is the name of a record this step generates")
         self.uses[result_name] = set()
         outcome = {"stage": answer["stage"], "material_gaps": answer["gaps"]}
+        receipts = []
         if answer["stage"] == "committed":
-            outcome["receipt_digest"] = self.value(f"$digest:{name}_receipt", result_name,
+            self.receipt(receipt_name, row["request"], request, head or f"{name}_head", name)
+            receipts = [receipt_name]
+            outcome["receipt_digest"] = self.value(f"#{receipt_name}", result_name,
                                                    "/outcome/receipt_digest")
         result = {"kind": "operation_result", "schema": 1, "request_id": request["request_id"],
                   "request_digest": self.value(f"#{row['request']}", result_name,
@@ -344,10 +400,14 @@ class _Scenario:
         self.built[result_name] = result
         self.digests[result_name] = canonical.digest_of(result)
         minted_here = set().union(self.uses[result_name],
-                                  *(self.uses[r] for r in answer["returns"]))
-        self.returned.update([result_name, *answer["returns"]])
+                                  *(self.uses[r] for r in [*receipts, *answer["returns"]]))
+        self.returned.update([result_name, *receipts, *answer["returns"]])
+        self.results[name] = {"request": row["request"], "result": result_name,
+                              "returns": answer["returns"]}
         return ({**self.placed(row), "request": row["request"], "carries": row["carries"],
-                 "result": result_name, "returns": answer["returns"]}, sorted(minted_here))
+                 **({"submits": submits} if submits else {}),
+                 "result": result_name, "returns": answer["returns"],
+                 **({"head": head} if head else {})}, sorted(minted_here))
 
 
 def generate(spec_bytes: bytes, schemas: dict | None = None) -> dict:
