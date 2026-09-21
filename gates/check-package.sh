@@ -145,6 +145,10 @@ PY
   fresh; printf '\ncat "$REPO/decisions/record-decision.py" >/dev/null\n' >> "$W/install.sh"
   case_is "an unguarded runtime reference to an author-side path" "no proven guard"
 
+  fresh; sub package.json '"workenv/contracts/records.py",' ''
+  case_is "a work-environment runtime module nobody added to files[]" \
+          "neither in package.json files[] nor declared author-side"
+
   fresh; sub install.sh '[ -x "$REPO/gates/check-package.sh" ]' \
                         '[ -f "$REPO/gates/check-package.sh" ]'
   case_is "a declared guard that was removed" "declared guard"
@@ -287,6 +291,10 @@ AUTHOR_SIDE_DIRS = {
     "session-distill/": "the curator pipeline that authors instructions content. Users get the "
                         "workflow guide, not the authoring machinery",
     ".githooks/": "the pre-commit gate; enabled per clone with core.hooksPath",
+    "workenv/contracts/examples/": "contract byte fixtures and their expectations. They are "
+                                   "test material, and some are deliberately malformed — one "
+                                   "is not UTF-8 at all — so a shipped-content scan could "
+                                   "never call them clean without being weakened",
 }
 
 # Author-side FILES inside shipped directories. Promote — certifying an instruction
@@ -294,6 +302,8 @@ AUTHOR_SIDE_DIRS = {
 # machinery stays in the checkout even though it lives beside the shipped capture
 # flow in learn/. A directory rule cannot express this: learn/ ships.
 AUTHOR_SIDE_FILES = {
+    "workenv/contracts/examples.py": "runs the contract byte fixtures, which do not ship; a "
+                                     "shipped copy would name a directory the user lacks",
     "compose/test_instructions_compatibility.py": "author-side legacy alias, lock, root and immutable-snapshot regression tests",
     "compose/test_instructions_end_to_end.py": "author-side npm-layout and public CLI integration tests",
     "compose/test_instructions_catalog.py": "author-side catalog and private compiler tests",
@@ -706,6 +716,26 @@ if empty:
 gates = [n for names in author_files.values() for n in names]
 leg("author-side files", gates)
 leg("shipped instructions docs", instructions_prose)
+
+# The work-environment runtime is one tree whose owners are still being written, so the
+# question is asked of its FILES rather than of files[]: each one is either in the payload or
+# declared author-side. An unshipped runtime path is invisible from a clone and fatal on npm,
+# and a per-file payload list would have to be extended by every node that lands one — which is
+# the edit everybody forgets. `__pycache__` is skipped because git ignores it and npm packs
+# what git tracks.
+workenv_root = REPO / "workenv"
+workenv_files = sorted(str(f.relative_to(REPO)) for f in workenv_root.rglob("*")
+                       if f.is_file() and "__pycache__" not in f.parts) \
+    if workenv_root.is_dir() else []
+if not workenv_files:
+    sys.exit("check-package: FAILED — no file under workenv/, so the payload boundary for the "
+             "work-environment runtime would pass over nothing")
+stranded = [rel for rel in leg("workenv payload boundary", workenv_files)
+            if not shipped(rel) and not author_side(rel)]
+if stranded:
+    sys.exit("check-package: FAILED — under workenv/ and neither in package.json files[] nor "
+             "declared author-side: " + ", ".join(stranded[:6])
+             + (f" and {len(stranded) - 6} more" if len(stranded) > 6 else ""))
 
 # provenance.json is EXEMPT above because a clone legitimately lacks a
 # pack-generated file — but the exemption also skips shipped(), and an unshipped
