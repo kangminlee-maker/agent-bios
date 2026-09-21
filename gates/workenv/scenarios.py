@@ -8,7 +8,9 @@ one case fill them in differently. So a case's scenario is a spec (`spec.json`, 
 spec, this module and the generated file together are the case's fixture.
 
 Every record in a spec is a contract example with the leaves the case changes, so the examples
-are the vocabulary and a spec states only differences. A string value may name instead of state:
+are the vocabulary and a spec states only differences. A record may instead derive from another
+record of the same spec (`from` a bare name), which is how a second request repeats the first
+with a new id and payload. A string value may name instead of state:
 
   "@name"          the id `name`: its prefix and 32 hex digits derived from the case and the name
   "#name"          the digest of the record `name` as this scenario builds it
@@ -34,8 +36,10 @@ What can be decided from the spec alone is checked here and fails by name:
     give — a commit beside a gap that prevents one — cannot be written in a spec either;
   - a minted value is used only after the step whose answer first returns it.
 
-  python3 gates/workenv/scenarios.py           # write every scenario.json from its spec
-  python3 gates/workenv/scenarios.py --check   # fail when any scenario.json differs from its spec
+  python3 gates/workenv/scenarios.py [CASE ...]           # write scenario.json from each spec
+  python3 gates/workenv/scenarios.py --check [CASE ...]   # fail when one differs from its spec
+
+A CASE is a case id or its directory name; none means every spec.
 """
 from __future__ import annotations
 
@@ -156,17 +160,26 @@ class _Scenario:
             self.fail(name, f"names its own digest through {' -> '.join(self.open)}")
         self.open.append(name)
         row = self.specs[name]
-        path = examples.EXAMPLES / row["from"]
-        if not path.is_file():
-            self.fail(name, f"no example {row['from']}")
-        value = canonical.parse(path.read_bytes())
         self.uses[name] = set()
+        if "/" in row["from"]:
+            path = examples.EXAMPLES / row["from"]
+            if not path.is_file():
+                self.fail(name, f"no example {row['from']}")
+            value = canonical.parse(path.read_bytes())
+        else:
+            base = row["from"]
+            value = json.loads(json.dumps(self.record(base)))
+            self.uses[name] |= self.uses[base]
+            self.joins.extend({**join, "record": name} for join in list(self.joins)
+                              if join["record"] == base)
         for pointer in row.get("drop", []):
             parent, key = self.locate(value, pointer, name, create=False)
             del parent[key]
+            self.unjoin(name, pointer)
         for change in row.get("set", []):
             parent, key = self.locate(value, change["pointer"], name, create=True)
             at = "/".join(change["pointer"].split("/")[:-1])
+            self.unjoin(name, f"{at}/{key}")
             if isinstance(parent, list) and key == len(parent):
                 parent.append(self.value(change["value"], name, f"{at}/{key}"))
             else:
@@ -175,6 +188,12 @@ class _Scenario:
         self.built[name] = value
         self.digests[name] = canonical.digest_of(value)
         return value
+
+    def unjoin(self, name: str, pointer: str) -> None:
+        """Forget what a derived record inherited at a place it now removes or replaces."""
+        def under(join):
+            return join["pointer"] == pointer or join["pointer"].startswith(f"{pointer}/")
+        self.joins = [join for join in self.joins if join["record"] != name or not under(join)]
 
     def locate(self, document, pointer: str, name: str, create: bool):
         *path, last = _segments(pointer)
@@ -333,32 +352,42 @@ def render(scenario: dict) -> bytes:
     return (json.dumps(scenario, indent=1, sort_keys=True, ensure_ascii=False) + "\n").encode()
 
 
-def specs(directory: pathlib.Path = SCENARIOS) -> list[pathlib.Path]:
-    return sorted(directory.glob(f"*/{SPEC}"))
+def specs(directory: pathlib.Path = SCENARIOS, only: list[str] | None = None) -> list[pathlib.Path]:
+    found = sorted(directory.glob(f"*/{SPEC}"))
+    if only is None:
+        return found
+    wanted = {name.lower() for name in only}
+    return [spec for spec in found if spec.parent.name in wanted]
 
 
 def main(argv: list[str]) -> int:
-    if argv not in ([], ["--check"]):
-        print(__doc__.strip().splitlines()[-1], file=sys.stderr)
+    check = argv[:1] == ["--check"]
+    only = argv[1:] if check else argv
+    if any(name.startswith("-") for name in only):
+        print(__doc__.strip().splitlines()[-3], file=sys.stderr)
         return 2
+    chosen = specs(only=only or None)
+    if only and len(chosen) != len({name.lower() for name in only}):
+        print(f"FAIL no spec for some of {only}")
+        return 1
     schemas = examples.load_schemas()
     problems = []
-    for spec in specs():
+    for spec in chosen:
         target = spec.with_name(GENERATED)
         try:
             rendered = render(generate(spec.read_bytes(), schemas))
         except ScenarioError as error:
             problems.append(str(error))
             continue
-        if argv:
+        if check:
             if not target.is_file() or target.read_bytes() != rendered:
                 problems.append(f"{target.relative_to(HERE)} differs from what its spec generates")
         else:
             target.write_bytes(rendered)
     for problem in problems:
         print(f"FAIL {problem}")
-    count = len(specs())
-    print(f"SCENARIOS {'OK' if not problems else 'FAIL'} ({count} specs, {len(problems)} problems)")
+    print(f"SCENARIOS {'OK' if not problems else 'FAIL'} ({len(chosen)} specs, "
+          f"{len(problems)} problems)")
     return 1 if problems else 0
 
 

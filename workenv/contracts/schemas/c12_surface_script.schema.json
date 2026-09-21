@@ -1,0 +1,220 @@
+{
+  "title": "C12 surface script",
+  "description": "Drive the client headlessly, input by input, from one entrance at one terminal size and locale. Keys, typed text, paste, resize and a locale change are the inputs; typed text is keystrokes delivered by the driver, not composition in an input method, which only an observation with a person establishes. There is no input that selects, starts or confirms directly: those happen only through the keys a person would press.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema",
+    "entrance",
+    "terminal",
+    "locale",
+    "inputs"
+  ],
+  "properties": {
+    "kind": {
+      "const": "surface_script"
+    },
+    "schema": {
+      "const": 1
+    },
+    "entrance": {
+      "$ref": "#/$defs/entrance"
+    },
+    "terminal": {
+      "$ref": "#/$defs/terminal_size"
+    },
+    "locale": {
+      "$ref": "#/$defs/locale"
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/surface_input"
+      }
+    }
+  },
+  "$defs": {
+    "entrance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "root_origin"
+      ],
+      "properties": {
+        "name": {
+          "enum": [
+            "session_start",
+            "host_launcher",
+            "studio_hub",
+            "supplied_request",
+            "work_link",
+            "setup",
+            "locked_scope",
+            "decision_cli",
+            "decision_mcp",
+            "studio_bridge",
+            "capture_intake",
+            "compatibility_route",
+            "maintenance"
+          ]
+        },
+        "root_origin": {
+          "enum": [
+            "owner",
+            "caller"
+          ]
+        }
+      }
+    },
+    "terminal_size": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "columns",
+        "rows"
+      ],
+      "properties": {
+        "columns": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "rows": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "locale": {
+      "enum": [
+        "en",
+        "ja",
+        "ko"
+      ]
+    },
+    "surface_input": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/key_input"
+        },
+        {
+          "$ref": "#/$defs/text_input"
+        },
+        {
+          "$ref": "#/$defs/paste_input"
+        },
+        {
+          "$ref": "#/$defs/resize_input"
+        },
+        {
+          "$ref": "#/$defs/locale_input"
+        }
+      ]
+    },
+    "key_input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input",
+        "key"
+      ],
+      "properties": {
+        "input": {
+          "const": "key"
+        },
+        "key": {
+          "enum": [
+            "up",
+            "down",
+            "left",
+            "right",
+            "enter",
+            "escape",
+            "tab",
+            "back_tab",
+            "space",
+            "home",
+            "page_up",
+            "page_down",
+            "backspace"
+          ]
+        }
+      }
+    },
+    "text_input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input",
+        "text"
+      ],
+      "properties": {
+        "input": {
+          "const": "text"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      }
+    },
+    "paste_input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input",
+        "text"
+      ],
+      "properties": {
+        "input": {
+          "const": "paste"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      }
+    },
+    "resize_input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input",
+        "columns",
+        "rows"
+      ],
+      "properties": {
+        "input": {
+          "const": "resize"
+        },
+        "columns": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "rows": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "locale_input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input",
+        "locale"
+      ],
+      "properties": {
+        "input": {
+          "const": "locale"
+        },
+        "locale": {
+          "$ref": "#/$defs/locale"
+        }
+      }
+    }
+  }
+}

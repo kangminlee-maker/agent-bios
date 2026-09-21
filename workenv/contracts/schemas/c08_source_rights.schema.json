@@ -1,0 +1,97 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C08 source rights",
+  "description": "What a source's own owner permits for it, whatever layer references it: read, use, derive, export. Reading alone permits no derivation and no export, and no Team grant or policy reaches past this ceiling. A derivative carries its bases' rights by digest and permits nothing a base does not; that relates this record to another, so the runtime owner keeps it and P01's cases check it. The owner is the actor of the request; the runtime writes it and the time.",
+  "required": [
+    "kind",
+    "schema",
+    "source_id",
+    "allows",
+    "set_by",
+    "set_at"
+  ],
+  "x-unique-by": {
+    "key": "source_id",
+    "across": [
+      "carries"
+    ]
+  },
+  "properties": {
+    "kind": {
+      "const": "source_rights"
+    },
+    "schema": {
+      "const": 1
+    },
+    "source_id": {
+      "$ref": "#/$defs/source_id"
+    },
+    "allows": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/source_action"
+      }
+    },
+    "carries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/carried_rights"
+      },
+      "description": "For a derivative: each base source and the digest of its rights."
+    },
+    "set_by": {
+      "$ref": "#/$defs/principal_id",
+      "x-runtime-owned": true
+    },
+    "set_at": {
+      "$ref": "#/$defs/instant",
+      "x-runtime-owned": true
+    }
+  },
+  "$defs": {
+    "source_id": {
+      "type": "string",
+      "pattern": "^src_[0-9a-f]{32}$"
+    },
+    "principal_id": {
+      "type": "string",
+      "pattern": "^prn_[0-9a-f]{32}$"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "source_action": {
+      "enum": [
+        "read",
+        "use",
+        "derive",
+        "export"
+      ]
+    },
+    "carried_rights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "rights_digest"
+      ],
+      "properties": {
+        "source_id": {
+          "$ref": "#/$defs/source_id"
+        },
+        "rights_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    }
+  }
+}

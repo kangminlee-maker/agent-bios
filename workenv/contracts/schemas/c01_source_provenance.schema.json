@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C01 source provenance",
-  "description": "Where the bytes came from, when this installation acquired them, and whether anything here accepted them: three facts, not one. Origin has no field for priority or authority because it confers neither. A publisher's package and a note written this morning are ranked by the scope they are used in.",
+  "description": "Where the bytes came from, when this installation acquired them, and whether anything here accepted them: three facts, not one. Origin has no field for priority or authority because it confers neither. A publisher's package and a note written this morning are ranked by the scope they are used in. What a source says about its own history — who wrote it, when it was decided, its status, an approval — is kept in `claims` as the source states it, with how far each is supported. A stated approval, status or commit message is a claim and never an acceptance: acceptance is `acceptance`, and the installation that imported the source is not its author.",
   "required": [
     "kind",
     "schema",
@@ -30,6 +30,13 @@
     },
     "acquisition": {
       "$ref": "#/$defs/acquisition"
+    },
+    "claims": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/historical_claim"
+      }
     },
     "acceptance": {
       "$ref": "#/$defs/acceptance"
@@ -312,6 +319,75 @@
         "knowledge",
         "memory"
       ]
+    },
+    "historical_claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One thing the source states about its history, in its own words.",
+      "required": [
+        "claim",
+        "as_stated",
+        "support"
+      ],
+      "properties": {
+        "claim": {
+          "enum": [
+            "author",
+            "participants",
+            "decided_at",
+            "status",
+            "approval"
+          ]
+        },
+        "as_stated": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400
+        },
+        "support": {
+          "$ref": "#/$defs/claim_support"
+        }
+      }
+    },
+    "claim_support": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/verified_claim"
+        },
+        {
+          "$ref": "#/$defs/stated_claim"
+        }
+      ]
+    },
+    "verified_claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Checked against evidence this installation holds.",
+      "required": [
+        "support",
+        "evidence_digest"
+      ],
+      "properties": {
+        "support": {
+          "const": "verified"
+        },
+        "evidence_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "stated_claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Stated by the source and not checked.",
+      "required": [
+        "support"
+      ],
+      "properties": {
+        "support": {
+          "const": "stated_only"
+        }
+      }
     }
   }
 }

@@ -1303,7 +1303,7 @@ class ClosedNames(NamedExamples, unittest.TestCase):
         self.assertRefused("/material_gaps", "c06/a_gap_no_contract_declares")
         carrying = {identifier: loaded.defs["gap"] for identifier, loaded in self.schemas.items()
                     if "gap" in loaded.defs}
-        self.assertEqual(len(carrying), 16, sorted(carrying))
+        self.assertEqual(len(carrying), 18, sorted(carrying))
         for identifier, gap in carrying.items():
             self.assertEqual(gap["properties"]["code"], {"enum": sorted(errors.in_results())},
                              identifier)

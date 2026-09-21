@@ -1,0 +1,952 @@
+{
+  "title": "Runner preflight cases",
+  "description": "R0's cases. For each, the situations a runner under qualification is put in and what the conformance driver checks afterwards. A situation is a run built by the plan's own regression suite and changed in closed ways, the files of a synthetic tree, what each stub worker does, and one round or a round stopped at a fault point followed by a restart. Every check is decided from files the driver owns or reads: the run file, the tree, the stub log, the packets and the report. The dated evaluator's body for the run is the oracle for the whole dispatch set; node ids a check names are what the case is about, and a disagreement between the two means the fixture no longer matches the plan.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "what",
+    "interface",
+    "construction",
+    "always",
+    "cases"
+  ],
+  "x-unique-by": {
+    "key": "case",
+    "across": [
+      "cases"
+    ]
+  },
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "what": {
+      "$ref": "#/$defs/text"
+    },
+    "interface": {
+      "$ref": "#/$defs/interface"
+    },
+    "construction": {
+      "$ref": "#/$defs/construction"
+    },
+    "always": {
+      "description": "Checks held after every round that was not stopped, in every situation.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/universal_check"
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+    },
+    "node_id": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9]*$"
+    },
+    "node_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/node_id"
+      }
+    },
+    "tree_path": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]*(?:/[A-Za-z0-9_][A-Za-z0-9_.-]*)*$"
+    },
+    "interface": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The runner's interface: the evaluator it dispatches from and the four files it exchanges, each a closed schema beside this one.",
+      "required": [
+        "evaluator",
+        "invocation",
+        "packet",
+        "worker_result",
+        "report"
+      ],
+      "properties": {
+        "evaluator": {
+          "$ref": "#/$defs/text"
+        },
+        "invocation": {
+          "const": "invocation.schema.json"
+        },
+        "packet": {
+          "const": "packet.schema.json"
+        },
+        "worker_result": {
+          "const": "worker-result.schema.json"
+        },
+        "report": {
+          "const": "report.schema.json"
+        }
+      }
+    },
+    "construction": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "How the conformance driver builds each situation, stated once for all of them.",
+      "required": [
+        "run",
+        "tree",
+        "stubs",
+        "restart"
+      ],
+      "properties": {
+        "run": {
+          "$ref": "#/$defs/text"
+        },
+        "tree": {
+          "$ref": "#/$defs/text"
+        },
+        "stubs": {
+          "$ref": "#/$defs/text"
+        },
+        "restart": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case",
+        "situations"
+      ],
+      "x-unique-by": {
+        "key": "name",
+        "across": [
+          "situations"
+        ]
+      },
+      "properties": {
+        "case": {
+          "type": "string",
+          "pattern": "^RUN-[A-Z]+$"
+        },
+        "situations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/situation"
+          }
+        }
+      }
+    },
+    "situation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "says",
+        "given",
+        "tree",
+        "stubs",
+        "rounds",
+        "checks"
+      ],
+      "x-unique-by": {
+        "key": "node_id",
+        "across": [
+          "stubs"
+        ]
+      },
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/name"
+        },
+        "says": {
+          "$ref": "#/$defs/text"
+        },
+        "given": {
+          "$ref": "#/$defs/given"
+        },
+        "tree": {
+          "$ref": "#/$defs/tree"
+        },
+        "stubs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/stub"
+          }
+        },
+        "rounds": {
+          "$ref": "#/$defs/rounds"
+        },
+        "checks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/check"
+          }
+        }
+      }
+    },
+    "given": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "`base` picks the regression suite's Fixture: `coordinator` requests coordinator mode and holds a passed record for every node but the qualification node; `unattended` requests unattended mode and holds one for every node, the qualification node included, each unattended record naming it. `changes` then apply in order to the Fixture's run, and no review is refreshed after them.",
+      "required": [
+        "base",
+        "changes"
+      ],
+      "properties": {
+        "base": {
+          "enum": [
+            "coordinator",
+            "unattended"
+          ]
+        },
+        "changes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/run_change"
+          }
+        }
+      }
+    },
+    "run_change": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/keep_records"
+        },
+        {
+          "$ref": "#/$defs/add_records"
+        },
+        {
+          "$ref": "#/$defs/stale_node_digest"
+        },
+        {
+          "$ref": "#/$defs/failed_outcome"
+        },
+        {
+          "$ref": "#/$defs/other_subjects"
+        },
+        {
+          "$ref": "#/$defs/recorded_unattended"
+        },
+        {
+          "$ref": "#/$defs/other_runner"
+        },
+        {
+          "$ref": "#/$defs/request_mode"
+        }
+      ]
+    },
+    "keep_records": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Drop every record except these.",
+      "required": [
+        "change",
+        "node_ids"
+      ],
+      "properties": {
+        "change": {
+          "const": "keep_records"
+        },
+        "node_ids": {
+          "$ref": "#/$defs/node_ids"
+        }
+      }
+    },
+    "add_records": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Add a passed record for each node as the Fixture's `add_record` builds one, predecessors first.",
+      "required": [
+        "change",
+        "node_ids"
+      ],
+      "properties": {
+        "change": {
+          "const": "add_records"
+        },
+        "node_ids": {
+          "$ref": "#/$defs/node_ids"
+        }
+      }
+    },
+    "stale_node_digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The node's record names another node digest: canonical_digest([MARKER, node_id, \"another-node\"]).",
+      "required": [
+        "change",
+        "node_id"
+      ],
+      "properties": {
+        "change": {
+          "const": "stale_node_digest"
+        },
+        "node_id": {
+          "$ref": "#/$defs/node_id"
+        }
+      }
+    },
+    "failed_outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The node's record has outcome `failed`.",
+      "required": [
+        "change",
+        "node_id"
+      ],
+      "properties": {
+        "change": {
+          "const": "failed_outcome"
+        },
+        "node_id": {
+          "$ref": "#/$defs/node_id"
+        }
+      }
+    },
+    "other_subjects": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Every subject fingerprint in the node's record becomes canonical_digest([MARKER, subject_id, \"another-subject\"]); the run's current measurements stay as they were.",
+      "required": [
+        "change",
+        "node_id"
+      ],
+      "properties": {
+        "change": {
+          "const": "other_subjects"
+        },
+        "node_id": {
+          "$ref": "#/$defs/node_id"
+        }
+      }
+    },
+    "recorded_unattended": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The node's record says it ran in mode `unattended`.",
+      "required": [
+        "change",
+        "node_id"
+      ],
+      "properties": {
+        "change": {
+          "const": "recorded_unattended"
+        },
+        "node_id": {
+          "$ref": "#/$defs/node_id"
+        }
+      }
+    },
+    "other_runner": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The run's current `runner_fingerprint` becomes canonical_digest([MARKER, \"runner\", \"another-config\"]); records keep theirs.",
+      "required": [
+        "change"
+      ],
+      "properties": {
+        "change": {
+          "const": "other_runner"
+        }
+      }
+    },
+    "request_mode": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The run's `requested_mode`.",
+      "required": [
+        "change",
+        "mode"
+      ],
+      "properties": {
+        "change": {
+          "const": "request_mode"
+        },
+        "mode": {
+          "enum": [
+            "coordinator",
+            "unattended"
+          ]
+        }
+      }
+    },
+    "tree": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The synthetic tree's files. Revision 1 of a file is the line `SYNTHETIC-RUNNER-TREE <path>`; a file with two revisions gains the line `SYNTHETIC-RUNNER-TREE <path> second revision` in a second commit. Each line ends in a newline.",
+      "required": [
+        "files"
+      ],
+      "x-unique-by": {
+        "key": "path",
+        "across": [
+          "files"
+        ]
+      },
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tree_file"
+          }
+        }
+      }
+    },
+    "tree_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "revisions"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/tree_path"
+        },
+        "revisions": {
+          "enum": [
+            1,
+            2
+          ]
+        }
+      }
+    },
+    "stub": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "What the stub worker does when the named node is dispatched. A dispatched node with no stub row passes with no change.",
+      "required": [
+        "node_id",
+        "outcome",
+        "appends"
+      ],
+      "x-unique-by": {
+        "key": "path",
+        "across": [
+          "appends"
+        ]
+      },
+      "properties": {
+        "node_id": {
+          "$ref": "#/$defs/node_id"
+        },
+        "outcome": {
+          "enum": [
+            "passed",
+            "failed"
+          ]
+        },
+        "appends": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/append"
+          }
+        }
+      }
+    },
+    "append": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The stub proposes the path's bytes as it read them with one line appended: `SYNTHETIC-RUNNER-CASE <situation> <node_id>` and a newline. `current` reads the path at the packet's `base`; `previous_revision` reads it at the tree's first commit, so the change is prepared against a base that has since moved. The path must be a tree file, with two revisions for `previous_revision`.",
+      "required": [
+        "path",
+        "base"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/tree_path"
+        },
+        "base": {
+          "enum": [
+            "current",
+            "previous_revision"
+          ]
+        }
+      }
+    },
+    "rounds": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/one_round"
+        },
+        {
+          "$ref": "#/$defs/stopped_and_restarted"
+        }
+      ]
+    },
+    "one_round": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One round, run to its end.",
+      "required": [
+        "stop_at"
+      ],
+      "properties": {
+        "stop_at": {
+          "const": "none"
+        }
+      }
+    },
+    "stopped_and_restarted": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A round stopped at the fault point, then a restart round. The driver first confirms the point was reached, from the files alone: for `after_in_flight_written`, the run file's `in_flight` names the node and holds no new record for it; for `after_integration_before_record`, the node's stub appended line is in the tree and the run file holds no new record for it. A point not reached fails the situation as not exercised.",
+      "required": [
+        "stop_at"
+      ],
+      "properties": {
+        "stop_at": {
+          "$ref": "#/$defs/stop"
+        }
+      }
+    },
+    "stop": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A fault point. When the round reaches it for the named node's attempt, the adapter ends at once and writes nothing more, as a crash would. Its exit status is not read: the files show whether the point was hit. `after_in_flight_written`: the node's attempt is durably in `in_flight` and no record for the node is written. `after_integration_before_record`: the attempt's changes are in the tree and no record for the node is written.",
+      "required": [
+        "point",
+        "node_id"
+      ],
+      "properties": {
+        "point": {
+          "enum": [
+            "after_in_flight_written",
+            "after_integration_before_record"
+          ]
+        },
+        "node_id": {
+          "$ref": "#/$defs/node_id"
+        }
+      }
+    },
+    "universal_check": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/report_conforms"
+        },
+        {
+          "$ref": "#/$defs/packets_conform"
+        },
+        {
+          "$ref": "#/$defs/evaluated_as_the_plan_evaluates"
+        },
+        {
+          "$ref": "#/$defs/dispatches_equal_eligible"
+        },
+        {
+          "$ref": "#/$defs/within_concurrency_ceiling"
+        },
+        {
+          "$ref": "#/$defs/report_matches_stub_log"
+        },
+        {
+          "$ref": "#/$defs/reconciliations_cover_in_flight"
+        },
+        {
+          "$ref": "#/$defs/applied_rows_match_the_tree"
+        },
+        {
+          "$ref": "#/$defs/terminal_claim_matches_evaluator"
+        }
+      ]
+    },
+    "check": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/dispatched"
+        },
+        {
+          "$ref": "#/$defs/not_dispatched"
+        },
+        {
+          "$ref": "#/$defs/nothing_dispatched"
+        },
+        {
+          "$ref": "#/$defs/no_terminal_claim"
+        },
+        {
+          "$ref": "#/$defs/qualification_referenced"
+        },
+        {
+          "$ref": "#/$defs/unattended_refused"
+        },
+        {
+          "$ref": "#/$defs/same_attempt"
+        },
+        {
+          "$ref": "#/$defs/evidence_kept"
+        },
+        {
+          "$ref": "#/$defs/reconciled"
+        },
+        {
+          "$ref": "#/$defs/recorded_passed"
+        },
+        {
+          "$ref": "#/$defs/not_recorded_passed"
+        },
+        {
+          "$ref": "#/$defs/applied_once"
+        },
+        {
+          "$ref": "#/$defs/applied_at_most_once"
+        },
+        {
+          "$ref": "#/$defs/path_unchanged"
+        },
+        {
+          "$ref": "#/$defs/shared_path_serialized"
+        },
+        {
+          "$ref": "#/$defs/integration_refused"
+        }
+      ]
+    },
+    "report_conforms": {
+      "const": "report_conforms",
+      "description": "The round's report file exists, holds one JSON object with no duplicate keys, and validates against report.schema.json; its `run_id`, `requested_mode` and `runner_fingerprint` are the run file's as the round found it (an absent `requested_mode` read as the plan's `execution.default_mode`)."
+    },
+    "packets_conform": {
+      "const": "packets_conform",
+      "description": "Every packet a stub received validates against packet.schema.json and names what the run and plan fix: the run id; a node the report dispatched; the evaluator `digest` of the plan, of the node, of the catalog, of the node's test profile and of the run's binding for that profile; one input row per predecessor the plan names, carrying the digest of its record as the round found it; the run's current measurement of each subject the node names; the node's `owned_paths`; the run's requested mode, and for unattended the digest of the qualification node's record; the run's `runner_fingerprint`; the tree's HEAD at the start of the round as `base`; and the node's required cases and `done_when`."
+    },
+    "evaluated_as_the_plan_evaluates": {
+      "const": "evaluated_as_the_plan_evaluates",
+      "description": "The report's `evaluation_digest` equals the evaluator `digest` of the body the dated evaluator returns for the run file as the driver kept it before the round started. The driver computes this itself; the runner's claim is not read as evidence."
+    },
+    "dispatches_equal_eligible": {
+      "const": "dispatches_equal_eligible",
+      "description": "When the report has no `mode_refusal`, the nodes dispatched under a new attempt id are exactly `eligible[requested_mode]` of that body; every other dispatch is a resumed attempt, under the id `in_flight` named at the start of the round, with a reconciliation row saying `resumed`. When it has a `mode_refusal`, nothing is dispatched."
+    },
+    "within_concurrency_ceiling": {
+      "const": "within_concurrency_ceiling",
+      "description": "The stub log never shows more workers running at once than the plan's `concurrency_ceiling`."
+    },
+    "report_matches_stub_log": {
+      "const": "report_matches_stub_log",
+      "description": "The report's `dispatched` rows are the stub log's invocations, one for one: node id, attempt id and the sha256 of the packet bytes the stub read."
+    },
+    "reconciliations_cover_in_flight": {
+      "const": "reconciliations_cover_in_flight",
+      "description": "The report has exactly one reconciliation row for each attempt the run file's `in_flight` named at the start of the round, and none for any other attempt."
+    },
+    "applied_rows_match_the_tree": {
+      "const": "applied_rows_match_the_tree",
+      "description": "The paths that differ between the tree's HEAD before the round and its bytes after it are exactly the paths with an applied integration row; for each, the last applied row's `result_digest` is the sha256 of the path's bytes after the round; no refused row's proposed bytes are in the tree."
+    },
+    "terminal_claim_matches_evaluator": {
+      "const": "terminal_claim_matches_evaluator",
+      "description": "The report's `terminal_claimed` equals `terminal_accepted` in the dated evaluator's body for the run file as the round left it."
+    },
+    "dispatched": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Each named node is dispatched in the situation's last round.",
+      "required": [
+        "check",
+        "node_ids"
+      ],
+      "properties": {
+        "check": {
+          "const": "dispatched"
+        },
+        "node_ids": {
+          "$ref": "#/$defs/node_ids"
+        }
+      }
+    },
+    "not_dispatched": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "No named node is dispatched in any round of the situation.",
+      "required": [
+        "check",
+        "node_ids"
+      ],
+      "properties": {
+        "check": {
+          "const": "not_dispatched"
+        },
+        "node_ids": {
+          "$ref": "#/$defs/node_ids"
+        }
+      }
+    },
+    "nothing_dispatched": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "No round dispatches anything, in either mode: every `dispatched` is empty and the stub log is empty.",
+      "required": [
+        "check"
+      ],
+      "properties": {
+        "check": {
+          "const": "nothing_dispatched"
+        }
+      }
+    },
+    "no_terminal_claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Every report's `terminal_claimed` is false.",
+      "required": [
+        "check"
+      ],
+      "properties": {
+        "check": {
+          "const": "no_terminal_claim"
+        }
+      }
+    },
+    "qualification_referenced": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Every packet's `dispatch` is unattended with `qualification_ref` equal to the evaluator `digest` of the qualification node's record as the round found it, and every record the round writes says mode `unattended` and carries that same reference.",
+      "required": [
+        "check"
+      ],
+      "properties": {
+        "check": {
+          "const": "qualification_referenced"
+        }
+      }
+    },
+    "unattended_refused": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The report has a `mode_refusal`; its `because` equals the dated evaluator's `rejected_nodes` entry for the plan's `execution.qualification_node`, and each listed text is one of those reasons.",
+      "required": [
+        "check",
+        "reasons_include"
+      ],
+      "properties": {
+        "check": {
+          "const": "unattended_refused"
+        },
+        "reasons_include": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/text"
+          }
+        }
+      }
+    },
+    "same_attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Across both rounds every packet, `in_flight` entry and record for the node names the attempt id the stopped round wrote to `in_flight`; no other attempt of the node is dispatched.",
+      "required": [
+        "check",
+        "node_id"
+      ],
+      "properties": {
+        "check": {
+          "const": "same_attempt"
+        },
+        "node_id": {
+          "$ref": "#/$defs/node_id"
+        }
+      }
+    },
+    "evidence_kept": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Every evidence file the stopped round's attempt of the node left is present, with the same bytes, after the restart round.",
+      "required": [
+        "check",
+        "node_id"
+      ],
+      "properties": {
+        "check": {
+          "const": "evidence_kept"
+        },
+        "node_id": {
+          "$ref": "#/$defs/node_id"
+        }
+      }
+    },
+    "reconciled": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The restart round's report has a reconciliation row for the node's attempt; when `found` is given, the row says it.",
+      "required": [
+        "check",
+        "node_id"
+      ],
+      "properties": {
+        "check": {
+          "const": "reconciled"
+        },
+        "node_id": {
+          "$ref": "#/$defs/node_id"
+        },
+        "found": {
+          "enum": [
+            "changes_in_tree",
+            "result_not_integrated",
+            "no_result"
+          ]
+        }
+      }
+    },
+    "recorded_passed": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "After the last round the run file holds a record for the node with outcome `passed`, under the attempt id the node was dispatched with.",
+      "required": [
+        "check",
+        "node_id"
+      ],
+      "properties": {
+        "check": {
+          "const": "recorded_passed"
+        },
+        "node_id": {
+          "$ref": "#/$defs/node_id"
+        }
+      }
+    },
+    "not_recorded_passed": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "No record the runner writes for a dispatched attempt of the node has outcome `passed`, and the report does not claim one.",
+      "required": [
+        "check",
+        "node_id"
+      ],
+      "properties": {
+        "check": {
+          "const": "not_recorded_passed"
+        },
+        "node_id": {
+          "$ref": "#/$defs/node_id"
+        }
+      }
+    },
+    "applied_once": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Across all rounds exactly one applied integration row is the node's change to the path, and the path's final bytes hold the line the node's stub appended exactly once.",
+      "required": [
+        "check",
+        "node_id",
+        "path"
+      ],
+      "properties": {
+        "check": {
+          "const": "applied_once"
+        },
+        "node_id": {
+          "$ref": "#/$defs/node_id"
+        },
+        "path": {
+          "$ref": "#/$defs/tree_path"
+        }
+      }
+    },
+    "applied_at_most_once": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Across all rounds at most one applied integration row is the node's change to the path, and the path's final bytes hold the line the node's stub appended at most once.",
+      "required": [
+        "check",
+        "node_id",
+        "path"
+      ],
+      "properties": {
+        "check": {
+          "const": "applied_at_most_once"
+        },
+        "node_id": {
+          "$ref": "#/$defs/node_id"
+        },
+        "path": {
+          "$ref": "#/$defs/tree_path"
+        }
+      }
+    },
+    "path_unchanged": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The path's bytes after the last round equal its bytes at the tree's HEAD before the first.",
+      "required": [
+        "check",
+        "path"
+      ],
+      "properties": {
+        "check": {
+          "const": "path_unchanged"
+        },
+        "path": {
+          "$ref": "#/$defs/tree_path"
+        }
+      }
+    },
+    "shared_path_serialized": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "At least two integration rows name the path, and in `order` they form one chain: every applied row's `base_digest` is the previous applied row's `result_digest` (the first, the path's bytes at the round's base), every other row is refused `stale_base`, and the path's final bytes are the last applied row's `result_digest`.",
+      "required": [
+        "check",
+        "path"
+      ],
+      "properties": {
+        "check": {
+          "const": "shared_path_serialized"
+        },
+        "path": {
+          "$ref": "#/$defs/tree_path"
+        }
+      }
+    },
+    "integration_refused": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The report has a refused integration row for the node's change to the path with that reason, and the line the node's stub appended there is not in the tree.",
+      "required": [
+        "check",
+        "node_id",
+        "path",
+        "because"
+      ],
+      "properties": {
+        "check": {
+          "const": "integration_refused"
+        },
+        "node_id": {
+          "$ref": "#/$defs/node_id"
+        },
+        "path": {
+          "$ref": "#/$defs/tree_path"
+        },
+        "because": {
+          "enum": [
+            "outside_owned_paths",
+            "stale_base"
+          ]
+        }
+      }
+    }
+  }
+}

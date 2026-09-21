@@ -1,0 +1,63 @@
+{
+  "title": "C03 batch plan",
+  "description": "Many requests submitted together. Each item is its own sealed request, named by digest, and the carrier that commits it; the items one carrier commits are committed together or not at all, and items on different carriers are not. A retry submits the same plan, so every item keeps its request id and a committed one returns its original result rather than running again.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema",
+    "items"
+  ],
+  "x-unique-by": {
+    "key": "request_digest",
+    "across": [
+      "items"
+    ]
+  },
+  "properties": {
+    "kind": {
+      "const": "batch_plan"
+    },
+    "schema": {
+      "const": 1
+    },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/batch_item"
+      }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "carrier": {
+      "enum": [
+        "local",
+        "peer",
+        "github",
+        "package"
+      ],
+      "description": "The carrier that commits: this installation's own store, a peer, a GitHub exchange repository, or a package."
+    },
+    "batch_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_digest",
+        "carrier"
+      ],
+      "properties": {
+        "request_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "carrier": {
+          "$ref": "#/$defs/carrier"
+        }
+      }
+    }
+  }
+}

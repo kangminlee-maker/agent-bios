@@ -75,7 +75,7 @@
     "invited_standing": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Invited and not yet consented: there is no consent to name.",
+      "description": "Invited and not yet consented: there is no consent to name. A cancelled or expired invitation stays recorded as such, so a consent that arrives late admits nobody.",
       "required": [
         "is",
         "how",
@@ -83,7 +83,11 @@
       ],
       "properties": {
         "is": {
-          "const": "invited"
+          "enum": [
+            "invited",
+            "cancelled",
+            "expired"
+          ]
         },
         "how": {
           "const": "invitation"

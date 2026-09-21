@@ -1,0 +1,206 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C08 device retirement",
+  "description": "Retire one device from a Team. Its unique drafts, outbox entries and unknown operations are disposed of first, each one named way; retiring the device revokes nothing else the principal holds and does not remove a duty the device carried.",
+  "required": [
+    "kind",
+    "schema",
+    "team_id",
+    "device_id",
+    "drafts",
+    "retired_at"
+  ],
+  "properties": {
+    "kind": {
+      "const": "device_retirement"
+    },
+    "schema": {
+      "const": 1
+    },
+    "team_id": {
+      "$ref": "#/$defs/team_id"
+    },
+    "device_id": {
+      "$ref": "#/$defs/device_id"
+    },
+    "drafts": {
+      "$ref": "#/$defs/work_disposition"
+    },
+    "retired_at": {
+      "$ref": "#/$defs/instant",
+      "x-runtime-owned": true
+    }
+  },
+  "$defs": {
+    "team_id": {
+      "type": "string",
+      "pattern": "^tem_[0-9a-f]{32}$"
+    },
+    "device_id": {
+      "type": "string",
+      "pattern": "^dev_[0-9a-f]{32}$"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "principal_id": {
+      "type": "string",
+      "pattern": "^prn_[0-9a-f]{32}$"
+    },
+    "work_disposition": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "What becomes of each piece of unique work the effect would otherwise strand: drafts, outbox entries, operations whose outcome is unknown, delegations and external effects. Each item is settled one named way; an empty list states that nothing unique is held, rather than leaving it unsaid.",
+      "required": [
+        "items"
+      ],
+      "x-unique-by": {
+        "key": "subject_digest",
+        "across": [
+          "items"
+        ]
+      },
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/disposition_item"
+          }
+        }
+      }
+    },
+    "disposition_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_digest",
+        "holds",
+        "settled"
+      ],
+      "properties": {
+        "subject_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "holds": {
+          "enum": [
+            "draft",
+            "outbox_entry",
+            "unknown_operation",
+            "delegation",
+            "external_effect"
+          ]
+        },
+        "settled": {
+          "$ref": "#/$defs/settlement"
+        }
+      }
+    },
+    "settlement": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/transferred_work"
+        },
+        {
+          "$ref": "#/$defs/exported_work"
+        },
+        {
+          "$ref": "#/$defs/kept_work"
+        },
+        {
+          "$ref": "#/$defs/reconciled_work"
+        },
+        {
+          "$ref": "#/$defs/discarded_work"
+        }
+      ]
+    },
+    "transferred_work": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "by",
+        "to_principal_id"
+      ],
+      "properties": {
+        "by": {
+          "const": "transfer"
+        },
+        "to_principal_id": {
+          "$ref": "#/$defs/principal_id"
+        }
+      }
+    },
+    "exported_work": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "by",
+        "package_digest"
+      ],
+      "properties": {
+        "by": {
+          "const": "export"
+        },
+        "package_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "kept_work": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "by",
+        "holder_device_id"
+      ],
+      "properties": {
+        "by": {
+          "const": "keeping"
+        },
+        "holder_device_id": {
+          "$ref": "#/$defs/device_id"
+        }
+      }
+    },
+    "reconciled_work": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Asked again by the same request until its actual result was known; the result is named.",
+      "required": [
+        "by",
+        "result_digest"
+      ],
+      "properties": {
+        "by": {
+          "const": "reconciliation"
+        },
+        "result_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "discarded_work": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Given up only on the named consent of the person whose work it is.",
+      "required": [
+        "by",
+        "consent_digest"
+      ],
+      "properties": {
+        "by": {
+          "const": "consented_discard"
+        },
+        "consent_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    }
+  }
+}

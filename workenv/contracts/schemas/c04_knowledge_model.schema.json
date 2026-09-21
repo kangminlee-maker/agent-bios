@@ -1,0 +1,152 @@
+{
+  "title": "C04 knowledge model",
+  "description": "A domain model held as one member of a knowledge source revision: nodes with stable ids, types, definitions, conditions and evidence, and typed relations between them. Nodes and relations share one id space. A relation whose endpoint names no node of the model, including one a revision deleted, is `model_reference_dangling`. A model with clean structure is not semantically validated by that.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema",
+    "source_id",
+    "nodes",
+    "relations"
+  ],
+  "x-unique-by": {
+    "key": "id",
+    "across": [
+      "nodes",
+      "relations"
+    ]
+  },
+  "properties": {
+    "kind": {
+      "const": "knowledge_model"
+    },
+    "schema": {
+      "const": 1
+    },
+    "source_id": {
+      "$ref": "#/$defs/source_id"
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/model_node"
+      }
+    },
+    "relations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/model_relation"
+      }
+    }
+  },
+  "$defs": {
+    "model_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+    },
+    "evidence_digests": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/digest"
+      }
+    },
+    "model_node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "definition",
+        "evidence_digests"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/model_id"
+        },
+        "type": {
+          "$ref": "#/$defs/model_id"
+        },
+        "definition": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "conditions": {
+          "$ref": "#/$defs/conditions"
+        },
+        "evidence_digests": {
+          "$ref": "#/$defs/evidence_digests"
+        }
+      }
+    },
+    "model_relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A typed edge. `from` and `to` name nodes of this model; the relation carries its own conditions and evidence, so an endpoint is qualified, not bare.",
+      "required": [
+        "id",
+        "type",
+        "from",
+        "to"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/model_id"
+        },
+        "type": {
+          "$ref": "#/$defs/model_id"
+        },
+        "from": {
+          "$ref": "#/$defs/model_id"
+        },
+        "to": {
+          "$ref": "#/$defs/model_id"
+        },
+        "conditions": {
+          "$ref": "#/$defs/conditions"
+        },
+        "evidence_digests": {
+          "$ref": "#/$defs/evidence_digests"
+        }
+      }
+    },
+    "conditions": {
+      "items": {
+        "$ref": "#/$defs/condition"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "digest": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "source_id": {
+      "pattern": "^src_[0-9a-f]{32}$",
+      "type": "string"
+    },
+    "condition": {
+      "additionalProperties": false,
+      "properties": {
+        "dimension": {
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "dimension",
+        "value"
+      ],
+      "type": "object"
+    }
+  }
+}

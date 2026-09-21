@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C08 founding proposal",
-  "description": "What the founder seals before a Team exists: its id, the exact initial policy, who is nominated for what, how it will be finalized and recovered. A revision is a new version, and acceptances name the version they accepted, so an acceptance cannot survive the proposal changing under it. A solo Team is an explicit mode that acknowledges it reviewed itself; the absence of a reviewer never selects it.",
+  "description": "What the founder seals before a Team exists: its id, the exact initial policy, who is nominated for what, how it will be finalized and recovered. A revision is a new version, and acceptances name the version they accepted, so an acceptance cannot survive the proposal changing under it. A solo Team is an explicit mode that acknowledges it reviewed itself; the absence of a reviewer never selects it. A copied Team starts from `derived_from` and inherits nothing it does not name.",
   "required": [
     "kind",
     "schema",
@@ -81,6 +81,9 @@
     "created_at": {
       "$ref": "#/$defs/instant",
       "x-runtime-owned": true
+    },
+    "derived_from": {
+      "$ref": "#/$defs/derivation"
     }
   },
   "$defs": {
@@ -296,6 +299,28 @@
         },
         "device_id": {
           "$ref": "#/$defs/device_id"
+        }
+      }
+    },
+    "derivation": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A copied or derived Team is a new founding. It names the original Team and the exact permitted sources and settings it starts from; a member, a credential, approval authority or history has no field here, so none is copied.",
+      "required": [
+        "team_id",
+        "selected"
+      ],
+      "properties": {
+        "team_id": {
+          "$ref": "#/$defs/team_id"
+        },
+        "selected": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/digest"
+          }
         }
       }
     }

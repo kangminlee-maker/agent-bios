@@ -1,0 +1,204 @@
+{
+  "title": "C01 source observation",
+  "description": "What one acquisition actually read for a selection, written by the runtime: every file, record span or member with the digest and size of the bytes read — for a working tree, committed, modified and untracked files alike, which is one exact snapshot — and the required roots whose content was absent. Each read names the root it lies under; reading only within the selection relates this record to the selection, so the runtime owner keeps it and P01's cases check it. A later observation whose digests differ is not this one: claims resting on this one no longer hold (`working_bytes_moved`).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema",
+    "selection_digest",
+    "read",
+    "missing",
+    "observed_at"
+  ],
+  "x-runtime-owned": true,
+  "properties": {
+    "kind": {
+      "const": "source_observation"
+    },
+    "schema": {
+      "const": 1
+    },
+    "selection_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "read": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/observed_read"
+      }
+    },
+    "missing": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/root_index"
+      }
+    },
+    "observed_at": {
+      "$ref": "#/$defs/instant"
+    }
+  },
+  "$defs": {
+    "observed_read": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/tree_read"
+        },
+        {
+          "$ref": "#/$defs/records_read"
+        },
+        {
+          "$ref": "#/$defs/member_read"
+        },
+        {
+          "$ref": "#/$defs/file_read"
+        }
+      ]
+    },
+    "tree_read": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One working-tree file under a selected root, as the working tree held it: committed, modified since the last commit, or untracked.",
+      "required": [
+        "read",
+        "root",
+        "path",
+        "state",
+        "digest",
+        "size"
+      ],
+      "properties": {
+        "read": {
+          "const": "tree"
+        },
+        "root": {
+          "$ref": "#/$defs/root_index"
+        },
+        "path": {
+          "$ref": "#/$defs/source_path"
+        },
+        "state": {
+          "enum": [
+            "committed",
+            "modified",
+            "untracked"
+          ]
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "records_read": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "read",
+        "root",
+        "first_record",
+        "last_record",
+        "digest",
+        "size"
+      ],
+      "properties": {
+        "read": {
+          "const": "records"
+        },
+        "root": {
+          "$ref": "#/$defs/root_index"
+        },
+        "first_record": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "last_record": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "member_read": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "read",
+        "root",
+        "member",
+        "digest",
+        "size"
+      ],
+      "properties": {
+        "read": {
+          "const": "member"
+        },
+        "root": {
+          "$ref": "#/$defs/root_index"
+        },
+        "member": {
+          "$ref": "#/$defs/source_path"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "file_read": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "read",
+        "root",
+        "digest",
+        "size"
+      ],
+      "properties": {
+        "read": {
+          "const": "file"
+        },
+        "root": {
+          "$ref": "#/$defs/root_index"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "root_index": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "The position of a root in the selection this answers."
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "source_path": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]*(?:/[A-Za-z0-9_][A-Za-z0-9_.-]*)*$"
+    }
+  }
+}

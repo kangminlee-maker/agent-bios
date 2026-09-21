@@ -133,6 +133,43 @@ class Generator(unittest.TestCase):
             self.generate(spec)
         self.assertIn("is refused with", str(caught.exception))
 
+    def test_a_record_derived_from_another_carries_its_joins(self):
+        spec = copy.deepcopy(BASE)
+        spec["ids"].append({"name": "again_request", "prefix": "req"})
+        spec["records"].append({"name": "bind_again", "from": "bind",
+                                "set": [{"pointer": "/request_id", "value": "@again_request"}]})
+        spec["steps"].append({**copy.deepcopy(spec["steps"][0]), "name": "bind_again",
+                              "request": "bind_again", "answer": {**spec["steps"][0]["answer"],
+                                                                  "returns": []}})
+        built = self.generate(spec)
+        by_name = {row["name"]: row["record"] for row in built["records"]}
+        self.assertEqual(by_name["bind_again"]["payload_digest"],
+                         by_name["bind"]["payload_digest"])
+        self.assertIn({"record": "bind_again", "pointer": "/payload_digest",
+                       "digest_of": "first_key"}, built["joins"])
+
+    def test_a_derived_record_keeps_no_join_where_it_replaces_the_value(self):
+        spec = copy.deepcopy(BASE)
+        spec["ids"].append({"name": "again_request", "prefix": "req"})
+        spec["records"].append({"name": "second_key", "from": "first_key",
+                                "set": [{"pointer": "/credential/key_generation", "value": 2}]})
+        spec["records"].append({"name": "bind_again", "from": "bind",
+                                "set": [{"pointer": "/request_id", "value": "@again_request"},
+                                        {"pointer": "/payload_digest", "value": "#second_key"}]})
+        spec["steps"].append({"name": "bind_second_key", "request": "bind_again",
+                              "carries": ["second_key"],
+                              "answer": {**spec["steps"][0]["answer"], "returns": []}})
+        joins = [j for j in self.generate(spec)["joins"] if j["record"] == "bind_again"]
+        self.assertIn({"record": "bind_again", "pointer": "/payload_digest",
+                       "digest_of": "second_key"}, joins)
+        self.assertNotIn({"record": "bind_again", "pointer": "/payload_digest",
+                          "digest_of": "first_key"}, joins)
+
+    def test_a_record_derived_from_itself(self):
+        def change(spec):
+            self.record(spec, "bind")["from"] = "bind"
+        self.refused("names its own digest", change)
+
     def test_a_record_from_an_example_that_does_not_exist(self):
         def change(spec):
             self.record(spec, "first_key")["from"] = "c01/no_such_example.json"

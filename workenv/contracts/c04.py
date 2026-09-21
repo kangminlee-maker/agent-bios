@@ -1,7 +1,7 @@
 """C04 Behavioural sources and domain knowledge: the gaps its operations answer with.
 
 Record kinds: `projection_plan`, `role_projection`, `knowledge_question`, `knowledge_view`,
-`session_routing`, `session_activation`.
+`session_routing`, `session_activation`, `knowledge_model`, `form_profile`.
 
 Two operations share this contract because they share one rule: what reaches a role is decided
 by the one admission owner, from exact source revisions, and nothing else is promoted into it.
@@ -13,12 +13,23 @@ A request arrives through an entrance, and the plan carries that entrance: an en
 root the caller chose reaches protected bytes only through the admission owner, and one that
 would not is refused here rather than at whichever command happened to offer it.
 
+A unit with an overlap key competes for its concern; a unit without one is unkeyed prose,
+delivered `layered` in its labelled layer and the application order, with no winner declared.
+
+A knowledge view prefers one layer's answer and keeps the others beside it with their own
+evidence: the layer order chooses what to prefer, never what is true, and sources that disagree
+under the same conditions are stated as `knowledge_evidence_conflicts`. A domain model or a form
+profile is a structured member of a knowledge source revision; `knowledge.member.prepare` checks
+one before it is committed and names a relation to a missing node or a field mapped nowhere.
+Clean structure is not semantic validation.
+
 A session is activated explicitly, by a `session_activation` naming the session and the
 preparation it receives; a session never activated sends nothing and is recorded as selected only.
 """
 CONTRACT = "C04"
 RECORD_KINDS = ("projection_plan", "role_projection", "knowledge_question",
-                "knowledge_view", "session_routing", "session_activation")
+                "knowledge_view", "session_routing", "session_activation", "knowledge_model",
+                "form_profile")
 IN_RESULTS = True
 
 # The operations of this contract that travel in a C03 sealed request. `takes` is the
@@ -30,6 +41,8 @@ OPERATIONS = {
     "knowledge.question.ask": {"takes": ("knowledge_question",), "returns": ("knowledge_view",)},
     "knowledge.view.open": {"takes": (), "returns": ("knowledge_view",)},
     "session.routing.activate": {"takes": ("session_activation",), "returns": ("session_routing",)},
+    "knowledge.member.prepare": {"takes": ("knowledge_model", "form_profile"),
+                                 "returns": ("knowledge_model", "form_profile")},
 }
 
 SOURCE_NOT_AUTHORIZED = "source_not_authorized"
@@ -39,6 +52,9 @@ ROLE_BODY_UNAVAILABLE = "role_body_unavailable"
 APPLICABILITY_UNSTATED = "applicability_unstated"
 COMPANION_UNAVAILABLE = "companion_unavailable"
 CONDITION_NOT_COVERED = "condition_not_covered"
+KNOWLEDGE_EVIDENCE_CONFLICTS = "knowledge_evidence_conflicts"
+MODEL_REFERENCE_DANGLING = "model_reference_dangling"
+FORM_MAPPING_INVALID = "form_mapping_invalid"
 
 # This module's rows of the contract error table (workenv.contracts.errors joins them).
 ERRORS = {
@@ -51,4 +67,18 @@ ERRORS = {
                             "read as applying everywhere",
     COMPANION_UNAVAILABLE: "a declared companion the answer needs and this installation lacks",
     CONDITION_NOT_COVERED: "a condition that can change the answer and no source covers",
+    KNOWLEDGE_EVIDENCE_CONFLICTS: "sources that answer one question under the same conditions "
+                                  "and disagree; each keeps its evidence, and preferring a "
+                                  "layer settles nothing about which is true",
+    MODEL_REFERENCE_DANGLING: "a model relation whose endpoint names no node of the model, "
+                              "including a node the revision deleted",
+    FORM_MAPPING_INVALID: "a form field mapped nowhere the canonical data holds, or data the "
+                          "profile could hold only by dropping an exception",
+}
+
+# Rules that relate one element of a record to another, which a schema cannot state. The
+# runtime owner keeps each; a case in the registry (gates/workenv/case-index.json) checks it.
+RUNTIME_RULES = {
+    "relation_endpoints_are_nodes": "both ends of every knowledge_model relation name a node of "
+                                    "that model",
 }

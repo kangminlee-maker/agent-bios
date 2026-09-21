@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C12 capability profile",
-  "description": "Read, question, user event and resume are qualified one at a time, against the installed client and the wire version it actually negotiated. A capability is qualified only by naming the probe that qualified it, so a profile cannot claim support from a specification, a registered tool name or a product's reputation.",
+  "description": "Read, question, user event and resume are qualified one at a time, against the installed client and the wire version it actually negotiated. A capability is qualified only by naming the probe that qualified it, so a profile cannot claim support from a specification, a registered tool name or a product's reputation. A provider callback and a validator are qualified the same way, one probe each.",
   "required": [
     "kind",
     "schema",
@@ -139,7 +139,9 @@
             "read",
             "question",
             "user_event",
-            "resume"
+            "resume",
+            "provider_callback",
+            "validation"
           ]
         },
         "state": {

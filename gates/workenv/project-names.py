@@ -6,6 +6,8 @@ list by defining the named `$defs` entry; its value is replaced whole.
 
   $defs/operation              every operation a contract module declares
   $defs/output_kind            every record kind some operation returns
+  $defs/object_kind            every record kind a contract module declares, and `source_member`
+                               for a source revision's member bytes
   $defs/gap code               every gap a contract module's operations answer with
   $defs/disclosed_gap code     the gaps that qualify a commit rather than prevent one
 
@@ -25,8 +27,10 @@ from workenv.contracts import errors, examples  # noqa: E402
 def lists() -> dict[str, list[str]]:
     table = {name: row for module in errors.OWNERS
              for name, row in getattr(module, "OPERATIONS", {}).items()}
+    kinds = {kind for module in errors.OWNERS for kind in getattr(module, "RECORD_KINDS", ())}
     return {"operation": sorted(table),
             "output_kind": sorted({kind for row in table.values() for kind in row["returns"]}),
+            "object_kind": sorted(kinds | {"source_member"}),
             "gap": sorted(errors.in_results()),
             "disclosed_gap": sorted(errors.disclosed())}
 

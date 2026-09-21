@@ -1,0 +1,76 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C08 membership invitation",
+  "description": "An invitation one Team issues under the policy in force, carried by a code, a QR display or an offline package. It admits nobody: the invitee still proves a device credential, is verified by the Team's out-of-band procedure and consents, and a member is registered only by the governed membership change that names both. An invitation that is cancelled or has expired, or that another Team issued, admits nobody however late its consent arrives. The issuer is the actor of the request; the runtime writes it.",
+  "required": [
+    "kind",
+    "schema",
+    "invitation_id",
+    "team_id",
+    "issuer_principal_id",
+    "policy_digest",
+    "carried_by",
+    "expires_at",
+    "created_at"
+  ],
+  "properties": {
+    "kind": {
+      "const": "membership_invitation"
+    },
+    "schema": {
+      "const": 1
+    },
+    "invitation_id": {
+      "type": "string",
+      "pattern": "^inv_[0-9a-f]{32}$",
+      "x-runtime-owned": true
+    },
+    "team_id": {
+      "$ref": "#/$defs/team_id"
+    },
+    "issuer_principal_id": {
+      "$ref": "#/$defs/principal_id",
+      "x-runtime-owned": true
+    },
+    "principal_id": {
+      "$ref": "#/$defs/principal_id",
+      "description": "The invitee, when the Team already knows them."
+    },
+    "policy_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "carried_by": {
+      "enum": [
+        "code",
+        "qr",
+        "offline_package"
+      ]
+    },
+    "expires_at": {
+      "$ref": "#/$defs/instant"
+    },
+    "created_at": {
+      "$ref": "#/$defs/instant",
+      "x-runtime-owned": true
+    }
+  },
+  "$defs": {
+    "team_id": {
+      "type": "string",
+      "pattern": "^tem_[0-9a-f]{32}$"
+    },
+    "principal_id": {
+      "type": "string",
+      "pattern": "^prn_[0-9a-f]{32}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    }
+  }
+}

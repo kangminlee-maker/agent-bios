@@ -2,11 +2,13 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C11 exposure trial",
-  "description": "One participant attempting one task on a surface they meet for the first time (N26). What they stated before acting is kept apart from the outcome observed afterwards; help, confusion and the exact UI subject are recorded, and a critical misinterpretation still standing at the end — taking saving a draft for publishing, say — is stated rather than averaged away. It names the surface observation it happened in and qualifies nothing by itself.",
+  "description": "One participant attempting one task on a surface they meet for the first time (N26). What they stated before acting is kept apart from the outcome observed afterwards; help, confusion and the exact UI subject are recorded, and a critical misinterpretation still standing at the end — taking saving a draft for publishing, say — is stated rather than averaged away. It names the surface observation it happened in and qualifies nothing by itself. It names the protocol and the task it was run under, so a protocol cell's trials can be counted.",
   "required": [
     "kind",
     "schema",
     "observation_id",
+    "protocol_digest",
+    "task_id",
     "participant",
     "task_prompt",
     "stated",
@@ -26,6 +28,13 @@
     },
     "observation_id": {
       "$ref": "#/$defs/observation_id"
+    },
+    "protocol_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "task_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
     },
     "participant": {
       "$ref": "#/$defs/trial_participant"
@@ -92,15 +101,19 @@
     "trial_participant": {
       "type": "object",
       "additionalProperties": false,
-      "description": "The study's own code for the participant and the sample they were drawn from; never a principal id.",
+      "description": "The study's own code for the participant, the class the protocol counts them in, and the sample they were drawn from; never a principal id.",
       "required": [
         "code",
+        "class",
         "sample"
       ],
       "properties": {
         "code": {
           "type": "string",
           "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,39}$"
+        },
+        "class": {
+          "$ref": "#/$defs/participant_class"
         },
         "sample": {
           "type": "string",
@@ -180,6 +193,16 @@
           "maxLength": 2000
         }
       }
+    },
+    "participant_class": {
+      "enum": [
+        "novice",
+        "maintainer"
+      ]
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
     }
   }
 }

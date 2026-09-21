@@ -1,0 +1,28 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C09 carrier request",
+  "description": "The carrier binding a provisioning or a disconnect applies to. Which of the two is the operation's to say.",
+  "required": [
+    "kind",
+    "schema",
+    "binding_id"
+  ],
+  "properties": {
+    "kind": {
+      "const": "carrier_request"
+    },
+    "schema": {
+      "const": 1
+    },
+    "binding_id": {
+      "$ref": "#/$defs/carrier_id"
+    }
+  },
+  "$defs": {
+    "carrier_id": {
+      "type": "string",
+      "pattern": "^car_[0-9a-f]{32}$"
+    }
+  }
+}

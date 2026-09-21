@@ -1,0 +1,685 @@
+{
+  "title": "C05 memory candidate",
+  "description": "A proposed choice or event before any destination has accepted it: a lifecycle state, not a fourth store and not a claim of truth. It carries the proposal as its record would state it, where it came from — a capture and its exact evidence, or an author — and the source it is meant for, when one is known. An edit is a new version under the same candidate id and keeps the origin, so the capture, the transcript and the original records are never changed by editing. Promotion happens only at the destination: the record is published there, and the candidate names that commit's receipt. A rejected candidate is retained. The runtime writes the id, the version, the standing and the time.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema",
+    "candidate_id",
+    "version",
+    "proposed",
+    "origin",
+    "standing",
+    "created_at"
+  ],
+  "properties": {
+    "kind": {
+      "const": "memory_candidate"
+    },
+    "schema": {
+      "const": 1
+    },
+    "candidate_id": {
+      "$ref": "#/$defs/candidate_id",
+      "x-runtime-owned": true
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "x-runtime-owned": true
+    },
+    "proposed": {
+      "$ref": "#/$defs/proposal"
+    },
+    "origin": {
+      "$ref": "#/$defs/candidate_origin"
+    },
+    "destination_source_id": {
+      "$ref": "#/$defs/source_id"
+    },
+    "standing": {
+      "$ref": "#/$defs/candidate_standing",
+      "x-runtime-owned": true
+    },
+    "created_at": {
+      "$ref": "#/$defs/instant",
+      "x-runtime-owned": true
+    }
+  },
+  "$defs": {
+    "record_id": {
+      "type": "string",
+      "pattern": "^rec_[0-9a-f]{32}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "source_id": {
+      "type": "string",
+      "pattern": "^src_[0-9a-f]{32}$"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "applicability": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/stated_applicability"
+        },
+        {
+          "$ref": "#/$defs/unstated_applicability"
+        }
+      ]
+    },
+    "unstated_applicability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "states"
+      ],
+      "properties": {
+        "states": {
+          "const": "unstated"
+        }
+      }
+    },
+    "stated_applicability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "states"
+      ],
+      "properties": {
+        "states": {
+          "const": "stated"
+        },
+        "period": {
+          "$ref": "#/$defs/period"
+        },
+        "conditions": {
+          "$ref": "#/$defs/conditions"
+        },
+        "exceptions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400
+          }
+        }
+      }
+    },
+    "conditions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/condition"
+      }
+    },
+    "condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dimension",
+        "value"
+      ],
+      "properties": {
+        "dimension": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      }
+    },
+    "period": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "effective_from"
+      ],
+      "properties": {
+        "effective_from": {
+          "$ref": "#/$defs/date"
+        },
+        "effective_to": {
+          "$ref": "#/$defs/date"
+        }
+      }
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "workstream_id": {
+      "type": "string",
+      "pattern": "^wst_[0-9a-f]{32}$"
+    },
+    "scope": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/repository_scope"
+        },
+        {
+          "$ref": "#/$defs/personal_scope"
+        },
+        {
+          "$ref": "#/$defs/team_scope"
+        }
+      ]
+    },
+    "team_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "team_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "team"
+        },
+        "team_id": {
+          "$ref": "#/$defs/team_id"
+        }
+      }
+    },
+    "team_id": {
+      "type": "string",
+      "pattern": "^tem_[0-9a-f]{32}$"
+    },
+    "personal_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "principal_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "personal"
+        },
+        "principal_id": {
+          "$ref": "#/$defs/principal_id"
+        }
+      }
+    },
+    "principal_id": {
+      "type": "string",
+      "pattern": "^prn_[0-9a-f]{32}$"
+    },
+    "repository_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "repository_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "repository"
+        },
+        "repository_id": {
+          "$ref": "#/$defs/repository_id"
+        }
+      }
+    },
+    "repository_id": {
+      "type": "string",
+      "pattern": "^rep_[0-9a-f]{32}$"
+    },
+    "alternative": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "choice"
+      ],
+      "properties": {
+        "choice": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      }
+    },
+    "record_premise": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "relies_on",
+        "record_id",
+        "as_stated"
+      ],
+      "properties": {
+        "relies_on": {
+          "const": "record"
+        },
+        "record_id": {
+          "$ref": "#/$defs/record_id"
+        },
+        "as_stated": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      }
+    },
+    "source_premise": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "relies_on",
+        "source_id",
+        "revision_digest",
+        "as_stated"
+      ],
+      "properties": {
+        "relies_on": {
+          "const": "source"
+        },
+        "source_id": {
+          "$ref": "#/$defs/source_id"
+        },
+        "revision_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "as_stated": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      }
+    },
+    "premise": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/record_premise"
+        },
+        {
+          "$ref": "#/$defs/source_premise"
+        }
+      ]
+    },
+    "replacement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_id",
+        "extent"
+      ],
+      "properties": {
+        "record_id": {
+          "$ref": "#/$defs/record_id"
+        },
+        "extent": {
+          "const": "whole"
+        }
+      }
+    },
+    "event_id": {
+      "type": "string",
+      "pattern": "^evt_[0-9a-f]{32}$"
+    },
+    "digests": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/digest"
+      }
+    },
+    "record_target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "targets",
+        "record_id"
+      ],
+      "properties": {
+        "targets": {
+          "const": "record"
+        },
+        "record_id": {
+          "$ref": "#/$defs/record_id"
+        }
+      }
+    },
+    "event_target_of_event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "targets",
+        "event_id"
+      ],
+      "properties": {
+        "targets": {
+          "const": "event"
+        },
+        "event_id": {
+          "$ref": "#/$defs/event_id"
+        }
+      }
+    },
+    "event_target": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/record_target"
+        },
+        {
+          "$ref": "#/$defs/event_target_of_event"
+        }
+      ]
+    },
+    "plain_effect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "did"
+      ],
+      "properties": {
+        "did": {
+          "enum": [
+            "adopted",
+            "corrected",
+            "withdrawn",
+            "observed",
+            "reassessed"
+          ]
+        }
+      }
+    },
+    "replacement_effect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "did",
+        "successor_record_id"
+      ],
+      "properties": {
+        "did": {
+          "const": "replaced"
+        },
+        "successor_record_id": {
+          "$ref": "#/$defs/record_id"
+        }
+      }
+    },
+    "effect": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/plain_effect"
+        },
+        {
+          "$ref": "#/$defs/replacement_effect"
+        }
+      ]
+    },
+    "candidate_id": {
+      "type": "string",
+      "pattern": "^cnd_[0-9a-f]{32}$"
+    },
+    "proposed_choice": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The choice the candidate proposes, as its record would state it; the id and the recorded time are the destination's to write when it is committed.",
+      "required": [
+        "proposes",
+        "home",
+        "workstream_ids",
+        "question",
+        "choice",
+        "applicability"
+      ],
+      "properties": {
+        "proposes": {
+          "const": "choice_record"
+        },
+        "home": {
+          "$ref": "#/$defs/scope"
+        },
+        "workstream_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/workstream_id"
+          }
+        },
+        "question": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "context": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "choice": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "alternatives": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/alternative"
+          }
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "unrecorded": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "alternatives",
+              "reason",
+              "premises"
+            ]
+          }
+        },
+        "basis": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/premise"
+          }
+        },
+        "replaces": {
+          "$ref": "#/$defs/replacement"
+        },
+        "expected_consequences": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "revisit_condition": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "applicability": {
+          "$ref": "#/$defs/applicability"
+        }
+      }
+    },
+    "proposed_event": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The event the candidate proposes, as its record would state it.",
+      "required": [
+        "proposes",
+        "target",
+        "effect",
+        "attributed_to",
+        "evidence_digests"
+      ],
+      "properties": {
+        "proposes": {
+          "const": "lifecycle_event"
+        },
+        "target": {
+          "$ref": "#/$defs/event_target"
+        },
+        "effect": {
+          "$ref": "#/$defs/effect"
+        },
+        "attributed_to": {
+          "$ref": "#/$defs/principal_id"
+        },
+        "evidence_digests": {
+          "$ref": "#/$defs/digests"
+        },
+        "occurred_at": {
+          "$ref": "#/$defs/instant"
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "workstream_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/workstream_id"
+          }
+        }
+      }
+    },
+    "proposal": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/proposed_choice"
+        },
+        {
+          "$ref": "#/$defs/proposed_event"
+        }
+      ]
+    },
+    "from_capture": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Extracted from a capture: the capture and the exact evidence spans it rests on. Every version of the candidate names the same origin.",
+      "required": [
+        "from",
+        "capture_digest",
+        "evidence_digests"
+      ],
+      "properties": {
+        "from": {
+          "const": "capture"
+        },
+        "capture_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "evidence_digests": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/digest"
+          }
+        }
+      }
+    },
+    "from_author": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Written by the person who submitted it, from no capture.",
+      "required": [
+        "from"
+      ],
+      "properties": {
+        "from": {
+          "const": "author"
+        }
+      }
+    },
+    "candidate_origin": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/from_capture"
+        },
+        {
+          "$ref": "#/$defs/from_author"
+        }
+      ]
+    },
+    "open_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "is"
+      ],
+      "properties": {
+        "is": {
+          "const": "candidate"
+        }
+      }
+    },
+    "rejected_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Rejected and retained: a rejection deletes nothing.",
+      "required": [
+        "is"
+      ],
+      "properties": {
+        "is": {
+          "const": "rejected"
+        }
+      }
+    },
+    "promoted_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Committed at its destination: the destination owner's receipt is what establishes it, never a tag on the candidate.",
+      "required": [
+        "is",
+        "receipt_digest"
+      ],
+      "properties": {
+        "is": {
+          "const": "promoted"
+        },
+        "receipt_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "candidate_standing": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/open_candidate"
+        },
+        {
+          "$ref": "#/$defs/rejected_candidate"
+        },
+        {
+          "$ref": "#/$defs/promoted_candidate"
+        }
+      ]
+    }
+  }
+}

@@ -15,6 +15,7 @@ sys.path.insert(0, str(HERE.parents[1]))
 import cases  # noqa: E402
 import rules  # noqa: E402
 from workenv.contracts import canonical, examples, records  # noqa: E402
+from workenv.contracts.schema import load_schema  # noqa: E402
 
 
 class Registry(unittest.TestCase):
@@ -285,6 +286,26 @@ class Bindings(unittest.TestCase):
         after = self.bindings(registry)
         self.assertEqual(self.moved(after, "fixture_fingerprint"), {"P18", "M4"})
         self.assertEqual(self.moved(after, "adapter_fingerprint"), set())
+
+
+class RunnerInterface(unittest.TestCase):
+    """The runner's preflight cases and the interface they drive are closed documents."""
+
+    def test_the_preflight_cases_load_under_their_schema_and_each_interface_schema_loads(self):
+        folder = cases.ROOT / cases.RUNNER_FIXTURES
+        schemas = {path.name: load_schema(json.loads(path.read_text()))
+                   for path in sorted(folder.glob("*.schema.json"))}
+        self.assertEqual(sorted(schemas), ["invocation.schema.json", "packet.schema.json",
+                                           "preflight.schema.json", "report.schema.json",
+                                           "worker-result.schema.json"])
+        preflight = json.loads((folder / "preflight.json").read_text())
+        self.assertEqual(schemas["preflight.schema.json"].validate(preflight), [])
+        self.assertTrue(preflight["cases"])
+
+    def test_the_runner_contract_is_its_evaluator_suite_and_interface_schemas(self):
+        plan = cases.bundle()[0]
+        files = cases.contract_files(cases.RUNNER, plan)
+        self.assertEqual(len([f for f in files if f.startswith(cases.RUNNER_FIXTURES)]), 5)
 
 
 class RuntimeRules(unittest.TestCase):

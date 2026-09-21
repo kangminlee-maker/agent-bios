@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C06 pending question",
-  "description": "A sealed question, stored before anybody is asked. Its version belongs to the basis it was sealed against: when the basis moves, a new version is created and this one is superseded, never edited. Retry, repagination and reconnect of one unchanged use find this same question rather than minting another.",
+  "description": "A sealed question, stored before anybody is asked. Its version belongs to the basis it was sealed against: when the basis moves, a new version is created and this one is superseded, never edited. Retry, repagination and reconnect of one unchanged use find this same question rather than minting another. Its basis is a `comparison_basis`, named by digest: the full relevant participant set and its change generation.",
   "required": [
     "kind",
     "schema",
@@ -48,7 +48,8 @@
       }
     },
     "basis_digest": {
-      "$ref": "#/$defs/digest"
+      "$ref": "#/$defs/digest",
+      "description": "The digest of the comparison_basis this version was sealed against."
     },
     "asked_through": {
       "$ref": "#/$defs/asking_route"

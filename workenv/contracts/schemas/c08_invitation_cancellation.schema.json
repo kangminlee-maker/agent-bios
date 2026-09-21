@@ -1,0 +1,37 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C08 invitation cancellation",
+  "description": "Cancel one exact invitation. What it cancelled stays recorded, so a consent that arrives afterwards is refused rather than admitted.",
+  "required": [
+    "kind",
+    "schema",
+    "invitation_digest",
+    "cancelled_at"
+  ],
+  "properties": {
+    "kind": {
+      "const": "invitation_cancellation"
+    },
+    "schema": {
+      "const": 1
+    },
+    "invitation_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "cancelled_at": {
+      "$ref": "#/$defs/instant",
+      "x-runtime-owned": true
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    }
+  }
+}

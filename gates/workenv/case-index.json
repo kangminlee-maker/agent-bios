@@ -487,13 +487,15 @@
       ],
       "operations": [
         "route.select",
-        "operation.query"
+        "operation.query",
+        "operation.history.read"
       ],
       "fixtures": [
         "workenv/contracts/examples/c03/outcome_unknown.json",
         "workenv/contracts/examples/c03/query_by_request_id.json",
         "workenv/contracts/examples/c03/query_for_a_request_never_received.json",
-        "workenv/contracts/examples/routes/selection_submitted.json"
+        "workenv/contracts/examples/routes/selection_submitted.json",
+        "workenv/contracts/examples/c03/history_request.json"
       ]
     },
     {
@@ -503,7 +505,8 @@
       ],
       "operations": [
         "route.offer",
-        "route.select"
+        "route.select",
+        "surface.drive"
       ],
       "fixtures": [
         "workenv/contracts/examples/routes/offer_from_a_host_launcher.json",
@@ -788,13 +791,15 @@
       ],
       "operations": [
         "source.capture.record",
-        "role.project"
+        "role.project",
+        "source.observe"
       ],
       "fixtures": [
         "workenv/contracts/examples/c01/member_path_climbs_out.json",
         "workenv/contracts/examples/c04/projection_reached_through_a_root_the_caller_chose.json",
         "workenv/contracts/examples/sources/capture_without_the_evidence_behind_it.json",
-        "workenv/contracts/examples/c01/bytes_not_held_here.json"
+        "workenv/contracts/examples/c01/bytes_not_held_here.json",
+        "workenv/contracts/examples/c01/observe_request.json"
       ]
     },
     {
@@ -805,12 +810,15 @@
       ],
       "operations": [
         "source.home.register",
-        "team.found"
+        "team.found",
+        "repository.bind",
+        "source.observe"
       ],
       "fixtures": [
         "workenv/contracts/examples/c01/repository_binding_as_submitted.json",
         "workenv/contracts/examples/sources/home_of_a_repository_document.json",
-        "workenv/contracts/examples/c08/proposal_as_submitted.json"
+        "workenv/contracts/examples/c08/proposal_as_submitted.json",
+        "workenv/contracts/examples/c01/repository_bind_request.json"
       ]
     },
     {
@@ -972,7 +980,8 @@
       ],
       "operations": [
         "source.home.register",
-        "preparation.compose"
+        "preparation.compose",
+        "collection.read"
       ],
       "fixtures": [
         "workenv/contracts/examples/sources/home_of_a_managed_collection.json",
@@ -1005,12 +1014,14 @@
       ],
       "operations": [
         "preparation.compose",
-        "role.project"
+        "role.project",
+        "collection.change"
       ],
       "fixtures": [
         "workenv/contracts/examples/c07/personal_preparation_with_nothing_selected.json",
         "workenv/contracts/examples/c07/preparation_whose_selected_source_is_unknown.json",
-        "workenv/contracts/examples/c04/plan_for_one_source.json"
+        "workenv/contracts/examples/c04/plan_for_one_source.json",
+        "workenv/contracts/examples/c07/collection_change_request.json"
       ]
     },
     {
@@ -1072,7 +1083,8 @@
       ],
       "operations": [
         "role.project",
-        "access.admission.decide"
+        "access.admission.decide",
+        "source.rights.set"
       ],
       "fixtures": [
         "workenv/contracts/examples/c04/projection_of_a_source_this_actor_may_not_use.json",
@@ -1153,7 +1165,8 @@
       ],
       "operations": [
         "memory.candidate.store",
-        "memory.record.publish"
+        "memory.record.publish",
+        "memory.candidate.reject"
       ],
       "fixtures": [
         "workenv/contracts/examples/c05/choice_whose_reason_nobody_wrote_down.json",
@@ -1263,7 +1276,8 @@
       ],
       "operations": [
         "retention.plan.set",
-        "removal.execute"
+        "removal.execute",
+        "retention.derivations.read"
       ],
       "fixtures": [
         "workenv/contracts/examples/c10/promised_and_evictable_are_two_lists.json",
@@ -1279,7 +1293,8 @@
       ],
       "operations": [
         "memory.state.resolve",
-        "reader.body.read"
+        "reader.body.read",
+        "memory.state.prove"
       ],
       "fixtures": [
         "workenv/contracts/examples/c05/state_from_a_proof_about_other_subjects.json",
@@ -1363,14 +1378,16 @@
       "operations": [
         "identity.binding.add",
         "identity.binding.revoke",
-        "access.transition"
+        "access.transition",
+        "access.profile.rename"
       ],
       "fixtures": [
         "workenv/contracts/examples/c01/binding_as_submitted.json",
         "workenv/contracts/examples/c01/device_key_binding.json",
         "workenv/contracts/examples/c02/unlock_at_a_terminal.json",
         "workenv/contracts/examples/c02/locked_state.json",
-        "workenv/contracts/examples/c01/link_request.json"
+        "workenv/contracts/examples/c01/link_request.json",
+        "workenv/contracts/examples/c02/rename_request.json"
       ],
       "asserts": "With no Team, account or network, a local principal is bound to a device key and unlocked at a terminal; after a second key is bound and the first revoked, the principal_id and every record naming it are unchanged."
     },
@@ -1426,7 +1443,8 @@
       "operations": [
         "access.admission.decide",
         "access.transition",
-        "operation.query"
+        "operation.query",
+        "access.control.record"
       ],
       "fixtures": [
         "workenv/contracts/examples/c02/old_handle_after_sign_out.json",
@@ -1437,7 +1455,8 @@
         "workenv/contracts/examples/c02/lock_that_could_not_be_made_durable.json",
         "workenv/contracts/examples/c02/unlock_with_no_terminal.json",
         "workenv/contracts/examples/c03/committed.json",
-        "workenv/contracts/examples/c03/query_by_request_id.json"
+        "workenv/contracts/examples/c03/query_by_request_id.json",
+        "workenv/contracts/examples/c02/control_record_request.json"
       ],
       "asserts": "A handle from before the generation moved, a restart, a refresh without a transition, a late response and expired offline evidence are each refused with their gap and reopen nothing; a commit dispatched before the lock answers a query with its original result."
     },
@@ -1451,14 +1470,16 @@
       ],
       "operations": [
         "access.admission.decide",
-        "reader.body.read"
+        "reader.body.read",
+        "access.bridge.serve"
       ],
       "fixtures": [
         "workenv/contracts/examples/bindings/bridge.json",
         "workenv/contracts/examples/bindings/bridging_request.json",
         "workenv/contracts/examples/bindings/bridging_client_token_unknown.json",
         "workenv/contracts/examples/bindings/bridging_client_token_missing.json",
-        "workenv/contracts/examples/c02/old_handle_after_sign_out.json"
+        "workenv/contracts/examples/c02/old_handle_after_sign_out.json",
+        "workenv/contracts/examples/bindings/bridge_serve_request.json"
       ],
       "asserts": "A Studio or TUI client whose request was issued before the access generation moved receives no body, and a client token the current launch did not issue is refused; the bridge rereads the generation before writing a body."
     },
@@ -1471,13 +1492,15 @@
       ],
       "operations": [
         "access.transition",
-        "identity.binding.add"
+        "identity.binding.add",
+        "access.sign_in.complete"
       ],
       "fixtures": [
         "workenv/contracts/examples/c01/external_identity_binding.json",
         "workenv/contracts/examples/c02/old_handle_after_sign_out.json",
         "workenv/contracts/examples/c02/silent_refresh_is_not_a_transition.json",
-        "workenv/contracts/examples/c02/locked_state.json"
+        "workenv/contracts/examples/c02/locked_state.json",
+        "workenv/contracts/examples/c02/callback_request.json"
       ],
       "asserts": "A provider login, token refresh or callback arriving while the profile is locked or signed out does not reopen access; only an explicit local transition does."
     },
@@ -1691,7 +1714,7 @@
       "fixtures": [
         "gates/workenv/fixtures/rules/entry_from_named_source.json"
       ],
-      "asserts": "Every qualified_state the owner writes satisfies the rule's oracle against the store's own record-to-source mapping.",
+      "asserts": "Every qualified_state the owner writes names, for each entry, a source among its frontiers, and the source the store committed that record to as its publish and apply results state.",
       "rule": "C05/entry_from_named_source"
     },
     {
@@ -1800,7 +1823,10 @@
       "operations": [
         "team.found",
         "team.membership.change",
-        "identity.binding.add"
+        "identity.binding.add",
+        "team.invitation.issue",
+        "team.consent.record",
+        "team.invitation.cancel"
       ],
       "fixtures": [
         "workenv/contracts/examples/c08/proposal_as_submitted.json",
@@ -1808,7 +1834,8 @@
         "workenv/contracts/examples/c08/invited_before_consent.json",
         "workenv/contracts/examples/c08/consent_recorded_before_registration.json",
         "workenv/contracts/examples/c08/active_membership.json",
-        "workenv/contracts/examples/c08/solo_team_that_says_it_reviewed_itself.json"
+        "workenv/contracts/examples/c08/solo_team_that_says_it_reviewed_itself.json",
+        "workenv/contracts/examples/c08/consent_request.json"
       ],
       "asserts": "An exact founding proposal, invitation, consent and control commit enrol a second device's principal with no external identity provider."
     },
@@ -2154,12 +2181,16 @@
       "operations": [
         "transfer.stage",
         "transfer.accept",
-        "capability.probe"
+        "capability.probe",
+        "carrier.bind",
+        "carrier.provision",
+        "carrier.disconnect"
       ],
       "fixtures": [
         "workenv/contracts/examples/c09/complete_transfer.json",
         "workenv/contracts/examples/c08/sealed_founding_proposal.json",
-        "workenv/contracts/examples/c12/a_probe_that_worked.json"
+        "workenv/contracts/examples/c12/a_probe_that_worked.json",
+        "workenv/contracts/examples/c09/carrier_provision_request.json"
       ],
       "asserts": "An explicitly bound repository carrier exchanges a permitted package; peer exchange keeps working without it; disconnecting one Team's carrier leaves the others."
     },
@@ -2174,13 +2205,15 @@
       ],
       "operations": [
         "transfer.stage",
-        "operation.query"
+        "operation.query",
+        "carrier.provision"
       ],
       "fixtures": [
         "workenv/contracts/examples/c02/blocked_on_an_unreachable_carrier.json",
         "workenv/contracts/examples/c09/addressed_to_another_audience.json",
         "workenv/contracts/examples/c12/support_claimed_from_the_specification_alone.json",
-        "workenv/contracts/examples/c03/outcome_unknown.json"
+        "workenv/contracts/examples/c03/outcome_unknown.json",
+        "workenv/contracts/examples/c09/carrier_provision_request_again.json"
       ],
       "asserts": "A preference alone causes no network call, sign-in or upload; repository rights are not Team grants; an unknown provisioning outcome is queried, never repeated."
     },
@@ -2190,17 +2223,24 @@
       "contracts": [
         "C01",
         "C08",
-        "C12"
+        "C12",
+        "C02"
       ],
       "operations": [
         "identity.binding.add",
         "team.membership.change",
-        "capability.probe"
+        "capability.probe",
+        "access.connection.configure",
+        "access.sign_in.begin",
+        "access.sign_in.complete"
       ],
       "fixtures": [
         "workenv/contracts/examples/c01/external_identity_binding.json",
         "workenv/contracts/examples/c01/link_request.json",
-        "workenv/contracts/examples/c08/admitted_under_a_teams_own_delegation_policy.json"
+        "workenv/contracts/examples/c08/admitted_under_a_teams_own_delegation_policy.json",
+        "workenv/contracts/examples/c02/configure_request.json",
+        "workenv/contracts/examples/c02/sign_in_request.json",
+        "workenv/contracts/examples/c02/callback_request.json"
       ],
       "asserts": "A verified provider claim links the intended principal under the Team's configured policy, with explicit recovery."
     },
@@ -2234,7 +2274,11 @@
       ],
       "operations": [
         "team.lifecycle.apply",
-        "custody.commit"
+        "custody.commit",
+        "team.profile.set",
+        "team.state.read",
+        "team.stewardship.transfer",
+        "team.device.retire"
       ],
       "fixtures": [
         "workenv/contracts/examples/c08/archive.json",
@@ -2275,18 +2319,23 @@
       "contracts": [
         "C04",
         "C05",
-        "C01"
+        "C01",
+        "C12"
       ],
       "operations": [
         "source.revision.commit",
         "knowledge.question.ask",
-        "memory.record.publish"
+        "memory.record.publish",
+        "knowledge.member.prepare",
+        "validation.run"
       ],
       "fixtures": [
         "workenv/contracts/examples/sources/request_to_author_here.json",
         "workenv/contracts/examples/c04/question_with_the_conditions_that_change_its_answer.json",
         "workenv/contracts/examples/c05/choice_as_submitted.json",
-        "workenv/contracts/examples/c05/event_as_submitted.json"
+        "workenv/contracts/examples/c05/event_as_submitted.json",
+        "workenv/contracts/examples/c04/model_check_request.json",
+        "workenv/contracts/examples/c04/form_check_request.json"
       ],
       "asserts": "Behavioural sources, knowledge tables, forms and questions, and choice and event editors each produce an owned revision or event whose validation is pinned."
     },
@@ -2316,19 +2365,22 @@
       "contracts": [
         "C10",
         "C06",
-        "C01"
+        "C01",
+        "C03"
       ],
       "operations": [
         "reader.body.read",
         "retention.plan.set",
         "removal.execute",
-        "source.revision.admit"
+        "source.revision.admit",
+        "operation.batch.submit"
       ],
       "fixtures": [
         "workenv/contracts/examples/c06/envelope_asking_about_a_concern.json",
         "workenv/contracts/examples/sources/request_to_extend_a_supplied_source.json",
         "workenv/contracts/examples/c10/promised_and_evictable_are_two_lists.json",
-        "workenv/contracts/examples/c10/every_copy_confirmed.json"
+        "workenv/contracts/examples/c10/every_copy_confirmed.json",
+        "workenv/contracts/examples/c03/batch_request.json"
       ],
       "asserts": "Scoped search and distinct permitted derivatives lead to provider-scoped bulk results and a retention outcome per copy."
     },
@@ -2506,11 +2558,13 @@
       ],
       "operations": [
         "entrance.cutover.commit",
-        "entrance.disposition.record"
+        "entrance.disposition.record",
+        "package.candidate.register"
       ],
       "fixtures": [
         "workenv/contracts/examples/c03/one_cutover_sealed_verified_and_committed_once.json",
-        "gates/workenv/entrances.jsonl"
+        "gates/workenv/entrances.jsonl",
+        "workenv/contracts/examples/c03/candidate_register_request.json"
       ],
       "asserts": "A fresh target install, or one explicit transfer of selected data, verifies before ownership changes; the packaged runtime, assets and tests are the ones the candidate names."
     },
@@ -2538,7 +2592,8 @@
         "C11"
       ],
       "operations": [
-        "surface.observe"
+        "surface.observe",
+        "surface.protocol.record"
       ],
       "fixtures": [
         "workenv/contracts/examples/routes/first_exposure_of_the_candidate.json",
@@ -2634,6 +2689,157 @@
         "workenv/contracts/examples/c08/team_policy_over_a_sources_own_rights.json"
       ],
       "asserts": "A capture cannot promote itself into another role, claim acceptance without a receipt or widen a Team's authority."
+    },
+    {
+      "id": "N27-SELECTION-NEG",
+      "oracle": 1,
+      "contracts": [
+        "C01"
+      ],
+      "operations": [
+        "source.observe"
+      ],
+      "fixtures": [
+        "gates/workenv/fixtures/rules/read_within_selection.json"
+      ],
+      "asserts": "Every source_observation the owner writes satisfies the rule's oracle against the selection it observed; the fixture's breaking records are what it must never write.",
+      "rule": "C01/read_within_selection"
+    },
+    {
+      "id": "N06-MODEL-NEG",
+      "oracle": 1,
+      "contracts": [
+        "C04"
+      ],
+      "operations": [
+        "knowledge.member.prepare"
+      ],
+      "fixtures": [
+        "gates/workenv/fixtures/rules/relation_endpoints_are_nodes.json"
+      ],
+      "asserts": "Every knowledge_model the owner writes satisfies the rule's oracle; the fixture's breaking records are what it must never write.",
+      "rule": "C04/relation_endpoints_are_nodes"
+    },
+    {
+      "id": "N28-CANDIDATE-NEG",
+      "oracle": 1,
+      "contracts": [
+        "C05"
+      ],
+      "operations": [
+        "memory.candidate.store"
+      ],
+      "fixtures": [
+        "gates/workenv/fixtures/rules/candidate_keeps_its_origin.json"
+      ],
+      "asserts": "Every memory_candidate the owner writes satisfies the rule's oracle against the version it replaces; the fixture's breaking records are what it must never write.",
+      "rule": "C05/candidate_keeps_its_origin"
+    },
+    {
+      "id": "N09-UNITS-NEG",
+      "oracle": 1,
+      "contracts": [
+        "C07"
+      ],
+      "operations": [
+        "preparation.compose"
+      ],
+      "fixtures": [
+        "gates/workenv/fixtures/rules/unit_reference_names_a_winning_unit.json"
+      ],
+      "asserts": "Every preparation the owner writes satisfies the rule's oracle; the fixture's breaking records are what it must never write.",
+      "rule": "C07/unit_reference_names_a_winning_unit"
+    },
+    {
+      "id": "N09-UNIT-GAP-NEG",
+      "oracle": 1,
+      "contracts": [
+        "C07"
+      ],
+      "operations": [
+        "preparation.compose"
+      ],
+      "fixtures": [
+        "gates/workenv/fixtures/rules/gap_names_no_losing_unit.json"
+      ],
+      "asserts": "Every preparation the owner writes satisfies the rule's oracle; the fixture's breaking records are what it must never write.",
+      "rule": "C07/gap_names_no_losing_unit"
+    },
+    {
+      "id": "N27-RIGHTS-NEG",
+      "oracle": 1,
+      "contracts": [
+        "C08"
+      ],
+      "operations": [
+        "source.rights.set"
+      ],
+      "fixtures": [
+        "gates/workenv/fixtures/rules/derivative_within_base_rights.json"
+      ],
+      "asserts": "Every source_rights the owner writes satisfies the rule's oracle against the rights of every base it carries; the fixture's breaking records are what it must never write.",
+      "rule": "C08/derivative_within_base_rights"
+    },
+    {
+      "id": "N21-DERIVED-NEG",
+      "oracle": 1,
+      "contracts": [
+        "C10"
+      ],
+      "operations": [
+        "retention.derivations.read",
+        "removal.execute"
+      ],
+      "fixtures": [
+        "gates/workenv/fixtures/rules/removal_covers_derivatives.json"
+      ],
+      "asserts": "Every removal_outcome the owner writes satisfies the rule's oracle against the derivation map of the object it removed; the fixture's breaking records are what it must never write.",
+      "rule": "C10/removal_covers_derivatives"
+    },
+    {
+      "id": "N15-ATTEMPT-NEG",
+      "oracle": 1,
+      "contracts": [
+        "C11"
+      ],
+      "operations": [
+        "recipient.delivery.attempt"
+      ],
+      "fixtures": [
+        "gates/workenv/fixtures/rules/attempt_outcome_fits_its_request.json"
+      ],
+      "asserts": "Every delivery_attempt the owner writes satisfies the rule's oracle; the fixture's breaking records are what it must never write.",
+      "rule": "C11/attempt_outcome_fits_its_request"
+    },
+    {
+      "id": "N23-PROBE-NEG",
+      "oracle": 1,
+      "contracts": [
+        "C12"
+      ],
+      "operations": [
+        "capability.probe"
+      ],
+      "fixtures": [
+        "gates/workenv/fixtures/rules/qualified_only_by_a_real_probe.json"
+      ],
+      "asserts": "Every capability_profile the owner writes satisfies the rule's oracle against the probes the store holds; the fixture's breaking records are what it must never write.",
+      "rule": "C12/qualified_only_by_a_real_probe"
+    },
+    {
+      "id": "N20-VALIDATION-NEG",
+      "oracle": 1,
+      "contracts": [
+        "C12"
+      ],
+      "operations": [
+        "validation.run"
+      ],
+      "fixtures": [
+        "gates/workenv/fixtures/rules/validation_covers_its_request.json"
+      ],
+      "asserts": "Every validation_run the owner writes satisfies the rule's oracle against the validation request it answers; the fixture's breaking records are what it must never write.",
+      "rule": "C12/validation_covers_its_request"
     }
   ],
   "selects": [
@@ -2650,7 +2856,8 @@
       "profile": "P03",
       "cases": [
         "N01-STORE-POS",
-        "N01-STORE-NEG"
+        "N01-STORE-NEG",
+        "N27-SELECTION-NEG"
       ]
     },
     {
@@ -2660,7 +2867,8 @@
         "N06-C04-NEG",
         "N08-C06-POS",
         "N08-C06-NEG",
-        "N08-READER-GAP-NEG"
+        "N08-READER-GAP-NEG",
+        "N06-MODEL-NEG"
       ]
     },
     {
@@ -2673,7 +2881,8 @@
         "N07-STATE-SOURCE-NEG",
         "N08-C06-POS",
         "N08-C06-NEG",
-        "N08-READER-GAP-NEG"
+        "N08-READER-GAP-NEG",
+        "N28-CANDIDATE-NEG"
       ]
     },
     {
@@ -2684,7 +2893,9 @@
         "N08-C06-POS",
         "N08-C06-NEG",
         "N09-C07-POS",
-        "N09-C07-NEG"
+        "N09-C07-NEG",
+        "N09-UNITS-NEG",
+        "N09-UNIT-GAP-NEG"
       ]
     },
     {
@@ -2708,7 +2919,8 @@
         "N12-C07-POS",
         "N12-C07-NEG",
         "N27-C01-POS",
-        "N27-C01-NEG"
+        "N27-C01-NEG",
+        "N27-RIGHTS-NEG"
       ]
     },
     {
@@ -2739,7 +2951,8 @@
         "N09-C07-NEG",
         "N15-C11-POS",
         "N15-C11-NEG",
-        "N15-ANSWER-NEG"
+        "N15-ANSWER-NEG",
+        "N15-ATTEMPT-NEG"
       ]
     },
     {
@@ -2766,7 +2979,8 @@
         "N18-C01-POS",
         "N18-C01-NEG",
         "N23-PROVIDER-POS",
-        "N23-PROVIDER-NEG"
+        "N23-PROVIDER-NEG",
+        "N23-PROBE-NEG"
       ]
     },
     {
@@ -2792,7 +3006,9 @@
         "N20-C04-POS",
         "N20-C04-NEG",
         "N23-VALIDATOR-POS",
-        "N23-VALIDATOR-NEG"
+        "N23-VALIDATOR-NEG",
+        "N06-MODEL-NEG",
+        "N20-VALIDATION-NEG"
       ]
     },
     {
@@ -2807,7 +3023,8 @@
         "N21-C10-POS",
         "N21-C10-NEG",
         "N27-C01-POS",
-        "N27-C01-NEG"
+        "N27-C01-NEG",
+        "N21-DERIVED-NEG"
       ]
     },
     {

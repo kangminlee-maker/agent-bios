@@ -1,0 +1,195 @@
+{
+ "rule": "C01/read_within_selection",
+ "holds": [
+  {
+   "record": "workenv/contracts/examples/c01/observation_of_a_working_tree_with_dirty_and_untracked_files.json",
+   "context": {
+    "selection": "workenv/contracts/examples/c01/selection_of_working_tree_paths.json"
+   }
+  },
+  {
+   "record": "workenv/contracts/examples/c01/observation_missing_a_required_root.json",
+   "context": {
+    "selection": "workenv/contracts/examples/c01/selection_of_working_tree_paths.json"
+   }
+  },
+  {
+   "record": "workenv/contracts/examples/c01/observation_of_a_selected_transcript_span.json",
+   "context": {
+    "selection": "workenv/contracts/examples/c01/selection_of_a_transcript_span.json"
+   }
+  }
+ ],
+ "breaks": [
+  {
+   "what": "a file beside the selected directory, read as if under it",
+   "record": {
+    "kind": "source_observation",
+    "missing": [],
+    "observed_at": "2026-09-20T09:00:00Z",
+    "read": [
+     {
+      "digest": "f08fcff1a42bccfd6bcc42ef6aa26eb690b5f5b8024e27eb640ed956c40b06fe",
+      "path": "docs/adr/0001-journal-mode.md",
+      "read": "tree",
+      "root": 0,
+      "size": 1830,
+      "state": "committed"
+     },
+     {
+      "digest": "0319a06b6cc82184dd4d9c7c083a62db8b90a3a0c519f0f199b5f1db02a4595f",
+      "path": "docs/adr/0002-backups.md",
+      "read": "tree",
+      "root": 0,
+      "size": 2211,
+      "state": "modified"
+     },
+     {
+      "digest": "1c6c61971fa32208d3fdb6953795a43fe3cf1b0763be64c992b07348501ceb6e",
+      "path": "docs/adr/0003-draft.md",
+      "read": "tree",
+      "root": 0,
+      "size": 640,
+      "state": "untracked"
+     },
+     {
+      "digest": "3008064aa2516ad1e16ea23e62a0672fc15340ad8543ca3ea510157c26075159",
+      "path": "docs/adr-private/notes.md",
+      "read": "tree",
+      "root": 0,
+      "size": 3120,
+      "state": "committed"
+     }
+    ],
+    "schema": 1,
+    "selection_digest": "dc2fc57643baf50e9fd115f00f8a2603b99135a1843786b2b4e4b544b79060fc"
+   },
+   "context": {
+    "selection": "workenv/contracts/examples/c01/selection_of_working_tree_paths.json"
+   },
+   "at": [
+    "/read/3"
+   ]
+  },
+  {
+   "what": "a read under a root the selection does not have",
+   "record": {
+    "kind": "source_observation",
+    "missing": [],
+    "observed_at": "2026-09-20T09:00:00Z",
+    "read": [
+     {
+      "digest": "f08fcff1a42bccfd6bcc42ef6aa26eb690b5f5b8024e27eb640ed956c40b06fe",
+      "path": "docs/adr/0001-journal-mode.md",
+      "read": "tree",
+      "root": 2,
+      "size": 1830,
+      "state": "committed"
+     },
+     {
+      "digest": "0319a06b6cc82184dd4d9c7c083a62db8b90a3a0c519f0f199b5f1db02a4595f",
+      "path": "docs/adr/0002-backups.md",
+      "read": "tree",
+      "root": 0,
+      "size": 2211,
+      "state": "modified"
+     },
+     {
+      "digest": "1c6c61971fa32208d3fdb6953795a43fe3cf1b0763be64c992b07348501ceb6e",
+      "path": "docs/adr/0003-draft.md",
+      "read": "tree",
+      "root": 0,
+      "size": 640,
+      "state": "untracked"
+     },
+     {
+      "digest": "3008064aa2516ad1e16ea23e62a0672fc15340ad8543ca3ea510157c26075159",
+      "path": "README.md",
+      "read": "tree",
+      "root": 1,
+      "size": 3120,
+      "state": "committed"
+     }
+    ],
+    "schema": 1,
+    "selection_digest": "dc2fc57643baf50e9fd115f00f8a2603b99135a1843786b2b4e4b544b79060fc"
+   },
+   "context": {
+    "selection": "workenv/contracts/examples/c01/selection_of_working_tree_paths.json"
+   },
+   "at": [
+    "/read/0/root"
+   ]
+  },
+  {
+   "what": "transcript records appended after the selected span",
+   "record": {
+    "kind": "source_observation",
+    "missing": [],
+    "observed_at": "2026-09-20T09:00:00Z",
+    "read": [
+     {
+      "digest": "ccf9c7068c735666f3c1d81a226d8fb486d342adac0beae37e9913df83c596d8",
+      "first_record": 12,
+      "last_record": 24,
+      "read": "records",
+      "root": 0,
+      "size": 4096
+     }
+    ],
+    "schema": 1,
+    "selection_digest": "a3e8794e9772e96357b42282364d5953d753bb3520aa0bc600d0e4d96fd5ca25"
+   },
+   "context": {
+    "selection": "workenv/contracts/examples/c01/selection_of_a_transcript_span.json"
+   },
+   "at": [
+    "/read/0"
+   ]
+  },
+  {
+   "what": "an optional root reported missing as if it were required",
+   "record": {
+    "kind": "source_observation",
+    "missing": [
+     1
+    ],
+    "observed_at": "2026-09-20T09:00:00Z",
+    "read": [
+     {
+      "digest": "f08fcff1a42bccfd6bcc42ef6aa26eb690b5f5b8024e27eb640ed956c40b06fe",
+      "path": "docs/adr/0001-journal-mode.md",
+      "read": "tree",
+      "root": 0,
+      "size": 1830,
+      "state": "committed"
+     },
+     {
+      "digest": "0319a06b6cc82184dd4d9c7c083a62db8b90a3a0c519f0f199b5f1db02a4595f",
+      "path": "docs/adr/0002-backups.md",
+      "read": "tree",
+      "root": 0,
+      "size": 2211,
+      "state": "modified"
+     },
+     {
+      "digest": "1c6c61971fa32208d3fdb6953795a43fe3cf1b0763be64c992b07348501ceb6e",
+      "path": "docs/adr/0003-draft.md",
+      "read": "tree",
+      "root": 0,
+      "size": 640,
+      "state": "untracked"
+     }
+    ],
+    "schema": 1,
+    "selection_digest": "dc2fc57643baf50e9fd115f00f8a2603b99135a1843786b2b4e4b544b79060fc"
+   },
+   "context": {
+    "selection": "workenv/contracts/examples/c01/selection_of_working_tree_paths.json"
+   },
+   "at": [
+    "/missing/0"
+   ]
+  }
+ ]
+}

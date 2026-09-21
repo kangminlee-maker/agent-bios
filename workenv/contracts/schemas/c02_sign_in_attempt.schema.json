@@ -1,0 +1,117 @@
+{
+  "title": "C02 sign-in attempt",
+  "description": "One sign-in with a provider, begun for one connection and one purpose. The runtime mints the state and the nonce the provider must return and keeps only their digests, with the instant the attempt expires: a callback binds to this attempt through them, once, before then. An attempt changes no access state, whatever it is for.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema",
+    "attempt_id",
+    "connection_id",
+    "purpose",
+    "state_digest",
+    "nonce_digest",
+    "expires_at",
+    "begun_at"
+  ],
+  "properties": {
+    "kind": {
+      "const": "sign_in_attempt"
+    },
+    "schema": {
+      "const": 1
+    },
+    "attempt_id": {
+      "$ref": "#/$defs/sign_in_attempt_id",
+      "x-runtime-owned": true
+    },
+    "connection_id": {
+      "$ref": "#/$defs/connection_id"
+    },
+    "purpose": {
+      "$ref": "#/$defs/sign_in_purpose"
+    },
+    "state_digest": {
+      "$ref": "#/$defs/digest",
+      "x-runtime-owned": true
+    },
+    "nonce_digest": {
+      "$ref": "#/$defs/digest",
+      "x-runtime-owned": true
+    },
+    "expires_at": {
+      "$ref": "#/$defs/instant",
+      "x-runtime-owned": true
+    },
+    "begun_at": {
+      "$ref": "#/$defs/instant",
+      "x-runtime-owned": true
+    }
+  },
+  "$defs": {
+    "connection_id": {
+      "type": "string",
+      "pattern": "^con_[0-9a-f]{32}$"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "principal_id": {
+      "type": "string",
+      "pattern": "^prn_[0-9a-f]{32}$"
+    },
+    "sign_in_attempt_id": {
+      "type": "string",
+      "pattern": "^sin_[0-9a-f]{32}$"
+    },
+    "sign_in_purpose": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/sign_in_for_principal"
+        },
+        {
+          "$ref": "#/$defs/sign_in_for_admission"
+        }
+      ]
+    },
+    "sign_in_for_principal": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Link the provider identity to this principal (proof of control of the principal travels in the request's proofs), recover it under the Team's governed recovery, or check an identity already linked to it again for a fresh-authentication requirement.",
+      "required": [
+        "purpose",
+        "principal_id"
+      ],
+      "properties": {
+        "purpose": {
+          "enum": [
+            "link",
+            "recover",
+            "fresh_check"
+          ]
+        },
+        "principal_id": {
+          "$ref": "#/$defs/principal_id"
+        }
+      }
+    },
+    "sign_in_for_admission": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Identify someone for admission; whether the claim admits them is the Team's policy, never the sign-in.",
+      "required": [
+        "purpose"
+      ],
+      "properties": {
+        "purpose": {
+          "const": "admit"
+        }
+      }
+    }
+  }
+}

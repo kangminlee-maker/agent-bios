@@ -1,0 +1,48 @@
+{
+  "title": "Runner invocation",
+  "description": "What the conformance driver hands the runner under qualification for one scheduling round: `<runner adapter> <invocation.json>`. The adapter command and its configuration are what the run's `runner_fingerprint` measures, so they are not named here. In one round the runner evaluates the run file with the dated evaluator the plan names in `validator` (beside the plan), dispatches every node eligible in the run's requested mode at that evaluation (no more than the plan's concurrency ceiling at once) by running `worker_command` once per dispatch, integrates and records the results, writes its report, and exits. The requested mode and the current runner fingerprint are the run file's own fields and are not restated here. Every path is relative to the directory holding this file.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "schema", "plan", "run_file", "tree", "worker_command", "report_file"],
+  "properties": {
+    "kind": {"const": "runner_invocation"},
+    "schema": {"const": 1},
+    "plan": {
+      "description": "The plan file. Its catalog and its dated evaluator (`validator`) sit beside it.",
+      "$ref": "#/$defs/relative_path"
+    },
+    "run_file": {
+      "description": "The run evidence in the plan's `evidence_contract.run_shape`. The runner reads it at the start of the round and writes its `in_flight` entries and records back to it; artifact paths in records resolve beside it.",
+      "$ref": "#/$defs/relative_path"
+    },
+    "tree": {
+      "description": "A git repository the runner integrates accepted worker changes into. Its HEAD at the start of the round is the base every packet names.",
+      "$ref": "#/$defs/relative_path"
+    },
+    "worker_command": {
+      "description": "The argv the runner runs for each dispatch, in place of its own workers. Exactly one element is `{packet}`, replaced by the path of the packet file the runner wrote for that dispatch.",
+      "type": "array",
+      "minItems": 2,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "report_file": {
+      "description": "Where the runner writes its report when the round ends. A round stopped at a fault point writes none.",
+      "$ref": "#/$defs/relative_path"
+    },
+    "stop_at": {"$ref": "#/$defs/stop"}
+  },
+  "$defs": {
+    "relative_path": {"type": "string", "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]*(?:/[A-Za-z0-9_][A-Za-z0-9_.-]*)*$"},
+    "node_id": {"type": "string", "pattern": "^[A-Z][A-Z0-9]*$"},
+    "stop": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A fault point. When the round reaches it for the named node's attempt, the adapter ends at once and writes nothing more, as a crash would. Its exit status is not read: the files show whether the point was hit. `after_in_flight_written`: the node's attempt is durably in `in_flight` and no record for the node is written. `after_integration_before_record`: the attempt's changes are in the tree and no record for the node is written.",
+      "required": ["point", "node_id"],
+      "properties": {
+        "point": {"enum": ["after_in_flight_written", "after_integration_before_record"]},
+        "node_id": {"$ref": "#/$defs/node_id"}
+      }
+    }
+  }
+}

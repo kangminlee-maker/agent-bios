@@ -1,0 +1,280 @@
+{
+  "title": "C04 form profile",
+  "description": "A versioned editor profile for one kind of knowledge data: fields with types and constraints, the applicability it serves, where each field lands in the canonical data, and the samples it was previewed against. A constraint is one of a closed set, so a profile cannot name a validator or carry code. A field mapped nowhere the canonical data holds, or data the profile could hold only by dropping an exception, is `form_mapping_invalid`, and the profile is not used.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema",
+    "source_id",
+    "profile_version",
+    "applicability",
+    "fields",
+    "sample_digests"
+  ],
+  "x-unique-by": {
+    "key": "id",
+    "across": [
+      "fields"
+    ]
+  },
+  "properties": {
+    "kind": {
+      "const": "form_profile"
+    },
+    "schema": {
+      "const": 1
+    },
+    "source_id": {
+      "$ref": "#/$defs/source_id"
+    },
+    "profile_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "applicability": {
+      "$ref": "#/$defs/applicability"
+    },
+    "fields": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/form_field"
+      }
+    },
+    "sample_digests": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/digest"
+      }
+    }
+  },
+  "$defs": {
+    "model_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+    },
+    "form_field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "type",
+        "required",
+        "constraints",
+        "maps_to"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/model_id"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "type": {
+          "enum": [
+            "text",
+            "integer",
+            "date",
+            "choice",
+            "exception_list"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "constraints": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/constraint"
+          }
+        },
+        "maps_to": {
+          "type": "string",
+          "pattern": "^(?:/[a-z0-9_]+)+$"
+        }
+      }
+    },
+    "constraint": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/length_constraint"
+        },
+        {
+          "$ref": "#/$defs/range_constraint"
+        },
+        {
+          "$ref": "#/$defs/choice_constraint"
+        }
+      ]
+    },
+    "length_constraint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "constraint",
+        "maximum"
+      ],
+      "properties": {
+        "constraint": {
+          "const": "length"
+        },
+        "maximum": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "range_constraint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "constraint"
+      ],
+      "properties": {
+        "constraint": {
+          "const": "range"
+        },
+        "minimum": {
+          "type": "integer"
+        },
+        "maximum": {
+          "type": "integer"
+        }
+      }
+    },
+    "choice_constraint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "constraint",
+        "values"
+      ],
+      "properties": {
+        "constraint": {
+          "const": "one_of"
+        },
+        "values": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        }
+      }
+    },
+    "applicability": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/stated_applicability"
+        },
+        {
+          "$ref": "#/$defs/unstated_applicability"
+        }
+      ]
+    },
+    "digest": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "source_id": {
+      "pattern": "^src_[0-9a-f]{32}$",
+      "type": "string"
+    },
+    "stated_applicability": {
+      "additionalProperties": false,
+      "properties": {
+        "conditions": {
+          "$ref": "#/$defs/conditions"
+        },
+        "exceptions": {
+          "items": {
+            "maxLength": 400,
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "period": {
+          "$ref": "#/$defs/period"
+        },
+        "states": {
+          "const": "stated"
+        }
+      },
+      "required": [
+        "states"
+      ],
+      "type": "object"
+    },
+    "unstated_applicability": {
+      "additionalProperties": false,
+      "properties": {
+        "states": {
+          "const": "unstated"
+        }
+      },
+      "required": [
+        "states"
+      ],
+      "type": "object"
+    },
+    "conditions": {
+      "items": {
+        "$ref": "#/$defs/condition"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "period": {
+      "additionalProperties": false,
+      "properties": {
+        "effective_from": {
+          "$ref": "#/$defs/date"
+        },
+        "effective_to": {
+          "$ref": "#/$defs/date"
+        }
+      },
+      "required": [
+        "effective_from"
+      ],
+      "type": "object"
+    },
+    "condition": {
+      "additionalProperties": false,
+      "properties": {
+        "dimension": {
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "dimension",
+        "value"
+      ],
+      "type": "object"
+    },
+    "date": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "type": "string"
+    }
+  }
+}

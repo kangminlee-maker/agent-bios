@@ -1,7 +1,7 @@
 """C07 Preparation and composition: the gaps its operations answer with.
 
 Record kinds: `preparation_request`, `preparation`, `action_assessment`, `delivery_observation`,
-`environment_edition`, `environment_adoption`.
+`environment_edition`, `environment_adoption`, `collection`.
 
 Three questions are asked and answered apart. What this is composed from is the preparation;
 whether this actor may act with it is the assessment; and what the task needs is assessed only
@@ -12,6 +12,15 @@ preparation carries a right.
 Four facts about one body are also kept apart: selected, prepared, requested for delivery and
 observed as delivered. A preparation proves assembly. A parent session's receipt proves nothing
 about a child, and a replica holding the bytes is not a recipient that received them.
+
+Each repository, person and Team keeps one `collection` per role: nine positions, each with
+its own head. A position is an original; a preparation is derived from the heads it read and
+never writes one. An entry references a source at an exact revision, or a memory source at the
+frontier each operation observes, and declares the units composition resolves: an overlap key,
+applicable conditions, whether the unit must resolve at startup when it wins, and what its bytes
+need. An empty position contributes nothing; a switch turned `off` excludes that selection until
+it is turned on, and nothing else. Units of one layer that answer one concern are ordered by
+explicit precedence, or the concern stays `same_layer_unordered` for the query that needs it.
 
 The checkout's bytes are recorded as they were, because the claims rest on them: bytes that
 move afterwards invalidate those claims rather than being assumed unchanged.
@@ -25,7 +34,7 @@ adoption establishes is an `environment_adoption`: one exact edition in one scop
 CONTRACT = "C07"
 RECORD_KINDS = ("preparation_request", "preparation", "action_assessment",
                 "delivery_observation", "environment_edition",
-                "environment_adoption")
+                "environment_adoption", "collection")
 IN_RESULTS = True
 
 # The operations of this contract that travel in a C03 sealed request. `takes` is the
@@ -38,6 +47,8 @@ OPERATIONS = {
     "delivery.observe": {"takes": (), "returns": ("delivery_observation",)},
     "environment.publish": {"takes": ("environment_edition",), "returns": ("environment_edition",)},
     "environment.adopt": {"takes": (), "returns": ("environment_adoption",)},
+    "collection.change": {"takes": ("collection",), "returns": ("collection",)},
+    "collection.read": {"takes": (), "returns": ("collection",)},
 }
 
 SELECTION_UNRESOLVED = "selection_unresolved"
@@ -46,6 +57,7 @@ ISOLATION_UNPROVEN = "isolation_unproven"
 DELIVERY_UNOBSERVED = "delivery_unobserved"
 RENDERING_NOT_RETAINED = "rendering_not_retained"
 ADOPTION_EVIDENCE_MISSING = "adoption_evidence_missing"
+SAME_LAYER_UNORDERED = "same_layer_unordered"
 
 # This module's rows of the contract error table (workenv.contracts.errors joins them).
 ERRORS = {
@@ -59,4 +71,16 @@ ERRORS = {
                             "does not reconstruct them",
     ADOPTION_EVIDENCE_MISSING: "an adopted environment used without the adoption evidence that "
                                "would make it one",
+    SAME_LAYER_UNORDERED: "units of one layer that answer one concern with no explicit "
+                          "precedence between them; the concern stays unresolved for the query "
+                          "that needs it, and nothing else is held back",
+}
+
+# Rules that relate one element of a record to another, which a schema cannot state. The
+# runtime owner keeps each; a case in the registry (gates/workenv/case-index.json) checks it.
+RUNTIME_RULES = {
+    "unit_reference_names_a_winning_unit": "every `shadowed_by` and `needed_by` of a preparation "
+                                           "names a unit of that preparation that won",
+    "gap_names_no_losing_unit": "no gap of a preparation names a shadowed or switched-off unit "
+                                "that no winning unit needs, so such a unit never holds a start",
 }

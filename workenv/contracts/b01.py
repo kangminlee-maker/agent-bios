@@ -1,14 +1,17 @@
 """B01 the signature binding: the gaps a signing or verifying operation answers with.
 
-Record kind: `signature_binding`.
+Record kinds: `signature_binding`, `signature_envelope`.
 
 A binding record is not a contract record. A contract says what an operation's input and result
 mean; a binding says which concrete platform mechanism was chosen, on what evidence, on which
 platforms it was observed, and what was not observed. It is where the refusal names the spikes
 saw get an owning module, and where the alternatives those spikes ruled out become unwritable.
+
+A signature travels as a `signature_envelope` among a request's proofs: the digest of the bytes
+signed, their record kind's namespace and the principal binding whose key signed, never the key.
 """
 CONTRACT = "B01"
-RECORD_KINDS = ("signature_binding",)
+RECORD_KINDS = ("signature_binding", "signature_envelope")
 IN_RESULTS = True
 
 SIGNATURE_INVALID = "signature_invalid"

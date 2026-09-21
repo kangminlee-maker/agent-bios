@@ -1,0 +1,357 @@
+{
+  "title": "C07 collection",
+  "description": "One of the nine scope/role positions: the sources one repository, person or Team selected for one role, with the switches, order and units its owner chose. It is the position's original and keeps its own head. Composition reads it and never writes it: the effective environment is a preparation derived from the heads it read, not a tenth collection. An entry references a source and owns nothing of it — the source's owner, home, rights and bytes stay the source's — and changing an entry changes this position alone. The position's scope is the application layer of every entry in it. An empty position is valid and contributes nothing, so lower layers can supply the concern; a position or entry switched `off` excludes that selection, and nothing else, until it is switched on.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema",
+    "collection_id",
+    "position",
+    "switch",
+    "entries",
+    "drafts",
+    "changed_at"
+  ],
+  "x-unique-by": {
+    "key": "source_id",
+    "across": [
+      "entries"
+    ]
+  },
+  "properties": {
+    "kind": {
+      "const": "collection"
+    },
+    "schema": {
+      "const": 1
+    },
+    "collection_id": {
+      "$ref": "#/$defs/collection_id"
+    },
+    "position": {
+      "$ref": "#/$defs/collection_position"
+    },
+    "switch": {
+      "$ref": "#/$defs/switch"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/collection_entry"
+      }
+    },
+    "drafts": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/draft"
+      }
+    },
+    "changed_at": {
+      "$ref": "#/$defs/instant",
+      "x-runtime-owned": true
+    }
+  },
+  "$defs": {
+    "collection_position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "role"
+      ],
+      "properties": {
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "role": {
+          "$ref": "#/$defs/role"
+        }
+      }
+    },
+    "switch": {
+      "enum": [
+        "on",
+        "off"
+      ]
+    },
+    "concern_key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[._][a-z0-9]+)*$",
+      "description": "An explicit overlap key. Two units with one key whose conditions both apply answer the same concern; an identical title or similar prose establishes no key."
+    },
+    "collection_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One selected source. `precedence` orders the entries of this position that answer one concern, lowest first. Two such entries with no precedence between them leave that concern unresolved for the query that needs it.",
+      "required": [
+        "source_id",
+        "pin",
+        "switch"
+      ],
+      "x-unique-by": {
+        "key": "member",
+        "across": [
+          "units"
+        ]
+      },
+      "properties": {
+        "source_id": {
+          "$ref": "#/$defs/source_id"
+        },
+        "pin": {
+          "$ref": "#/$defs/entry_pin"
+        },
+        "switch": {
+          "$ref": "#/$defs/switch"
+        },
+        "precedence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "units": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/unit_binding"
+          }
+        }
+      }
+    },
+    "entry_pin": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/revision_pin"
+        },
+        {
+          "$ref": "#/$defs/frontier_pin"
+        }
+      ]
+    },
+    "revision_pin": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "An Instructions or knowledge source at one exact revision. A newer revision is a candidate; nothing follows a name.",
+      "required": [
+        "pinned",
+        "revision_digest"
+      ],
+      "properties": {
+        "pinned": {
+          "const": "revision"
+        },
+        "revision_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "frontier_pin": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A memory source, read at the frontier each operation observes.",
+      "required": [
+        "pinned"
+      ],
+      "properties": {
+        "pinned": {
+          "const": "observed_frontier"
+        }
+      }
+    },
+    "unit_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One coherent unit of the source — a document, section or table member — declared for composition. `concern` is its overlap key; a unit without one is unkeyed prose, delivered in its labelled layer. `startup: required` means the unit must resolve before a session starts when it wins; a unit that is shadowed or switched off gates nothing. `needs` names units this unit's bytes rely on: while this unit wins, each stays required with its own conditions, even when it is itself shadowed or switched off.",
+      "required": [
+        "member",
+        "startup"
+      ],
+      "properties": {
+        "member": {
+          "$ref": "#/$defs/source_path"
+        },
+        "concern": {
+          "$ref": "#/$defs/concern_key"
+        },
+        "conditions": {
+          "$ref": "#/$defs/conditions"
+        },
+        "startup": {
+          "enum": [
+            "required",
+            "not_required"
+          ]
+        },
+        "needs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/unit_ref"
+          }
+        }
+      }
+    },
+    "unit_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "member"
+      ],
+      "properties": {
+        "source_id": {
+          "$ref": "#/$defs/source_id"
+        },
+        "member": {
+          "$ref": "#/$defs/source_path"
+        }
+      }
+    },
+    "draft": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A revision of one of this position's sources that is staged and not committed. It is not an original until its owner commits it.",
+      "required": [
+        "source_id",
+        "manifest_digest"
+      ],
+      "properties": {
+        "source_id": {
+          "$ref": "#/$defs/source_id"
+        },
+        "manifest_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "collection_id": {
+      "pattern": "^col_[0-9a-f]{32}$",
+      "type": "string"
+    },
+    "conditions": {
+      "items": {
+        "$ref": "#/$defs/condition"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "digest": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "instant": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+      "type": "string"
+    },
+    "role": {
+      "enum": [
+        "instructions",
+        "knowledge",
+        "memory"
+      ]
+    },
+    "scope": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/repository_scope"
+        },
+        {
+          "$ref": "#/$defs/personal_scope"
+        },
+        {
+          "$ref": "#/$defs/team_scope"
+        }
+      ]
+    },
+    "source_id": {
+      "pattern": "^src_[0-9a-f]{32}$",
+      "type": "string"
+    },
+    "source_path": {
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]*(?:/[A-Za-z0-9_][A-Za-z0-9_.-]*)*$",
+      "type": "string"
+    },
+    "condition": {
+      "additionalProperties": false,
+      "properties": {
+        "dimension": {
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "dimension",
+        "value"
+      ],
+      "type": "object"
+    },
+    "personal_scope": {
+      "additionalProperties": false,
+      "properties": {
+        "layer": {
+          "const": "personal"
+        },
+        "principal_id": {
+          "$ref": "#/$defs/principal_id"
+        }
+      },
+      "required": [
+        "layer",
+        "principal_id"
+      ],
+      "type": "object"
+    },
+    "repository_scope": {
+      "additionalProperties": false,
+      "properties": {
+        "layer": {
+          "const": "repository"
+        },
+        "repository_id": {
+          "$ref": "#/$defs/repository_id"
+        }
+      },
+      "required": [
+        "layer",
+        "repository_id"
+      ],
+      "type": "object"
+    },
+    "team_scope": {
+      "additionalProperties": false,
+      "properties": {
+        "layer": {
+          "const": "team"
+        },
+        "team_id": {
+          "$ref": "#/$defs/team_id"
+        }
+      },
+      "required": [
+        "layer",
+        "team_id"
+      ],
+      "type": "object"
+    },
+    "principal_id": {
+      "pattern": "^prn_[0-9a-f]{32}$",
+      "type": "string"
+    },
+    "repository_id": {
+      "pattern": "^rep_[0-9a-f]{32}$",
+      "type": "string"
+    },
+    "team_id": {
+      "pattern": "^tem_[0-9a-f]{32}$",
+      "type": "string"
+    }
+  }
+}

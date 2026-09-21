@@ -1,0 +1,42 @@
+{
+  "title": "B04 bridge request",
+  "description": "One browser request as the loopback bridge received it: the Host and Origin headers exactly as sent, the digest of the per-launch client token the page read from its URL fragment, and the digest of the operation request it asks the bridge to carry. That operation request states the access generation its handle was issued under. The token is named by digest because it identifies a client instance and grants nothing; a cookie has no field.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema",
+    "host",
+    "for_request_digest"
+  ],
+  "properties": {
+    "kind": {
+      "const": "bridge_request"
+    },
+    "schema": {
+      "const": 1
+    },
+    "host": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "origin": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "client_token_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "for_request_digest": {
+      "$ref": "#/$defs/digest"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

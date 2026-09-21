@@ -1,0 +1,249 @@
+{
+  "title": "Runner work packet",
+  "description": "What the runner hands one worker for one dispatch, written as a file whose path replaces `{packet}` in the worker command. Every identity is one the run file and the plan already fix, so the driver checks each against them (`packets_match_run` in preflight.json): the digests are the dated evaluator's `digest` of the plan, the node, the catalog, the node's test profile, the profile's binding and each accepted predecessor record. An unattended dispatch names the qualification it relies on; a coordinator dispatch has nowhere to put one.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema",
+    "run_id",
+    "node_id",
+    "attempt_id",
+    "plan_digest",
+    "node_digest",
+    "catalog_digest",
+    "profile_digest",
+    "binding_digest",
+    "inputs",
+    "input_artifacts",
+    "subjects",
+    "owned_paths",
+    "dispatch",
+    "runner_fingerprint",
+    "base",
+    "required_cases",
+    "done_when",
+    "evidence_dir",
+    "result_path"
+  ],
+  "x-unique-by": {
+    "key": "node_id",
+    "across": [
+      "inputs"
+    ]
+  },
+  "properties": {
+    "kind": {
+      "const": "runner_packet"
+    },
+    "schema": {
+      "const": 1
+    },
+    "run_id": {
+      "$ref": "#/$defs/identity"
+    },
+    "node_id": {
+      "$ref": "#/$defs/node_id"
+    },
+    "attempt_id": {
+      "description": "Chosen by the runner. A resumed attempt keeps its id; a new id is a new attempt.",
+      "$ref": "#/$defs/identity"
+    },
+    "plan_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "node_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "catalog_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "profile_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "binding_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "inputs": {
+      "description": "One row per predecessor the plan names, each accepted, with the digest of its record.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/predecessor"
+      }
+    },
+    "input_artifacts": {
+      "description": "Artifacts of accepted predecessor records the node reads, such as a package candidate.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/artifact"
+      }
+    },
+    "subjects": {
+      "description": "The run's current measurement of each subject the node names.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/subject"
+      }
+    },
+    "owned_paths": {
+      "description": "The node's `owned_paths` from the plan. A change outside them and outside the plan's shared integrator paths is refused at integration.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "dispatch": {
+      "$ref": "#/$defs/dispatch"
+    },
+    "runner_fingerprint": {
+      "$ref": "#/$defs/digest"
+    },
+    "base": {
+      "description": "The tree revision the worker starts from.",
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+    },
+    "required_cases": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "done_when": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "evidence_dir": {
+      "description": "Where this attempt's evidence goes, beside the run file. Each attempt has its own, and nothing the runner does later removes it.",
+      "$ref": "#/$defs/relative_path"
+    },
+    "result_path": {
+      "description": "Where the worker writes its worker_result.",
+      "$ref": "#/$defs/relative_path"
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^[!-~](?:[ -~]*[!-~])?$"
+    },
+    "node_id": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9]*$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "relative_path": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]*(?:/[A-Za-z0-9_][A-Za-z0-9_.-]*)*$"
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_id",
+        "output",
+        "path",
+        "sha256"
+      ],
+      "properties": {
+        "node_id": {
+          "$ref": "#/$defs/node_id"
+        },
+        "output": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+        },
+        "path": {
+          "$ref": "#/$defs/relative_path"
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_id",
+        "fingerprint"
+      ],
+      "properties": {
+        "subject_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+        },
+        "fingerprint": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "dispatch": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/coordinator_dispatch"
+        },
+        {
+          "$ref": "#/$defs/unattended_dispatch"
+        }
+      ]
+    },
+    "coordinator_dispatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode"
+      ],
+      "properties": {
+        "mode": {
+          "const": "coordinator"
+        }
+      }
+    },
+    "unattended_dispatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The qualification an unattended dispatch relies on: the digest of the accepted record of the plan's qualification node, taken before dispatch.",
+      "required": [
+        "mode",
+        "qualification_ref"
+      ],
+      "properties": {
+        "mode": {
+          "const": "unattended"
+        },
+        "qualification_ref": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "predecessor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_id",
+        "digest"
+      ],
+      "properties": {
+        "node_id": {
+          "$ref": "#/$defs/node_id"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    }
+  }
+}

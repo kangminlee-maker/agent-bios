@@ -1,0 +1,117 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C08 stewardship transfer",
+  "description": "Hand one duty — ownership, review, recovery or finalization — from one principal to another under the Team's continuity policy. A finalizer handover names where finalization runs next, so the Team is never left with a finalizer nobody can reach. The last holder of a required duty hands it on or keeps it; it is not removed.",
+  "required": [
+    "kind",
+    "schema",
+    "team_id",
+    "from_principal_id",
+    "to_principal_id",
+    "handover",
+    "transferred_at"
+  ],
+  "properties": {
+    "kind": {
+      "const": "stewardship_transfer"
+    },
+    "schema": {
+      "const": 1
+    },
+    "team_id": {
+      "$ref": "#/$defs/team_id"
+    },
+    "from_principal_id": {
+      "$ref": "#/$defs/principal_id"
+    },
+    "to_principal_id": {
+      "$ref": "#/$defs/principal_id"
+    },
+    "handover": {
+      "$ref": "#/$defs/handover"
+    },
+    "transferred_at": {
+      "$ref": "#/$defs/instant",
+      "x-runtime-owned": true
+    }
+  },
+  "$defs": {
+    "team_id": {
+      "type": "string",
+      "pattern": "^tem_[0-9a-f]{32}$"
+    },
+    "principal_id": {
+      "type": "string",
+      "pattern": "^prn_[0-9a-f]{32}$"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "device_id": {
+      "type": "string",
+      "pattern": "^dev_[0-9a-f]{32}$"
+    },
+    "finalizer_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runs_on"
+      ],
+      "properties": {
+        "runs_on": {
+          "enum": [
+            "member_device",
+            "internal_service"
+          ]
+        },
+        "device_id": {
+          "$ref": "#/$defs/device_id"
+        }
+      }
+    },
+    "handover": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/duty_handover"
+        },
+        {
+          "$ref": "#/$defs/finalizer_handover"
+        }
+      ]
+    },
+    "duty_handover": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "duty"
+      ],
+      "properties": {
+        "duty": {
+          "enum": [
+            "owner",
+            "reviewer",
+            "recovery"
+          ]
+        }
+      }
+    },
+    "finalizer_handover": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "duty",
+        "finalizer"
+      ],
+      "properties": {
+        "duty": {
+          "const": "finalizer"
+        },
+        "finalizer": {
+          "$ref": "#/$defs/finalizer_binding"
+        }
+      }
+    }
+  }
+}

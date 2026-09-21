@@ -1,0 +1,77 @@
+{
+  "title": "B04 bridge response",
+  "description": "What the bridge did with one request's body, written by the runtime. A written body has one generation — read when the request arrived and read again before writing, the same value — because the bridge writes a body only when nothing moved in between, so a body written across a lock has no spelling. A withheld body names what the bridge read, when it read anything; why it was withheld is the gap in the operation's result.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema",
+    "for_request_digest",
+    "body"
+  ],
+  "x-runtime-owned": true,
+  "properties": {
+    "kind": {
+      "const": "bridge_response"
+    },
+    "schema": {
+      "const": 1
+    },
+    "for_request_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "body": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/bridge_body_written"
+        },
+        {
+          "$ref": "#/$defs/bridge_body_withheld"
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "bridge_body_written": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "body",
+        "generation"
+      ],
+      "properties": {
+        "body": {
+          "const": "written"
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "bridge_body_withheld": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "body"
+      ],
+      "properties": {
+        "body": {
+          "const": "withheld"
+        },
+        "generation_at_receipt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "generation_before_write": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}

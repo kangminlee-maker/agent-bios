@@ -1,0 +1,70 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C10 derivation map",
+  "description": "What the store derived from one object — indexes, excerpts, candidates, prompts, exports — each by digest, as the store holds it. A removal of the object covers every one of them. Nothing here names a replacement for removed evidence, because none can stand in for it. Written by the runtime.",
+  "required": [
+    "kind",
+    "schema",
+    "object_digest",
+    "derivatives",
+    "read_at"
+  ],
+  "x-runtime-owned": true,
+  "properties": {
+    "kind": {
+      "const": "derivation_map"
+    },
+    "schema": {
+      "const": 1
+    },
+    "object_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "derivatives": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/derivative"
+      }
+    },
+    "read_at": {
+      "$ref": "#/$defs/instant"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "derived_as": {
+      "enum": [
+        "derived_index",
+        "excerpt",
+        "candidate",
+        "prompt",
+        "export"
+      ]
+    },
+    "derivative": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "digest",
+        "derived_as"
+      ],
+      "properties": {
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "derived_as": {
+          "$ref": "#/$defs/derived_as"
+        }
+      }
+    }
+  }
+}

@@ -113,7 +113,7 @@
     "record": {
       "type": "object",
       "additionalProperties": false,
-      "description": "A contract example (`from`, a path under workenv/contracts/examples/) with the leaves this case removes (`drop`, first) and sets (`set`, in order).",
+      "description": "A contract example (`from`, a path under workenv/contracts/examples/) or another record of this spec (`from`, its name), with the leaves this case removes (`drop`, first) and sets (`set`, in order).",
       "required": [
         "name",
         "from"
@@ -124,7 +124,7 @@
         },
         "from": {
           "type": "string",
-          "pattern": "^[a-z0-9_]+/[a-z0-9_]+\\.json$"
+          "pattern": "^(?:[a-z0-9_]+/[a-z0-9_]+\\.json|[a-z][a-z0-9]*(?:_[a-z0-9]+)*)$"
         },
         "drop": {
           "type": "array",

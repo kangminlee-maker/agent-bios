@@ -1,15 +1,19 @@
 """B04 the bridge binding: the gaps a local bridge request answers with.
 
-Record kind: `bridge_binding`.
+Record kinds: `bridge_binding`, `bridge_request`, `bridge_response`.
 
 Loopback HTTP for a browser only; the TUI and the CLI call the operations in process. The token
 identifies a client instance and grants nothing, and it rides in the URL fragment rather than a
 cookie because cookies are not isolated by port. Host and Origin are compared exactly, and the
 access generation is read again before any protected body is written, so a lock landing between
 computing a result and writing it refuses the write.
+
+What the bridge received is a `bridge_request` — headers as sent, the client token by digest, the
+operation request by digest — and what it did with the body is a `bridge_response`. C02's
+`access.bridge.serve` carries one to the other.
 """
 CONTRACT = "B04"
-RECORD_KINDS = ("bridge_binding",)
+RECORD_KINDS = ("bridge_binding", "bridge_request", "bridge_response")
 IN_RESULTS = True
 
 HOST_NOT_EXACT = "host_not_exact"

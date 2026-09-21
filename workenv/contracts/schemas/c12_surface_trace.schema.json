@@ -1,0 +1,767 @@
+{
+  "title": "C12 surface trace",
+  "description": "What the client rendered and did, frame by frame, while a surface script drove it: every element with its role, label, marks, focus, selection and state, where navigation stood, the requests it dispatched and the owner operations it called. Written by the runtime; a fixture-driven trace names its fixture. A trace is state and geometry, never comprehension, and a script's typed text is never evidence of input-method composition.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema",
+    "script_digest",
+    "client",
+    "mode",
+    "frames",
+    "at"
+  ],
+  "x-runtime-owned": true,
+  "properties": {
+    "kind": {
+      "const": "surface_trace"
+    },
+    "schema": {
+      "const": 1
+    },
+    "script_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "client": {
+      "$ref": "#/$defs/client_binding"
+    },
+    "candidate_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "mode": {
+      "$ref": "#/$defs/run_mode"
+    },
+    "frames": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/surface_frame"
+      }
+    },
+    "at": {
+      "$ref": "#/$defs/instant"
+    }
+  },
+  "$defs": {
+    "entrance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "root_origin"
+      ],
+      "properties": {
+        "name": {
+          "enum": [
+            "session_start",
+            "host_launcher",
+            "studio_hub",
+            "supplied_request",
+            "work_link",
+            "setup",
+            "locked_scope",
+            "decision_cli",
+            "decision_mcp",
+            "studio_bridge",
+            "capture_intake",
+            "compatibility_route",
+            "maintenance"
+          ]
+        },
+        "root_origin": {
+          "enum": [
+            "owner",
+            "caller"
+          ]
+        }
+      }
+    },
+    "scope": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/repository_scope"
+        },
+        {
+          "$ref": "#/$defs/personal_scope"
+        },
+        {
+          "$ref": "#/$defs/team_scope"
+        }
+      ]
+    },
+    "team_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "team_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "team"
+        },
+        "team_id": {
+          "$ref": "#/$defs/team_id"
+        }
+      }
+    },
+    "team_id": {
+      "type": "string",
+      "pattern": "^tem_[0-9a-f]{32}$"
+    },
+    "personal_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "principal_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "personal"
+        },
+        "principal_id": {
+          "$ref": "#/$defs/principal_id"
+        }
+      }
+    },
+    "principal_id": {
+      "type": "string",
+      "pattern": "^prn_[0-9a-f]{32}$"
+    },
+    "repository_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "repository_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "repository"
+        },
+        "repository_id": {
+          "$ref": "#/$defs/repository_id"
+        }
+      }
+    },
+    "repository_id": {
+      "type": "string",
+      "pattern": "^rep_[0-9a-f]{32}$"
+    },
+    "route_id": {
+      "type": "string",
+      "pattern": "^rte_[0-9a-f]{32}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "client_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        }
+      }
+    },
+    "request_id": {
+      "type": "string",
+      "pattern": "^req_[0-9a-f]{32}$"
+    },
+    "run_mode": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/real_run"
+        },
+        {
+          "$ref": "#/$defs/fixture_run"
+        }
+      ]
+    },
+    "real_run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runs"
+      ],
+      "properties": {
+        "runs": {
+          "const": "real"
+        }
+      }
+    },
+    "fixture_run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runs",
+        "fixture_digest"
+      ],
+      "properties": {
+        "runs": {
+          "const": "fixture"
+        },
+        "fixture_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "operation": {
+      "enum": [
+        "access.admission.decide",
+        "access.bridge.serve",
+        "access.connection.configure",
+        "access.control.record",
+        "access.profile.rename",
+        "access.sign_in.begin",
+        "access.sign_in.complete",
+        "access.transition",
+        "capability.probe",
+        "carrier.bind",
+        "carrier.disconnect",
+        "carrier.provision",
+        "collection.change",
+        "collection.read",
+        "contribution.return",
+        "custody.acknowledge",
+        "custody.commit",
+        "delivery.observe",
+        "entrance.cutover.commit",
+        "entrance.disposition.record",
+        "environment.adopt",
+        "environment.publish",
+        "identity.binding.add",
+        "identity.binding.revoke",
+        "knowledge.member.prepare",
+        "knowledge.question.ask",
+        "knowledge.view.open",
+        "memory.candidate.reject",
+        "memory.candidate.store",
+        "memory.lifecycle.apply",
+        "memory.preference.record",
+        "memory.record.publish",
+        "memory.state.prove",
+        "memory.state.resolve",
+        "memory.use.prepare",
+        "operation.batch.submit",
+        "operation.cancel",
+        "operation.history.read",
+        "operation.query",
+        "package.candidate.register",
+        "preparation.assess",
+        "preparation.compose",
+        "reader.body.read",
+        "reader.question.answer",
+        "reader.use.resume",
+        "recipient.answer.record",
+        "recipient.delivery.attempt",
+        "recipient.link.open",
+        "reference.resolve",
+        "removal.execute",
+        "repository.bind",
+        "retention.derivations.read",
+        "retention.plan.set",
+        "role.project",
+        "route.offer",
+        "route.select",
+        "session.routing.activate",
+        "source.capture.record",
+        "source.home.register",
+        "source.observe",
+        "source.revision.admit",
+        "source.revision.commit",
+        "source.revision.publish",
+        "source.rights.set",
+        "store.backup.create",
+        "store.backup.restore",
+        "surface.drive",
+        "surface.observe",
+        "surface.protocol.record",
+        "team.approval.record",
+        "team.consent.record",
+        "team.device.retire",
+        "team.found",
+        "team.grant.change",
+        "team.invitation.cancel",
+        "team.invitation.issue",
+        "team.lifecycle.apply",
+        "team.membership.change",
+        "team.policy.set",
+        "team.profile.set",
+        "team.state.read",
+        "team.stewardship.transfer",
+        "transfer.accept",
+        "transfer.stage",
+        "validation.run",
+        "workstream.open"
+      ]
+    },
+    "role": {
+      "enum": [
+        "instructions",
+        "knowledge",
+        "memory"
+      ]
+    },
+    "collection_position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "role"
+      ],
+      "properties": {
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "role": {
+          "$ref": "#/$defs/role"
+        }
+      }
+    },
+    "locale": {
+      "enum": [
+        "en",
+        "ja",
+        "ko"
+      ]
+    },
+    "terminal_size": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "columns",
+        "rows"
+      ],
+      "properties": {
+        "columns": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "rows": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "digests": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/digest"
+      }
+    },
+    "surface_view_name": {
+      "enum": [
+        "hub",
+        "entry",
+        "setup",
+        "locked",
+        "dashboard",
+        "w01",
+        "w02",
+        "w03",
+        "w04",
+        "w05",
+        "w06",
+        "w07",
+        "w08",
+        "w09",
+        "w10"
+      ]
+    },
+    "surface_frame": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "What the screen held after one input.",
+      "required": [
+        "after",
+        "terminal",
+        "locale",
+        "access",
+        "view",
+        "elements",
+        "dispatched",
+        "calls"
+      ],
+      "properties": {
+        "after": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "How many script inputs had been delivered: 0 is the first render."
+        },
+        "terminal": {
+          "$ref": "#/$defs/terminal_size"
+        },
+        "locale": {
+          "$ref": "#/$defs/locale"
+        },
+        "access": {
+          "enum": [
+            "active",
+            "locked",
+            "signed_out"
+          ]
+        },
+        "view": {
+          "$ref": "#/$defs/surface_view"
+        },
+        "elements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/surface_element"
+          }
+        },
+        "dispatched": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/request_id"
+          },
+          "description": "Requests the client sealed and sent after this input, and no other."
+        },
+        "calls": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/surface_call"
+          },
+          "description": "Every owner operation the client called while producing this frame, including reads, so a query that should not have run is seen."
+        }
+      },
+      "x-unique-by": {
+        "key": "element_id",
+        "across": [
+          "elements"
+        ]
+      }
+    },
+    "surface_view": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Where navigation stands: the view, the entrance it came from, the scope being browsed apart from the scope selected for work and the recipient already bound, the exact target and draft, where back returns, and the missing bodies an inspection started with, which navigation keeps until they are actually verified.",
+      "required": [
+        "view",
+        "origin",
+        "missing_bodies"
+      ],
+      "properties": {
+        "view": {
+          "$ref": "#/$defs/surface_view_name"
+        },
+        "origin": {
+          "$ref": "#/$defs/entrance"
+        },
+        "browse_scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "selected_scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "recipient_link_id": {
+          "type": "string",
+          "pattern": "^lnk_[0-9a-f]{32}$"
+        },
+        "target": {
+          "$ref": "#/$defs/element_ref"
+        },
+        "draft_request_id": {
+          "$ref": "#/$defs/request_id"
+        },
+        "return_view": {
+          "$ref": "#/$defs/surface_view_name"
+        },
+        "missing_bodies": {
+          "$ref": "#/$defs/digests"
+        }
+      }
+    },
+    "surface_element": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One thing the client rendered, by what it is rather than where it is drawn. The id is the client's own and does not change with the locale; the label is what the screen showed. Focus, selection and execution are three facts.",
+      "required": [
+        "element_id",
+        "role",
+        "label",
+        "marks",
+        "focused",
+        "selection",
+        "executing",
+        "shown"
+      ],
+      "properties": {
+        "element_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z0-9_]+)*$"
+        },
+        "role": {
+          "enum": [
+            "context",
+            "scope",
+            "choice",
+            "setting",
+            "selection",
+            "qualification",
+            "blocker",
+            "action",
+            "result",
+            "detail",
+            "field",
+            "help",
+            "signal"
+          ]
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400
+        },
+        "marks": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20
+          },
+          "description": "The text or symbols the screen used for focus, selection or state. Colour has no field: what colour alone says is not recorded, so it cannot carry a distinction."
+        },
+        "focused": {
+          "type": "boolean"
+        },
+        "selection": {
+          "enum": [
+            "none",
+            "suggested",
+            "selected"
+          ],
+          "description": "`suggested` is a default shown as a proposal; only `selected` is the person's explicit choice."
+        },
+        "executing": {
+          "type": "boolean"
+        },
+        "state": {
+          "enum": [
+            "installed",
+            "configured",
+            "prepared",
+            "delivered",
+            "not_checked",
+            "checked_empty",
+            "missing",
+            "denied",
+            "remote_unknown",
+            "unavailable",
+            "partial",
+            "blocked",
+            "unknown",
+            "pending",
+            "draft_saved",
+            "published",
+            "adopted"
+          ]
+        },
+        "shown": {
+          "enum": [
+            "whole",
+            "clipped",
+            "off_screen"
+          ]
+        },
+        "refers_to": {
+          "$ref": "#/$defs/element_ref"
+        },
+        "value": {
+          "type": "string",
+          "maxLength": 4000,
+          "description": "What a field holds, exactly as held."
+        },
+        "effects": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "file_changes",
+              "model_calls",
+              "network",
+              "shared_change",
+              "permission_request"
+            ]
+          },
+          "description": "Effects the screen shows at this choice or action."
+        }
+      }
+    },
+    "element_ref": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/request_ref"
+        },
+        {
+          "$ref": "#/$defs/record_ref"
+        },
+        {
+          "$ref": "#/$defs/route_ref"
+        },
+        {
+          "$ref": "#/$defs/position_ref"
+        },
+        {
+          "$ref": "#/$defs/scope_ref"
+        },
+        {
+          "$ref": "#/$defs/link_ref"
+        }
+      ]
+    },
+    "request_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "request_id"
+      ],
+      "properties": {
+        "ref": {
+          "const": "request"
+        },
+        "request_id": {
+          "$ref": "#/$defs/request_id"
+        }
+      }
+    },
+    "record_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "digest"
+      ],
+      "properties": {
+        "ref": {
+          "const": "record"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "route_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "route_id"
+      ],
+      "properties": {
+        "ref": {
+          "const": "route"
+        },
+        "route_id": {
+          "$ref": "#/$defs/route_id"
+        }
+      }
+    },
+    "position_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "position",
+        "view"
+      ],
+      "properties": {
+        "ref": {
+          "const": "position"
+        },
+        "position": {
+          "$ref": "#/$defs/collection_position"
+        },
+        "view": {
+          "enum": [
+            "original",
+            "effective"
+          ]
+        }
+      }
+    },
+    "scope_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "scope"
+      ],
+      "properties": {
+        "ref": {
+          "const": "scope"
+        },
+        "scope": {
+          "$ref": "#/$defs/scope"
+        }
+      }
+    },
+    "link_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "link_id"
+      ],
+      "properties": {
+        "ref": {
+          "const": "link"
+        },
+        "link_id": {
+          "type": "string",
+          "pattern": "^lnk_[0-9a-f]{32}$"
+        }
+      }
+    },
+    "surface_call": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One owner operation the client called, and what it read.",
+      "required": [
+        "operation",
+        "reads",
+        "request_digest"
+      ],
+      "properties": {
+        "operation": {
+          "$ref": "#/$defs/operation"
+        },
+        "reads": {
+          "enum": [
+            "nothing",
+            "inventory",
+            "source_map",
+            "bodies"
+          ],
+          "description": "What the call read: nothing, the installed and local inventory, the source map, or bodies, which are task-specific knowledge or memory."
+        },
+        "request_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    }
+  }
+}

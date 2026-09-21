@@ -1,0 +1,109 @@
+{
+  "title": "Worker result",
+  "description": "What one worker writes at its packet's `result_path`: the outcome it claims and each change it proposes, every change prepared against the bytes it read at the packet's base. The runner decides what to integrate: a change to a path outside the node's owned paths and outside the plan's shared integrator paths is refused, and a change whose base is no longer the path's current bytes is refused rather than merged. The worker's claim is not acceptance; only the evaluator accepts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema",
+    "node_id",
+    "attempt_id",
+    "outcome",
+    "changes",
+    "evidence"
+  ],
+  "x-unique-by": {
+    "key": "path",
+    "across": [
+      "changes"
+    ]
+  },
+  "properties": {
+    "kind": {
+      "const": "worker_result"
+    },
+    "schema": {
+      "const": 1
+    },
+    "node_id": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9]*$"
+    },
+    "attempt_id": {
+      "$ref": "#/$defs/identity"
+    },
+    "outcome": {
+      "enum": [
+        "passed",
+        "failed"
+      ]
+    },
+    "changes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/file_change"
+      }
+    },
+    "evidence": {
+      "description": "Files the worker left in its packet's `evidence_dir`, by path and digest.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidence_file"
+      }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "relative_path": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]*(?:/[A-Za-z0-9_][A-Za-z0-9_.-]*)*$"
+    },
+    "evidence_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/relative_path"
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "identity": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^[!-~](?:[ -~]*[!-~])?$"
+    },
+    "file_change": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The whole new content of one tree path. `base_digest` is the sha256 of the bytes the worker read there, or `absent` when there were none.",
+      "required": [
+        "path",
+        "base_digest",
+        "content"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/relative_path"
+        },
+        "base_digest": {
+          "type": "string",
+          "pattern": "^(?:absent|[0-9a-f]{64})$"
+        },
+        "content": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C11 surface observation",
-  "description": "One person meeting a surface for the first time. What it was observed in is whatever the terminal reported, so no real observation is unrecordable; what support may be claimed from it is a closed list, so a claim cannot name a terminal nobody put there. The evidence class has one value, because a family that requires an observation is not answered by a deterministic run. Evidence and any support claim sit under the subject, so a prototype has no way to offer evidence that qualifies or support it would establish.",
+  "description": "One person meeting a surface for the first time. What it was observed in is whatever the terminal reported, so no real observation is unrecordable; what support may be claimed from it is a closed list, so a claim cannot name a terminal nobody put there. The evidence class has one value, because a family that requires an observation is not answered by a deterministic run. Evidence and any support claim sit under the subject, so a prototype has no way to offer evidence that qualifies or support it would establish. The input routes it used are stated, so an observation made with a keyboard alone supports no claim about composition, a remote shell or a screen reader.",
   "required": [
     "kind",
     "schema",
@@ -10,6 +10,7 @@
     "subject",
     "observed_in",
     "locale",
+    "input_routes",
     "evidence_class",
     "observed_at"
   ],
@@ -32,6 +33,14 @@
     },
     "locale": {
       "$ref": "#/$defs/locale"
+    },
+    "input_routes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/input_route"
+      }
     },
     "evidence_class": {
       "const": "observed"
@@ -306,6 +315,16 @@
     "observation_id": {
       "type": "string",
       "pattern": "^obs_[0-9a-f]{32}$"
+    },
+    "input_route": {
+      "enum": [
+        "keyboard",
+        "ime",
+        "paste",
+        "ssh",
+        "screen_reader"
+      ],
+      "description": "How the participant gave input. Typed text driven by a harness is none of these: it is a script, not an observation."
     }
   }
 }

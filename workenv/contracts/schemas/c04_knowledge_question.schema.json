@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C04 knowledge question",
-  "description": "A question with the conditions that can change its answer, against exact source revisions. A condition the sources do not cover yields a scoped unknown, never an answer with the condition dropped.",
+  "description": "A question with the conditions that can change its answer, against exact source revisions. A condition the sources do not cover yields a scoped unknown, never an answer with the condition dropped. `order` is an explicit layer order the worker chose; without one the order is repository, personal, Team. Choosing a layer chooses which answer to prefer, never which is true, and drops none.",
   "required": [
     "kind",
     "schema",
@@ -35,6 +35,14 @@
         "required",
         "optional"
       ]
+    },
+    "order": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/scope"
+      }
     }
   },
   "$defs": {
@@ -113,6 +121,79 @@
           "maxLength": 200
         }
       }
+    },
+    "scope": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/repository_scope"
+        },
+        {
+          "$ref": "#/$defs/personal_scope"
+        },
+        {
+          "$ref": "#/$defs/team_scope"
+        }
+      ]
+    },
+    "personal_scope": {
+      "additionalProperties": false,
+      "properties": {
+        "layer": {
+          "const": "personal"
+        },
+        "principal_id": {
+          "$ref": "#/$defs/principal_id"
+        }
+      },
+      "required": [
+        "layer",
+        "principal_id"
+      ],
+      "type": "object"
+    },
+    "repository_scope": {
+      "additionalProperties": false,
+      "properties": {
+        "layer": {
+          "const": "repository"
+        },
+        "repository_id": {
+          "$ref": "#/$defs/repository_id"
+        }
+      },
+      "required": [
+        "layer",
+        "repository_id"
+      ],
+      "type": "object"
+    },
+    "team_scope": {
+      "additionalProperties": false,
+      "properties": {
+        "layer": {
+          "const": "team"
+        },
+        "team_id": {
+          "$ref": "#/$defs/team_id"
+        }
+      },
+      "required": [
+        "layer",
+        "team_id"
+      ],
+      "type": "object"
+    },
+    "principal_id": {
+      "pattern": "^prn_[0-9a-f]{32}$",
+      "type": "string"
+    },
+    "repository_id": {
+      "pattern": "^rep_[0-9a-f]{32}$",
+      "type": "string"
+    },
+    "team_id": {
+      "pattern": "^tem_[0-9a-f]{32}$",
+      "type": "string"
     }
   }
 }

@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C05 lifecycle event",
-  "description": "What happened to a record, attributed and evidenced. The time it was recorded and the time it occurred are different fields, and the second is present only when it is known. A replacement names its successor in the same record, so no reader has to guess which choice displaced which.",
+  "description": "What happened to a record, attributed and evidenced. The time it was recorded and the time it occurred are different fields, and the second is present only when it is known. A replacement names its successor in the same record, so no reader has to guess which choice displaced which. An event may be recorded in lanes of its own: that association says where it was recorded, and the event still changes the state of its target in every lane that reads it.",
   "required": [
     "kind",
     "schema",
@@ -47,6 +47,13 @@
     "recorded_at": {
       "$ref": "#/$defs/instant",
       "x-runtime-owned": true
+    },
+    "workstream_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/workstream_id"
+      }
     }
   },
   "$defs": {
@@ -162,6 +169,10 @@
           "$ref": "#/$defs/replacement_effect"
         }
       ]
+    },
+    "workstream_id": {
+      "type": "string",
+      "pattern": "^wst_[0-9a-f]{32}$"
     }
   }
 }

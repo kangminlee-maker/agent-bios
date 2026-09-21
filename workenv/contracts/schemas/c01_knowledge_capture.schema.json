@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C01 domain knowledge capture",
-  "description": "Domain members taken into a knowledge source, by path and hash. It has no property for a behavioural unit, so an instruction projection cannot be written here at all; promotion runs through the destination owner's own revision, never through a capture. What was taken and what processed it are one property, `processing`: each input is the digest of exact bytes with what its source permits, and text goes to a provider only when every input's source permits that.",
+  "description": "Domain members taken into a knowledge source, by path and hash. It has no property for a behavioural unit, so an instruction projection cannot be written here at all; promotion runs through the destination owner's own revision, never through a capture. What was taken and what processed it are one property, `processing`: each input is the digest of exact bytes with what its source permits, and text goes to a provider only when every input's source permits that. Each input names where its bytes were read — the transcript records, revision member, working-tree file or supplied file — and what its source permits for processing, prompt logs and destinations; `observation_digest` names the `source_observation` that read them from an explicit selection, so bytes found on disk under a guessed name are not an input. A capture proposed for a wider scope than its inputs came from states the widening.",
   "required": [
     "kind",
     "schema",
@@ -10,6 +10,7 @@
     "destination_source_id",
     "revision_digest",
     "processing",
+    "observation_digest",
     "members",
     "captured_at"
   ],
@@ -31,6 +32,12 @@
     },
     "processing": {
       "$ref": "#/$defs/processing"
+    },
+    "observation_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "widens": {
+      "$ref": "#/$defs/widening"
     },
     "members": {
       "type": "array",
@@ -120,22 +127,23 @@
       }
     },
     "input": {
-      "description": "One exact complete record set or byte span, by the digest of the bytes taken, and what its source's own rights permit for it.",
+      "description": "One exact complete record set or byte span: the digest of the bytes taken, where they were read, and what their source's own rights permit.",
       "type": "object",
       "additionalProperties": false,
       "required": [
         "evidence_digest",
+        "from",
         "permits"
       ],
       "properties": {
         "evidence_digest": {
           "$ref": "#/$defs/digest"
         },
+        "from": {
+          "$ref": "#/$defs/source_place"
+        },
         "permits": {
-          "enum": [
-            "local_processing",
-            "provider_processing"
-          ]
+          "$ref": "#/$defs/input_permission"
         }
       }
     },
@@ -144,14 +152,18 @@
       "additionalProperties": false,
       "required": [
         "evidence_digest",
+        "from",
         "permits"
       ],
       "properties": {
         "evidence_digest": {
           "$ref": "#/$defs/digest"
         },
+        "from": {
+          "$ref": "#/$defs/source_place"
+        },
         "permits": {
-          "const": "provider_processing"
+          "$ref": "#/$defs/provider_permission"
         }
       }
     },
@@ -189,7 +201,8 @@
       "required": [
         "runs",
         "adapter",
-        "inputs"
+        "inputs",
+        "prompt_log"
       ],
       "properties": {
         "runs": {
@@ -205,6 +218,9 @@
           "items": {
             "$ref": "#/$defs/input"
           }
+        },
+        "prompt_log": {
+          "$ref": "#/$defs/prompt_log"
         }
       },
       "x-unique-by": {
@@ -222,7 +238,8 @@
         "runs",
         "adapter",
         "provider",
-        "inputs"
+        "inputs",
+        "prompt_log"
       ],
       "properties": {
         "runs": {
@@ -241,6 +258,9 @@
           "items": {
             "$ref": "#/$defs/provider_input"
           }
+        },
+        "prompt_log": {
+          "$ref": "#/$defs/prompt_log"
         }
       },
       "x-unique-by": {
@@ -262,6 +282,433 @@
           "$ref": "#/$defs/provider_processing"
         }
       ]
+    },
+    "prompt_log": {
+      "enum": [
+        "not_kept",
+        "kept"
+      ],
+      "description": "Whether a prompt or response carrying the text may be kept in a log."
+    },
+    "input_permission": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "What the input's own source permits for it: where its text may be processed, whether a prompt carrying it may be kept in a log, and the scopes a result resting on it may be committed to. Read permission and redaction are neither; the owner holds these against the source's rights and refuses an overstatement with `input_not_permitted`.",
+      "required": [
+        "processing",
+        "prompt_log",
+        "destinations"
+      ],
+      "properties": {
+        "processing": {
+          "enum": [
+            "local_processing",
+            "provider_processing"
+          ]
+        },
+        "prompt_log": {
+          "$ref": "#/$defs/prompt_log"
+        },
+        "destinations": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/scope"
+          }
+        }
+      }
+    },
+    "provider_permission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "processing",
+        "prompt_log",
+        "destinations"
+      ],
+      "properties": {
+        "processing": {
+          "const": "provider_processing"
+        },
+        "prompt_log": {
+          "$ref": "#/$defs/prompt_log"
+        },
+        "destinations": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/scope"
+          }
+        }
+      }
+    },
+    "widening": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A capture proposed for a wider scope than its inputs came from says so: the scope they came from, the applicability it proposes, and the evidence of the authority to widen. A capture that widens without this is refused with `widening_unstated`; stating it discloses no input its source keeps private.",
+      "required": [
+        "from_scope",
+        "applicability",
+        "authority_evidence_digest"
+      ],
+      "properties": {
+        "from_scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "applicability": {
+          "$ref": "#/$defs/applicability"
+        },
+        "authority_evidence_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "source_place": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/transcript_records"
+        },
+        {
+          "$ref": "#/$defs/revision_member"
+        },
+        {
+          "$ref": "#/$defs/working_tree_path"
+        },
+        {
+          "$ref": "#/$defs/exported_file"
+        }
+      ]
+    },
+    "transcript": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One host session's transcript: the host and the host's own id for the session. The id locates a transcript and proves nothing about who took part; a name guessed from files on disk is not it.",
+      "required": [
+        "host",
+        "session_id"
+      ],
+      "properties": {
+        "host": {
+          "$ref": "#/$defs/client_binding"
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      }
+    },
+    "transcript_records": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Complete records of one transcript, by position. An ongoing session is not an immutable transcript, so a place names whole records, and records appended later belong to another place.",
+      "required": [
+        "from",
+        "transcript",
+        "first_record",
+        "last_record"
+      ],
+      "properties": {
+        "from": {
+          "const": "session_transcript"
+        },
+        "transcript": {
+          "$ref": "#/$defs/transcript"
+        },
+        "first_record": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "last_record": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "revision_member": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One source revision, or one member of it, optionally a byte span of that member.",
+      "required": [
+        "from",
+        "source_id",
+        "revision_digest"
+      ],
+      "properties": {
+        "from": {
+          "const": "source_revision"
+        },
+        "source_id": {
+          "$ref": "#/$defs/source_id"
+        },
+        "revision_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "member": {
+          "$ref": "#/$defs/source_path"
+        },
+        "bytes": {
+          "$ref": "#/$defs/byte_range"
+        }
+      }
+    },
+    "working_tree_path": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A file or directory of the checkout bound to a repository id, as its working tree holds it now — committed, modified or untracked — not as its last commit does.",
+      "required": [
+        "from",
+        "repository_id",
+        "path"
+      ],
+      "properties": {
+        "from": {
+          "const": "working_tree"
+        },
+        "repository_id": {
+          "$ref": "#/$defs/repository_id"
+        },
+        "path": {
+          "$ref": "#/$defs/source_path"
+        },
+        "bytes": {
+          "$ref": "#/$defs/byte_range"
+        }
+      }
+    },
+    "exported_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A file a person supplied, such as an exported conversation, by the digest of its bytes.",
+      "required": [
+        "from",
+        "file_digest"
+      ],
+      "properties": {
+        "from": {
+          "const": "exported_file"
+        },
+        "file_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "bytes": {
+          "$ref": "#/$defs/byte_range"
+        }
+      }
+    },
+    "byte_range": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A byte span of the bytes the place names.",
+      "required": [
+        "offset",
+        "length"
+      ],
+      "properties": {
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "scope": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/repository_scope"
+        },
+        {
+          "$ref": "#/$defs/personal_scope"
+        },
+        {
+          "$ref": "#/$defs/team_scope"
+        }
+      ]
+    },
+    "team_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "team_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "team"
+        },
+        "team_id": {
+          "$ref": "#/$defs/team_id"
+        }
+      }
+    },
+    "personal_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "principal_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "personal"
+        },
+        "principal_id": {
+          "$ref": "#/$defs/principal_id"
+        }
+      }
+    },
+    "repository_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "repository_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "repository"
+        },
+        "repository_id": {
+          "$ref": "#/$defs/repository_id"
+        }
+      }
+    },
+    "team_id": {
+      "type": "string",
+      "pattern": "^tem_[0-9a-f]{32}$"
+    },
+    "principal_id": {
+      "type": "string",
+      "pattern": "^prn_[0-9a-f]{32}$"
+    },
+    "repository_id": {
+      "type": "string",
+      "pattern": "^rep_[0-9a-f]{32}$"
+    },
+    "source_path": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]*(?:/[A-Za-z0-9_][A-Za-z0-9_.-]*)*$"
+    },
+    "applicability": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/stated_applicability"
+        },
+        {
+          "$ref": "#/$defs/unstated_applicability"
+        }
+      ]
+    },
+    "stated_applicability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "states"
+      ],
+      "properties": {
+        "states": {
+          "const": "stated"
+        },
+        "period": {
+          "$ref": "#/$defs/period"
+        },
+        "conditions": {
+          "$ref": "#/$defs/conditions"
+        },
+        "exceptions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400
+          }
+        }
+      }
+    },
+    "unstated_applicability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "states"
+      ],
+      "properties": {
+        "states": {
+          "const": "unstated"
+        }
+      }
+    },
+    "conditions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/condition"
+      }
+    },
+    "condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dimension",
+        "value"
+      ],
+      "properties": {
+        "dimension": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      }
+    },
+    "period": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "effective_from"
+      ],
+      "properties": {
+        "effective_from": {
+          "$ref": "#/$defs/date"
+        },
+        "effective_to": {
+          "$ref": "#/$defs/date"
+        }
+      }
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "client_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        }
+      }
     }
   }
 }

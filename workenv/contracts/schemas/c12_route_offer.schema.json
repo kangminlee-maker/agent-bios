@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C12 route offer",
-  "description": "What one entrance offered, route by route. An offer grants nothing and chooses nothing; it records what was on the screen, including the routes this client cannot carry, because a route that was never offered and a route that was offered and refused are different answers.",
+  "description": "What one entrance offered, route by route. An offer grants nothing and chooses nothing; it records what was on the screen, including the routes this client cannot carry, because a route that was never offered and a route that was offered and refused are different answers. A route that acts on material names the collection position it targets and whether that is the original or the effective view.",
   "required": [
     "kind",
     "schema",
@@ -64,6 +64,9 @@
         },
         "recovery": {
           "$ref": "#/$defs/recovery"
+        },
+        "position": {
+          "$ref": "#/$defs/position_view"
         }
       }
     },
@@ -259,6 +262,49 @@
           "enum": [
             "owner",
             "caller"
+          ]
+        }
+      }
+    },
+    "role": {
+      "enum": [
+        "instructions",
+        "knowledge",
+        "memory"
+      ]
+    },
+    "collection_position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "role"
+      ],
+      "properties": {
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "role": {
+          "$ref": "#/$defs/role"
+        }
+      }
+    },
+    "position_view": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One collection position, and whether the route acts on its original sources or on the effective material derived from all nine. An effective view is never an original.",
+      "required": [
+        "position",
+        "view"
+      ],
+      "properties": {
+        "position": {
+          "$ref": "#/$defs/collection_position"
+        },
+        "view": {
+          "enum": [
+            "original",
+            "effective"
           ]
         }
       }

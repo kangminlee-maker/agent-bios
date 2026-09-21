@@ -1,0 +1,130 @@
+{
+  "rule": "C04/relation_endpoints_are_nodes",
+  "holds": [
+    {
+      "record": "workenv/contracts/examples/c04/model_held_in_a_revision.json"
+    },
+    {
+      "what": "a model with no relations",
+      "record": {
+        "kind": "knowledge_model",
+        "nodes": [
+          {
+            "definition": "Income after the deductions the schedule allows.",
+            "evidence_digests": [
+              "7777777777777777777777777777777777777777777777777777777777777777"
+            ],
+            "id": "taxable_income",
+            "type": "quantity"
+          },
+          {
+            "conditions": [
+              {
+                "dimension": "jurisdiction",
+                "value": "KR"
+              }
+            ],
+            "definition": "Tax due on taxable income at the schedule's rates.",
+            "evidence_digests": [
+              "7777777777777777777777777777777777777777777777777777777777777777"
+            ],
+            "id": "income_tax",
+            "type": "quantity"
+          }
+        ],
+        "relations": [],
+        "schema": 1,
+        "source_id": "src_d03704030bebf3e0e72ad9f98be9b4c6"
+      }
+    }
+  ],
+  "breaks": [
+    {
+      "what": "a relation to a node the model does not hold",
+      "record": {
+        "kind": "knowledge_model",
+        "nodes": [
+          {
+            "definition": "Income after the deductions the schedule allows.",
+            "evidence_digests": [
+              "7777777777777777777777777777777777777777777777777777777777777777"
+            ],
+            "id": "taxable_income",
+            "type": "quantity"
+          },
+          {
+            "conditions": [
+              {
+                "dimension": "jurisdiction",
+                "value": "KR"
+              }
+            ],
+            "definition": "Tax due on taxable income at the schedule's rates.",
+            "evidence_digests": [
+              "7777777777777777777777777777777777777777777777777777777777777777"
+            ],
+            "id": "income_tax",
+            "type": "quantity"
+          }
+        ],
+        "relations": [
+          {
+            "from": "income_tax",
+            "id": "computed_from",
+            "to": "gross_income",
+            "type": "derived_from"
+          }
+        ],
+        "schema": 1,
+        "source_id": "src_d03704030bebf3e0e72ad9f98be9b4c6"
+      },
+      "at": [
+        "/relations/0/to"
+      ]
+    },
+    {
+      "what": "a relation neither of whose ends is a node",
+      "record": {
+        "kind": "knowledge_model",
+        "nodes": [
+          {
+            "definition": "Income after the deductions the schedule allows.",
+            "evidence_digests": [
+              "7777777777777777777777777777777777777777777777777777777777777777"
+            ],
+            "id": "taxable_income",
+            "type": "quantity"
+          },
+          {
+            "conditions": [
+              {
+                "dimension": "jurisdiction",
+                "value": "KR"
+              }
+            ],
+            "definition": "Tax due on taxable income at the schedule's rates.",
+            "evidence_digests": [
+              "7777777777777777777777777777777777777777777777777777777777777777"
+            ],
+            "id": "income_tax",
+            "type": "quantity"
+          }
+        ],
+        "relations": [
+          {
+            "from": "net_income",
+            "id": "computed_from",
+            "to": "gross_income",
+            "type": "derived_from"
+          }
+        ],
+        "schema": 1,
+        "source_id": "src_d03704030bebf3e0e72ad9f98be9b4c6"
+      },
+      "at": [
+        "/relations/0/from",
+        "/relations/0/to"
+      ]
+    }
+  ]
+}

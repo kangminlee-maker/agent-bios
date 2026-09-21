@@ -1,0 +1,54 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C08 membership consent",
+  "description": "The invitee's consent to one exact invitation, bound to the device credential they proved in the exchange and to the evidence of the Team's out-of-band verification of the actual participant. The consenting principal is the actor of the request; the runtime writes it and the time. Consent is not membership.",
+  "required": [
+    "kind",
+    "schema",
+    "invitation_digest",
+    "binding_digest",
+    "verification_digest",
+    "principal_id",
+    "consented_at"
+  ],
+  "properties": {
+    "kind": {
+      "const": "membership_consent"
+    },
+    "schema": {
+      "const": 1
+    },
+    "invitation_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "binding_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "verification_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "principal_id": {
+      "$ref": "#/$defs/principal_id",
+      "x-runtime-owned": true
+    },
+    "consented_at": {
+      "$ref": "#/$defs/instant",
+      "x-runtime-owned": true
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "principal_id": {
+      "type": "string",
+      "pattern": "^prn_[0-9a-f]{32}$"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    }
+  }
+}

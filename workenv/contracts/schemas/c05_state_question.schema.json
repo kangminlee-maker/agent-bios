@@ -29,6 +29,15 @@
     },
     "include_superseded": {
       "type": "boolean"
+    },
+    "workstream_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/workstream_id"
+      },
+      "description": "Ask about the records associated with these lanes. Events that target those records are followed whatever lane they were recorded in."
     }
   },
   "$defs": {
@@ -148,6 +157,10 @@
     "repository_id": {
       "type": "string",
       "pattern": "^rep_[0-9a-f]{32}$"
+    },
+    "workstream_id": {
+      "type": "string",
+      "pattern": "^wst_[0-9a-f]{32}$"
     }
   }
 }

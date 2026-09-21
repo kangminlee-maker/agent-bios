@@ -1,0 +1,143 @@
+{
+  "title": "C02 sign-in evidence",
+  "description": "That a provider identity was verified for one attempt, written by the runtime once a callback matched its attempt and its connection. It is identity evidence and nothing more: it unlocks no profile, reopens no signed-out session and grants no membership or right. An explicit `access.transition` sign-in names it among its proofs; a principal binding, a membership admitted by a provider claim, or a fresh-authentication check rests on it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema",
+    "attempt_id",
+    "connection_id",
+    "purpose",
+    "issuer",
+    "subject",
+    "claims",
+    "verified_at"
+  ],
+  "x-unique-by": {
+    "key": "claim",
+    "across": [
+      "claims"
+    ]
+  },
+  "x-runtime-owned": true,
+  "properties": {
+    "kind": {
+      "const": "sign_in_evidence"
+    },
+    "schema": {
+      "const": 1
+    },
+    "attempt_id": {
+      "$ref": "#/$defs/sign_in_attempt_id"
+    },
+    "connection_id": {
+      "$ref": "#/$defs/connection_id"
+    },
+    "purpose": {
+      "$ref": "#/$defs/sign_in_purpose"
+    },
+    "issuer": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "subject": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/expected_claim"
+      }
+    },
+    "verified_at": {
+      "$ref": "#/$defs/instant"
+    }
+  },
+  "$defs": {
+    "connection_id": {
+      "type": "string",
+      "pattern": "^con_[0-9a-f]{32}$"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "principal_id": {
+      "type": "string",
+      "pattern": "^prn_[0-9a-f]{32}$"
+    },
+    "sign_in_attempt_id": {
+      "type": "string",
+      "pattern": "^sin_[0-9a-f]{32}$"
+    },
+    "expected_claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One claim a returned identity must carry, by the provider's own name for it, with the value it must have.",
+      "required": [
+        "claim",
+        "value"
+      ],
+      "properties": {
+        "claim": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        }
+      }
+    },
+    "sign_in_purpose": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/sign_in_for_principal"
+        },
+        {
+          "$ref": "#/$defs/sign_in_for_admission"
+        }
+      ]
+    },
+    "sign_in_for_principal": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Link the provider identity to this principal (proof of control of the principal travels in the request's proofs), recover it under the Team's governed recovery, or check an identity already linked to it again for a fresh-authentication requirement.",
+      "required": [
+        "purpose",
+        "principal_id"
+      ],
+      "properties": {
+        "purpose": {
+          "enum": [
+            "link",
+            "recover",
+            "fresh_check"
+          ]
+        },
+        "principal_id": {
+          "$ref": "#/$defs/principal_id"
+        }
+      }
+    },
+    "sign_in_for_admission": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Identify someone for admission; whether the claim admits them is the Team's policy, never the sign-in.",
+      "required": [
+        "purpose"
+      ],
+      "properties": {
+        "purpose": {
+          "const": "admit"
+        }
+      }
+    }
+  }
+}

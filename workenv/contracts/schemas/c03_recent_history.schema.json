@@ -1,0 +1,415 @@
+{
+  "title": "C03 recent history",
+  "description": "What happened recently in one scope, read from its owners when asked: recent requests with the last stage confirmed for each, and dated checkpoints. Both lists are bounded. It is evidence, not intention: no field holds a goal, a current request or a next action, so reading it starts, resumes and adopts nothing.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema",
+    "scope",
+    "observed_at",
+    "entries",
+    "checkpoints"
+  ],
+  "x-unique-by": {
+    "key": "request_id",
+    "across": [
+      "entries"
+    ]
+  },
+  "x-runtime-owned": true,
+  "properties": {
+    "kind": {
+      "const": "recent_history"
+    },
+    "schema": {
+      "const": 1
+    },
+    "scope": {
+      "$ref": "#/$defs/scope"
+    },
+    "observed_at": {
+      "$ref": "#/$defs/instant"
+    },
+    "entries": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "$ref": "#/$defs/history_entry"
+      }
+    },
+    "checkpoints": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "$ref": "#/$defs/history_checkpoint"
+      }
+    }
+  },
+  "$defs": {
+    "scope": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/repository_scope"
+        },
+        {
+          "$ref": "#/$defs/personal_scope"
+        },
+        {
+          "$ref": "#/$defs/team_scope"
+        }
+      ]
+    },
+    "team_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "team_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "team"
+        },
+        "team_id": {
+          "$ref": "#/$defs/team_id"
+        }
+      }
+    },
+    "team_id": {
+      "type": "string",
+      "pattern": "^tem_[0-9a-f]{32}$"
+    },
+    "personal_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "principal_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "personal"
+        },
+        "principal_id": {
+          "$ref": "#/$defs/principal_id"
+        }
+      }
+    },
+    "principal_id": {
+      "type": "string",
+      "pattern": "^prn_[0-9a-f]{32}$"
+    },
+    "repository_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "repository_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "repository"
+        },
+        "repository_id": {
+          "$ref": "#/$defs/repository_id"
+        }
+      }
+    },
+    "repository_id": {
+      "type": "string",
+      "pattern": "^rep_[0-9a-f]{32}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "request_id": {
+      "type": "string",
+      "pattern": "^req_[0-9a-f]{32}$"
+    },
+    "recovery": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "retry_same_request",
+          "query_same_request",
+          "reseal_on_current_head",
+          "unlock",
+          "sign_in",
+          "fresh_authentication",
+          "enroll_credential",
+          "refresh_control_evidence",
+          "open_a_terminal",
+          "new_governed_request"
+        ]
+      }
+    },
+    "operation": {
+      "enum": [
+        "access.admission.decide",
+        "access.bridge.serve",
+        "access.connection.configure",
+        "access.control.record",
+        "access.profile.rename",
+        "access.sign_in.begin",
+        "access.sign_in.complete",
+        "access.transition",
+        "capability.probe",
+        "carrier.bind",
+        "carrier.disconnect",
+        "carrier.provision",
+        "collection.change",
+        "collection.read",
+        "contribution.return",
+        "custody.acknowledge",
+        "custody.commit",
+        "delivery.observe",
+        "entrance.cutover.commit",
+        "entrance.disposition.record",
+        "environment.adopt",
+        "environment.publish",
+        "identity.binding.add",
+        "identity.binding.revoke",
+        "knowledge.member.prepare",
+        "knowledge.question.ask",
+        "knowledge.view.open",
+        "memory.candidate.reject",
+        "memory.candidate.store",
+        "memory.lifecycle.apply",
+        "memory.preference.record",
+        "memory.record.publish",
+        "memory.state.prove",
+        "memory.state.resolve",
+        "memory.use.prepare",
+        "operation.batch.submit",
+        "operation.cancel",
+        "operation.history.read",
+        "operation.query",
+        "package.candidate.register",
+        "preparation.assess",
+        "preparation.compose",
+        "reader.body.read",
+        "reader.question.answer",
+        "reader.use.resume",
+        "recipient.answer.record",
+        "recipient.delivery.attempt",
+        "recipient.link.open",
+        "reference.resolve",
+        "removal.execute",
+        "repository.bind",
+        "retention.derivations.read",
+        "retention.plan.set",
+        "role.project",
+        "route.offer",
+        "route.select",
+        "session.routing.activate",
+        "source.capture.record",
+        "source.home.register",
+        "source.observe",
+        "source.revision.admit",
+        "source.revision.commit",
+        "source.revision.publish",
+        "source.rights.set",
+        "store.backup.create",
+        "store.backup.restore",
+        "surface.drive",
+        "surface.observe",
+        "surface.protocol.record",
+        "team.approval.record",
+        "team.consent.record",
+        "team.device.retire",
+        "team.found",
+        "team.grant.change",
+        "team.invitation.cancel",
+        "team.invitation.issue",
+        "team.lifecycle.apply",
+        "team.membership.change",
+        "team.policy.set",
+        "team.profile.set",
+        "team.state.read",
+        "team.stewardship.transfer",
+        "transfer.accept",
+        "transfer.stage",
+        "validation.run",
+        "workstream.open"
+      ]
+    },
+    "output_kind": {
+      "enum": [
+        "access_admission",
+        "access_state",
+        "action_assessment",
+        "answer_evidence",
+        "application_preference",
+        "approval",
+        "backup_set",
+        "batch_result",
+        "behaviour_capture",
+        "bridge_response",
+        "capability_probe",
+        "capability_profile",
+        "carrier_binding",
+        "carrier_state",
+        "choice_record",
+        "collection",
+        "comparison_basis",
+        "contribution_return",
+        "control_evidence",
+        "custody_acknowledgment",
+        "custody_commitment",
+        "delivery_attempt",
+        "delivery_observation",
+        "derivation_map",
+        "device_retirement",
+        "entrance_disposition",
+        "environment_adoption",
+        "environment_edition",
+        "exposure_trial",
+        "extraction_run",
+        "form_profile",
+        "governing_policy",
+        "grant_record",
+        "invitation_cancellation",
+        "knowledge_capture",
+        "knowledge_model",
+        "knowledge_view",
+        "lifecycle_event",
+        "local_profile",
+        "membership_consent",
+        "membership_invitation",
+        "membership_record",
+        "memory_candidate",
+        "memory_capture",
+        "operation_receipt",
+        "operation_result",
+        "package_candidate",
+        "pending_question",
+        "preparation",
+        "principal_binding",
+        "provider_connection",
+        "qualified_state",
+        "reader_result",
+        "recent_history",
+        "recipient_link",
+        "removal_outcome",
+        "repository_binding",
+        "request_not_held",
+        "restore_report",
+        "retention_plan",
+        "role_projection",
+        "route_offer",
+        "route_outcome",
+        "session_routing",
+        "sign_in_attempt",
+        "sign_in_evidence",
+        "source_home",
+        "source_manifest",
+        "source_observation",
+        "source_provenance",
+        "source_rights",
+        "state_proof",
+        "stewardship_transfer",
+        "study_protocol",
+        "surface_observation",
+        "surface_trace",
+        "team_profile",
+        "team_state",
+        "transfer_stage_record",
+        "validation_run",
+        "workstream"
+      ]
+    },
+    "confirmed_stage": {
+      "enum": [
+        "committed",
+        "refused",
+        "previewed",
+        "draft",
+        "in_review",
+        "approved",
+        "executing",
+        "changes_requested",
+        "rejected",
+        "withdrawn",
+        "expired",
+        "stale",
+        "blocked",
+        "conflict",
+        "partial",
+        "unknown"
+      ]
+    },
+    "history_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One recent request: the last stage its owner confirmed, when, and what that observation covered. `local_only` read this installation's owner alone; `local_and_provider` also read the provider's outcome.",
+      "required": [
+        "request_id",
+        "request_digest",
+        "operation",
+        "confirmed_stage",
+        "confirmed_at",
+        "coverage",
+        "recovery"
+      ],
+      "properties": {
+        "request_id": {
+          "$ref": "#/$defs/request_id"
+        },
+        "request_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "operation": {
+          "$ref": "#/$defs/operation"
+        },
+        "confirmed_stage": {
+          "$ref": "#/$defs/confirmed_stage"
+        },
+        "confirmed_at": {
+          "$ref": "#/$defs/instant"
+        },
+        "coverage": {
+          "enum": [
+            "local_only",
+            "local_and_provider"
+          ]
+        },
+        "recovery": {
+          "$ref": "#/$defs/recovery"
+        }
+      }
+    },
+    "history_checkpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A dated checkpoint: a record this scope accepted, and any note recorded with it then. The note is history — a next step somebody wrote down — never the current request.",
+      "required": [
+        "digest",
+        "kind",
+        "recorded_at"
+      ],
+      "properties": {
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "kind": {
+          "$ref": "#/$defs/output_kind"
+        },
+        "recorded_at": {
+          "$ref": "#/$defs/instant"
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      }
+    }
+  }
+}

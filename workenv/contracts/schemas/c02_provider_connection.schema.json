@@ -1,0 +1,150 @@
+{
+  "title": "C02 provider connection",
+  "description": "One sign-in connection a Team configured: the issuer and audience it trusts, the claims a returned identity must carry (a Google hosted domain, a Slack workspace), and where the callback and any confidential exchange run. A public-client connection exchanges the code locally with PKCE; one that needs a client secret runs its exchange in a Team-controlled protected process whose operator it names. There is no field for a secret, a token or a key, so none can travel with the connection. Configuring a connection admits nobody and makes no sign-in method required: who a verified claim admits is the Team's governing policy.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema",
+    "connection_id",
+    "team_id",
+    "preset",
+    "issuer",
+    "audience",
+    "expected_claims",
+    "exchange",
+    "configured_at"
+  ],
+  "x-unique-by": {
+    "key": "claim",
+    "across": [
+      "expected_claims"
+    ]
+  },
+  "properties": {
+    "kind": {
+      "const": "provider_connection"
+    },
+    "schema": {
+      "const": 1
+    },
+    "connection_id": {
+      "$ref": "#/$defs/connection_id",
+      "x-runtime-owned": true
+    },
+    "team_id": {
+      "$ref": "#/$defs/team_id"
+    },
+    "preset": {
+      "enum": [
+        "google",
+        "slack",
+        "oidc"
+      ]
+    },
+    "issuer": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "audience": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "expected_claims": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/expected_claim"
+      }
+    },
+    "exchange": {
+      "$ref": "#/$defs/sign_in_exchange"
+    },
+    "configured_at": {
+      "$ref": "#/$defs/instant",
+      "x-runtime-owned": true
+    }
+  },
+  "$defs": {
+    "connection_id": {
+      "type": "string",
+      "pattern": "^con_[0-9a-f]{32}$"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "principal_id": {
+      "type": "string",
+      "pattern": "^prn_[0-9a-f]{32}$"
+    },
+    "team_id": {
+      "type": "string",
+      "pattern": "^tem_[0-9a-f]{32}$"
+    },
+    "expected_claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One claim a returned identity must carry, by the provider's own name for it, with the value it must have.",
+      "required": [
+        "claim",
+        "value"
+      ],
+      "properties": {
+        "claim": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        }
+      }
+    },
+    "sign_in_exchange": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/local_sign_in_exchange"
+        },
+        {
+          "$ref": "#/$defs/protected_sign_in_exchange"
+        }
+      ]
+    },
+    "local_sign_in_exchange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runs",
+        "flow"
+      ],
+      "properties": {
+        "runs": {
+          "const": "local_public_client"
+        },
+        "flow": {
+          "const": "code_with_pkce"
+        }
+      }
+    },
+    "protected_sign_in_exchange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runs",
+        "operator_principal_id"
+      ],
+      "properties": {
+        "runs": {
+          "const": "team_protected_process"
+        },
+        "operator_principal_id": {
+          "$ref": "#/$defs/principal_id"
+        }
+      }
+    }
+  }
+}

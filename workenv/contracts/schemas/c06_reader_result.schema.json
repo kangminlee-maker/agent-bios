@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C06 reader result",
-  "description": "What the reader actually returned. Seven standings stay apart on purpose: an empty answer from a source with nothing to say is not a denial, and neither is an answer this installation could not reach. `ended` says the pagination finished, which is not a claim that nothing else was relevant. A result that waits on a person says so by carrying `pending_user`: the question and use it waits on, never a first option chosen on their behalf. A denied read has nowhere to name a source, a continuation or a waiting use: access is resolved before candidates or metadata are exposed. A frontier an `access_not_established` gap's pointer names is not returned; the runtime owner keeps that rule and P01's cases check it.",
+  "description": "What the reader actually returned. Seven standings stay apart on purpose: an empty answer from a source with nothing to say is not a denial, and neither is an answer this installation could not reach. `ended` says the pagination finished, which is not a claim that nothing else was relevant. A result that waits on a person says so with a `pending_user` use: the question and use it waits on, never a first option chosen on their behalf. A result that admitted a use names that use and the state it was admitted on; it cannot do both. Each unit says whether it is required or optional, what was examined and returned is stated beside the budget, and a selected source the read did not check is named with why, apart from one it checked and found empty. A denied read has nowhere to name a source, a continuation or a waiting use: access is resolved before candidates or metadata are exposed. A frontier an `access_not_established` gap's pointer names is not returned; the runtime owner keeps that rule and P01's cases check it.",
   "required": [
     "kind",
     "schema",
@@ -96,6 +96,7 @@
             "access_not_established",
             "access_signed_out",
             "access_state_not_durable",
+            "adapter_unavailable",
             "adoption_evidence_missing",
             "agent_not_owned_here",
             "answer_not_from_a_person",
@@ -115,11 +116,14 @@
             "body_missing",
             "bootstrap_already_committed",
             "budget_exhausted",
+            "callback_not_bound",
             "cancel_too_late",
             "capability_not_qualified",
             "carrier_unreachable",
             "child_route_unsupported",
             "choice_conflict_unresolved",
+            "claim_not_admitted",
+            "claim_not_expected",
             "client_token_missing",
             "client_token_unknown",
             "companion_unavailable",
@@ -135,6 +139,7 @@
             "cursor_basis_moved",
             "cursor_revoked",
             "custody_incomplete",
+            "cutover_source_moved",
             "delegation_ceiling_exceeded",
             "delivery_unobserved",
             "destination_invented",
@@ -144,20 +149,27 @@
             "finalizer_unavailable",
             "fixture_result_in_real_mode",
             "fork_evidence",
+            "form_mapping_invalid",
             "fresh_auth_required",
+            "grant_not_held",
             "group_membership_escalation",
             "hidden_confirmation_refused",
             "host_not_exact",
             "host_not_qualified",
             "id_bound_to_other_bytes",
             "import_conflicting_bytes",
+            "input_not_observed",
+            "input_not_permitted",
+            "invitation_not_open",
             "isolation_unproven",
             "journal_mode_unexpected",
+            "knowledge_evidence_conflicts",
             "last_owner_removal_refused",
             "lifecycle_contradiction",
             "local_origin_is_not_authority",
             "management_detour_refused",
             "manifest_member_unlisted",
+            "model_reference_dangling",
             "navigation_changed_state",
             "object_digest_mismatch",
             "origin_not_exact",
@@ -172,14 +184,18 @@
             "protected_root_bypass",
             "protocol_claim_only",
             "protocol_version_not_offered",
+            "provider_unreachable",
+            "provisioning_in_doubt",
             "publisher_bytes_modified",
             "recipient_link_unknown",
             "recipient_mismatch",
             "ref_unavailable",
             "rehydration_needs_bodies",
+            "removal_held",
             "removal_unconfirmed",
             "rendering_not_retained",
             "repository_binding_required",
+            "repository_rights_not_a_grant",
             "request_id_conflict",
             "request_mismatch",
             "resume_stale",
@@ -189,6 +205,7 @@
             "role_body_unavailable",
             "role_promotion_refused",
             "route_unsupported",
+            "same_layer_unordered",
             "selection_unresolved",
             "semantics_unsupported",
             "signature_invalid",
@@ -204,11 +221,14 @@
             "storage_generation_reset",
             "storage_not_encrypted",
             "succession_incomplete",
+            "team_archived",
+            "team_terminal",
             "tool_absent",
             "trust_continuity_unverified",
             "unique_outbox_at_risk",
             "unlock_needs_a_terminal",
             "use_not_admitted",
+            "widening_unstated",
             "wire_version_unsupported",
             "working_bytes_moved"
           ]
@@ -290,53 +310,6 @@
         }
       }
     },
-    "composed_unit": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "unit_id",
-        "source_id",
-        "revision_digest",
-        "role",
-        "layer",
-        "standing"
-      ],
-      "properties": {
-        "unit_id": {
-          "$ref": "#/$defs/unit_id"
-        },
-        "source_id": {
-          "$ref": "#/$defs/source_id"
-        },
-        "revision_digest": {
-          "$ref": "#/$defs/digest"
-        },
-        "role": {
-          "$ref": "#/$defs/role"
-        },
-        "layer": {
-          "enum": [
-            "repository",
-            "personal",
-            "team"
-          ]
-        },
-        "standing": {
-          "enum": [
-            "winning",
-            "shadowed",
-            "disabled",
-            "unresolved"
-          ]
-        },
-        "body_digest": {
-          "$ref": "#/$defs/digest"
-        },
-        "shadowed_by": {
-          "$ref": "#/$defs/unit_id"
-        }
-      }
-    },
     "unit_id": {
       "type": "string",
       "pattern": "^unt_[0-9a-f]{32}$"
@@ -363,27 +336,6 @@
         },
         "selector_digest": {
           "$ref": "#/$defs/digest"
-        }
-      }
-    },
-    "pending_reference": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "use_id",
-        "question_id",
-        "question_version"
-      ],
-      "properties": {
-        "use_id": {
-          "$ref": "#/$defs/use_id"
-        },
-        "question_id": {
-          "$ref": "#/$defs/question_id"
-        },
-        "question_version": {
-          "type": "integer",
-          "minimum": 1
         }
       }
     },
@@ -419,7 +371,8 @@
       "required": [
         "standing",
         "frontiers",
-        "units"
+        "units",
+        "consumed"
       ],
       "properties": {
         "standing": {
@@ -439,15 +392,30 @@
           "type": "array",
           "uniqueItems": true,
           "items": {
-            "$ref": "#/$defs/composed_unit"
+            "$ref": "#/$defs/read_unit"
           }
         },
         "continuation": {
           "$ref": "#/$defs/continuation"
         },
-        "pending_user": {
-          "$ref": "#/$defs/pending_reference"
+        "use": {
+          "$ref": "#/$defs/use_reference"
+        },
+        "unread_sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/unread_source"
+          }
+        },
+        "consumed": {
+          "$ref": "#/$defs/consumption"
         }
+      },
+      "x-unique-by": {
+        "key": "source_id",
+        "across": [
+          "unread_sources"
+        ]
       }
     },
     "sourceless_read": {
@@ -474,10 +442,167 @@
           "type": "array",
           "maxItems": 0,
           "items": {
-            "$ref": "#/$defs/composed_unit"
+            "$ref": "#/$defs/read_unit"
           }
         }
       }
+    },
+    "read_unit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit_id",
+        "source_id",
+        "revision_digest",
+        "role",
+        "layer",
+        "standing",
+        "need"
+      ],
+      "properties": {
+        "unit_id": {
+          "$ref": "#/$defs/unit_id"
+        },
+        "source_id": {
+          "$ref": "#/$defs/source_id"
+        },
+        "revision_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "role": {
+          "$ref": "#/$defs/role"
+        },
+        "layer": {
+          "enum": [
+            "repository",
+            "personal",
+            "team"
+          ]
+        },
+        "standing": {
+          "enum": [
+            "winning",
+            "shadowed",
+            "disabled",
+            "unresolved"
+          ]
+        },
+        "body_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "shadowed_by": {
+          "$ref": "#/$defs/unit_id"
+        },
+        "need": {
+          "enum": [
+            "required",
+            "optional"
+          ]
+        }
+      },
+      "description": "One unit returned. `need` says whether it answers a required subject or is optional support; required meaning is fitted before optional ranking."
+    },
+    "consumption": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "What the read actually used of its budget: how much it examined and how much it returned.",
+      "required": [
+        "examined",
+        "units",
+        "bytes"
+      ],
+      "properties": {
+        "examined": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "unread_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A selected source this read did not check: not checked at all, a remote whose current state could not be learned, or one this installation does not hold. A source it checked is named by its frontier instead, so checked-empty and these stay apart.",
+      "required": [
+        "source_id",
+        "state"
+      ],
+      "properties": {
+        "source_id": {
+          "$ref": "#/$defs/source_id"
+        },
+        "state": {
+          "enum": [
+            "not_checked",
+            "remote_unknown",
+            "missing"
+          ]
+        }
+      }
+    },
+    "pending_use": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "use_id",
+        "question_id",
+        "question_version"
+      ],
+      "properties": {
+        "state": {
+          "const": "pending_user"
+        },
+        "use_id": {
+          "$ref": "#/$defs/use_id"
+        },
+        "question_id": {
+          "$ref": "#/$defs/question_id"
+        },
+        "question_version": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "description": "Waiting on a person: the question version and the use it waits on."
+    },
+    "admitted_use": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The use this result admitted, and the qualified state it was admitted on. A later use, or a child recipient, is a use of its own and is admitted on its own; this one covers nothing else.",
+      "required": [
+        "state",
+        "use_id",
+        "state_digest"
+      ],
+      "properties": {
+        "state": {
+          "const": "admitted"
+        },
+        "use_id": {
+          "$ref": "#/$defs/use_id"
+        },
+        "state_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "use_reference": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/pending_use"
+        },
+        {
+          "$ref": "#/$defs/admitted_use"
+        }
+      ]
     }
   }
 }

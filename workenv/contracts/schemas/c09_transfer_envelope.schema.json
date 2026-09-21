@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C09 transfer envelope",
-  "description": "What a package binds: whose authority it comes from, which namespace, which recipient may open it, exactly what is inside with sizes and digests, and what it needs to already be there. Trust comes from enrolment or verified authority continuity, named here by digest \u2014 never from a key the package carries about itself, which is why there is no field for one. Signing is not encryption, so confidentiality is stated separately.",
+  "description": "What a package binds: whose authority it comes from, which namespace, which recipient may open it, exactly what is inside with sizes and digests, and what it needs to already be there. Trust comes from enrolment or verified authority continuity, named here by digest — never from a key the package carries about itself, which is why there is no field for one. Signing is not encryption, so confidentiality is stated separately. Each member is named by its path in the package, its digest and size, and what it is: a declared record kind, or `source_member` for a source revision's own file. A path is relative and each segment starts with a letter, digit or underscore, so a member that would climb out of the package has no spelling; two members at one path are refused.",
   "required": [
     "kind",
     "schema",
@@ -16,6 +16,12 @@
     "continuity_evidence_digests",
     "confidentiality"
   ],
+  "x-unique-by": {
+    "key": "path",
+    "across": [
+      "inventory"
+    ]
+  },
   "properties": {
     "kind": {
       "const": "transfer_envelope"
@@ -40,7 +46,7 @@
       "minItems": 1,
       "uniqueItems": true,
       "items": {
-        "$ref": "#/$defs/inventory_entry"
+        "$ref": "#/$defs/transfer_member"
       }
     },
     "prerequisites": {
@@ -255,28 +261,6 @@
         }
       ]
     },
-    "inventory_entry": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "digest",
-        "size",
-        "object_kind"
-      ],
-      "properties": {
-        "digest": {
-          "$ref": "#/$defs/digest"
-        },
-        "size": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "object_kind": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
-        }
-      }
-    },
     "semantic": {
       "type": "object",
       "additionalProperties": false,
@@ -292,6 +276,157 @@
         "version": {
           "type": "integer",
           "minimum": 1
+        }
+      }
+    },
+    "source_path": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]*(?:/[A-Za-z0-9_][A-Za-z0-9_.-]*)*$"
+    },
+    "object_kind": {
+      "enum": [
+        "access_admission",
+        "access_state",
+        "access_transition",
+        "action_assessment",
+        "answer_evidence",
+        "application_preference",
+        "approval",
+        "authority_continuity",
+        "backup_set",
+        "batch_plan",
+        "batch_result",
+        "behaviour_capture",
+        "bridge_binding",
+        "bridge_request",
+        "bridge_response",
+        "capability_probe",
+        "capability_profile",
+        "carrier_binding",
+        "carrier_request",
+        "carrier_state",
+        "choice_record",
+        "collection",
+        "comparison_basis",
+        "contribution_return",
+        "control_evidence",
+        "custody_acknowledgment",
+        "custody_commitment",
+        "cutover_plan",
+        "delivery_attempt",
+        "delivery_observation",
+        "derivation_map",
+        "derivation_query",
+        "device_retirement",
+        "entrance_disposition",
+        "environment_adoption",
+        "environment_edition",
+        "exposure_trial",
+        "extraction_run",
+        "form_profile",
+        "founding_proposal",
+        "governing_policy",
+        "grant_record",
+        "history_query",
+        "host_binding",
+        "host_reply",
+        "invitation_cancellation",
+        "knowledge_capture",
+        "knowledge_model",
+        "knowledge_question",
+        "knowledge_view",
+        "lifecycle_action",
+        "lifecycle_event",
+        "local_profile",
+        "membership_consent",
+        "membership_invitation",
+        "membership_record",
+        "memory_candidate",
+        "memory_capture",
+        "operation_query",
+        "operation_receipt",
+        "operation_request",
+        "operation_result",
+        "package_candidate",
+        "pending_question",
+        "preparation",
+        "preparation_request",
+        "principal_binding",
+        "profile_label",
+        "projection_plan",
+        "provider_callback",
+        "provider_connection",
+        "qualified_state",
+        "reader_envelope",
+        "reader_result",
+        "recent_history",
+        "recipient_link",
+        "removal_outcome",
+        "removal_request",
+        "repository_binding",
+        "request_not_held",
+        "restore_report",
+        "resume_request",
+        "retention_plan",
+        "role_projection",
+        "route_offer",
+        "route_outcome",
+        "route_selection",
+        "session_activation",
+        "session_routing",
+        "sign_in_attempt",
+        "sign_in_evidence",
+        "signature_binding",
+        "signature_envelope",
+        "source_home",
+        "source_manifest",
+        "source_member",
+        "source_observation",
+        "source_provenance",
+        "source_ref",
+        "source_request",
+        "source_rights",
+        "source_selection",
+        "state_proof",
+        "state_question",
+        "stewardship_transfer",
+        "storage_binding",
+        "study_protocol",
+        "surface_observation",
+        "surface_script",
+        "surface_trace",
+        "team_profile",
+        "team_state",
+        "transfer_envelope",
+        "transfer_stage_record",
+        "unlock_binding",
+        "validation_request",
+        "validation_run",
+        "workstream"
+      ]
+    },
+    "transfer_member": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "digest",
+        "size",
+        "object_kind"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/source_path"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "object_kind": {
+          "$ref": "#/$defs/object_kind"
         }
       }
     }

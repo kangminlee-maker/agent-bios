@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C12 capability probe",
-  "description": "What the installed client did when it was asked, kept apart from what it declared it could do. `offered` is the declaration and `outcome` is the behaviour; a client that offers a capability and refuses it is the case this record exists to make visible. A caller names the client, wire and capability to probe; what the client offered and did is observed by the runtime.",
+  "description": "What the installed client did when it was asked, kept apart from what it declared it could do. `offered` is the declaration and `outcome` is the behaviour; a client that offers a capability and refuses it is the case this record exists to make visible. A caller names the client, wire and capability to probe; what the client offered and did is observed by the runtime. A probe of a provider callback names the configured connection it came through. `unreachable` is a provider or client that could not be reached, apart from one that did not answer. A probe run against a fixture names the fixture, so a mocked provider or key is recorded as what it is; a capability is qualified only by a probe that ran for real, which relates the profile to the probe, so the runtime owner keeps it and P01's cases check it.",
   "required": [
     "kind",
     "schema",
@@ -13,6 +13,7 @@
     "offered",
     "outcome",
     "observed",
+    "mode",
     "at"
   ],
   "properties": {
@@ -38,7 +39,9 @@
         "read",
         "question",
         "user_event",
-        "resume"
+        "resume",
+        "provider_callback",
+        "validation"
       ]
     },
     "offered": {
@@ -50,6 +53,7 @@
         "worked",
         "refused",
         "no_response",
+        "unreachable",
         "unsupported"
       ],
       "x-runtime-owned": true
@@ -58,6 +62,13 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 4000,
+      "x-runtime-owned": true
+    },
+    "connection_id": {
+      "$ref": "#/$defs/connection_id"
+    },
+    "mode": {
+      "$ref": "#/$defs/run_mode",
       "x-runtime-owned": true
     },
     "at": {
@@ -106,6 +117,52 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 40
+        }
+      }
+    },
+    "connection_id": {
+      "type": "string",
+      "pattern": "^con_[0-9a-f]{32}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "run_mode": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/real_run"
+        },
+        {
+          "$ref": "#/$defs/fixture_run"
+        }
+      ]
+    },
+    "real_run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runs"
+      ],
+      "properties": {
+        "runs": {
+          "const": "real"
+        }
+      }
+    },
+    "fixture_run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runs",
+        "fixture_digest"
+      ],
+      "properties": {
+        "runs": {
+          "const": "fixture"
+        },
+        "fixture_digest": {
+          "$ref": "#/$defs/digest"
         }
       }
     }

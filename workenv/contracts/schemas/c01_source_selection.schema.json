@@ -1,0 +1,235 @@
+{
+  "title": "C01 source selection",
+  "description": "What an acquisition may read: the places a person or an entrance selected, each required or optional. Nothing outside them is read — no traversal out of a root, no adjacent repository, no transcript the selection does not name, no companion file beside a selected one — and a required place whose content is absent is a gap, not an empty read. Selecting places writes nothing: no Team, no repository metadata, no commit, no upload.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema",
+    "roots"
+  ],
+  "properties": {
+    "kind": {
+      "const": "source_selection"
+    },
+    "schema": {
+      "const": 1
+    },
+    "roots": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/selected_root"
+      }
+    }
+  },
+  "$defs": {
+    "selected_root": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "place",
+        "need"
+      ],
+      "properties": {
+        "place": {
+          "$ref": "#/$defs/source_place"
+        },
+        "need": {
+          "enum": [
+            "required",
+            "optional"
+          ]
+        }
+      }
+    },
+    "source_place": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/transcript_records"
+        },
+        {
+          "$ref": "#/$defs/revision_member"
+        },
+        {
+          "$ref": "#/$defs/working_tree_path"
+        },
+        {
+          "$ref": "#/$defs/exported_file"
+        }
+      ]
+    },
+    "transcript": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One host session's transcript: the host and the host's own id for the session. The id locates a transcript and proves nothing about who took part; a name guessed from files on disk is not it.",
+      "required": [
+        "host",
+        "session_id"
+      ],
+      "properties": {
+        "host": {
+          "$ref": "#/$defs/client_binding"
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      }
+    },
+    "transcript_records": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Complete records of one transcript, by position. An ongoing session is not an immutable transcript, so a place names whole records, and records appended later belong to another place.",
+      "required": [
+        "from",
+        "transcript",
+        "first_record",
+        "last_record"
+      ],
+      "properties": {
+        "from": {
+          "const": "session_transcript"
+        },
+        "transcript": {
+          "$ref": "#/$defs/transcript"
+        },
+        "first_record": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "last_record": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "revision_member": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One source revision, or one member of it, optionally a byte span of that member.",
+      "required": [
+        "from",
+        "source_id",
+        "revision_digest"
+      ],
+      "properties": {
+        "from": {
+          "const": "source_revision"
+        },
+        "source_id": {
+          "$ref": "#/$defs/source_id"
+        },
+        "revision_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "member": {
+          "$ref": "#/$defs/source_path"
+        },
+        "bytes": {
+          "$ref": "#/$defs/byte_range"
+        }
+      }
+    },
+    "working_tree_path": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A file or directory of the checkout bound to a repository id, as its working tree holds it now — committed, modified or untracked — not as its last commit does.",
+      "required": [
+        "from",
+        "repository_id",
+        "path"
+      ],
+      "properties": {
+        "from": {
+          "const": "working_tree"
+        },
+        "repository_id": {
+          "$ref": "#/$defs/repository_id"
+        },
+        "path": {
+          "$ref": "#/$defs/source_path"
+        },
+        "bytes": {
+          "$ref": "#/$defs/byte_range"
+        }
+      }
+    },
+    "exported_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A file a person supplied, such as an exported conversation, by the digest of its bytes.",
+      "required": [
+        "from",
+        "file_digest"
+      ],
+      "properties": {
+        "from": {
+          "const": "exported_file"
+        },
+        "file_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "bytes": {
+          "$ref": "#/$defs/byte_range"
+        }
+      }
+    },
+    "byte_range": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A byte span of the bytes the place names.",
+      "required": [
+        "offset",
+        "length"
+      ],
+      "properties": {
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "client_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        }
+      }
+    },
+    "source_id": {
+      "type": "string",
+      "pattern": "^src_[0-9a-f]{32}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "repository_id": {
+      "type": "string",
+      "pattern": "^rep_[0-9a-f]{32}$"
+    },
+    "source_path": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]*(?:/[A-Za-z0-9_][A-Za-z0-9_.-]*)*$"
+    }
+  }
+}

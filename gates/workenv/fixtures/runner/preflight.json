@@ -1,59 +1,783 @@
 {
-  "what": "R0's preflight: what the runner under qualification is given and what it must do. The runner is the one R0 names; these states are synthetic and built fresh for each case.",
+  "schema": 1,
+  "what": "R0's preflight: the situations the runner under qualification is put in and what is checked afterwards. The runner is the one R0 names, run through its adapter; the states are synthetic and built fresh for each situation. preflight.schema.json beside this file states the shapes and what each check decides.",
   "interface": {
-    "evaluator": "gates/check-development-plan.py [plan] --run <run.json>: exit 0 when terminal claims hold, 2 when not yet, 1 when the run is invalid; the JSON body's eligible[mode] lists the nodes the runner may dispatch in that mode",
-    "run_file": "the shape the plan's evidence_contract.run_shape states",
-    "packet": "per dispatched node: run, node and attempt ids; plan, node, catalog and profile identity; accepted predecessor result digests; current subject fingerprints; the node's owned paths; mode and runner identity; required cases; done criteria"
+    "evaluator": "The dated evaluator the current plan names in `validator`, beside the plan, run as `python3 <evaluator> <plan> --run <run.json>`: exit 0 when the terminal claims hold, 2 when not yet, 1 when the run is invalid. Its JSON body's `eligible[mode]` lists the nodes that may be dispatched in that mode and `rejected_nodes[node]` the reasons a node is not accepted; its `digest` is the canonical digest every identity in a packet uses. `gates/check-development-plan.py` is not this evaluator: that gate accepts only `--self-test`.",
+    "invocation": "invocation.schema.json",
+    "packet": "packet.schema.json",
+    "worker_result": "worker-result.schema.json",
+    "report": "report.schema.json"
   },
-  "graph": "the current plan's own nodes, with records built by the Fixture class of the regression suite the plan binds (plan.regression_tests) and marked SYNTHETIC-AUTHOR-REGRESSION-NOT-PRODUCT-EVIDENCE; the workers the runner dispatches are stubs that write only under their node's owned paths unless a case says otherwise",
+  "construction": {
+    "run": "The driver loads the current plan, its catalog, the dated evaluator (`validator`) and the regression suite (`regression_tests`) beside it; builds the suite's `Fixture(evaluator, plan, catalog, <situation directory>, unattended=<base is unattended>)`; applies the situation's changes in order to the Fixture's run; and writes that run as `run.json` in the Fixture's artifact directory, so record artifacts resolve beside it. Every record carries the suite's marker SYNTHETIC-AUTHOR-REGRESSION-NOT-PRODUCT-EVIDENCE. The run's `runner_fingerprint` is the Fixture's own; the adapter under qualification is what R0's real record will bind, not this synthetic value.",
+    "tree": "A new git repository `tree` in the situation directory, with one commit holding revision 1 of every listed file and, when any file has two revisions, a second commit adding revision 2 of those. An empty file list still makes one commit, of an empty `.keep` file. HEAD after these commits is the base every packet must name.",
+    "stubs": "The invocation's `worker_command` runs the driver's stub worker with the packet path. For each packet the stub appends a start line and, on finishing, an end line to the driver's stub log, each naming the node id, the attempt id and the sha256 of the packet bytes; writes one evidence file `stub-evidence.txt` in the packet's `evidence_dir` holding `SYNTHETIC-RUNNER-EVIDENCE <node_id> <attempt_id>` and a newline; and writes its worker_result at the packet's `result_path`: the stub row's outcome, one change per append with `base_digest` the sha256 of the bytes it read, and the evidence file.",
+    "restart": "After a stopped round the driver leaves the situation directory exactly as the round left it (run file, tree, results, evidence, stub log) and runs the same invocation without `stop_at`. `always` applies to every round that was not stopped; a situation's checks read the state after its last round."
+  },
+  "always": [
+    "report_conforms",
+    "packets_conform",
+    "evaluated_as_the_plan_evaluates",
+    "dispatches_equal_eligible",
+    "within_concurrency_ceiling",
+    "report_matches_stub_log",
+    "reconciliations_cover_in_flight",
+    "applied_rows_match_the_tree",
+    "terminal_claim_matches_evaluator"
+  ],
   "cases": [
     {
       "case": "RUN-DEPENDENCIES",
-      "given": [
-        "a run in which P00 and P01 are accepted and nothing else is recorded",
-        "the same run after P01's record is made stale by changing its node digest",
-        "a run whose M1 record failed, and one whose P02 record names another subject fingerprint"
-      ],
-      "expect": [
-        "the runner dispatches exactly eligible['coordinator'] and nothing else",
-        "none of P01's dependents is dispatched while its record is stale",
-        "no consumer of the failed or mis-subjected record is dispatched, and no terminal claim is reported"
+      "situations": [
+        {
+          "name": "bootstrap_accepted",
+          "says": "With only P00 and P01 accepted, the runner dispatches P01's dependents and nothing further down the graph.",
+          "given": {
+            "base": "coordinator",
+            "changes": [
+              {
+                "change": "keep_records",
+                "node_ids": [
+                  "P00",
+                  "P01"
+                ]
+              }
+            ]
+          },
+          "tree": {
+            "files": []
+          },
+          "stubs": [],
+          "rounds": {
+            "stop_at": "none"
+          },
+          "checks": [
+            {
+              "check": "dispatched",
+              "node_ids": [
+                "P02",
+                "P03",
+                "R0"
+              ]
+            },
+            {
+              "check": "not_dispatched",
+              "node_ids": [
+                "P04",
+                "P05",
+                "P06",
+                "P07"
+              ]
+            },
+            {
+              "check": "no_terminal_claim"
+            }
+          ]
+        },
+        {
+          "name": "stale_predecessor",
+          "says": "When P01's record names another node digest, none of P01's dependents is dispatched.",
+          "given": {
+            "base": "coordinator",
+            "changes": [
+              {
+                "change": "keep_records",
+                "node_ids": [
+                  "P00",
+                  "P01"
+                ]
+              },
+              {
+                "change": "stale_node_digest",
+                "node_id": "P01"
+              }
+            ]
+          },
+          "tree": {
+            "files": []
+          },
+          "stubs": [],
+          "rounds": {
+            "stop_at": "none"
+          },
+          "checks": [
+            {
+              "check": "not_dispatched",
+              "node_ids": [
+                "P02",
+                "P03",
+                "R0"
+              ]
+            },
+            {
+              "check": "no_terminal_claim"
+            }
+          ]
+        },
+        {
+          "name": "failed_record",
+          "says": "A failed M1 is not dispatched again on its own, and its consumer P17 is not dispatched.",
+          "given": {
+            "base": "coordinator",
+            "changes": [
+              {
+                "change": "failed_outcome",
+                "node_id": "M1"
+              }
+            ]
+          },
+          "tree": {
+            "files": []
+          },
+          "stubs": [],
+          "rounds": {
+            "stop_at": "none"
+          },
+          "checks": [
+            {
+              "check": "not_dispatched",
+              "node_ids": [
+                "M1",
+                "P17"
+              ]
+            },
+            {
+              "check": "no_terminal_claim"
+            }
+          ]
+        },
+        {
+          "name": "other_subject",
+          "says": "When P02's record names other subject fingerprints, no consumer of P02 is dispatched.",
+          "given": {
+            "base": "coordinator",
+            "changes": [
+              {
+                "change": "other_subjects",
+                "node_id": "P02"
+              }
+            ]
+          },
+          "tree": {
+            "files": []
+          },
+          "stubs": [],
+          "rounds": {
+            "stop_at": "none"
+          },
+          "checks": [
+            {
+              "check": "not_dispatched",
+              "node_ids": [
+                "P06",
+                "P07",
+                "P13",
+                "M1"
+              ]
+            },
+            {
+              "check": "no_terminal_claim"
+            }
+          ]
+        },
+        {
+          "name": "partial_graph",
+          "says": "With P03 accepted as well, the runner dispatches P03's dependents alongside P02, more nodes than the concurrency ceiling allows at once.",
+          "given": {
+            "base": "coordinator",
+            "changes": [
+              {
+                "change": "keep_records",
+                "node_ids": [
+                  "P00",
+                  "P01"
+                ]
+              },
+              {
+                "change": "add_records",
+                "node_ids": [
+                  "P03"
+                ]
+              }
+            ]
+          },
+          "tree": {
+            "files": []
+          },
+          "stubs": [],
+          "rounds": {
+            "stop_at": "none"
+          },
+          "checks": [
+            {
+              "check": "dispatched",
+              "node_ids": [
+                "P02",
+                "P04",
+                "P05",
+                "R0"
+              ]
+            },
+            {
+              "check": "not_dispatched",
+              "node_ids": [
+                "P03",
+                "P06",
+                "P07"
+              ]
+            }
+          ]
+        }
       ]
     },
     {
       "case": "RUN-RESUME",
-      "given": [
-        "the runner is killed after writing in_flight {P02: attempt a1} and before recording a result",
-        "the runner is killed after integrating P02's delta and before recording it"
-      ],
-      "expect": [
-        "on restart the runner resumes or reconciles attempt a1 by that id and dispatches P02 under no other attempt id while a1 is unresolved",
-        "the integrated delta is reconciled against the tree, not applied a second time, and the earlier attempt's evidence is kept"
+      "situations": [
+        {
+          "name": "uninterrupted",
+          "says": "The positive control for the two stopped situations: the same run and stub, with no fault, apply P02's change once and record it.",
+          "given": {
+            "base": "coordinator",
+            "changes": [
+              {
+                "change": "keep_records",
+                "node_ids": [
+                  "P00",
+                  "P01"
+                ]
+              }
+            ]
+          },
+          "tree": {
+            "files": [
+              {
+                "path": "workenv/identity.py",
+                "revisions": 1
+              }
+            ]
+          },
+          "stubs": [
+            {
+              "node_id": "P02",
+              "outcome": "passed",
+              "appends": [
+                {
+                  "path": "workenv/identity.py",
+                  "base": "current"
+                }
+              ]
+            }
+          ],
+          "rounds": {
+            "stop_at": "none"
+          },
+          "checks": [
+            {
+              "check": "applied_once",
+              "node_id": "P02",
+              "path": "workenv/identity.py"
+            },
+            {
+              "check": "recorded_passed",
+              "node_id": "P02"
+            }
+          ]
+        },
+        {
+          "name": "stopped_after_in_flight",
+          "says": "Ended after writing P02's attempt to in_flight, the restarted runner resolves that attempt by its id and dispatches P02 under no other.",
+          "given": {
+            "base": "coordinator",
+            "changes": [
+              {
+                "change": "keep_records",
+                "node_ids": [
+                  "P00",
+                  "P01"
+                ]
+              }
+            ]
+          },
+          "tree": {
+            "files": [
+              {
+                "path": "workenv/identity.py",
+                "revisions": 1
+              }
+            ]
+          },
+          "stubs": [
+            {
+              "node_id": "P02",
+              "outcome": "passed",
+              "appends": [
+                {
+                  "path": "workenv/identity.py",
+                  "base": "current"
+                }
+              ]
+            }
+          ],
+          "rounds": {
+            "stop_at": {
+              "point": "after_in_flight_written",
+              "node_id": "P02"
+            }
+          },
+          "checks": [
+            {
+              "check": "reconciled",
+              "node_id": "P02"
+            },
+            {
+              "check": "same_attempt",
+              "node_id": "P02"
+            },
+            {
+              "check": "applied_at_most_once",
+              "node_id": "P02",
+              "path": "workenv/identity.py"
+            }
+          ]
+        },
+        {
+          "name": "stopped_after_integration",
+          "says": "Ended after integrating P02's change and before recording it, the restarted runner finds the change in the tree, does not apply it again, and keeps the attempt's evidence.",
+          "given": {
+            "base": "coordinator",
+            "changes": [
+              {
+                "change": "keep_records",
+                "node_ids": [
+                  "P00",
+                  "P01"
+                ]
+              }
+            ]
+          },
+          "tree": {
+            "files": [
+              {
+                "path": "workenv/identity.py",
+                "revisions": 1
+              }
+            ]
+          },
+          "stubs": [
+            {
+              "node_id": "P02",
+              "outcome": "passed",
+              "appends": [
+                {
+                  "path": "workenv/identity.py",
+                  "base": "current"
+                }
+              ]
+            }
+          ],
+          "rounds": {
+            "stop_at": {
+              "point": "after_integration_before_record",
+              "node_id": "P02"
+            }
+          },
+          "checks": [
+            {
+              "check": "reconciled",
+              "node_id": "P02",
+              "found": "changes_in_tree"
+            },
+            {
+              "check": "same_attempt",
+              "node_id": "P02"
+            },
+            {
+              "check": "applied_once",
+              "node_id": "P02",
+              "path": "workenv/identity.py"
+            },
+            {
+              "check": "evidence_kept",
+              "node_id": "P02"
+            }
+          ]
+        }
       ]
     },
     {
       "case": "RUN-OWNERSHIP",
-      "given": [
-        "a P02 stub that also writes under a path P03 owns",
-        "P02 and P03 stubs that both propose a change to one shared integrator path",
-        "a shared-path patch prepared against a base that has since moved"
-      ],
-      "expect": [
-        "the out-of-scope write is refused and the attempt is not recorded as passed",
-        "shared-path patches are applied by the integrator one at a time",
-        "the stale-base patch is refused, not merged"
+      "situations": [
+        {
+          "name": "outside_owned_paths",
+          "says": "P02's change to a path P03 owns is refused, and P02 is not recorded as passed.",
+          "given": {
+            "base": "coordinator",
+            "changes": [
+              {
+                "change": "keep_records",
+                "node_ids": [
+                  "P00",
+                  "P01"
+                ]
+              }
+            ]
+          },
+          "tree": {
+            "files": [
+              {
+                "path": "workenv/storage.py",
+                "revisions": 1
+              }
+            ]
+          },
+          "stubs": [
+            {
+              "node_id": "P02",
+              "outcome": "passed",
+              "appends": [
+                {
+                  "path": "workenv/storage.py",
+                  "base": "current"
+                }
+              ]
+            }
+          ],
+          "rounds": {
+            "stop_at": "none"
+          },
+          "checks": [
+            {
+              "check": "integration_refused",
+              "node_id": "P02",
+              "path": "workenv/storage.py",
+              "because": "outside_owned_paths"
+            },
+            {
+              "check": "not_recorded_passed",
+              "node_id": "P02"
+            },
+            {
+              "check": "path_unchanged",
+              "path": "workenv/storage.py"
+            }
+          ]
+        },
+        {
+          "name": "shared_path",
+          "says": "P02 and P03 both change one shared integrator path from the same base; the integrator takes them one at a time, so one applies and the other is refused as stale.",
+          "given": {
+            "base": "coordinator",
+            "changes": [
+              {
+                "change": "keep_records",
+                "node_ids": [
+                  "P00",
+                  "P01"
+                ]
+              }
+            ]
+          },
+          "tree": {
+            "files": [
+              {
+                "path": "AGENTS.md",
+                "revisions": 1
+              }
+            ]
+          },
+          "stubs": [
+            {
+              "node_id": "P02",
+              "outcome": "passed",
+              "appends": [
+                {
+                  "path": "AGENTS.md",
+                  "base": "current"
+                }
+              ]
+            },
+            {
+              "node_id": "P03",
+              "outcome": "passed",
+              "appends": [
+                {
+                  "path": "AGENTS.md",
+                  "base": "current"
+                }
+              ]
+            }
+          ],
+          "rounds": {
+            "stop_at": "none"
+          },
+          "checks": [
+            {
+              "check": "shared_path_serialized",
+              "path": "AGENTS.md"
+            }
+          ]
+        },
+        {
+          "name": "stale_base",
+          "says": "A change to a shared path prepared against a revision the tree has moved past is refused, not merged.",
+          "given": {
+            "base": "coordinator",
+            "changes": [
+              {
+                "change": "keep_records",
+                "node_ids": [
+                  "P00",
+                  "P01"
+                ]
+              }
+            ]
+          },
+          "tree": {
+            "files": [
+              {
+                "path": "AGENTS.md",
+                "revisions": 2
+              }
+            ]
+          },
+          "stubs": [
+            {
+              "node_id": "P02",
+              "outcome": "passed",
+              "appends": [
+                {
+                  "path": "AGENTS.md",
+                  "base": "previous_revision"
+                }
+              ]
+            }
+          ],
+          "rounds": {
+            "stop_at": "none"
+          },
+          "checks": [
+            {
+              "check": "integration_refused",
+              "node_id": "P02",
+              "path": "AGENTS.md",
+              "because": "stale_base"
+            },
+            {
+              "check": "not_recorded_passed",
+              "node_id": "P02"
+            },
+            {
+              "check": "path_unchanged",
+              "path": "AGENTS.md"
+            }
+          ]
+        },
+        {
+          "name": "own_path",
+          "says": "P03's change to a path it owns is applied once and P03 is recorded as passed.",
+          "given": {
+            "base": "coordinator",
+            "changes": [
+              {
+                "change": "keep_records",
+                "node_ids": [
+                  "P00",
+                  "P01"
+                ]
+              }
+            ]
+          },
+          "tree": {
+            "files": [
+              {
+                "path": "workenv/storage.py",
+                "revisions": 1
+              }
+            ]
+          },
+          "stubs": [
+            {
+              "node_id": "P03",
+              "outcome": "passed",
+              "appends": [
+                {
+                  "path": "workenv/storage.py",
+                  "base": "current"
+                }
+              ]
+            }
+          ],
+          "rounds": {
+            "stop_at": "none"
+          },
+          "checks": [
+            {
+              "check": "applied_once",
+              "node_id": "P03",
+              "path": "workenv/storage.py"
+            },
+            {
+              "check": "recorded_passed",
+              "node_id": "P03"
+            }
+          ]
+        }
       ]
     },
     {
       "case": "RUN-MODE",
-      "given": [
-        "requested mode unattended with no R0 record",
-        "an R0 record whose runner fingerprint differs from the current runner's",
-        "an R0 record the runner produced in unattended mode"
-      ],
-      "expect": [
-        "nothing is dispatched unattended in any of the three, and eligible['unattended'] is empty",
-        "the runner records why it refused, and never qualifies itself by an unattended run"
+      "situations": [
+        {
+          "name": "no_qualification",
+          "says": "Unattended mode requested with no R0 record: the runner refuses, dispatches nothing in either mode, and reports why.",
+          "given": {
+            "base": "coordinator",
+            "changes": [
+              {
+                "change": "keep_records",
+                "node_ids": [
+                  "P00",
+                  "P01"
+                ]
+              },
+              {
+                "change": "request_mode",
+                "mode": "unattended"
+              }
+            ]
+          },
+          "tree": {
+            "files": []
+          },
+          "stubs": [],
+          "rounds": {
+            "stop_at": "none"
+          },
+          "checks": [
+            {
+              "check": "nothing_dispatched"
+            },
+            {
+              "check": "unattended_refused",
+              "reasons_include": [
+                "missing result"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "other_runner",
+          "says": "R0 was recorded by another runner configuration than the current one: the runner refuses unattended dispatch.",
+          "given": {
+            "base": "unattended",
+            "changes": [
+              {
+                "change": "keep_records",
+                "node_ids": [
+                  "P00",
+                  "P01",
+                  "R0"
+                ]
+              },
+              {
+                "change": "other_runner"
+              }
+            ]
+          },
+          "tree": {
+            "files": []
+          },
+          "stubs": [],
+          "rounds": {
+            "stop_at": "none"
+          },
+          "checks": [
+            {
+              "check": "nothing_dispatched"
+            },
+            {
+              "check": "unattended_refused",
+              "reasons_include": [
+                "missing or stale runner qualification"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "self_qualified",
+          "says": "R0's record says R0 ran unattended: a runner cannot qualify itself by an unattended run, so it refuses.",
+          "given": {
+            "base": "unattended",
+            "changes": [
+              {
+                "change": "keep_records",
+                "node_ids": [
+                  "P00",
+                  "P01",
+                  "R0"
+                ]
+              },
+              {
+                "change": "recorded_unattended",
+                "node_id": "R0"
+              }
+            ]
+          },
+          "tree": {
+            "files": []
+          },
+          "stubs": [],
+          "rounds": {
+            "stop_at": "none"
+          },
+          "checks": [
+            {
+              "check": "nothing_dispatched"
+            },
+            {
+              "check": "unattended_refused",
+              "reasons_include": [
+                "mode is not allowed"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "qualified",
+          "says": "With R0 accepted for the current runner, unattended dispatch proceeds and every packet names the qualification it relies on.",
+          "given": {
+            "base": "unattended",
+            "changes": [
+              {
+                "change": "keep_records",
+                "node_ids": [
+                  "P00",
+                  "P01",
+                  "R0"
+                ]
+              }
+            ]
+          },
+          "tree": {
+            "files": []
+          },
+          "stubs": [],
+          "rounds": {
+            "stop_at": "none"
+          },
+          "checks": [
+            {
+              "check": "dispatched",
+              "node_ids": [
+                "P02",
+                "P03"
+              ]
+            },
+            {
+              "check": "qualification_referenced"
+            }
+          ]
+        }
       ]
     }
   ]

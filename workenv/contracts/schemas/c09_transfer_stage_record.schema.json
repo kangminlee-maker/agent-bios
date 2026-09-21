@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C09 transfer stage record",
-  "description": "Exported, received, verified, accepted and committed are five different outcomes and each is recorded when it happens. A package that arrived is not a package that verified, and neither is a package whose contributions an owning authority has accepted. Re-importing the same envelope reaches the same stage rather than a second one. Verified is settled too: a package whose checks found a gap has been received and has not verified, so its gaps are stated at `received`.",
+  "description": "Exported, received, controls verified, verified, accepted and committed are different outcomes and each is recorded when it happens. A package that arrived is not a package that verified, and neither is a package whose contributions an owning authority has accepted. Controls are verified before bodies: `controls_verified` names the control records it put in force, and they stay in force when the bodies then fail, which that record's gaps state; `verified` names the controls record it follows, so it cannot be written first. Exported and received name the route the bytes moved by — a peer, a bound carrier or a package — and every route has the same semantics. Re-importing the same envelope reaches the same stage rather than a second one. A package whose checks found a gap has not verified, so its gaps are stated at the stage it reached.",
   "required": [
     "kind",
     "schema",
@@ -58,6 +58,7 @@
             "access_not_established",
             "access_signed_out",
             "access_state_not_durable",
+            "adapter_unavailable",
             "adoption_evidence_missing",
             "agent_not_owned_here",
             "answer_not_from_a_person",
@@ -77,11 +78,14 @@
             "body_missing",
             "bootstrap_already_committed",
             "budget_exhausted",
+            "callback_not_bound",
             "cancel_too_late",
             "capability_not_qualified",
             "carrier_unreachable",
             "child_route_unsupported",
             "choice_conflict_unresolved",
+            "claim_not_admitted",
+            "claim_not_expected",
             "client_token_missing",
             "client_token_unknown",
             "companion_unavailable",
@@ -97,6 +101,7 @@
             "cursor_basis_moved",
             "cursor_revoked",
             "custody_incomplete",
+            "cutover_source_moved",
             "delegation_ceiling_exceeded",
             "delivery_unobserved",
             "destination_invented",
@@ -106,20 +111,27 @@
             "finalizer_unavailable",
             "fixture_result_in_real_mode",
             "fork_evidence",
+            "form_mapping_invalid",
             "fresh_auth_required",
+            "grant_not_held",
             "group_membership_escalation",
             "hidden_confirmation_refused",
             "host_not_exact",
             "host_not_qualified",
             "id_bound_to_other_bytes",
             "import_conflicting_bytes",
+            "input_not_observed",
+            "input_not_permitted",
+            "invitation_not_open",
             "isolation_unproven",
             "journal_mode_unexpected",
+            "knowledge_evidence_conflicts",
             "last_owner_removal_refused",
             "lifecycle_contradiction",
             "local_origin_is_not_authority",
             "management_detour_refused",
             "manifest_member_unlisted",
+            "model_reference_dangling",
             "navigation_changed_state",
             "object_digest_mismatch",
             "origin_not_exact",
@@ -134,14 +146,18 @@
             "protected_root_bypass",
             "protocol_claim_only",
             "protocol_version_not_offered",
+            "provider_unreachable",
+            "provisioning_in_doubt",
             "publisher_bytes_modified",
             "recipient_link_unknown",
             "recipient_mismatch",
             "ref_unavailable",
             "rehydration_needs_bodies",
+            "removal_held",
             "removal_unconfirmed",
             "rendering_not_retained",
             "repository_binding_required",
+            "repository_rights_not_a_grant",
             "request_id_conflict",
             "request_mismatch",
             "resume_stale",
@@ -151,6 +167,7 @@
             "role_body_unavailable",
             "role_promotion_refused",
             "route_unsupported",
+            "same_layer_unordered",
             "selection_unresolved",
             "semantics_unsupported",
             "signature_invalid",
@@ -166,11 +183,14 @@
             "storage_generation_reset",
             "storage_not_encrypted",
             "succession_incomplete",
+            "team_archived",
+            "team_terminal",
             "tool_absent",
             "trust_continuity_unverified",
             "unique_outbox_at_risk",
             "unlock_needs_a_terminal",
             "use_not_admitted",
+            "widening_unstated",
             "wire_version_unsupported",
             "working_bytes_moved"
           ]
@@ -191,6 +211,12 @@
           "$ref": "#/$defs/open_stage"
         },
         {
+          "$ref": "#/$defs/control_stage"
+        },
+        {
+          "$ref": "#/$defs/verified_stage"
+        },
+        {
           "$ref": "#/$defs/settled_stage"
         }
       ]
@@ -200,6 +226,7 @@
       "additionalProperties": false,
       "required": [
         "is",
+        "route",
         "material_gaps"
       ],
       "properties": {
@@ -209,6 +236,9 @@
             "received"
           ]
         },
+        "route": {
+          "$ref": "#/$defs/transfer_route"
+        },
         "material_gaps": {
           "$ref": "#/$defs/gaps"
         }
@@ -217,17 +247,127 @@
     "settled_stage": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Past verification. A gap found on the way stops the transfer before this stage, so a settled stage has no gaps to state.",
+      "description": "Accepted by the owning authority, or committed. A settled stage has no gaps to state.",
       "required": [
         "is"
       ],
       "properties": {
         "is": {
           "enum": [
-            "verified",
             "accepted",
             "committed"
           ]
+        }
+      }
+    },
+    "digests": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/digest"
+      }
+    },
+    "carrier_id": {
+      "type": "string",
+      "pattern": "^car_[0-9a-f]{32}$"
+    },
+    "peer_id": {
+      "type": "string",
+      "pattern": "^per_[0-9a-f]{32}$"
+    },
+    "control_stage": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Trust, control continuity and restrictions verified, bodies not yet. The controls named here are in force from now on, whatever happens to the bodies.",
+      "required": [
+        "is",
+        "controls_applied",
+        "material_gaps"
+      ],
+      "properties": {
+        "is": {
+          "const": "controls_verified"
+        },
+        "controls_applied": {
+          "$ref": "#/$defs/digests"
+        },
+        "material_gaps": {
+          "$ref": "#/$defs/gaps"
+        }
+      }
+    },
+    "verified_stage": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The permitted required bodies verified too, after the controls record it names. A gap found on the way stops the transfer before this stage.",
+      "required": [
+        "is",
+        "controls_record_digest"
+      ],
+      "properties": {
+        "is": {
+          "const": "verified"
+        },
+        "controls_record_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "transfer_route": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/peer_route"
+        },
+        {
+          "$ref": "#/$defs/carrier_route"
+        },
+        {
+          "$ref": "#/$defs/package_route"
+        }
+      ]
+    },
+    "peer_route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "via",
+        "peer_id"
+      ],
+      "properties": {
+        "via": {
+          "const": "peer"
+        },
+        "peer_id": {
+          "$ref": "#/$defs/peer_id"
+        }
+      }
+    },
+    "carrier_route": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Through a carrier this Team bound; a carrier only selected as a preference is no route.",
+      "required": [
+        "via",
+        "binding_id"
+      ],
+      "properties": {
+        "via": {
+          "const": "carrier"
+        },
+        "binding_id": {
+          "$ref": "#/$defs/carrier_id"
+        }
+      }
+    },
+    "package_route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "via"
+      ],
+      "properties": {
+        "via": {
+          "const": "package"
         }
       }
     }

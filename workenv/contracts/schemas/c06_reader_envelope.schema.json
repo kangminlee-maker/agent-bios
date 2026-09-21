@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C06 reader envelope",
-  "description": "One envelope for all three roles: what work this is for, which subjects are required, the reader's role and view, what is being asked, and a budget. `retains` is the caller's own declaration that it still holds a body and its qualifications, which is the only thing that lets the answer leave that body out; a digest or a past receipt is not that declaration.",
+  "description": "One envelope for all three roles: what work this is for, which subjects are required, the reader's role and view, what is being asked, and a budget. `retains` is the caller's own declaration that it still holds a body and its qualifications, which is the only thing that lets the answer leave that body out; a digest or a past receipt is not that declaration. The budget bounds what may be examined as well as what may be returned, and `history` says whether superseded and withdrawn material is asked for.",
   "required": [
     "kind",
     "schema",
@@ -10,7 +10,8 @@
     "required",
     "role_view",
     "selector",
-    "budget"
+    "budget",
+    "history"
   ],
   "properties": {
     "kind": {
@@ -35,9 +36,6 @@
     "selector": {
       "$ref": "#/$defs/selector"
     },
-    "budget": {
-      "$ref": "#/$defs/budget"
-    },
     "continuation": {
       "$ref": "#/$defs/continuation"
     },
@@ -47,6 +45,16 @@
       "items": {
         "$ref": "#/$defs/retained_claim"
       }
+    },
+    "budget": {
+      "$ref": "#/$defs/budget"
+    },
+    "history": {
+      "enum": [
+        "excluded",
+        "included"
+      ],
+      "description": "Whether superseded and withdrawn material is asked for, or only what is current."
     }
   },
   "$defs": {
@@ -149,10 +157,16 @@
     "budget": {
       "type": "object",
       "additionalProperties": false,
+      "description": "Two bounds: how much the reader may examine, and how much it may return. Bounding what is examined is what keeps retrieval finite; clipping only what is returned is not that bound.",
       "required": [
+        "max_examined",
         "max_units"
       ],
       "properties": {
+        "max_examined": {
+          "type": "integer",
+          "minimum": 1
+        },
         "max_units": {
           "type": "integer",
           "minimum": 1

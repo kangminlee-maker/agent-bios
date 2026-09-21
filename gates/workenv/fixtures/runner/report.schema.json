@@ -1,0 +1,250 @@
+{
+  "title": "Runner report",
+  "description": "What the runner writes at the end of one round. It is the runner's own account, and the driver holds each part against what it observes independently: `evaluation_digest` against the dated evaluator's body for the run as the round found it; `dispatched` against the packets its stub workers received; each applied integration against the tree's bytes; the records and `in_flight` against the run file. What only the report can say — why unattended work was refused, what a restart found — is said here in closed terms.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema",
+    "run_id",
+    "requested_mode",
+    "runner_fingerprint",
+    "evaluation_digest",
+    "dispatched",
+    "integrations",
+    "reconciliations",
+    "terminal_claimed"
+  ],
+  "x-unique-by": {
+    "key": "node_id",
+    "across": [
+      "dispatched"
+    ]
+  },
+  "properties": {
+    "kind": {
+      "const": "runner_report"
+    },
+    "schema": {
+      "const": 1
+    },
+    "run_id": {
+      "$ref": "#/$defs/identity"
+    },
+    "requested_mode": {
+      "enum": [
+        "coordinator",
+        "unattended"
+      ]
+    },
+    "runner_fingerprint": {
+      "$ref": "#/$defs/digest"
+    },
+    "evaluation_digest": {
+      "description": "The dated evaluator's `digest` of the body `evaluate` returned for the run file as this round found it. The round dispatched from that body and no other.",
+      "$ref": "#/$defs/digest"
+    },
+    "dispatched": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/dispatched_packet"
+      }
+    },
+    "integrations": {
+      "description": "Every change a worker proposed, in the order the integrator took it up. Changes to one path are taken up one at a time, each against the path's bytes at its turn.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/integration"
+      }
+    },
+    "reconciliations": {
+      "description": "One row for every attempt the round found in `in_flight` when it started, before anything was dispatched.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/reconciliation"
+      }
+    },
+    "mode_refusal": {
+      "$ref": "#/$defs/mode_refusal"
+    },
+    "terminal_claimed": {
+      "description": "Whether the runner reports the plan's terminal claims as satisfied for the run as the round left it.",
+      "type": "boolean"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "node_id": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9]*$"
+    },
+    "relative_path": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]*(?:/[A-Za-z0-9_][A-Za-z0-9_.-]*)*$"
+    },
+    "integration": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One proposed change and what the integrator did with it. The row is the integration's identity: this attempt's change to this path, from this base, to these bytes.",
+      "required": [
+        "order",
+        "node_id",
+        "attempt_id",
+        "path",
+        "base_digest",
+        "outcome"
+      ],
+      "properties": {
+        "order": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "node_id": {
+          "$ref": "#/$defs/node_id"
+        },
+        "attempt_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "path": {
+          "$ref": "#/$defs/relative_path"
+        },
+        "base_digest": {
+          "type": "string",
+          "pattern": "^(?:absent|[0-9a-f]{64})$"
+        },
+        "outcome": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/applied"
+            },
+            {
+              "$ref": "#/$defs/refused"
+            }
+          ]
+        }
+      }
+    },
+    "applied": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "was",
+        "result_digest"
+      ],
+      "properties": {
+        "was": {
+          "const": "applied"
+        },
+        "result_digest": {
+          "description": "sha256 of the path's bytes after the change.",
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "refused": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "was",
+        "because"
+      ],
+      "properties": {
+        "was": {
+          "const": "refused"
+        },
+        "because": {
+          "enum": [
+            "outside_owned_paths",
+            "stale_base"
+          ]
+        }
+      }
+    },
+    "reconciliation": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "What the round found of an attempt a stopped round left in flight, and what it did. `found`: the attempt's changes are in the tree, a result exists but its changes are not in the tree, or no result exists. `disposition`: dispatched again under the same attempt id, recorded under that id, or still held in flight under that id.",
+      "required": [
+        "node_id",
+        "attempt_id",
+        "found",
+        "disposition"
+      ],
+      "properties": {
+        "node_id": {
+          "$ref": "#/$defs/node_id"
+        },
+        "attempt_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "found": {
+          "enum": [
+            "changes_in_tree",
+            "result_not_integrated",
+            "no_result"
+          ]
+        },
+        "disposition": {
+          "enum": [
+            "resumed",
+            "recorded",
+            "held"
+          ]
+        }
+      }
+    },
+    "mode_refusal": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Present exactly when the run requests unattended mode and the plan's qualification node is not accepted. `because` is the evaluator's list of reasons it rejected that node. Nothing is dispatched, in either mode.",
+      "required": [
+        "mode",
+        "because"
+      ],
+      "properties": {
+        "mode": {
+          "const": "unattended"
+        },
+        "because": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "identity": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^[!-~](?:[ -~]*[!-~])?$"
+    },
+    "dispatched_packet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_id",
+        "attempt_id",
+        "packet_digest"
+      ],
+      "properties": {
+        "node_id": {
+          "$ref": "#/$defs/node_id"
+        },
+        "attempt_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "packet_digest": {
+          "description": "sha256 of the packet file's bytes.",
+          "$ref": "#/$defs/digest"
+        }
+      }
+    }
+  }
+}

@@ -1,7 +1,7 @@
 """C10 Custody and retention: the gaps its operations answer with.
 
 Record kinds: `custody_commitment`, `custody_acknowledgment`, `retention_plan`,
-`removal_outcome`, `removal_request`.
+`removal_outcome`, `removal_request`, `derivation_query`, `derivation_map`.
 
 Custody is what a named accountable device or peer undertook to keep, object by object, under a
 storage generation. A copy count is not custody and no schema here holds one: more independent
@@ -12,11 +12,18 @@ the promise, which somebody sees, and never to evict a promised body, which nobo
 
 Removal happens to copies. Confirmed, denied, unreachable and unknown stay apart, a confirmed
 removal names its tombstone so returning offline data cannot put the object back, and nothing
-here promises that a copy already delivered or outside this Team's control is gone.
+here promises that a copy already delivered or outside this Team's control is gone. A copy kept
+under a retention hold is `held`, which is neither removed nor refused.
+
+What the store derives from an object — an index, an excerpt, a candidate, a prompt, an export —
+is in its `derivation_map`, and removing the object removes each of them with it, copy by copy;
+nothing names a replacement for removed evidence. That the removal's derived copies cover the
+map relates two records, which a schema cannot state; the runtime owner keeps it and P01's cases
+check it.
 """
 CONTRACT = "C10"
 RECORD_KINDS = ("custody_commitment", "custody_acknowledgment", "retention_plan",
-                "removal_outcome", "removal_request")
+                "removal_outcome", "removal_request", "derivation_query", "derivation_map")
 IN_RESULTS = True
 
 # The operations of this contract that travel in a C03 sealed request. `takes` is the
@@ -29,6 +36,15 @@ OPERATIONS = {
                             "returns": ("custody_acknowledgment",)},
     "retention.plan.set": {"takes": ("retention_plan",), "returns": ("retention_plan",)},
     "removal.execute": {"takes": ("removal_request",), "returns": ("removal_outcome",)},
+    "retention.derivations.read": {"takes": ("derivation_query",),
+                                   "returns": ("derivation_map",)},
+}
+
+# Rules that relate one element of a record to another, which a schema cannot state. The
+# runtime owner keeps each; a case in the registry (gates/workenv/case-index.json) checks it.
+RUNTIME_RULES = {
+    "removal_covers_derivatives": "a removal outcome names every object the store's derivation "
+                                  "map records for the removed object among its derived copies",
 }
 
 CUSTODY_INCOMPLETE = "custody_incomplete"
@@ -38,6 +54,7 @@ UNIQUE_OUTBOX_AT_RISK = "unique_outbox_at_risk"
 REMOVAL_UNCONFIRMED = "removal_unconfirmed"
 ERASURE_NOT_PROMISED = "erasure_not_promised"
 RESURRECTION_REFUSED = "resurrection_refused"
+REMOVAL_HELD = "removal_held"
 
 # This module's rows of the contract error table (workenv.contracts.errors joins them).
 ERRORS = {
@@ -52,4 +69,6 @@ ERRORS = {
                           "are gone",
     RESURRECTION_REFUSED: "returning offline data that would restore a removed object; its "
                           "tombstone stops it",
+    REMOVAL_HELD: "a copy kept under a retention hold that outlasts the removal; it is neither "
+                  "removed nor refused",
 }

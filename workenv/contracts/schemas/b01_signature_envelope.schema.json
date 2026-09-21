@@ -1,0 +1,48 @@
+{
+  "title": "B01 signature envelope",
+  "description": "One detached SSHSIG signature over one record's bytes, as a request carries it among its proofs. It names the digest of the bytes signed, the namespace of their record kind and the principal binding whose device key signed; `sshsig` is the armored signature's base64 body without its header lines. Bytes altered after signing no longer have the signed digest, and a signature made again over them does not verify under that binding's key: either way the verdict is `signature_invalid` and nothing is stored. The binding is named, never the key.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema",
+    "namespace",
+    "signed_digest",
+    "signer_binding_id",
+    "sshsig"
+  ],
+  "properties": {
+    "kind": {
+      "const": "signature_envelope"
+    },
+    "schema": {
+      "const": 1
+    },
+    "namespace": {
+      "type": "string",
+      "pattern": "^agent-bios/[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+    },
+    "signed_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "signer_binding_id": {
+      "$ref": "#/$defs/binding_id"
+    },
+    "sshsig": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 4096,
+      "pattern": "^[A-Za-z0-9+/]+={0,2}$"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "binding_id": {
+      "type": "string",
+      "pattern": "^bnd_[0-9a-f]{32}$"
+    }
+  }
+}

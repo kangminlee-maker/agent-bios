@@ -1,7 +1,8 @@
 """C03 Owned operations: the gaps its operations answer with.
 
 Record kinds: `operation_request`, `operation_result`, `operation_receipt`, `operation_query`,
-`request_not_held`, `entrance_disposition`, `cutover_plan`, `restore_report`, `backup_set`.
+`request_not_held`, `entrance_disposition`, `cutover_plan`, `restore_report`, `backup_set`,
+`package_candidate`, `history_query`, `recent_history`, `batch_plan`, `batch_result`.
 
 Every protected operation of every contract travels in one sealed request and is answered by
 one result. The request names its payload by digest, so the payload's shape belongs to the
@@ -17,6 +18,21 @@ What a request carries is its operation's to say. `OPERATIONS` in each contract 
 the record kinds an operation takes and the kinds its result may return, so a request states no
 payload kind of its own: the payload's bytes name their kind, and a kind the operation does not
 take — or a payload where it takes none, or none where it takes one — is `payload_not_taken`.
+
+A request binds its requester, the actor, and — when others are accountable for what it
+carries — those `accountable_authors` too, so a policy that excludes recorded authors from an
+independent review can count them at the owner.
+
+Many requests can travel as one `batch_plan`. Each item is its own sealed request, named by
+digest, with the carrier that commits it; one carrier's items commit together or not at all, and
+items on different carriers do not. The `batch_result` states each item's own outcome —
+committed, refused, unknown, or withheld because its carrier's other items did not commit — and
+has no summary to hide one in. A retry submits the same plan, so no item runs twice.
+
+What happened recently is read when asked, not remembered as intent: `recent_history` gives one
+scope's recent requests with the last stage confirmed for each, when, and what that observation
+covered, and dated checkpoints with any note recorded then. It has no field for a goal, a current
+request or a next action.
 
 A request states its effect class. `pure_preview` writes nothing; a plan that is stored says
 `durable_candidate`; only `owner_commit` moves a head, and it names the base it expects.
@@ -35,17 +51,27 @@ set by construction rather than by a later count. `cutover_plan` is the single r
 three stages are three named fields, because a stage list can be reordered or shortened and
 three fields cannot, and `commits` is one because the cutover is abortable until it.
 
+The cutover also moves state ownership, once. Its `data` is a fresh start or one selected
+transfer: the transfer names the export baseline its first conversion read, and the source
+revision and outbox captured again after the old writers were quiesced, with the validated import
+of exactly those. A source or outbox that moves after that capture is `cutover_source_moved`,
+and the cutover waits for the next capture. Every operation the old runtime left unknown is
+settled or carried with the recovery that settles it, and the old source is kept or archived:
+the plan has no value that deletes it. `candidate_digest` names the `package_candidate` it
+installs, whose members each say where their bytes came from.
+
 A backup is taken and restored through the same owner. `backup_set` is what it took — the
 database snapshot and every other member by digest — and is submitted back whole to restore.
 What a restore establishes is a `restore_report`: the receipt sequence the backup covers and the
-instant it represents. Work
-after that instant is neither recovered nor known to be absent, so the report has one value for
-it, and restored authority is passive until access, clock and keys are established again.
+instant it represents. Work after that instant is neither recovered nor known to be absent, so
+the report has one value for it, and restored authority is passive until access, clock and keys
+are established again.
 """
 CONTRACT = "C03"
 RECORD_KINDS = ("operation_request", "operation_result", "operation_receipt", "operation_query",
                 "request_not_held", "entrance_disposition", "cutover_plan", "restore_report",
-                "backup_set")
+                "backup_set", "package_candidate", "history_query", "recent_history",
+                "batch_plan", "batch_result")
 IN_RESULTS = True
 
 # The operations of this contract that travel in a C03 sealed request. `takes` is the
@@ -61,6 +87,10 @@ OPERATIONS = {
     "entrance.cutover.commit": {"takes": ("cutover_plan",), "returns": ()},
     "store.backup.create": {"takes": (), "returns": ("backup_set",)},
     "store.backup.restore": {"takes": ("backup_set",), "returns": ("restore_report",)},
+    "package.candidate.register": {"takes": ("package_candidate",),
+                                   "returns": ("package_candidate",)},
+    "operation.history.read": {"takes": ("history_query",), "returns": ("recent_history",)},
+    "operation.batch.submit": {"takes": ("batch_plan",), "returns": ("batch_result",)},
 }
 
 # Every way a caller starts work with the target. A disposition is recorded for each.
@@ -106,6 +136,7 @@ OUTCOME_UNKNOWN = "outcome_unknown"
 OUTCOME_PARTIAL = "outcome_partial"
 CANCEL_TOO_LATE = "cancel_too_late"
 PAYLOAD_NOT_TAKEN = "payload_not_taken"
+CUTOVER_SOURCE_MOVED = "cutover_source_moved"
 
 # This module's rows of the contract error table (workenv.contracts.errors joins them).
 ERRORS = {
@@ -119,4 +150,7 @@ ERRORS = {
     CANCEL_TOO_LATE: "a cancellation that reached its owner after the commit",
     PAYLOAD_NOT_TAKEN: "a payload of a kind the named operation does not take, a payload named "
                        "where it takes none, or none named where it takes one",
+    CUTOVER_SOURCE_MOVED: "a cutover whose selected source data or outbox moved after the capture "
+                          "its import was validated against; it switches only after the quiesced "
+                          "state is captured and validated again",
 }

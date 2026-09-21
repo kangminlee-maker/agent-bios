@@ -1,0 +1,153 @@
+{
+ "rule": "C12/qualified_only_by_a_real_probe",
+ "holds": [
+  {
+   "record": "workenv/contracts/examples/c12/a_provider_callback_qualified_by_the_probe_on_the_candidate.json",
+   "context": {
+    "callback": "workenv/contracts/examples/c12/a_provider_callback_observed_on_the_installed_candidate.json"
+   }
+  },
+  {
+   "what": "a capability qualified by nothing claims nothing",
+   "record": {
+    "capabilities": [
+     {
+      "capability": "provider_callback",
+      "state": {
+       "qualified": "no",
+       "because": "offered_but_unproven"
+      }
+     }
+    ],
+    "client": {
+     "name": "agent-bios",
+     "version": "0.20.0"
+    },
+    "kind": "capability_profile",
+    "measured_at": "2026-09-20T09:00:00Z",
+    "profile_id": "cap_5f162c94aec2ec97f0b838e3cff8e7da",
+    "schema": 1,
+    "wire": {
+     "protocol": "oauth2_authorization_code",
+     "version": "rfc6749"
+    }
+   },
+   "context": {
+    "mocked": "workenv/contracts/examples/c12/a_provider_callback_against_a_mocked_provider.json"
+   }
+  }
+ ],
+ "breaks": [
+  {
+   "what": "qualified by a probe that ran against a mocked provider",
+   "record": {
+    "capabilities": [
+     {
+      "capability": "provider_callback",
+      "state": {
+       "qualified": "yes",
+       "probe_digest": "dfaac0a4e879311827db0613e2a19fb4c7a9376ba06e719b193f0edadd38a6f1"
+      }
+     }
+    ],
+    "client": {
+     "name": "agent-bios",
+     "version": "0.20.0"
+    },
+    "kind": "capability_profile",
+    "measured_at": "2026-09-20T09:00:00Z",
+    "profile_id": "cap_5f162c94aec2ec97f0b838e3cff8e7da",
+    "schema": 1,
+    "wire": {
+     "protocol": "oauth2_authorization_code",
+     "version": "rfc6749"
+    }
+   },
+   "context": {
+    "mocked": "workenv/contracts/examples/c12/a_provider_callback_against_a_mocked_provider.json"
+   },
+   "at": [
+    "/capabilities/0/state/probe_digest"
+   ]
+  },
+  {
+   "what": "qualified by a probe whose provider could not be reached",
+   "record": {
+    "capabilities": [
+     {
+      "capability": "provider_callback",
+      "state": {
+       "qualified": "yes",
+       "probe_digest": "fc5a0e5b36fc8881b9ecfb4ce64cf5d888263be63c36b0be2c8eb7456a9ed0c9"
+      }
+     }
+    ],
+    "client": {
+     "name": "agent-bios",
+     "version": "0.20.0"
+    },
+    "kind": "capability_profile",
+    "measured_at": "2026-09-20T09:00:00Z",
+    "profile_id": "cap_5f162c94aec2ec97f0b838e3cff8e7da",
+    "schema": 1,
+    "wire": {
+     "protocol": "oauth2_authorization_code",
+     "version": "rfc6749"
+    }
+   },
+   "context": {
+    "unreachable": "workenv/contracts/examples/c12/a_provider_that_could_not_be_reached.json"
+   },
+   "at": [
+    "/capabilities/0/state/probe_digest"
+   ]
+  },
+  {
+   "what": "a real probe of one capability offered as the qualification of another",
+   "record": {
+    "capabilities": [
+     {
+      "capability": "provider_callback",
+      "state": {
+       "probe_digest": "b7d121faa47d792890890745d1fa3bedc6369b2039c07cdcd5999ebd2bf058de",
+       "qualified": "yes"
+      }
+     },
+     {
+      "capability": "validation",
+      "state": {
+       "probe_digest": "b7d121faa47d792890890745d1fa3bedc6369b2039c07cdcd5999ebd2bf058de",
+       "qualified": "yes"
+      }
+     }
+    ],
+    "client": {
+     "name": "agent-bios",
+     "version": "0.20.0"
+    },
+    "kind": "capability_profile",
+    "measured_at": "2026-09-20T09:00:00Z",
+    "profile_id": "cap_5f162c94aec2ec97f0b838e3cff8e7da",
+    "schema": 1,
+    "wire": {
+     "protocol": "oauth2_authorization_code",
+     "version": "rfc6749"
+    }
+   },
+   "context": {
+    "callback": "workenv/contracts/examples/c12/a_provider_callback_observed_on_the_installed_candidate.json"
+   },
+   "at": [
+    "/capabilities/1/state/probe_digest"
+   ]
+  },
+  {
+   "what": "qualified by a probe the store does not hold",
+   "record": "workenv/contracts/examples/c12/a_provider_callback_qualified_by_the_probe_on_the_candidate.json",
+   "context": {},
+   "at": [
+    "/capabilities/0/state/probe_digest"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,28 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C10 derivation query",
+  "description": "Ask the store what it derived from one object.",
+  "required": [
+    "kind",
+    "schema",
+    "object_digest"
+  ],
+  "properties": {
+    "kind": {
+      "const": "derivation_query"
+    },
+    "schema": {
+      "const": 1
+    },
+    "object_digest": {
+      "$ref": "#/$defs/digest"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

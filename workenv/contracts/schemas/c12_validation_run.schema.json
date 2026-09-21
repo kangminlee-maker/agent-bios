@@ -1,0 +1,292 @@
+{
+  "title": "C12 validation run",
+  "description": "What one validation run established, written by the runtime. A clean verdict and a verdict with findings list every check they rest on, and each of those checks ran; a check that did not run, timed out, met an empty subject, an unsupported lens or no grounding has a place only in an unverified verdict, so a partial or empty run cannot be written as clean. That the checks cover every target and lens the request pinned relates the run to its request, so the runtime owner keeps it and P01's cases check it. A fixture-driven run names its fixture.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema",
+    "request_digest",
+    "validator",
+    "mode",
+    "verdict",
+    "at"
+  ],
+  "x-runtime-owned": true,
+  "properties": {
+    "kind": {
+      "const": "validation_run"
+    },
+    "schema": {
+      "const": 1
+    },
+    "request_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "validator": {
+      "$ref": "#/$defs/client_binding"
+    },
+    "mode": {
+      "$ref": "#/$defs/run_mode"
+    },
+    "verdict": {
+      "$ref": "#/$defs/validation_verdict"
+    },
+    "at": {
+      "$ref": "#/$defs/instant"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "client_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        }
+      }
+    },
+    "run_mode": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/real_run"
+        },
+        {
+          "$ref": "#/$defs/fixture_run"
+        }
+      ]
+    },
+    "real_run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runs"
+      ],
+      "properties": {
+        "runs": {
+          "const": "real"
+        }
+      }
+    },
+    "fixture_run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runs",
+        "fixture_digest"
+      ],
+      "properties": {
+        "runs": {
+          "const": "fixture"
+        },
+        "fixture_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "validation_verdict": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/clean_verdict"
+        },
+        {
+          "$ref": "#/$defs/findings_verdict"
+        },
+        {
+          "$ref": "#/$defs/unverified_verdict"
+        }
+      ]
+    },
+    "ran_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_digest",
+        "lens",
+        "status"
+      ],
+      "properties": {
+        "target_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "lens": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        "status": {
+          "const": "ran"
+        }
+      }
+    },
+    "validation_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_digest",
+        "lens",
+        "status"
+      ],
+      "properties": {
+        "target_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "lens": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        "status": {
+          "enum": [
+            "ran",
+            "not_run",
+            "timed_out",
+            "unsupported",
+            "empty_subject",
+            "ungrounded"
+          ]
+        }
+      }
+    },
+    "validation_finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_digest",
+        "lens",
+        "statement",
+        "evidence_digest"
+      ],
+      "properties": {
+        "target_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "lens": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "evidence_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "clean_verdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "verdict",
+        "checks",
+        "output_digest"
+      ],
+      "properties": {
+        "verdict": {
+          "const": "clean"
+        },
+        "checks": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ran_check"
+          }
+        },
+        "output_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "findings_verdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "verdict",
+        "checks",
+        "findings",
+        "output_digest"
+      ],
+      "properties": {
+        "verdict": {
+          "const": "findings"
+        },
+        "checks": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ran_check"
+          }
+        },
+        "findings": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/validation_finding"
+          }
+        },
+        "output_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "unverified_verdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "verdict",
+        "checks",
+        "because"
+      ],
+      "properties": {
+        "verdict": {
+          "const": "unverified"
+        },
+        "checks": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/validation_check"
+          }
+        },
+        "because": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "empty_subject",
+              "partial_run",
+              "timed_out",
+              "unsupported_lens",
+              "missing_grounding",
+              "target_changed",
+              "validator_absent"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

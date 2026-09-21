@@ -7,6 +7,12 @@ kind of answer it is. Seven standings stay apart because they lead different pla
 with nothing to say is `empty` and is a valid answer, while `denied`, `unavailable`,
 `unsupported`, `unresolved` and `truncated` each name something else that happened.
 
+A budget bounds what may be examined as well as what may be returned, and a result states what it
+consumed of both. Each returned unit says whether it answers a required subject or is optional
+support, so required meaning is fitted first. A selected source the read did not check is named as
+not checked, remote and unknown, or missing, apart from one it checked and found empty. An envelope
+says whether it asks for history as well as what is current.
+
 Access is resolved before any candidate or metadata is shown, so a reader that cannot establish
 it returns `access_not_established` rather than a list of what it would have returned. A cursor
 carries the basis it was taken at, so a later page cannot quietly follow a newer head. That a
@@ -15,8 +21,10 @@ another, which a schema cannot state; the runtime owner keeps it and P01's cases
 
 Reading is not applying. An inspection returns history and alternatives and admits no use of
 them; when an actual use needs a person's answer, the question is sealed and stored first and
-the result carries it as `pending_user`, the question and use it waits on, which is never a
-first option chosen on their behalf.
+the result carries a `pending_user` use, the question and use it waits on, which is never a
+first option chosen on their behalf. A result that admits a use names that use and the state it
+was admitted on; a later use or a child recipient is admitted on its own. A question is sealed
+against a `comparison_basis`.
 """
 CONTRACT = "C06"
 RECORD_KINDS = ("reader_envelope", "reader_result", "pending_question", "resume_request")
@@ -28,10 +36,12 @@ IN_RESULTS = True
 # contract modules is the closed list a request may name.
 OPERATIONS = {
     "memory.use.prepare": {"takes": ("reader_envelope",),
-                           "returns": ("reader_result", "pending_question", "qualified_state")},
+                           "returns": ("reader_result", "pending_question", "qualified_state",
+                                       "comparison_basis")},
     "reader.body.read": {"takes": ("reader_envelope",), "returns": ("reader_result",)},
     "reader.question.answer": {"takes": ("reader_envelope",),
-                               "returns": ("reader_result", "pending_question")},
+                               "returns": ("reader_result", "pending_question",
+                                           "comparison_basis")},
     "reader.use.resume": {"takes": ("resume_request",), "returns": ("reader_result",)},
 }
 

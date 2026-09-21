@@ -62,8 +62,10 @@ ROOT = subjects.ROOT
 REGISTRY = pathlib.Path(__file__).with_name("case-index.json")
 SCHEMA = pathlib.Path(__file__).with_name("case-index.schema.json")
 # The development runner has no contract module: its interface is the dated evaluator's run
-# file and a work packet, both fixed by the plan bundle.
+# file, fixed by the plan bundle, and the invocation, packet, worker result and report the
+# schemas beside its preflight cases state.
 RUNNER = "runner"
+RUNNER_FIXTURES = "gates/workenv/fixtures/runner"
 POSITIVE, NEGATIVE = "positive", "negative"
 # A placeholder the case-map probe hands the evaluator: it asks only about the case map.
 PROBE = "0" * 64
@@ -288,10 +290,12 @@ def check(registry: dict | None = None, root: pathlib.Path = ROOT,
 
 def contract_files(contract: str, plan: dict) -> list[str]:
     """The files an adapter contract is: a module and its record schemas, or for the runner the
-    dated evaluator and regression suite the plan binds."""
+    dated evaluator and regression suite the plan binds and its interface schemas."""
     if contract == RUNNER:
-        return [f"design/knowledge-and-history/{plan[key]}"
-                for key in ("validator", "regression_tests")]
+        return ([f"design/knowledge-and-history/{plan[key]}"
+                 for key in ("validator", "regression_tests")]
+                + sorted(f"{RUNNER_FIXTURES}/{path.name}"
+                         for path in (ROOT / RUNNER_FIXTURES).glob("*.schema.json")))
     module = contract_modules()[contract]
     kinds = records.registry(examples.load_schemas())
     schemas = sorted(identifier for kind in module.RECORD_KINDS

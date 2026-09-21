@@ -293,13 +293,13 @@
       ],
       "properties": {
         "name": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)+$"
+          "$ref": "#/$defs/operation"
         },
         "action": {
           "$ref": "#/$defs/action"
         }
-      }
+      },
+      "description": "The operation this preparation is for, from the closed list a request may name. A session start declares `session.routing.activate`, the operation that hands a preparation to a session."
     },
     "work_request": {
       "type": "object",
@@ -326,6 +326,96 @@
       "items": {
         "$ref": "#/$defs/source_pin"
       }
+    },
+    "operation": {
+      "enum": [
+        "access.admission.decide",
+        "access.bridge.serve",
+        "access.connection.configure",
+        "access.control.record",
+        "access.profile.rename",
+        "access.sign_in.begin",
+        "access.sign_in.complete",
+        "access.transition",
+        "capability.probe",
+        "carrier.bind",
+        "carrier.disconnect",
+        "carrier.provision",
+        "collection.change",
+        "collection.read",
+        "contribution.return",
+        "custody.acknowledge",
+        "custody.commit",
+        "delivery.observe",
+        "entrance.cutover.commit",
+        "entrance.disposition.record",
+        "environment.adopt",
+        "environment.publish",
+        "identity.binding.add",
+        "identity.binding.revoke",
+        "knowledge.member.prepare",
+        "knowledge.question.ask",
+        "knowledge.view.open",
+        "memory.candidate.reject",
+        "memory.candidate.store",
+        "memory.lifecycle.apply",
+        "memory.preference.record",
+        "memory.record.publish",
+        "memory.state.prove",
+        "memory.state.resolve",
+        "memory.use.prepare",
+        "operation.batch.submit",
+        "operation.cancel",
+        "operation.history.read",
+        "operation.query",
+        "package.candidate.register",
+        "preparation.assess",
+        "preparation.compose",
+        "reader.body.read",
+        "reader.question.answer",
+        "reader.use.resume",
+        "recipient.answer.record",
+        "recipient.delivery.attempt",
+        "recipient.link.open",
+        "reference.resolve",
+        "removal.execute",
+        "repository.bind",
+        "retention.derivations.read",
+        "retention.plan.set",
+        "role.project",
+        "route.offer",
+        "route.select",
+        "session.routing.activate",
+        "source.capture.record",
+        "source.home.register",
+        "source.observe",
+        "source.revision.admit",
+        "source.revision.commit",
+        "source.revision.publish",
+        "source.rights.set",
+        "store.backup.create",
+        "store.backup.restore",
+        "surface.drive",
+        "surface.observe",
+        "surface.protocol.record",
+        "team.approval.record",
+        "team.consent.record",
+        "team.device.retire",
+        "team.found",
+        "team.grant.change",
+        "team.invitation.cancel",
+        "team.invitation.issue",
+        "team.lifecycle.apply",
+        "team.membership.change",
+        "team.policy.set",
+        "team.profile.set",
+        "team.state.read",
+        "team.stewardship.transfer",
+        "transfer.accept",
+        "transfer.stage",
+        "validation.run",
+        "workstream.open"
+      ]
     }
   }
 }

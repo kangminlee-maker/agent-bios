@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C08 lifecycle action",
-  "description": "Archive, continue, restore, leave, forget here, close and purge are seven different effects, and each carries the disposition its own effect requires. Closure names the surviving stewardship rather than an intended successor, because naming one is what the design says is insufficient. Forgetting a Team on this device is not closure, and closure is not physical deletion.",
+  "description": "Archive, continue, restore, leave, forget here, close, purge, cancelling an unused founding and recovering a closed Team's evidence are nine different effects, and each carries what its own effect requires. Leaving, forgetting and cancelling say what becomes of the unique work they would strand; closure carries its whole plan and names the surviving stewardship rather than an intended successor, because naming one is what the design says is insufficient. Forgetting a Team on this device is not closure, closure is not physical deletion, and recovering a closed Team's evidence does not reopen it.",
   "required": [
     "kind",
     "schema",
@@ -143,7 +143,8 @@
       "additionalProperties": false,
       "required": [
         "does",
-        "work_scope"
+        "work_scope",
+        "continues"
       ],
       "properties": {
         "does": {
@@ -151,6 +152,15 @@
         },
         "work_scope": {
           "$ref": "#/$defs/scope"
+        },
+        "continues": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/digest"
+          },
+          "description": "Evidence of the existing logical work this continues — its workstream or operation records. A continuation label alone names nothing."
         }
       }
     },
@@ -172,7 +182,7 @@
       "required": [
         "does",
         "principal_id",
-        "continuity_disposition_digest"
+        "continuity"
       ],
       "properties": {
         "does": {
@@ -181,8 +191,8 @@
         "principal_id": {
           "$ref": "#/$defs/principal_id"
         },
-        "continuity_disposition_digest": {
-          "$ref": "#/$defs/digest"
+        "continuity": {
+          "$ref": "#/$defs/work_disposition"
         }
       }
     },
@@ -192,7 +202,7 @@
       "required": [
         "does",
         "device_id",
-        "drafts_disposition_digest"
+        "drafts"
       ],
       "properties": {
         "does": {
@@ -201,37 +211,25 @@
         "device_id": {
           "$ref": "#/$defs/device_id"
         },
-        "drafts_disposition_digest": {
-          "$ref": "#/$defs/digest"
+        "drafts": {
+          "$ref": "#/$defs/work_disposition"
         }
       }
     },
     "close_action": {
       "type": "object",
       "additionalProperties": false,
+      "description": "Permanent closure carries the exact plan it commits, so what was reviewed is what closes.",
       "required": [
         "does",
-        "plan_digest",
-        "surviving_stewardship",
-        "outbox_disposition_digest"
+        "plan"
       ],
       "properties": {
         "does": {
           "const": "close"
         },
-        "plan_digest": {
-          "$ref": "#/$defs/digest"
-        },
-        "surviving_stewardship": {
-          "type": "array",
-          "minItems": 1,
-          "uniqueItems": true,
-          "items": {
-            "$ref": "#/$defs/responsibility"
-          }
-        },
-        "outbox_disposition_digest": {
-          "$ref": "#/$defs/digest"
+        "plan": {
+          "$ref": "#/$defs/closure_plan"
         }
       }
     },
@@ -282,8 +280,289 @@
         },
         {
           "$ref": "#/$defs/purge_action"
+        },
+        {
+          "$ref": "#/$defs/cancel_founding_action"
+        },
+        {
+          "$ref": "#/$defs/recover_evidence_action"
         }
       ]
+    },
+    "cancel_founding_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Cancel an unused, incomplete founding: its exact pending proposal and invitations stop, the Team id becomes terminal so a late acceptance cannot revive it, and drafts and uncertain external effects keep an explicit disposition.",
+      "required": [
+        "does",
+        "proposal_digest",
+        "drafts"
+      ],
+      "properties": {
+        "does": {
+          "const": "cancel_founding"
+        },
+        "proposal_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "drafts": {
+          "$ref": "#/$defs/work_disposition"
+        }
+      }
+    },
+    "recover_evidence_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Read, preserve or clean up retained evidence of a closed Team under its own authorization. It never reopens the Team or resumes its work.",
+      "required": [
+        "does",
+        "evidence_digests",
+        "purpose"
+      ],
+      "properties": {
+        "does": {
+          "const": "recover_evidence"
+        },
+        "evidence_digests": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/digest"
+          }
+        },
+        "purpose": {
+          "enum": [
+            "read",
+            "preserve",
+            "clean_up"
+          ]
+        }
+      }
+    },
+    "work_disposition": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "What becomes of each piece of unique work the effect would otherwise strand: drafts, outbox entries, operations whose outcome is unknown, delegations and external effects. Each item is settled one named way; an empty list states that nothing unique is held, rather than leaving it unsaid.",
+      "required": [
+        "items"
+      ],
+      "x-unique-by": {
+        "key": "subject_digest",
+        "across": [
+          "items"
+        ]
+      },
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/disposition_item"
+          }
+        }
+      }
+    },
+    "disposition_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_digest",
+        "holds",
+        "settled"
+      ],
+      "properties": {
+        "subject_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "holds": {
+          "enum": [
+            "draft",
+            "outbox_entry",
+            "unknown_operation",
+            "delegation",
+            "external_effect"
+          ]
+        },
+        "settled": {
+          "$ref": "#/$defs/settlement"
+        }
+      }
+    },
+    "settlement": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/transferred_work"
+        },
+        {
+          "$ref": "#/$defs/exported_work"
+        },
+        {
+          "$ref": "#/$defs/kept_work"
+        },
+        {
+          "$ref": "#/$defs/reconciled_work"
+        },
+        {
+          "$ref": "#/$defs/discarded_work"
+        }
+      ]
+    },
+    "transferred_work": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "by",
+        "to_principal_id"
+      ],
+      "properties": {
+        "by": {
+          "const": "transfer"
+        },
+        "to_principal_id": {
+          "$ref": "#/$defs/principal_id"
+        }
+      }
+    },
+    "exported_work": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "by",
+        "package_digest"
+      ],
+      "properties": {
+        "by": {
+          "const": "export"
+        },
+        "package_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "kept_work": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "by",
+        "holder_device_id"
+      ],
+      "properties": {
+        "by": {
+          "const": "keeping"
+        },
+        "holder_device_id": {
+          "$ref": "#/$defs/device_id"
+        }
+      }
+    },
+    "reconciled_work": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Asked again by the same request until its actual result was known; the result is named.",
+      "required": [
+        "by",
+        "result_digest"
+      ],
+      "properties": {
+        "by": {
+          "const": "reconciliation"
+        },
+        "result_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "discarded_work": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Given up only on the named consent of the person whose work it is.",
+      "required": [
+        "by",
+        "consent_digest"
+      ],
+      "properties": {
+        "by": {
+          "const": "consented_discard"
+        },
+        "consent_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "closure_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "What permanent closure settles before it commits: who stewards what survives, every outbox entry and unknown operation, which holders were reached, the custody that must outlive the Team, the repository and any purge. A holder not reached is listed as such, because an unreachable peer is not evidence that it holds no unique work.",
+      "required": [
+        "surviving_stewardship",
+        "outbox",
+        "holders",
+        "custody_commitment_digests",
+        "repository",
+        "purge"
+      ],
+      "x-unique-by": {
+        "key": "device_id",
+        "across": [
+          "holders"
+        ]
+      },
+      "properties": {
+        "surviving_stewardship": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/responsibility"
+          }
+        },
+        "outbox": {
+          "$ref": "#/$defs/work_disposition"
+        },
+        "holders": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/holder_reach"
+          }
+        },
+        "custody_commitment_digests": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/digest"
+          }
+        },
+        "repository": {
+          "enum": [
+            "none",
+            "kept_independent",
+            "separately_scoped"
+          ]
+        },
+        "purge": {
+          "enum": [
+            "not_requested",
+            "separately_governed"
+          ]
+        }
+      }
+    },
+    "holder_reach": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "device_id",
+        "reached"
+      ],
+      "properties": {
+        "device_id": {
+          "$ref": "#/$defs/device_id"
+        },
+        "reached": {
+          "type": "boolean"
+        }
+      }
     }
   }
 }
