@@ -1,0 +1,292 @@
+{
+  "title": "Case registry",
+  "description": "What each test profile runs and what each case drives. A catalog id is kept verbatim; a new case is defined once as <FAMILY>-<SUBJECT>-<POS|NEG> and selected by the profiles whose scope it serves. Meaning a catalog entry already states is not restated here. Evidence class and polarity are derived, never written down. gates/workenv/cases.py holds the relations a schema cannot state.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "driver",
+    "carried",
+    "bootstrap",
+    "atomic",
+    "cases",
+    "selects"
+  ],
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "driver": {
+      "description": "The file the catalog's <conformance-driver> placeholder names, in the directory the plan reserves for it (gates/workenv/conformance/). A family case cannot run before it exists.",
+      "const": "gates/workenv/conformance/driver.py"
+    },
+    "carried": {
+      "description": "A binding an accepted record already holds, kept byte for byte so that record's binding_digest stays current.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/carried_binding"
+      }
+    },
+    "bootstrap": {
+      "description": "The catalog's bootstrap cases for profiles that are not carried: what runs each. A bootstrap case binds to its profile's only family.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/bootstrap_case"
+      }
+    },
+    "atomic": {
+      "description": "Every atomic case of the catalog. Its meaning and prerequisites are the catalog's; this adds what it drives and reads.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/atomic_case"
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/new_case"
+      }
+    },
+    "selects": {
+      "description": "Which new cases each profile runs. Atomic and bootstrap selection stays in the catalog.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/selection"
+      }
+    }
+  },
+  "x-unique-by": {
+    "key": "id",
+    "across": [
+      "bootstrap",
+      "atomic",
+      "cases"
+    ]
+  },
+  "$defs": {
+    "profile": {
+      "type": "string",
+      "pattern": "^(?:P[0-9]{2}|M[0-9]|R0)$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "family": {
+      "type": "string",
+      "pattern": "^[BN][0-9]{2}$"
+    },
+    "carried_case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "family"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "family": {
+          "$ref": "#/$defs/family"
+        }
+      }
+    },
+    "carried_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile",
+        "binding_digest",
+        "profile_digest",
+        "adapter_fingerprint",
+        "fixture_fingerprint",
+        "cases"
+      ],
+      "properties": {
+        "profile": {
+          "$ref": "#/$defs/profile"
+        },
+        "binding_digest": {
+          "description": "The binding_digest the accepted record states. The binding rebuilt from the other fields must digest to it.",
+          "$ref": "#/$defs/digest"
+        },
+        "profile_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "adapter_fingerprint": {
+          "$ref": "#/$defs/digest"
+        },
+        "fixture_fingerprint": {
+          "$ref": "#/$defs/digest"
+        },
+        "cases": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/carried_case"
+          }
+        }
+      },
+      "x-unique-by": {
+        "key": "id",
+        "across": [
+          "cases"
+        ]
+      }
+    },
+    "bootstrap_case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "command"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^P[0-9]{2}-contract-(?:positive|negative)$"
+        },
+        "command": {
+          "description": "argv; <prepared-python> is the one placeholder, filled with the runner's measured interpreter.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        }
+      }
+    },
+    "contract": {
+      "description": "An adapter contract: a contract module's CONTRACT value, or `runner` for the development runner's preflight interface.",
+      "type": "string",
+      "pattern": "^(?:[BC][0-9]{2}|runner)$"
+    },
+    "contracts": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/contract"
+      }
+    },
+    "operations": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z]+(?:\\.[a-z]+)+$"
+      }
+    },
+    "fixtures": {
+      "description": "Files or directories (a trailing slash) under the two fixture roots, or the entrance dispositions. A directory stands for every file under it.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:(?:workenv/contracts/examples|gates/workenv/fixtures)(?:/[a-z0-9][a-z0-9_.-]*)+/?|gates/workenv/entrances\\.jsonl)$"
+      }
+    },
+    "atomic_case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "contracts",
+        "operations",
+        "fixtures"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z]+(?:-[A-Z0-9]+)+$"
+        },
+        "contracts": {
+          "$ref": "#/$defs/contracts"
+        },
+        "operations": {
+          "$ref": "#/$defs/operations"
+        },
+        "fixtures": {
+          "$ref": "#/$defs/fixtures"
+        }
+      }
+    },
+    "new_case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "oracle",
+        "contracts",
+        "operations",
+        "fixtures",
+        "asserts"
+      ],
+      "properties": {
+        "id": {
+          "description": "<FAMILY>-<SUBJECT>-<POS|NEG>; the family and the polarity are read from it.",
+          "type": "string",
+          "pattern": "^N[0-9]{2}(?:-[A-Z0-9]+)+-(?:POS|NEG)$"
+        },
+        "oracle": {
+          "description": "Index into the family's catalog oracles: which one this case holds the selecting profile to.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "contracts": {
+          "$ref": "#/$defs/contracts"
+        },
+        "operations": {
+          "$ref": "#/$defs/operations"
+        },
+        "fixtures": {
+          "$ref": "#/$defs/fixtures"
+        },
+        "asserts": {
+          "description": "What the driver checks, in terms of the named contracts and fixtures.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1200
+        },
+        "rule": {
+          "description": "A runtime rule a contract module declares, which this case checks over what the owner writes.",
+          "type": "string",
+          "pattern": "^C[0-9]{2}/[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        }
+      }
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile",
+        "cases"
+      ],
+      "properties": {
+        "profile": {
+          "$ref": "#/$defs/profile"
+        },
+        "cases": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^N[0-9]{2}(?:-[A-Z0-9]+)+-(?:POS|NEG)$"
+          }
+        }
+      }
+    }
+  }
+}

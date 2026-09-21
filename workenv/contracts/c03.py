@@ -1,7 +1,7 @@
 """C03 Owned operations: the gaps its operations answer with.
 
 Record kinds: `operation_request`, `operation_result`, `operation_receipt`, `operation_query`,
-`request_not_held`, `entrance_disposition`, `cutover_plan`.
+`request_not_held`, `entrance_disposition`, `cutover_plan`, `restore_report`.
 
 Every protected operation of every contract travels in one sealed request and is answered by
 one result. The request names its payload by digest, so the payload's shape belongs to the
@@ -29,10 +29,15 @@ choke point has no spelling at all, so the construction sites and the guarded se
 set by construction rather than by a later count. `cutover_plan` is the single retirement: its
 three stages are three named fields, because a stage list can be reordered or shortened and
 three fields cannot, and `commits` is one because the cutover is abortable until it.
+
+A backup is taken and restored through the same owner. What a restore establishes is a
+`restore_report`: the receipt sequence the backup covers and the instant it represents. Work
+after that instant is neither recovered nor known to be absent, so the report has one value for
+it, and restored authority is passive until access, clock and keys are established again.
 """
 CONTRACT = "C03"
 RECORD_KINDS = ("operation_request", "operation_result", "operation_receipt", "operation_query",
-                "request_not_held", "entrance_disposition", "cutover_plan")
+                "request_not_held", "entrance_disposition", "cutover_plan", "restore_report")
 IN_RESULTS = True
 
 # The operations of this contract that travel in a C03 sealed request.
@@ -42,6 +47,8 @@ OPERATIONS = (
     "operation.query",
     "entrance.disposition.record",
     "entrance.cutover.commit",
+    "store.backup.create",
+    "store.backup.restore",
 )
 
 # Every way a caller starts work with the target. A disposition is recorded for each.

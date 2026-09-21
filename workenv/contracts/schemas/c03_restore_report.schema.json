@@ -1,0 +1,62 @@
+{
+  "title": "C03 restore report",
+  "description": "What a restore established, written by the owner after the live state was replaced from a backup. It names the receipt sequence the backup covers and the instant the backup represents. Work after that instant is neither recovered nor known to be absent: nothing may discard it on the strength of this report. Restored sequencing and control data stay passive until access, clock and keys are established again, so a restored copy cannot unlock or finalize by itself. An incomplete or damaged backup produces no report; its restore is refused with the gap that says so.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema",
+    "backup_digest",
+    "taken_at",
+    "covered_through",
+    "recovery_objective_seconds",
+    "after_backup",
+    "authority",
+    "restored_at"
+  ],
+  "properties": {
+    "kind": {
+      "const": "restore_report"
+    },
+    "schema": {
+      "const": 1
+    },
+    "backup_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "taken_at": {
+      "$ref": "#/$defs/instant"
+    },
+    "covered_through": {
+      "description": "The last receipt sequence the backup holds.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "recovery_objective_seconds": {
+      "description": "The configured interval between backups, against which the uncovered window is judged.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "after_backup": {
+      "description": "Work after taken_at: one value, because it is neither recovered nor known to be absent.",
+      "const": "not_known"
+    },
+    "authority": {
+      "const": "passive"
+    },
+    "restored_at": {
+      "$ref": "#/$defs/instant"
+    }
+  },
+  "x-runtime-owned": true,
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    }
+  }
+}

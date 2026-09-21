@@ -2,14 +2,14 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C01 behavioural capture",
-  "description": "Behavioural units taken into a source that holds them. This is the only capture with a property for a unit, which is what keeps a lesson or a domain claim from being promoted into behavioural text by relabelling the record that carries it.",
+  "description": "Behavioural units taken into a source that holds them. This is the only capture with a property for a unit, which is what keeps a lesson or a domain claim from being promoted into behavioural text by relabelling the record that carries it. What was taken and what processed it are one property, `processing`: each input is the digest of exact bytes with what its source permits, and text goes to a provider only when every input's source permits that.",
   "required": [
     "kind",
     "schema",
     "role",
     "destination_source_id",
     "revision_digest",
-    "evidence_digests",
+    "processing",
     "units",
     "captured_at"
   ],
@@ -29,8 +29,8 @@
     "revision_digest": {
       "$ref": "#/$defs/digest"
     },
-    "evidence_digests": {
-      "$ref": "#/$defs/digests"
+    "processing": {
+      "$ref": "#/$defs/processing"
     },
     "units": {
       "type": "array",
@@ -74,16 +74,192 @@
       "type": "string",
       "pattern": "^unt_[0-9a-f]{32}$"
     },
-    "digests": {
-      "type": "array",
-      "uniqueItems": true,
-      "items": {
-        "$ref": "#/$defs/digest"
-      }
-    },
     "source_id": {
       "type": "string",
       "pattern": "^src_[0-9a-f]{32}$"
+    },
+    "capture_adapter": {
+      "description": "The packaged adapter that ran, by name and the digest of its bytes.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "digest"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "model"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        }
+      }
+    },
+    "input": {
+      "description": "One exact complete record set or byte span, by the digest of the bytes taken, and what its source's own rights permit for it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_digest",
+        "permits"
+      ],
+      "properties": {
+        "evidence_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "permits": {
+          "enum": [
+            "local_processing",
+            "provider_processing"
+          ]
+        }
+      }
+    },
+    "provider_input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_digest",
+        "permits"
+      ],
+      "properties": {
+        "evidence_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "permits": {
+          "const": "provider_processing"
+        }
+      }
+    },
+    "manual_processing": {
+      "description": "A person selected the spans; no model ran.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runs",
+        "inputs"
+      ],
+      "properties": {
+        "runs": {
+          "const": "manual"
+        },
+        "inputs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/input"
+          }
+        }
+      },
+      "x-unique-by": {
+        "key": "evidence_digest",
+        "across": [
+          "inputs"
+        ]
+      }
+    },
+    "local_processing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runs",
+        "adapter",
+        "inputs"
+      ],
+      "properties": {
+        "runs": {
+          "const": "local"
+        },
+        "adapter": {
+          "$ref": "#/$defs/capture_adapter"
+        },
+        "inputs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/input"
+          }
+        }
+      },
+      "x-unique-by": {
+        "key": "evidence_digest",
+        "across": [
+          "inputs"
+        ]
+      }
+    },
+    "provider_processing": {
+      "description": "Text sent outside this machine. Every input's source must permit it, so a span whose source keeps it local has no spelling here; redaction or read permission is not that permission.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runs",
+        "adapter",
+        "provider",
+        "inputs"
+      ],
+      "properties": {
+        "runs": {
+          "const": "provider"
+        },
+        "adapter": {
+          "$ref": "#/$defs/capture_adapter"
+        },
+        "provider": {
+          "$ref": "#/$defs/provider"
+        },
+        "inputs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/provider_input"
+          }
+        }
+      },
+      "x-unique-by": {
+        "key": "evidence_digest",
+        "across": [
+          "inputs"
+        ]
+      }
+    },
+    "processing": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/manual_processing"
+        },
+        {
+          "$ref": "#/$defs/local_processing"
+        },
+        {
+          "$ref": "#/$defs/provider_processing"
+        }
+      ]
     }
   }
 }

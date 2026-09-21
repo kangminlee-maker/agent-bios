@@ -34,6 +34,16 @@ OPERATIONS = (
     "memory.preference.record",
 )
 
+# Rules that relate one element of a record to another, which a schema cannot state. The
+# runtime owner keeps each; a case in the registry (gates/workenv/case-index.json) checks it.
+RUNTIME_RULES = {
+    "selected_participant_applicable": "an active preference selects a record its own "
+                                       "participant list marks applicable",
+    "gap_named_entry_not_current": "a qualified_state entry a gap's pointer names is not current",
+    "entry_from_named_source": "every qualified_state entry's record comes from a source its "
+                               "frontiers name",
+}
+
 BASIS_TARGET_MISSING = "basis_target_missing"
 BASIS_CYCLE = "basis_cycle"
 COMPETING_SUCCESSORS = "competing_successors"

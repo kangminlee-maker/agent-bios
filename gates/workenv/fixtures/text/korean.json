@@ -1,0 +1,40 @@
+{
+  "what": "Strings a TUI case renders, pastes or types, each by its exact code points. Composition itself cannot be injected: a string here is never evidence of an input method, which TUI-OBS-KOREAN-TERMINAL observes.",
+  "strings": [
+    {
+      "name": "precomposed",
+      "text": "\uc791\uc5c5 \ud658\uacbd \uc120\ud0dd",
+      "holds": "rendered as written; each syllable takes two terminal cells"
+    },
+    {
+      "name": "decomposed",
+      "text": "\u110c\u1161\u11a8\u110b\u1165\u11b8 \u1112\u116a\u11ab\u1100\u1167\u11bc \u1109\u1165\u11ab\u1110\u1162\u11a8",
+      "holds": "the same words as conjoining jamo; the label reads the same and any id or digest taken over it stays the one taken over these bytes"
+    },
+    {
+      "name": "wider_than_the_screen",
+      "text": "\uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 ",
+      "holds": "at 80 columns the text wraps or truncates by cell width, never by code point count, and never hides the primary action"
+    },
+    {
+      "name": "combining_mark",
+      "text": "cafe\u0301 \u1100\u1161\u11a8",
+      "holds": "a base and its combining mark are never split across a cut"
+    },
+    {
+      "name": "paste_with_newline",
+      "text": "\uccab \uc904\n\ub458\uc9f8 \uc904",
+      "holds": "a pasted newline stays in the field; it does not submit or start anything"
+    },
+    {
+      "name": "paste_with_escape",
+      "text": "\u001b[31m\ube68\uac15\u001b[0m",
+      "holds": "an escape sequence inside pasted text is data shown as data, never a terminal command"
+    },
+    {
+      "name": "shortcut_letters_in_text",
+      "text": "q \uc885\ub8cc s \uc2dc\uc791",
+      "holds": "letters that are global shortcuts elsewhere are field input while a field has focus"
+    }
+  ]
+}

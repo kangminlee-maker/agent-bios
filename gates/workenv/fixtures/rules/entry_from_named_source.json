@@ -1,0 +1,47 @@
+{
+  "rule": "C05/entry_from_named_source",
+  "holds": [
+    {
+      "record": "workenv/contracts/examples/c05/state_with_one_current_choice.json",
+      "context": {
+        "sources": {
+          "rec_27a75a1c9d8f31b0bc4ca4889e25fe64": "src_af1bc07f1fd2aa7aeaddeec621270451",
+          "rec_448016769b0cddbd2dc28d5550e1e7a3": "src_af1bc07f1fd2aa7aeaddeec621270451"
+        }
+      }
+    },
+    {
+      "record": "workenv/contracts/examples/c05/state_over_no_source.json",
+      "context": {
+        "sources": {}
+      }
+    }
+  ],
+  "breaks": [
+    {
+      "what": "one entry's record belongs to a source the frontiers do not name",
+      "record": "workenv/contracts/examples/c05/state_with_one_current_choice.json",
+      "context": {
+        "sources": {
+          "rec_27a75a1c9d8f31b0bc4ca4889e25fe64": "src_af1bc07f1fd2aa7aeaddeec621270451",
+          "rec_448016769b0cddbd2dc28d5550e1e7a3": "src_00000000000000000000000000000002"
+        }
+      },
+      "at": [
+        "/entries/1/record_id"
+      ]
+    },
+    {
+      "what": "an entry whose record the store does not hold at all",
+      "record": "workenv/contracts/examples/c05/state_with_one_current_choice.json",
+      "context": {
+        "sources": {
+          "rec_27a75a1c9d8f31b0bc4ca4889e25fe64": "src_af1bc07f1fd2aa7aeaddeec621270451"
+        }
+      },
+      "at": [
+        "/entries/1/record_id"
+      ]
+    }
+  ]
+}

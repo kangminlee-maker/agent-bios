@@ -43,6 +43,7 @@ LAST_OWNER_REMOVAL_REFUSED = "last_owner_removal_refused"
 ACCEPTANCES_VOID_AFTER_REVISION = "acceptances_void_after_revision"
 SUCCESSION_INCOMPLETE = "succession_incomplete"
 CONFIRMATION_IS_NOT_AUTHORIZATION = "confirmation_is_not_authorization"
+FINALIZER_UNAVAILABLE = "finalizer_unavailable"
 
 # This module's rows of the contract error table (workenv.contracts.errors joins them).
 ERRORS = {
@@ -61,4 +62,7 @@ ERRORS = {
                            "is not settled; naming an intended successor is not settling it",
     CONFIRMATION_IS_NOT_AUTHORIZATION: "a typed confirmation offered in place of the authority "
                                        "the operation requires",
+    FINALIZER_UNAVAILABLE: "a shared commit whose Team finalizer cannot be reached; it is "
+                           "blocked, never finalized anywhere else, and the same request is "
+                           "retried once the finalizer is reachable",
 }

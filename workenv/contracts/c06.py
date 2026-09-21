@@ -31,6 +31,13 @@ OPERATIONS = (
     "reader.use.resume",
 )
 
+# Rules that relate one element of a record to another, which a schema cannot state. The
+# runtime owner keeps each; a case in the registry (gates/workenv/case-index.json) checks it.
+RUNTIME_RULES = {
+    "gap_named_frontier_not_returned": "a result returns no frontier an access_not_established "
+                                       "gap's pointer names",
+}
+
 ACCESS_NOT_ESTABLISHED = "access_not_established"
 CURSOR_BASIS_MOVED = "cursor_basis_moved"
 CURSOR_REVOKED = "cursor_revoked"

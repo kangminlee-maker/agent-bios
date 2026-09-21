@@ -1,0 +1,60 @@
+{
+  "what": "R0's preflight: what the runner under qualification is given and what it must do. The runner is the one R0 names; these states are synthetic and built fresh for each case.",
+  "interface": {
+    "evaluator": "gates/check-development-plan.py [plan] --run <run.json>: exit 0 when terminal claims hold, 2 when not yet, 1 when the run is invalid; the JSON body's eligible[mode] lists the nodes the runner may dispatch in that mode",
+    "run_file": "the shape the plan's evidence_contract.run_shape states",
+    "packet": "per dispatched node: run, node and attempt ids; plan, node, catalog and profile identity; accepted predecessor result digests; current subject fingerprints; the node's owned paths; mode and runner identity; required cases; done criteria"
+  },
+  "graph": "the current plan's own nodes, with records built by the Fixture class of the regression suite the plan binds (plan.regression_tests) and marked SYNTHETIC-AUTHOR-REGRESSION-NOT-PRODUCT-EVIDENCE; the workers the runner dispatches are stubs that write only under their node's owned paths unless a case says otherwise",
+  "cases": [
+    {
+      "case": "RUN-DEPENDENCIES",
+      "given": [
+        "a run in which P00 and P01 are accepted and nothing else is recorded",
+        "the same run after P01's record is made stale by changing its node digest",
+        "a run whose M1 record failed, and one whose P02 record names another subject fingerprint"
+      ],
+      "expect": [
+        "the runner dispatches exactly eligible['coordinator'] and nothing else",
+        "none of P01's dependents is dispatched while its record is stale",
+        "no consumer of the failed or mis-subjected record is dispatched, and no terminal claim is reported"
+      ]
+    },
+    {
+      "case": "RUN-RESUME",
+      "given": [
+        "the runner is killed after writing in_flight {P02: attempt a1} and before recording a result",
+        "the runner is killed after integrating P02's delta and before recording it"
+      ],
+      "expect": [
+        "on restart the runner resumes or reconciles attempt a1 by that id and dispatches P02 under no other attempt id while a1 is unresolved",
+        "the integrated delta is reconciled against the tree, not applied a second time, and the earlier attempt's evidence is kept"
+      ]
+    },
+    {
+      "case": "RUN-OWNERSHIP",
+      "given": [
+        "a P02 stub that also writes under a path P03 owns",
+        "P02 and P03 stubs that both propose a change to one shared integrator path",
+        "a shared-path patch prepared against a base that has since moved"
+      ],
+      "expect": [
+        "the out-of-scope write is refused and the attempt is not recorded as passed",
+        "shared-path patches are applied by the integrator one at a time",
+        "the stale-base patch is refused, not merged"
+      ]
+    },
+    {
+      "case": "RUN-MODE",
+      "given": [
+        "requested mode unattended with no R0 record",
+        "an R0 record whose runner fingerprint differs from the current runner's",
+        "an R0 record the runner produced in unattended mode"
+      ],
+      "expect": [
+        "nothing is dispatched unattended in any of the three, and eligible['unattended'] is empty",
+        "the runner records why it refused, and never qualifies itself by an unattended run"
+      ]
+    }
+  ]
+}
