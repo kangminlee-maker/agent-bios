@@ -24,6 +24,19 @@ RECORD_KINDS = ("principal_binding", "repository_binding", "source_ref", "source
                 "memory_capture", "source_provenance")
 IN_RESULTS = True
 
+# The operations of this contract that travel in a C03 sealed request.
+# The union across the contract modules is the closed list a request may name.
+OPERATIONS = (
+    "identity.binding.add",
+    "identity.binding.revoke",
+    "reference.resolve",
+    "source.home.register",
+    "source.capture.record",
+    "source.revision.admit",
+    "source.revision.commit",
+    "source.revision.publish",
+)
+
 ID_BOUND_TO_OTHER_BYTES = "id_bound_to_other_bytes"
 BINDING_UNVERIFIED = "binding_unverified"
 BINDING_CONFLICT = "binding_conflict"

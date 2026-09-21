@@ -20,6 +20,14 @@ RECORD_KINDS = ("preparation_request", "preparation", "action_assessment",
                 "delivery_observation")
 IN_RESULTS = True
 
+# The operations of this contract that travel in a C03 sealed request.
+# The union across the contract modules is the closed list a request may name.
+OPERATIONS = (
+    "preparation.compose",
+    "preparation.assess",
+    "delivery.observe",
+)
+
 SELECTION_UNRESOLVED = "selection_unresolved"
 WORKING_BYTES_MOVED = "working_bytes_moved"
 ISOLATION_UNPROVEN = "isolation_unproven"

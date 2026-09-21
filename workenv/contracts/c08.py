@@ -21,6 +21,17 @@ RECORD_KINDS = ("founding_proposal", "governing_policy", "membership_record", "g
                 "approval", "lifecycle_action")
 IN_RESULTS = True
 
+# The operations of this contract that travel in a C03 sealed request.
+# The union across the contract modules is the closed list a request may name.
+OPERATIONS = (
+    "team.found",
+    "team.policy.set",
+    "team.membership.change",
+    "team.grant.change",
+    "team.approval.record",
+    "team.lifecycle.apply",
+)
+
 BOOTSTRAP_ALREADY_COMMITTED = "bootstrap_already_committed"
 PROPOSAL_SELF_AUTHORIZED = "proposal_self_authorized"
 APPROVER_NOT_INDEPENDENT = "approver_not_independent"

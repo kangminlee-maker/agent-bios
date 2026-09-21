@@ -1,4 +1,5 @@
 """Contract representation tests. Run by gates/workenv/check-workenv.py, one process per file."""
+import ast
 import hashlib
 import os
 import pathlib
@@ -1057,6 +1058,129 @@ class SessionRouting(unittest.TestCase):
         self.assertIs(self.document[schema.RUNTIME_OWNED], True)
         self.assertEqual(examples.owned_places(
             self.schemas[records.registry(self.schemas)["session_routing"][1]]), {""})
+
+
+class ClosedNames(unittest.TestCase):
+    """U10 closes two open patterns. Each committed enum is projected from a module tuple, so
+    these hold the artifact against its owner rather than restating the list a third time."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.schemas = examples.load_schemas()
+        cls.contracts = {}
+        for path in sorted(pathlib.Path(c03.__file__).parent.glob("c*.py")):
+            tree = ast.parse(path.read_text())
+            for node in tree.body:
+                if not isinstance(node, ast.Assign):
+                    continue
+                if getattr(node.targets[0], "id", "") == "OPERATIONS":
+                    cls.contracts[path.stem] = ast.literal_eval(node.value)
+
+    def test_every_contract_declares_the_operations_it_owns(self):
+        self.assertEqual(len(self.contracts), 12, sorted(self.contracts))
+        for name, operations in self.contracts.items():
+            self.assertTrue(operations, f"{name} declares no operation")
+            self.assertEqual(len(set(operations)), len(operations), name)
+
+    def test_one_operation_name_has_one_owning_contract(self):
+        seen = {}
+        for name, operations in self.contracts.items():
+            for operation in operations:
+                self.assertNotIn(operation, seen,
+                                 f"{operation} declared by {seen.get(operation)} and {name}")
+                seen[operation] = name
+
+    def test_a_request_may_name_only_an_operation_a_contract_declares(self):
+        union = sorted({o for ops in self.contracts.values() for o in ops})
+        for kind in ("operation_request", "action_assessment"):
+            identifier = records.registry(self.schemas)[kind][1]
+            document = self.schemas[identifier].document
+            self.assertEqual(document["properties"]["operation"], {"$ref": "#/$defs/operation"})
+            self.assertEqual(self.schemas[identifier].defs["operation"], {"enum": union}, kind)
+
+    def test_an_entrance_may_name_only_an_entrance_the_contract_declares(self):
+        for kind in ("projection_plan", "route_offer"):
+            identifier = records.registry(self.schemas)[kind][1]
+            name = self.schemas[identifier].defs["entrance"]["properties"]["name"]
+            self.assertEqual(name, {"enum": list(c03.ENTRANCES)}, kind)
+            self.assertNotIn("pattern", name)
+
+
+class EntranceDisposition(unittest.TestCase):
+    """The closing property of U10, read off the committed document: an entrance that reaches
+    state the target keeps has no spelling that names no guard."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.schemas = examples.load_schemas()
+        identifier = records.registry(cls.schemas)["entrance_disposition"][1]
+        cls.defs = cls.schemas[identifier].defs
+        cls.document = cls.schemas[identifier].document
+        cls.plan = cls.schemas[records.registry(cls.schemas)["cutover_plan"][1]]
+
+    def variants(self):
+        return {ref["$ref"].rsplit("/", 1)[-1]
+                for ref in self.document["properties"]["disposition"]["oneOf"]}
+
+    def test_the_construction_sites_and_the_guarded_set_are_one_set(self):
+        # Every spelling either fixes a state that reaches nothing, or carries a property whose
+        # values are the three owners. A fifth variant that did neither would fail here, which
+        # is the whole of "construction-site count equals the guarded set": there is no count.
+        guarded = {"choke_point", "routed"}
+        reaches_nothing = {"retired_at_cutover", "no_reach"}
+        self.assertEqual(self.variants(), guarded | reaches_nothing)
+        for name in self.variants():
+            variant = self.defs[name]
+            states = variant["properties"]["state"]["const"]
+            owners = [key for key, node in variant["properties"].items()
+                      if node.get("enum") == list(c03.CHOKE_POINTS)]
+            if states in guarded:
+                self.assertEqual(len(owners), 1, f"{name} names no single owner")
+                self.assertIn(owners[0], variant["required"], name)
+            else:
+                self.assertEqual(owners, [], f"{name} reaches nothing yet names an owner")
+
+    def test_a_compatibility_route_forwards_to_an_entrance_that_exists(self):
+        retired = self.defs["retired_at_cutover"]
+        self.assertEqual(retired["properties"]["compatibility_only"], {"const": True})
+        self.assertEqual(retired["properties"]["successor"], {"enum": list(c03.ENTRANCES)})
+        self.assertIn("successor", retired["required"])
+
+    def test_a_choke_point_admits_something_and_only_declared_operations(self):
+        admits = self.defs["choke_point"]["properties"]["admits"]
+        self.assertEqual(admits["minItems"], 1)
+        self.assertTrue(admits["uniqueItems"])
+        declared = set(self.schemas[records.registry(self.schemas)["operation_request"][1]]
+                       .defs["operation"]["enum"])
+        self.assertEqual(set(admits["items"]["enum"]), declared)
+
+    def test_every_reason_for_reaching_nothing_is_one_the_trace_found(self):
+        self.assertEqual(self.defs["no_reach"]["properties"]["why"],
+                         {"enum": list(c03.NO_REACH_REASONS)})
+
+    def test_the_cutover_has_three_stages_that_cannot_be_reordered(self):
+        document = self.plan.document
+        self.assertEqual([k for k in ("quiesce", "verify", "commit") if k in document["required"]],
+                         ["quiesce", "verify", "commit"])
+        self.assertNotIn("array", {document["properties"][k].get("type")
+                                   for k in ("quiesce", "verify", "commit")})
+        self.assertEqual(document["properties"]["abortable_until"], {"const": "commit"})
+
+    def test_quiescing_seals_every_owner_without_counting_them(self):
+        sealed = self.plan.defs["quiesce"]["properties"]["sealed"]
+        self.assertEqual(sealed["minItems"], len(c03.CHOKE_POINTS))
+        self.assertTrue(sealed["uniqueItems"])
+        self.assertEqual(sealed["items"]["enum"], list(c03.CHOKE_POINTS))
+
+    def test_the_cutover_does_not_restate_what_retires(self):
+        # Each route says so in its own disposition; a second copy is a second thing to keep true.
+        self.assertNotIn("retires", self.plan.document["properties"])
+        self.assertFalse(self.plan.document["additionalProperties"])
+
+    def test_one_commit_and_abortable_until_it(self):
+        commit = self.plan.defs["commit"]
+        self.assertEqual(commit["properties"]["commits"], {"const": 1})
+        self.assertEqual(self.plan.defs["verify"]["properties"]["unrouted_writers"], {"const": 0})
 
 
 if __name__ == "__main__":

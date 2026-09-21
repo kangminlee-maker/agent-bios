@@ -1,0 +1,112 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "title": "C03 cutover plan",
+  "description": "The single retirement of every compatibility-only route. Its three stages are three named fields rather than a list, because a list can be reordered, shortened or grown and three required fields cannot. What retires is not restated here: each route says so in its own disposition, and a second copy is a second thing to keep true.",
+  "required": [
+    "kind",
+    "schema",
+    "quiesce",
+    "verify",
+    "commit",
+    "abortable_until",
+    "planned_at"
+  ],
+  "properties": {
+    "kind": {
+      "const": "cutover_plan"
+    },
+    "schema": {
+      "const": 1
+    },
+    "quiesce": {
+      "$ref": "#/$defs/quiesce"
+    },
+    "verify": {
+      "$ref": "#/$defs/verify"
+    },
+    "commit": {
+      "$ref": "#/$defs/commit"
+    },
+    "abortable_until": {
+      "const": "commit"
+    },
+    "planned_at": {
+      "$ref": "#/$defs/instant"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "quiesce": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "No operation is in flight and all three owners are sealed. `minItems` and `uniqueItems` over a three-value enum say 'every one of them' without a count to keep in step.",
+      "required": [
+        "in_flight",
+        "sealed"
+      ],
+      "properties": {
+        "in_flight": {
+          "const": 0
+        },
+        "sealed": {
+          "type": "array",
+          "minItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "source_store",
+              "projection_owner",
+              "publication_lock"
+            ]
+          }
+        }
+      }
+    },
+    "verify": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "What the trace found once the routes were sealed.",
+      "required": [
+        "unrouted_writers",
+        "evidence_digest"
+      ],
+      "properties": {
+        "unrouted_writers": {
+          "const": 0
+        },
+        "evidence_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "commit": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One commit, which is why the plan is abortable until it. `commits` has one value, so a two-commit cutover is unwritable.",
+      "required": [
+        "commits",
+        "head_before",
+        "head_after"
+      ],
+      "properties": {
+        "commits": {
+          "const": 1
+        },
+        "head_before": {
+          "$ref": "#/$defs/digest"
+        },
+        "head_after": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    }
+  }
+}

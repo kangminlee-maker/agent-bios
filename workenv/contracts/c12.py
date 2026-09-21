@@ -18,6 +18,14 @@ RECORD_KINDS = ("capability_profile", "capability_probe", "route_outcome",
                 "route_offer", "route_selection")
 IN_RESULTS = True
 
+# The operations of this contract that travel in a C03 sealed request.
+# The union across the contract modules is the closed list a request may name.
+OPERATIONS = (
+    "capability.probe",
+    "route.offer",
+    "route.select",
+)
+
 CAPABILITY_NOT_QUALIFIED = "capability_not_qualified"
 FIXTURE_RESULT_IN_REAL_MODE = "fixture_result_in_real_mode"
 PROTOCOL_CLAIM_ONLY = "protocol_claim_only"

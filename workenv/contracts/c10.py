@@ -19,6 +19,15 @@ RECORD_KINDS = ("custody_commitment", "custody_acknowledgment", "retention_plan"
                 "removal_outcome")
 IN_RESULTS = True
 
+# The operations of this contract that travel in a C03 sealed request.
+# The union across the contract modules is the closed list a request may name.
+OPERATIONS = (
+    "custody.commit",
+    "custody.acknowledge",
+    "retention.plan.set",
+    "removal.execute",
+)
+
 CUSTODY_INCOMPLETE = "custody_incomplete"
 RETENTION_DECLINED = "retention_declined"
 STORAGE_GENERATION_RESET = "storage_generation_reset"

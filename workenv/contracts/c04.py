@@ -18,6 +18,15 @@ RECORD_KINDS = ("projection_plan", "role_projection", "knowledge_question",
                 "knowledge_view", "session_routing")
 IN_RESULTS = True
 
+# The operations of this contract that travel in a C03 sealed request.
+# The union across the contract modules is the closed list a request may name.
+OPERATIONS = (
+    "role.project",
+    "knowledge.question.ask",
+    "knowledge.view.open",
+    "session.routing.activate",
+)
+
 SOURCE_NOT_AUTHORIZED = "source_not_authorized"
 PROTECTED_ROOT_BYPASS = "protected_root_bypass"
 ROLE_PROMOTION_REFUSED = "role_promotion_refused"

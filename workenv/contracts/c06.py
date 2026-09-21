@@ -19,6 +19,15 @@ CONTRACT = "C06"
 RECORD_KINDS = ("reader_envelope", "reader_result", "pending_question", "resume_request")
 IN_RESULTS = True
 
+# The operations of this contract that travel in a C03 sealed request.
+# The union across the contract modules is the closed list a request may name.
+OPERATIONS = (
+    "memory.use.prepare",
+    "reader.body.read",
+    "reader.question.answer",
+    "reader.use.resume",
+)
+
 ACCESS_NOT_ESTABLISHED = "access_not_established"
 CURSOR_BASIS_MOVED = "cursor_basis_moved"
 CURSOR_REVOKED = "cursor_revoked"

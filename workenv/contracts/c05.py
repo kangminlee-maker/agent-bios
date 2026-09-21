@@ -19,6 +19,17 @@ RECORD_KINDS = ("workstream", "choice_record", "lifecycle_event", "state_questio
                 "qualified_state", "application_preference")
 IN_RESULTS = True
 
+# The operations of this contract that travel in a C03 sealed request.
+# The union across the contract modules is the closed list a request may name.
+OPERATIONS = (
+    "workstream.open",
+    "memory.candidate.store",
+    "memory.record.publish",
+    "memory.lifecycle.apply",
+    "memory.state.resolve",
+    "memory.preference.record",
+)
+
 BASIS_TARGET_MISSING = "basis_target_missing"
 BASIS_CYCLE = "basis_cycle"
 COMPETING_SUCCESSORS = "competing_successors"

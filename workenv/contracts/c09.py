@@ -18,6 +18,14 @@ CONTRACT = "C09"
 RECORD_KINDS = ("transfer_envelope", "transfer_stage_record", "contribution_return")
 IN_RESULTS = True
 
+# The operations of this contract that travel in a C03 sealed request.
+# The union across the contract modules is the closed list a request may name.
+OPERATIONS = (
+    "transfer.stage",
+    "transfer.accept",
+    "contribution.return",
+)
+
 TRUST_CONTINUITY_UNVERIFIED = "trust_continuity_unverified"
 AUDIENCE_MISMATCH = "audience_mismatch"
 CONTROL_SUPERSEDED = "control_superseded"

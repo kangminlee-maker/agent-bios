@@ -22,6 +22,15 @@ RECORD_KINDS = ("recipient_link", "answer_evidence", "delivery_attempt",
                 "surface_observation")
 IN_RESULTS = True
 
+# The operations of this contract that travel in a C03 sealed request.
+# The union across the contract modules is the closed list a request may name.
+OPERATIONS = (
+    "recipient.link.open",
+    "recipient.answer.record",
+    "recipient.delivery.attempt",
+    "surface.observe",
+)
+
 RECIPIENT_LINK_UNKNOWN = "recipient_link_unknown"
 ANSWER_ORIGIN_UNVERIFIED = "answer_origin_unverified"
 ANSWER_NOT_FROM_A_PERSON = "answer_not_from_a_person"
