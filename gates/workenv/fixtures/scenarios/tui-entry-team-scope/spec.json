@@ -1,6 +1,6 @@
 {
  "case": "TUI-ENTRY-TEAM-SCOPE",
- "says": "One person founds two Teams that are both named 'Platform' (team.found twice: two ids) and commits one instructions source to each. Earlier work runs in Team A: a start composed over Team A, selected, activated in a Claude Code session (the activation returns the projection of Team A's instructions it routed), and that conversation opened as a recipient link scoped to Team A. The launcher (surface.drive) lists both Teams by name with a short id apart, Team A selected because the existing recipient is bound to it. Down and Enter browse Team B: browse_scope becomes Team B while selected_scope stays Team A and the recipient link stays the same; only Space explicitly selects Team B's instructions, and then selected_scope is Team B. Tab and Enter dispatch one new start whose preparation.compose basis is Team B alone; route.select records Team B's route for that request. Negative: the two Teams are never merged — every scope, route and request names one id; browsing Team B changes neither the selection nor the existing conversation, which stays linked to Team A; the Team B start carries nothing of Team A's source or history; the repository location selects no Team; and a selection naming the Team by its shared name instead of a route id is refused at admission (pattern_mismatch /selected).",
+ "says": "One person founds two Teams both named 'Platform' (team.found twice: two ids). Team A is founded on the desktop, whose device is its finalizer; its instructions source is observed in the desktop's clone and committed there, and the laptop accepts them as a Team package (transfer.stage, transfer.accept). Team B is founded on the laptop with its own source and no environment adopted. Earlier work runs in Team A on the laptop: a start composed, selected and activated in a Claude Code session (returning the instructions projection it routed), and that conversation opened as a recipient link scoped to Team A. Then the laptop is partitioned from the desktop: Team A is offline. The launcher (surface.drive) lists both Teams by name with a short id apart; Team A is selected because the recipient is bound to it and shown remote_unknown, not current or adopted because its package is held here. Down and Enter browse Team B: browse_scope becomes Team B while selected_scope stays Team A and the recipient link stays the same, and Team B's view shows its environment checked_empty. Only Space selects Team B's instructions, and then selected_scope is Team B. Tab and Enter dispatch one start whose preparation.compose basis is Team B alone; route.select records Team B's route. Negative: the two Teams are never merged, as every scope, route and request names one id; browsing Team B changes neither the selection nor the conversation, which stays linked to the offline Team A; Team B's missing environment neither blocks its selection nor borrows Team A's; the Team B start carries nothing of Team A's source or history; the repository location selects no Team; and a selection naming the Team by its shared name instead of a route id is refused at admission (pattern_mismatch /selected).",
  "ids": [
   {
    "name": "me",
@@ -113,6 +113,38 @@
   {
    "name": "by_name_select",
    "prefix": "req"
+  },
+  {
+   "name": "desktop",
+   "prefix": "dev"
+  },
+  {
+   "name": "desktop_profile",
+   "prefix": "prf"
+  },
+  {
+   "name": "desktop_key_bind",
+   "prefix": "req"
+  },
+  {
+   "name": "desktop_repo_bind",
+   "prefix": "req"
+  },
+  {
+   "name": "stage_team_a_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "accept_team_a_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "laptop_peer",
+   "prefix": "per"
+  },
+  {
+   "name": "desktop_peer",
+   "prefix": "per"
   }
  ],
  "records": [
@@ -179,6 +211,60 @@
    ]
   },
   {
+   "name": "desktop_key",
+   "from": "c01/binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/credential/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/established_by",
+     "value": "enrollment"
+    }
+   ]
+  },
+  {
+   "name": "desktop_key_request",
+   "from": "my_key_request",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@desktop_key_bind"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@desktop_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#desktop_key"
+    }
+   ]
+  },
+  {
+   "name": "desktop_key_stored",
+   "from": "desktop_key",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$bnd:desktop_key_binding"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:desktop_key_bound_at"
+    }
+   ]
+  },
+  {
    "name": "repo_binding",
    "from": "c01/repository_binding_as_submitted.json",
    "set": [
@@ -241,6 +327,38 @@
    ]
   },
   {
+   "name": "desktop_repo_bind_request",
+   "from": "repo_bind_request",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@desktop_repo_bind"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@desktop_profile"
+    }
+   ]
+  },
+  {
+   "name": "desktop_repo_bound",
+   "from": "c01/clone_shares_the_repository_id.json",
+   "set": [
+    {
+     "pointer": "/observed/working_bytes_digest",
+     "value": "$digest:desktop_checkout_bytes"
+    },
+    {
+     "pointer": "/repository_id",
+     "value": "@repo"
+    }
+   ]
+  },
+  {
    "name": "team_a_policy",
    "from": "c08/policy_as_submitted.json",
    "set": [
@@ -267,7 +385,7 @@
    "set": [
     {
      "pointer": "/finalizer/device_id",
-     "value": "@laptop"
+     "value": "@desktop"
     },
     {
      "pointer": "/founder_principal_id",
@@ -312,11 +430,11 @@
     },
     {
      "pointer": "/actor/device_id",
-     "value": "@laptop"
+     "value": "@desktop"
     },
     {
      "pointer": "/actor/profile_id",
-     "value": "@profile"
+     "value": "@desktop_profile"
     },
     {
      "pointer": "/operation",
@@ -444,7 +562,7 @@
     },
     {
      "pointer": "/finalizer/device_id",
-     "value": "@laptop"
+     "value": "@desktop"
     },
     {
      "pointer": "/recorded_at",
@@ -830,11 +948,11 @@
     },
     {
      "pointer": "/actor/device_id",
-     "value": "@laptop"
+     "value": "@desktop"
     },
     {
      "pointer": "/actor/profile_id",
-     "value": "@profile"
+     "value": "@desktop_profile"
     },
     {
      "pointer": "/effect_class",
@@ -939,11 +1057,11 @@
     },
     {
      "pointer": "/actor/device_id",
-     "value": "@laptop"
+     "value": "@desktop"
     },
     {
      "pointer": "/actor/profile_id",
-     "value": "@profile"
+     "value": "@desktop_profile"
     },
     {
      "pointer": "/operation",
@@ -982,6 +1100,339 @@
     {
      "pointer": "/produced_at",
      "value": "$instant:a_src_produced_at"
+    }
+   ]
+  },
+  {
+   "name": "team_a_package",
+   "from": "c09/complete_transfer.json",
+   "drop": [
+    "/recipient/permitted_scope/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/namespace/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/recipient/permitted_scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/recipient/permitted_scope/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/recipient/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/continuity_evidence_digests",
+     "value": [
+      "#team_a_founding_epoch"
+     ]
+    },
+    {
+     "pointer": "/inventory/0/path",
+     "value": "objects/0000.json"
+    },
+    {
+     "pointer": "/inventory/0/digest",
+     "value": "#team_a_sealed_proposal"
+    },
+    {
+     "pointer": "/inventory/0/size",
+     "value": 1536
+    },
+    {
+     "pointer": "/inventory/0/object_kind",
+     "value": "founding_proposal"
+    },
+    {
+     "pointer": "/inventory/1/path",
+     "value": "objects/0001.json"
+    },
+    {
+     "pointer": "/inventory/1/digest",
+     "value": "#team_a_policy_stored"
+    },
+    {
+     "pointer": "/inventory/1/size",
+     "value": 1024
+    },
+    {
+     "pointer": "/inventory/1/object_kind",
+     "value": "governing_policy"
+    },
+    {
+     "pointer": "/inventory/2/path",
+     "value": "objects/0002.json"
+    },
+    {
+     "pointer": "/inventory/2/digest",
+     "value": "#team_a_founder_membership"
+    },
+    {
+     "pointer": "/inventory/2/size",
+     "value": 768
+    },
+    {
+     "pointer": "/inventory/2/object_kind",
+     "value": "membership_record"
+    },
+    {
+     "pointer": "/inventory/3/path",
+     "value": "objects/0003.json"
+    },
+    {
+     "pointer": "/inventory/3/digest",
+     "value": "#team_a_founder_grant"
+    },
+    {
+     "pointer": "/inventory/3/size",
+     "value": 896
+    },
+    {
+     "pointer": "/inventory/3/object_kind",
+     "value": "grant_record"
+    },
+    {
+     "pointer": "/inventory/4/path",
+     "value": "objects/0004.json"
+    },
+    {
+     "pointer": "/inventory/4/digest",
+     "value": "#team_a_active"
+    },
+    {
+     "pointer": "/inventory/4/size",
+     "value": 256
+    },
+    {
+     "pointer": "/inventory/4/object_kind",
+     "value": "team_state"
+    },
+    {
+     "pointer": "/inventory/5/path",
+     "value": "objects/0005.json"
+    },
+    {
+     "pointer": "/inventory/5/digest",
+     "value": "#team_a_profile"
+    },
+    {
+     "pointer": "/inventory/5/size",
+     "value": 256
+    },
+    {
+     "pointer": "/inventory/5/object_kind",
+     "value": "team_profile"
+    },
+    {
+     "pointer": "/inventory/6/path",
+     "value": "continuity/0006.json"
+    },
+    {
+     "pointer": "/inventory/6/digest",
+     "value": "#team_a_founding_epoch"
+    },
+    {
+     "pointer": "/inventory/6/size",
+     "value": 512
+    },
+    {
+     "pointer": "/inventory/6/object_kind",
+     "value": "authority_continuity"
+    },
+    {
+     "pointer": "/inventory/7/path",
+     "value": "objects/0007.json"
+    },
+    {
+     "pointer": "/inventory/7/digest",
+     "value": "#a_src_revision"
+    },
+    {
+     "pointer": "/inventory/7/size",
+     "value": 384
+    },
+    {
+     "pointer": "/inventory/7/object_kind",
+     "value": "source_manifest"
+    }
+   ]
+  },
+  {
+   "name": "stage_team_a_request",
+   "from": "a_src_commit_request",
+   "drop": [
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@stage_team_a_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "transfer.stage"
+    },
+    {
+     "pointer": "/action",
+     "value": "transfer"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_a_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_a_package"
+    }
+   ]
+  },
+  {
+   "name": "team_a_package_exported",
+   "from": "c09/exported.json",
+   "set": [
+    {
+     "pointer": "/envelope_digest",
+     "value": "#team_a_package"
+    },
+    {
+     "pointer": "/stage/route/peer_id",
+     "value": "@laptop_peer"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:team_a_package_exported_at"
+    }
+   ]
+  },
+  {
+   "name": "accept_team_a_request",
+   "from": "stage_team_a_request",
+   "drop": [
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@accept_team_a_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "transfer.accept"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    }
+   ]
+  },
+  {
+   "name": "team_a_package_received",
+   "from": "c09/received_but_not_yet_verified.json",
+   "set": [
+    {
+     "pointer": "/envelope_digest",
+     "value": "#team_a_package"
+    },
+    {
+     "pointer": "/stage/route/via",
+     "value": "peer"
+    },
+    {
+     "pointer": "/stage/route/peer_id",
+     "value": "@desktop_peer"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:team_a_package_received_at"
+    }
+   ]
+  },
+  {
+   "name": "team_a_package_controls",
+   "from": "c09/controls_verified_before_bodies.json",
+   "set": [
+    {
+     "pointer": "/envelope_digest",
+     "value": "#team_a_package"
+    },
+    {
+     "pointer": "/stage/controls_applied",
+     "value": [
+      "#team_a_founding_epoch"
+     ]
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:team_a_package_controls_at"
+    }
+   ]
+  },
+  {
+   "name": "team_a_package_verified",
+   "from": "c09/verified.json",
+   "set": [
+    {
+     "pointer": "/envelope_digest",
+     "value": "#team_a_package"
+    },
+    {
+     "pointer": "/stage/controls_record_digest",
+     "value": "#team_a_package_controls"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:team_a_package_verified_at"
+    }
+   ]
+  },
+  {
+   "name": "team_a_package_committed",
+   "from": "c09/committed.json",
+   "set": [
+    {
+     "pointer": "/envelope_digest",
+     "value": "#team_a_package"
+    },
+    {
+     "pointer": "/receipt_digest",
+     "value": "#accept_team_a_receipt"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:team_a_package_committed_at"
     }
    ]
   },
@@ -1994,7 +2445,7 @@
     },
     {
      "pointer": "/frames/0/elements/0/label",
-     "value": "Platform · 43d5… · 이 대화의 팀"
+     "value": "Platform · 43d5… · 이 대화의 팀 · 데스크톱 연결 안 됨"
     },
     {
      "pointer": "/frames/0/elements/0/marks",
@@ -2121,7 +2572,7 @@
     },
     {
      "pointer": "/frames/1/elements/0/label",
-     "value": "Platform · 43d5… · 이 대화의 팀"
+     "value": "Platform · 43d5… · 이 대화의 팀 · 데스크톱 연결 안 됨"
     },
     {
      "pointer": "/frames/1/elements/0/marks",
@@ -2261,7 +2712,7 @@
     },
     {
      "pointer": "/frames/2/elements/0/label",
-     "value": "Platform · 43d5… · 이 대화의 팀"
+     "value": "Platform · 43d5… · 이 대화의 팀 · 데스크톱 연결 안 됨"
     },
     {
      "pointer": "/frames/2/elements/0/marks",
@@ -2449,7 +2900,7 @@
     },
     {
      "pointer": "/frames/3/elements/0/label",
-     "value": "Platform · 43d5… · 이 대화의 팀"
+     "value": "Platform · 43d5… · 이 대화의 팀 · 데스크톱 연결 안 됨"
     },
     {
      "pointer": "/frames/3/elements/0/marks",
@@ -2639,7 +3090,7 @@
     },
     {
      "pointer": "/frames/4/elements/0/label",
-     "value": "Platform · 43d5… · 이 대화의 팀"
+     "value": "Platform · 43d5… · 이 대화의 팀 · 데스크톱 연결 안 됨"
     },
     {
      "pointer": "/frames/4/elements/0/marks",
@@ -2872,7 +3323,7 @@
     },
     {
      "pointer": "/frames/5/elements/0/label",
-     "value": "Platform · 43d5… · 이 대화의 팀"
+     "value": "Platform · 43d5… · 이 대화의 팀 · 데스크톱 연결 안 됨"
     },
     {
      "pointer": "/frames/5/elements/0/marks",
@@ -3206,6 +3657,222 @@
     {
      "pointer": "/script_digest",
      "value": "#script"
+    },
+    {
+     "pointer": "/frames/0/elements/0/state",
+     "value": "remote_unknown"
+    },
+    {
+     "pointer": "/frames/1/elements/0/state",
+     "value": "remote_unknown"
+    },
+    {
+     "pointer": "/frames/2/elements/0/state",
+     "value": "remote_unknown"
+    },
+    {
+     "pointer": "/frames/3/elements/0/state",
+     "value": "remote_unknown"
+    },
+    {
+     "pointer": "/frames/4/elements/0/state",
+     "value": "remote_unknown"
+    },
+    {
+     "pointer": "/frames/5/elements/0/state",
+     "value": "remote_unknown"
+    },
+    {
+     "pointer": "/frames/2/elements/6/element_id",
+     "value": "detail.team_b.environment"
+    },
+    {
+     "pointer": "/frames/2/elements/6/role",
+     "value": "detail"
+    },
+    {
+     "pointer": "/frames/2/elements/6/label",
+     "value": "Platform · ed2c… 환경 · 채택한 환경 없음"
+    },
+    {
+     "pointer": "/frames/2/elements/6/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/2/elements/6/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/2/elements/6/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/2/elements/6/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/2/elements/6/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/2/elements/6/state",
+     "value": "checked_empty"
+    },
+    {
+     "pointer": "/frames/2/elements/6/refers_to/ref",
+     "value": "scope"
+    },
+    {
+     "pointer": "/frames/2/elements/6/refers_to/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/frames/2/elements/6/refers_to/scope/team_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/frames/3/elements/6/element_id",
+     "value": "detail.team_b.environment"
+    },
+    {
+     "pointer": "/frames/3/elements/6/role",
+     "value": "detail"
+    },
+    {
+     "pointer": "/frames/3/elements/6/label",
+     "value": "Platform · ed2c… 환경 · 채택한 환경 없음"
+    },
+    {
+     "pointer": "/frames/3/elements/6/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/3/elements/6/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/6/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/3/elements/6/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/6/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/3/elements/6/state",
+     "value": "checked_empty"
+    },
+    {
+     "pointer": "/frames/3/elements/6/refers_to/ref",
+     "value": "scope"
+    },
+    {
+     "pointer": "/frames/3/elements/6/refers_to/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/frames/3/elements/6/refers_to/scope/team_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/frames/4/elements/6/element_id",
+     "value": "detail.team_b.environment"
+    },
+    {
+     "pointer": "/frames/4/elements/6/role",
+     "value": "detail"
+    },
+    {
+     "pointer": "/frames/4/elements/6/label",
+     "value": "Platform · ed2c… 환경 · 채택한 환경 없음"
+    },
+    {
+     "pointer": "/frames/4/elements/6/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/4/elements/6/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/6/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/4/elements/6/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/6/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/4/elements/6/state",
+     "value": "checked_empty"
+    },
+    {
+     "pointer": "/frames/4/elements/6/refers_to/ref",
+     "value": "scope"
+    },
+    {
+     "pointer": "/frames/4/elements/6/refers_to/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/frames/4/elements/6/refers_to/scope/team_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/frames/5/elements/7/element_id",
+     "value": "detail.team_b.environment"
+    },
+    {
+     "pointer": "/frames/5/elements/7/role",
+     "value": "detail"
+    },
+    {
+     "pointer": "/frames/5/elements/7/label",
+     "value": "Platform · ed2c… 환경 · 채택한 환경 없음"
+    },
+    {
+     "pointer": "/frames/5/elements/7/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/5/elements/7/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/5/elements/7/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/5/elements/7/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/5/elements/7/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/5/elements/7/state",
+     "value": "checked_empty"
+    },
+    {
+     "pointer": "/frames/5/elements/7/refers_to/ref",
+     "value": "scope"
+    },
+    {
+     "pointer": "/frames/5/elements/7/refers_to/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/frames/5/elements/7/refers_to/scope/team_id",
+     "value": "@team_b"
     }
    ]
   },
@@ -3544,7 +4211,26 @@
     "returns": [
      "my_key_stored"
     ]
-   }
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "bind_desktop_key",
+   "request": "desktop_key_request",
+   "carries": [
+    "desktop_key"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "desktop_key_stored"
+    ]
+   },
+   "process": "desktop"
   },
   {
    "name": "bind_repository",
@@ -3561,7 +4247,26 @@
     "returns": [
      "repo_bound"
     ]
-   }
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "bind_repository_on_desktop",
+   "request": "desktop_repo_bind_request",
+   "carries": [
+    "repo_binding"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "desktop_repo_bound"
+    ]
+   },
+   "process": "desktop"
   },
   {
    "name": "found_team_a",
@@ -3589,7 +4294,93 @@
      "team_a_founding_epoch"
     ],
     "head": "team_a_head"
-   }
+   },
+   "process": "desktop"
+  },
+  {
+   "name": "observe_a_src",
+   "request": "a_src_observe_request",
+   "carries": [
+    "a_src_selection"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "a_src_observation"
+    ]
+   },
+   "process": "desktop"
+  },
+  {
+   "name": "commit_a_src",
+   "request": "a_src_commit_request",
+   "carries": [
+    "a_src_manifest"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "a_src_revision"
+    ],
+    "head": "a_src_head"
+   },
+   "process": "desktop"
+  },
+  {
+   "name": "stage_team_a",
+   "request": "stage_team_a_request",
+   "carries": [
+    "team_a_package"
+   ],
+   "answer": {
+    "stage": "draft",
+    "local_effect": "objects_staged",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_a_package_exported"
+    ]
+   },
+   "process": "desktop"
+  },
+  {
+   "name": "accept_team_a",
+   "request": "accept_team_a_request",
+   "carries": [
+    "team_a_package",
+    "team_a_sealed_proposal",
+    "team_a_policy_stored",
+    "team_a_founder_membership",
+    "team_a_founder_grant",
+    "team_a_active",
+    "team_a_profile",
+    "team_a_founding_epoch",
+    "a_src_revision"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_a_package_received",
+     "team_a_package_controls",
+     "team_a_package_verified",
+     "team_a_package_committed"
+    ],
+    "head": "laptop_team_a_head"
+   },
+   "process": "laptop"
   },
   {
    "name": "found_team_b",
@@ -3617,42 +4408,8 @@
      "team_b_founding_epoch"
     ],
     "head": "team_b_head"
-   }
-  },
-  {
-   "name": "observe_a_src",
-   "request": "a_src_observe_request",
-   "carries": [
-    "a_src_selection"
-   ],
-   "answer": {
-    "stage": "previewed",
-    "local_effect": "none",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "a_src_observation"
-    ]
-   }
-  },
-  {
-   "name": "commit_a_src",
-   "request": "a_src_commit_request",
-   "carries": [
-    "a_src_manifest"
-   ],
-   "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "a_src_revision"
-    ],
-    "head": "a_src_head"
-   }
+   },
+   "process": "laptop"
   },
   {
    "name": "observe_b_src",
@@ -3669,7 +4426,8 @@
     "returns": [
      "b_src_observation"
     ]
-   }
+   },
+   "process": "laptop"
   },
   {
    "name": "commit_b_src",
@@ -3687,7 +4445,8 @@
      "b_src_revision"
     ],
     "head": "b_src_head"
-   }
+   },
+   "process": "laptop"
   },
   {
    "name": "probe_host_read",
@@ -3704,7 +4463,8 @@
     "returns": [
      "read_probe_stored"
     ]
-   }
+   },
+   "process": "laptop"
   },
   {
    "name": "offer_routes",
@@ -3721,7 +4481,8 @@
     "returns": [
      "offer_stored"
     ]
-   }
+   },
+   "process": "laptop"
   },
   {
    "name": "compose_start_a",
@@ -3738,7 +4499,8 @@
     "returns": [
      "start_a_preparation"
     ]
-   }
+   },
+   "process": "laptop"
   },
   {
    "name": "select_team_a_start",
@@ -3755,7 +4517,8 @@
     "returns": [
      "select_a_outcome"
     ]
-   }
+   },
+   "process": "laptop"
   },
   {
    "name": "activate_team_a",
@@ -3773,7 +4536,8 @@
      "a_activation_routing",
      "instructions_projection"
     ]
-   }
+   },
+   "process": "laptop"
   },
   {
    "name": "bind_existing_recipient",
@@ -3790,7 +4554,8 @@
     "returns": [
      "a_link_stored"
     ]
-   }
+   },
+   "process": "laptop"
   },
   {
    "name": "drive_entry",
@@ -3807,7 +4572,8 @@
     "returns": [
      "script_trace"
     ]
-   }
+   },
+   "process": "laptop"
   },
   {
    "name": "compose_start_b",
@@ -3824,7 +4590,8 @@
     "returns": [
      "start_b_preparation"
     ]
-   }
+   },
+   "process": "laptop"
   },
   {
    "name": "select_team_b_start",
@@ -3841,7 +4608,8 @@
     "returns": [
      "select_b_outcome"
     ]
-   }
+   },
+   "process": "laptop"
   },
   {
    "name": "select_team_by_name",
@@ -3855,7 +4623,23 @@
      "code": "pattern_mismatch",
      "pointer": "/selected"
     }
-   ]
+   ],
+   "process": "laptop"
   }
- ]
+ ],
+ "world": {
+  "processes": [
+   "laptop",
+   "desktop"
+  ],
+  "partitions": [
+   {
+    "between": [
+     "laptop",
+     "desktop"
+    ],
+    "from": "drive_entry"
+   }
+  ]
+ }
 }
