@@ -852,7 +852,7 @@
         },
         {
           "name": "shared_path",
-          "says": "P02 and P03 both change one shared integrator path from the same base; the integrator takes them one at a time, so one applies and is recorded passed and the other is refused as stale and is not.",
+          "says": "P02 and P03 both change one shared integrator path from the same base; the integrator takes them one at a time, so one applies and is recorded passed and the other is refused as stale and is not, and the node recorded passed is the one whose change is in the file.",
           "given": {
             "base": "coordinator",
             "changes": [
@@ -905,6 +905,14 @@
             },
             {
               "check": "one_recorded_passed",
+              "node_ids": [
+                "P02",
+                "P03"
+              ]
+            },
+            {
+              "check": "recorded_passed_is_the_applied_one",
+              "path": "AGENTS.md",
               "node_ids": [
                 "P02",
                 "P03"

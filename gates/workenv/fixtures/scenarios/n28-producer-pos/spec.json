@@ -75,6 +75,12 @@
    "prefix": "req"
   }
  ],
+ "members": [
+  {
+   "name": "span_member",
+   "text": "{\"record\":12,\"role\":\"user\",\"text\":\"Which journal mode does the local state database use?\"}\n{\"record\":13,\"role\":\"assistant\",\"text\":\"WAL, with synchronous FULL. Effective from 2026-01-01 under jurisdiction KR. Reason: 4.11 ms per commit against 11.76, and readers are not blocked.\"}\n{\"record\":14,\"role\":\"user\",\"text\":\"Where are the local state backups written?\"}\n{\"record\":15,\"role\":\"assistant\",\"text\":\"To a second local SSD, not to the network volume. Effective from 2026-03-01 for storage: a local SSD.\"}\n{\"record\":16,\"role\":\"user\",\"text\":\"Keep an eye on the network volume in case that changes.\"}\n{\"record\":17,\"role\":\"assistant\",\"text\":\"Noted; will revisit if the volume changes.\"}\n{\"record\":18,\"role\":\"assistant\",\"text\":\"Filed both decisions with the measured numbers attached.\"}\n"
+  }
+ ],
  "records": [
   {
    "name": "key_submitted",
@@ -391,11 +397,15 @@
     },
     {
      "pointer": "/read/0/digest",
-     "value": "$digest:span_bytes"
+     "value": "#span_member"
     },
     {
      "pointer": "/observed_at",
      "value": "$instant:observed_at"
+    },
+    {
+     "pointer": "/read/0/size",
+     "value": 782
     }
    ]
   },
@@ -467,7 +477,7 @@
     },
     {
      "pointer": "/processing/inputs/0/evidence_digest",
-     "value": "$digest:span_bytes"
+     "value": "#span_member"
     },
     {
      "pointer": "/processing/inputs/0/permits/destinations/0/repository_id",
@@ -574,7 +584,7 @@
     },
     {
      "pointer": "/processing/inputs/0/evidence_digest",
-     "value": "$digest:span_bytes"
+     "value": "#span_member"
     },
     {
      "pointer": "/processing/inputs/0/permits/destinations/0/repository_id",
@@ -669,7 +679,7 @@
     },
     {
      "pointer": "/origin/evidence_digests/0",
-     "value": "$digest:span_bytes"
+     "value": "#span_member"
     },
     {
      "pointer": "/proposed/home/repository_id",

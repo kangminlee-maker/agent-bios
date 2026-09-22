@@ -185,6 +185,11 @@
    "record": "adr_revision"
   },
   {
+   "digest_of": "adr_member",
+   "pointer": "/members/0/digest",
+   "record": "adr_revision"
+  },
+  {
    "minted": "adr_acquired_at",
    "pointer": "/acquisition/acquired_at",
    "record": "adr_provenance"
@@ -230,6 +235,11 @@
    "record": "adr_ref"
   },
   {
+   "digest_of": "adr_member",
+   "pointer": "/member/digest",
+   "record": "adr_ref"
+  },
+  {
    "digest_of": "adr_ref",
    "pointer": "/payload_digest",
    "record": "resolve_request"
@@ -247,6 +257,11 @@
   {
    "digest_of": "adr_provenance",
    "pointer": "/outputs/1/digest",
+   "record": "resolve_imported_adr_result"
+  },
+  {
+   "digest_of": "adr_member",
+   "pointer": "/outputs/2/digest",
    "record": "resolve_imported_adr_result"
   },
   {
@@ -430,6 +445,11 @@
    "record": "team_adr_revision"
   },
   {
+   "digest_of": "team_adr_member",
+   "pointer": "/members/0/digest",
+   "record": "team_adr_revision"
+  },
+  {
    "minted": "team_adr_acquired_at",
    "pointer": "/acquisition/acquired_at",
    "record": "team_adr_provenance"
@@ -475,6 +495,11 @@
    "record": "team_adr_ref"
   },
   {
+   "digest_of": "team_adr_member",
+   "pointer": "/member/digest",
+   "record": "team_adr_ref"
+  },
+  {
    "digest_of": "team_adr_ref",
    "pointer": "/payload_digest",
    "record": "team_resolve_request"
@@ -493,6 +518,25 @@
    "digest_of": "team_adr_provenance",
    "pointer": "/outputs/1/digest",
    "record": "resolve_imported_team_adr_result"
+  },
+  {
+   "digest_of": "team_adr_member",
+   "pointer": "/outputs/2/digest",
+   "record": "resolve_imported_team_adr_result"
+  }
+ ],
+ "members": [
+  {
+   "digest": "ba925c8765ec6da45b49fd7ae6b6bd6469aec8d75364a3dcd451a2d971a97bf3",
+   "name": "adr_member",
+   "size": 135,
+   "text": "# 0007: Journal mode\n\nStatus: Accepted\nDate: 2025-11-04\n\nWe adopt WAL journal mode for the embedded store to reduce writer contention.\n"
+  },
+  {
+   "digest": "58bf2a9c5287ecb865ba12362f9e2aabc4318576a8668ed2417dd8b4268fe521",
+   "name": "team_adr_member",
+   "size": 151,
+   "text": "# 0012: Recovery objective\n\nStatus: Accepted\nDate: 2025-11-11\n\nThe Team commits to a recovery point objective of fifteen minutes for the shared store.\n"
   }
  ],
  "minted": [
@@ -973,16 +1017,16 @@
    }
   },
   {
-   "digest": "0ae6e038e7ade500a1f2cf5ccb4403b53aa2fe5996685499043c7f962633c0c8",
+   "digest": "43944ae277a35f7426e96e22d6ff8c83eadc9e01b5c03c6da7114050083df609",
    "name": "adr_revision",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "c4933a82770781b42504ac60a6252bfd06ccfce66170394620ba473ade98365d",
+      "digest": "ba925c8765ec6da45b49fd7ae6b6bd6469aec8d75364a3dcd451a2d971a97bf3",
       "path": "adr/0007-journal-mode.md",
-      "size": 4120
+      "size": 135
      }
     ],
     "produced_at": "2000-01-01T00:00:00Z",
@@ -1044,7 +1088,7 @@
    }
   },
   {
-   "digest": "12baf4b412b12fa26c6135bbae779a20d942f4b8731dcea6be8df611058c9eb6",
+   "digest": "014fd175303809b8f37416c156f82c2c9ff86c9b4c0e207d780037a6fde33688",
    "name": "import_adr_result",
    "record": {
     "kind": "operation_result",
@@ -1056,7 +1100,7 @@
     },
     "outputs": [
      {
-      "digest": "0ae6e038e7ade500a1f2cf5ccb4403b53aa2fe5996685499043c7f962633c0c8",
+      "digest": "43944ae277a35f7426e96e22d6ff8c83eadc9e01b5c03c6da7114050083df609",
       "kind": "source_manifest"
      },
      {
@@ -1072,16 +1116,16 @@
    }
   },
   {
-   "digest": "5ce326004aec33d454a53e2662e566c21c17f806633938cb25219a7441cd2e1e",
+   "digest": "aa8a53f0a9190828054af57d41b9289cda84be5ca38413d06f0b17e7cb6e4c92",
    "name": "adr_ref",
    "record": {
     "kind": "source_ref",
     "member": {
-     "digest": "c4933a82770781b42504ac60a6252bfd06ccfce66170394620ba473ade98365d",
+     "digest": "ba925c8765ec6da45b49fd7ae6b6bd6469aec8d75364a3dcd451a2d971a97bf3",
      "path": "adr/0007-journal-mode.md",
-     "size": 4120
+     "size": 135
     },
-    "revision_digest": "0ae6e038e7ade500a1f2cf5ccb4403b53aa2fe5996685499043c7f962633c0c8",
+    "revision_digest": "43944ae277a35f7426e96e22d6ff8c83eadc9e01b5c03c6da7114050083df609",
     "role": "memory",
     "schema": 1,
     "scope": {
@@ -1092,7 +1136,7 @@
    }
   },
   {
-   "digest": "666bdf067ff5f7de27e291956c55c25ca2d1f3bb151db1834146a9fb4bd43e99",
+   "digest": "7ec878487d15da07222650c03fe5bb08186f7a3450d13078900311d0e8e951f0",
    "name": "resolve_request",
    "record": {
     "action": "read",
@@ -1110,7 +1154,7 @@
      "layer": "repository",
      "repository_id": "rep_dff40b8cbcad382da33200fb2bcb8e79"
     },
-    "payload_digest": "5ce326004aec33d454a53e2662e566c21c17f806633938cb25219a7441cd2e1e",
+    "payload_digest": "aa8a53f0a9190828054af57d41b9289cda84be5ca38413d06f0b17e7cb6e4c92",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_253b8e209dd2f93fee991e94c0d588ab",
@@ -1125,7 +1169,7 @@
    }
   },
   {
-   "digest": "a676c1cff9955be14e11f17aefcfc9e6c66e36341898bec87c420edc42f22c85",
+   "digest": "9eddd5a369c1be64837e50ce1239484a21f2360d611dfd8cc6abcd20e24d8511",
    "name": "resolve_imported_adr_result",
    "record": {
     "kind": "operation_result",
@@ -1136,16 +1180,20 @@
     },
     "outputs": [
      {
-      "digest": "0ae6e038e7ade500a1f2cf5ccb4403b53aa2fe5996685499043c7f962633c0c8",
+      "digest": "43944ae277a35f7426e96e22d6ff8c83eadc9e01b5c03c6da7114050083df609",
       "kind": "source_manifest"
      },
      {
       "digest": "174f9f7caed971e30391a324700bcdd46fc44fd1fb68d51ad59237a1e3aba205",
       "kind": "source_provenance"
+     },
+     {
+      "digest": "ba925c8765ec6da45b49fd7ae6b6bd6469aec8d75364a3dcd451a2d971a97bf3",
+      "kind": "source_member"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "666bdf067ff5f7de27e291956c55c25ca2d1f3bb151db1834146a9fb4bd43e99",
+    "request_digest": "7ec878487d15da07222650c03fe5bb08186f7a3450d13078900311d0e8e951f0",
     "request_id": "req_253b8e209dd2f93fee991e94c0d588ab",
     "schema": 1,
     "supported_recovery": []
@@ -1547,16 +1595,16 @@
    }
   },
   {
-   "digest": "fb4c7ff6c8c4266dc3c806b512db8bfef948c69e8f1bcc553b1091cff687827b",
+   "digest": "deb0ec836a97a14a5980a30adae17593d814b87d597319ba862d691c05458785",
    "name": "team_adr_revision",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "c4933a82770781b42504ac60a6252bfd06ccfce66170394620ba473ade98365d",
+      "digest": "58bf2a9c5287ecb865ba12362f9e2aabc4318576a8668ed2417dd8b4268fe521",
       "path": "adr/0012-recovery-objective.md",
-      "size": 4120
+      "size": 151
      }
     ],
     "produced_at": "2000-01-01T00:00:00Z",
@@ -1618,7 +1666,7 @@
    }
   },
   {
-   "digest": "1ef52247e2eaaca457864ec627db924145dbb425e1310040259c2a75dee204a8",
+   "digest": "74497bc15d627f843a5f76f773897f32767431afda6831716f0403ed79c35689",
    "name": "import_team_adr_result",
    "record": {
     "kind": "operation_result",
@@ -1630,7 +1678,7 @@
     },
     "outputs": [
      {
-      "digest": "fb4c7ff6c8c4266dc3c806b512db8bfef948c69e8f1bcc553b1091cff687827b",
+      "digest": "deb0ec836a97a14a5980a30adae17593d814b87d597319ba862d691c05458785",
       "kind": "source_manifest"
      },
      {
@@ -1646,16 +1694,16 @@
    }
   },
   {
-   "digest": "763f4431d5c00e17b1fb003d4d58d743c48047e573e03717a6a7ba89ae0fc28e",
+   "digest": "e50653c9ee3d6cba2869c54c2a650be2728a7088ac3473e1eec707acd2200036",
    "name": "team_adr_ref",
    "record": {
     "kind": "source_ref",
     "member": {
-     "digest": "c4933a82770781b42504ac60a6252bfd06ccfce66170394620ba473ade98365d",
+     "digest": "58bf2a9c5287ecb865ba12362f9e2aabc4318576a8668ed2417dd8b4268fe521",
      "path": "adr/0012-recovery-objective.md",
-     "size": 4120
+     "size": 151
     },
-    "revision_digest": "fb4c7ff6c8c4266dc3c806b512db8bfef948c69e8f1bcc553b1091cff687827b",
+    "revision_digest": "deb0ec836a97a14a5980a30adae17593d814b87d597319ba862d691c05458785",
     "role": "memory",
     "schema": 1,
     "scope": {
@@ -1666,7 +1714,7 @@
    }
   },
   {
-   "digest": "9fcd2f6eb5ea7145d4033191ed8ba18b24ab5b84dd9328f7a891b1b625cd1ade",
+   "digest": "ee339fc329444547cf5868ad8c48ff30a0b260275307581c084c69fe698443d8",
    "name": "team_resolve_request",
    "record": {
     "action": "read",
@@ -1684,7 +1732,7 @@
      "layer": "team",
      "team_id": "tem_f175360de472f6e806cd4fed5d2ba7e7"
     },
-    "payload_digest": "763f4431d5c00e17b1fb003d4d58d743c48047e573e03717a6a7ba89ae0fc28e",
+    "payload_digest": "e50653c9ee3d6cba2869c54c2a650be2728a7088ac3473e1eec707acd2200036",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_f9f27823bd409857848211e73f4ffc2a",
@@ -1699,7 +1747,7 @@
    }
   },
   {
-   "digest": "5b71cef790147e22319e03d3a6a8ad49d2954bc74415eaf05b86281a4d73860d",
+   "digest": "a0b0c3fa27903a84b3a4e2d14ca2ca976887c37a453a9e1c59f401d05805ebe7",
    "name": "resolve_imported_team_adr_result",
    "record": {
     "kind": "operation_result",
@@ -1710,16 +1758,20 @@
     },
     "outputs": [
      {
-      "digest": "fb4c7ff6c8c4266dc3c806b512db8bfef948c69e8f1bcc553b1091cff687827b",
+      "digest": "deb0ec836a97a14a5980a30adae17593d814b87d597319ba862d691c05458785",
       "kind": "source_manifest"
      },
      {
       "digest": "fb897b854e7e194ce682d1356fdeee64336c67bbc99932c92f2b0598d7a3fe68",
       "kind": "source_provenance"
+     },
+     {
+      "digest": "58bf2a9c5287ecb865ba12362f9e2aabc4318576a8668ed2417dd8b4268fe521",
+      "kind": "source_member"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "9fcd2f6eb5ea7145d4033191ed8ba18b24ab5b84dd9328f7a891b1b625cd1ade",
+    "request_digest": "ee339fc329444547cf5868ad8c48ff30a0b260275307581c084c69fe698443d8",
     "request_id": "req_f9f27823bd409857848211e73f4ffc2a",
     "schema": 1,
     "supported_recovery": []
@@ -1727,7 +1779,7 @@
   }
  ],
  "says": "A person binds this device's key and the checkout, then imports an architecture decision record from an inherited repository's ADR directory into a memory source of this repository (source.revision.admit, import_external_package with its declared origin, license conditions and exact package revision). The owner commits the revision and its provenance. The provenance keeps what the ADR says about its own history as claims, each with how far it is supported: its author 'Architecture group' as stated only, its decision date 2025-11-04 as verified against evidence, its status 'Accepted' and 'Approved by the platform council' as stated only. The person who imported it is not named as its author anywhere, and nothing is accepted: acceptance stays not_accepted and no Team receipt exists. Resolving the committed revision later returns the same manifest and the same provenance, so the ADR's status string and stated approval never became an acceptance by being imported, read or committed. The same person then founds a Team alone (team.found) and imports a second ADR the same way into the Team's own memory source: its claims keep the same shape and support, its acceptance likewise stays not_accepted, and resolving it back later returns the same manifest and provenance - a founder's own import, and the ADR's own status string, are not a Team's approval either.",
- "spec_sha256": "002ff58ab550aeba5495fe14e51d4adc18fae9321b17e1edd8c8864a54285fcc",
+ "spec_sha256": "fc391d6808315c0fa555564e9931c3449ac0f0c0cf862d6278c6604cfaa83875",
  "steps": [
   {
    "carries": [
@@ -1773,7 +1825,8 @@
    "result": "resolve_imported_adr_result",
    "returns": [
     "adr_revision",
-    "adr_provenance"
+    "adr_provenance",
+    "adr_member"
    ]
   },
   {
@@ -1820,7 +1873,8 @@
    "result": "resolve_imported_team_adr_result",
    "returns": [
     "team_adr_revision",
-    "team_adr_provenance"
+    "team_adr_provenance",
+    "team_adr_member"
    ]
   }
  ]

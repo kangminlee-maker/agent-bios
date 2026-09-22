@@ -1,6 +1,6 @@
 {
  "case": "CMP-PINS",
- "says": "Alice binds her device key, authors a personal Instructions source (revision one, whose body digest the owner computes) and selects revision one in her personal Instructions position. She opens a link to her working conversation, composes a first preparation for delivery on it (basis scoped to her personal layer alone), delivers its body to the current recipient and observes the delivery: the inventory names revision one's unit and body. Later she authors revision two of the same source against the head revision one left, re-pins her position to revision two against the position's head (the digest of the collection her first change stored), and composes a second preparation for the same recipient whose basis now also scopes a repository layer alongside her personal one (a scope change from the first preparation): it names the position's new head and revision two's body. She then switches that entry off, and composes a third preparation over the same two scopes but with an explicit order preferring her personal layer over the repository one — the reverse of the repository-before-personal default the second preparation's unstated order applied (an order change from the second preparation): it names the position's newest head and holds the same source, member and revision two as disabled, with no body. Each preparation mints its own unit id; a unit is followed across preparations by its source, member and revision. Observing the first preparation after all three changes \u2014 the revision, the scope and the order \u2014 returns the same delivery observation as before, naming revision one, and writes nothing: the changes reached only the preparations composed after them. What must not happen: a recomposition rewriting the first preparation, the recipient's delivered inventory or the revision, scope or order it was composed under, or a change to the position writing the source itself \u2014 revision two moves the source's own head only through its own admission.",
+ "says": "Alice binds her device key, authors a personal Instructions source (revision one, whose body digest the owner computes) and selects revision one in her personal Instructions position. She opens a link to her working conversation, composes a first preparation for delivery on it (basis scoped to her personal layer alone), delivers its body to the current recipient and observes the delivery: the inventory names revision one's unit and body. Later she authors revision two of the same source against the head revision one left, re-pins her position to revision two against the position's head (the digest of the collection her first change stored), and composes a second preparation for the same recipient whose basis now also scopes a repository layer alongside her personal one (a scope change from the first preparation): it names the position's new head and revision two's body. She then switches that entry off, and composes a third preparation over the same two scopes but with an explicit order preferring her personal layer over the repository one — the reverse of the repository-before-personal default the second preparation's unstated order applied (an order change from the second preparation): it names the position's newest head and holds the same source, member and revision two as disabled, with no body. Each preparation mints its own unit id; a unit is followed across preparations by its source, member and revision. Observing the first preparation after all three changes — the revision, the scope and the order — returns the same delivery observation as before, naming revision one, and writes nothing: the changes reached only the preparations composed after them. What must not happen: a recomposition rewriting the first preparation, the recipient's delivered inventory or the revision, scope or order it was composed under, or a change to the position writing the source itself — revision two moves the source's own head only through its own admission.",
  "ids": [
   {
    "name": "alice",
@@ -296,11 +296,11 @@
     },
     {
      "pointer": "/members/0/digest",
-     "value": "$digest:review_body"
+     "value": "#review_body_v1"
     },
     {
      "pointer": "/members/0/size",
-     "value": 2048
+     "value": 129
     },
     {
      "pointer": "/produced_at",
@@ -746,7 +746,7 @@
     },
     {
      "pointer": "/units/0/body_digest",
-     "value": "$digest:review_body"
+     "value": "#review_body_v1"
     }
    ]
   },
@@ -773,7 +773,7 @@
     {
      "pointer": "/requested/bodies",
      "value": [
-      "$digest:review_body"
+      "#review_body_v1"
      ]
     }
    ]
@@ -862,7 +862,7 @@
     {
      "pointer": "/observed/received",
      "value": [
-      "$digest:review_body"
+      "#review_body_v1"
      ]
     },
     {
@@ -921,7 +921,7 @@
     },
     {
      "pointer": "/observed/inventory/0/body_digest",
-     "value": "$digest:review_body"
+     "value": "#review_body_v1"
     }
    ]
   },
@@ -1105,11 +1105,11 @@
     },
     {
      "pointer": "/members/0/digest",
-     "value": "$digest:review_body_2"
+     "value": "#review_body_v2"
     },
     {
      "pointer": "/members/0/size",
-     "value": 2311
+     "value": 205
     },
     {
      "pointer": "/produced_at",
@@ -1435,7 +1435,7 @@
     },
     {
      "pointer": "/units/0/body_digest",
-     "value": "$digest:review_body_2"
+     "value": "#review_body_v2"
     }
    ]
   },
@@ -1851,6 +1851,16 @@
      "value": 1
     }
    ]
+  }
+ ],
+ "members": [
+  {
+   "name": "review_body_v1",
+   "text": "## Review policy\n\nEvery change to shared rules needs a second reviewer before it lands, and the reviewer must not be the author.\n"
+  },
+  {
+   "name": "review_body_v2",
+   "text": "## Review policy (revised)\n\nEvery change to shared rules needs a second reviewer before it lands, the reviewer must not be the author, and the review must be recorded against the exact revision it covers.\n"
   }
  ],
  "steps": [

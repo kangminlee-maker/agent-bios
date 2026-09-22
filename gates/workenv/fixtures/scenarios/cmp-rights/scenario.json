@@ -1899,14 +1899,15 @@
    }
   },
   {
-   "digest": "506d87a62d4f78296add2dffc3c9b9e14bbce4ccdec9556f52e7bf678784974f",
+   "digest": "b6b4b6ff2aee2329b6a6921919c9270af87091e8de99704f2f7f9c435d114627",
    "name": "alice_team_grant",
    "record": {
     "actions": [
      "read",
      "use",
      "contribute",
-     "publish"
+     "publish",
+     "policy"
     ],
     "created_at": "2000-01-01T00:00:00Z",
     "delegation_ceiling": 1,
@@ -1973,7 +1974,7 @@
    }
   },
   {
-   "digest": "692be25fdca169e3c77f94a46db42455aceb8d41ea5f0e639ee79bcb8152591a",
+   "digest": "bb6ea7cacf1dd5ce0f730fcff924c99e233fd6103b21a3bc9a93238bc319f074",
    "name": "found_team_result",
    "record": {
     "kind": "operation_result",
@@ -1997,7 +1998,7 @@
       "kind": "membership_record"
      },
      {
-      "digest": "506d87a62d4f78296add2dffc3c9b9e14bbce4ccdec9556f52e7bf678784974f",
+      "digest": "b6b4b6ff2aee2329b6a6921919c9270af87091e8de99704f2f7f9c435d114627",
       "kind": "grant_record"
      },
      {
@@ -3723,7 +3724,7 @@
   }
  ],
  "says": "The Team platform keeps a security rule source and, as that source's owner, sets its rights to read, use and derive, and not export. The repository reuses the Team's security.md bytes unchanged in a repository source of its own, and records rights for it that carry the Team source's rights and allow read and use: the reused bytes keep their owner's ceiling while the repository layer outranks the Team for the concern. A second rights change that would let the repository copy export those bytes is refused with source_right_not_overridable, and the first rights stay in force. bob, who works in the same repository with no grant from the Team, keeps an independent personal source and sets its rights to everything, export included; that commits with no Team policy named, because the Team's content policy does not reach content it does not own. bob's access is admitted for a projection of the Team's source (his profile is unlocked), and the projection itself is refused with source_not_authorized: admission and layer priority grant no right to a Team body. bob's attempt to widen the Team source's rights is refused with grant_not_held, since only the Team's owner changes Team-owned state. alice's projection over the repository and Team sources then names the repository security unit winning, with the Team's bytes by digest, and the Team unit shadowed by it. What must not happen: local content blocked by Team policy, a local override used to export or read protected Team bodies, or Team state changed by someone the Team did not authorize.",
- "spec_sha256": "b3fb06735e477ff9d0bef5422ec985cd9fbdd2b83a61ddf483ed4aeae9c2b299",
+ "spec_sha256": "2148872ff58475ceca0bd920a7ce31e70754b8d8aa7f6d17b6007173476f6447",
  "steps": [
   {
    "carries": [

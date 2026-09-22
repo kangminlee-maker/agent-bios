@@ -153,6 +153,10 @@
   {
    "name": "changed_context_use_id",
    "prefix": "req"
+  },
+  {
+   "name": "second_session_use_id",
+   "prefix": "req"
   }
  ],
  "records": [
@@ -1969,6 +1973,191 @@
    ]
   },
   {
+   "name": "second_session_use",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@second_session_use_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.use.prepare"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@journal_concern"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#use_envelope"
+    },
+    {
+     "pointer": "/recipient_digest",
+     "value": "#alice_link_2_open"
+    }
+   ]
+  },
+  {
+   "name": "second_session_admitted",
+   "from": "c06/result_admitting_the_use.json",
+   "drop": [
+    "/outcome/units/1"
+   ],
+   "set": [
+    {
+     "pointer": "/envelope_digest",
+     "value": "#use_envelope"
+    },
+    {
+     "pointer": "/outcome/frontiers/0/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/outcome/frontiers/0/checkpoint_digest",
+     "value": "$digest:repo_memory_head_2"
+    },
+    {
+     "pointer": "/outcome/frontiers/1/source_id",
+     "value": "@personal_memory"
+    },
+    {
+     "pointer": "/outcome/frontiers/1/checkpoint_digest",
+     "value": "$digest:personal_memory_head_2"
+    },
+    {
+     "pointer": "/outcome/units/0/unit_id",
+     "value": "$unt:second_session_unit"
+    },
+    {
+     "pointer": "/outcome/units/0/source_id",
+     "value": "@personal_memory"
+    },
+    {
+     "pointer": "/outcome/units/0/revision_digest",
+     "value": "#rollback_stored"
+    },
+    {
+     "pointer": "/outcome/units/0/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/outcome/units/0/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/outcome/units/0/body_digest",
+     "value": "#rollback_stored"
+    },
+    {
+     "pointer": "/outcome/use/use_id",
+     "value": "$use:second_session_use"
+    },
+    {
+     "pointer": "/outcome/use/state_digest",
+     "value": "#second_session_state"
+    },
+    {
+     "pointer": "/outcome/consumed/examined",
+     "value": 2
+    },
+    {
+     "pointer": "/outcome/consumed/units",
+     "value": 1
+    },
+    {
+     "pointer": "/outcome/consumed/bytes",
+     "value": 512
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:second_session_admitted_at"
+    }
+   ]
+  },
+  {
+   "name": "second_session_state",
+   "from": "c05/state_whose_conflict_waits_for_the_person.json",
+   "set": [
+    {
+     "pointer": "/question_digest",
+     "value": "#use_envelope"
+    },
+    {
+     "pointer": "/frontiers/0/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/frontiers/0/checkpoint_digest",
+     "value": "$digest:repo_memory_head_2"
+    },
+    {
+     "pointer": "/frontiers/1/source_id",
+     "value": "@personal_memory"
+    },
+    {
+     "pointer": "/frontiers/1/checkpoint_digest",
+     "value": "$digest:personal_memory_head_2"
+    },
+    {
+     "pointer": "/entries/0/record_id",
+     "value": "$rec:wal"
+    },
+    {
+     "pointer": "/entries/0/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/entries/1/record_id",
+     "value": "$rec:rollback"
+    },
+    {
+     "pointer": "/entries/1/source_id",
+     "value": "@personal_memory"
+    },
+    {
+     "pointer": "/material_gaps/0/pointer",
+     "value": "/entries/0"
+    },
+    {
+     "pointer": "/material_gaps/1/code",
+     "value": "choice_conflict_unresolved"
+    },
+    {
+     "pointer": "/material_gaps/1/pointer",
+     "value": "/entries/1"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:second_session_state_at"
+    }
+   ]
+  },
+  {
    "name": "bob_admitted",
    "from": "c06/result_admitting_the_use.json",
    "drop": [
@@ -2279,7 +2468,13 @@
   },
   {
    "name": "alice_link_2",
-   "from": "alice_link"
+   "from": "alice_link",
+   "set": [
+    {
+     "pointer": "/destination/destination_digest",
+     "value": "8544c270a8bc445d0ab540ebd531924d2cd384f11f7d6251c738fd41cb8a81b5"
+    }
+   ]
   },
   {
    "name": "alice_link_2_open",
@@ -3302,7 +3497,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "first_use_admitted"
+     "first_use_admitted",
+     "rollback_choice_body"
     ]
    }
   },
@@ -3337,7 +3533,8 @@
     "recovery": [],
     "returns": [
      "next_day_admitted",
-     "next_day_state"
+     "next_day_state",
+     "rollback_choice_body"
     ]
    },
    "advance_seconds": 86400
@@ -3373,7 +3570,44 @@
     "recovery": [],
     "returns": [
      "bob_admitted",
-     "bob_state"
+     "bob_state",
+     "wal_choice_body"
+    ]
+   }
+  },
+  {
+   "name": "open_alice_link_2",
+   "request": "open_alice_link_2",
+   "carries": [
+    "alice_link_2"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "alice_link_2_open"
+    ]
+   }
+  },
+  {
+   "name": "second_session_use",
+   "request": "second_session_use",
+   "carries": [
+    "use_envelope"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "second_session_admitted",
+     "second_session_state",
+     "rollback_choice_body"
     ]
    }
   },
@@ -3414,23 +3648,6 @@
      "new_governed_request"
     ],
     "returns": []
-   }
-  },
-  {
-   "name": "open_alice_link_2",
-   "request": "open_alice_link_2",
-   "carries": [
-    "alice_link_2"
-   ],
-   "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "alice_link_2_open"
-    ]
    }
   },
   {
@@ -3598,5 +3815,15 @@
     "point": "after_commit_before_return"
    }
   ]
- }
+ },
+ "members": [
+  {
+   "name": "rollback_choice_body",
+   "text": "{\"alternatives\":[{\"choice\":\"WAL with synchronous FULL\",\"reason\":\"My checkout sits on a network volume that does not honour fullfsync.\"}],\"applicability\":{\"conditions\":[{\"dimension\":\"repository\",\"value\":\"this one\"}],\"states\":\"stated\"},\"choice\":\"A rollback journal with synchronous EXTRA.\",\"home\":{\"layer\":\"personal\",\"principal_id\":\"prn_620646016d05ed56057cbcda927d0268\"},\"kind\":\"choice_record\",\"question\":\"Which journal mode does the local state database use?\",\"reason\":\"On this machine the database is on a network volume where WAL is unsafe.\",\"record_id\":\"rec_38c8f97d8c2031209dc9f04b2e7f3639\",\"recorded_at\":\"2000-01-01T00:00:00Z\",\"schema\":1,\"workstream_ids\":[]}"
+  },
+  {
+   "name": "wal_choice_body",
+   "text": "{\"alternatives\":[{\"choice\":\"A rollback journal with EXTRA\",\"reason\":\"One read waited 766 ms during a commit burst.\"}],\"applicability\":{\"conditions\":[{\"dimension\":\"repository\",\"value\":\"this one\"}],\"states\":\"stated\"},\"choice\":\"WAL, with synchronous FULL.\",\"home\":{\"layer\":\"repository\",\"repository_id\":\"rep_30a578bc8bc9a8a15d72226318e85595\"},\"kind\":\"choice_record\",\"question\":\"Which journal mode does the local state database use?\",\"reason\":\"4.11 ms per commit against 11.76, and readers are not blocked.\",\"record_id\":\"rec_15828cf4bcb39e5c99cde84de6b387ec\",\"recorded_at\":\"2000-01-01T00:00:00Z\",\"schema\":1,\"workstream_ids\":[]}"
+  }
+ ]
 }

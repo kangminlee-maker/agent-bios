@@ -755,7 +755,7 @@
         },
         {
           "pointer": "/outcome/units/0/body_digest",
-          "value": "#wal_stored"
+          "value": "#wal_choice_body"
         },
         {
           "pointer": "/outcome/units/1/unit_id",
@@ -787,7 +787,7 @@
         },
         {
           "pointer": "/outcome/units/1/body_digest",
-          "value": "#rollback_journal_stored"
+          "value": "#rollback_choice_body"
         }
       ],
       "drop": [
@@ -985,6 +985,16 @@
       ]
     }
   ],
+  "members": [
+    {
+      "name": "wal_choice_body",
+      "text": "WAL, with synchronous FULL."
+    },
+    {
+      "name": "rollback_choice_body",
+      "text": "A rollback journal with EXTRA."
+    }
+  ],
   "steps": [
     {
       "name": "bind_my_key",
@@ -1106,7 +1116,9 @@
         "gaps": [],
         "recovery": [],
         "returns": [
-          "inspection"
+          "inspection",
+          "wal_choice_body",
+          "rollback_choice_body"
         ]
       }
     },

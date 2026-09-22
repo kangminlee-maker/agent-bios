@@ -1,6 +1,6 @@
 {
  "case": "N05-CRASH-NEG",
- "says": "Alice registers a private notes source on her laptop, which makes its first head, and commits it once on that head; she then commits seven more times, the process being killed at a different B03 publication fault point during each commit — before staging, after the member write before sync, after staging before rename, after rename before the directory sync, after that sync before the transaction begins, inside the transaction before commit, and after commit before the answer returns. A kill before the transaction commits leaves the prior head and no receipt, so the same request, sent again after the restart, commits exactly once; each next commit expects exactly the head the previous one moved to and is accepted, so no staged member was counted as committed and no request moved a head twice. The kill after commit and before the answer leaves Alice without a reply: the outcome is unknown to her, and querying that request id settles it with the original result and its receipt, whose head the next commit then expects. Alice then takes two backups of the profile, outside the source's head: the first killed during its checkpoint and the second killed during the backup copy itself; each is answered by the same discipline as the commits — the same request, sent again after its own restart, commits exactly once, writing one backup_set and one receipt. A later commit on the source, after both backups, still expects the head the last commit moved to. A later query of the commit killed inside its transaction returns the one result and receipt its resubmission wrote. Submitting the settled request id again with other bytes (another revision) is refused with request_id_conflict and writes nothing. What must not happen: a head naming staged members without a receipt, a second receipt for one request, or the conflicting bytes replacing the original.",
+ "says": "Alice registers a private notes source on her laptop, which makes its first head, and commits it once on that head; she then commits seven more times, the process being killed at a different B03 publication fault point during each commit \u2014 before staging, after the member write before sync, after staging before rename, after rename before the directory sync, after that sync before the transaction begins, inside the transaction before commit, and after commit before the answer returns. A kill before the transaction commits leaves the prior head and no receipt, so the same request, sent again after the restart, commits exactly once; each next commit expects exactly the head the previous one moved to and is accepted, so no staged member was counted as committed and no request moved a head twice. The kill after commit and before the answer leaves Alice without a reply: the outcome is unknown to her, and querying that request id settles it with the original result and its receipt, whose head the next commit then expects. Alice then takes two backups of the profile, outside the source's head: the first killed during its checkpoint and the second killed during the backup copy itself; each is answered by the same discipline as the commits \u2014 the same request, sent again after its own restart, commits exactly once, writing one backup_set and one receipt. A later commit on the source, after both backups, still expects the head the last commit moved to. A later query of the commit killed inside its transaction returns the one result and receipt its resubmission wrote. Submitting the settled request id again with other bytes (another revision) is refused with request_id_conflict and writes nothing. What must not happen: a head naming staged members without a receipt, a second receipt for one request, or the conflicting bytes replacing the original.",
  "ids": [
   {
    "name": "alice",
@@ -268,6 +268,10 @@
      "value": "@notes_source"
     },
     {
+     "pointer": "/members/0/digest",
+     "value": "8d2ff3803469b3b389c7bdf51457a9d45791545cd22637cdb1f8ca0cc8ac6a5a"
+    },
+    {
      "pointer": "/members/0/size",
      "value": 4120
     }
@@ -352,6 +356,10 @@
     {
      "pointer": "/source_id",
      "value": "@notes_source"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "28b53335341bc6c862b8753b25b4acca9d00287bdb33fca7b4971a725420e128"
     },
     {
      "pointer": "/members/0/size",
@@ -440,6 +448,10 @@
      "value": "@notes_source"
     },
     {
+     "pointer": "/members/0/digest",
+     "value": "8c337f177cb8ae67b7e0abf75e235887b8262c5045c1c0a02a8f67ffe50b961d"
+    },
+    {
      "pointer": "/members/0/size",
      "value": 4122
     }
@@ -524,6 +536,10 @@
     {
      "pointer": "/source_id",
      "value": "@notes_source"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "959af8c565d4f1faf1325b2735f781cdd45fe732e89fab41ac0c9fea14ffe69f"
     },
     {
      "pointer": "/members/0/size",
@@ -612,6 +628,10 @@
      "value": "@notes_source"
     },
     {
+     "pointer": "/members/0/digest",
+     "value": "51fec29ec4b3b9f6635f5355f8f7b9b84f26f47fc717395b7ee3970de12f8393"
+    },
+    {
      "pointer": "/members/0/size",
      "value": 4124
     }
@@ -696,6 +716,10 @@
     {
      "pointer": "/source_id",
      "value": "@notes_source"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "f5a509f47ddff3a0e3b23e81c93ee1d149b7d5fcbb3de645467e3e8d87555585"
     },
     {
      "pointer": "/members/0/size",
@@ -784,6 +808,10 @@
      "value": "@notes_source"
     },
     {
+     "pointer": "/members/0/digest",
+     "value": "75d1f47ac053388ab71cba15191656b55bece00cc8e2f330b8de18eaaca09eb1"
+    },
+    {
      "pointer": "/members/0/size",
      "value": 4126
     }
@@ -868,6 +896,10 @@
     {
      "pointer": "/source_id",
      "value": "@notes_source"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "af8e45895295a17be54babc3a8b3346fea998de57e341e7f88f4276c4895b45c"
     },
     {
      "pointer": "/members/0/size",
@@ -1208,6 +1240,10 @@
      "value": "@notes_source"
     },
     {
+     "pointer": "/members/0/digest",
+     "value": "0f728e1a57cfe3480afc4b03748ea423e1a949e2027930e408c7f49580031869"
+    },
+    {
      "pointer": "/members/0/size",
      "value": 4129
     }
@@ -1356,6 +1392,10 @@
     {
      "pointer": "/source_id",
      "value": "@notes_source"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "a38b622546534a2b8f07920ed5b2beb80fa1a3eb2d1bec46b1384d4bb066c02b"
     },
     {
      "pointer": "/members/0/size",

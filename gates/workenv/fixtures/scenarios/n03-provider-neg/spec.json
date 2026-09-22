@@ -657,6 +657,24 @@
    ]
   },
   {
+   "name": "first_attempt_control_proof",
+   "from": "bindings/signature_over_a_manifest.json",
+   "set": [
+    {
+     "pointer": "/namespace",
+     "value": "agent-bios/sign_in_attempt"
+    },
+    {
+     "pointer": "/signed_digest",
+     "value": "#first_attempt_asked"
+    },
+    {
+     "pointer": "/signer_binding_id",
+     "value": "$bnd:alice_binding"
+    }
+   ]
+  },
+  {
    "name": "begin_first_link_request",
    "from": "c02/lock_request.json",
    "set": [
@@ -703,6 +721,12 @@
     {
      "pointer": "/payload_digest",
      "value": "#first_attempt_asked"
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#first_attempt_control_proof"
+     ]
     }
    ]
   },
@@ -947,6 +971,10 @@
     {
      "pointer": "/changed_at",
      "value": "$instant:unlock_at_terminal_at"
+    },
+    {
+     "pointer": "/state/key_mode/runs",
+     "value": "real"
     }
    ]
   },
@@ -1045,6 +1073,24 @@
    ]
   },
   {
+   "name": "second_attempt_control_proof",
+   "from": "bindings/signature_over_a_manifest.json",
+   "set": [
+    {
+     "pointer": "/namespace",
+     "value": "agent-bios/sign_in_attempt"
+    },
+    {
+     "pointer": "/signed_digest",
+     "value": "#second_attempt_asked"
+    },
+    {
+     "pointer": "/signer_binding_id",
+     "value": "$bnd:alice_binding"
+    }
+   ]
+  },
+  {
    "name": "begin_second_link_request",
    "from": "c02/lock_request.json",
    "set": [
@@ -1091,6 +1137,12 @@
     {
      "pointer": "/payload_digest",
      "value": "#second_attempt_asked"
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#second_attempt_control_proof"
+     ]
     }
    ]
   },
@@ -1439,6 +1491,10 @@
     {
      "pointer": "/changed_at",
      "value": "$instant:sign_in_at_terminal_at"
+    },
+    {
+     "pointer": "/state/key_mode/runs",
+     "value": "real"
     }
    ]
   },
@@ -1707,7 +1763,8 @@
    "name": "begin_first_link",
    "request": "begin_first_link_request",
    "carries": [
-    "first_attempt_asked"
+    "first_attempt_asked",
+    "first_attempt_control_proof"
    ],
    "answer": {
     "stage": "committed",
@@ -1797,7 +1854,8 @@
    "name": "begin_second_link",
    "request": "begin_second_link_request",
    "carries": [
-    "second_attempt_asked"
+    "second_attempt_asked",
+    "second_attempt_control_proof"
    ],
    "answer": {
     "stage": "committed",

@@ -1088,6 +1088,11 @@
    "record": "resume_first_use_result"
   },
   {
+   "digest_of": "wal_choice_body",
+   "pointer": "/outputs/1/digest",
+   "record": "resume_first_use_result"
+  },
+  {
    "digest_of": "use_envelope",
    "pointer": "/payload_digest",
    "record": "reload_after_the_answer"
@@ -1105,6 +1110,11 @@
   {
    "digest_of": "first_use_admitted",
    "pointer": "/outputs/0/digest",
+   "record": "reload_after_the_answer_result"
+  },
+  {
+   "digest_of": "wal_choice_body",
+   "pointer": "/outputs/1/digest",
    "record": "reload_after_the_answer_result"
   },
   {
@@ -1456,6 +1466,25 @@
    "digest_of": "second_use_admitted",
    "pointer": "/outputs/0/digest",
    "record": "resume_second_use_result"
+  },
+  {
+   "digest_of": "rollback_choice_body",
+   "pointer": "/outputs/1/digest",
+   "record": "resume_second_use_result"
+  }
+ ],
+ "members": [
+  {
+   "digest": "f6e86dac3e16bd7b51c1c363fda5632e34cfce419a0e256018d36e1072e5a524",
+   "name": "wal_choice_body",
+   "size": 622,
+   "text": "{\"alternatives\":[{\"choice\":\"A rollback journal with EXTRA\",\"reason\":\"One read waited 766 ms during a commit burst.\"}],\"applicability\":{\"conditions\":[{\"dimension\":\"repository\",\"value\":\"this one\"}],\"states\":\"stated\"},\"choice\":\"WAL, with synchronous FULL.\",\"home\":{\"layer\":\"repository\",\"repository_id\":\"rep_df1bdcd9e1e41e96d1c3955f9bc037c7\"},\"kind\":\"choice_record\",\"question\":\"Which journal mode does the local state database use?\",\"reason\":\"4.11 ms per commit against 11.76, and readers are not blocked.\",\"record_id\":\"rec_d972510a48f3ad43b8c7cf80f40e8fe6\",\"recorded_at\":\"2000-01-01T00:00:00Z\",\"schema\":1,\"workstream_ids\":[]}"
+  },
+  {
+   "digest": "9e657a2abcd20a925df272794abd5d95b102c1955b8b5e163ba9a2cd5ddbb960",
+   "name": "rollback_choice_body",
+   "size": 663,
+   "text": "{\"alternatives\":[{\"choice\":\"WAL with synchronous FULL\",\"reason\":\"My checkout sits on a network volume that does not honour fullfsync.\"}],\"applicability\":{\"conditions\":[{\"dimension\":\"repository\",\"value\":\"this one\"}],\"states\":\"stated\"},\"choice\":\"A rollback journal with synchronous EXTRA.\",\"home\":{\"layer\":\"personal\",\"principal_id\":\"prn_94ad10948a41e3c4bf1dec654287e517\"},\"kind\":\"choice_record\",\"question\":\"Which journal mode does the local state database use?\",\"reason\":\"On this machine the database is on a network volume where WAL is unsafe.\",\"record_id\":\"rec_4878576ceb9bc6b3e21c0faf6a5bbe2e\",\"recorded_at\":\"2000-01-01T00:00:00Z\",\"schema\":1,\"workstream_ids\":[]}"
   }
  ],
  "minted": [
@@ -3761,7 +3790,7 @@
    }
   },
   {
-   "digest": "0f8f0670666a87566700be3fec87aace4d815d6fd3b88789aa709f0e383d40b6",
+   "digest": "6e4d25dece033571eb61888a52be24c0c9c08e33486aec81d4f503277c22a98f",
    "name": "resume_first_use_result",
    "record": {
     "kind": "operation_result",
@@ -3774,6 +3803,10 @@
      {
       "digest": "e55d75814eb2b2084bc66f64020b2bf81fd911b4da0c5cdfb0226bba27bf9ef7",
       "kind": "reader_result"
+     },
+     {
+      "digest": "f6e86dac3e16bd7b51c1c363fda5632e34cfce419a0e256018d36e1072e5a524",
+      "kind": "source_member"
      }
     ],
     "provider_effect": "not_applicable",
@@ -3813,7 +3846,7 @@
    }
   },
   {
-   "digest": "4881f729f8b08f0c763f7c119e5e8fa2ae4fa22ce3824e785a86c716266216c6",
+   "digest": "1a56a4fb5c7a8c262ca51db73b91617c202a5bc2990282dd0e7786c8078a6d01",
    "name": "reload_after_the_answer_result",
    "record": {
     "kind": "operation_result",
@@ -3826,6 +3859,10 @@
      {
       "digest": "e55d75814eb2b2084bc66f64020b2bf81fd911b4da0c5cdfb0226bba27bf9ef7",
       "kind": "reader_result"
+     },
+     {
+      "digest": "f6e86dac3e16bd7b51c1c363fda5632e34cfce419a0e256018d36e1072e5a524",
+      "kind": "source_member"
      }
     ],
     "provider_effect": "not_applicable",
@@ -4313,7 +4350,7 @@
    }
   },
   {
-   "digest": "80f6bb068614b7bc702a5d0322bd46c00cb13bcaa21cfe9406a905078d610779",
+   "digest": "f649805730c46306ccba91c0d7f49aeaa286fe83771f88ae136b989bcba27c65",
    "name": "resume_second_use_result",
    "record": {
     "kind": "operation_result",
@@ -4326,6 +4363,10 @@
      {
       "digest": "31c343fca564dd8cbb33d77b693b4b4fd0f94ee283950a24fb7c515a867c7050",
       "kind": "reader_result"
+     },
+     {
+      "digest": "9e657a2abcd20a925df272794abd5d95b102c1955b8b5e163ba9a2cd5ddbb960",
+      "kind": "source_member"
      }
     ],
     "provider_effect": "not_applicable",
@@ -4337,7 +4378,7 @@
   }
  ],
  "says": "Alice's host is probed for native user events: the probe ran for real and worked. Her first use of the conflicting journal-mode concern targets the concern, so the owner starts a new use and waits on one sealed question. The runtime is killed after it commits that question and restarted, and the same request returns the same question and use rather than a second prompt; resubmitting the identical request bytes replays that answer, and a page reload that prepares the same use again under a new request, targeting the use, finds its one pending question and writes nothing. The question is delivered to her host, and a reconnect that resubmits the same delivery request gets the same attempt back; a host retry that minted a question id of its own is refused with retry_under_a_new_id_refused and asks nothing. Alice answers WAL with ask-each-use; the verified answer names the probe and the host configuration measured when the reply was classified, and the resume admits that use. Preparing the same use again then finds its admitted result. Her next logical use of the same unchanged concern targets the concern again and is not admitted on that answer: it is a new use waiting on a new question of its own, which she answers with the rollback journal, and only that use is admitted on it.",
- "spec_sha256": "b01f34698bcb8c1e688b65c51111535131b0129c7829fa1504b5dfc77843658c",
+ "spec_sha256": "7c176a3ff9c97a9d89a74398b3aae2222ba5a08625a27d0ee8c7d669488e1e5a",
  "steps": [
   {
    "carries": [
@@ -4530,7 +4571,8 @@
    "request": "resume_first_use",
    "result": "resume_first_use_result",
    "returns": [
-    "first_use_admitted"
+    "first_use_admitted",
+    "wal_choice_body"
    ]
   },
   {
@@ -4541,7 +4583,8 @@
    "request": "reload_after_the_answer",
    "result": "reload_after_the_answer_result",
    "returns": [
-    "first_use_admitted"
+    "first_use_admitted",
+    "wal_choice_body"
    ]
   },
   {
@@ -4578,7 +4621,8 @@
    "request": "resume_second_use",
    "result": "resume_second_use_result",
    "returns": [
-    "second_use_admitted"
+    "second_use_admitted",
+    "rollback_choice_body"
    ]
   }
  ],

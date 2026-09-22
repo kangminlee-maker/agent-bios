@@ -1376,7 +1376,7 @@
    "record": "first_use_admitted"
   },
   {
-   "digest_of": "wal_stored",
+   "digest_of": "wal_body",
    "pointer": "/outcome/units/0/body_digest",
    "record": "first_use_admitted"
   },
@@ -1403,6 +1403,11 @@
   {
    "digest_of": "first_use_admitted",
    "pointer": "/outputs/0/digest",
+   "record": "resume_on_the_new_version_result"
+  },
+  {
+   "digest_of": "wal_body",
+   "pointer": "/outputs/1/digest",
    "record": "resume_on_the_new_version_result"
   },
   {
@@ -2151,7 +2156,7 @@
    "record": "next_use_admitted"
   },
   {
-   "digest_of": "team_choice_stored",
+   "digest_of": "team_choice_body",
    "pointer": "/outcome/units/0/body_digest",
    "record": "next_use_admitted"
   },
@@ -2179,6 +2184,25 @@
    "digest_of": "next_use_admitted",
    "pointer": "/outputs/0/digest",
    "record": "resume_once_reached_result"
+  },
+  {
+   "digest_of": "team_choice_body",
+   "pointer": "/outputs/1/digest",
+   "record": "resume_once_reached_result"
+  }
+ ],
+ "members": [
+  {
+   "digest": "b0a21eaef2dbdea3a0784eadf8ba72c94c5768a221f7cafa57fdf00272fd45c9",
+   "name": "wal_body",
+   "size": 27,
+   "text": "WAL, with synchronous FULL."
+  },
+  {
+   "digest": "9d42c61a287b2f846353c35af236750ea6d2663a99f369ff5c83826b343c8024",
+   "name": "team_choice_body",
+   "size": 55,
+   "text": "WAL with synchronous NORMAL on every member's checkout."
   }
  ],
  "minted": [
@@ -5056,7 +5080,7 @@
    }
   },
   {
-   "digest": "7c2f44a9d752bc2e031e93e54616fc5d691a365192e63eff7a063db19a36502d",
+   "digest": "6fef61d87db274c62b56fc48da9855a741dd08ed32f39b282fcb6bb73be8c9f8",
    "name": "first_use_admitted",
    "record": {
     "ended": true,
@@ -5083,7 +5107,7 @@
      "standing": "delivered",
      "units": [
       {
-       "body_digest": "4c0ab6c6a07f9087aaf9ed1641544dd1ae493509a310340a633d1d1e51f8cb0b",
+       "body_digest": "b0a21eaef2dbdea3a0784eadf8ba72c94c5768a221f7cafa57fdf00272fd45c9",
        "layer": "repository",
        "need": "required",
        "revision_digest": "4c0ab6c6a07f9087aaf9ed1641544dd1ae493509a310340a633d1d1e51f8cb0b",
@@ -5105,7 +5129,7 @@
    }
   },
   {
-   "digest": "b2e99be457556910b6d9aa33d51bfc1297b5268a89a6aa911bf0879409546f48",
+   "digest": "2848f21f9e7ba86b3b0f306b545bcd2667b90d7747e16a0b4f8ff72acf48300d",
    "name": "resume_on_the_new_version_result",
    "record": {
     "kind": "operation_result",
@@ -5116,8 +5140,12 @@
     },
     "outputs": [
      {
-      "digest": "7c2f44a9d752bc2e031e93e54616fc5d691a365192e63eff7a063db19a36502d",
+      "digest": "6fef61d87db274c62b56fc48da9855a741dd08ed32f39b282fcb6bb73be8c9f8",
       "kind": "reader_result"
+     },
+     {
+      "digest": "b0a21eaef2dbdea3a0784eadf8ba72c94c5768a221f7cafa57fdf00272fd45c9",
+      "kind": "source_member"
      }
     ],
     "provider_effect": "not_applicable",
@@ -6534,7 +6562,7 @@
    }
   },
   {
-   "digest": "794d86a523503a49d031c42cb7d273c024b6c63ef1e251ca92f747915c7f8338",
+   "digest": "5b1a8364da01dd161c0329e5affe96686e1db996432ec96d2235c13e7ae2a078",
    "name": "next_use_admitted",
    "record": {
     "ended": true,
@@ -6565,7 +6593,7 @@
      "standing": "delivered",
      "units": [
       {
-       "body_digest": "7d2b16e63ff6df38e4baa87795ce3c876f2e327664d0e2b16c6f60e49220c639",
+       "body_digest": "9d42c61a287b2f846353c35af236750ea6d2663a99f369ff5c83826b343c8024",
        "layer": "team",
        "need": "required",
        "revision_digest": "7d2b16e63ff6df38e4baa87795ce3c876f2e327664d0e2b16c6f60e49220c639",
@@ -6587,7 +6615,7 @@
    }
   },
   {
-   "digest": "688756f57c1d9cd0df8c1dc70232d286116126ce4e6afdc2528de8a64902863a",
+   "digest": "ffaa477f6aa4d9560f96e5d46cec9a29d4de23dfcf66f608486b4922db47edbf",
    "name": "resume_once_reached_result",
    "record": {
     "kind": "operation_result",
@@ -6598,8 +6626,12 @@
     },
     "outputs": [
      {
-      "digest": "794d86a523503a49d031c42cb7d273c024b6c63ef1e251ca92f747915c7f8338",
+      "digest": "5b1a8364da01dd161c0329e5affe96686e1db996432ec96d2235c13e7ae2a078",
       "kind": "reader_result"
+     },
+     {
+      "digest": "9d42c61a287b2f846353c35af236750ea6d2663a99f369ff5c83826b343c8024",
+      "kind": "source_member"
      }
     ],
     "provider_effect": "not_applicable",
@@ -6611,7 +6643,7 @@
   }
  ],
  "says": "Alice's host is probed for native user events: the probe ran for real and worked. Her first use of the conflicting journal-mode concern waits on question version 1, sealed against comparison basis generation 1. Before she answers, the rollback alternative is corrected by a lifecycle event, so the basis moves. Her answer to the version still on her screen is recorded as verified evidence for version 1, naming the probe and the host configuration measured when it was classified, but resuming the use with it is answered stale with resume_stale and nothing is applied. Preparing the same use again, a request that targets the use, refreshes the prompt: the same question at version 2, sealed against generation 2 where the rollback participant is corrected, and version 1 is returned as superseded. She answers version 2. A resume that reuses the request id of the stale resume with the new payload is refused with request_id_conflict, so one outer request id cannot carry a new decision; the resume under its own request id admits the use on her version 2 answer. On her desktop Alice then founds a Team, with the desktop as its finalizer, and publishes to the Team's decisions source a third journal-mode choice that applies to this repository. Her next use on the laptop requires that source beside the other two. While the laptop and the desktop are partitioned, the prepare cannot reach the Team source: it is blocked with comparison_incomplete and returns a result that names the Team source as unread (remote_unknown), with no question sealed over the other two and no use admitted, so the unreachable participant is read neither as empty nor as approved. Once the partition ends, the same request proceeds and the use waits on a question over all three. Alice answers it; the partition returns before the resume, whose recheck before admission cannot reach the Team source and is blocked the same way; once reached, the same resume admits the use on her answer.",
- "spec_sha256": "31a81e7c5a5983c7c75fa03891c8b12cf02900ae2e5dde29cc18929e1bfb9f29",
+ "spec_sha256": "fd282ac5eeb1ceb09a6513207fc228b7d00b95cc9c6ecc0cb3857fc8cba273a1",
  "steps": [
   {
    "carries": [
@@ -6817,7 +6849,8 @@
    "request": "resume_on_the_new_version",
    "result": "resume_on_the_new_version_result",
    "returns": [
-    "first_use_admitted"
+    "first_use_admitted",
+    "wal_body"
    ]
   },
   {
@@ -6943,7 +6976,8 @@
    "request": "resume_next_use",
    "result": "resume_once_reached_result",
    "returns": [
-    "next_use_admitted"
+    "next_use_admitted",
+    "team_choice_body"
    ]
   }
  ],

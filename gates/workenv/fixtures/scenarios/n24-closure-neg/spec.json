@@ -1,6 +1,6 @@
 {
  "case": "N24-CLOSURE-NEG",
- "says": "Alice binds her device key and registers package candidates built from one commit of the integrated source. The first candidate packs install.sh, which reaches compose/assemble.py and compose/instructions_catalog.py when it runs, but no member provides compose/instructions_catalog.py: the owner refuses the registration with runtime_path_missing at /members/0/reaches/1, the place naming that path. The second candidate is closed but also packs gates/check-package.sh, a path the integrated source declares author-side: refused with author_side_member at that member's copied_from. The third lists a member with neither a source path nor a pack-time origin, and is refused at admission with missing_field at /members/0/origin. Each refusal writes nothing (local effect none, no receipt): a query by the first request id returns the same refused result and no receipt, and a query by the third, which the owner never admitted, is answered request_not_held. Only a candidate whose every reached path is a member, with no author-side member and an origin for each, is registered: the harness packs the checkout once more, immediately before this closing registration, and the owner commits the closed candidate it built and returns it exactly as submitted, with every path its members reach one of its members. An inventory of the source checkout and of the user's installed state taken before the first, refused registration equals one taken after the closing registration and its query: nothing here, refused or committed, wrote to either. What must not happen: a candidate registered while a reached path is missing, an author-side file shipping, a member with no origin listed, or any registration — refused or committed — writing anything to the source checkout or the user's installed state.",
+ "says": "Alice binds her device key and registers package candidates built from one commit of the integrated source. The first candidate packs install.sh, which reaches compose/assemble.py and compose/instructions_catalog.py when it runs, but no member provides compose/instructions_catalog.py: the owner refuses the registration with runtime_path_missing at /members/0/reaches/1, the place naming that path. The second candidate is closed but also packs gates/check-package.sh, a path the integrated source declares author-side: refused with author_side_member at that member's copied_from. The third lists a member with neither a source path nor a pack-time origin, and is refused at admission with missing_field at /members/0/origin. Each refusal writes nothing (local effect none, no receipt): a query by the first request id returns the same refused result and no receipt, and a query by the third, which the owner never admitted, is answered request_not_held. Only a candidate whose every reached path is a member, with no author-side member and an origin for each, is registered: the harness packs the checkout once more, immediately before this closing registration, and the owner commits the closed candidate it built and returns it exactly as submitted, with every path its members reach one of its members. An inventory of the source checkout and of the user's installed state taken before the first, refused registration equals one taken after the closing registration and its query: nothing here, refused or committed, wrote to either. What must not happen: a candidate registered while a reached path is missing, an author-side file shipping, a member with no origin listed, or any registration \u2014 refused or committed \u2014 writing anything to the source checkout or the user's installed state.",
  "ids": [
   {
    "name": "alice",
@@ -546,10 +546,86 @@
   {
    "name": "checkout_before",
    "from": "sources/revision_submitted.json",
+   "drop": [
+    "/members/1",
+    "/members/0"
+   ],
    "set": [
     {
      "pointer": "/produced_at",
      "value": "2026-09-21T09:00:00Z"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "install.sh"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 30211
+    },
+    {
+     "pointer": "/members/1/path",
+     "value": "compose/assemble.py"
+    },
+    {
+     "pointer": "/members/1/digest",
+     "value": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+     "pointer": "/members/1/size",
+     "value": 18874
+    },
+    {
+     "pointer": "/members/2/path",
+     "value": "compose/instructions_catalog.py"
+    },
+    {
+     "pointer": "/members/2/digest",
+     "value": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3"
+    },
+    {
+     "pointer": "/members/2/size",
+     "value": 8909
+    },
+    {
+     "pointer": "/members/3/path",
+     "value": "gates/check-package.sh"
+    },
+    {
+     "pointer": "/members/3/digest",
+     "value": "9999999999999999999999999999999999999999999999999999999999999999"
+    },
+    {
+     "pointer": "/members/3/size",
+     "value": 22410
+    },
+    {
+     "pointer": "/members/4/path",
+     "value": ".gitignore"
+    },
+    {
+     "pointer": "/members/4/digest",
+     "value": "b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1"
+    },
+    {
+     "pointer": "/members/4/size",
+     "value": 3034
+    },
+    {
+     "pointer": "/members/5/path",
+     "value": ".githooks/pre-commit"
+    },
+    {
+     "pointer": "/members/5/digest",
+     "value": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
+    },
+    {
+     "pointer": "/members/5/size",
+     "value": 7042
     }
    ]
   },

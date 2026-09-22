@@ -70,7 +70,9 @@ transfer: the transfer names the export baseline its first conversion read, and 
 revision and outbox captured again after the old writers were quiesced, with the validated import
 of exactly those. A source or outbox that moves after that capture is `cutover_source_moved`,
 and the cutover waits for the next capture. Every operation the old runtime left unknown is
-settled or carried with the recovery that settles it, and the old source is kept or archived:
+settled or carried with the recovery that settles it: a plan whose `unknown_operations` leaves one
+out is `unknown_operation_dropped`, because nothing else will ever settle it. The old source is
+kept or archived:
 the plan has no value that deletes it. `candidate_digest` names the `package_candidate` it
 installs, whose members each say where their bytes came from. It must be one this owner
 registered: bytes on disk without a registration receipt are not a candidate, and a digest naming
@@ -182,6 +184,7 @@ OUTCOME_PARTIAL = "outcome_partial"
 CANCEL_TOO_LATE = "cancel_too_late"
 PAYLOAD_NOT_TAKEN = "payload_not_taken"
 CUTOVER_SOURCE_MOVED = "cutover_source_moved"
+UNKNOWN_OPERATION_DROPPED = "unknown_operation_dropped"
 CANDIDATE_NOT_REGISTERED = "candidate_not_registered"
 RUNTIME_PATH_MISSING = "runtime_path_missing"
 AUTHOR_SIDE_MEMBER = "author_side_member"
@@ -210,6 +213,9 @@ ERRORS = {
     CUTOVER_SOURCE_MOVED: "a cutover whose selected source data or outbox moved after the capture "
                           "its import was validated against; it switches only after the quiesced "
                           "state is captured and validated again",
+    UNKNOWN_OPERATION_DROPPED: "a cutover whose unknown_operations leaves out an operation the "
+                               "quiesced capture still holds unknown; one the plan does not carry "
+                               "is one nothing will ever settle",
     CANDIDATE_NOT_REGISTERED: "a cutover whose candidate_digest names no package candidate this "
                               "owner registered; bytes present without a registration receipt "
                               "are not one",

@@ -2039,7 +2039,7 @@
   }
  ],
  "says": "Alice binds her device key, authors and selects a personal Instructions source, opens a link to her working conversation in a Codex host, and composes a preparation for delivery on it. Four attempts on that preparation must never claim a delivery nor repeat an effect. An attempt naming a link id the runtime never issued is refused as recipient_link_unknown and sees no channel. A resume of that session as a rehydrated recipient, which this host's route cannot carry, is recorded as unsupported, sees no channel, and is refused as route_unsupported. A delivery to the current conversation is recorded, but the host's own acknowledgement of it never arrives: the attempt sees lost, names no received body and no evidence, and its answer is outcome_unknown with recovery by querying the same request id — nothing here claims the body arrived. Resubmitting the identical request replays that same unresolved answer and writes nothing new; querying it afterward by its request id returns that same result again, still lost and still unclaimed. She then locks her profile: the access state moves to a new generation, and a delivery attempted afterwards still states the generation before the lock and is refused as access_locked and access_generation_moved, with unlock as its recovery, and returns no attempt. Observing the preparation at the end finds nothing delivered — not_observed with delivery_unobserved — because none of the four attempts, nor the resubmission, ever claimed a body arrived.",
- "spec_sha256": "09c4790ba58c091e89218aa686dac900e1c74f594a7af986bb6b47905f110970",
+ "spec_sha256": "54be5960875045b84b969d9607664cc07cb8a697c392334fd41793b5cfe2dd31",
  "steps": [
   {
    "carries": [
@@ -2183,5 +2183,13 @@
    "result": "deliver_after_the_lock_result",
    "returns": []
   }
- ]
+ ],
+ "world": {
+  "events": [
+   {
+    "kind": "reply_lost",
+    "step": "deliver_and_lose_the_response"
+   }
+  ]
+ }
 }

@@ -62,10 +62,6 @@
    "name": "candidate_request"
   },
   {
-   "id": "req_60628717e538b0469b57610d92676ff7",
-   "name": "read_request"
-  },
-  {
    "id": "req_8efd4fec4b2bbd9adff4c544c6241ec1",
    "name": "bind_steward_rid"
   },
@@ -710,31 +706,6 @@
    "digest_of": "stored_candidate",
    "pointer": "/outputs/0/digest",
    "record": "store_bounded_candidate_result"
-  },
-  {
-   "digest_of": "envelope",
-   "pointer": "/payload_digest",
-   "record": "read_submit"
-  },
-  {
-   "digest_of": "envelope",
-   "pointer": "/envelope_digest",
-   "record": "denied"
-  },
-  {
-   "minted": "denied_at",
-   "pointer": "/prepared_at",
-   "record": "denied"
-  },
-  {
-   "digest_of": "read_submit",
-   "pointer": "/request_digest",
-   "record": "read_the_restricted_bodies_result"
-  },
-  {
-   "digest_of": "denied",
-   "pointer": "/outputs/0/digest",
-   "record": "read_the_restricted_bodies_result"
   }
  ],
  "minted": [
@@ -982,11 +953,6 @@
    "name": "candidate_at",
    "shape": "instant",
    "step": "store_bounded_candidate"
-  },
-  {
-   "name": "denied_at",
-   "shape": "instant",
-   "step": "read_the_restricted_bodies"
   }
  ],
  "records": [
@@ -1293,7 +1259,7 @@
    }
   },
   {
-   "digest": "2208caed2d37af6c774a77fe70e031e4f9e74cd4a4c0326e1af128e64d22d331",
+   "digest": "f25254df49c3c5e7f7e025416e8977eac59aa565b92c939aac75fed48458f7ee",
    "name": "team_founder_grant",
    "record": {
     "actions": [
@@ -1301,7 +1267,8 @@
      "use",
      "contribute",
      "grant",
-     "policy"
+     "policy",
+     "publish"
     ],
     "created_at": "2000-01-01T00:00:00Z",
     "delegation_ceiling": 1,
@@ -1368,7 +1335,7 @@
    }
   },
   {
-   "digest": "bd4ff6ca19af87a616aa9145fd7375fb29d5db8fbae8d7b2097b4e4c179e0af9",
+   "digest": "8dcd7b349886832fb38d633afa80958c7b2a0f693d1143381c5bd6c7eb0b0b07",
    "name": "found_team_result",
    "record": {
     "kind": "operation_result",
@@ -1392,7 +1359,7 @@
       "kind": "membership_record"
      },
      {
-      "digest": "2208caed2d37af6c774a77fe70e031e4f9e74cd4a4c0326e1af128e64d22d331",
+      "digest": "f25254df49c3c5e7f7e025416e8977eac59aa565b92c939aac75fed48458f7ee",
       "kind": "grant_record"
      },
      {
@@ -2499,121 +2466,10 @@
     "schema": 1,
     "supported_recovery": []
    }
-  },
-  {
-   "digest": "7078ea8ce8563f8c73caeaf5890bc246533b1a2bb847dfed3e5b39d8ff8043f0",
-   "name": "envelope",
-   "record": {
-    "budget": {
-     "max_bytes": 40000,
-     "max_examined": 64,
-     "max_units": 8
-    },
-    "history": "excluded",
-    "kind": "reader_envelope",
-    "required": [
-     {
-      "role": "memory",
-      "source_id": "src_a3169817872f0c32ae64142add64ef54"
-     }
-    ],
-    "role_view": {
-     "role": "memory",
-     "view": "executor"
-    },
-    "schema": 1,
-    "selector": {
-     "asks": "concern",
-     "concern": {
-      "question": "Which journal mode applies here?"
-     }
-    },
-    "work_scope": {
-     "layer": "repository",
-     "repository_id": "rep_4b7d464e259b1b6d7589b0babe3f1fc9"
-    }
-   }
-  },
-  {
-   "digest": "861eeb5cdee24dfd2bf3ecdd0c1e03a352c931a88fe85446f471fc490898da80",
-   "name": "read_submit",
-   "record": {
-    "action": "read",
-    "actor": {
-     "device_id": "dev_ef70e0a923ddaff548cf14a48bb6bc37",
-     "principal_id": "prn_21980c2f1045b65acb6681e309945dd7",
-     "profile_id": "prf_9fbc1258aa406b382990933b875f7514"
-    },
-    "control_digests": [],
-    "effect_class": "pure_preview",
-    "kind": "operation_request",
-    "local_access_generation": 7,
-    "operation": "reader.body.read",
-    "owner": {
-     "layer": "personal",
-     "principal_id": "prn_21980c2f1045b65acb6681e309945dd7"
-    },
-    "payload_digest": "7078ea8ce8563f8c73caeaf5890bc246533b1a2bb847dfed3e5b39d8ff8043f0",
-    "policy_digests": [],
-    "proof_digests": [],
-    "request_id": "req_60628717e538b0469b57610d92676ff7",
-    "schema": 1,
-    "target": {
-     "resource_id": "prn_21980c2f1045b65acb6681e309945dd7"
-    }
-   }
-  },
-  {
-   "digest": "d3dfe27a3415c78b739eff45527d4a36f0e9cd22babbfc79cb85b552ae0fa35c",
-   "name": "denied",
-   "record": {
-    "ended": true,
-    "envelope_digest": "7078ea8ce8563f8c73caeaf5890bc246533b1a2bb847dfed3e5b39d8ff8043f0",
-    "kind": "reader_result",
-    "material_gaps": [
-     {
-      "code": "access_not_established"
-     }
-    ],
-    "omissions": [],
-    "outcome": {
-     "standing": "denied"
-    },
-    "prepared_at": "2000-01-01T00:00:00Z",
-    "qualifications": [],
-    "schema": 1
-   }
-  },
-  {
-   "digest": "f0f5f895965cb2522c66163a1ecaf1f73b0b4bbb4ce67accc49ad7f7c2f799aa",
-   "name": "read_the_restricted_bodies_result",
-   "record": {
-    "kind": "operation_result",
-    "local_effect": "none",
-    "outcome": {
-     "material_gaps": [
-      {
-       "code": "access_not_established"
-      }
-     ],
-     "stage": "refused"
-    },
-    "outputs": [
-     {
-      "digest": "d3dfe27a3415c78b739eff45527d4a36f0e9cd22babbfc79cb85b552ae0fa35c",
-      "kind": "reader_result"
-     }
-    ],
-    "provider_effect": "not_applicable",
-    "request_digest": "861eeb5cdee24dfd2bf3ecdd0c1e03a352c931a88fe85446f471fc490898da80",
-    "request_id": "req_60628717e538b0469b57610d92676ff7",
-    "schema": 1,
-    "supported_recovery": []
-   }
   }
  ],
- "says": "A steward binds their device key, founds a Team (team.found), registers the Team's decision source and publishes one journal-mode choice into it (memory.record.publish), which the person working in a repository may not read. The person binds their own key and checkout and registers their repository's decisions source. The steward grants that person read alone on the Team, naming the founder grant as its parent (team.grant.change): no use, contribute, publish or wider action. On that grant the person resolves their question about the concern (memory.state.resolve) and gets a qualified state whose one entry is that record, current, at the frontier the publication committed, with a qualification stating only the Team's current choice (\"WAL, with synchronous FULL.\") and no reason, body or alternatives named; from it they store a candidate for their own repository that relies on the record by id, states only what the state disclosed, and lists its reason as unrecorded (memory.candidate.store). What must not disclose more: reading the Team source's bodies (reader.body.read) is still answered denied with access_not_established - a read grant over the concern is not access to the source's bodies - and no source, unit, count, continuation or waiting use is named, which is not the same as an empty answer. No step infers a withheld reason, names another record, or claims the person received any Team event.",
- "spec_sha256": "9460a0ecb82fef0e82d21d68a12a9652f54220f6232a075734a1c8c67470b8bf",
+ "says": "A steward binds their device key, founds a Team (team.found), registers the Team's decision source and publishes one journal-mode choice into it (memory.record.publish). The person binds their own key and checkout and registers their repository's decisions source. The steward grants that person read alone on the Team, naming the founder grant as its parent (team.grant.change): no use, contribute, publish or wider action. On that grant the person resolves their question about the concern (memory.state.resolve) and gets a qualified state whose one entry is that record, current, at the frontier the publication committed, with a qualification stating only the Team's current choice (\"WAL, with synchronous FULL.\") and no reason, body, alternative, count, continuation or waiting use named, which is not the same as an empty answer; from it they store a candidate for their own repository that relies on the record by id, states only what the state disclosed, and lists its reason as unrecorded (memory.candidate.store). No step infers a withheld reason, names another record, or claims the person received any Team event.",
+ "spec_sha256": "d9eec168536b4dec128498ec25eb2c93c5beb2055430b7b9e7ebc17e635e7a51",
  "steps": [
   {
    "carries": [
@@ -2736,17 +2592,6 @@
    "result": "store_bounded_candidate_result",
    "returns": [
     "stored_candidate"
-   ]
-  },
-  {
-   "carries": [
-    "envelope"
-   ],
-   "name": "read_the_restricted_bodies",
-   "request": "read_submit",
-   "result": "read_the_restricted_bodies_result",
-   "returns": [
-    "denied"
    ]
   }
  ]

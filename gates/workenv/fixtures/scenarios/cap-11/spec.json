@@ -137,6 +137,10 @@
   {
    "name": "query_again_request",
    "prefix": "req"
+  },
+  {
+   "name": "present_after_sign_out_request",
+   "prefix": "req"
   }
  ],
  "records": [
@@ -526,7 +530,8 @@
       "use",
       "contribute",
       "grant",
-      "policy"
+      "policy",
+      "publish"
      ]
     },
     {
@@ -1437,6 +1442,10 @@
     {
      "pointer": "/observed_at",
      "value": "$instant:reobserved_at"
+    },
+    {
+     "pointer": "/read/0/size",
+     "value": 638
     }
    ]
   },
@@ -1763,6 +1772,16 @@
     {
      "pointer": "/profile_id",
      "value": "@local_profile"
+    }
+   ]
+  },
+  {
+   "name": "present_after_sign_out",
+   "from": "present_submit",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@present_after_sign_out_request"
     }
    ]
   }
@@ -2176,6 +2195,25 @@
     "returns": [
      "signed_out"
     ]
+   }
+  },
+  {
+   "name": "present_candidate_after_sign_out",
+   "request": "present_after_sign_out",
+   "carries": [],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "access_signed_out"
+     }
+    ],
+    "recovery": [
+     "sign_in"
+    ],
+    "returns": []
    }
   },
   {

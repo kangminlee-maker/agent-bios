@@ -485,7 +485,7 @@
    "record": "inspection"
   },
   {
-   "digest_of": "wal_stored",
+   "digest_of": "wal_choice_body",
    "pointer": "/outcome/units/0/body_digest",
    "record": "inspection"
   },
@@ -500,7 +500,7 @@
    "record": "inspection"
   },
   {
-   "digest_of": "rollback_journal_stored",
+   "digest_of": "rollback_choice_body",
    "pointer": "/outcome/units/1/body_digest",
    "record": "inspection"
   },
@@ -512,6 +512,16 @@
   {
    "digest_of": "inspection",
    "pointer": "/outputs/0/digest",
+   "record": "inspect_the_history_result"
+  },
+  {
+   "digest_of": "wal_choice_body",
+   "pointer": "/outputs/1/digest",
+   "record": "inspect_the_history_result"
+  },
+  {
+   "digest_of": "rollback_choice_body",
+   "pointer": "/outputs/2/digest",
    "record": "inspect_the_history_result"
   },
   {
@@ -558,6 +568,20 @@
    "digest_of": "offered_as_use_result",
    "pointer": "/outputs/0/digest",
    "record": "offer_the_inspection_as_a_use_result"
+  }
+ ],
+ "members": [
+  {
+   "digest": "b0a21eaef2dbdea3a0784eadf8ba72c94c5768a221f7cafa57fdf00272fd45c9",
+   "name": "wal_choice_body",
+   "size": 27,
+   "text": "WAL, with synchronous FULL."
+  },
+  {
+   "digest": "cac9b3e73c5aa7565f1b15febb16dddc4263215c7543b7b695192141e901d574",
+   "name": "rollback_choice_body",
+   "size": 30,
+   "text": "A rollback journal with EXTRA."
   }
  ],
  "minted": [
@@ -1688,7 +1712,7 @@
    }
   },
   {
-   "digest": "edcda2031a2ee35a1e72e01a55b7accea7c211a1af35ec88970d68a23f1eaeec",
+   "digest": "075938ba9245f629def59484a018024afe6234ad7e208f2d36649c40adc4e724",
    "name": "inspection",
    "record": {
     "ended": true,
@@ -1711,7 +1735,7 @@
      "standing": "delivered",
      "units": [
       {
-       "body_digest": "1ee550ddebe4af93b07942a733e26a7f36e5da6ea3d01418ef7b4d44aef267c8",
+       "body_digest": "b0a21eaef2dbdea3a0784eadf8ba72c94c5768a221f7cafa57fdf00272fd45c9",
        "layer": "repository",
        "need": "required",
        "revision_digest": "2ac508b378fb6db8705993f7f59f166f01fef819687348569f10cc9a7c52e756",
@@ -1721,7 +1745,7 @@
        "unit_id": "unt_462a55ab0e3e9ca89e102cb11e90d43a"
       },
       {
-       "body_digest": "10c46b8b99dbfc0d8ec196b71244275ce52ff801e8c9c77e79574a911a0ce0f4",
+       "body_digest": "cac9b3e73c5aa7565f1b15febb16dddc4263215c7543b7b695192141e901d574",
        "layer": "repository",
        "need": "optional",
        "revision_digest": "2ac508b378fb6db8705993f7f59f166f01fef819687348569f10cc9a7c52e756",
@@ -1738,7 +1762,7 @@
    }
   },
   {
-   "digest": "bac096907ab500a786b540a3ff67d9bbf0cbbac3f25141958ebb8d81ce3c17a3",
+   "digest": "92d7e6de31ff65fc61410d9a52a187a09fadee8a4ac94f77ac52ba607f7e43d4",
    "name": "inspect_the_history_result",
    "record": {
     "kind": "operation_result",
@@ -1749,8 +1773,16 @@
     },
     "outputs": [
      {
-      "digest": "edcda2031a2ee35a1e72e01a55b7accea7c211a1af35ec88970d68a23f1eaeec",
+      "digest": "075938ba9245f629def59484a018024afe6234ad7e208f2d36649c40adc4e724",
       "kind": "reader_result"
+     },
+     {
+      "digest": "b0a21eaef2dbdea3a0784eadf8ba72c94c5768a221f7cafa57fdf00272fd45c9",
+      "kind": "source_member"
+     },
+     {
+      "digest": "cac9b3e73c5aa7565f1b15febb16dddc4263215c7543b7b695192141e901d574",
+      "kind": "source_member"
      }
     ],
     "provider_effect": "not_applicable",
@@ -1761,7 +1793,7 @@
    }
   },
   {
-   "digest": "347e9d6643e943a28179a42b609a45d5bf64cdf8a4aa0e9b97a463aeafbbaaa8",
+   "digest": "d50aeff51ee8dc741a3771209edb62950a2a1739946e353958ab1461e4f573ee",
    "name": "inspection_offered_as_a_use",
    "record": {
     "budget": {
@@ -1780,7 +1812,7 @@
     "retains": [
      {
       "body_digest": "1ee550ddebe4af93b07942a733e26a7f36e5da6ea3d01418ef7b4d44aef267c8",
-      "qualifications_digest": "edcda2031a2ee35a1e72e01a55b7accea7c211a1af35ec88970d68a23f1eaeec",
+      "qualifications_digest": "075938ba9245f629def59484a018024afe6234ad7e208f2d36649c40adc4e724",
       "unit_id": "unt_462a55ab0e3e9ca89e102cb11e90d43a"
      }
     ],
@@ -1802,7 +1834,7 @@
    }
   },
   {
-   "digest": "15e1b98097c185ad69c52095babeceed371e86bcc386bb74c2a3a533659765d5",
+   "digest": "42ce301399a7ecc55db6da383e762c0885706baed1446b4db0f232a477df26db",
    "name": "use_request",
    "record": {
     "action": "use",
@@ -1820,7 +1852,7 @@
      "layer": "repository",
      "repository_id": "rep_82f0939e15df4a2ed32cc262531b35a5"
     },
-    "payload_digest": "347e9d6643e943a28179a42b609a45d5bf64cdf8a4aa0e9b97a463aeafbbaaa8",
+    "payload_digest": "d50aeff51ee8dc741a3771209edb62950a2a1739946e353958ab1461e4f573ee",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_a46d186145ad24b6803e5689dfc2198c",
@@ -1831,11 +1863,11 @@
    }
   },
   {
-   "digest": "ebd27bb076267892da1602b3cb4467835d1c479228ec1efd0ae50815bcf06a6c",
+   "digest": "31e0835ce39b93c5f0332bc2d495ec5897ec8edfa3dda14b92cf71d992ec48e8",
    "name": "offered_as_use_result",
    "record": {
     "ended": true,
-    "envelope_digest": "347e9d6643e943a28179a42b609a45d5bf64cdf8a4aa0e9b97a463aeafbbaaa8",
+    "envelope_digest": "d50aeff51ee8dc741a3771209edb62950a2a1739946e353958ab1461e4f573ee",
     "kind": "reader_result",
     "material_gaps": [
      {
@@ -1864,7 +1896,7 @@
    }
   },
   {
-   "digest": "45f097463b7106f82e63bf64db03128f389a80aa7b97cf8329fc718838831e2e",
+   "digest": "8f3df5c7668afe1b7157159922c6c550b1ca0a6f4c3e7b425630200f58022018",
    "name": "offer_the_inspection_as_a_use_result",
    "record": {
     "kind": "operation_result",
@@ -1879,12 +1911,12 @@
     },
     "outputs": [
      {
-      "digest": "ebd27bb076267892da1602b3cb4467835d1c479228ec1efd0ae50815bcf06a6c",
+      "digest": "31e0835ce39b93c5f0332bc2d495ec5897ec8edfa3dda14b92cf71d992ec48e8",
       "kind": "reader_result"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "15e1b98097c185ad69c52095babeceed371e86bcc386bb74c2a3a533659765d5",
+    "request_digest": "42ce301399a7ecc55db6da383e762c0885706baed1446b4db0f232a477df26db",
     "request_id": "req_a46d186145ad24b6803e5689dfc2198c",
     "schema": 1,
     "supported_recovery": []
@@ -1892,7 +1924,7 @@
   }
  ],
  "says": "The reader binds their device key and their checkout of the repository, opens a workstream and registers a repository memory source named by that checkout binding, and two choices on the local journal mode are published there: first a rollback journal, then WAL, which replaces the first whole. An inspection (reader.body.read, role memory, reviewer view, history included) returns the current WAL choice as the winning required unit and the replaced choice as an optional unit marked superseded, each body carrying the alternatives its choice weighed, and its result carries no use: reading it admitted nothing. The reader then offers what it inspected as a use of the journal-mode concern (memory.use.prepare targeting the concern, with an envelope declaring it retains the inspected body and that result's qualifications). The owner refuses it with use_not_admitted: no pending question, qualified state or admitted use is returned, no use is started, and nothing is written.",
- "spec_sha256": "6402ce71a0c1ee9696efe64515f0b5063b7c964784537c4ff70aea6cec7aeacd",
+ "spec_sha256": "f5b2184279de01ed24e1dc6b59cf3fedf35fc33971635035ff09a9d53062d755",
  "steps": [
   {
    "carries": [
@@ -1973,7 +2005,9 @@
    "request": "inspect_the_history_request",
    "result": "inspect_the_history_result",
    "returns": [
-    "inspection"
+    "inspection",
+    "wal_choice_body",
+    "rollback_choice_body"
    ]
   },
   {

@@ -1,6 +1,6 @@
 {
   "case": "N27-PACKAGE-POS",
-  "says": "A person with no Team installs the knowledge package shipped in the product through the add_published_package route (source.revision.admit), naming the exact revision by the digest of the shipped manifest. The owner commits it and returns that same manifest and a provenance whose origin is the product-supplied package, whose acceptance is not_accepted and whose content-review statement is kept as an approval claim with stated_only support, never as an acceptance. Resolving an exact member (reference.resolve) returns the same manifest, whose member digest is the member the reference names, the same provenance, and that member's own bytes. Asking a question against that exact revision (knowledge.question.ask) returns a view whose members are the package's bytes in the person's own layer, cited to that revision. Nothing here adopts the package for a Team, records a Team acceptance, or gives it a priority: the provenance has no priority field and the view places it only in the layer it was installed into.",
+  "says": "A person with no Team installs the knowledge package shipped in the product through the add_published_package route (source.revision.admit), naming the exact revision by the digest of the shipped manifest. The owner commits it and returns that same manifest and a provenance whose origin is the product-supplied package, whose acceptance is not_accepted and whose content-review statement is kept as an approval claim with verified support against the publisher's own review evidence, never as a Team acceptance. Resolving an exact member (reference.resolve) returns the same manifest, whose member digest is the member the reference names, the same provenance, and that member's own bytes. Asking a question against that exact revision (knowledge.question.ask) returns a view whose members are the package's bytes in the person's own layer, cited to that revision. Nothing here adopts the package for a Team, records a Team acceptance, or gives it a priority: the provenance has no priority field and the view places it only in the layer it was installed into.",
   "ids": [
     {
       "name": "me",
@@ -43,6 +43,10 @@
     {
       "name": "rates_csv",
       "text": "category,rate\nstandard,0.20\nreduced,0.05\n"
+    },
+    {
+      "name": "concepts_body",
+      "text": "# Tax relief concepts\n\nThis package documents the relief categories used across the shipped rate table. 'Standard' names the ordinary relief rate for taxable income reported in the period the source states as applicable; 'reduced' names the lower rate available under the conditions the publisher's edition lists. A reader should cite the table and this file together, since the table alone omits which conditions each row assumes.\n\nThis package documents the relief categories used across the shipped rate table. 'Standard' names the ordinary relief rate for taxable income reported in the period the source states as applicable; 'reduced' names the lower rate available under the conditions the publisher's edition lists. A reader should cite the table and this file together, since the table alone omits which conditions each row assumes.\n\nThis package documents the relief categories used across the shipped rate table. 'Standard' names the ordinary relief rate for taxable income reported in the period the source states as applicable; 'reduced' names the lower rate available under the conditions the publisher's edition lists. A reader should cite the table and this file together, since the table alone omits which conditions each row assumes.\n\nThis package documents the relief categories used across the shipped rate table. 'Standard' names the ordinary relief rate for taxable income reported in the period the source states as applicable; 'reduced' names the lower rate available under the conditions the publisher's edition lists. A reader should cite the table and this file together, since the table alone omits which conditions each row assumes.\n\nThis package documents the relief categories used across the shipped rate table. 'Standard' names the ordinary relief rate for taxable income reported in the period the source states as applicable; 'reduced' names the lower rate available under the conditions the publisher's edition lists. A reader should cite the table and this file together, since the table alone omits which conditions each row assumes.\n\nThis package documents the relief categories used across the shipped rate table. 'Standard' names the ordinary relief rate for taxable income reported in the period the source states as applicable; 'reduced' names the lower rate available under the conditions the publisher's edition lists. A reader should cite the table and this file together, since the table alone omits which conditions each row assumes.\n\nThis package documents the relief categories used across the shipped rate table. 'Standard' names the ordinary relief rate for taxable income reported in the period the source states as applicable; 'reduced' names the lower rate available under the conditions the publisher's edition lists. A reader should cite the table and this file together, since the table alone omits which conditions each row assumes.\n\nThis package documents the relief categories used across the shipped rate table. 'Standard' names the ordinary relief rate for taxable income reported in the period the source states as applicable; 'reduced' names the lower rate available under the conditions the publisher's edition lists. A reader should cite the table and this file together, since the table alone omits which conditions each row assumes.\n\nThis package documents the relief categories used across the shipped rate table. 'Standard' names the ordinary relief rate for taxable income reported in the period the source states as applicable; 'reduced' names the lower rate available under the conditions the publisher's edition lists. A reader should cite the table and this file together, since the table alone omits which conditions each row assumes.\n\nEditions published before 2026 used a single flat rate and did not distinguish standard from reduced relief; this edition is the first to carry that split, and the publisher's editors reviewed the split against the underlying schedule before shipping it, recording that review as the provenance's approval claim, never as a Team acceptance, since installing this package accepts nothing on a Team's behalf.\n"
     }
   ],
   "records": [
@@ -143,6 +147,10 @@
         {
           "pointer": "/members/1/size",
           "value": 41
+        },
+        {
+          "pointer": "/members/0/digest",
+          "value": "#concepts_body"
         }
       ]
     },
@@ -271,6 +279,14 @@
         {
           "pointer": "/claims/0/as_stated",
           "value": "Content reviewed by the publisher's tax editors for the 2026 edition"
+        },
+        {
+          "pointer": "/claims/0/support/support",
+          "value": "verified"
+        },
+        {
+          "pointer": "/claims/0/support/evidence_digest",
+          "value": "$digest:content_review_evidence"
         }
       ]
     },
@@ -481,7 +497,7 @@
         },
         {
           "pointer": "/members/1/digest",
-          "value": "c4933a82770781b42504ac60a6252bfd06ccfce66170394620ba473ade98365d"
+          "value": "#concepts_body"
         },
         {
           "pointer": "/evidence/0/source_id",
@@ -567,7 +583,9 @@
         "gaps": [],
         "recovery": [],
         "returns": [
-          "view"
+          "view",
+          "rates_csv",
+          "concepts_body"
         ]
       }
     }

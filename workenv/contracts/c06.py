@@ -62,8 +62,9 @@ IN_RESULTS = True
 # are the effect class, the grant action and the target id prefixes every request for it states.
 OPERATIONS = {
     "memory.use.prepare": {"takes": ("reader_envelope",),
-                           "returns": ("reader_result", "pending_question", "qualified_state",
-                                       "comparison_basis", "application_preference"),
+                           "returns": ("reader_result", "source_member", "pending_question",
+                                       "qualified_state", "comparison_basis",
+                                       "application_preference"),
                            "effect": "durable_candidate", "action": "use",
                            "targets": ("cnc", "use")},
     "reader.body.read": {"takes": ("reader_envelope",),
@@ -71,10 +72,11 @@ OPERATIONS = {
                          "effect": "pure_preview", "action": "read",
                          "targets": ("src", "rep", "prn")},
     "reader.question.answer": {"takes": ("reader_envelope",),
-                               "returns": ("reader_result", "pending_question",
+                               "returns": ("reader_result", "source_member", "pending_question",
                                            "comparison_basis"),
                                "effect": "pure_preview", "action": "read", "targets": ("use",)},
-    "reader.use.resume": {"takes": ("resume_request",), "returns": ("reader_result",),
+    "reader.use.resume": {"takes": ("resume_request",),
+                          "returns": ("reader_result", "source_member"),
                           "effect": "durable_candidate", "action": "use", "targets": ("use",)},
 }
 

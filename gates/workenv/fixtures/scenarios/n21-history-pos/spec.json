@@ -1,1841 +1,1859 @@
 {
- "case": "N21-HISTORY-POS",
- "says": "Alice binds her checkout and registers its repository memory source. She records choice A (WAL with synchronous FULL), then choice B, which replaces A whole, and applies A's replacement by B; she then records choice C (exclusive locking) on the same question and withdraws it. A scoped search of that repository about the journal-mode concern, with history excluded, delivers only B, the winning unit; the same search with history included also delivers A marked superseded and C marked withdrawn, each at the revision that recorded it, over the same frontier and work scope. Resolving the same concern with superseded material excluded returns B current and C withdrawn — a withdrawal is an entry no filter drops — and with it included also returns A, superseded by B, over the same frontier. Each reader_result is held to C06/history_only_when_asked against the envelope it answers. What must not happen: a superseded or withdrawn unit delivered to the envelope that excluded history, the withdrawal dropped from current state so that A or C reads as current, an entry or unit returned without its standing, or the history run reading beyond the repository and the one memory source the envelope names.",
- "ids": [
-  {
-   "name": "alice",
-   "prefix": "prn"
-  },
-  {
-   "name": "laptop",
-   "prefix": "dev"
-  },
-  {
-   "name": "alice_profile",
-   "prefix": "prf"
-  },
-  {
-   "name": "repo",
-   "prefix": "rep"
-  },
-  {
-   "name": "repo_memory",
-   "prefix": "src"
-  },
-  {
-   "name": "journal_concern",
-   "prefix": "cnc"
-  },
-  {
-   "name": "bind_alice_key_request",
-   "prefix": "req"
-  },
-  {
-   "name": "bind_alice_checkout_request",
-   "prefix": "req"
-  },
-  {
-   "name": "register_repo_memory_request",
-   "prefix": "req"
-  },
-  {
-   "name": "publish_full_request",
-   "prefix": "req"
-  },
-  {
-   "name": "publish_normal_request",
-   "prefix": "req"
-  },
-  {
-   "name": "replace_full_request",
-   "prefix": "req"
-  },
-  {
-   "name": "publish_exclusive_request",
-   "prefix": "req"
-  },
-  {
-   "name": "withdraw_exclusive_request",
-   "prefix": "req"
-  },
-  {
-   "name": "search_current_request",
-   "prefix": "req"
-  },
-  {
-   "name": "search_history_request",
-   "prefix": "req"
-  },
-  {
-   "name": "resolve_current_request",
-   "prefix": "req"
-  },
-  {
-   "name": "resolve_history_request",
-   "prefix": "req"
-  }
- ],
- "records": [
-  {
-   "name": "alice_key",
-   "from": "c01/binding_as_submitted.json",
-   "set": [
+  "case": "N21-HISTORY-POS",
+  "says": "Alice binds her checkout and registers its repository memory source. She records choice A (WAL with synchronous FULL), then choice B, which replaces A whole, and applies A's replacement by B; she then records choice C (exclusive locking) on the same question and withdraws it. A scoped search of that repository about the journal-mode concern, with history excluded, delivers only B, the winning unit; the same search with history included also delivers A marked superseded and C marked withdrawn, each at the revision that recorded it, over the same frontier and work scope. Resolving the same concern with superseded material excluded returns B current and C withdrawn \u2014 a withdrawal is an entry no filter drops \u2014 and with it included also returns A, superseded by B, over the same frontier. Each reader_result is held to C06/history_only_when_asked against the envelope it answers. What must not happen: a superseded or withdrawn unit delivered to the envelope that excluded history, the withdrawal dropped from current state so that A or C reads as current, an entry or unit returned without its standing, or the history run reading beyond the repository and the one memory source the envelope names.",
+  "ids": [
     {
-     "pointer": "/principal_id",
-     "value": "@alice"
+      "name": "alice",
+      "prefix": "prn"
     },
     {
-     "pointer": "/credential/device_id",
-     "value": "@laptop"
+      "name": "laptop",
+      "prefix": "dev"
+    },
+    {
+      "name": "alice_profile",
+      "prefix": "prf"
+    },
+    {
+      "name": "repo",
+      "prefix": "rep"
+    },
+    {
+      "name": "repo_memory",
+      "prefix": "src"
+    },
+    {
+      "name": "journal_concern",
+      "prefix": "cnc"
+    },
+    {
+      "name": "bind_alice_key_request",
+      "prefix": "req"
+    },
+    {
+      "name": "bind_alice_checkout_request",
+      "prefix": "req"
+    },
+    {
+      "name": "register_repo_memory_request",
+      "prefix": "req"
+    },
+    {
+      "name": "publish_full_request",
+      "prefix": "req"
+    },
+    {
+      "name": "publish_normal_request",
+      "prefix": "req"
+    },
+    {
+      "name": "replace_full_request",
+      "prefix": "req"
+    },
+    {
+      "name": "publish_exclusive_request",
+      "prefix": "req"
+    },
+    {
+      "name": "withdraw_exclusive_request",
+      "prefix": "req"
+    },
+    {
+      "name": "search_current_request",
+      "prefix": "req"
+    },
+    {
+      "name": "search_history_request",
+      "prefix": "req"
+    },
+    {
+      "name": "resolve_current_request",
+      "prefix": "req"
+    },
+    {
+      "name": "resolve_history_request",
+      "prefix": "req"
     }
-   ]
-  },
-  {
-   "name": "bind_alice_key",
-   "from": "c01/link_request.json",
-   "set": [
+  ],
+  "records": [
     {
-     "pointer": "/request_id",
-     "value": "@bind_alice_key_request"
+      "name": "alice_key",
+      "from": "c01/binding_as_submitted.json",
+      "set": [
+        {
+          "pointer": "/principal_id",
+          "value": "@alice"
+        },
+        {
+          "pointer": "/credential/device_id",
+          "value": "@laptop"
+        }
+      ]
     },
     {
-     "pointer": "/operation",
-     "value": "identity.binding.add"
+      "name": "bind_alice_key",
+      "from": "c01/link_request.json",
+      "set": [
+        {
+          "pointer": "/request_id",
+          "value": "@bind_alice_key_request"
+        },
+        {
+          "pointer": "/operation",
+          "value": "identity.binding.add"
+        },
+        {
+          "pointer": "/action",
+          "value": "local_profile"
+        },
+        {
+          "pointer": "/effect_class",
+          "value": "owner_commit"
+        },
+        {
+          "pointer": "/actor/principal_id",
+          "value": "@alice"
+        },
+        {
+          "pointer": "/actor/device_id",
+          "value": "@laptop"
+        },
+        {
+          "pointer": "/actor/profile_id",
+          "value": "@alice_profile"
+        },
+        {
+          "pointer": "/owner/principal_id",
+          "value": "@alice"
+        },
+        {
+          "pointer": "/target/resource_id",
+          "value": "@alice"
+        },
+        {
+          "pointer": "/payload_digest",
+          "value": "#alice_key"
+        }
+      ]
     },
     {
-     "pointer": "/action",
-     "value": "local_profile"
+      "name": "alice_key_stored",
+      "from": "alice_key",
+      "set": [
+        {
+          "pointer": "/binding_id",
+          "value": "$bnd:alice_binding"
+        },
+        {
+          "pointer": "/created_at",
+          "value": "$instant:alice_bound_at"
+        }
+      ]
     },
     {
-     "pointer": "/effect_class",
-     "value": "owner_commit"
+      "name": "alice_checkout",
+      "from": "c01/repository_binding_as_submitted.json",
+      "set": [
+        {
+          "pointer": "/repository_id",
+          "value": "@repo"
+        }
+      ]
     },
     {
-     "pointer": "/actor/principal_id",
-     "value": "@alice"
+      "name": "bind_alice_checkout",
+      "from": "c01/link_request.json",
+      "set": [
+        {
+          "pointer": "/request_id",
+          "value": "@bind_alice_checkout_request"
+        },
+        {
+          "pointer": "/operation",
+          "value": "repository.bind"
+        },
+        {
+          "pointer": "/action",
+          "value": "local_profile"
+        },
+        {
+          "pointer": "/effect_class",
+          "value": "owner_commit"
+        },
+        {
+          "pointer": "/actor/principal_id",
+          "value": "@alice"
+        },
+        {
+          "pointer": "/actor/device_id",
+          "value": "@laptop"
+        },
+        {
+          "pointer": "/actor/profile_id",
+          "value": "@alice_profile"
+        },
+        {
+          "pointer": "/owner/principal_id",
+          "value": "@alice"
+        },
+        {
+          "pointer": "/target/resource_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/payload_digest",
+          "value": "#alice_checkout"
+        }
+      ]
     },
     {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
+      "name": "alice_checkout_bound",
+      "from": "c01/clone_shares_the_repository_id.json",
+      "drop": [
+        "/observed/working_bytes_digest"
+      ],
+      "set": [
+        {
+          "pointer": "/repository_id",
+          "value": "@repo"
+        }
+      ]
     },
     {
-     "pointer": "/actor/profile_id",
-     "value": "@alice_profile"
+      "name": "repo_memory_home",
+      "from": "sources/home_of_a_repository_document.json",
+      "drop": [
+        "/registered_at"
+      ],
+      "set": [
+        {
+          "pointer": "/source_id",
+          "value": "@repo_memory"
+        },
+        {
+          "pointer": "/scope/repository_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/acceptance_authority/repository_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/home/repository_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/home/document_root",
+          "value": "docs/decisions"
+        },
+        {
+          "pointer": "/home/binding_evidence_digest",
+          "value": "#alice_checkout_bound"
+        }
+      ]
     },
     {
-     "pointer": "/owner/principal_id",
-     "value": "@alice"
+      "name": "register_repo_memory",
+      "from": "c01/link_request.json",
+      "set": [
+        {
+          "pointer": "/request_id",
+          "value": "@register_repo_memory_request"
+        },
+        {
+          "pointer": "/operation",
+          "value": "source.home.register"
+        },
+        {
+          "pointer": "/action",
+          "value": "contribute"
+        },
+        {
+          "pointer": "/effect_class",
+          "value": "owner_commit"
+        },
+        {
+          "pointer": "/actor/principal_id",
+          "value": "@alice"
+        },
+        {
+          "pointer": "/actor/device_id",
+          "value": "@laptop"
+        },
+        {
+          "pointer": "/actor/profile_id",
+          "value": "@alice_profile"
+        },
+        {
+          "pointer": "/owner/layer",
+          "value": "repository"
+        },
+        {
+          "pointer": "/owner/repository_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/target/resource_id",
+          "value": "@repo_memory"
+        },
+        {
+          "pointer": "/target/base/expects",
+          "value": "absent"
+        },
+        {
+          "pointer": "/payload_digest",
+          "value": "#repo_memory_home"
+        }
+      ],
+      "drop": [
+        "/owner/principal_id"
+      ]
     },
     {
-     "pointer": "/target/resource_id",
-     "value": "@alice"
+      "name": "repo_memory_registered",
+      "from": "repo_memory_home",
+      "set": [
+        {
+          "pointer": "/registered_at",
+          "value": "$instant:repo_memory_registered_at"
+        }
+      ]
     },
     {
-     "pointer": "/payload_digest",
-     "value": "#alice_key"
+      "name": "full_submitted",
+      "from": "c05/choice_as_submitted.json",
+      "drop": [
+        "/basis",
+        "/context",
+        "/expected_consequences",
+        "/revisit_condition",
+        "/applicability/period"
+      ],
+      "set": [
+        {
+          "pointer": "/home/repository_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/workstream_ids",
+          "value": []
+        },
+        {
+          "pointer": "/question",
+          "value": "Which journal mode does the local state database use?"
+        },
+        {
+          "pointer": "/choice",
+          "value": "WAL, with synchronous FULL."
+        },
+        {
+          "pointer": "/alternatives/0/choice",
+          "value": "A rollback journal with EXTRA"
+        },
+        {
+          "pointer": "/alternatives/0/reason",
+          "value": "One read waited 766 ms during a commit burst."
+        },
+        {
+          "pointer": "/reason",
+          "value": "4.11 ms per commit against 11.76, and readers are not blocked."
+        },
+        {
+          "pointer": "/applicability/conditions/0/dimension",
+          "value": "repository"
+        },
+        {
+          "pointer": "/applicability/conditions/0/value",
+          "value": "this one"
+        }
+      ]
+    },
+    {
+      "name": "full_stored",
+      "from": "full_submitted",
+      "set": [
+        {
+          "pointer": "/record_id",
+          "value": "$rec:full"
+        },
+        {
+          "pointer": "/recorded_at",
+          "value": "$instant:full_recorded_at"
+        }
+      ]
+    },
+    {
+      "name": "repo_memory_manifest_2",
+      "from": "sources/revision_of_a_published_package.json",
+      "drop": [
+        "/members/1"
+      ],
+      "set": [
+        {
+          "pointer": "/source_id",
+          "value": "@repo_memory"
+        },
+        {
+          "pointer": "/members/0/path",
+          "value": "memory/records.jsonl"
+        },
+        {
+          "pointer": "/members/0/digest",
+          "value": "$digest:repo_memory_bytes_2"
+        },
+        {
+          "pointer": "/members/0/size",
+          "value": "$integer:repo_memory_size_2"
+        },
+        {
+          "pointer": "/produced_at",
+          "value": "$instant:repo_memory_produced_2"
+        }
+      ]
+    },
+    {
+      "name": "publish_full",
+      "from": "c01/link_request.json",
+      "set": [
+        {
+          "pointer": "/request_id",
+          "value": "@publish_full_request"
+        },
+        {
+          "pointer": "/operation",
+          "value": "memory.record.publish"
+        },
+        {
+          "pointer": "/action",
+          "value": "publish"
+        },
+        {
+          "pointer": "/effect_class",
+          "value": "owner_commit"
+        },
+        {
+          "pointer": "/actor/principal_id",
+          "value": "@alice"
+        },
+        {
+          "pointer": "/actor/device_id",
+          "value": "@laptop"
+        },
+        {
+          "pointer": "/actor/profile_id",
+          "value": "@alice_profile"
+        },
+        {
+          "pointer": "/owner/layer",
+          "value": "repository"
+        },
+        {
+          "pointer": "/owner/repository_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/target/resource_id",
+          "value": "@repo_memory"
+        },
+        {
+          "pointer": "/target/base/expects",
+          "value": "head"
+        },
+        {
+          "pointer": "/target/base/head_digest",
+          "value": "$digest:repo_memory_head_1"
+        },
+        {
+          "pointer": "/payload_digest",
+          "value": "#full_submitted"
+        }
+      ],
+      "drop": [
+        "/owner/principal_id"
+      ]
+    },
+    {
+      "name": "normal_submitted",
+      "from": "c05/choice_as_submitted.json",
+      "drop": [
+        "/basis",
+        "/context",
+        "/expected_consequences",
+        "/revisit_condition",
+        "/applicability/period"
+      ],
+      "set": [
+        {
+          "pointer": "/home/repository_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/workstream_ids",
+          "value": []
+        },
+        {
+          "pointer": "/question",
+          "value": "Which journal mode does the local state database use?"
+        },
+        {
+          "pointer": "/choice",
+          "value": "WAL, with synchronous NORMAL."
+        },
+        {
+          "pointer": "/alternatives/0/choice",
+          "value": "WAL with synchronous FULL"
+        },
+        {
+          "pointer": "/alternatives/0/reason",
+          "value": "A sync on every commit is more than this database needs."
+        },
+        {
+          "pointer": "/reason",
+          "value": "Checkpoint fault tests showed NORMAL keeps the database consistent."
+        },
+        {
+          "pointer": "/applicability/conditions/0/dimension",
+          "value": "repository"
+        },
+        {
+          "pointer": "/applicability/conditions/0/value",
+          "value": "this one"
+        },
+        {
+          "pointer": "/replaces/record_id",
+          "value": "$rec:full"
+        },
+        {
+          "pointer": "/replaces/extent",
+          "value": "whole"
+        }
+      ]
+    },
+    {
+      "name": "normal_stored",
+      "from": "normal_submitted",
+      "set": [
+        {
+          "pointer": "/record_id",
+          "value": "$rec:normal"
+        },
+        {
+          "pointer": "/recorded_at",
+          "value": "$instant:normal_recorded_at"
+        }
+      ]
+    },
+    {
+      "name": "repo_memory_manifest_3",
+      "from": "sources/revision_of_a_published_package.json",
+      "drop": [
+        "/members/1"
+      ],
+      "set": [
+        {
+          "pointer": "/source_id",
+          "value": "@repo_memory"
+        },
+        {
+          "pointer": "/members/0/path",
+          "value": "memory/records.jsonl"
+        },
+        {
+          "pointer": "/members/0/digest",
+          "value": "$digest:repo_memory_bytes_3"
+        },
+        {
+          "pointer": "/members/0/size",
+          "value": "$integer:repo_memory_size_3"
+        },
+        {
+          "pointer": "/produced_at",
+          "value": "$instant:repo_memory_produced_3"
+        }
+      ]
+    },
+    {
+      "name": "publish_normal",
+      "from": "c01/link_request.json",
+      "set": [
+        {
+          "pointer": "/request_id",
+          "value": "@publish_normal_request"
+        },
+        {
+          "pointer": "/operation",
+          "value": "memory.record.publish"
+        },
+        {
+          "pointer": "/action",
+          "value": "publish"
+        },
+        {
+          "pointer": "/effect_class",
+          "value": "owner_commit"
+        },
+        {
+          "pointer": "/actor/principal_id",
+          "value": "@alice"
+        },
+        {
+          "pointer": "/actor/device_id",
+          "value": "@laptop"
+        },
+        {
+          "pointer": "/actor/profile_id",
+          "value": "@alice_profile"
+        },
+        {
+          "pointer": "/owner/layer",
+          "value": "repository"
+        },
+        {
+          "pointer": "/owner/repository_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/target/resource_id",
+          "value": "@repo_memory"
+        },
+        {
+          "pointer": "/target/base/expects",
+          "value": "head"
+        },
+        {
+          "pointer": "/target/base/head_digest",
+          "value": "#repo_memory_manifest_2"
+        },
+        {
+          "pointer": "/payload_digest",
+          "value": "#normal_submitted"
+        }
+      ],
+      "drop": [
+        "/owner/principal_id"
+      ]
+    },
+    {
+      "name": "full_replaced_submitted",
+      "from": "c05/event_as_submitted.json",
+      "set": [
+        {
+          "pointer": "/target/record_id",
+          "value": "$rec:full"
+        },
+        {
+          "pointer": "/effect/did",
+          "value": "replaced"
+        },
+        {
+          "pointer": "/attributed_to",
+          "value": "@alice"
+        },
+        {
+          "pointer": "/evidence_digests",
+          "value": []
+        },
+        {
+          "pointer": "/effect/successor_record_id",
+          "value": "$rec:normal"
+        }
+      ]
+    },
+    {
+      "name": "full_replaced_stored",
+      "from": "full_replaced_submitted",
+      "set": [
+        {
+          "pointer": "/event_id",
+          "value": "$evt:full_replaced"
+        },
+        {
+          "pointer": "/recorded_at",
+          "value": "$instant:full_replaced_recorded_at"
+        }
+      ]
+    },
+    {
+      "name": "repo_memory_manifest_4",
+      "from": "sources/revision_of_a_published_package.json",
+      "drop": [
+        "/members/1"
+      ],
+      "set": [
+        {
+          "pointer": "/source_id",
+          "value": "@repo_memory"
+        },
+        {
+          "pointer": "/members/0/path",
+          "value": "memory/records.jsonl"
+        },
+        {
+          "pointer": "/members/0/digest",
+          "value": "$digest:repo_memory_bytes_4"
+        },
+        {
+          "pointer": "/members/0/size",
+          "value": "$integer:repo_memory_size_4"
+        },
+        {
+          "pointer": "/produced_at",
+          "value": "$instant:repo_memory_produced_4"
+        }
+      ]
+    },
+    {
+      "name": "replace_full",
+      "from": "c01/link_request.json",
+      "set": [
+        {
+          "pointer": "/request_id",
+          "value": "@replace_full_request"
+        },
+        {
+          "pointer": "/operation",
+          "value": "memory.lifecycle.apply"
+        },
+        {
+          "pointer": "/action",
+          "value": "publish"
+        },
+        {
+          "pointer": "/effect_class",
+          "value": "owner_commit"
+        },
+        {
+          "pointer": "/actor/principal_id",
+          "value": "@alice"
+        },
+        {
+          "pointer": "/actor/device_id",
+          "value": "@laptop"
+        },
+        {
+          "pointer": "/actor/profile_id",
+          "value": "@alice_profile"
+        },
+        {
+          "pointer": "/owner/layer",
+          "value": "repository"
+        },
+        {
+          "pointer": "/owner/repository_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/target/resource_id",
+          "value": "@repo_memory"
+        },
+        {
+          "pointer": "/target/base/expects",
+          "value": "head"
+        },
+        {
+          "pointer": "/target/base/head_digest",
+          "value": "#repo_memory_manifest_3"
+        },
+        {
+          "pointer": "/payload_digest",
+          "value": "#full_replaced_submitted"
+        }
+      ],
+      "drop": [
+        "/owner/principal_id"
+      ]
+    },
+    {
+      "name": "exclusive_submitted",
+      "from": "c05/choice_as_submitted.json",
+      "drop": [
+        "/basis",
+        "/context",
+        "/expected_consequences",
+        "/revisit_condition",
+        "/applicability/period"
+      ],
+      "set": [
+        {
+          "pointer": "/home/repository_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/workstream_ids",
+          "value": []
+        },
+        {
+          "pointer": "/question",
+          "value": "Which journal mode does the local state database use?"
+        },
+        {
+          "pointer": "/choice",
+          "value": "WAL, with exclusive locking mode."
+        },
+        {
+          "pointer": "/alternatives/0/choice",
+          "value": "WAL with shared locking"
+        },
+        {
+          "pointer": "/alternatives/0/reason",
+          "value": "Another process could open the database while a checkpoint runs."
+        },
+        {
+          "pointer": "/reason",
+          "value": "Only one process opens the database, so exclusive locking saves the shared-memory file."
+        },
+        {
+          "pointer": "/applicability/conditions/0/dimension",
+          "value": "repository"
+        },
+        {
+          "pointer": "/applicability/conditions/0/value",
+          "value": "this one"
+        }
+      ]
+    },
+    {
+      "name": "exclusive_stored",
+      "from": "exclusive_submitted",
+      "set": [
+        {
+          "pointer": "/record_id",
+          "value": "$rec:exclusive"
+        },
+        {
+          "pointer": "/recorded_at",
+          "value": "$instant:exclusive_recorded_at"
+        }
+      ]
+    },
+    {
+      "name": "repo_memory_manifest_5",
+      "from": "sources/revision_of_a_published_package.json",
+      "drop": [
+        "/members/1"
+      ],
+      "set": [
+        {
+          "pointer": "/source_id",
+          "value": "@repo_memory"
+        },
+        {
+          "pointer": "/members/0/path",
+          "value": "memory/records.jsonl"
+        },
+        {
+          "pointer": "/members/0/digest",
+          "value": "$digest:repo_memory_bytes_5"
+        },
+        {
+          "pointer": "/members/0/size",
+          "value": "$integer:repo_memory_size_5"
+        },
+        {
+          "pointer": "/produced_at",
+          "value": "$instant:repo_memory_produced_5"
+        }
+      ]
+    },
+    {
+      "name": "publish_exclusive",
+      "from": "c01/link_request.json",
+      "set": [
+        {
+          "pointer": "/request_id",
+          "value": "@publish_exclusive_request"
+        },
+        {
+          "pointer": "/operation",
+          "value": "memory.record.publish"
+        },
+        {
+          "pointer": "/action",
+          "value": "publish"
+        },
+        {
+          "pointer": "/effect_class",
+          "value": "owner_commit"
+        },
+        {
+          "pointer": "/actor/principal_id",
+          "value": "@alice"
+        },
+        {
+          "pointer": "/actor/device_id",
+          "value": "@laptop"
+        },
+        {
+          "pointer": "/actor/profile_id",
+          "value": "@alice_profile"
+        },
+        {
+          "pointer": "/owner/layer",
+          "value": "repository"
+        },
+        {
+          "pointer": "/owner/repository_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/target/resource_id",
+          "value": "@repo_memory"
+        },
+        {
+          "pointer": "/target/base/expects",
+          "value": "head"
+        },
+        {
+          "pointer": "/target/base/head_digest",
+          "value": "#repo_memory_manifest_4"
+        },
+        {
+          "pointer": "/payload_digest",
+          "value": "#exclusive_submitted"
+        }
+      ],
+      "drop": [
+        "/owner/principal_id"
+      ]
+    },
+    {
+      "name": "exclusive_withdrawn_submitted",
+      "from": "c05/event_as_submitted.json",
+      "set": [
+        {
+          "pointer": "/target/record_id",
+          "value": "$rec:exclusive"
+        },
+        {
+          "pointer": "/effect/did",
+          "value": "withdrawn"
+        },
+        {
+          "pointer": "/attributed_to",
+          "value": "@alice"
+        },
+        {
+          "pointer": "/evidence_digests",
+          "value": []
+        },
+        {
+          "pointer": "/note",
+          "value": "A second process now reads the database, so exclusive locking no longer holds."
+        }
+      ]
+    },
+    {
+      "name": "exclusive_withdrawn_stored",
+      "from": "exclusive_withdrawn_submitted",
+      "set": [
+        {
+          "pointer": "/event_id",
+          "value": "$evt:exclusive_withdrawn"
+        },
+        {
+          "pointer": "/recorded_at",
+          "value": "$instant:exclusive_withdrawn_recorded_at"
+        }
+      ]
+    },
+    {
+      "name": "repo_memory_manifest_6",
+      "from": "sources/revision_of_a_published_package.json",
+      "drop": [
+        "/members/1"
+      ],
+      "set": [
+        {
+          "pointer": "/source_id",
+          "value": "@repo_memory"
+        },
+        {
+          "pointer": "/members/0/path",
+          "value": "memory/records.jsonl"
+        },
+        {
+          "pointer": "/members/0/digest",
+          "value": "$digest:repo_memory_bytes_6"
+        },
+        {
+          "pointer": "/members/0/size",
+          "value": "$integer:repo_memory_size_6"
+        },
+        {
+          "pointer": "/produced_at",
+          "value": "$instant:repo_memory_produced_6"
+        }
+      ]
+    },
+    {
+      "name": "withdraw_exclusive",
+      "from": "c01/link_request.json",
+      "set": [
+        {
+          "pointer": "/request_id",
+          "value": "@withdraw_exclusive_request"
+        },
+        {
+          "pointer": "/operation",
+          "value": "memory.lifecycle.apply"
+        },
+        {
+          "pointer": "/action",
+          "value": "publish"
+        },
+        {
+          "pointer": "/effect_class",
+          "value": "owner_commit"
+        },
+        {
+          "pointer": "/actor/principal_id",
+          "value": "@alice"
+        },
+        {
+          "pointer": "/actor/device_id",
+          "value": "@laptop"
+        },
+        {
+          "pointer": "/actor/profile_id",
+          "value": "@alice_profile"
+        },
+        {
+          "pointer": "/owner/layer",
+          "value": "repository"
+        },
+        {
+          "pointer": "/owner/repository_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/target/resource_id",
+          "value": "@repo_memory"
+        },
+        {
+          "pointer": "/target/base/expects",
+          "value": "head"
+        },
+        {
+          "pointer": "/target/base/head_digest",
+          "value": "#repo_memory_manifest_5"
+        },
+        {
+          "pointer": "/payload_digest",
+          "value": "#exclusive_withdrawn_submitted"
+        }
+      ],
+      "drop": [
+        "/owner/principal_id"
+      ]
+    },
+    {
+      "name": "current_envelope",
+      "from": "c06/envelope_asking_for_memory_history.json",
+      "set": [
+        {
+          "pointer": "/history",
+          "value": "excluded"
+        },
+        {
+          "pointer": "/required/0/source_id",
+          "value": "@repo_memory"
+        },
+        {
+          "pointer": "/work_scope/repository_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/selector/concern/question",
+          "value": "Which journal mode does the local state database use?"
+        }
+      ]
+    },
+    {
+      "name": "search_current",
+      "from": "c01/link_request.json",
+      "set": [
+        {
+          "pointer": "/request_id",
+          "value": "@search_current_request"
+        },
+        {
+          "pointer": "/operation",
+          "value": "reader.body.read"
+        },
+        {
+          "pointer": "/action",
+          "value": "read"
+        },
+        {
+          "pointer": "/effect_class",
+          "value": "pure_preview"
+        },
+        {
+          "pointer": "/actor/principal_id",
+          "value": "@alice"
+        },
+        {
+          "pointer": "/actor/device_id",
+          "value": "@laptop"
+        },
+        {
+          "pointer": "/actor/profile_id",
+          "value": "@alice_profile"
+        },
+        {
+          "pointer": "/owner/layer",
+          "value": "repository"
+        },
+        {
+          "pointer": "/owner/repository_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/target/resource_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/payload_digest",
+          "value": "#current_envelope"
+        }
+      ],
+      "drop": [
+        "/owner/principal_id"
+      ]
+    },
+    {
+      "name": "current_units",
+      "from": "c06/history_marked_with_its_standing.json",
+      "drop": [
+        "/outcome/units/2",
+        "/outcome/units/1"
+      ],
+      "set": [
+        {
+          "pointer": "/envelope_digest",
+          "value": "#current_envelope"
+        },
+        {
+          "pointer": "/prepared_at",
+          "value": "$instant:current_units_at"
+        },
+        {
+          "pointer": "/outcome/frontiers/0/source_id",
+          "value": "@repo_memory"
+        },
+        {
+          "pointer": "/outcome/frontiers/0/checkpoint_digest",
+          "value": "#repo_memory_manifest_6"
+        },
+        {
+          "pointer": "/outcome/consumed/examined",
+          "value": 3
+        },
+        {
+          "pointer": "/outcome/consumed/units",
+          "value": 1
+        },
+        {
+          "pointer": "/outcome/consumed/bytes",
+          "value": 512
+        },
+        {
+          "pointer": "/outcome/units/0/unit_id",
+          "value": "$unt:normal_unit"
+        },
+        {
+          "pointer": "/outcome/units/0/source_id",
+          "value": "@repo_memory"
+        },
+        {
+          "pointer": "/outcome/units/0/revision_digest",
+          "value": "#repo_memory_manifest_6"
+        },
+        {
+          "pointer": "/outcome/units/0/standing",
+          "value": "winning"
+        },
+        {
+          "pointer": "/outcome/units/0/body_digest",
+          "value": "#normal_body"
+        },
+        {
+          "pointer": "/qualifications",
+          "value": []
+        }
+      ]
+    },
+    {
+      "name": "history_envelope",
+      "from": "c06/envelope_asking_for_memory_history.json",
+      "set": [
+        {
+          "pointer": "/history",
+          "value": "included"
+        },
+        {
+          "pointer": "/required/0/source_id",
+          "value": "@repo_memory"
+        },
+        {
+          "pointer": "/work_scope/repository_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/selector/concern/question",
+          "value": "Which journal mode does the local state database use?"
+        }
+      ]
+    },
+    {
+      "name": "search_history",
+      "from": "c01/link_request.json",
+      "set": [
+        {
+          "pointer": "/request_id",
+          "value": "@search_history_request"
+        },
+        {
+          "pointer": "/operation",
+          "value": "reader.body.read"
+        },
+        {
+          "pointer": "/action",
+          "value": "read"
+        },
+        {
+          "pointer": "/effect_class",
+          "value": "pure_preview"
+        },
+        {
+          "pointer": "/actor/principal_id",
+          "value": "@alice"
+        },
+        {
+          "pointer": "/actor/device_id",
+          "value": "@laptop"
+        },
+        {
+          "pointer": "/actor/profile_id",
+          "value": "@alice_profile"
+        },
+        {
+          "pointer": "/owner/layer",
+          "value": "repository"
+        },
+        {
+          "pointer": "/owner/repository_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/target/resource_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/payload_digest",
+          "value": "#history_envelope"
+        }
+      ],
+      "drop": [
+        "/owner/principal_id"
+      ]
+    },
+    {
+      "name": "history_units",
+      "from": "c06/history_marked_with_its_standing.json",
+      "set": [
+        {
+          "pointer": "/envelope_digest",
+          "value": "#history_envelope"
+        },
+        {
+          "pointer": "/prepared_at",
+          "value": "$instant:history_units_at"
+        },
+        {
+          "pointer": "/outcome/frontiers/0/source_id",
+          "value": "@repo_memory"
+        },
+        {
+          "pointer": "/outcome/frontiers/0/checkpoint_digest",
+          "value": "#repo_memory_manifest_6"
+        },
+        {
+          "pointer": "/outcome/consumed/examined",
+          "value": 3
+        },
+        {
+          "pointer": "/outcome/consumed/units",
+          "value": 3
+        },
+        {
+          "pointer": "/outcome/consumed/bytes",
+          "value": 1536
+        },
+        {
+          "pointer": "/outcome/units/0/unit_id",
+          "value": "$unt:normal_unit"
+        },
+        {
+          "pointer": "/outcome/units/0/source_id",
+          "value": "@repo_memory"
+        },
+        {
+          "pointer": "/outcome/units/0/revision_digest",
+          "value": "#repo_memory_manifest_6"
+        },
+        {
+          "pointer": "/outcome/units/0/standing",
+          "value": "winning"
+        },
+        {
+          "pointer": "/outcome/units/0/body_digest",
+          "value": "#normal_body"
+        },
+        {
+          "pointer": "/outcome/units/1/unit_id",
+          "value": "$unt:full_unit"
+        },
+        {
+          "pointer": "/outcome/units/1/source_id",
+          "value": "@repo_memory"
+        },
+        {
+          "pointer": "/outcome/units/1/revision_digest",
+          "value": "#repo_memory_manifest_2"
+        },
+        {
+          "pointer": "/outcome/units/1/standing",
+          "value": "superseded"
+        },
+        {
+          "pointer": "/outcome/units/1/body_digest",
+          "value": "#full_body"
+        },
+        {
+          "pointer": "/outcome/units/2/unit_id",
+          "value": "$unt:exclusive_unit"
+        },
+        {
+          "pointer": "/outcome/units/2/source_id",
+          "value": "@repo_memory"
+        },
+        {
+          "pointer": "/outcome/units/2/revision_digest",
+          "value": "#repo_memory_manifest_5"
+        },
+        {
+          "pointer": "/outcome/units/2/standing",
+          "value": "withdrawn"
+        },
+        {
+          "pointer": "/outcome/units/2/body_digest",
+          "value": "#exclusive_body"
+        }
+      ]
+    },
+    {
+      "name": "current_question",
+      "from": "c05/state_question_for_one_lane.json",
+      "drop": [
+        "/scopes/2",
+        "/scopes/1",
+        "/workstream_ids"
+      ],
+      "set": [
+        {
+          "pointer": "/scopes/0/repository_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/concern/question",
+          "value": "Which journal mode does the local state database use?"
+        },
+        {
+          "pointer": "/include_superseded",
+          "value": false
+        }
+      ]
+    },
+    {
+      "name": "resolve_current",
+      "from": "c01/link_request.json",
+      "set": [
+        {
+          "pointer": "/request_id",
+          "value": "@resolve_current_request"
+        },
+        {
+          "pointer": "/operation",
+          "value": "memory.state.resolve"
+        },
+        {
+          "pointer": "/action",
+          "value": "read"
+        },
+        {
+          "pointer": "/effect_class",
+          "value": "pure_preview"
+        },
+        {
+          "pointer": "/actor/principal_id",
+          "value": "@alice"
+        },
+        {
+          "pointer": "/actor/device_id",
+          "value": "@laptop"
+        },
+        {
+          "pointer": "/actor/profile_id",
+          "value": "@alice_profile"
+        },
+        {
+          "pointer": "/owner/principal_id",
+          "value": "@alice"
+        },
+        {
+          "pointer": "/target/resource_id",
+          "value": "@journal_concern"
+        },
+        {
+          "pointer": "/payload_digest",
+          "value": "#current_question"
+        }
+      ]
+    },
+    {
+      "name": "current_state",
+      "from": "c05/state_with_one_current_choice.json",
+      "drop": [
+        "/entries/1"
+      ],
+      "set": [
+        {
+          "pointer": "/question_digest",
+          "value": "#current_question"
+        },
+        {
+          "pointer": "/frontiers/0/source_id",
+          "value": "@repo_memory"
+        },
+        {
+          "pointer": "/frontiers/0/checkpoint_digest",
+          "value": "#repo_memory_manifest_6"
+        },
+        {
+          "pointer": "/comparison/compared",
+          "value": 3
+        },
+        {
+          "pointer": "/prepared_at",
+          "value": "$instant:current_state_at"
+        },
+        {
+          "pointer": "/entries/0/record_id",
+          "value": "$rec:normal"
+        },
+        {
+          "pointer": "/entries/0/source_id",
+          "value": "@repo_memory"
+        },
+        {
+          "pointer": "/entries/0/standing",
+          "value": "current"
+        },
+        {
+          "pointer": "/entries/1/record_id",
+          "value": "$rec:exclusive"
+        },
+        {
+          "pointer": "/entries/1/source_id",
+          "value": "@repo_memory"
+        },
+        {
+          "pointer": "/entries/1/standing",
+          "value": "withdrawn"
+        },
+        {
+          "pointer": "/entries/1/qualification",
+          "value": "Withdrawn when a second process began reading the database; nothing replaced it."
+        }
+      ]
+    },
+    {
+      "name": "history_question",
+      "from": "c05/state_question_for_one_lane.json",
+      "drop": [
+        "/scopes/2",
+        "/scopes/1",
+        "/workstream_ids"
+      ],
+      "set": [
+        {
+          "pointer": "/scopes/0/repository_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/concern/question",
+          "value": "Which journal mode does the local state database use?"
+        },
+        {
+          "pointer": "/include_superseded",
+          "value": true
+        }
+      ]
+    },
+    {
+      "name": "resolve_history",
+      "from": "c01/link_request.json",
+      "set": [
+        {
+          "pointer": "/request_id",
+          "value": "@resolve_history_request"
+        },
+        {
+          "pointer": "/operation",
+          "value": "memory.state.resolve"
+        },
+        {
+          "pointer": "/action",
+          "value": "read"
+        },
+        {
+          "pointer": "/effect_class",
+          "value": "pure_preview"
+        },
+        {
+          "pointer": "/actor/principal_id",
+          "value": "@alice"
+        },
+        {
+          "pointer": "/actor/device_id",
+          "value": "@laptop"
+        },
+        {
+          "pointer": "/actor/profile_id",
+          "value": "@alice_profile"
+        },
+        {
+          "pointer": "/owner/principal_id",
+          "value": "@alice"
+        },
+        {
+          "pointer": "/target/resource_id",
+          "value": "@journal_concern"
+        },
+        {
+          "pointer": "/payload_digest",
+          "value": "#history_question"
+        }
+      ]
+    },
+    {
+      "name": "history_state",
+      "from": "c05/state_with_one_current_choice.json",
+      "drop": [
+        "/entries/1"
+      ],
+      "set": [
+        {
+          "pointer": "/question_digest",
+          "value": "#history_question"
+        },
+        {
+          "pointer": "/frontiers/0/source_id",
+          "value": "@repo_memory"
+        },
+        {
+          "pointer": "/frontiers/0/checkpoint_digest",
+          "value": "#repo_memory_manifest_6"
+        },
+        {
+          "pointer": "/comparison/compared",
+          "value": 3
+        },
+        {
+          "pointer": "/prepared_at",
+          "value": "$instant:history_state_at"
+        },
+        {
+          "pointer": "/entries/0/record_id",
+          "value": "$rec:normal"
+        },
+        {
+          "pointer": "/entries/0/source_id",
+          "value": "@repo_memory"
+        },
+        {
+          "pointer": "/entries/0/standing",
+          "value": "current"
+        },
+        {
+          "pointer": "/entries/1/record_id",
+          "value": "$rec:full"
+        },
+        {
+          "pointer": "/entries/1/source_id",
+          "value": "@repo_memory"
+        },
+        {
+          "pointer": "/entries/1/standing",
+          "value": "superseded"
+        },
+        {
+          "pointer": "/entries/1/superseded_by",
+          "value": "$rec:normal"
+        },
+        {
+          "pointer": "/entries/2/record_id",
+          "value": "$rec:exclusive"
+        },
+        {
+          "pointer": "/entries/2/source_id",
+          "value": "@repo_memory"
+        },
+        {
+          "pointer": "/entries/2/standing",
+          "value": "withdrawn"
+        },
+        {
+          "pointer": "/entries/2/qualification",
+          "value": "Withdrawn when a second process began reading the database; nothing replaced it."
+        }
+      ]
     }
-   ]
-  },
-  {
-   "name": "alice_key_stored",
-   "from": "alice_key",
-   "set": [
+  ],
+  "members": [
     {
-     "pointer": "/binding_id",
-     "value": "$bnd:alice_binding"
+      "name": "normal_body",
+      "text": "The current standing rate applies unchanged for this period.\n"
     },
     {
-     "pointer": "/created_at",
-     "value": "$instant:alice_bound_at"
+      "name": "full_body",
+      "text": "The prior full rate table, superseded by the current standing revision.\n"
+    },
+    {
+      "name": "exclusive_body",
+      "text": "An exclusive addendum, later withdrawn from the source.\n"
     }
-   ]
-  },
-  {
-   "name": "alice_checkout",
-   "from": "c01/repository_binding_as_submitted.json",
-   "set": [
+  ],
+  "steps": [
     {
-     "pointer": "/repository_id",
-     "value": "@repo"
+      "name": "bind_alice_key",
+      "request": "bind_alice_key",
+      "carries": [
+        "alice_key"
+      ],
+      "answer": {
+        "stage": "committed",
+        "local_effect": "committed",
+        "provider_effect": "not_applicable",
+        "gaps": [],
+        "recovery": [],
+        "returns": [
+          "alice_key_stored"
+        ]
+      }
+    },
+    {
+      "name": "bind_alice_checkout",
+      "request": "bind_alice_checkout",
+      "carries": [
+        "alice_checkout"
+      ],
+      "answer": {
+        "stage": "committed",
+        "local_effect": "committed",
+        "provider_effect": "not_applicable",
+        "gaps": [],
+        "recovery": [],
+        "returns": [
+          "alice_checkout_bound"
+        ]
+      }
+    },
+    {
+      "name": "register_repo_memory",
+      "request": "register_repo_memory",
+      "carries": [
+        "repo_memory_home"
+      ],
+      "answer": {
+        "stage": "committed",
+        "local_effect": "committed",
+        "provider_effect": "not_applicable",
+        "gaps": [],
+        "recovery": [],
+        "returns": [
+          "repo_memory_registered"
+        ],
+        "head": "repo_memory_head_1"
+      }
+    },
+    {
+      "name": "record_full",
+      "request": "publish_full",
+      "carries": [
+        "full_submitted"
+      ],
+      "answer": {
+        "stage": "committed",
+        "local_effect": "committed",
+        "provider_effect": "not_applicable",
+        "gaps": [],
+        "recovery": [],
+        "returns": [
+          "full_stored",
+          "repo_memory_manifest_2"
+        ],
+        "head": "repo_memory_manifest_2"
+      }
+    },
+    {
+      "name": "record_normal",
+      "request": "publish_normal",
+      "carries": [
+        "normal_submitted"
+      ],
+      "answer": {
+        "stage": "committed",
+        "local_effect": "committed",
+        "provider_effect": "not_applicable",
+        "gaps": [],
+        "recovery": [],
+        "returns": [
+          "normal_stored",
+          "repo_memory_manifest_3"
+        ],
+        "head": "repo_memory_manifest_3"
+      }
+    },
+    {
+      "name": "replace_full",
+      "request": "replace_full",
+      "carries": [
+        "full_replaced_submitted"
+      ],
+      "answer": {
+        "stage": "committed",
+        "local_effect": "committed",
+        "provider_effect": "not_applicable",
+        "gaps": [],
+        "recovery": [],
+        "returns": [
+          "full_replaced_stored",
+          "repo_memory_manifest_4"
+        ],
+        "head": "repo_memory_manifest_4"
+      }
+    },
+    {
+      "name": "record_exclusive",
+      "request": "publish_exclusive",
+      "carries": [
+        "exclusive_submitted"
+      ],
+      "answer": {
+        "stage": "committed",
+        "local_effect": "committed",
+        "provider_effect": "not_applicable",
+        "gaps": [],
+        "recovery": [],
+        "returns": [
+          "exclusive_stored",
+          "repo_memory_manifest_5"
+        ],
+        "head": "repo_memory_manifest_5"
+      }
+    },
+    {
+      "name": "withdraw_exclusive",
+      "request": "withdraw_exclusive",
+      "carries": [
+        "exclusive_withdrawn_submitted"
+      ],
+      "answer": {
+        "stage": "committed",
+        "local_effect": "committed",
+        "provider_effect": "not_applicable",
+        "gaps": [],
+        "recovery": [],
+        "returns": [
+          "exclusive_withdrawn_stored",
+          "repo_memory_manifest_6"
+        ],
+        "head": "repo_memory_manifest_6"
+      }
+    },
+    {
+      "name": "search_without_history",
+      "request": "search_current",
+      "carries": [
+        "current_envelope"
+      ],
+      "answer": {
+        "stage": "previewed",
+        "local_effect": "none",
+        "provider_effect": "not_applicable",
+        "gaps": [],
+        "recovery": [],
+        "returns": [
+          "current_units",
+          "normal_body"
+        ]
+      }
+    },
+    {
+      "name": "search_with_history",
+      "request": "search_history",
+      "carries": [
+        "history_envelope"
+      ],
+      "answer": {
+        "stage": "previewed",
+        "local_effect": "none",
+        "provider_effect": "not_applicable",
+        "gaps": [],
+        "recovery": [],
+        "returns": [
+          "history_units",
+          "normal_body",
+          "full_body",
+          "exclusive_body"
+        ]
+      }
+    },
+    {
+      "name": "resolve_without_history",
+      "request": "resolve_current",
+      "carries": [
+        "current_question"
+      ],
+      "answer": {
+        "stage": "previewed",
+        "local_effect": "none",
+        "provider_effect": "not_applicable",
+        "gaps": [],
+        "recovery": [],
+        "returns": [
+          "current_state"
+        ]
+      }
+    },
+    {
+      "name": "resolve_with_history",
+      "request": "resolve_history",
+      "carries": [
+        "history_question"
+      ],
+      "answer": {
+        "stage": "previewed",
+        "local_effect": "none",
+        "provider_effect": "not_applicable",
+        "gaps": [],
+        "recovery": [],
+        "returns": [
+          "history_state"
+        ]
+      }
     }
-   ]
-  },
-  {
-   "name": "bind_alice_checkout",
-   "from": "c01/link_request.json",
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@bind_alice_checkout_request"
-    },
-    {
-     "pointer": "/operation",
-     "value": "repository.bind"
-    },
-    {
-     "pointer": "/action",
-     "value": "local_profile"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "owner_commit"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@alice_profile"
-    },
-    {
-     "pointer": "/owner/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@repo"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#alice_checkout"
-    }
-   ]
-  },
-  {
-   "name": "alice_checkout_bound",
-   "from": "c01/clone_shares_the_repository_id.json",
-   "drop": [
-    "/observed/working_bytes_digest"
-   ],
-   "set": [
-    {
-     "pointer": "/repository_id",
-     "value": "@repo"
-    }
-   ]
-  },
-  {
-   "name": "repo_memory_home",
-   "from": "sources/home_of_a_repository_document.json",
-   "drop": [
-    "/registered_at"
-   ],
-   "set": [
-    {
-     "pointer": "/source_id",
-     "value": "@repo_memory"
-    },
-    {
-     "pointer": "/scope/repository_id",
-     "value": "@repo"
-    },
-    {
-     "pointer": "/acceptance_authority/repository_id",
-     "value": "@repo"
-    },
-    {
-     "pointer": "/home/repository_id",
-     "value": "@repo"
-    },
-    {
-     "pointer": "/home/document_root",
-     "value": "docs/decisions"
-    },
-    {
-     "pointer": "/home/binding_evidence_digest",
-     "value": "#alice_checkout_bound"
-    }
-   ]
-  },
-  {
-   "name": "register_repo_memory",
-   "from": "c01/link_request.json",
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@register_repo_memory_request"
-    },
-    {
-     "pointer": "/operation",
-     "value": "source.home.register"
-    },
-    {
-     "pointer": "/action",
-     "value": "contribute"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "owner_commit"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@alice_profile"
-    },
-    {
-     "pointer": "/owner/layer",
-     "value": "repository"
-    },
-    {
-     "pointer": "/owner/repository_id",
-     "value": "@repo"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@repo_memory"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "absent"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#repo_memory_home"
-    }
-   ],
-   "drop": [
-    "/owner/principal_id"
-   ]
-  },
-  {
-   "name": "repo_memory_registered",
-   "from": "repo_memory_home",
-   "set": [
-    {
-     "pointer": "/registered_at",
-     "value": "$instant:repo_memory_registered_at"
-    }
-   ]
-  },
-  {
-   "name": "full_submitted",
-   "from": "c05/choice_as_submitted.json",
-   "drop": [
-    "/basis",
-    "/context",
-    "/expected_consequences",
-    "/revisit_condition",
-    "/applicability/period"
-   ],
-   "set": [
-    {
-     "pointer": "/home/repository_id",
-     "value": "@repo"
-    },
-    {
-     "pointer": "/workstream_ids",
-     "value": []
-    },
-    {
-     "pointer": "/question",
-     "value": "Which journal mode does the local state database use?"
-    },
-    {
-     "pointer": "/choice",
-     "value": "WAL, with synchronous FULL."
-    },
-    {
-     "pointer": "/alternatives/0/choice",
-     "value": "A rollback journal with EXTRA"
-    },
-    {
-     "pointer": "/alternatives/0/reason",
-     "value": "One read waited 766 ms during a commit burst."
-    },
-    {
-     "pointer": "/reason",
-     "value": "4.11 ms per commit against 11.76, and readers are not blocked."
-    },
-    {
-     "pointer": "/applicability/conditions/0/dimension",
-     "value": "repository"
-    },
-    {
-     "pointer": "/applicability/conditions/0/value",
-     "value": "this one"
-    }
-   ]
-  },
-  {
-   "name": "full_stored",
-   "from": "full_submitted",
-   "set": [
-    {
-     "pointer": "/record_id",
-     "value": "$rec:full"
-    },
-    {
-     "pointer": "/recorded_at",
-     "value": "$instant:full_recorded_at"
-    }
-   ]
-  },
-  {
-   "name": "repo_memory_manifest_2",
-   "from": "sources/revision_of_a_published_package.json",
-   "drop": [
-    "/members/1"
-   ],
-   "set": [
-    {
-     "pointer": "/source_id",
-     "value": "@repo_memory"
-    },
-    {
-     "pointer": "/members/0/path",
-     "value": "memory/records.jsonl"
-    },
-    {
-     "pointer": "/members/0/digest",
-     "value": "$digest:repo_memory_bytes_2"
-    },
-    {
-     "pointer": "/members/0/size",
-     "value": "$integer:repo_memory_size_2"
-    },
-    {
-     "pointer": "/produced_at",
-     "value": "$instant:repo_memory_produced_2"
-    }
-   ]
-  },
-  {
-   "name": "publish_full",
-   "from": "c01/link_request.json",
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@publish_full_request"
-    },
-    {
-     "pointer": "/operation",
-     "value": "memory.record.publish"
-    },
-    {
-     "pointer": "/action",
-     "value": "publish"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "owner_commit"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@alice_profile"
-    },
-    {
-     "pointer": "/owner/layer",
-     "value": "repository"
-    },
-    {
-     "pointer": "/owner/repository_id",
-     "value": "@repo"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@repo_memory"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "head"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:repo_memory_head_1"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#full_submitted"
-    }
-   ],
-   "drop": [
-    "/owner/principal_id"
-   ]
-  },
-  {
-   "name": "normal_submitted",
-   "from": "c05/choice_as_submitted.json",
-   "drop": [
-    "/basis",
-    "/context",
-    "/expected_consequences",
-    "/revisit_condition",
-    "/applicability/period"
-   ],
-   "set": [
-    {
-     "pointer": "/home/repository_id",
-     "value": "@repo"
-    },
-    {
-     "pointer": "/workstream_ids",
-     "value": []
-    },
-    {
-     "pointer": "/question",
-     "value": "Which journal mode does the local state database use?"
-    },
-    {
-     "pointer": "/choice",
-     "value": "WAL, with synchronous NORMAL."
-    },
-    {
-     "pointer": "/alternatives/0/choice",
-     "value": "WAL with synchronous FULL"
-    },
-    {
-     "pointer": "/alternatives/0/reason",
-     "value": "A sync on every commit is more than this database needs."
-    },
-    {
-     "pointer": "/reason",
-     "value": "Checkpoint fault tests showed NORMAL keeps the database consistent."
-    },
-    {
-     "pointer": "/applicability/conditions/0/dimension",
-     "value": "repository"
-    },
-    {
-     "pointer": "/applicability/conditions/0/value",
-     "value": "this one"
-    },
-    {
-     "pointer": "/replaces/record_id",
-     "value": "$rec:full"
-    },
-    {
-     "pointer": "/replaces/extent",
-     "value": "whole"
-    }
-   ]
-  },
-  {
-   "name": "normal_stored",
-   "from": "normal_submitted",
-   "set": [
-    {
-     "pointer": "/record_id",
-     "value": "$rec:normal"
-    },
-    {
-     "pointer": "/recorded_at",
-     "value": "$instant:normal_recorded_at"
-    }
-   ]
-  },
-  {
-   "name": "repo_memory_manifest_3",
-   "from": "sources/revision_of_a_published_package.json",
-   "drop": [
-    "/members/1"
-   ],
-   "set": [
-    {
-     "pointer": "/source_id",
-     "value": "@repo_memory"
-    },
-    {
-     "pointer": "/members/0/path",
-     "value": "memory/records.jsonl"
-    },
-    {
-     "pointer": "/members/0/digest",
-     "value": "$digest:repo_memory_bytes_3"
-    },
-    {
-     "pointer": "/members/0/size",
-     "value": "$integer:repo_memory_size_3"
-    },
-    {
-     "pointer": "/produced_at",
-     "value": "$instant:repo_memory_produced_3"
-    }
-   ]
-  },
-  {
-   "name": "publish_normal",
-   "from": "c01/link_request.json",
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@publish_normal_request"
-    },
-    {
-     "pointer": "/operation",
-     "value": "memory.record.publish"
-    },
-    {
-     "pointer": "/action",
-     "value": "publish"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "owner_commit"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@alice_profile"
-    },
-    {
-     "pointer": "/owner/layer",
-     "value": "repository"
-    },
-    {
-     "pointer": "/owner/repository_id",
-     "value": "@repo"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@repo_memory"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "head"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "#repo_memory_manifest_2"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#normal_submitted"
-    }
-   ],
-   "drop": [
-    "/owner/principal_id"
-   ]
-  },
-  {
-   "name": "full_replaced_submitted",
-   "from": "c05/event_as_submitted.json",
-   "set": [
-    {
-     "pointer": "/target/record_id",
-     "value": "$rec:full"
-    },
-    {
-     "pointer": "/effect/did",
-     "value": "replaced"
-    },
-    {
-     "pointer": "/attributed_to",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/evidence_digests",
-     "value": []
-    },
-    {
-     "pointer": "/effect/successor_record_id",
-     "value": "$rec:normal"
-    }
-   ]
-  },
-  {
-   "name": "full_replaced_stored",
-   "from": "full_replaced_submitted",
-   "set": [
-    {
-     "pointer": "/event_id",
-     "value": "$evt:full_replaced"
-    },
-    {
-     "pointer": "/recorded_at",
-     "value": "$instant:full_replaced_recorded_at"
-    }
-   ]
-  },
-  {
-   "name": "repo_memory_manifest_4",
-   "from": "sources/revision_of_a_published_package.json",
-   "drop": [
-    "/members/1"
-   ],
-   "set": [
-    {
-     "pointer": "/source_id",
-     "value": "@repo_memory"
-    },
-    {
-     "pointer": "/members/0/path",
-     "value": "memory/records.jsonl"
-    },
-    {
-     "pointer": "/members/0/digest",
-     "value": "$digest:repo_memory_bytes_4"
-    },
-    {
-     "pointer": "/members/0/size",
-     "value": "$integer:repo_memory_size_4"
-    },
-    {
-     "pointer": "/produced_at",
-     "value": "$instant:repo_memory_produced_4"
-    }
-   ]
-  },
-  {
-   "name": "replace_full",
-   "from": "c01/link_request.json",
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@replace_full_request"
-    },
-    {
-     "pointer": "/operation",
-     "value": "memory.lifecycle.apply"
-    },
-    {
-     "pointer": "/action",
-     "value": "publish"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "owner_commit"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@alice_profile"
-    },
-    {
-     "pointer": "/owner/layer",
-     "value": "repository"
-    },
-    {
-     "pointer": "/owner/repository_id",
-     "value": "@repo"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@repo_memory"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "head"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "#repo_memory_manifest_3"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#full_replaced_submitted"
-    }
-   ],
-   "drop": [
-    "/owner/principal_id"
-   ]
-  },
-  {
-   "name": "exclusive_submitted",
-   "from": "c05/choice_as_submitted.json",
-   "drop": [
-    "/basis",
-    "/context",
-    "/expected_consequences",
-    "/revisit_condition",
-    "/applicability/period"
-   ],
-   "set": [
-    {
-     "pointer": "/home/repository_id",
-     "value": "@repo"
-    },
-    {
-     "pointer": "/workstream_ids",
-     "value": []
-    },
-    {
-     "pointer": "/question",
-     "value": "Which journal mode does the local state database use?"
-    },
-    {
-     "pointer": "/choice",
-     "value": "WAL, with exclusive locking mode."
-    },
-    {
-     "pointer": "/alternatives/0/choice",
-     "value": "WAL with shared locking"
-    },
-    {
-     "pointer": "/alternatives/0/reason",
-     "value": "Another process could open the database while a checkpoint runs."
-    },
-    {
-     "pointer": "/reason",
-     "value": "Only one process opens the database, so exclusive locking saves the shared-memory file."
-    },
-    {
-     "pointer": "/applicability/conditions/0/dimension",
-     "value": "repository"
-    },
-    {
-     "pointer": "/applicability/conditions/0/value",
-     "value": "this one"
-    }
-   ]
-  },
-  {
-   "name": "exclusive_stored",
-   "from": "exclusive_submitted",
-   "set": [
-    {
-     "pointer": "/record_id",
-     "value": "$rec:exclusive"
-    },
-    {
-     "pointer": "/recorded_at",
-     "value": "$instant:exclusive_recorded_at"
-    }
-   ]
-  },
-  {
-   "name": "repo_memory_manifest_5",
-   "from": "sources/revision_of_a_published_package.json",
-   "drop": [
-    "/members/1"
-   ],
-   "set": [
-    {
-     "pointer": "/source_id",
-     "value": "@repo_memory"
-    },
-    {
-     "pointer": "/members/0/path",
-     "value": "memory/records.jsonl"
-    },
-    {
-     "pointer": "/members/0/digest",
-     "value": "$digest:repo_memory_bytes_5"
-    },
-    {
-     "pointer": "/members/0/size",
-     "value": "$integer:repo_memory_size_5"
-    },
-    {
-     "pointer": "/produced_at",
-     "value": "$instant:repo_memory_produced_5"
-    }
-   ]
-  },
-  {
-   "name": "publish_exclusive",
-   "from": "c01/link_request.json",
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@publish_exclusive_request"
-    },
-    {
-     "pointer": "/operation",
-     "value": "memory.record.publish"
-    },
-    {
-     "pointer": "/action",
-     "value": "publish"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "owner_commit"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@alice_profile"
-    },
-    {
-     "pointer": "/owner/layer",
-     "value": "repository"
-    },
-    {
-     "pointer": "/owner/repository_id",
-     "value": "@repo"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@repo_memory"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "head"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "#repo_memory_manifest_4"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#exclusive_submitted"
-    }
-   ],
-   "drop": [
-    "/owner/principal_id"
-   ]
-  },
-  {
-   "name": "exclusive_withdrawn_submitted",
-   "from": "c05/event_as_submitted.json",
-   "set": [
-    {
-     "pointer": "/target/record_id",
-     "value": "$rec:exclusive"
-    },
-    {
-     "pointer": "/effect/did",
-     "value": "withdrawn"
-    },
-    {
-     "pointer": "/attributed_to",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/evidence_digests",
-     "value": []
-    },
-    {
-     "pointer": "/note",
-     "value": "A second process now reads the database, so exclusive locking no longer holds."
-    }
-   ]
-  },
-  {
-   "name": "exclusive_withdrawn_stored",
-   "from": "exclusive_withdrawn_submitted",
-   "set": [
-    {
-     "pointer": "/event_id",
-     "value": "$evt:exclusive_withdrawn"
-    },
-    {
-     "pointer": "/recorded_at",
-     "value": "$instant:exclusive_withdrawn_recorded_at"
-    }
-   ]
-  },
-  {
-   "name": "repo_memory_manifest_6",
-   "from": "sources/revision_of_a_published_package.json",
-   "drop": [
-    "/members/1"
-   ],
-   "set": [
-    {
-     "pointer": "/source_id",
-     "value": "@repo_memory"
-    },
-    {
-     "pointer": "/members/0/path",
-     "value": "memory/records.jsonl"
-    },
-    {
-     "pointer": "/members/0/digest",
-     "value": "$digest:repo_memory_bytes_6"
-    },
-    {
-     "pointer": "/members/0/size",
-     "value": "$integer:repo_memory_size_6"
-    },
-    {
-     "pointer": "/produced_at",
-     "value": "$instant:repo_memory_produced_6"
-    }
-   ]
-  },
-  {
-   "name": "withdraw_exclusive",
-   "from": "c01/link_request.json",
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@withdraw_exclusive_request"
-    },
-    {
-     "pointer": "/operation",
-     "value": "memory.lifecycle.apply"
-    },
-    {
-     "pointer": "/action",
-     "value": "publish"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "owner_commit"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@alice_profile"
-    },
-    {
-     "pointer": "/owner/layer",
-     "value": "repository"
-    },
-    {
-     "pointer": "/owner/repository_id",
-     "value": "@repo"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@repo_memory"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "head"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "#repo_memory_manifest_5"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#exclusive_withdrawn_submitted"
-    }
-   ],
-   "drop": [
-    "/owner/principal_id"
-   ]
-  },
-  {
-   "name": "current_envelope",
-   "from": "c06/envelope_asking_for_memory_history.json",
-   "set": [
-    {
-     "pointer": "/history",
-     "value": "excluded"
-    },
-    {
-     "pointer": "/required/0/source_id",
-     "value": "@repo_memory"
-    },
-    {
-     "pointer": "/work_scope/repository_id",
-     "value": "@repo"
-    },
-    {
-     "pointer": "/selector/concern/question",
-     "value": "Which journal mode does the local state database use?"
-    }
-   ]
-  },
-  {
-   "name": "search_current",
-   "from": "c01/link_request.json",
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@search_current_request"
-    },
-    {
-     "pointer": "/operation",
-     "value": "reader.body.read"
-    },
-    {
-     "pointer": "/action",
-     "value": "read"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "pure_preview"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@alice_profile"
-    },
-    {
-     "pointer": "/owner/layer",
-     "value": "repository"
-    },
-    {
-     "pointer": "/owner/repository_id",
-     "value": "@repo"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@repo"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#current_envelope"
-    }
-   ],
-   "drop": [
-    "/owner/principal_id"
-   ]
-  },
-  {
-   "name": "current_units",
-   "from": "c06/history_marked_with_its_standing.json",
-   "drop": [
-    "/outcome/units/2",
-    "/outcome/units/1"
-   ],
-   "set": [
-    {
-     "pointer": "/envelope_digest",
-     "value": "#current_envelope"
-    },
-    {
-     "pointer": "/prepared_at",
-     "value": "$instant:current_units_at"
-    },
-    {
-     "pointer": "/outcome/frontiers/0/source_id",
-     "value": "@repo_memory"
-    },
-    {
-     "pointer": "/outcome/frontiers/0/checkpoint_digest",
-     "value": "#repo_memory_manifest_6"
-    },
-    {
-     "pointer": "/outcome/consumed/examined",
-     "value": 3
-    },
-    {
-     "pointer": "/outcome/consumed/units",
-     "value": 1
-    },
-    {
-     "pointer": "/outcome/consumed/bytes",
-     "value": 512
-    },
-    {
-     "pointer": "/outcome/units/0/unit_id",
-     "value": "$unt:normal_unit"
-    },
-    {
-     "pointer": "/outcome/units/0/source_id",
-     "value": "@repo_memory"
-    },
-    {
-     "pointer": "/outcome/units/0/revision_digest",
-     "value": "#repo_memory_manifest_6"
-    },
-    {
-     "pointer": "/outcome/units/0/standing",
-     "value": "winning"
-    },
-    {
-     "pointer": "/outcome/units/0/body_digest",
-     "value": "$digest:normal_body"
-    },
-    {
-     "pointer": "/qualifications",
-     "value": []
-    }
-   ]
-  },
-  {
-   "name": "history_envelope",
-   "from": "c06/envelope_asking_for_memory_history.json",
-   "set": [
-    {
-     "pointer": "/history",
-     "value": "included"
-    },
-    {
-     "pointer": "/required/0/source_id",
-     "value": "@repo_memory"
-    },
-    {
-     "pointer": "/work_scope/repository_id",
-     "value": "@repo"
-    },
-    {
-     "pointer": "/selector/concern/question",
-     "value": "Which journal mode does the local state database use?"
-    }
-   ]
-  },
-  {
-   "name": "search_history",
-   "from": "c01/link_request.json",
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@search_history_request"
-    },
-    {
-     "pointer": "/operation",
-     "value": "reader.body.read"
-    },
-    {
-     "pointer": "/action",
-     "value": "read"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "pure_preview"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@alice_profile"
-    },
-    {
-     "pointer": "/owner/layer",
-     "value": "repository"
-    },
-    {
-     "pointer": "/owner/repository_id",
-     "value": "@repo"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@repo"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#history_envelope"
-    }
-   ],
-   "drop": [
-    "/owner/principal_id"
-   ]
-  },
-  {
-   "name": "history_units",
-   "from": "c06/history_marked_with_its_standing.json",
-   "set": [
-    {
-     "pointer": "/envelope_digest",
-     "value": "#history_envelope"
-    },
-    {
-     "pointer": "/prepared_at",
-     "value": "$instant:history_units_at"
-    },
-    {
-     "pointer": "/outcome/frontiers/0/source_id",
-     "value": "@repo_memory"
-    },
-    {
-     "pointer": "/outcome/frontiers/0/checkpoint_digest",
-     "value": "#repo_memory_manifest_6"
-    },
-    {
-     "pointer": "/outcome/consumed/examined",
-     "value": 3
-    },
-    {
-     "pointer": "/outcome/consumed/units",
-     "value": 3
-    },
-    {
-     "pointer": "/outcome/consumed/bytes",
-     "value": 1536
-    },
-    {
-     "pointer": "/outcome/units/0/unit_id",
-     "value": "$unt:normal_unit"
-    },
-    {
-     "pointer": "/outcome/units/0/source_id",
-     "value": "@repo_memory"
-    },
-    {
-     "pointer": "/outcome/units/0/revision_digest",
-     "value": "#repo_memory_manifest_6"
-    },
-    {
-     "pointer": "/outcome/units/0/standing",
-     "value": "winning"
-    },
-    {
-     "pointer": "/outcome/units/0/body_digest",
-     "value": "$digest:normal_body"
-    },
-    {
-     "pointer": "/outcome/units/1/unit_id",
-     "value": "$unt:full_unit"
-    },
-    {
-     "pointer": "/outcome/units/1/source_id",
-     "value": "@repo_memory"
-    },
-    {
-     "pointer": "/outcome/units/1/revision_digest",
-     "value": "#repo_memory_manifest_2"
-    },
-    {
-     "pointer": "/outcome/units/1/standing",
-     "value": "superseded"
-    },
-    {
-     "pointer": "/outcome/units/1/body_digest",
-     "value": "$digest:full_body"
-    },
-    {
-     "pointer": "/outcome/units/2/unit_id",
-     "value": "$unt:exclusive_unit"
-    },
-    {
-     "pointer": "/outcome/units/2/source_id",
-     "value": "@repo_memory"
-    },
-    {
-     "pointer": "/outcome/units/2/revision_digest",
-     "value": "#repo_memory_manifest_5"
-    },
-    {
-     "pointer": "/outcome/units/2/standing",
-     "value": "withdrawn"
-    },
-    {
-     "pointer": "/outcome/units/2/body_digest",
-     "value": "$digest:exclusive_body"
-    }
-   ]
-  },
-  {
-   "name": "current_question",
-   "from": "c05/state_question_for_one_lane.json",
-   "drop": [
-    "/scopes/2",
-    "/scopes/1",
-    "/workstream_ids"
-   ],
-   "set": [
-    {
-     "pointer": "/scopes/0/repository_id",
-     "value": "@repo"
-    },
-    {
-     "pointer": "/concern/question",
-     "value": "Which journal mode does the local state database use?"
-    },
-    {
-     "pointer": "/include_superseded",
-     "value": false
-    }
-   ]
-  },
-  {
-   "name": "resolve_current",
-   "from": "c01/link_request.json",
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@resolve_current_request"
-    },
-    {
-     "pointer": "/operation",
-     "value": "memory.state.resolve"
-    },
-    {
-     "pointer": "/action",
-     "value": "read"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "pure_preview"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@alice_profile"
-    },
-    {
-     "pointer": "/owner/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@journal_concern"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#current_question"
-    }
-   ]
-  },
-  {
-   "name": "current_state",
-   "from": "c05/state_with_one_current_choice.json",
-   "drop": [
-    "/entries/1"
-   ],
-   "set": [
-    {
-     "pointer": "/question_digest",
-     "value": "#current_question"
-    },
-    {
-     "pointer": "/frontiers/0/source_id",
-     "value": "@repo_memory"
-    },
-    {
-     "pointer": "/frontiers/0/checkpoint_digest",
-     "value": "#repo_memory_manifest_6"
-    },
-    {
-     "pointer": "/comparison/compared",
-     "value": 3
-    },
-    {
-     "pointer": "/prepared_at",
-     "value": "$instant:current_state_at"
-    },
-    {
-     "pointer": "/entries/0/record_id",
-     "value": "$rec:normal"
-    },
-    {
-     "pointer": "/entries/0/source_id",
-     "value": "@repo_memory"
-    },
-    {
-     "pointer": "/entries/0/standing",
-     "value": "current"
-    },
-    {
-     "pointer": "/entries/1/record_id",
-     "value": "$rec:exclusive"
-    },
-    {
-     "pointer": "/entries/1/source_id",
-     "value": "@repo_memory"
-    },
-    {
-     "pointer": "/entries/1/standing",
-     "value": "withdrawn"
-    },
-    {
-     "pointer": "/entries/1/qualification",
-     "value": "Withdrawn when a second process began reading the database; nothing replaced it."
-    }
-   ]
-  },
-  {
-   "name": "history_question",
-   "from": "c05/state_question_for_one_lane.json",
-   "drop": [
-    "/scopes/2",
-    "/scopes/1",
-    "/workstream_ids"
-   ],
-   "set": [
-    {
-     "pointer": "/scopes/0/repository_id",
-     "value": "@repo"
-    },
-    {
-     "pointer": "/concern/question",
-     "value": "Which journal mode does the local state database use?"
-    },
-    {
-     "pointer": "/include_superseded",
-     "value": true
-    }
-   ]
-  },
-  {
-   "name": "resolve_history",
-   "from": "c01/link_request.json",
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@resolve_history_request"
-    },
-    {
-     "pointer": "/operation",
-     "value": "memory.state.resolve"
-    },
-    {
-     "pointer": "/action",
-     "value": "read"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "pure_preview"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@alice_profile"
-    },
-    {
-     "pointer": "/owner/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@journal_concern"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#history_question"
-    }
-   ]
-  },
-  {
-   "name": "history_state",
-   "from": "c05/state_with_one_current_choice.json",
-   "drop": [
-    "/entries/1"
-   ],
-   "set": [
-    {
-     "pointer": "/question_digest",
-     "value": "#history_question"
-    },
-    {
-     "pointer": "/frontiers/0/source_id",
-     "value": "@repo_memory"
-    },
-    {
-     "pointer": "/frontiers/0/checkpoint_digest",
-     "value": "#repo_memory_manifest_6"
-    },
-    {
-     "pointer": "/comparison/compared",
-     "value": 3
-    },
-    {
-     "pointer": "/prepared_at",
-     "value": "$instant:history_state_at"
-    },
-    {
-     "pointer": "/entries/0/record_id",
-     "value": "$rec:normal"
-    },
-    {
-     "pointer": "/entries/0/source_id",
-     "value": "@repo_memory"
-    },
-    {
-     "pointer": "/entries/0/standing",
-     "value": "current"
-    },
-    {
-     "pointer": "/entries/1/record_id",
-     "value": "$rec:full"
-    },
-    {
-     "pointer": "/entries/1/source_id",
-     "value": "@repo_memory"
-    },
-    {
-     "pointer": "/entries/1/standing",
-     "value": "superseded"
-    },
-    {
-     "pointer": "/entries/1/superseded_by",
-     "value": "$rec:normal"
-    },
-    {
-     "pointer": "/entries/2/record_id",
-     "value": "$rec:exclusive"
-    },
-    {
-     "pointer": "/entries/2/source_id",
-     "value": "@repo_memory"
-    },
-    {
-     "pointer": "/entries/2/standing",
-     "value": "withdrawn"
-    },
-    {
-     "pointer": "/entries/2/qualification",
-     "value": "Withdrawn when a second process began reading the database; nothing replaced it."
-    }
-   ]
-  }
- ],
- "steps": [
-  {
-   "name": "bind_alice_key",
-   "request": "bind_alice_key",
-   "carries": [
-    "alice_key"
-   ],
-   "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "alice_key_stored"
-    ]
-   }
-  },
-  {
-   "name": "bind_alice_checkout",
-   "request": "bind_alice_checkout",
-   "carries": [
-    "alice_checkout"
-   ],
-   "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "alice_checkout_bound"
-    ]
-   }
-  },
-  {
-   "name": "register_repo_memory",
-   "request": "register_repo_memory",
-   "carries": [
-    "repo_memory_home"
-   ],
-   "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "repo_memory_registered"
-    ],
-    "head": "repo_memory_head_1"
-   }
-  },
-  {
-   "name": "record_full",
-   "request": "publish_full",
-   "carries": [
-    "full_submitted"
-   ],
-   "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "full_stored",
-     "repo_memory_manifest_2"
-    ],
-    "head": "repo_memory_manifest_2"
-   }
-  },
-  {
-   "name": "record_normal",
-   "request": "publish_normal",
-   "carries": [
-    "normal_submitted"
-   ],
-   "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "normal_stored",
-     "repo_memory_manifest_3"
-    ],
-    "head": "repo_memory_manifest_3"
-   }
-  },
-  {
-   "name": "replace_full",
-   "request": "replace_full",
-   "carries": [
-    "full_replaced_submitted"
-   ],
-   "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "full_replaced_stored",
-     "repo_memory_manifest_4"
-    ],
-    "head": "repo_memory_manifest_4"
-   }
-  },
-  {
-   "name": "record_exclusive",
-   "request": "publish_exclusive",
-   "carries": [
-    "exclusive_submitted"
-   ],
-   "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "exclusive_stored",
-     "repo_memory_manifest_5"
-    ],
-    "head": "repo_memory_manifest_5"
-   }
-  },
-  {
-   "name": "withdraw_exclusive",
-   "request": "withdraw_exclusive",
-   "carries": [
-    "exclusive_withdrawn_submitted"
-   ],
-   "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "exclusive_withdrawn_stored",
-     "repo_memory_manifest_6"
-    ],
-    "head": "repo_memory_manifest_6"
-   }
-  },
-  {
-   "name": "search_without_history",
-   "request": "search_current",
-   "carries": [
-    "current_envelope"
-   ],
-   "answer": {
-    "stage": "previewed",
-    "local_effect": "none",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "current_units"
-    ]
-   }
-  },
-  {
-   "name": "search_with_history",
-   "request": "search_history",
-   "carries": [
-    "history_envelope"
-   ],
-   "answer": {
-    "stage": "previewed",
-    "local_effect": "none",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "history_units"
-    ]
-   }
-  },
-  {
-   "name": "resolve_without_history",
-   "request": "resolve_current",
-   "carries": [
-    "current_question"
-   ],
-   "answer": {
-    "stage": "previewed",
-    "local_effect": "none",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "current_state"
-    ]
-   }
-  },
-  {
-   "name": "resolve_with_history",
-   "request": "resolve_history",
-   "carries": [
-    "history_question"
-   ],
-   "answer": {
-    "stage": "previewed",
-    "local_effect": "none",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "history_state"
-    ]
-   }
-  }
- ]
+  ]
 }

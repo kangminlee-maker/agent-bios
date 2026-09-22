@@ -159,7 +159,7 @@
    "record": "author_rules_rev_receipt"
   },
   {
-   "minted": "review_body",
+   "digest_of": "review_body_v1",
    "pointer": "/members/0/digest",
    "record": "rules_rev"
   },
@@ -339,7 +339,7 @@
    "record": "first_preparation"
   },
   {
-   "minted": "review_body",
+   "digest_of": "review_body_v1",
    "pointer": "/units/0/body_digest",
    "record": "first_preparation"
   },
@@ -369,7 +369,7 @@
    "record": "deliver_submitted"
   },
   {
-   "minted": "review_body",
+   "digest_of": "review_body_v1",
    "pointer": "/requested/bodies/0",
    "record": "deliver_submitted"
   },
@@ -414,12 +414,12 @@
    "record": "delivered"
   },
   {
-   "minted": "review_body",
+   "digest_of": "review_body_v1",
    "pointer": "/requested/bodies/0",
    "record": "delivered"
   },
   {
-   "minted": "review_body",
+   "digest_of": "review_body_v1",
    "pointer": "/observed/received/0",
    "record": "delivered"
   },
@@ -489,7 +489,7 @@
    "record": "first_observed"
   },
   {
-   "minted": "review_body",
+   "digest_of": "review_body_v1",
    "pointer": "/observed/inventory/0/body_digest",
    "record": "first_observed"
   },
@@ -539,7 +539,7 @@
    "record": "author_revision_two_receipt"
   },
   {
-   "minted": "review_body_2",
+   "digest_of": "review_body_v2",
    "pointer": "/members/0/digest",
    "record": "rules_rev_2"
   },
@@ -679,7 +679,7 @@
    "record": "second_preparation"
   },
   {
-   "minted": "review_body_2",
+   "digest_of": "review_body_v2",
    "pointer": "/units/0/body_digest",
    "record": "second_preparation"
   },
@@ -834,6 +834,20 @@
    "record": "observe_the_first_delivery_again_result"
   }
  ],
+ "members": [
+  {
+   "digest": "a689478d3466f688d2c06f1dd1b30fe11688dbdd99c2f65e1b3b60edda4423a7",
+   "name": "review_body_v1",
+   "size": 129,
+   "text": "## Review policy\n\nEvery change to shared rules needs a second reviewer before it lands, and the reviewer must not be the author.\n"
+  },
+  {
+   "digest": "459a628f20138adb4178dba2fb14caeaddf5be508237c93742adaa58f96e1528",
+   "name": "review_body_v2",
+   "size": 205,
+   "text": "## Review policy (revised)\n\nEvery change to shared rules needs a second reviewer before it lands, the reviewer must not be the author, and the review must be recorded against the exact revision it covers.\n"
+  }
+ ],
  "minted": [
   {
    "name": "alice_binding_id",
@@ -868,11 +882,6 @@
   {
    "name": "author_rules_rev_sequence",
    "shape": "integer",
-   "step": "author_rules_rev"
-  },
-  {
-   "name": "review_body",
-   "shape": "digest",
    "step": "author_rules_rev"
   },
   {
@@ -993,11 +1002,6 @@
   {
    "name": "author_revision_two_sequence",
    "shape": "integer",
-   "step": "author_revision_two"
-  },
-  {
-   "name": "review_body_2",
-   "shape": "digest",
    "step": "author_revision_two"
   },
   {
@@ -1266,16 +1270,16 @@
    }
   },
   {
-   "digest": "cde94f24c555d8605df4063e452d0e12c7472bbb69f38bce2a8d854e42137312",
+   "digest": "a9eac73257ec135a00a437d5e71119c54e3025660d97c9d7d974757487ce3d9a",
    "name": "rules_rev",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "b59ff15931690e04543265fbd9c2be7659a5f16f302cbf9a76bd30f7925e2af6",
+      "digest": "a689478d3466f688d2c06f1dd1b30fe11688dbdd99c2f65e1b3b60edda4423a7",
       "path": "rules/review.md",
-      "size": 2048
+      "size": 129
      }
     ],
     "produced_at": "2000-01-01T00:00:00Z",
@@ -1284,7 +1288,7 @@
    }
   },
   {
-   "digest": "b50d0b00a8660c2b83095b425d5fb405ce2224940107cdf23fabf89418a65cc2",
+   "digest": "673482103d30fc2dfe6a4844daa8161929f95e7ccfc83f6b00675e14bda2ffa1",
    "name": "author_rules_rev_result",
    "record": {
     "kind": "operation_result",
@@ -1296,7 +1300,7 @@
     },
     "outputs": [
      {
-      "digest": "cde94f24c555d8605df4063e452d0e12c7472bbb69f38bce2a8d854e42137312",
+      "digest": "a9eac73257ec135a00a437d5e71119c54e3025660d97c9d7d974757487ce3d9a",
       "kind": "source_manifest"
      }
     ],
@@ -1308,7 +1312,7 @@
    }
   },
   {
-   "digest": "4cf854e9bfdd7ab37a4781128f46daa0c0c36da9ddfe01417edfb52eee885087",
+   "digest": "406be8efcb14464c5ed10107b7606ebfa4a4ceda2d8c20d028d2c25a0c66fa8e",
    "name": "rules_selection_submitted",
    "record": {
     "collection_id": "col_0f3ae553ebfc81d1162e20a374e6c1ad",
@@ -1317,7 +1321,7 @@
      {
       "pin": {
        "pinned": "revision",
-       "revision_digest": "cde94f24c555d8605df4063e452d0e12c7472bbb69f38bce2a8d854e42137312"
+       "revision_digest": "a9eac73257ec135a00a437d5e71119c54e3025660d97c9d7d974757487ce3d9a"
       },
       "source_id": "src_28413031dabcabca6865b6d20179eebc",
       "switch": "on",
@@ -1343,7 +1347,7 @@
    }
   },
   {
-   "digest": "5d23b9847dd4f05d783fba8f3477deb91e8dfb1bc3d530882654ed7bc63fb20c",
+   "digest": "5537e0f768c559af7c7806d99bae8df4d9be9228691412f8eacf24b9ea9d06a5",
    "name": "change_rules_selection",
    "record": {
     "action": "contribute",
@@ -1361,7 +1365,7 @@
      "layer": "personal",
      "principal_id": "prn_690d9aaabe67416cd7dc45a547327119"
     },
-    "payload_digest": "4cf854e9bfdd7ab37a4781128f46daa0c0c36da9ddfe01417edfb52eee885087",
+    "payload_digest": "406be8efcb14464c5ed10107b7606ebfa4a4ceda2d8c20d028d2c25a0c66fa8e",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_30054bb4fef0a638752f5599d1955ab5",
@@ -1375,7 +1379,7 @@
    }
   },
   {
-   "digest": "6dc3c9c827cbf7207cefd78d2c8c10d5676f3a29650b94f66006b426da687234",
+   "digest": "e57e443de7a5f030fdbf5017dce8c089dc709e320a4d8be30638bb44ff7dc7dc",
    "name": "rules_selection",
    "record": {
     "changed_at": "2000-01-01T00:00:00Z",
@@ -1385,7 +1389,7 @@
      {
       "pin": {
        "pinned": "revision",
-       "revision_digest": "cde94f24c555d8605df4063e452d0e12c7472bbb69f38bce2a8d854e42137312"
+       "revision_digest": "a9eac73257ec135a00a437d5e71119c54e3025660d97c9d7d974757487ce3d9a"
       },
       "source_id": "src_28413031dabcabca6865b6d20179eebc",
       "switch": "on",
@@ -1411,17 +1415,17 @@
    }
   },
   {
-   "digest": "afd875babcf764f817371ad57be6e2bf53f1a0269d092d3a49914d52849d5edd",
+   "digest": "00ecc9c72651a1a03c43cf2cc50a3868b5aebf80168a78586ab876fefb939cc5",
    "name": "select_rules_selection_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "6dc3c9c827cbf7207cefd78d2c8c10d5676f3a29650b94f66006b426da687234",
+    "head_digest": "e57e443de7a5f030fdbf5017dce8c089dc709e320a4d8be30638bb44ff7dc7dc",
     "kind": "operation_receipt",
     "owner": {
      "layer": "personal",
      "principal_id": "prn_690d9aaabe67416cd7dc45a547327119"
     },
-    "request_digest": "5d23b9847dd4f05d783fba8f3477deb91e8dfb1bc3d530882654ed7bc63fb20c",
+    "request_digest": "5537e0f768c559af7c7806d99bae8df4d9be9228691412f8eacf24b9ea9d06a5",
     "request_id": "req_30054bb4fef0a638752f5599d1955ab5",
     "schema": 1,
     "sequence": 1,
@@ -1434,24 +1438,24 @@
    }
   },
   {
-   "digest": "e5660c9eee63cb14fb4c995cd693dce92d3350070a3da29f99c1fe59134f4581",
+   "digest": "1099fb7a088adcfb3123e90e5751009ba0c3a381a21c0f55f0f40d328b423f0f",
    "name": "select_rules_selection_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "afd875babcf764f817371ad57be6e2bf53f1a0269d092d3a49914d52849d5edd",
+     "receipt_digest": "00ecc9c72651a1a03c43cf2cc50a3868b5aebf80168a78586ab876fefb939cc5",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "6dc3c9c827cbf7207cefd78d2c8c10d5676f3a29650b94f66006b426da687234",
+      "digest": "e57e443de7a5f030fdbf5017dce8c089dc709e320a4d8be30638bb44ff7dc7dc",
       "kind": "collection"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "5d23b9847dd4f05d783fba8f3477deb91e8dfb1bc3d530882654ed7bc63fb20c",
+    "request_digest": "5537e0f768c559af7c7806d99bae8df4d9be9228691412f8eacf24b9ea9d06a5",
     "request_id": "req_30054bb4fef0a638752f5599d1955ab5",
     "schema": 1,
     "supported_recovery": []
@@ -1629,7 +1633,7 @@
    }
   },
   {
-   "digest": "e1f5e65bafb9010919b257c3d1648ad779edf052d58f7762e58a05d8c25f9f0e",
+   "digest": "3230e7b15a5c28823800093a0b0c3b5ca1f1a333d575f00828aa24b08116b2f3",
    "name": "first_preparation",
    "record": {
     "adapter": {
@@ -1639,7 +1643,7 @@
     "collections": [
      {
       "collection_id": "col_0f3ae553ebfc81d1162e20a374e6c1ad",
-      "head_digest": "6dc3c9c827cbf7207cefd78d2c8c10d5676f3a29650b94f66006b426da687234",
+      "head_digest": "e57e443de7a5f030fdbf5017dce8c089dc709e320a4d8be30638bb44ff7dc7dc",
       "state": "applied"
      }
     ],
@@ -1673,11 +1677,11 @@
     "schema": 1,
     "units": [
      {
-      "body_digest": "b59ff15931690e04543265fbd9c2be7659a5f16f302cbf9a76bd30f7925e2af6",
+      "body_digest": "a689478d3466f688d2c06f1dd1b30fe11688dbdd99c2f65e1b3b60edda4423a7",
       "concern": "review.approval",
       "layer": "personal",
       "member": "rules/review.md",
-      "revision_digest": "cde94f24c555d8605df4063e452d0e12c7472bbb69f38bce2a8d854e42137312",
+      "revision_digest": "a9eac73257ec135a00a437d5e71119c54e3025660d97c9d7d974757487ce3d9a",
       "role": "instructions",
       "source_id": "src_28413031dabcabca6865b6d20179eebc",
       "standing": "winning",
@@ -1691,7 +1695,7 @@
    }
   },
   {
-   "digest": "f2e5741e30657b0130f394676b346f1d57982b91a016c0b5d48d6b01a9af4fd8",
+   "digest": "76fa14d47018832a37df6edad9af9dd1f268204644d7e60e3d196703210a1abb",
    "name": "compose_first_preparation_result",
    "record": {
     "kind": "operation_result",
@@ -1702,7 +1706,7 @@
     },
     "outputs": [
      {
-      "digest": "e1f5e65bafb9010919b257c3d1648ad779edf052d58f7762e58a05d8c25f9f0e",
+      "digest": "3230e7b15a5c28823800093a0b0c3b5ca1f1a333d575f00828aa24b08116b2f3",
       "kind": "preparation"
      }
     ],
@@ -1714,16 +1718,16 @@
    }
   },
   {
-   "digest": "f731c65356c76aba80bcf113d3ed139d415a5e2c60d1da83b4b8a5f2babf8689",
+   "digest": "9c39c26ec1352729a427ecda4e278e8fe8c6141d897ecb49a1d6b6124b64f32d",
    "name": "deliver_submitted",
    "record": {
     "kind": "delivery_attempt",
     "link_id": "lnk_ab2c273f1af93e670fd85d43f8e67224",
     "requested": {
      "bodies": [
-      "b59ff15931690e04543265fbd9c2be7659a5f16f302cbf9a76bd30f7925e2af6"
+      "a689478d3466f688d2c06f1dd1b30fe11688dbdd99c2f65e1b3b60edda4423a7"
      ],
-     "preparation_digest": "e1f5e65bafb9010919b257c3d1648ad779edf052d58f7762e58a05d8c25f9f0e",
+     "preparation_digest": "3230e7b15a5c28823800093a0b0c3b5ca1f1a333d575f00828aa24b08116b2f3",
      "recipient": "current",
      "what": "body"
     },
@@ -1732,7 +1736,7 @@
    }
   },
   {
-   "digest": "45b9ec0b727b68473abd0b40245cbf05424d67e61ec4a1a25ef3581a3be89dc6",
+   "digest": "f371769fc28bb158936daeab08f453db10461cea86d19f250b9698bf0fe212d1",
    "name": "attempt_deliver",
    "record": {
     "action": "use",
@@ -1750,7 +1754,7 @@
      "layer": "personal",
      "principal_id": "prn_690d9aaabe67416cd7dc45a547327119"
     },
-    "payload_digest": "f731c65356c76aba80bcf113d3ed139d415a5e2c60d1da83b4b8a5f2babf8689",
+    "payload_digest": "9c39c26ec1352729a427ecda4e278e8fe8c6141d897ecb49a1d6b6124b64f32d",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_ffffb5ea61a197721a3d166aa93b5be8",
@@ -1761,7 +1765,7 @@
    }
   },
   {
-   "digest": "a5156a2896b4318b63b7f96a912670eec0a81a866ededa60b0ffca18e49e161c",
+   "digest": "fa9cc8c03c40db8df32f0cede5a4ed2c17895a30a1c49a32aecfc96ab3dee8b3",
    "name": "deliver_the_first_body_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -1771,7 +1775,7 @@
      "layer": "personal",
      "principal_id": "prn_690d9aaabe67416cd7dc45a547327119"
     },
-    "request_digest": "45b9ec0b727b68473abd0b40245cbf05424d67e61ec4a1a25ef3581a3be89dc6",
+    "request_digest": "f371769fc28bb158936daeab08f453db10461cea86d19f250b9698bf0fe212d1",
     "request_id": "req_ffffb5ea61a197721a3d166aa93b5be8",
     "schema": 1,
     "sequence": 1,
@@ -1781,7 +1785,7 @@
    }
   },
   {
-   "digest": "39f4cc61f8c4d1be082e6be9c5e09b238f2ca9d3461ff38590f5aae4b340824e",
+   "digest": "bacf2b6848cd5d4e7899a61c5a5dea47a8c5af5edf2a357ab9b76707a8339394",
    "name": "delivered",
    "record": {
     "at": "2000-01-01T00:00:00Z",
@@ -1791,15 +1795,15 @@
     "observed": {
      "evidence_digest": "e4b92910c0405332db3abe0d076f125eb1d8f3843e3500f405e8e356c14799c1",
      "received": [
-      "b59ff15931690e04543265fbd9c2be7659a5f16f302cbf9a76bd30f7925e2af6"
+      "a689478d3466f688d2c06f1dd1b30fe11688dbdd99c2f65e1b3b60edda4423a7"
      ],
      "saw": "received"
     },
     "requested": {
      "bodies": [
-      "b59ff15931690e04543265fbd9c2be7659a5f16f302cbf9a76bd30f7925e2af6"
+      "a689478d3466f688d2c06f1dd1b30fe11688dbdd99c2f65e1b3b60edda4423a7"
      ],
-     "preparation_digest": "e1f5e65bafb9010919b257c3d1648ad779edf052d58f7762e58a05d8c25f9f0e",
+     "preparation_digest": "3230e7b15a5c28823800093a0b0c3b5ca1f1a333d575f00828aa24b08116b2f3",
      "recipient": "current",
      "what": "body"
     },
@@ -1809,24 +1813,24 @@
    }
   },
   {
-   "digest": "101cda2625f38857e768bb827f0f2e4d942471c93766b9cb7fff7f97bd39fc2f",
+   "digest": "99e83d51714c8faa299c69e4b4188ba6e5372f7029b699380b643995ec230e39",
    "name": "deliver_the_first_body_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "a5156a2896b4318b63b7f96a912670eec0a81a866ededa60b0ffca18e49e161c",
+     "receipt_digest": "fa9cc8c03c40db8df32f0cede5a4ed2c17895a30a1c49a32aecfc96ab3dee8b3",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "39f4cc61f8c4d1be082e6be9c5e09b238f2ca9d3461ff38590f5aae4b340824e",
+      "digest": "bacf2b6848cd5d4e7899a61c5a5dea47a8c5af5edf2a357ab9b76707a8339394",
       "kind": "delivery_attempt"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "45b9ec0b727b68473abd0b40245cbf05424d67e61ec4a1a25ef3581a3be89dc6",
+    "request_digest": "f371769fc28bb158936daeab08f453db10461cea86d19f250b9698bf0fe212d1",
     "request_id": "req_ffffb5ea61a197721a3d166aa93b5be8",
     "schema": 1,
     "supported_recovery": []
@@ -1861,7 +1865,7 @@
    }
   },
   {
-   "digest": "64766655bd548644c0d2d2ca57acbd59063205ae3be42379455601ca9f521189",
+   "digest": "cabce8ac670a95ddc649c9e8cc424f4721f257f3f7078f96102cb618f464dad3",
    "name": "first_observed",
    "record": {
     "kind": "delivery_observation",
@@ -1871,8 +1875,8 @@
      "evidence_digest": "2107c4cabc0052516238ef6d7804f361bc054c404db1776d832c9cb9d0053f66",
      "inventory": [
       {
-       "body_digest": "b59ff15931690e04543265fbd9c2be7659a5f16f302cbf9a76bd30f7925e2af6",
-       "revision_digest": "cde94f24c555d8605df4063e452d0e12c7472bbb69f38bce2a8d854e42137312",
+       "body_digest": "a689478d3466f688d2c06f1dd1b30fe11688dbdd99c2f65e1b3b60edda4423a7",
+       "revision_digest": "a9eac73257ec135a00a437d5e71119c54e3025660d97c9d7d974757487ce3d9a",
        "source_id": "src_28413031dabcabca6865b6d20179eebc",
        "unit_id": "unt_9b74ee2d7ad044b780c926ee75a2237c"
       }
@@ -1889,7 +1893,7 @@
    }
   },
   {
-   "digest": "59ad471134ced0ea2b7e58b4438c61430c595226781a2bdeb57e5480db33da29",
+   "digest": "92492bf2544bf4ef232c8029f171a69210606582233c0b3a0f1843b91f7a080d",
    "name": "observe_the_first_delivery_result",
    "record": {
     "kind": "operation_result",
@@ -1900,7 +1904,7 @@
     },
     "outputs": [
      {
-      "digest": "64766655bd548644c0d2d2ca57acbd59063205ae3be42379455601ca9f521189",
+      "digest": "cabce8ac670a95ddc649c9e8cc424f4721f257f3f7078f96102cb618f464dad3",
       "kind": "delivery_observation"
      }
     ],
@@ -1988,16 +1992,16 @@
    }
   },
   {
-   "digest": "4b134501d3180564764017406899026992368d1ce3f76ddcbd30672c5e70d701",
+   "digest": "7f5d730ec9a0f4e5524773f50967e34c71ee8d15fb36c6f680c2fb7417d3ec75",
    "name": "rules_rev_2",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "10fe0ab3511fa842fe8d974839f6f0b51b598a292cf053902932e2c32f4eba3e",
+      "digest": "459a628f20138adb4178dba2fb14caeaddf5be508237c93742adaa58f96e1528",
       "path": "rules/review.md",
-      "size": 2311
+      "size": 205
      }
     ],
     "produced_at": "2000-01-01T00:00:00Z",
@@ -2006,7 +2010,7 @@
    }
   },
   {
-   "digest": "a16be8f303757c9dc210e6f3998125b7e2eaeb13d02832d060cc79c4a7fda186",
+   "digest": "6fcc70f5547ced3fe2de545ca8d7fdc1b5d02a391193962fa1e9dae8d22e9020",
    "name": "author_revision_two_result",
    "record": {
     "kind": "operation_result",
@@ -2018,7 +2022,7 @@
     },
     "outputs": [
      {
-      "digest": "4b134501d3180564764017406899026992368d1ce3f76ddcbd30672c5e70d701",
+      "digest": "7f5d730ec9a0f4e5524773f50967e34c71ee8d15fb36c6f680c2fb7417d3ec75",
       "kind": "source_manifest"
      }
     ],
@@ -2030,7 +2034,7 @@
    }
   },
   {
-   "digest": "5689ae6df4ad21bb5816dc7d9535a223e8424617322657b2fee563c3b9c073b4",
+   "digest": "172020d05138ebc9393d5d412103485fddd2408bfdc6a21f289ed57bd24e6f9f",
    "name": "rules_repinned_submitted",
    "record": {
     "collection_id": "col_0f3ae553ebfc81d1162e20a374e6c1ad",
@@ -2039,7 +2043,7 @@
      {
       "pin": {
        "pinned": "revision",
-       "revision_digest": "4b134501d3180564764017406899026992368d1ce3f76ddcbd30672c5e70d701"
+       "revision_digest": "7f5d730ec9a0f4e5524773f50967e34c71ee8d15fb36c6f680c2fb7417d3ec75"
       },
       "source_id": "src_28413031dabcabca6865b6d20179eebc",
       "switch": "on",
@@ -2065,7 +2069,7 @@
    }
   },
   {
-   "digest": "00a8597a46b3afdc1f13d4a4737a1d56a19694a17402e2c1ea1182ef1a88c235",
+   "digest": "14a63e35f78cdf07a2939b31a97992a21183e964420b8298dc9c55fba6feab6a",
    "name": "change_rules_repinned",
    "record": {
     "action": "contribute",
@@ -2083,7 +2087,7 @@
      "layer": "personal",
      "principal_id": "prn_690d9aaabe67416cd7dc45a547327119"
     },
-    "payload_digest": "5689ae6df4ad21bb5816dc7d9535a223e8424617322657b2fee563c3b9c073b4",
+    "payload_digest": "172020d05138ebc9393d5d412103485fddd2408bfdc6a21f289ed57bd24e6f9f",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_a8f78876ffd67be77d2d539baba25e4d",
@@ -2091,14 +2095,14 @@
     "target": {
      "base": {
       "expects": "head",
-      "head_digest": "6dc3c9c827cbf7207cefd78d2c8c10d5676f3a29650b94f66006b426da687234"
+      "head_digest": "e57e443de7a5f030fdbf5017dce8c089dc709e320a4d8be30638bb44ff7dc7dc"
      },
      "resource_id": "col_0f3ae553ebfc81d1162e20a374e6c1ad"
     }
    }
   },
   {
-   "digest": "e8564942f9aefa8c9639bc6c9e70e9b80fb279f28acc003c0acd5e1b44028974",
+   "digest": "3fdbd52ca144cb5b1e0471c2d5d09d2c6090dff7fd3db3aeae4159909deed949",
    "name": "rules_repinned",
    "record": {
     "changed_at": "2000-01-01T00:00:00Z",
@@ -2108,7 +2112,7 @@
      {
       "pin": {
        "pinned": "revision",
-       "revision_digest": "4b134501d3180564764017406899026992368d1ce3f76ddcbd30672c5e70d701"
+       "revision_digest": "7f5d730ec9a0f4e5524773f50967e34c71ee8d15fb36c6f680c2fb7417d3ec75"
       },
       "source_id": "src_28413031dabcabca6865b6d20179eebc",
       "switch": "on",
@@ -2134,48 +2138,48 @@
    }
   },
   {
-   "digest": "a74e05616b27b3c66ddb3fc73309a4d52450d1de39d3433924dd28ce6683268d",
+   "digest": "f8bcdb5d912ce3475b0d0632eef728dab7951ed068906f8067fb852bd20c5803",
    "name": "repin_to_revision_two_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "e8564942f9aefa8c9639bc6c9e70e9b80fb279f28acc003c0acd5e1b44028974",
+    "head_digest": "3fdbd52ca144cb5b1e0471c2d5d09d2c6090dff7fd3db3aeae4159909deed949",
     "kind": "operation_receipt",
     "owner": {
      "layer": "personal",
      "principal_id": "prn_690d9aaabe67416cd7dc45a547327119"
     },
-    "request_digest": "00a8597a46b3afdc1f13d4a4737a1d56a19694a17402e2c1ea1182ef1a88c235",
+    "request_digest": "14a63e35f78cdf07a2939b31a97992a21183e964420b8298dc9c55fba6feab6a",
     "request_id": "req_a8f78876ffd67be77d2d539baba25e4d",
     "schema": 1,
     "sequence": 1,
     "target": {
      "base": {
       "expects": "head",
-      "head_digest": "6dc3c9c827cbf7207cefd78d2c8c10d5676f3a29650b94f66006b426da687234"
+      "head_digest": "e57e443de7a5f030fdbf5017dce8c089dc709e320a4d8be30638bb44ff7dc7dc"
      },
      "resource_id": "col_0f3ae553ebfc81d1162e20a374e6c1ad"
     }
    }
   },
   {
-   "digest": "bb30e43c0b12bd62ef58ba64479007e50fd3fb972dbe239bfc5cf1de911e771a",
+   "digest": "278e3ed70a36af16d0c7a47c53d43e66255b486b1a0851eff87c8a3eb026efb0",
    "name": "repin_to_revision_two_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "a74e05616b27b3c66ddb3fc73309a4d52450d1de39d3433924dd28ce6683268d",
+     "receipt_digest": "f8bcdb5d912ce3475b0d0632eef728dab7951ed068906f8067fb852bd20c5803",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "e8564942f9aefa8c9639bc6c9e70e9b80fb279f28acc003c0acd5e1b44028974",
+      "digest": "3fdbd52ca144cb5b1e0471c2d5d09d2c6090dff7fd3db3aeae4159909deed949",
       "kind": "collection"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "00a8597a46b3afdc1f13d4a4737a1d56a19694a17402e2c1ea1182ef1a88c235",
+    "request_digest": "14a63e35f78cdf07a2939b31a97992a21183e964420b8298dc9c55fba6feab6a",
     "request_id": "req_a8f78876ffd67be77d2d539baba25e4d",
     "schema": 1,
     "supported_recovery": []
@@ -2238,7 +2242,7 @@
    }
   },
   {
-   "digest": "68995888e6ed2d7bfd7704f8d9e97fe3fb4a5b5050f3940bd6d5ab9e9f990ca5",
+   "digest": "7538517c5b833d6bea63b798db8a192721e9daf4078aa2ef0be5a531fb3660e2",
    "name": "second_preparation",
    "record": {
     "adapter": {
@@ -2248,7 +2252,7 @@
     "collections": [
      {
       "collection_id": "col_0f3ae553ebfc81d1162e20a374e6c1ad",
-      "head_digest": "e8564942f9aefa8c9639bc6c9e70e9b80fb279f28acc003c0acd5e1b44028974",
+      "head_digest": "3fdbd52ca144cb5b1e0471c2d5d09d2c6090dff7fd3db3aeae4159909deed949",
       "state": "applied"
      }
     ],
@@ -2286,11 +2290,11 @@
     "schema": 1,
     "units": [
      {
-      "body_digest": "10fe0ab3511fa842fe8d974839f6f0b51b598a292cf053902932e2c32f4eba3e",
+      "body_digest": "459a628f20138adb4178dba2fb14caeaddf5be508237c93742adaa58f96e1528",
       "concern": "review.approval",
       "layer": "personal",
       "member": "rules/review.md",
-      "revision_digest": "4b134501d3180564764017406899026992368d1ce3f76ddcbd30672c5e70d701",
+      "revision_digest": "7f5d730ec9a0f4e5524773f50967e34c71ee8d15fb36c6f680c2fb7417d3ec75",
       "role": "instructions",
       "source_id": "src_28413031dabcabca6865b6d20179eebc",
       "standing": "winning",
@@ -2304,7 +2308,7 @@
    }
   },
   {
-   "digest": "e8cfc80f75e1a9a965668735353617ee4a78f8ca54c49407de2b5ab86b9d32be",
+   "digest": "c3bb63d46182d1e0cd544a72c63c845fdc918e8cf4c02f1f64d4aba3e9d74ff3",
    "name": "compose_second_preparation_result",
    "record": {
     "kind": "operation_result",
@@ -2315,7 +2319,7 @@
     },
     "outputs": [
      {
-      "digest": "68995888e6ed2d7bfd7704f8d9e97fe3fb4a5b5050f3940bd6d5ab9e9f990ca5",
+      "digest": "7538517c5b833d6bea63b798db8a192721e9daf4078aa2ef0be5a531fb3660e2",
       "kind": "preparation"
      }
     ],
@@ -2327,7 +2331,7 @@
    }
   },
   {
-   "digest": "256033818384521f76e4e0867ee648f9b8b9e2c231e8e1d40300f5527995a18d",
+   "digest": "475e140a3c90c228788cc399eb6fdbb959b49927d58815f4ab60a1f7f60e59d5",
    "name": "rules_switched_off_submitted",
    "record": {
     "collection_id": "col_0f3ae553ebfc81d1162e20a374e6c1ad",
@@ -2336,7 +2340,7 @@
      {
       "pin": {
        "pinned": "revision",
-       "revision_digest": "4b134501d3180564764017406899026992368d1ce3f76ddcbd30672c5e70d701"
+       "revision_digest": "7f5d730ec9a0f4e5524773f50967e34c71ee8d15fb36c6f680c2fb7417d3ec75"
       },
       "source_id": "src_28413031dabcabca6865b6d20179eebc",
       "switch": "off",
@@ -2362,7 +2366,7 @@
    }
   },
   {
-   "digest": "a9da03b421c13b2d8d5d984d4df5f40f0effd4ce87c16ef3831fbd21891ade8b",
+   "digest": "67fd0b3ad742fe13fead575f69bb1e80102d83d33673692aadb7802c5d7043e1",
    "name": "change_rules_switched_off",
    "record": {
     "action": "contribute",
@@ -2380,7 +2384,7 @@
      "layer": "personal",
      "principal_id": "prn_690d9aaabe67416cd7dc45a547327119"
     },
-    "payload_digest": "256033818384521f76e4e0867ee648f9b8b9e2c231e8e1d40300f5527995a18d",
+    "payload_digest": "475e140a3c90c228788cc399eb6fdbb959b49927d58815f4ab60a1f7f60e59d5",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_d80a8cf87a789a392e54d5ca8aaad50c",
@@ -2388,14 +2392,14 @@
     "target": {
      "base": {
       "expects": "head",
-      "head_digest": "e8564942f9aefa8c9639bc6c9e70e9b80fb279f28acc003c0acd5e1b44028974"
+      "head_digest": "3fdbd52ca144cb5b1e0471c2d5d09d2c6090dff7fd3db3aeae4159909deed949"
      },
      "resource_id": "col_0f3ae553ebfc81d1162e20a374e6c1ad"
     }
    }
   },
   {
-   "digest": "08aa829e09924c9a816755357e6cdbe77f3ec2a6dd4267a873bb3aa456510cef",
+   "digest": "09af181d271ce847ae77441ab0a76a8b78fa6cc1c1fdee2d8c4e95771d916492",
    "name": "rules_switched_off",
    "record": {
     "changed_at": "2000-01-01T00:00:00Z",
@@ -2405,7 +2409,7 @@
      {
       "pin": {
        "pinned": "revision",
-       "revision_digest": "4b134501d3180564764017406899026992368d1ce3f76ddcbd30672c5e70d701"
+       "revision_digest": "7f5d730ec9a0f4e5524773f50967e34c71ee8d15fb36c6f680c2fb7417d3ec75"
       },
       "source_id": "src_28413031dabcabca6865b6d20179eebc",
       "switch": "off",
@@ -2431,48 +2435,48 @@
    }
   },
   {
-   "digest": "22d077cb2ff72f1259d956d7566b660e680138943ab0a102a34e7810a66739ae",
+   "digest": "db5f79b079f97b4028169eb22b71dfe0d93f97dd5a735ed9983967cf7b38290f",
    "name": "switch_the_entry_off_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "08aa829e09924c9a816755357e6cdbe77f3ec2a6dd4267a873bb3aa456510cef",
+    "head_digest": "09af181d271ce847ae77441ab0a76a8b78fa6cc1c1fdee2d8c4e95771d916492",
     "kind": "operation_receipt",
     "owner": {
      "layer": "personal",
      "principal_id": "prn_690d9aaabe67416cd7dc45a547327119"
     },
-    "request_digest": "a9da03b421c13b2d8d5d984d4df5f40f0effd4ce87c16ef3831fbd21891ade8b",
+    "request_digest": "67fd0b3ad742fe13fead575f69bb1e80102d83d33673692aadb7802c5d7043e1",
     "request_id": "req_d80a8cf87a789a392e54d5ca8aaad50c",
     "schema": 1,
     "sequence": 1,
     "target": {
      "base": {
       "expects": "head",
-      "head_digest": "e8564942f9aefa8c9639bc6c9e70e9b80fb279f28acc003c0acd5e1b44028974"
+      "head_digest": "3fdbd52ca144cb5b1e0471c2d5d09d2c6090dff7fd3db3aeae4159909deed949"
      },
      "resource_id": "col_0f3ae553ebfc81d1162e20a374e6c1ad"
     }
    }
   },
   {
-   "digest": "b9de3b540e5259fd7bf15a437cb9cc06bf74bc4b32f51f34fe236d3e1fad9aec",
+   "digest": "69b80f81566361d9f18aa2db868fe3e69ffc502500a8d202a9eeec56479ff068",
    "name": "switch_the_entry_off_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "22d077cb2ff72f1259d956d7566b660e680138943ab0a102a34e7810a66739ae",
+     "receipt_digest": "db5f79b079f97b4028169eb22b71dfe0d93f97dd5a735ed9983967cf7b38290f",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "08aa829e09924c9a816755357e6cdbe77f3ec2a6dd4267a873bb3aa456510cef",
+      "digest": "09af181d271ce847ae77441ab0a76a8b78fa6cc1c1fdee2d8c4e95771d916492",
       "kind": "collection"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "a9da03b421c13b2d8d5d984d4df5f40f0effd4ce87c16ef3831fbd21891ade8b",
+    "request_digest": "67fd0b3ad742fe13fead575f69bb1e80102d83d33673692aadb7802c5d7043e1",
     "request_id": "req_d80a8cf87a789a392e54d5ca8aaad50c",
     "schema": 1,
     "supported_recovery": []
@@ -2545,7 +2549,7 @@
    }
   },
   {
-   "digest": "c477a3758fa5c268df24d5bbb656928c7360e7c35cf63af352d184daf737f699",
+   "digest": "d1d86c1af8a3d44a42c13a77c088c8ed4096ef704ec20030b030b992569ee400",
    "name": "third_preparation",
    "record": {
     "adapter": {
@@ -2555,7 +2559,7 @@
     "collections": [
      {
       "collection_id": "col_0f3ae553ebfc81d1162e20a374e6c1ad",
-      "head_digest": "08aa829e09924c9a816755357e6cdbe77f3ec2a6dd4267a873bb3aa456510cef",
+      "head_digest": "09af181d271ce847ae77441ab0a76a8b78fa6cc1c1fdee2d8c4e95771d916492",
       "state": "applied"
      }
     ],
@@ -2595,7 +2599,7 @@
      {
       "layer": "personal",
       "member": "rules/review.md",
-      "revision_digest": "4b134501d3180564764017406899026992368d1ce3f76ddcbd30672c5e70d701",
+      "revision_digest": "7f5d730ec9a0f4e5524773f50967e34c71ee8d15fb36c6f680c2fb7417d3ec75",
       "role": "instructions",
       "source_id": "src_28413031dabcabca6865b6d20179eebc",
       "standing": "disabled",
@@ -2608,7 +2612,7 @@
    }
   },
   {
-   "digest": "362b8d2cc1f8a508b468bb1068ee85a080774c77e3836d8830ca049a0f20b056",
+   "digest": "6fc56fc796ffe933e8fa33349a710b874ea9f36fbf4a986270495df680d1d30a",
    "name": "compose_third_preparation_result",
    "record": {
     "kind": "operation_result",
@@ -2619,7 +2623,7 @@
     },
     "outputs": [
      {
-      "digest": "c477a3758fa5c268df24d5bbb656928c7360e7c35cf63af352d184daf737f699",
+      "digest": "d1d86c1af8a3d44a42c13a77c088c8ed4096ef704ec20030b030b992569ee400",
       "kind": "preparation"
      }
     ],
@@ -2659,7 +2663,7 @@
    }
   },
   {
-   "digest": "cbc3f11bdefa36e4b13673c0754fbb57f1ba16ff3d476997d6810522095abe4c",
+   "digest": "cd9ca812db52040373f6fc824dcdfebf9faa701c11275fedb69510bcf4f3f70a",
    "name": "observe_the_first_delivery_again_result",
    "record": {
     "kind": "operation_result",
@@ -2670,7 +2674,7 @@
     },
     "outputs": [
      {
-      "digest": "64766655bd548644c0d2d2ca57acbd59063205ae3be42379455601ca9f521189",
+      "digest": "cabce8ac670a95ddc649c9e8cc424f4721f257f3f7078f96102cb618f464dad3",
       "kind": "delivery_observation"
      }
     ],
@@ -2683,7 +2687,7 @@
   }
  ],
  "says": "Alice binds her device key, authors a personal Instructions source (revision one, whose body digest the owner computes) and selects revision one in her personal Instructions position. She opens a link to her working conversation, composes a first preparation for delivery on it (basis scoped to her personal layer alone), delivers its body to the current recipient and observes the delivery: the inventory names revision one's unit and body. Later she authors revision two of the same source against the head revision one left, re-pins her position to revision two against the position's head (the digest of the collection her first change stored), and composes a second preparation for the same recipient whose basis now also scopes a repository layer alongside her personal one (a scope change from the first preparation): it names the position's new head and revision two's body. She then switches that entry off, and composes a third preparation over the same two scopes but with an explicit order preferring her personal layer over the repository one — the reverse of the repository-before-personal default the second preparation's unstated order applied (an order change from the second preparation): it names the position's newest head and holds the same source, member and revision two as disabled, with no body. Each preparation mints its own unit id; a unit is followed across preparations by its source, member and revision. Observing the first preparation after all three changes — the revision, the scope and the order — returns the same delivery observation as before, naming revision one, and writes nothing: the changes reached only the preparations composed after them. What must not happen: a recomposition rewriting the first preparation, the recipient's delivered inventory or the revision, scope or order it was composed under, or a change to the position writing the source itself — revision two moves the source's own head only through its own admission.",
- "spec_sha256": "14a596a085008d672f9aee8eae7275b46bb6932cc0b0097dd4dd1abbee5abc97",
+ "spec_sha256": "871bd9c6e64c7392e51d749a51fd3a4c0745169bed67b2a8adc9d73b3c66f109",
  "steps": [
   {
    "carries": [

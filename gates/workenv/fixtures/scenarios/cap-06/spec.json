@@ -59,6 +59,16 @@
    "prefix": "req"
   }
  ],
+ "members": [
+  {
+   "name": "adr_member",
+   "text": "# 0007: Journal mode\n\nStatus: Accepted\nDate: 2025-11-04\n\nWe adopt WAL journal mode for the embedded store to reduce writer contention.\n"
+  },
+  {
+   "name": "team_adr_member",
+   "text": "# 0012: Recovery objective\n\nStatus: Accepted\nDate: 2025-11-11\n\nThe Team commits to a recovery point objective of fifteen minutes for the shared store.\n"
+  }
+ ],
  "records": [
   {
    "name": "alice_key_submitted",
@@ -284,6 +294,14 @@
     {
      "pointer": "/produced_at",
      "value": "$instant:adr_revision_at"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "#adr_member"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 135
     }
    ]
   },
@@ -350,11 +368,11 @@
     },
     {
      "pointer": "/member/digest",
-     "value": "c4933a82770781b42504ac60a6252bfd06ccfce66170394620ba473ade98365d"
+     "value": "#adr_member"
     },
     {
      "pointer": "/member/size",
-     "value": 4120
+     "value": 135
     }
    ]
   },
@@ -729,6 +747,14 @@
     {
      "pointer": "/produced_at",
      "value": "$instant:team_adr_revision_at"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "#team_adr_member"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 151
     }
    ]
   },
@@ -788,11 +814,11 @@
     },
     {
      "pointer": "/member/digest",
-     "value": "c4933a82770781b42504ac60a6252bfd06ccfce66170394620ba473ade98365d"
+     "value": "#team_adr_member"
     },
     {
      "pointer": "/member/size",
-     "value": 4120
+     "value": 151
     }
    ]
   },
@@ -914,7 +940,8 @@
     "recovery": [],
     "returns": [
      "adr_revision",
-     "adr_provenance"
+     "adr_provenance",
+     "adr_member"
     ]
    }
   },
@@ -979,7 +1006,8 @@
     "recovery": [],
     "returns": [
      "team_adr_revision",
-     "team_adr_provenance"
+     "team_adr_provenance",
+     "team_adr_member"
     ]
    }
   }

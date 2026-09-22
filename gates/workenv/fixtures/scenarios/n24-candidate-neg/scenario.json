@@ -32,6 +32,10 @@
   {
    "id": "req_ed7b3a1cdd45ad208a4f3b614a0d6aa6",
    "name": "altered_query_request"
+  },
+  {
+   "id": "req_ca54e61cd5b74db2c595f64facf0be88",
+   "name": "altered_tarball_cutover"
   }
  ],
  "joins": [
@@ -154,6 +158,16 @@
    "digest_of": "switch_altered",
    "pointer": "/request_digest",
    "record": "refuse_altered_tarball_result"
+  },
+  {
+   "digest_of": "registered_plan",
+   "pointer": "/payload_digest",
+   "record": "switch_altered_tarball"
+  },
+  {
+   "digest_of": "switch_altered_tarball",
+   "pointer": "/request_digest",
+   "record": "refuse_altered_tarball_object_result"
   },
   {
    "digest_of": "altered_query",
@@ -647,6 +661,60 @@
    }
   },
   {
+   "digest": "e52e999b6acadc6f67affe2478e957092fc430ac1d42566cb66de7e087d65086",
+   "name": "switch_altered_tarball",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_a3163e0716daac35357c6365a6284475",
+     "principal_id": "prn_9431223b92af4714781c6e4858dc5d08",
+     "profile_id": "prf_805a731e0623200dc055d2ded3695dc2"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "entrance.cutover.commit",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_9431223b92af4714781c6e4858dc5d08"
+    },
+    "payload_digest": "acfaadf3e589e7d57bf51ac869a198695a0f2e9af8cdfc1acf323455274ff1e6",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_ca54e61cd5b74db2c595f64facf0be88",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_805a731e0623200dc055d2ded3695dc2"
+    }
+   }
+  },
+  {
+   "digest": "b0d3ee5141538f7d710f69c8ffe9be805c686975f19e336feb4dd6b3a06b6f39",
+   "name": "refuse_altered_tarball_object_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [
+      {
+       "code": "object_digest_mismatch",
+       "pointer": "/candidate_digest"
+      }
+     ],
+     "stage": "refused"
+    },
+    "outputs": [],
+    "provider_effect": "not_applicable",
+    "request_digest": "e52e999b6acadc6f67affe2478e957092fc430ac1d42566cb66de7e087d65086",
+    "request_id": "req_ca54e61cd5b74db2c595f64facf0be88",
+    "schema": 1,
+    "supported_recovery": [
+     "retry_same_request"
+    ]
+   }
+  },
+  {
    "digest": "4fa21ff45c4a47b215a02777ee04c8e9e888fb261b986ad7c374f1329803d08c",
    "name": "altered_query",
    "record": {
@@ -708,8 +776,8 @@
    }
   }
  ],
- "says": "Alice binds her device key and registers a package candidate. She then submits a cutover whose candidate_digest names a candidate that differs from the registered one in one member's bytes and was never registered: bytes on disk without a registration receipt are not a candidate, so the owner refuses it with candidate_not_registered at candidate_digest and writes nothing. She submits a second cutover naming the registered candidate, but the package that reaches the target holds different bytes than the registration recorded for one of its members (workenv/contracts/c03.py): the owner refuses it with object_digest_mismatch at candidate_digest. A query by that second request id returns the same refused result and no receipt. What must not happen: either cutover installing a package, switching ownership, or committing on the strength of a candidate whose bytes the owner does not hold exactly as registered.",
- "spec_sha256": "0212fc0001e14321367220b98f62d60ba7e1ffc9245729429bcea7deea0e1f1f",
+ "says": "Alice binds her device key and registers a package candidate. She then submits a cutover whose candidate_digest names a candidate that differs from the registered one in one member's bytes and was never registered: bytes on disk without a registration receipt are not a candidate, so the owner refuses it with candidate_not_registered at candidate_digest and writes nothing. She submits a second cutover naming the registered candidate, but the package that reaches the target holds different bytes than the registration recorded for one of its members (workenv/contracts/c03.py): the owner refuses it with object_digest_mismatch at candidate_digest. A query by that second request id returns the same refused result and no receipt. She submits a third cutover naming the same registered candidate, but this time the candidate's own tarball on disk holds different bytes than the registration recorded, independent of any member: the owner refuses it with object_digest_mismatch at candidate_digest too. What must not happen: any of these cutovers installing a package, switching ownership, or committing on the strength of a candidate whose bytes the owner does not hold exactly as registered.",
+ "spec_sha256": "b99d65d74e1f9f284c2adbdb982fae4f151fe8eb92122ef899070cce75af63f8",
  "steps": [
   {
    "carries": [
@@ -753,6 +821,15 @@
   },
   {
    "carries": [
+    "registered_plan"
+   ],
+   "name": "refuse_altered_tarball_object",
+   "request": "switch_altered_tarball",
+   "result": "refuse_altered_tarball_object_result",
+   "returns": []
+  },
+  {
+   "carries": [
     "altered_query"
    ],
    "name": "query_refused_cutover",
@@ -772,6 +849,14 @@
     "kind": "received_bytes",
     "path": "workenv/contracts/c03.py",
     "size": 66
+   },
+   {
+    "before": "refuse_altered_tarball_object",
+    "bytes": "# tampered tarball bytes that do not match the registered candidate's tarball digest\n",
+    "digest": "0825c52d74d6a4976f8bd2b02ad37a14c55ef39b83399b835b442580f97da7cb",
+    "kind": "file_edit",
+    "path": "packages/candidate.tar.gz",
+    "size": 85
    }
   ]
  }

@@ -1,6 +1,6 @@
 {
  "case": "DC-DURABLE",
- "says": "Alice's host is probed. In her private decisions source two choices conflict — A (WAL, synchronous FULL) and B (a rollback journal) — so her first use of the journal concern waits on a sealed question, version 1, over both. She chooses A, keep until the choices change: a verified answer. From the resume naming that answer the application is recorded against the whole participant set, and the use resumes and is admitted. Recording it crashes mid-commit; restarted, a same-id query returns the committed application and receipt unchanged. A is replaced by A2 (synchronous NORMAL): her next use is blocked with preference_invalidated, the application invalidated because a participant changed, and a new use waits on a question over A2 and B. A backup is then taken, covering the invalidated application and its pending question. A2 is then replaced by A3, whose words are A's again: preparing that use again seals version 2 of its question at generation 3 keeping A and A2 replaced — matching old words do not revive old consent. The laptop's live database is lost and the backup restored on a rebuilt runtime; its store holds the application invalidated, as it stood at the backup. A use there, carrying the restored generation, is not admitted: access_locked and access_generation_moved. Alice reads her locked profile at generation 8 and unlocks at a terminal. Querying the answer and application by request id returns their original results and receipts, and querying the invalidated use's request returns its original blocked result unchanged. Preparing that same use again finds the same question still pending. A separate new use is blocked with preference_invalidated over A2 and B, its basis unable to verify past the backup. Querying the first choice's publication returns its original result. What must not happen: changed-back words, a restored stale application, invalidation loss reviving the choice, a pending question the restore drops, or recovery rewriting a decision record.",
+ "says": "Two choices conflict in her decisions source — A (WAL, synchronous FULL), B (a rollback journal) — and her first use waits on a sealed question over both. She chooses A, keep until the choices change: a verified answer resumes and admits the use. A backup taken right after, while the preference is still active, is later restored independently on a separate runtime: a new use there is blocked with preference_invalidated, basis unverifiable past it — an active, backed-up preference is not silently revived. Recording the application crashes mid-commit; restarted, a same-id query returns it unchanged. A is replaced by A2 (synchronous NORMAL): her next use is blocked with preference_invalidated (a participant changed) and waits on a question over A2 and B. A second backup then covers that invalidated application and its pending question. A2 is replaced by A3, whose words are A's again: preparing that use again seals a new version — matching old words do not revive old consent. The laptop's live database is lost; the second backup, restored on a rebuilt runtime, holds the application invalidated as before. A use there is blocked, locked until Alice unlocks at a terminal (access_locked, access_generation_moved). Querying the answer, the application, the invalidated use, and the first use's own admission — each by its original request id — returns its original result unchanged. Preparing the first use again finds the same admitted result, its chosen body's bytes matching what was recorded: recovery reads the same decision and rewrites none of it. Preparing the second use again finds the same question pending. A separate new use is blocked with preference_invalidated over A2 and B, basis unverifiable past the second backup. Querying the first choice's publication returns its original result. What must not happen: changed-back words, a restored application revived as still valid, invalidation loss, a dropped pending question, or a rewritten decision record.",
  "ids": [
   {
    "name": "alice",
@@ -128,6 +128,30 @@
   },
   {
    "name": "prepare_second_restored_id",
+   "prefix": "req"
+  },
+  {
+   "name": "take_early_backup_id",
+   "prefix": "req"
+  },
+  {
+   "name": "restore_early_id",
+   "prefix": "req"
+  },
+  {
+   "name": "unlock_early_id",
+   "prefix": "req"
+  },
+  {
+   "name": "prepare_early_restore_id",
+   "prefix": "req"
+  },
+  {
+   "name": "ask_admission_id",
+   "prefix": "req"
+  },
+  {
+   "name": "prepare_first_after_restore_id",
    "prefix": "req"
   }
  ],
@@ -1646,7 +1670,7 @@
     },
     {
      "pointer": "/outcome/units/0/body_digest",
-     "value": "#stored_choice_a"
+     "value": "#choice_a_body"
     },
     {
      "pointer": "/outcome/use/use_id",
@@ -3925,6 +3949,522 @@
      "value": "#ask_application_after_crash_payload"
     }
    ]
+  },
+  {
+   "name": "take_early_backup",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base",
+    "/payload_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@take_early_backup_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "store.backup.create"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    }
+   ]
+  },
+  {
+   "name": "early_backup",
+   "from": "c03/backup_taken_before_the_loss.json",
+   "drop": [
+    "/members/3"
+   ],
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/taken_at",
+     "value": "$instant:early_backup_taken_at"
+    },
+    {
+     "pointer": "/covered_through",
+     "value": "$integer:early_backup_covered_through"
+    },
+    {
+     "pointer": "/database/digest",
+     "value": "$digest:early_backup_database"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "objects/choice_a.json"
+    },
+    {
+     "pointer": "/members/0/holds",
+     "value": "object"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "#stored_choice_a"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 723
+    },
+    {
+     "pointer": "/members/1/path",
+     "value": "objects/choice_b.json"
+    },
+    {
+     "pointer": "/members/1/holds",
+     "value": "object"
+    },
+    {
+     "pointer": "/members/1/digest",
+     "value": "#stored_choice_b"
+    },
+    {
+     "pointer": "/members/1/size",
+     "value": 726
+    },
+    {
+     "pointer": "/members/2/path",
+     "value": "control/sequence.json"
+    },
+    {
+     "pointer": "/members/2/holds",
+     "value": "control_state"
+    },
+    {
+     "pointer": "/members/2/digest",
+     "value": "$digest:early_control_sequence"
+    },
+    {
+     "pointer": "/members/2/size",
+     "value": 64
+    }
+   ]
+  },
+  {
+   "name": "restore_early",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@restore_early_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "store.backup.restore"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#early_backup"
+    }
+   ]
+  },
+  {
+   "name": "early_report",
+   "from": "c03/restore_after_losing_the_live_database.json",
+   "set": [
+    {
+     "pointer": "/backup_digest",
+     "value": "#early_backup"
+    },
+    {
+     "pointer": "/taken_at",
+     "value": "$instant:early_backup_taken_at"
+    },
+    {
+     "pointer": "/covered_through",
+     "value": "$integer:early_backup_covered_through"
+    },
+    {
+     "pointer": "/restored_at",
+     "value": "$instant:early_restored_at"
+    }
+   ]
+  },
+  {
+   "name": "unlock_early",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@unlock_early_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.transition"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#unlock_early_change"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 8
+    }
+   ]
+  },
+  {
+   "name": "unlock_early_change",
+   "from": "c02/unlock_at_a_terminal.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/expected_generation",
+     "value": 8
+    }
+   ]
+  },
+  {
+   "name": "unlocked_early",
+   "from": "c02/unlocked_with_the_device_key.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:unlocked_early_at"
+    }
+   ]
+  },
+  {
+   "name": "prepare_early_restore",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@prepare_early_restore_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.use.prepare"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@concern"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#envelope"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 8
+    }
+   ]
+  },
+  {
+   "name": "early_waiting",
+   "from": "first_waiting",
+   "set": [
+    {
+     "pointer": "/outcome/use/question_id",
+     "value": "$qst:early_question"
+    },
+    {
+     "pointer": "/outcome/use/use_id",
+     "value": "$use:early_use"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:early_waiting_at"
+    }
+   ]
+  },
+  {
+   "name": "early_question",
+   "from": "first_question",
+   "set": [
+    {
+     "pointer": "/question_id",
+     "value": "$qst:early_question"
+    },
+    {
+     "pointer": "/use_id",
+     "value": "$use:early_use"
+    },
+    {
+     "pointer": "/basis_digest",
+     "value": "#first_basis"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:early_question_at"
+    }
+   ]
+  },
+  {
+   "name": "ask_admission",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@ask_admission_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.query"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@resume_first_id"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#ask_admission_payload"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 8
+    }
+   ]
+  },
+  {
+   "name": "ask_admission_payload",
+   "from": "c03/query_by_request_id.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@resume_first_id"
+    }
+   ]
+  },
+  {
+   "name": "prepare_first_after_restore",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@prepare_first_after_restore_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.use.prepare"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$use:first_use"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#envelope"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 8
+    }
+   ]
+  }
+ ],
+ "members": [
+  {
+   "name": "choice_a_body",
+   "text": "WAL, with synchronous FULL."
   }
  ],
  "steps": [
@@ -4136,7 +4676,24 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "first_admitted"
+     "first_admitted",
+     "choice_a_body"
+    ]
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "take_the_early_backup",
+   "request": "take_early_backup",
+   "carries": [],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "early_backup"
     ]
    },
    "process": "laptop"
@@ -4476,12 +5033,114 @@
     ]
    },
    "process": "rebuilt"
+  },
+  {
+   "name": "restore_the_early_backup",
+   "request": "restore_early",
+   "carries": [
+    "early_backup"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "early_report"
+    ]
+   },
+   "process": "rebuilt_early"
+  },
+  {
+   "name": "unlock_the_early_restored_profile",
+   "request": "unlock_early",
+   "carries": [
+    "unlock_early_change"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "unlocked_early"
+    ]
+   },
+   "process": "rebuilt_early"
+  },
+  {
+   "name": "prepare_the_concern_after_the_early_restore",
+   "request": "prepare_early_restore",
+   "carries": [
+    "envelope"
+   ],
+   "answer": {
+    "stage": "blocked",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "preference_invalidated"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": [
+     "early_waiting",
+     "application_unverifiable",
+     "early_question",
+     "first_basis",
+     "first_state"
+    ]
+   },
+   "process": "rebuilt_early"
+  },
+  {
+   "name": "query_the_admission_after_restore",
+   "request": "ask_admission",
+   "carries": [
+    "ask_admission_payload"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "resume_the_first_use_result"
+    ]
+   },
+   "process": "rebuilt"
+  },
+  {
+   "name": "prepare_the_first_use_after_restore",
+   "request": "prepare_first_after_restore",
+   "carries": [
+    "envelope"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "first_admitted",
+     "choice_a_body"
+    ]
+   },
+   "process": "rebuilt"
   }
  ],
  "world": {
   "processes": [
    "laptop",
-   "rebuilt"
+   "rebuilt",
+   "rebuilt_early"
   ],
   "faults": [
    {

@@ -1853,7 +1853,7 @@
     },
     {
      "pointer": "/outcome/units/0/body_digest",
-     "value": "#stored_runner_repo_choice"
+     "value": "#runner_body"
     },
     {
      "pointer": "/outcome/units/0/role",
@@ -3817,7 +3817,7 @@
     },
     {
      "pointer": "/outcome/units/0/body_digest",
-     "value": "#stored_runner_repo_choice"
+     "value": "#runner_body"
     },
     {
      "pointer": "/outcome/units/0/role",
@@ -4316,7 +4316,7 @@
     },
     {
      "pointer": "/outcome/units/0/body_digest",
-     "value": "#stored_journal_repo_choice"
+     "value": "#journal_body"
     },
     {
      "pointer": "/outcome/units/0/role",
@@ -4343,6 +4343,16 @@
      "value": "$instant:resume_journal_result_admitted_at"
     }
    ]
+  }
+ ],
+ "members": [
+  {
+   "name": "runner_body",
+   "text": "pytest, run through the repository's make target."
+  },
+  {
+   "name": "journal_body",
+   "text": "WAL, with synchronous FULL."
   }
  ],
  "steps": [
@@ -4578,7 +4588,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "resume_runner_result_admitted"
+     "resume_runner_result_admitted",
+     "runner_body"
     ]
    }
   },
@@ -4879,7 +4890,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "runner_kept_result"
+     "runner_kept_result",
+     "runner_body"
     ]
    }
   },
@@ -4949,7 +4961,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "resume_journal_result_admitted"
+     "resume_journal_result_admitted",
+     "journal_body"
     ]
    }
   }

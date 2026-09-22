@@ -364,7 +364,7 @@
     },
     {
      "pointer": "/threshold",
-     "value": 0
+     "value": 1
     }
    ]
   },
@@ -471,7 +471,7 @@
   },
   {
    "name": "team_policy",
-   "from": "c08/policy_requiring_none_and_saying_so.json",
+   "from": "c08/policy_requiring_one_independent_review.json",
    "set": [
     {
      "pointer": "/execution_authority/principal_id",
@@ -501,7 +501,9 @@
       "read",
       "use",
       "contribute",
-      "publish"
+      "publish",
+      "policy",
+      "transfer"
      ]
     },
     {
@@ -756,7 +758,7 @@
     },
     {
      "pointer": "/members/1/digest",
-     "value": "3976577edb9d88eb85508730988f8c0ef5ca2e3a7f6f70963be450ce930620bc"
+     "value": "#security_baseline_body"
     },
     {
      "pointer": "/members/1/path",
@@ -764,7 +766,7 @@
     },
     {
      "pointer": "/members/1/size",
-     "value": 437
+     "value": 167
     },
     {
      "pointer": "/source_id",
@@ -1465,7 +1467,7 @@
     },
     {
      "pointer": "/members/1/digest",
-     "value": "3976577edb9d88eb85508730988f8c0ef5ca2e3a7f6f70963be450ce930620bc"
+     "value": "#security_baseline_body"
     },
     {
      "pointer": "/members/1/path",
@@ -1473,7 +1475,7 @@
     },
     {
      "pointer": "/members/1/size",
-     "value": 437
+     "value": 167
     },
     {
      "pointer": "/source_id",
@@ -1928,7 +1930,7 @@
     },
     {
      "pointer": "/outcome/units/0/body_digest",
-     "value": "3976577edb9d88eb85508730988f8c0ef5ca2e3a7f6f70963be450ce930620bc"
+     "value": "#security_baseline_body"
     },
     {
      "pointer": "/outcome/units/0/revision_digest",
@@ -2411,7 +2413,7 @@
     },
     {
      "pointer": "/units/1/body_digest",
-     "value": "3976577edb9d88eb85508730988f8c0ef5ca2e3a7f6f70963be450ce930620bc"
+     "value": "#security_baseline_body"
     },
     {
      "pointer": "/units/2/unit_id",
@@ -2634,6 +2636,38 @@
     {
      "pointer": "/units/6/home_digest",
      "value": "#team_rules_home_stored"
+    },
+    {
+     "pointer": "/units/7/unit_id",
+     "value": "$unt:team_denied_unit"
+    },
+    {
+     "pointer": "/units/7/source_id",
+     "value": "src_8732b36f2766f0f946ab672f1880f285"
+    },
+    {
+     "pointer": "/units/7/revision_digest",
+     "value": "4f8b09a618723a123985cc498788cec5cc19efde79eea71ad24c2a7a10e41f8c"
+    },
+    {
+     "pointer": "/units/7/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/units/7/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/units/7/standing",
+     "value": "unresolved"
+    },
+    {
+     "pointer": "/material_gaps/0/code",
+     "value": "selection_unresolved"
+    },
+    {
+     "pointer": "/material_gaps/0/pointer",
+     "value": "/units/7"
     }
    ]
   },
@@ -3747,7 +3781,8 @@
      "retry_same_request"
     ],
     "returns": [
-     "team_security_unread"
+     "team_security_unread",
+     "security_baseline_body"
     ]
    },
    "process": "laptop"
@@ -3944,5 +3979,11 @@
     "from": "bind_repo"
    }
   ]
- }
+ },
+ "members": [
+  {
+   "name": "security_baseline_body",
+   "text": "# Security baseline\n\nAll shared credentials must use hardware-backed keys, sessions expire after 12 hours of inactivity, and any incident is reported within 24 hours.\n"
+  }
+ ]
 }

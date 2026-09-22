@@ -1,6 +1,6 @@
 {
  "case": "N24-WRITERS-NEG",
- "says": "Alice binds her device key and registers the package candidate. The old runtime left one operation (old_unknown_request) with an unknown outcome. She then submits four cutover plans, each naming the registered candidate and each wrong in one way: one starts with an operation in flight, one seals only the source store and projection owner and not the publication lock, one is verified with a writer left unrouted, and one lists the unknown operation without the recovery that settles it, dropping it. Each is refused at admission by the cutover plan's own rule, at the field that breaks it, and nothing is written; a query by each refused request id afterwards is answered request_not_held, because no result, receipt or head exists for it. What must not happen: any of these plans committing, sealing or switching anything, state ownership moving off the source, or the unknown operation being forgotten.",
+ "says": "Alice binds her device key and registers the package candidate. She then attempts a second registration, old_unknown_request, and the process dies before its reply reaches her: the old runtime — the source side this cutover retires — holds it with an unknown outcome, unsettled and never queried again in this scenario. She then submits four cutover plans, each naming the registered candidate and each wrong in one way: one starts with an operation in flight, one seals only the source store and projection owner and not the publication lock, one is verified with a writer left unrouted, and one is otherwise sealed, verified and quiesced but its unknown_operations names none at all, leaving old_unknown_request out — nothing settles it and nothing carries it forward, so it is refused unknown_operation_dropped. Each is refused at admission by the cutover plan's own rule, at the field that breaks it, and nothing is written; a query by each refused request id afterwards is answered request_not_held, because no result, receipt or head exists for it. What must not happen: any of these plans committing, sealing or switching anything, state ownership moving off the source, or the unknown operation being forgotten.",
  "ids": [
   {
    "name": "alice",
@@ -203,6 +203,70 @@
     {
      "pointer": "/payload_digest",
      "value": "#candidate"
+    }
+   ]
+  },
+  {
+   "name": "earlier_candidate",
+   "from": "candidate",
+   "set": [
+    {
+     "pointer": "/source_commit",
+     "value": "b184c3b26df4d7ca57c74806fd4c32273835ae3c"
+    }
+   ]
+  },
+  {
+   "name": "register_earlier",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@old_unknown_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "package.candidate.register"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#earlier_candidate"
     }
    ]
   },
@@ -634,15 +698,15 @@
   },
   {
    "name": "dropped_unknown_plan",
-   "from": "c03/an_unknown_operation_dropped_at_cutover.json",
+   "from": "c03/one_cutover_sealed_verified_and_committed_once.json",
    "set": [
     {
      "pointer": "/candidate_digest",
      "value": "#candidate"
     },
     {
-     "pointer": "/data/unknown_operations/0/request_id",
-     "value": "@old_unknown_request"
+     "pointer": "/data/unknown_operations",
+     "value": []
     }
    ]
   },
@@ -811,6 +875,27 @@
    }
   },
   {
+   "name": "attempt_an_earlier_registration",
+   "request": "register_earlier",
+   "carries": [
+    "earlier_candidate"
+   ],
+   "answer": {
+    "stage": "unknown",
+    "local_effect": "none",
+    "provider_effect": "unknown",
+    "gaps": [
+     {
+      "code": "outcome_unknown"
+     }
+    ],
+    "recovery": [
+     "query_same_request"
+    ],
+    "returns": []
+   }
+  },
+  {
    "name": "refuse_in_flight",
    "request": "switch_in_flight",
    "carries": [
@@ -909,13 +994,21 @@
    "carries": [
     "dropped_unknown_plan"
    ],
-   "refused": [
-    {
-     "record": "dropped_unknown_plan",
-     "code": "variant_mismatch",
-     "pointer": "/data"
-    }
-   ]
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "unknown_operation_dropped",
+      "pointer": "/data/unknown_operations"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": []
+   }
   },
   {
    "name": "query_dropped_unknown",

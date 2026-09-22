@@ -1484,7 +1484,7 @@
         },
         {
           "pointer": "/outcome/units/0/body_digest",
-          "value": "#wal_stored"
+          "value": "#wal_body"
         },
         {
           "pointer": "/outcome/use/use_id",
@@ -1944,7 +1944,7 @@
         },
         {
           "pointer": "/outcome/units/0/body_digest",
-          "value": "#wal_stored"
+          "value": "#wal_body"
         },
         {
           "pointer": "/outcome/use/use_id",
@@ -2773,7 +2773,7 @@
         },
         {
           "pointer": "/outcome/units/0/body_digest",
-          "value": "#wal_stored"
+          "value": "#wal_body"
         },
         {
           "pointer": "/outcome/use/use_id",
@@ -4624,7 +4624,7 @@
         },
         {
           "pointer": "/outcome/units/0/body_digest",
-          "value": "#wal_replacement_stored"
+          "value": "#wal_replacement_body"
         },
         {
           "pointer": "/outcome/use/use_id",
@@ -5324,7 +5324,7 @@
         },
         {
           "pointer": "/outcome/units/0/body_digest",
-          "value": "#wal_replacement_stored"
+          "value": "#wal_replacement_body"
         },
         {
           "pointer": "/outcome/use/use_id",
@@ -5852,6 +5852,16 @@
       ]
     }
   ],
+  "members": [
+    {
+      "name": "wal_body",
+      "text": "WAL, with synchronous FULL."
+    },
+    {
+      "name": "wal_replacement_body",
+      "text": "WAL, with synchronous FULL, forcing a checkpoint every 1000 pages."
+    }
+  ],
   "steps": [
     {
       "name": "bind_alice_key",
@@ -6052,7 +6062,8 @@
         "gaps": [],
         "recovery": [],
         "returns": [
-          "first_use_admitted"
+          "first_use_admitted",
+          "wal_body"
         ]
       }
     },
@@ -6152,7 +6163,8 @@
         "recovery": [],
         "returns": [
           "after_unrelated_admitted",
-          "after_unrelated_state"
+          "after_unrelated_state",
+          "wal_body"
         ]
       }
     },
@@ -6189,7 +6201,8 @@
         "recovery": [],
         "returns": [
           "team_frontier_admitted",
-          "team_frontier_state"
+          "team_frontier_state",
+          "wal_body"
         ]
       }
     },
@@ -6226,7 +6239,8 @@
         "returns": [
           "after_view_admitted",
           "after_view_state",
-          "kept_application"
+          "kept_application",
+          "wal_body"
         ]
       }
     },
@@ -6307,7 +6321,8 @@
         "gaps": [],
         "recovery": [],
         "returns": [
-          "use_asking_again_admitted"
+          "use_asking_again_admitted",
+          "wal_body"
         ]
       }
     },
@@ -6497,7 +6512,8 @@
         "gaps": [],
         "recovery": [],
         "returns": [
-          "final_admitted"
+          "final_admitted",
+          "wal_replacement_body"
         ]
       }
     },
@@ -6595,7 +6611,8 @@
         "gaps": [],
         "recovery": [],
         "returns": [
-          "condition_admitted"
+          "condition_admitted",
+          "wal_replacement_body"
         ]
       }
     },

@@ -691,7 +691,7 @@
    "record": "current_units"
   },
   {
-   "minted": "normal_body",
+   "digest_of": "normal_body",
    "pointer": "/outcome/units/0/body_digest",
    "record": "current_units"
   },
@@ -703,6 +703,11 @@
   {
    "digest_of": "current_units",
    "pointer": "/outputs/0/digest",
+   "record": "search_without_history_result"
+  },
+  {
+   "digest_of": "normal_body",
+   "pointer": "/outputs/1/digest",
    "record": "search_without_history_result"
   },
   {
@@ -736,7 +741,7 @@
    "record": "history_units"
   },
   {
-   "minted": "normal_body",
+   "digest_of": "normal_body",
    "pointer": "/outcome/units/0/body_digest",
    "record": "history_units"
   },
@@ -751,7 +756,7 @@
    "record": "history_units"
   },
   {
-   "minted": "full_body",
+   "digest_of": "full_body",
    "pointer": "/outcome/units/1/body_digest",
    "record": "history_units"
   },
@@ -766,7 +771,7 @@
    "record": "history_units"
   },
   {
-   "minted": "exclusive_body",
+   "digest_of": "exclusive_body",
    "pointer": "/outcome/units/2/body_digest",
    "record": "history_units"
   },
@@ -778,6 +783,21 @@
   {
    "digest_of": "history_units",
    "pointer": "/outputs/0/digest",
+   "record": "search_with_history_result"
+  },
+  {
+   "digest_of": "normal_body",
+   "pointer": "/outputs/1/digest",
+   "record": "search_with_history_result"
+  },
+  {
+   "digest_of": "full_body",
+   "pointer": "/outputs/2/digest",
+   "record": "search_with_history_result"
+  },
+  {
+   "digest_of": "exclusive_body",
+   "pointer": "/outputs/3/digest",
    "record": "search_with_history_result"
   },
   {
@@ -869,6 +889,26 @@
    "digest_of": "history_state",
    "pointer": "/outputs/0/digest",
    "record": "resolve_with_history_result"
+  }
+ ],
+ "members": [
+  {
+   "digest": "1e215213404eb4e967fa29d38f5c1e58e0a7116ee4e21e5d0782791605f4a2d8",
+   "name": "normal_body",
+   "size": 61,
+   "text": "The current standing rate applies unchanged for this period.\n"
+  },
+  {
+   "digest": "aa56e83fcee7fd0c07ca88ce08c8bfbf930286223e04060be33c8e964c4118dd",
+   "name": "full_body",
+   "size": 72,
+   "text": "The prior full rate table, superseded by the current standing revision.\n"
+  },
+  {
+   "digest": "04b5db5f8efe87b2852ae6fb9c837295e1ac2fa105a63d04bba095e07776f9ab",
+   "name": "exclusive_body",
+   "size": 56,
+   "text": "An exclusive addendum, later withdrawn from the source.\n"
   }
  ],
  "minted": [
@@ -1113,28 +1153,13 @@
    "step": "search_without_history"
   },
   {
-   "name": "normal_body",
-   "shape": "digest",
-   "step": "search_without_history"
-  },
-  {
    "name": "normal_unit",
    "shape": "unt",
    "step": "search_without_history"
   },
   {
-   "name": "exclusive_body",
-   "shape": "digest",
-   "step": "search_with_history"
-  },
-  {
    "name": "exclusive_unit",
    "shape": "unt",
-   "step": "search_with_history"
-  },
-  {
-   "name": "full_body",
-   "shape": "digest",
    "step": "search_with_history"
   },
   {
@@ -2371,7 +2396,7 @@
    }
   },
   {
-   "digest": "4ba6c47cb4c423885e20f02ab10844b3d6564f506ee63434a53497ec97053ec4",
+   "digest": "6ca0d97a37517cfdecceaea3014f44460a8565b1d2bef9bcded8f108e5e15ac4",
    "name": "current_units",
    "record": {
     "ended": true,
@@ -2394,7 +2419,7 @@
      "standing": "delivered",
      "units": [
       {
-       "body_digest": "a3f4adb523ab7de1fbe1da1bf9b6cb2dd2afe33121dce3e4cb65a3b2c0dd6a56",
+       "body_digest": "1e215213404eb4e967fa29d38f5c1e58e0a7116ee4e21e5d0782791605f4a2d8",
        "layer": "repository",
        "need": "optional",
        "revision_digest": "c526a6dd7db335db8a28e7ef7cc3edfdfc30e6a1154c0d8336167ea38cffd7c2",
@@ -2411,7 +2436,7 @@
    }
   },
   {
-   "digest": "dbda02f9098c15ef815ad472c7239339452a16d5f0d8c25af4df9d2cdb1dc5a6",
+   "digest": "48ffc9ce82a1812f301fa8dae5450905d66f06b071f2c8a10fc054e82f56650c",
    "name": "search_without_history_result",
    "record": {
     "kind": "operation_result",
@@ -2422,8 +2447,12 @@
     },
     "outputs": [
      {
-      "digest": "4ba6c47cb4c423885e20f02ab10844b3d6564f506ee63434a53497ec97053ec4",
+      "digest": "6ca0d97a37517cfdecceaea3014f44460a8565b1d2bef9bcded8f108e5e15ac4",
       "kind": "reader_result"
+     },
+     {
+      "digest": "1e215213404eb4e967fa29d38f5c1e58e0a7116ee4e21e5d0782791605f4a2d8",
+      "kind": "source_member"
      }
     ],
     "provider_effect": "not_applicable",
@@ -2497,7 +2526,7 @@
    }
   },
   {
-   "digest": "1f840f25c720bf7e5a796ef5b05bc738ecc788fe15ca1007f0e3cb9e497e9a33",
+   "digest": "33f94e23e6881bef2ecaefc52a8d094e9b3fab9aa831ee344ef4f8b723283b58",
    "name": "history_units",
    "record": {
     "ended": true,
@@ -2520,7 +2549,7 @@
      "standing": "delivered",
      "units": [
       {
-       "body_digest": "a3f4adb523ab7de1fbe1da1bf9b6cb2dd2afe33121dce3e4cb65a3b2c0dd6a56",
+       "body_digest": "1e215213404eb4e967fa29d38f5c1e58e0a7116ee4e21e5d0782791605f4a2d8",
        "layer": "repository",
        "need": "optional",
        "revision_digest": "c526a6dd7db335db8a28e7ef7cc3edfdfc30e6a1154c0d8336167ea38cffd7c2",
@@ -2530,7 +2559,7 @@
        "unit_id": "unt_58599f2f6e75f6071733a1317afe7df9"
       },
       {
-       "body_digest": "10f48d4157c39676996b73632e45a3b9d72ccceb2bcfebd7b1d697d612fecd72",
+       "body_digest": "aa56e83fcee7fd0c07ca88ce08c8bfbf930286223e04060be33c8e964c4118dd",
        "layer": "repository",
        "need": "optional",
        "revision_digest": "39daf241723027bc00a3dcf7ea838d1f0b8c0a0034c28e2fd6c62f1b931bb2ad",
@@ -2540,7 +2569,7 @@
        "unit_id": "unt_826246ccf62e4d7f59d6a0518c979ddb"
       },
       {
-       "body_digest": "6a53a98f955227a29b5107aff2177287685d373f252d81e525e34db00fab2e0d",
+       "body_digest": "04b5db5f8efe87b2852ae6fb9c837295e1ac2fa105a63d04bba095e07776f9ab",
        "layer": "repository",
        "need": "optional",
        "revision_digest": "145f3087c57f321153d95236c7f60aada3441ae800ea188a978bf85518e43626",
@@ -2559,7 +2588,7 @@
    }
   },
   {
-   "digest": "a1ff559ad922529d891cb2c61fa33740ac9369cbdbfe61a2d1ccba750c6424b6",
+   "digest": "deb7361d53a952eadd523287fb75ddb7e064d72f67a6102f2df99034bbb4ab6e",
    "name": "search_with_history_result",
    "record": {
     "kind": "operation_result",
@@ -2570,8 +2599,20 @@
     },
     "outputs": [
      {
-      "digest": "1f840f25c720bf7e5a796ef5b05bc738ecc788fe15ca1007f0e3cb9e497e9a33",
+      "digest": "33f94e23e6881bef2ecaefc52a8d094e9b3fab9aa831ee344ef4f8b723283b58",
       "kind": "reader_result"
+     },
+     {
+      "digest": "1e215213404eb4e967fa29d38f5c1e58e0a7116ee4e21e5d0782791605f4a2d8",
+      "kind": "source_member"
+     },
+     {
+      "digest": "aa56e83fcee7fd0c07ca88ce08c8bfbf930286223e04060be33c8e964c4118dd",
+      "kind": "source_member"
+     },
+     {
+      "digest": "04b5db5f8efe87b2852ae6fb9c837295e1ac2fa105a63d04bba095e07776f9ab",
+      "kind": "source_member"
      }
     ],
     "provider_effect": "not_applicable",
@@ -2809,7 +2850,7 @@
   }
  ],
  "says": "Alice binds her checkout and registers its repository memory source. She records choice A (WAL with synchronous FULL), then choice B, which replaces A whole, and applies A's replacement by B; she then records choice C (exclusive locking) on the same question and withdraws it. A scoped search of that repository about the journal-mode concern, with history excluded, delivers only B, the winning unit; the same search with history included also delivers A marked superseded and C marked withdrawn, each at the revision that recorded it, over the same frontier and work scope. Resolving the same concern with superseded material excluded returns B current and C withdrawn — a withdrawal is an entry no filter drops — and with it included also returns A, superseded by B, over the same frontier. Each reader_result is held to C06/history_only_when_asked against the envelope it answers. What must not happen: a superseded or withdrawn unit delivered to the envelope that excluded history, the withdrawal dropped from current state so that A or C reads as current, an entry or unit returned without its standing, or the history run reading beyond the repository and the one memory source the envelope names.",
- "spec_sha256": "7aa339d08f6bb955eb256910ed1470932417927332ed5fa2a4c0097d2b1aecdb",
+ "spec_sha256": "c1579285cfd64a47a402a07e5f5f86b8d9f6a3744cbce9779a9a138b0fd75b01",
  "steps": [
   {
    "carries": [
@@ -2918,7 +2959,8 @@
    "request": "search_current",
    "result": "search_without_history_result",
    "returns": [
-    "current_units"
+    "current_units",
+    "normal_body"
    ]
   },
   {
@@ -2929,7 +2971,10 @@
    "request": "search_history",
    "result": "search_with_history_result",
    "returns": [
-    "history_units"
+    "history_units",
+    "normal_body",
+    "full_body",
+    "exclusive_body"
    ]
   },
   {

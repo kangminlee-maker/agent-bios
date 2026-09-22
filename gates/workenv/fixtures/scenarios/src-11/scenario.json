@@ -323,6 +323,11 @@
    "record": "stored_choice_r"
   },
   {
+   "digest_of": "adr_body",
+   "pointer": "/members/0/digest",
+   "record": "manifest_r"
+  },
+  {
    "minted": "r_produced_at",
    "pointer": "/produced_at",
    "record": "manifest_r"
@@ -391,6 +396,11 @@
    "minted": "s_recorded_at",
    "pointer": "/recorded_at",
    "record": "stored_choice_s"
+  },
+  {
+   "digest_of": "adr_body",
+   "pointer": "/members/0/digest",
+   "record": "manifest_s"
   },
   {
    "minted": "s_produced_at",
@@ -673,6 +683,11 @@
    "record": "ref_r"
   },
   {
+   "digest_of": "adr_body",
+   "pointer": "/member/digest",
+   "record": "ref_r"
+  },
+  {
    "digest_of": "ref_r",
    "pointer": "/payload_digest",
    "record": "resolve_ref"
@@ -690,6 +705,11 @@
   {
    "digest_of": "stored_home_r",
    "pointer": "/outputs/1/digest",
+   "record": "resolve_r_unchanged_result"
+  },
+  {
+   "digest_of": "adr_body",
+   "pointer": "/outputs/2/digest",
    "record": "resolve_r_unchanged_result"
   },
   {
@@ -736,6 +756,14 @@
    "digest_of": "state",
    "pointer": "/outputs/0/digest",
    "record": "resolve_two_records_result"
+  }
+ ],
+ "members": [
+  {
+   "digest": "7e2a92fddbfe25862c74332e4aa2bfe9d71c0e795f13039796dc41647c3737b0",
+   "name": "adr_body",
+   "size": 1830,
+   "text": "# 0001. Journal mode\n\n## Status\n\nAccepted\n\n## Context\n\nThe team needs a durable write-ahead log for concurrent readers and writers without blocking either side. Prior attempts using a plain append-only file left readers racing the writer for the last record, and a periodic full-file rewrite made every reader re-scan the whole log on each poll. Earlier drafts of this decision considered a single global lock around every write, but that serialized all writers behind one mutex and made the common case of two unrelated writers pay for a conflict that never happens in practice.\n\n## Decision\n\nAdopt write-ahead journal mode for the local store. Every write appends a frame to the journal before it touches the main file, and a reader opens the journal first, then the main file, so a reader never observes a torn write. Checkpointing folds the journal back into the main file once no reader holds an older snapshot, and the checkpoint itself is a single atomic rename so a crash mid-checkpoint leaves either the old file or the new one, never a mix of both.\n\n## Consequences\n\nReaders and writers no longer block each other. The on-disk footprint grows by the size of the journal until the next checkpoint, and a crash between a journal append and a checkpoint must replay from the journal on restart. Tooling that inspects the store directly, outside this process, must learn to read the journal too, or it will see a file that is stale by up to one checkpoint interval. This decision applies to this repository's own local store and says nothing about any other repository's choice on the same question, even one that keeps an ADR of the same number under the same title.\n\n## References\n\nThis number and title match an ADR kept in another repository; the match is entirely coincidental, and neither record refers to the other.\n\n"
   }
  ],
  "minted": [
@@ -1587,14 +1615,14 @@
    }
   },
   {
-   "digest": "a3a983b9a0b5ea00517d187c2506b9c1ae5ed0f7ca42a22801b42151af47a56e",
+   "digest": "8d1457c071513b985ad4c61a3c65a00aa6d975e1a93b1f066acec0ac20eb9d6c",
    "name": "manifest_r",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "4b1f0c9e2d3a5b6c7d8e9f00112233445566778899aabbccddeeff0011223344",
+      "digest": "7e2a92fddbfe25862c74332e4aa2bfe9d71c0e795f13039796dc41647c3737b0",
       "path": "docs/adr/0001-journal-mode.md",
       "size": 1830
      }
@@ -1605,7 +1633,7 @@
    }
   },
   {
-   "digest": "36d624a92a78536ca0ee24dc92c9dce25f1ce81da9ca11749ae3c14d0c7bf600",
+   "digest": "24cbef35251f3da4c9c6aee686e2f5f09a0afdaf20d0629899aa62bfcdd63687",
    "name": "publish_adr_r_result",
    "record": {
     "kind": "operation_result",
@@ -1621,7 +1649,7 @@
       "kind": "choice_record"
      },
      {
-      "digest": "a3a983b9a0b5ea00517d187c2506b9c1ae5ed0f7ca42a22801b42151af47a56e",
+      "digest": "8d1457c071513b985ad4c61a3c65a00aa6d975e1a93b1f066acec0ac20eb9d6c",
       "kind": "source_manifest"
      }
     ],
@@ -1771,14 +1799,14 @@
    }
   },
   {
-   "digest": "b95c6fda47c79a9505247c05828811f863fdcfcc22027d4d3f559b0e10eb0693",
+   "digest": "92ae5196b1f65ee1a120dfbd929593b7eca13bd0f041888e82e6c07d04da2ada",
    "name": "manifest_s",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "4b1f0c9e2d3a5b6c7d8e9f00112233445566778899aabbccddeeff0011223344",
+      "digest": "7e2a92fddbfe25862c74332e4aa2bfe9d71c0e795f13039796dc41647c3737b0",
       "path": "docs/adr/0001-journal-mode.md",
       "size": 1830
      }
@@ -1789,7 +1817,7 @@
    }
   },
   {
-   "digest": "f5c3fe01bd7f36ce63db2172a04522d6e5cde906f68c8eba037c86ef9d557600",
+   "digest": "aaac53a54ed8b1d299a9260fd9553a0f0b4dc0e05acfe3a13ba66d71739b76d8",
    "name": "publish_adr_s_result",
    "record": {
     "kind": "operation_result",
@@ -1805,7 +1833,7 @@
       "kind": "choice_record"
      },
      {
-      "digest": "b95c6fda47c79a9505247c05828811f863fdcfcc22027d4d3f559b0e10eb0693",
+      "digest": "92ae5196b1f65ee1a120dfbd929593b7eca13bd0f041888e82e6c07d04da2ada",
       "kind": "source_manifest"
      }
     ],
@@ -2401,16 +2429,16 @@
    }
   },
   {
-   "digest": "254033b9338d4283d8ddbdf9da2c523f081b0dbb3af495c91424149a13cd2c3c",
+   "digest": "a8c3085c6aff871626c2f19e947fcf07171d59710fdba4c1b52701e5720487e3",
    "name": "ref_r",
    "record": {
     "kind": "source_ref",
     "member": {
-     "digest": "4b1f0c9e2d3a5b6c7d8e9f00112233445566778899aabbccddeeff0011223344",
+     "digest": "7e2a92fddbfe25862c74332e4aa2bfe9d71c0e795f13039796dc41647c3737b0",
      "path": "docs/adr/0001-journal-mode.md",
      "size": 1830
     },
-    "revision_digest": "a3a983b9a0b5ea00517d187c2506b9c1ae5ed0f7ca42a22801b42151af47a56e",
+    "revision_digest": "8d1457c071513b985ad4c61a3c65a00aa6d975e1a93b1f066acec0ac20eb9d6c",
     "role": "memory",
     "schema": 1,
     "scope": {
@@ -2421,7 +2449,7 @@
    }
   },
   {
-   "digest": "d2130a08309a5e08f6616cfa681c87ae5e5e3b8daead2533b5f707ec3a4d49f2",
+   "digest": "37b2fb3eedd84f7b93bdf60004a86bc40e2f5d3b52fdf0e81f847fdcfdd220f3",
    "name": "resolve_ref",
    "record": {
     "action": "read",
@@ -2439,7 +2467,7 @@
      "layer": "repository",
      "repository_id": "rep_377dafaefc8682fc7935ba5a4c4121c9"
     },
-    "payload_digest": "254033b9338d4283d8ddbdf9da2c523f081b0dbb3af495c91424149a13cd2c3c",
+    "payload_digest": "a8c3085c6aff871626c2f19e947fcf07171d59710fdba4c1b52701e5720487e3",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_7931e00450f8cc3ce0f35a2b6ea60cb0",
@@ -2454,7 +2482,7 @@
    }
   },
   {
-   "digest": "231299578e2ed36eba8d71d93adc39f7f01ec8f14f86ed93ae3701e0c5634f93",
+   "digest": "57fbfc9c75aebac2ed5f4f4443a3e7dde77090e240f4ddf4049097d9aa1ca295",
    "name": "resolve_r_unchanged_result",
    "record": {
     "kind": "operation_result",
@@ -2465,16 +2493,20 @@
     },
     "outputs": [
      {
-      "digest": "a3a983b9a0b5ea00517d187c2506b9c1ae5ed0f7ca42a22801b42151af47a56e",
+      "digest": "8d1457c071513b985ad4c61a3c65a00aa6d975e1a93b1f066acec0ac20eb9d6c",
       "kind": "source_manifest"
      },
      {
       "digest": "b5998400bade94ab5caf0c96561fdba24e28ef2964a4a0e4fd480045d082dbf1",
       "kind": "source_home"
+     },
+     {
+      "digest": "7e2a92fddbfe25862c74332e4aa2bfe9d71c0e795f13039796dc41647c3737b0",
+      "kind": "source_member"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "d2130a08309a5e08f6616cfa681c87ae5e5e3b8daead2533b5f707ec3a4d49f2",
+    "request_digest": "37b2fb3eedd84f7b93bdf60004a86bc40e2f5d3b52fdf0e81f847fdcfdd220f3",
     "request_id": "req_7931e00450f8cc3ce0f35a2b6ea60cb0",
     "schema": 1,
     "supported_recovery": []
@@ -2599,7 +2631,7 @@
   }
  ],
  "says": "Two repositories, R and S, each keep an ADR numbered 0001 at docs/adr/0001-journal-mode.md with the same title and the same Markdown bytes. Each checkout is bound to its own repository id, each ADR directory is registered as its own repository-authored memory source, and the decision is published into each (memory.record.publish): the owner commits two choice records with two record ids and two manifests, one per source, even though the member path, digest and question text are identical. A Team A is founded and references R's ADR source in its own Team memory position, one entry naming the one source record; Team A then edits its own wrapper by switching that entry off, which commits a new head of Team A's position only. Resolving R's exact revision afterwards (reference.resolve against the head R's publication left) returns R's manifest unchanged, with R's repository home, and asking which journal mode applies over both repositories (memory.state.resolve) returns two current entries, each naming its own record and its own source. Equal numbers, titles and bytes must not merge the two owners into one record, and Team A's edit must not rewrite, supersede or move anything of repository R.",
- "spec_sha256": "3d003f3f585112207f395b126af7c2a2248d6b8fa264a756f984592af75b02c5",
+ "spec_sha256": "aef55ffc495dc04ea34944d646089dff56ab2797bcb98a5aa3116b7647120556",
  "steps": [
   {
    "carries": [
@@ -2728,7 +2760,8 @@
    "result": "resolve_r_unchanged_result",
    "returns": [
     "manifest_r",
-    "stored_home_r"
+    "stored_home_r",
+    "adr_body"
    ]
   },
   {

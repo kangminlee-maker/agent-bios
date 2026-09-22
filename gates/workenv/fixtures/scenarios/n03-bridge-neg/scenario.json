@@ -2167,7 +2167,7 @@
   }
  ],
  "says": "Alice's laptop reads its fresh profile (active, generation 1) and binds her key. The launch opens the Studio page through the loopback bridge with a per-launch client token, and the access owner issues the page a handle through studio_bridge at generation 1 that names the token's digest; the TUI is issued its own handle through studio_hub. Under generation 1 the page asks for her recent history under its handle, and the bridge writes the body at generation 1. She locks the profile (generation 2). The page resends its request, still issued under generation 1: the bridge withholds the body, reading generation 2 on arrival, and the result names access_locked and access_generation_moved. A TUI request under its generation-1 handle is likewise not admitted. After she unlocks at a terminal (still generation 2) the page's old request is still withheld with access_generation_moved. The page is issued a new handle at generation 2 naming the same launch token. A request under generation 2 carrying a client token this launch never issued is refused with client_token_unknown and gets no body. Finally the page's request under its new handle arrives, and while the bridge serves it — after admitting it, before writing its body — Alice locks the profile again at a terminal: the bridge rereads the generation before writing, finds 3, and withholds the body. What must not happen: any body written for a request issued under an earlier generation, or for a token the launch did not issue, or a body written after a lock landed.",
- "spec_sha256": "a779df178377f1fba43cfbe64087648240dc5c77096764313cf9e1c942685646",
+ "spec_sha256": "9b6d9a38ddf368f15dc711973291f9ae5eaf8daca265fd53421055fd29cbd0b3",
  "steps": [
   {
    "carries": [],
@@ -2215,7 +2215,8 @@
   {
    "carries": [
     "page_request",
-    "history_under_generation_one"
+    "history_under_generation_one",
+    "history_under_generation_one_query"
    ],
    "name": "serve_at_generation_one",
    "request": "serve_at_generation_one_request",

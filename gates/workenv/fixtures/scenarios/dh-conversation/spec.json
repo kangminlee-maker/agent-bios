@@ -2112,7 +2112,7 @@
    "set": [
     {
      "pointer": "/hooks/0/enabled",
-     "value": false
+     "value": true
     },
     {
      "pointer": "/hooks/0/event",
@@ -2938,6 +2938,12 @@
     "before": "record_the_hook_reply",
     "path": ".claude/settings.json",
     "bytes": "{\"hooks\":{\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"scripts/answer-the-pending-question.sh\"}]}]}}\n"
+   },
+   {
+    "kind": "file_edit",
+    "before": "record_the_hook_reply",
+    "path": "scripts/answer-the-pending-question.sh",
+    "bytes": "#!/bin/sh\nprintf '%s' 'WAL, with synchronous FULL.'\n"
    },
    {
     "kind": "file_edit",

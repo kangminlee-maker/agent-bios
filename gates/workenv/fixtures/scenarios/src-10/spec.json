@@ -296,6 +296,12 @@
     {
      "pointer": "/payload_digest",
      "value": "#clone_checkout"
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#clone_observation"
+     ]
     }
    ]
   },
@@ -472,6 +478,12 @@
     {
      "pointer": "/payload_digest",
      "value": "#worktree_checkout"
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#worktree_observation"
+     ]
     }
    ]
   },
@@ -1137,11 +1149,15 @@
   },
   {
    "name": "switched_observation",
-   "from": "clone_observation",
+   "from": "c01/observation_of_a_working_tree_with_dirty_and_untracked_files.json",
    "drop": [
     "/read/0"
    ],
    "set": [
+    {
+     "pointer": "/selection_digest",
+     "value": "#clone_selection"
+    },
     {
      "pointer": "/read/0/digest",
      "value": "$digest:clone_adr2_bytes"
@@ -1311,7 +1327,8 @@
    "name": "bind_clone",
    "request": "bind_clone",
    "carries": [
-    "clone_checkout"
+    "clone_checkout",
+    "clone_observation"
    ],
    "answer": {
     "stage": "committed",
@@ -1345,7 +1362,8 @@
    "name": "bind_worktree",
    "request": "bind_worktree",
    "carries": [
-    "worktree_checkout"
+    "worktree_checkout",
+    "worktree_observation"
    ],
    "answer": {
     "stage": "committed",

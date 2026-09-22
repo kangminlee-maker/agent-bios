@@ -644,11 +644,6 @@
    "record": "take_a_backup_after_restore_receipt"
   },
   {
-   "minted": "backup_covered_through",
-   "pointer": "/covered_through",
-   "record": "backup_after_restore"
-  },
-  {
    "digest_of": "stored_draft",
    "pointer": "/members/0/digest",
    "record": "backup_after_restore"
@@ -671,6 +666,11 @@
   {
    "minted": "backup_after_restore_taken_at",
    "pointer": "/taken_at",
+   "record": "backup_after_restore"
+  },
+  {
+   "minted": "backup_after_restore_covered_through",
+   "pointer": "/covered_through",
    "record": "backup_after_restore"
   },
   {
@@ -874,6 +874,11 @@
    "name": "unlocked_at",
    "shape": "instant",
    "step": "unlock_the_restored_copy"
+  },
+  {
+   "name": "backup_after_restore_covered_through",
+   "shape": "integer",
+   "step": "take_a_backup_after_restore"
   },
   {
    "name": "backup_after_restore_database",
@@ -2417,7 +2422,7 @@
   }
  ],
  "says": "On her laptop Alice registers her private notes source and commits a revision on the head the registration made (a receipt and the head it moved), keeps a hand-written choice as a draft candidate whose id the owner assigns, and exports a package carrying the revision, trusted by the binding that enrolled the laptop, to her desktop over a peer route while the two cannot reach each other, so the export stays in her outbox with an unknown outcome. She then takes a backup, which names the database snapshot and each member beside it: the draft, the outbox package, the unknown operation and the control sequence. The laptop's live database is then lost: on a rebuilt runtime that never held it, a query for the commit's request id first answers request_not_held — nothing survived to be restarted. Restoring the backup there reports the receipt sequence and instant the backup covers, work after it not known and authority passive, at a generation past the one it restored. She then unlocks the rebuilt copy at a terminal, expecting that later generation, which makes its access active there. Afterwards the same queries return exactly the originals: the commit's result and its receipt naming its request and head, the draft candidate's result, and the export's unknown result with its query-the-same-request recovery. Reading the draft candidate directly there returns the same stored candidate content, not only its historical result. A fresh backup taken there afterward, at the unlocked generation, names the same draft, outbox and control-sequence members by digest and size as the one restored, so the restored outbox package and control-state member are shown exactly restored, not only their result mappings. What must not count as this proof: a surviving database restarted in place, or the desktop's copy of the exported package standing in for the laptop's draft, outbox, unknown operation and control mappings; nothing here is rebuilt from a peer.",
- "spec_sha256": "387ec22c6d521fbbb61e5b72432bba2e695e11e89e6f7dd37f6b5ddda4aeb47c",
+ "spec_sha256": "c18fb64511730a763fe29fc94a0359d02275632cb0643cdc9c23dfd06f6a70ea",
  "steps": [
   {
    "carries": [

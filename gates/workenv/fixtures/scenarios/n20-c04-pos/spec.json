@@ -91,6 +91,16 @@
    "prefix": "req"
   }
  ],
+ "members": [
+  {
+   "name": "rate_table_member",
+   "text": "category,rate\nstandard,0.20\nreduced,0.05\n"
+  },
+  {
+   "name": "form_attachment_member",
+   "text": "{\"fields\":[{\"name\":\"category\",\"type\":\"string\"},{\"name\":\"rate\",\"type\":\"number\"}]}\n"
+  }
+ ],
  "records": [
   {
    "name": "my_key",
@@ -887,7 +897,11 @@
     },
     {
      "pointer": "/members/1/digest",
-     "value": "#form_as_it_will_be_committed"
+     "value": "#form_attachment_member"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "#rate_table_member"
     }
    ]
   },
@@ -1820,7 +1834,9 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "view"
+     "view",
+     "rate_table_member",
+     "form_attachment_member"
     ]
    }
   },

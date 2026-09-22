@@ -1,6 +1,6 @@
 {
  "case": "BKP-COVERAGE",
- "says": "Alice's laptop takes backups under a configured recovery objective of one hour. She registers her private notes source and commits a revision on the head the registration made, a backup is taken ten minutes later, and in the half hour after it she commits a second revision and keeps a hand-written draft — private work that exists only on the laptop. The laptop's live database is then lost. On a rebuilt runtime the backup is restored, and the report states exactly the frontier it covers — the receipt sequence and the instant of the backup it restored, the same values the backup set names — together with the recovery objective, work after the backup as not known, and authority passive. A query for the first commit returns its original result and receipt. Queries for the second commit's and the draft's request ids each return request_not_covered, naming the restore report whose frontier bounds what the owner holds — not request_not_held, which would say they were never received. A commit on the restored head, which would build over the second revision made after the backup, is not accepted: the restored copy is passive, locked at a generation past the restored one, and answers access_locked and access_generation_moved. What must not happen: the report or any answer treating the second revision or the draft as absent, recovered or safe to discard — nothing here moves the head past the covered frontier or drops that work.",
+ "says": "Alice's laptop takes backups under a configured recovery objective of one hour. She registers her private notes source and commits a revision on the head the registration made, a backup is taken ten minutes later, and in the half hour after it she commits a second revision and keeps a hand-written draft \u2014 private work that exists only on the laptop. The laptop's live database is then lost. On a rebuilt runtime the backup is restored, and the report states exactly the frontier it covers \u2014 the receipt sequence and the instant of the backup it restored, the same values the backup set names \u2014 together with the recovery objective, work after the backup as not known, and authority passive. A query for the first commit returns its original result and receipt. Queries for the second commit's and the draft's request ids each return request_not_covered, naming the restore report whose frontier bounds what the owner holds \u2014 not request_not_held, which would say they were never received. A commit on the restored head, which would build over the second revision made after the backup, is not accepted: the restored copy is passive, locked at a generation past the restored one, and answers access_locked and access_generation_moved. What must not happen: the report or any answer treating the second revision or the draft as absent, recovered or safe to discard \u2014 nothing here moves the head past the covered frontier or drops that work.",
  "ids": [
   {
    "name": "alice",
@@ -341,6 +341,10 @@
      "value": "@notes_source"
     },
     {
+     "pointer": "/members/0/digest",
+     "value": "362b4365a82036be47f5ba85d632434330b39de4314ed50112203e367303f44b"
+    },
+    {
      "pointer": "/members/0/size",
      "value": 4121
     }
@@ -534,6 +538,10 @@
     {
      "pointer": "/source_id",
      "value": "@notes_source"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "ae5808b69f6b1b65ff0e934982958d3ffbd61271c0dbea11a6f210b1cb463397"
     },
     {
      "pointer": "/members/0/size",
@@ -1026,6 +1034,10 @@
     {
      "pointer": "/source_id",
      "value": "@notes_source"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "b9d583cc1e9d58f93a6d5d9229017045aca5a047a37e9b04f7d01699aec36f2b"
     },
     {
      "pointer": "/members/0/size",

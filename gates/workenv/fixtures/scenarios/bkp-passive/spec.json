@@ -1,6 +1,6 @@
 {
  "case": "BKP-PASSIVE",
- "says": "On her laptop Alice registers her private notes source, commits a revision on the head the registration made, founds a Team there and, as its issuing authority, records on the Team's head a revocation of an earlier permit — control evidence her own device holds from the issue — and then takes a backup under access generation 7. The laptop keeps running; the backup is restored onto a second runtime, a restored copy holding the same device's data and that old access generation. The restore reports authority passive. A commit on the restored copy, expecting the head the backup holds and carrying the restored generation 7, is blocked with access_locked and access_generation_moved and moves nothing: the restored copy did not unlock itself and is not a second finalizer. Reading the profile there shows it locked because restored, at generation 8, past the one it restored. On the laptop, meanwhile, a commit expecting that same head is accepted, so the laptop stays the one runtime that moves this head. Only an explicit unlock at a terminal on the restored copy, expecting generation 8, makes its access active, as a new access state the unlock wrote at that same generation; a query there then returns the restored commit's original result and receipt. Being active at that generation is not restored authority: a hypothetical Team read the admission decider previews there, naming among its proofs the revocation record the restored copy's own backup carried, is still not admitted, with credential_revoked and control_evidence_insufficient — access being unlocked at the current generation answers only C02's own question, not whether any control evidence the restored copy holds is still current. What must not happen: the restored copy reading its restored generation as active access, unlocking without a person's explicit unlock, finalizing a commit beside the laptop, or an active access generation being read as current control authority.",
+ "says": "On her laptop Alice registers her private notes source, commits a revision on the head the registration made, founds a Team there and, as its issuing authority, records on the Team's head a revocation of an earlier permit \u2014 control evidence her own device holds from the issue \u2014 and then takes a backup under access generation 7. The laptop keeps running; the backup is restored onto a second runtime, a restored copy holding the same device's data and that old access generation. The restore reports authority passive. A commit on the restored copy, expecting the head the backup holds and carrying the restored generation 7, is blocked with access_locked and access_generation_moved and moves nothing: the restored copy did not unlock itself and is not a second finalizer. Reading the profile there shows it locked because restored, at generation 8, past the one it restored. On the laptop, meanwhile, a commit expecting that same head is accepted, so the laptop stays the one runtime that moves this head. Only an explicit unlock at a terminal on the restored copy, expecting generation 8, makes its access active, as a new access state the unlock wrote at that same generation; a query there then returns the restored commit's original result and receipt. Being active at that generation is not restored authority: a hypothetical Team read the admission decider previews there, naming among its proofs the revocation record the restored copy's own backup carried, is still not admitted, with credential_revoked and control_evidence_insufficient \u2014 access being unlocked at the current generation answers only C02's own question, not whether any control evidence the restored copy holds is still current. What must not happen: the restored copy reading its restored generation as active access, unlocking without a person's explicit unlock, finalizing a commit beside the laptop, or an active access generation being read as current control authority.",
  "ids": [
   {
    "name": "alice",
@@ -274,6 +274,10 @@
     {
      "pointer": "/source_id",
      "value": "@notes_source"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "d9f5f83e2f752fab24119bd9dad42d547911bc9f76882133d79a8edb4226cbf0"
     },
     {
      "pointer": "/members/0/size",
@@ -960,6 +964,10 @@
     {
      "pointer": "/source_id",
      "value": "@notes_source"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "a389b57af7e688dbfbec127c007dd2553e76ab047ff6f2b2061dc3822353c470"
     },
     {
      "pointer": "/members/0/size",

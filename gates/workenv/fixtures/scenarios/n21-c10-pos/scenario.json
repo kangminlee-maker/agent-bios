@@ -881,7 +881,7 @@
    "record": "search_result"
   },
   {
-   "minted": "rates_body",
+   "digest_of": "rates_body",
    "pointer": "/outcome/units/0/body_digest",
    "record": "search_result"
   },
@@ -898,6 +898,11 @@
   {
    "digest_of": "search_result",
    "pointer": "/outputs/0/digest",
+   "record": "scoped_search_result"
+  },
+  {
+   "digest_of": "rates_body",
+   "pointer": "/outputs/1/digest",
    "record": "scoped_search_result"
   },
   {
@@ -1201,6 +1206,14 @@
    "record": "remove_the_revision_result"
   }
  ],
+ "members": [
+  {
+   "digest": "c80ad652a2a01523caf310bd5730d6ef8a6e4b69c81c606db58d7337af33b446",
+   "name": "rates_body",
+   "size": 72,
+   "text": "jurisdiction,entity_form,rate\nKR,small_company,0.10\nKR,mid_company,0.15\n"
+  }
+ ],
  "minted": [
   {
    "name": "bind_laptop_key_committed_at",
@@ -1451,11 +1464,6 @@
    "name": "team_head_2",
    "shape": "digest",
    "step": "accept_full_package"
-  },
-  {
-   "name": "rates_body",
-   "shape": "digest",
-   "step": "scoped_search"
   },
   {
    "name": "rates_unit",
@@ -3280,7 +3288,7 @@
    }
   },
   {
-   "digest": "29fc4e1df48b11ab28e2551153bcb7ed1eb383ce1a573362a2345bdfe059bc5d",
+   "digest": "c6344de3a84910272ad07d29c50f7f600eb0280e6a755d82b74c587427021a20",
    "name": "search_result",
    "record": {
     "ended": true,
@@ -3303,7 +3311,7 @@
      "standing": "delivered",
      "units": [
       {
-       "body_digest": "82dfbc2bc418d2bc7c023c311362338edf0ccaf6dbecfcdbde91c7eff521ecf2",
+       "body_digest": "c80ad652a2a01523caf310bd5730d6ef8a6e4b69c81c606db58d7337af33b446",
        "layer": "team",
        "need": "required",
        "revision_digest": "270aafe6d6f9b7d1d9a50eb1c17572f664e43b6013626d33cd3a7c9930db5fd3",
@@ -3320,7 +3328,7 @@
    }
   },
   {
-   "digest": "4297cd341b2b731f721757d2ea9e66f5cd347f0e9e8648d1c73801f37d39efda",
+   "digest": "31bfe5ebaeedb0df9bf199accbd3db2540efb2964a01aa398c30c3bde9cc1533",
    "name": "scoped_search_result",
    "record": {
     "kind": "operation_result",
@@ -3331,8 +3339,12 @@
     },
     "outputs": [
      {
-      "digest": "29fc4e1df48b11ab28e2551153bcb7ed1eb383ce1a573362a2345bdfe059bc5d",
+      "digest": "c6344de3a84910272ad07d29c50f7f600eb0280e6a755d82b74c587427021a20",
       "kind": "reader_result"
+     },
+     {
+      "digest": "c80ad652a2a01523caf310bd5730d6ef8a6e4b69c81c606db58d7337af33b446",
+      "kind": "source_member"
      }
     ],
     "provider_effect": "not_applicable",
@@ -3929,7 +3941,7 @@
   }
  ],
  "says": "Alice founds a Team on her laptop, which returns the Team's founding epoch, registers its knowledge source and commits a revision, and her enrolled desktop imports it by peer (staged on the laptop as a draft with no receipt, carrying the epoch as a member), so the revision has a copy on each device. A read scoped to the Team and to that source delivers its one unit with the frontier it read at. The derivation map of the revision, read in the Team's scope, names two distinct derivatives, an excerpt and an index. A retention plan promises the Team's continuity record — its founding epoch — and lists the index as evictable, apart from it; nothing promises the revision. One batch asks each holder to undertake custody of what the plan promises, the laptop through its own store and the desktop by peer; its result states each item's own outcome under its carrier, with a receipt each. Finally removing the revision in the Team's scope, which no plan still promises, returns a removal_outcome with one row per copy (laptop and desktop, each confirmed with its tombstone) and each derivative's own rows, and moves the Team head. What must not happen: the read reaching past the Team's scope or the named source, the two derivatives counted as one, the batch summarised into one outcome across carriers, or a removal stated once for all copies.",
- "spec_sha256": "482df0b4492911e45ce0fdc9a4f3d8389cc341011ccd3a13f17fd7e90272f3b6",
+ "spec_sha256": "f0d4282134c42f1e45b3f09401198e5601d0d9e18a419d1bd73365dedfbf86a9",
  "steps": [
   {
    "at": "2026-09-21T09:00:00Z",
@@ -4106,7 +4118,8 @@
    "request": "search",
    "result": "scoped_search_result",
    "returns": [
-    "search_result"
+    "search_result",
+    "rates_body"
    ]
   },
   {

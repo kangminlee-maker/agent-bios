@@ -8,7 +8,9 @@ by the one admission owner, from exact source revisions, and nothing else is pro
 A projection carries behavioural units only — `projected_unit.source_role` is fixed, so a
 knowledge or memory source cannot enter a projection by being listed in one — and a knowledge
 view carries a body with the evidence behind it and never the authority to act: the answer
-returns the bytes of each member the view names (`source_member`) beside the view.
+returns the bytes of each member the view names (`source_member`) beside the view. A projection
+returns them too, for each unit it delivers, so a role receives the text its `body_digest` names
+and not only the reference.
 
 A request arrives through an entrance, and the plan carries that entrance: an entrance whose
 root the caller chose reaches protected bytes only through the admission owner, and one that
@@ -54,7 +56,8 @@ IN_RESULTS = True
 # reopened by its id, a member is checked against the source it will be committed to, and a
 # session is activated on its profile.
 OPERATIONS = {
-    "role.project": {"takes": ("projection_plan",), "returns": ("role_projection",),
+    "role.project": {"takes": ("projection_plan",),
+                     "returns": ("role_projection", "source_member"),
                      "effect": "pure_preview", "action": "use", "targets": ("prn",)},
     "knowledge.question.ask": {"takes": ("knowledge_question",),
                                "returns": ("knowledge_view", "source_member"),
@@ -63,7 +66,8 @@ OPERATIONS = {
     "knowledge.view.open": {"takes": (), "returns": ("knowledge_view",),
                             "effect": "pure_preview", "action": "read", "targets": ("viw",)},
     "session.routing.activate": {"takes": ("session_activation",),
-                                 "returns": ("session_routing", "role_projection"),
+                                 "returns": ("session_routing", "role_projection",
+                                             "source_member"),
                                  "effect": "owner_commit", "action": "use",
                                  "targets": ("prf",)},
     "knowledge.member.prepare": {"takes": ("knowledge_model", "form_profile"),

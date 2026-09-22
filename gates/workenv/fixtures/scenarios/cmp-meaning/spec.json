@@ -659,7 +659,7 @@
    "set": [
     {
      "pointer": "/members/0/digest",
-     "value": "2a993f77d9213df687f5565f49f3adc3cc7cfb37baffa8f9ed33d27c584cb967"
+     "value": "#repo_rate_table_body"
     },
     {
      "pointer": "/members/0/path",
@@ -667,7 +667,7 @@
     },
     {
      "pointer": "/members/0/size",
-     "value": 400
+     "value": 94
     },
     {
      "pointer": "/source_id",
@@ -868,7 +868,7 @@
    "set": [
     {
      "pointer": "/members/0/digest",
-     "value": "520fcfcbaded8bee7cce5d181474589128393b2a2046f3bf6e727f547c921e01"
+     "value": "#team_rate_table_body"
     },
     {
      "pointer": "/members/0/path",
@@ -876,7 +876,7 @@
     },
     {
      "pointer": "/members/0/size",
-     "value": 400
+     "value": 115
     },
     {
      "pointer": "/source_id",
@@ -1284,7 +1284,7 @@
     },
     {
      "pointer": "/members/0/digest",
-     "value": "2a993f77d9213df687f5565f49f3adc3cc7cfb37baffa8f9ed33d27c584cb967"
+     "value": "#repo_rate_table_body"
     },
     {
      "pointer": "/members/0/source_id",
@@ -1292,7 +1292,7 @@
     },
     {
      "pointer": "/members/1/digest",
-     "value": "520fcfcbaded8bee7cce5d181474589128393b2a2046f3bf6e727f547c921e01"
+     "value": "#team_rate_table_body"
     },
     {
      "pointer": "/members/1/layer",
@@ -3041,6 +3041,10 @@
     {
      "pointer": "/outcome/units/0/body_digest",
      "value": "#choice_b_stored"
+    },
+    {
+     "pointer": "/outcome/consumed/units",
+     "value": 1
     }
    ]
   }
@@ -3229,7 +3233,9 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "rate_view"
+     "rate_view",
+     "repo_rate_table_body",
+     "team_rate_table_body"
     ]
    }
   },
@@ -3430,7 +3436,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "use_admitted"
+     "use_admitted",
+     "choice_a_body"
     ]
    }
   },
@@ -3483,9 +3490,28 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "team_decision_result"
+     "team_decision_result",
+     "choice_b_body"
     ]
    }
+  }
+ ],
+ "members": [
+  {
+   "name": "repo_rate_table_body",
+   "text": "jurisdiction,entity_form,rate\nKR,small_company,0.10\nKR,mid_company,0.15\nKR,large_company,0.20\n"
+  },
+  {
+   "name": "team_rate_table_body",
+   "text": "jurisdiction,entity_form,rate\nKR,small_company,0.10\nKR,mid_company,0.15\nKR,large_company,0.20\n# Team platform copy\n"
+  },
+  {
+   "name": "choice_a_body",
+   "text": "{\"alternatives\":[{\"choice\":\"A rollback journal with EXTRA\",\"reason\":\"One read waited 766 ms during a commit burst.\"}],\"applicability\":{\"conditions\":[{\"dimension\":\"jurisdiction\",\"value\":\"KR\"}],\"states\":\"stated\"},\"choice\":\"WAL, with synchronous FULL.\",\"context\":\"Measured on the volume this layer works on.\",\"expected_consequences\":\"A checkpoint fault point has to be tested.\",\"home\":{\"layer\":\"repository\",\"repository_id\":\"rep_f0a2d7f650104c9fee3fa6284a8f1efc\"},\"kind\":\"choice_record\",\"question\":\"Which journal mode does the local state database use?\",\"reason\":\"4.11 ms per commit against 11.76, and readers are not blocked.\",\"record_id\":\"rec_e5864a15b16afde493bdc0783cfce5d4\",\"recorded_at\":\"2000-01-01T00:00:00Z\",\"revisit_condition\":\"The volume's fsync behaviour changes.\",\"schema\":1,\"workstream_ids\":[]}"
+  },
+  {
+   "name": "choice_b_body",
+   "text": "{\"alternatives\":[{\"choice\":\"WAL, with synchronous FULL\",\"reason\":\"Unsafe on a volume without fullfsync.\"}],\"applicability\":{\"conditions\":[{\"dimension\":\"jurisdiction\",\"value\":\"KR\"}],\"states\":\"stated\"},\"choice\":\"A rollback journal on the shared volume.\",\"context\":\"Measured on the volume this layer works on.\",\"expected_consequences\":\"A checkpoint fault point has to be tested.\",\"home\":{\"layer\":\"team\",\"team_id\":\"tem_a5ad3c1d9f8a4ba509f07b10b1bf9c27\"},\"kind\":\"choice_record\",\"question\":\"Which journal mode does the local state database use?\",\"reason\":\"The shared volume does not honour fullfsync, so WAL is unsafe there.\",\"record_id\":\"rec_0013b717e1b7f8c1dac288884649985d\",\"recorded_at\":\"2000-01-01T00:00:00Z\",\"revisit_condition\":\"The volume's fsync behaviour changes.\",\"schema\":1,\"workstream_ids\":[]}"
   }
  ]
 }

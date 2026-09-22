@@ -2496,7 +2496,8 @@
         "gaps": [],
         "recovery": [],
         "returns": [
-          "first_use_admitted"
+          "first_use_admitted",
+          "wal_choice_body"
         ]
       }
     },
@@ -2513,7 +2514,8 @@
         "gaps": [],
         "recovery": [],
         "returns": [
-          "first_use_admitted"
+          "first_use_admitted",
+          "wal_choice_body"
         ]
       }
     },
@@ -2572,7 +2574,8 @@
         "gaps": [],
         "recovery": [],
         "returns": [
-          "second_use_admitted"
+          "second_use_admitted",
+          "rollback_choice_body"
         ]
       }
     }
@@ -2584,5 +2587,15 @@
         "point": "after_commit_before_return"
       }
     ]
-  }
+  },
+  "members": [
+    {
+      "name": "wal_choice_body",
+      "text": "{\"alternatives\":[{\"choice\":\"A rollback journal with EXTRA\",\"reason\":\"One read waited 766 ms during a commit burst.\"}],\"applicability\":{\"conditions\":[{\"dimension\":\"repository\",\"value\":\"this one\"}],\"states\":\"stated\"},\"choice\":\"WAL, with synchronous FULL.\",\"home\":{\"layer\":\"repository\",\"repository_id\":\"rep_df1bdcd9e1e41e96d1c3955f9bc037c7\"},\"kind\":\"choice_record\",\"question\":\"Which journal mode does the local state database use?\",\"reason\":\"4.11 ms per commit against 11.76, and readers are not blocked.\",\"record_id\":\"rec_d972510a48f3ad43b8c7cf80f40e8fe6\",\"recorded_at\":\"2000-01-01T00:00:00Z\",\"schema\":1,\"workstream_ids\":[]}"
+    },
+    {
+      "name": "rollback_choice_body",
+      "text": "{\"alternatives\":[{\"choice\":\"WAL with synchronous FULL\",\"reason\":\"My checkout sits on a network volume that does not honour fullfsync.\"}],\"applicability\":{\"conditions\":[{\"dimension\":\"repository\",\"value\":\"this one\"}],\"states\":\"stated\"},\"choice\":\"A rollback journal with synchronous EXTRA.\",\"home\":{\"layer\":\"personal\",\"principal_id\":\"prn_94ad10948a41e3c4bf1dec654287e517\"},\"kind\":\"choice_record\",\"question\":\"Which journal mode does the local state database use?\",\"reason\":\"On this machine the database is on a network volume where WAL is unsafe.\",\"record_id\":\"rec_4878576ceb9bc6b3e21c0faf6a5bbe2e\",\"recorded_at\":\"2000-01-01T00:00:00Z\",\"schema\":1,\"workstream_ids\":[]}"
+    }
+  ]
 }

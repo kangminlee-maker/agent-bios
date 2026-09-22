@@ -370,7 +370,7 @@
     },
     {
      "pointer": "/members/0/digest",
-     "value": "4b1f0c9e2d3a5b6c7d8e9f00112233445566778899aabbccddeeff0011223344"
+     "value": "#adr_body"
     },
     {
      "pointer": "/members/0/size",
@@ -664,7 +664,7 @@
     },
     {
      "pointer": "/members/0/digest",
-     "value": "4b1f0c9e2d3a5b6c7d8e9f00112233445566778899aabbccddeeff0011223344"
+     "value": "#adr_body"
     },
     {
      "pointer": "/members/0/size",
@@ -1128,7 +1128,7 @@
     },
     {
      "pointer": "/member/digest",
-     "value": "4b1f0c9e2d3a5b6c7d8e9f00112233445566778899aabbccddeeff0011223344"
+     "value": "#adr_body"
     },
     {
      "pointer": "/member/size",
@@ -1503,7 +1503,8 @@
     "recovery": [],
     "returns": [
      "manifest_r",
-     "stored_home_r"
+     "stored_home_r",
+     "adr_body"
     ]
    }
   },
@@ -1523,6 +1524,12 @@
      "state"
     ]
    }
+  }
+ ],
+ "members": [
+  {
+   "name": "adr_body",
+   "text": "# 0001. Journal mode\n\n## Status\n\nAccepted\n\n## Context\n\nThe team needs a durable write-ahead log for concurrent readers and writers without blocking either side. Prior attempts using a plain append-only file left readers racing the writer for the last record, and a periodic full-file rewrite made every reader re-scan the whole log on each poll. Earlier drafts of this decision considered a single global lock around every write, but that serialized all writers behind one mutex and made the common case of two unrelated writers pay for a conflict that never happens in practice.\n\n## Decision\n\nAdopt write-ahead journal mode for the local store. Every write appends a frame to the journal before it touches the main file, and a reader opens the journal first, then the main file, so a reader never observes a torn write. Checkpointing folds the journal back into the main file once no reader holds an older snapshot, and the checkpoint itself is a single atomic rename so a crash mid-checkpoint leaves either the old file or the new one, never a mix of both.\n\n## Consequences\n\nReaders and writers no longer block each other. The on-disk footprint grows by the size of the journal until the next checkpoint, and a crash between a journal append and a checkpoint must replay from the journal on restart. Tooling that inspects the store directly, outside this process, must learn to read the journal too, or it will see a file that is stale by up to one checkpoint interval. This decision applies to this repository's own local store and says nothing about any other repository's choice on the same question, even one that keeps an ADR of the same number under the same title.\n\n## References\n\nThis number and title match an ADR kept in another repository; the match is entirely coincidental, and neither record refers to the other.\n\n"
   }
  ]
 }

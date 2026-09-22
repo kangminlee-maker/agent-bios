@@ -982,7 +982,7 @@
     },
     {
      "pointer": "/read/0/digest",
-     "value": "$digest:team_instr_bytes"
+     "value": "#team_instr_body"
     },
     {
      "pointer": "/read/0/path",
@@ -1007,7 +1007,7 @@
    "set": [
     {
      "pointer": "/members/0/digest",
-     "value": "$digest:team_instr_bytes"
+     "value": "#team_instr_body"
     },
     {
      "pointer": "/members/0/path",
@@ -2430,7 +2430,7 @@
     },
     {
      "pointer": "/outcome/units/0/body_digest",
-     "value": "$digest:team_instr_bytes"
+     "value": "#team_instr_body"
     },
     {
      "pointer": "/outcome/units/0/need",
@@ -5168,6 +5168,30 @@
     {
      "pointer": "/declared_operation/name",
      "value": "recipient.delivery.attempt"
+    },
+    {
+     "pointer": "/basis/scopes/1/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/basis/scopes/1/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/basis/scopes/2/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/basis/scopes/2/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/basis/source_pins/0/source_id",
+     "value": "@team_instr"
+    },
+    {
+     "pointer": "/basis/source_pins/0/revision_digest",
+     "value": "#team_instr_revision"
     }
    ]
   },
@@ -5310,7 +5334,7 @@
     },
     {
      "pointer": "/units/0/body_digest",
-     "value": "$digest:team_instr_bytes"
+     "value": "#team_instr_body"
     },
     {
      "pointer": "/units/0/concern",
@@ -5319,6 +5343,14 @@
     {
      "pointer": "/units/0/member",
      "value": "team/platform.md"
+    },
+    {
+     "pointer": "/collections/0/collection_id",
+     "value": "$col:team_collection"
+    },
+    {
+     "pointer": "/collections/0/head_digest",
+     "value": "$digest:team_collection_head"
     }
    ]
   },
@@ -5345,7 +5377,7 @@
     {
      "pointer": "/requested/bodies",
      "value": [
-      "$digest:team_instr_bytes"
+      "#team_instr_body"
      ]
     }
    ]
@@ -5430,7 +5462,7 @@
     {
      "pointer": "/observed/received",
      "value": [
-      "$digest:team_instr_bytes"
+      "#team_instr_body"
      ]
     },
     {
@@ -5473,7 +5505,7 @@
     },
     {
      "pointer": "/observed/inventory/0/body_digest",
-     "value": "$digest:team_instr_bytes"
+     "value": "#team_instr_body"
     },
     {
      "pointer": "/preparation_id",
@@ -17543,7 +17575,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "original_result"
+     "original_result",
+     "team_instr_body"
     ]
    }
   },
@@ -17755,7 +17788,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "journal_use_admitted"
+     "journal_use_admitted",
+     "team_mem_choice_body"
     ]
    }
   },
@@ -17792,6 +17826,16 @@
      "resolved_trace"
     ]
    }
+  }
+ ],
+ "members": [
+  {
+   "name": "team_instr_body",
+   "text": "# Team platform instructions\n\n## response.style\n\nKeep answers direct. State the recommended option first, then the reasoning\nbehind it. Avoid hedging language when the evidence already supports one\nconclusion, and say plainly when it does not.\n\n## review.approval\n\nA change to a shared interface needs one platform reviewer's approval before\nit merges, recorded against the exact revision reviewed. A reviewer checks\nthe change against the interface's own contract, not against personal taste.\n\n## escalation\n\nWhen a decision affects more than one repository, raise it in the platform\nchannel before committing, and record the outcome against the concern it\nresolved so a later reader can find why the choice was made.\n\n## formatting\n\nPrefer short paragraphs over long ones, and prefer a worked example over an\nabstract description when both are available. Code samples should compile\nagainst the platform's current pinned toolchain version, not an older one.\n\n## journal mode\n\nThe platform's shared volume does not honour fullfsync, so a rollback\njournal is the safe default there; write-ahead logging is fine on a volume\nthat does honour it, and each repository states which volume it runs on.\n\n## incident handling\n\nOpen an incident record the moment a shared service degrades, even before\nthe cause is known. Close it only after the fix is verified in the same\nenvironment the incident was observed in, and link the record it resolved.\n\n## onboarding\n\nA new team member reads this file and the repository's own instructions\nbefore their first change, and asks in the platform channel when the two\ndisagree, rather than guessing which one applies. A short pairing session\nin the first week answers most questions, and the buddy stays reachable\nfor that month, available for anything left unclear.\n"
+  },
+  {
+   "name": "team_mem_choice_body",
+   "text": "{\"applicability\":{\"conditions\":[{\"dimension\":\"jurisdiction\",\"value\":\"KR\"}],\"period\":{\"effective_from\":\"2026-01-01\"},\"states\":\"stated\"},\"choice\":\"A rollback journal with EXTRA.\",\"context\":\"Measured on APFS with fullfsync on.\",\"expected_consequences\":\"A checkpoint fault point has to be tested.\",\"home\":{\"layer\":\"team\",\"team_id\":\"tem_598a6050a1dce72d9bdf63e695dded1c\"},\"kind\":\"choice_record\",\"question\":\"Which journal mode does the local state database use?\",\"reason\":\"4.11 ms per commit against 11.76, and readers are not blocked.\",\"record_id\":\"rec_0c5b4e6f529fec91a5666dbf808decfb\",\"recorded_at\":\"2000-01-01T00:00:00Z\",\"revisit_condition\":\"A filesystem that does not honour fullfsync.\",\"schema\":1,\"workstream_ids\":[]}"
   }
  ]
 }

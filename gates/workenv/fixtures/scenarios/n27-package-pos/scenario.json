@@ -95,6 +95,11 @@
    "record": "pkg_manifest"
   },
   {
+   "digest_of": "concepts_body",
+   "pointer": "/members/0/digest",
+   "record": "pkg_manifest"
+  },
+  {
    "digest_of": "pkg_manifest",
    "pointer": "/route/revision_digest",
    "record": "install_payload"
@@ -137,6 +142,11 @@
   {
    "minted": "package_bytes",
    "pointer": "/acquisition/availability_evidence_digest",
+   "record": "pkg_provenance"
+  },
+  {
+   "minted": "content_review_evidence",
+   "pointer": "/claims/0/support/evidence_digest",
    "record": "pkg_provenance"
   },
   {
@@ -230,6 +240,11 @@
    "record": "view"
   },
   {
+   "digest_of": "concepts_body",
+   "pointer": "/members/1/digest",
+   "record": "view"
+  },
+  {
    "digest_of": "pkg_manifest",
    "pointer": "/evidence/0/revision_digest",
    "record": "view"
@@ -243,6 +258,16 @@
    "digest_of": "view",
    "pointer": "/outputs/0/digest",
    "record": "ask_the_package_result"
+  },
+  {
+   "digest_of": "rates_csv",
+   "pointer": "/outputs/1/digest",
+   "record": "ask_the_package_result"
+  },
+  {
+   "digest_of": "concepts_body",
+   "pointer": "/outputs/2/digest",
+   "record": "ask_the_package_result"
   }
  ],
  "members": [
@@ -251,6 +276,12 @@
    "name": "rates_csv",
    "size": 41,
    "text": "category,rate\nstandard,0.20\nreduced,0.05\n"
+  },
+  {
+   "digest": "7b5a1cd9fe90020be25a6ad69bc52e98bea705766bebe358c91ded7c0655c358",
+   "name": "concepts_body",
+   "size": 4120,
+   "text": "# Tax relief concepts\n\nThis package documents the relief categories used across the shipped rate table. 'Standard' names the ordinary relief rate for taxable income reported in the period the source states as applicable; 'reduced' names the lower rate available under the conditions the publisher's edition lists. A reader should cite the table and this file together, since the table alone omits which conditions each row assumes.\n\nThis package documents the relief categories used across the shipped rate table. 'Standard' names the ordinary relief rate for taxable income reported in the period the source states as applicable; 'reduced' names the lower rate available under the conditions the publisher's edition lists. A reader should cite the table and this file together, since the table alone omits which conditions each row assumes.\n\nThis package documents the relief categories used across the shipped rate table. 'Standard' names the ordinary relief rate for taxable income reported in the period the source states as applicable; 'reduced' names the lower rate available under the conditions the publisher's edition lists. A reader should cite the table and this file together, since the table alone omits which conditions each row assumes.\n\nThis package documents the relief categories used across the shipped rate table. 'Standard' names the ordinary relief rate for taxable income reported in the period the source states as applicable; 'reduced' names the lower rate available under the conditions the publisher's edition lists. A reader should cite the table and this file together, since the table alone omits which conditions each row assumes.\n\nThis package documents the relief categories used across the shipped rate table. 'Standard' names the ordinary relief rate for taxable income reported in the period the source states as applicable; 'reduced' names the lower rate available under the conditions the publisher's edition lists. A reader should cite the table and this file together, since the table alone omits which conditions each row assumes.\n\nThis package documents the relief categories used across the shipped rate table. 'Standard' names the ordinary relief rate for taxable income reported in the period the source states as applicable; 'reduced' names the lower rate available under the conditions the publisher's edition lists. A reader should cite the table and this file together, since the table alone omits which conditions each row assumes.\n\nThis package documents the relief categories used across the shipped rate table. 'Standard' names the ordinary relief rate for taxable income reported in the period the source states as applicable; 'reduced' names the lower rate available under the conditions the publisher's edition lists. A reader should cite the table and this file together, since the table alone omits which conditions each row assumes.\n\nThis package documents the relief categories used across the shipped rate table. 'Standard' names the ordinary relief rate for taxable income reported in the period the source states as applicable; 'reduced' names the lower rate available under the conditions the publisher's edition lists. A reader should cite the table and this file together, since the table alone omits which conditions each row assumes.\n\nThis package documents the relief categories used across the shipped rate table. 'Standard' names the ordinary relief rate for taxable income reported in the period the source states as applicable; 'reduced' names the lower rate available under the conditions the publisher's edition lists. A reader should cite the table and this file together, since the table alone omits which conditions each row assumes.\n\nEditions published before 2026 used a single flat rate and did not distinguish standard from reduced relief; this edition is the first to carry that split, and the publisher's editors reviewed the split against the underlying schedule before shipping it, recording that review as the provenance's approval claim, never as a Team acceptance, since installing this package accepts nothing on a Team's behalf.\n"
   }
  ],
  "minted": [
@@ -278,6 +309,11 @@
    "name": "first_binding",
    "shape": "bnd",
    "step": "bind_device_key"
+  },
+  {
+   "name": "content_review_evidence",
+   "shape": "digest",
+   "step": "install_package"
   },
   {
    "name": "install_package_committed_at",
@@ -431,14 +467,14 @@
    }
   },
   {
-   "digest": "c40b7ef92e9d6b650da563213ff178dc2ef059b1687c9c540b1523f7d6211071",
+   "digest": "491e5bb5d7e0df75ee47e9cd82a14cf9db0f20a4cfba55329259fe4004c46290",
    "name": "pkg_manifest",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "c4933a82770781b42504ac60a6252bfd06ccfce66170394620ba473ade98365d",
+      "digest": "7b5a1cd9fe90020be25a6ad69bc52e98bea705766bebe358c91ded7c0655c358",
       "path": "concepts.md",
       "size": 4120
      },
@@ -454,7 +490,7 @@
    }
   },
   {
-   "digest": "6533fb9be1750d7f23694dd67a1564c0181d999f1dc463ef621b9e31405f4e89",
+   "digest": "e15ae5e3c5f22e0362dac1f38995707134152ea67a3f05776ac986e44f5ae434",
    "name": "install_payload",
    "record": {
     "destination": {
@@ -468,14 +504,14 @@
     "role": "knowledge",
     "route": {
      "package_id": "pkg_9a54bda7212eb2e6ea405c4d3c54feb3",
-     "revision_digest": "c40b7ef92e9d6b650da563213ff178dc2ef059b1687c9c540b1523f7d6211071",
+     "revision_digest": "491e5bb5d7e0df75ee47e9cd82a14cf9db0f20a4cfba55329259fe4004c46290",
      "route": "add_published_package"
     },
     "schema": 1
    }
   },
   {
-   "digest": "6347e679d78ce5966834b1fef8d306c15816eb89c84f41db71918b304701b0a9",
+   "digest": "b5fce96b6aca36f0190afb02a6d04e026adb90244ea7a6aa9a03bcbed4fab845",
    "name": "install",
    "record": {
     "action": "contribute",
@@ -493,7 +529,7 @@
      "layer": "personal",
      "principal_id": "prn_21fc383fc99162d36a050e2a43ed5cf7"
     },
-    "payload_digest": "6533fb9be1750d7f23694dd67a1564c0181d999f1dc463ef621b9e31405f4e89",
+    "payload_digest": "e15ae5e3c5f22e0362dac1f38995707134152ea67a3f05776ac986e44f5ae434",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_03b5118ab5229b264918803fa53ee141",
@@ -507,7 +543,7 @@
    }
   },
   {
-   "digest": "a273bbed28c429a866a5d93d25e0928ade432d0bfcb3ee956f87af99ab6e6cc1",
+   "digest": "d37c45ab71a172d9e735b4f86395f45f9dc37ef22a6aa1062136160c8d4c9b8a",
    "name": "install_package_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -517,7 +553,7 @@
      "layer": "personal",
      "principal_id": "prn_21fc383fc99162d36a050e2a43ed5cf7"
     },
-    "request_digest": "6347e679d78ce5966834b1fef8d306c15816eb89c84f41db71918b304701b0a9",
+    "request_digest": "b5fce96b6aca36f0190afb02a6d04e026adb90244ea7a6aa9a03bcbed4fab845",
     "request_id": "req_03b5118ab5229b264918803fa53ee141",
     "schema": 1,
     "sequence": 1,
@@ -530,7 +566,7 @@
    }
   },
   {
-   "digest": "127f50267c2acd5ad830fdd9d0213b52b5c8a3698e69f442f612a97c13418d2a",
+   "digest": "31b73772d05a78de67fa830616ae2144dfb00ec785f728aaf031da1692a49824",
    "name": "pkg_provenance",
    "record": {
     "acceptance": {
@@ -545,7 +581,8 @@
       "as_stated": "Content reviewed by the publisher's tax editors for the 2026 edition",
       "claim": "approval",
       "support": {
-       "support": "stated_only"
+       "evidence_digest": "c191c9510cc55be75e9ec2379868e9886bb4416e24de1f0a639daa62bff91a69",
+       "support": "verified"
       }
      }
     ],
@@ -561,35 +598,35 @@
    }
   },
   {
-   "digest": "3e6f59a60aea9e5a7773d214d47665c87f7d2ab0d1da45c645760f47b21cf6a2",
+   "digest": "16bc9d759bc4bb57d421580d3a895e2d263aee3a31bf43f7d7489527d5450c82",
    "name": "install_package_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "a273bbed28c429a866a5d93d25e0928ade432d0bfcb3ee956f87af99ab6e6cc1",
+     "receipt_digest": "d37c45ab71a172d9e735b4f86395f45f9dc37ef22a6aa1062136160c8d4c9b8a",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "c40b7ef92e9d6b650da563213ff178dc2ef059b1687c9c540b1523f7d6211071",
+      "digest": "491e5bb5d7e0df75ee47e9cd82a14cf9db0f20a4cfba55329259fe4004c46290",
       "kind": "source_manifest"
      },
      {
-      "digest": "127f50267c2acd5ad830fdd9d0213b52b5c8a3698e69f442f612a97c13418d2a",
+      "digest": "31b73772d05a78de67fa830616ae2144dfb00ec785f728aaf031da1692a49824",
       "kind": "source_provenance"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "6347e679d78ce5966834b1fef8d306c15816eb89c84f41db71918b304701b0a9",
+    "request_digest": "b5fce96b6aca36f0190afb02a6d04e026adb90244ea7a6aa9a03bcbed4fab845",
     "request_id": "req_03b5118ab5229b264918803fa53ee141",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "25307df86dfbcd15011f7b1ed33ef7a75064a3f583bad9fb69adfd66d7078e58",
+   "digest": "432620c172559ea6695c8fec3690290c58ab9422a607efd9b253bd97fcb5fc55",
    "name": "package_ref",
    "record": {
     "kind": "source_ref",
@@ -598,7 +635,7 @@
      "path": "tables/rates.csv",
      "size": 41
     },
-    "revision_digest": "c40b7ef92e9d6b650da563213ff178dc2ef059b1687c9c540b1523f7d6211071",
+    "revision_digest": "491e5bb5d7e0df75ee47e9cd82a14cf9db0f20a4cfba55329259fe4004c46290",
     "role": "knowledge",
     "schema": 1,
     "scope": {
@@ -609,7 +646,7 @@
    }
   },
   {
-   "digest": "401933cdd7131bb2a88cda2345ae431ae59b7252ac40537c98c6acc976461ace",
+   "digest": "b4fbda107c77115e11b099ae3a6d3cbd9d66447e5479928a33fc56f37c1ff852",
    "name": "resolve",
    "record": {
     "action": "read",
@@ -627,7 +664,7 @@
      "layer": "personal",
      "principal_id": "prn_21fc383fc99162d36a050e2a43ed5cf7"
     },
-    "payload_digest": "25307df86dfbcd15011f7b1ed33ef7a75064a3f583bad9fb69adfd66d7078e58",
+    "payload_digest": "432620c172559ea6695c8fec3690290c58ab9422a607efd9b253bd97fcb5fc55",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_27b55def9d86d8eb35671bea9f522696",
@@ -642,7 +679,7 @@
    }
   },
   {
-   "digest": "ac83e0a0098f57ed1251e9611aceafd5949111e6aaab25c9f18497292ca069c4",
+   "digest": "c676a8eafc20ceb22178eec2e16092a7e76e331415ea59aff06f86187ce44eab",
    "name": "resolve_installed_member_result",
    "record": {
     "kind": "operation_result",
@@ -653,11 +690,11 @@
     },
     "outputs": [
      {
-      "digest": "c40b7ef92e9d6b650da563213ff178dc2ef059b1687c9c540b1523f7d6211071",
+      "digest": "491e5bb5d7e0df75ee47e9cd82a14cf9db0f20a4cfba55329259fe4004c46290",
       "kind": "source_manifest"
      },
      {
-      "digest": "127f50267c2acd5ad830fdd9d0213b52b5c8a3698e69f442f612a97c13418d2a",
+      "digest": "31b73772d05a78de67fa830616ae2144dfb00ec785f728aaf031da1692a49824",
       "kind": "source_provenance"
      },
      {
@@ -666,14 +703,14 @@
      }
     ],
     "provider_effect": "none",
-    "request_digest": "401933cdd7131bb2a88cda2345ae431ae59b7252ac40537c98c6acc976461ace",
+    "request_digest": "b4fbda107c77115e11b099ae3a6d3cbd9d66447e5479928a33fc56f37c1ff852",
     "request_id": "req_27b55def9d86d8eb35671bea9f522696",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "e25f0c5b3354b613bdfb640a5726a149eb33da816c2c249c1502d48dc99b25b4",
+   "digest": "ed18196a0912e86b1bbb855ac655e67d2ea23e92c64fa14a23fa8847e7026e38",
    "name": "question",
    "record": {
     "companions": "optional",
@@ -690,7 +727,7 @@
     "schema": 1,
     "source_pins": [
      {
-      "revision_digest": "c40b7ef92e9d6b650da563213ff178dc2ef059b1687c9c540b1523f7d6211071",
+      "revision_digest": "491e5bb5d7e0df75ee47e9cd82a14cf9db0f20a4cfba55329259fe4004c46290",
       "source_id": "src_5603a3f1537aeeef833219d29049b22b"
      }
     ],
@@ -698,7 +735,7 @@
    }
   },
   {
-   "digest": "1d0021781c46d308cdc911203d88cb48ac6474db02b5f451100210bf22608230",
+   "digest": "7d4f6882a6501171e8d8ac7a1ce190264eb6c652e02b50dafbfc293feb3e0dac",
    "name": "ask",
    "record": {
     "action": "read",
@@ -716,7 +753,7 @@
      "layer": "personal",
      "principal_id": "prn_21fc383fc99162d36a050e2a43ed5cf7"
     },
-    "payload_digest": "e25f0c5b3354b613bdfb640a5726a149eb33da816c2c249c1502d48dc99b25b4",
+    "payload_digest": "ed18196a0912e86b1bbb855ac655e67d2ea23e92c64fa14a23fa8847e7026e38",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_c0c4a26c62d834705c694d34dd4d4b08",
@@ -727,7 +764,7 @@
    }
   },
   {
-   "digest": "75c7f6f1003469074fa9589fd4997da395eb19ac2fc63fec5e6b39f3720b60f5",
+   "digest": "c2a8abd957b8bc134f7410596ccb7d225e50471dc85ffa85cb105162764900c9",
    "name": "view",
    "record": {
     "applicability": {
@@ -746,7 +783,7 @@
     "evidence": [
      {
       "cited_edition": "2026 edition as shipped",
-      "revision_digest": "c40b7ef92e9d6b650da563213ff178dc2ef059b1687c9c540b1523f7d6211071",
+      "revision_digest": "491e5bb5d7e0df75ee47e9cd82a14cf9db0f20a4cfba55329259fe4004c46290",
       "source_id": "src_5603a3f1537aeeef833219d29049b22b"
      }
     ],
@@ -762,7 +799,7 @@
       "standing": "preferred"
      },
      {
-      "digest": "c4933a82770781b42504ac60a6252bfd06ccfce66170394620ba473ade98365d",
+      "digest": "7b5a1cd9fe90020be25a6ad69bc52e98bea705766bebe358c91ded7c0655c358",
       "layer": "personal",
       "member_kind": "prose",
       "path": "concepts.md",
@@ -771,13 +808,13 @@
      }
     ],
     "prepared_at": "2000-01-01T00:00:00Z",
-    "question_digest": "e25f0c5b3354b613bdfb640a5726a149eb33da816c2c249c1502d48dc99b25b4",
+    "question_digest": "ed18196a0912e86b1bbb855ac655e67d2ea23e92c64fa14a23fa8847e7026e38",
     "schema": 1,
     "view_id": "viw_c3a275a8683ef8551072cd065d284ccf"
    }
   },
   {
-   "digest": "4145ba6b0f06f02bcb092c6f484ce291ac06db23b259da7a0cd9db2826a18ed2",
+   "digest": "43c62fcfe8eaa72c08841132693ae1b3feedc56566d2479991f098f8a8fad620",
    "name": "ask_the_package_result",
    "record": {
     "kind": "operation_result",
@@ -788,20 +825,28 @@
     },
     "outputs": [
      {
-      "digest": "75c7f6f1003469074fa9589fd4997da395eb19ac2fc63fec5e6b39f3720b60f5",
+      "digest": "c2a8abd957b8bc134f7410596ccb7d225e50471dc85ffa85cb105162764900c9",
       "kind": "knowledge_view"
+     },
+     {
+      "digest": "0f59a1191ed7acd2eddb35bed503d44d3f5e1421104f01b049fd03a68a8a1505",
+      "kind": "source_member"
+     },
+     {
+      "digest": "7b5a1cd9fe90020be25a6ad69bc52e98bea705766bebe358c91ded7c0655c358",
+      "kind": "source_member"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "1d0021781c46d308cdc911203d88cb48ac6474db02b5f451100210bf22608230",
+    "request_digest": "7d4f6882a6501171e8d8ac7a1ce190264eb6c652e02b50dafbfc293feb3e0dac",
     "request_id": "req_c0c4a26c62d834705c694d34dd4d4b08",
     "schema": 1,
     "supported_recovery": []
    }
   }
  ],
- "says": "A person with no Team installs the knowledge package shipped in the product through the add_published_package route (source.revision.admit), naming the exact revision by the digest of the shipped manifest. The owner commits it and returns that same manifest and a provenance whose origin is the product-supplied package, whose acceptance is not_accepted and whose content-review statement is kept as an approval claim with stated_only support, never as an acceptance. Resolving an exact member (reference.resolve) returns the same manifest, whose member digest is the member the reference names, the same provenance, and that member's own bytes. Asking a question against that exact revision (knowledge.question.ask) returns a view whose members are the package's bytes in the person's own layer, cited to that revision. Nothing here adopts the package for a Team, records a Team acceptance, or gives it a priority: the provenance has no priority field and the view places it only in the layer it was installed into.",
- "spec_sha256": "8368e89feaeaa8cef16a78ed107b3d61ed0136900536011bd003f67bfd0fc1bf",
+ "says": "A person with no Team installs the knowledge package shipped in the product through the add_published_package route (source.revision.admit), naming the exact revision by the digest of the shipped manifest. The owner commits it and returns that same manifest and a provenance whose origin is the product-supplied package, whose acceptance is not_accepted and whose content-review statement is kept as an approval claim with verified support against the publisher's own review evidence, never as a Team acceptance. Resolving an exact member (reference.resolve) returns the same manifest, whose member digest is the member the reference names, the same provenance, and that member's own bytes. Asking a question against that exact revision (knowledge.question.ask) returns a view whose members are the package's bytes in the person's own layer, cited to that revision. Nothing here adopts the package for a Team, records a Team acceptance, or gives it a priority: the provenance has no priority field and the view places it only in the layer it was installed into.",
+ "spec_sha256": "f80cf93cf755aef682fe239e11409a94e152e247bb56a9924232eb34470cb430",
  "steps": [
   {
    "carries": [
@@ -848,7 +893,9 @@
    "request": "ask",
    "result": "ask_the_package_result",
    "returns": [
-    "view"
+    "view",
+    "rates_csv",
+    "concepts_body"
    ]
   }
  ],

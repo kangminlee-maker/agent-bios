@@ -1,6 +1,6 @@
 {
   "case": "N06-C04-POS",
-  "says": "A worker binds their device key and checkout, and a repository knowledge source for Korean tax relief is registered with its applicability (jurisdiction KR, effective from 2026-01-01) and its first revision is committed on the head the registration moved to: a rate table and the prose that explains it. The worker asks which relief applies, naming the condition that changes the answer and pinning that exact revision. The owner keeps the view it answers with privately, moving no head; the view carries the table and the prose cited whole with their digests, the applicability the source states, and evidence naming the pinned revision, with no qualification. A late correction to the table is then committed as a second revision on the head the first moved to; asking the same question pinned to the new revision returns a view whose table member and evidence name the corrected bytes and the second revision. Reopening the first view by its id afterwards returns it unchanged: it still cites the first revision and the original table, so the correction never rewrote an earlier reference. The home is registered again on the head the second revision moved to, stating a later applicability period that is still ahead of the worker's controlled clock; asking the same question again returns a view whose applicability still names the original period, since the later one is not yet due. Advancing the clock past that later date and asking again returns a view whose applicability now names the later period, picked up once due and not before.",
+  "says": "A worker binds their device key and checkout, registers a small glossary companion source and commits its first revision. A repository knowledge source for Korean tax relief is registered with its applicability (jurisdiction KR, effective from 2026-01-01) and its first revision is committed on the head the registration moved to: a rate table and the prose that explains it, read together with the glossary. The worker asks which relief applies, naming the jurisdiction and entity-form conditions that change the answer, requiring companions, and pinning that revision. The owner keeps the view privately, moving no head; it carries the table and prose cited whole with their digests, the stated applicability, the glossary held beside it, and evidence naming the pinned revision, with no further qualification. A late correction is then committed as a second revision on the first head; asking the same question pinned to the new revision returns a view whose table and evidence name the corrected bytes and the second revision. Reopening the first view by its id afterwards returns it unchanged: it still cites the first revision and original table, so the correction never rewrote an earlier reference. The home is registered again on the second head, stating a later applicability period still ahead of the worker's controlled clock, and a third revision is committed on that head, holding the amended table effective from that period. Asking the earlier question again, still pinned to the second revision, returns a view unchanged: it still cites the second revision, the original table and period, since an earlier-period assessment uses that period's own conditions regardless of the clock. Advancing the clock past the later date and asking which relief applies from that period, pinned to the third revision, returns a view whose applicability names the later period and whose table and evidence name the amended bytes and the third revision.",
   "ids": [
     {
       "name": "rates",
@@ -64,6 +64,22 @@
     },
     {
       "name": "ask_after_amendment_id",
+      "prefix": "req"
+    },
+    {
+      "name": "glossary",
+      "prefix": "src"
+    },
+    {
+      "name": "register_glossary_id",
+      "prefix": "req"
+    },
+    {
+      "name": "commit_glossary_rev1_id",
+      "prefix": "req"
+    },
+    {
+      "name": "commit_rates_rev3_id",
       "prefix": "req"
     }
   ],
@@ -188,6 +204,224 @@
         {
           "pointer": "/payload_digest",
           "value": "#my_checkout"
+        }
+      ]
+    },
+    {
+      "name": "glossary_home",
+      "from": "sources/home_submitted.json",
+      "drop": [
+        "/home/license_conditions",
+        "/home/package_id",
+        "/home/publisher_evidence_digest",
+        "/acceptance_authority/team_id",
+        "/scope/team_id",
+        "/applicability/conditions/1"
+      ],
+      "set": [
+        {
+          "pointer": "/source_id",
+          "value": "@glossary"
+        },
+        {
+          "pointer": "/role",
+          "value": "knowledge"
+        },
+        {
+          "pointer": "/disclosure",
+          "value": "private"
+        },
+        {
+          "pointer": "/publication_evidence_digests",
+          "value": []
+        },
+        {
+          "pointer": "/home/mode",
+          "value": "repository_authored"
+        },
+        {
+          "pointer": "/home/repository_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/home/document_root",
+          "value": "docs/glossary"
+        },
+        {
+          "pointer": "/home/binding_evidence_digest",
+          "value": "#my_checkout_bound"
+        },
+        {
+          "pointer": "/acceptance_authority/layer",
+          "value": "repository"
+        },
+        {
+          "pointer": "/acceptance_authority/repository_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/scope/layer",
+          "value": "repository"
+        },
+        {
+          "pointer": "/scope/repository_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/applicability/period/effective_from",
+          "value": "2026-01-01"
+        }
+      ]
+    },
+    {
+      "name": "glossary_home_stored",
+      "from": "glossary_home",
+      "set": [
+        {
+          "pointer": "/registered_at",
+          "value": "$instant:glossary_registered_at"
+        }
+      ]
+    },
+    {
+      "name": "register_glossary",
+      "from": "c04/model_check_request.json",
+      "drop": [
+        "/target/base/head_digest"
+      ],
+      "set": [
+        {
+          "pointer": "/request_id",
+          "value": "@register_glossary_id"
+        },
+        {
+          "pointer": "/operation",
+          "value": "source.home.register"
+        },
+        {
+          "pointer": "/action",
+          "value": "contribute"
+        },
+        {
+          "pointer": "/effect_class",
+          "value": "owner_commit"
+        },
+        {
+          "pointer": "/actor/principal_id",
+          "value": "@me"
+        },
+        {
+          "pointer": "/actor/device_id",
+          "value": "@laptop"
+        },
+        {
+          "pointer": "/actor/profile_id",
+          "value": "@profile"
+        },
+        {
+          "pointer": "/target/resource_id",
+          "value": "@glossary"
+        },
+        {
+          "pointer": "/target/base/expects",
+          "value": "absent"
+        },
+        {
+          "pointer": "/payload_digest",
+          "value": "#glossary_home"
+        },
+        {
+          "pointer": "/owner/repository_id",
+          "value": "@repo"
+        }
+      ]
+    },
+    {
+      "name": "glossary_rev1_submitted",
+      "from": "sources/revision_submitted.json",
+      "drop": [
+        "/members/1"
+      ],
+      "set": [
+        {
+          "pointer": "/source_id",
+          "value": "@glossary"
+        },
+        {
+          "pointer": "/members/0/path",
+          "value": "concepts_glossary.md"
+        },
+        {
+          "pointer": "/members/0/digest",
+          "value": "#glossary_body"
+        },
+        {
+          "pointer": "/members/0/size",
+          "value": 114
+        }
+      ]
+    },
+    {
+      "name": "glossary_rev1",
+      "from": "glossary_rev1_submitted",
+      "set": [
+        {
+          "pointer": "/produced_at",
+          "value": "$instant:glossary_rev1_at"
+        }
+      ]
+    },
+    {
+      "name": "commit_glossary_rev1",
+      "from": "c04/model_check_request.json",
+      "set": [
+        {
+          "pointer": "/request_id",
+          "value": "@commit_glossary_rev1_id"
+        },
+        {
+          "pointer": "/operation",
+          "value": "source.revision.commit"
+        },
+        {
+          "pointer": "/action",
+          "value": "publish"
+        },
+        {
+          "pointer": "/effect_class",
+          "value": "owner_commit"
+        },
+        {
+          "pointer": "/actor/principal_id",
+          "value": "@me"
+        },
+        {
+          "pointer": "/actor/device_id",
+          "value": "@laptop"
+        },
+        {
+          "pointer": "/actor/profile_id",
+          "value": "@profile"
+        },
+        {
+          "pointer": "/target/resource_id",
+          "value": "@glossary"
+        },
+        {
+          "pointer": "/target/base/expects",
+          "value": "head"
+        },
+        {
+          "pointer": "/payload_digest",
+          "value": "#glossary_rev1_submitted"
+        },
+        {
+          "pointer": "/owner/repository_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/target/base/head_digest",
+          "value": "$digest:glossary_registered"
         }
       ]
     },
@@ -351,6 +585,10 @@
         {
           "pointer": "/members/1/size",
           "value": 179
+        },
+        {
+          "pointer": "/companions/-",
+          "value": "@glossary"
         }
       ]
     },
@@ -421,10 +659,6 @@
     {
       "name": "question_on_first",
       "from": "c04/question_with_the_conditions_that_change_its_answer.json",
-      "drop": [
-        "/concern/conditions/1",
-        "/companions"
-      ],
       "set": [
         {
           "pointer": "/source_pins/0/source_id",
@@ -485,8 +719,12 @@
           "value": "repository"
         },
         {
-          "pointer": "/companions",
-          "value": []
+          "pointer": "/companions/0/source_id",
+          "value": "@glossary"
+        },
+        {
+          "pointer": "/companions/0/state",
+          "value": "held"
         }
       ]
     },
@@ -637,7 +875,6 @@
       "name": "question_on_correction",
       "from": "c04/question_with_the_conditions_that_change_its_answer.json",
       "drop": [
-        "/concern/conditions/1",
         "/companions"
       ],
       "set": [
@@ -934,7 +1171,6 @@
       "name": "question_on_amendment",
       "from": "c04/question_with_the_conditions_that_change_its_answer.json",
       "drop": [
-        "/concern/conditions/1",
         "/companions"
       ],
       "set": [
@@ -945,6 +1181,121 @@
         {
           "pointer": "/source_pins/0/revision_digest",
           "value": "#rates_rev2"
+        }
+      ]
+    },
+    {
+      "name": "question_on_future_relief",
+      "from": "c04/question_with_the_conditions_that_change_its_answer.json",
+      "drop": [
+        "/companions"
+      ],
+      "set": [
+        {
+          "pointer": "/concern/question",
+          "value": "Which relief applies to this entity in 2027?"
+        },
+        {
+          "pointer": "/source_pins/0/source_id",
+          "value": "@rates"
+        },
+        {
+          "pointer": "/source_pins/0/revision_digest",
+          "value": "#rates_rev3"
+        }
+      ]
+    },
+    {
+      "name": "rates_rev3_submitted",
+      "from": "sources/revision_submitted.json",
+      "set": [
+        {
+          "pointer": "/source_id",
+          "value": "@rates"
+        },
+        {
+          "pointer": "/members/0/path",
+          "value": "tables/rates.csv"
+        },
+        {
+          "pointer": "/members/0/digest",
+          "value": "#rates_table_v3"
+        },
+        {
+          "pointer": "/members/0/size",
+          "value": 94
+        },
+        {
+          "pointer": "/members/1/path",
+          "value": "concepts.md"
+        },
+        {
+          "pointer": "/members/1/digest",
+          "value": "#rates_concepts"
+        },
+        {
+          "pointer": "/members/1/size",
+          "value": 179
+        }
+      ]
+    },
+    {
+      "name": "rates_rev3",
+      "from": "rates_rev3_submitted",
+      "set": [
+        {
+          "pointer": "/produced_at",
+          "value": "$instant:rates_rev3_at"
+        }
+      ]
+    },
+    {
+      "name": "commit_rates_rev3",
+      "from": "c04/model_check_request.json",
+      "set": [
+        {
+          "pointer": "/request_id",
+          "value": "@commit_rates_rev3_id"
+        },
+        {
+          "pointer": "/operation",
+          "value": "source.revision.commit"
+        },
+        {
+          "pointer": "/action",
+          "value": "publish"
+        },
+        {
+          "pointer": "/effect_class",
+          "value": "owner_commit"
+        },
+        {
+          "pointer": "/actor/principal_id",
+          "value": "@me"
+        },
+        {
+          "pointer": "/actor/device_id",
+          "value": "@laptop"
+        },
+        {
+          "pointer": "/actor/profile_id",
+          "value": "@profile"
+        },
+        {
+          "pointer": "/target/resource_id",
+          "value": "@rates"
+        },
+        {
+          "pointer": "/target/base/head_digest",
+          "value": "$digest:rates_head3"
+        },
+        {
+          "pointer": "/payload_digest",
+          "value": "#rates_rev3_submitted"
+        },
+        {
+          "pointer": "/owner/repository_id",
+          "value": "@repo"
         }
       ]
     },
@@ -1065,7 +1416,7 @@
         },
         {
           "pointer": "/question_digest",
-          "value": "#question_on_amendment"
+          "value": "#question_on_future_relief"
         },
         {
           "pointer": "/prepared_at",
@@ -1081,11 +1432,11 @@
         },
         {
           "pointer": "/evidence/0/revision_digest",
-          "value": "#rates_rev2"
+          "value": "#rates_rev3"
         },
         {
           "pointer": "/evidence/0/cited_edition",
-          "value": "2026 schedule, corrected edition"
+          "value": "2027 schedule"
         },
         {
           "pointer": "/members/0/source_id",
@@ -1093,7 +1444,7 @@
         },
         {
           "pointer": "/members/0/digest",
-          "value": "#rates_table_v2"
+          "value": "#rates_table_v3"
         },
         {
           "pointer": "/members/0/layer",
@@ -1158,7 +1509,7 @@
         },
         {
           "pointer": "/payload_digest",
-          "value": "#question_on_amendment"
+          "value": "#question_on_future_relief"
         },
         {
           "pointer": "/owner/repository_id",
@@ -1179,6 +1530,14 @@
     {
       "name": "rates_concepts",
       "text": "Relief rate depends on jurisdiction and entity form as stated in tables/rates.csv. The rate applies to taxable income reported for the period named in the source's applicability.\n"
+    },
+    {
+      "name": "rates_table_v3",
+      "text": "jurisdiction,entity_form,rate\nKR,small_company,0.05\nKR,mid_company,0.15\nKR,large_company,0.20\n"
+    },
+    {
+      "name": "glossary_body",
+      "text": "Terms used across the relief tables: 'entity form' names a company's registered size class (small, mid or large).\n"
     }
   ],
   "steps": [
@@ -1214,6 +1573,42 @@
         "returns": [
           "my_checkout_bound"
         ]
+      }
+    },
+    {
+      "name": "register_glossary_home",
+      "request": "register_glossary",
+      "carries": [
+        "glossary_home"
+      ],
+      "answer": {
+        "stage": "committed",
+        "local_effect": "committed",
+        "provider_effect": "not_applicable",
+        "gaps": [],
+        "recovery": [],
+        "returns": [
+          "glossary_home_stored"
+        ],
+        "head": "glossary_registered"
+      }
+    },
+    {
+      "name": "commit_glossary_revision_1",
+      "request": "commit_glossary_rev1",
+      "carries": [
+        "glossary_rev1_submitted"
+      ],
+      "answer": {
+        "stage": "committed",
+        "local_effect": "committed",
+        "provider_effect": "not_applicable",
+        "gaps": [],
+        "recovery": [],
+        "returns": [
+          "glossary_rev1"
+        ],
+        "head": "glossary_head1"
       }
     },
     {
@@ -1342,6 +1737,24 @@
       }
     },
     {
+      "name": "commit_rates_revision_3",
+      "request": "commit_rates_rev3",
+      "carries": [
+        "rates_rev3_submitted"
+      ],
+      "answer": {
+        "stage": "committed",
+        "local_effect": "committed",
+        "provider_effect": "not_applicable",
+        "gaps": [],
+        "recovery": [],
+        "returns": [
+          "rates_rev3"
+        ],
+        "head": "rates_head4"
+      }
+    },
+    {
       "name": "ask_before_the_amendment_is_due",
       "request": "ask_before_amendment",
       "carries": [
@@ -1364,7 +1777,7 @@
       "name": "ask_after_the_amendment_is_due",
       "request": "ask_after_amendment",
       "carries": [
-        "question_on_amendment"
+        "question_on_future_relief"
       ],
       "answer": {
         "stage": "previewed",
@@ -1374,7 +1787,7 @@
         "recovery": [],
         "returns": [
           "view_after_amendment",
-          "rates_table_v2",
+          "rates_table_v3",
           "rates_concepts"
         ]
       },

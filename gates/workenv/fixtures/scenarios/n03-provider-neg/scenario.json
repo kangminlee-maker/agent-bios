@@ -383,6 +383,21 @@
    "record": "begin_first_link_request"
   },
   {
+   "digest_of": "first_attempt_asked",
+   "pointer": "/signed_digest",
+   "record": "first_attempt_control_proof"
+  },
+  {
+   "minted": "alice_binding",
+   "pointer": "/signer_binding_id",
+   "record": "first_attempt_control_proof"
+  },
+  {
+   "digest_of": "first_attempt_control_proof",
+   "pointer": "/proof_digests/0",
+   "record": "begin_first_link_request"
+  },
+  {
    "digest_of": "begin_first_link_request",
    "pointer": "/request_digest",
    "record": "begin_first_link_receipt"
@@ -595,6 +610,21 @@
   {
    "digest_of": "second_attempt_asked",
    "pointer": "/payload_digest",
+   "record": "begin_second_link_request"
+  },
+  {
+   "digest_of": "second_attempt_asked",
+   "pointer": "/signed_digest",
+   "record": "second_attempt_control_proof"
+  },
+  {
+   "minted": "alice_binding",
+   "pointer": "/signer_binding_id",
+   "record": "second_attempt_control_proof"
+  },
+  {
+   "digest_of": "second_attempt_control_proof",
+   "pointer": "/proof_digests/0",
    "record": "begin_second_link_request"
   },
   {
@@ -1768,7 +1798,19 @@
    }
   },
   {
-   "digest": "3726dc61b5ddf5e89697ee231fa5f4a36a349eb17d510a0c8c0a0294bca02d8b",
+   "digest": "58961a38ccf4e63635f09888f946d4f50c9e9d48c8012f7b5e4a0dd1c6a76f7f",
+   "name": "first_attempt_control_proof",
+   "record": {
+    "kind": "signature_envelope",
+    "namespace": "agent-bios/sign_in_attempt",
+    "schema": 1,
+    "signed_digest": "2b53d309e2e4586065cea7c722e42d00d53e41cc2aea5bc67e58766ef9072ab0",
+    "signer_binding_id": "bnd_3c04fab81c772ba1d2b7ec4ecf255e02",
+    "sshsig": "U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+   }
+  },
+  {
+   "digest": "85415cdc2aca5db3cd6187dad07f5a2270ffcd57f1cc80656de4cca2296ea275",
    "name": "begin_first_link_request",
    "record": {
     "action": "local_profile",
@@ -1788,7 +1830,9 @@
     },
     "payload_digest": "2b53d309e2e4586065cea7c722e42d00d53e41cc2aea5bc67e58766ef9072ab0",
     "policy_digests": [],
-    "proof_digests": [],
+    "proof_digests": [
+     "58961a38ccf4e63635f09888f946d4f50c9e9d48c8012f7b5e4a0dd1c6a76f7f"
+    ],
     "request_id": "req_798af3a9aad246f03e338b43245e0e46",
     "schema": 1,
     "target": {
@@ -1797,7 +1841,7 @@
    }
   },
   {
-   "digest": "48942dd5d36be1ad90dba0d6f7618778477526ef288f53c7eea99166539fa847",
+   "digest": "1082a2b14caccbc7220c650c229519e61ee03bd40cc2887b5b6ebe2c1efaf80a",
    "name": "begin_first_link_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -1807,7 +1851,7 @@
      "layer": "personal",
      "principal_id": "prn_897af7818f797f477fcde60856c9ad37"
     },
-    "request_digest": "3726dc61b5ddf5e89697ee231fa5f4a36a349eb17d510a0c8c0a0294bca02d8b",
+    "request_digest": "85415cdc2aca5db3cd6187dad07f5a2270ffcd57f1cc80656de4cca2296ea275",
     "request_id": "req_798af3a9aad246f03e338b43245e0e46",
     "schema": 1,
     "sequence": 1,
@@ -1835,14 +1879,14 @@
    }
   },
   {
-   "digest": "8112b512082abc1fc055c12d8148e5beaee54a642505ea465418c1295c75a522",
+   "digest": "1e4c20a30fb17548bb9b12db2caa7bc31837b6a0c25fbd10ae7aff3bb6eeb74a",
    "name": "begin_first_link_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "48942dd5d36be1ad90dba0d6f7618778477526ef288f53c7eea99166539fa847",
+     "receipt_digest": "1082a2b14caccbc7220c650c229519e61ee03bd40cc2887b5b6ebe2c1efaf80a",
      "stage": "committed"
     },
     "outputs": [
@@ -1852,7 +1896,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "3726dc61b5ddf5e89697ee231fa5f4a36a349eb17d510a0c8c0a0294bca02d8b",
+    "request_digest": "85415cdc2aca5db3cd6187dad07f5a2270ffcd57f1cc80656de4cca2296ea275",
     "request_id": "req_798af3a9aad246f03e338b43245e0e46",
     "schema": 1,
     "supported_recovery": []
@@ -2156,7 +2200,7 @@
    }
   },
   {
-   "digest": "9508eff6e6640a0f2ff9d8210e1a33567a1d237e36ef4282c77caebabd6893f9",
+   "digest": "9879a973ddda8a57c1aff7bdd1f874c020f33ce517caea588007bd4aa5729e46",
    "name": "unlock_at_terminal_state",
    "record": {
     "access_generation": 2,
@@ -2166,12 +2210,15 @@
     "schema": 1,
     "state": {
      "because": "unlock",
-     "is": "active"
+     "is": "active",
+     "key_mode": {
+      "runs": "real"
+     }
     }
    }
   },
   {
-   "digest": "c401c5539530f5cf6adf85c8ecba8d8db7ce970a18fa9bea85f30ff2ff4cb022",
+   "digest": "7db40e09de5d10ffa3736b833512ce0d55b00f34e345e82934d4ce130a5dd555",
    "name": "unlock_at_terminal_result",
    "record": {
     "kind": "operation_result",
@@ -2183,7 +2230,7 @@
     },
     "outputs": [
      {
-      "digest": "9508eff6e6640a0f2ff9d8210e1a33567a1d237e36ef4282c77caebabd6893f9",
+      "digest": "9879a973ddda8a57c1aff7bdd1f874c020f33ce517caea588007bd4aa5729e46",
       "kind": "access_state"
      }
     ],
@@ -2208,7 +2255,19 @@
    }
   },
   {
-   "digest": "1d14fd3a2f49134ffb6fd69e4b0dacbdba7071be4741a5bd1680ccdd606877d6",
+   "digest": "58961a38ccf4e63635f09888f946d4f50c9e9d48c8012f7b5e4a0dd1c6a76f7f",
+   "name": "second_attempt_control_proof",
+   "record": {
+    "kind": "signature_envelope",
+    "namespace": "agent-bios/sign_in_attempt",
+    "schema": 1,
+    "signed_digest": "2b53d309e2e4586065cea7c722e42d00d53e41cc2aea5bc67e58766ef9072ab0",
+    "signer_binding_id": "bnd_3c04fab81c772ba1d2b7ec4ecf255e02",
+    "sshsig": "U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+   }
+  },
+  {
+   "digest": "301359ec3b55ee68fd61d8b98d93ba5cfe608f325ea53b968cd383c9d569866b",
    "name": "begin_second_link_request",
    "record": {
     "action": "local_profile",
@@ -2228,7 +2287,9 @@
     },
     "payload_digest": "2b53d309e2e4586065cea7c722e42d00d53e41cc2aea5bc67e58766ef9072ab0",
     "policy_digests": [],
-    "proof_digests": [],
+    "proof_digests": [
+     "58961a38ccf4e63635f09888f946d4f50c9e9d48c8012f7b5e4a0dd1c6a76f7f"
+    ],
     "request_id": "req_20a549d9a26acae15725ce7694eaad41",
     "schema": 1,
     "target": {
@@ -2237,7 +2298,7 @@
    }
   },
   {
-   "digest": "fbd236d768c75bef31ce0ef499e580f8e178af268bed5d7cb424c306f7e9b5b3",
+   "digest": "0feb8fedce690f7a190bb8cb0108fa3d15920a1bd219773abb56b84649129746",
    "name": "begin_second_link_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -2247,7 +2308,7 @@
      "layer": "personal",
      "principal_id": "prn_897af7818f797f477fcde60856c9ad37"
     },
-    "request_digest": "1d14fd3a2f49134ffb6fd69e4b0dacbdba7071be4741a5bd1680ccdd606877d6",
+    "request_digest": "301359ec3b55ee68fd61d8b98d93ba5cfe608f325ea53b968cd383c9d569866b",
     "request_id": "req_20a549d9a26acae15725ce7694eaad41",
     "schema": 1,
     "sequence": 1,
@@ -2275,14 +2336,14 @@
    }
   },
   {
-   "digest": "50dc4407ee8d9664cd90839f23872f9112756f551b3c99f97df3a90ae65aace4",
+   "digest": "d60a2483dd31c9332ab9c732d60d70c0ee7c8ab77010d85014c74e69e04cd930",
    "name": "begin_second_link_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "fbd236d768c75bef31ce0ef499e580f8e178af268bed5d7cb424c306f7e9b5b3",
+     "receipt_digest": "0feb8fedce690f7a190bb8cb0108fa3d15920a1bd219773abb56b84649129746",
      "stage": "committed"
     },
     "outputs": [
@@ -2292,7 +2353,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "1d14fd3a2f49134ffb6fd69e4b0dacbdba7071be4741a5bd1680ccdd606877d6",
+    "request_digest": "301359ec3b55ee68fd61d8b98d93ba5cfe608f325ea53b968cd383c9d569866b",
     "request_id": "req_20a549d9a26acae15725ce7694eaad41",
     "schema": 1,
     "supported_recovery": []
@@ -2651,7 +2712,7 @@
    }
   },
   {
-   "digest": "4382938d7f07d71d66e3a9862bbce60a7124c96278c462205638f2d22ab19393",
+   "digest": "ec00c4ce31b0cc69c679cb77af8cf9e5ea590387a9c4370aabeb9ae26909d5ec",
    "name": "sign_in_at_terminal_state",
    "record": {
     "access_generation": 3,
@@ -2661,12 +2722,15 @@
     "schema": 1,
     "state": {
      "because": "sign_in",
-     "is": "active"
+     "is": "active",
+     "key_mode": {
+      "runs": "real"
+     }
     }
    }
   },
   {
-   "digest": "938f8802ab2e39123c142db9d2525c4a323bdf97437998b1a8846880b492522f",
+   "digest": "19a3ebe3ea462fdafc1f04803a05667c602e6b0e37d23e7e41f07d21920bc14c",
    "name": "sign_in_at_terminal_result",
    "record": {
     "kind": "operation_result",
@@ -2678,7 +2742,7 @@
     },
     "outputs": [
      {
-      "digest": "4382938d7f07d71d66e3a9862bbce60a7124c96278c462205638f2d22ab19393",
+      "digest": "ec00c4ce31b0cc69c679cb77af8cf9e5ea590387a9c4370aabeb9ae26909d5ec",
       "kind": "access_state"
      }
     ],
@@ -2789,7 +2853,7 @@
   }
  ],
  "says": "Alice's laptop first reads its fresh profile (active at generation 1). She has bound her key, founded a Team and configured a Google connection for it. She begins linking her Google identity, then locks the profile (generation 2). The provider's callback for that attempt arrives while the profile is locked: it was issued under generation 1 and is refused with access_locked and access_generation_moved, nothing is verified or linked, and the profile stays locked. A token refresh offered as a transition is refused at admission. She unlocks at a terminal (still generation 2: an unlock moves no generation), begins a second link attempt, and signs out (generation 3). The second callback arrives while she is signed out: refused with access_signed_out and access_generation_moved, and a read issued under generation 2 is still not admitted. Only her explicit sign-in at a terminal with her local key makes the profile active again at generation 3, after which a read issued under generation 3 is admitted. What must not happen: a callback, a refresh or a provider login reopening access, verifying an identity or writing a binding while the profile is locked or signed out.",
- "spec_sha256": "6d20131c18aa6bd6ba307644592d6f385338eaa56602056e462ffefc85d01ada",
+ "spec_sha256": "592ffbf7c3c316872bc0337bb41d4a6cc64aa820187d53c82a822979fdcf3e1f",
  "steps": [
   {
    "carries": [],
@@ -2848,7 +2912,8 @@
   },
   {
    "carries": [
-    "first_attempt_asked"
+    "first_attempt_asked",
+    "first_attempt_control_proof"
    ],
    "name": "begin_first_link",
    "request": "begin_first_link_request",
@@ -2899,7 +2964,8 @@
   },
   {
    "carries": [
-    "second_attempt_asked"
+    "second_attempt_asked",
+    "second_attempt_control_proof"
    ],
    "name": "begin_second_link",
    "request": "begin_second_link_request",

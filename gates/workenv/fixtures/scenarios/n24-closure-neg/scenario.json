@@ -948,21 +948,41 @@
    }
   },
   {
-   "digest": "f671303d63e65ec49084df1f7a1bde65a183d6119a4c145f1db28ce7f6547d11",
+   "digest": "be530f9f918e4105fcc125bd95d2543af58d2418fd82be147d056254e26638c9",
    "name": "checkout_before",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "c4933a82770781b42504ac60a6252bfd06ccfce66170394620ba473ade98365d",
-      "path": "concepts.md",
-      "size": 4120
+      "digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "path": "install.sh",
+      "size": 30211
      },
      {
-      "digest": "2702a48949ff2ef94c13c8f8e0a45a7a481e0e19482d3ffa8f8fc2c584a1d2c2",
-      "path": "tables/rates.csv",
-      "size": 918
+      "digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "path": "compose/assemble.py",
+      "size": 18874
+     },
+     {
+      "digest": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+      "path": "compose/instructions_catalog.py",
+      "size": 8909
+     },
+     {
+      "digest": "9999999999999999999999999999999999999999999999999999999999999999",
+      "path": "gates/check-package.sh",
+      "size": 22410
+     },
+     {
+      "digest": "b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1",
+      "path": ".gitignore",
+      "size": 3034
+     },
+     {
+      "digest": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+      "path": ".githooks/pre-commit",
+      "size": 7042
      }
     ],
     "produced_at": "2026-09-21T09:00:00Z",
@@ -995,7 +1015,7 @@
   }
  ],
  "says": "Alice binds her device key and registers package candidates built from one commit of the integrated source. The first candidate packs install.sh, which reaches compose/assemble.py and compose/instructions_catalog.py when it runs, but no member provides compose/instructions_catalog.py: the owner refuses the registration with runtime_path_missing at /members/0/reaches/1, the place naming that path. The second candidate is closed but also packs gates/check-package.sh, a path the integrated source declares author-side: refused with author_side_member at that member's copied_from. The third lists a member with neither a source path nor a pack-time origin, and is refused at admission with missing_field at /members/0/origin. Each refusal writes nothing (local effect none, no receipt): a query by the first request id returns the same refused result and no receipt, and a query by the third, which the owner never admitted, is answered request_not_held. Only a candidate whose every reached path is a member, with no author-side member and an origin for each, is registered: the harness packs the checkout once more, immediately before this closing registration, and the owner commits the closed candidate it built and returns it exactly as submitted, with every path its members reach one of its members. An inventory of the source checkout and of the user's installed state taken before the first, refused registration equals one taken after the closing registration and its query: nothing here, refused or committed, wrote to either. What must not happen: a candidate registered while a reached path is missing, an author-side file shipping, a member with no origin listed, or any registration — refused or committed — writing anything to the source checkout or the user's installed state.",
- "spec_sha256": "2164d7475363ebe62c25c4b0bbcbf8bcd2efabf92813894c2f852f0aee5caffc",
+ "spec_sha256": "5cbf9f24eae87c495c50fa5e2e64df050d4cb324b0abcd5addc2a12b53ac5f72",
  "steps": [
   {
    "carries": [

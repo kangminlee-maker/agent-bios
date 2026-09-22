@@ -146,6 +146,10 @@
    "name": "deny_via_studio_hub_request_req"
   },
   {
+   "id": "req_42de8b62b7cbc9922851a12417bd1924",
+   "name": "deny_via_app_request_req"
+  },
+  {
    "id": "req_6dd6f461b611e954a9e9af9e975d38ce",
    "name": "deny_via_capture_intake_request_req"
   },
@@ -346,7 +350,7 @@
    "record": "author_repo_rules_receipt"
   },
   {
-   "minted": "repo_rules_review_body",
+   "digest_of": "repo_rules_review_text",
    "pointer": "/members/0/digest",
    "record": "repo_rules_rev"
   },
@@ -396,7 +400,7 @@
    "record": "author_bob_rules_receipt"
   },
   {
-   "minted": "bob_rules_private_body",
+   "digest_of": "bob_rules_private_text",
    "pointer": "/members/0/digest",
    "record": "bob_rules_rev"
   },
@@ -1301,6 +1305,26 @@
    "record": "deny_via_studio_hub_result"
   },
   {
+   "digest_of": "setup_handle",
+   "pointer": "/proof_digests/0",
+   "record": "deny_via_app_request"
+  },
+  {
+   "digest_of": "bob_rules_rev",
+   "pointer": "/source_pins/0/revision_digest",
+   "record": "deny_via_app_plan"
+  },
+  {
+   "digest_of": "deny_via_app_plan",
+   "pointer": "/payload_digest",
+   "record": "deny_via_app_request"
+  },
+  {
+   "digest_of": "deny_via_app_request",
+   "pointer": "/request_digest",
+   "record": "deny_via_app_result"
+  },
+  {
    "digest_of": "capture_intake_handle",
    "pointer": "/proof_digests/0",
    "record": "deny_via_capture_intake_request"
@@ -1431,6 +1455,20 @@
    "record": "reissue_compatibility_handle_result"
   }
  ],
+ "members": [
+  {
+   "digest": "ad05e3f102bbd8e54db9587a0ec1be1a5685d5f8a1d310163a644183c523689d",
+   "name": "repo_rules_review_text",
+   "size": 600,
+   "text": "# Repository rules: review checklist\n\nBefore merging a change to this repository, confirm each of the following:\n\n- The change matches the product purpose stated in AGENTS.md.\n- Every new rule names the gate that enforces it, or states that none does.\n- Tests or gates that cover the change were run and their output is reported.\n- No file outside the declared payload set was edited without a reason.\n- Terminology used matches the lexicon; a new term is added there first.\n\nA reviewer who cannot confirm one of these items asks before approving, rather\nthan assuming the author already checked it.\n"
+  },
+  {
+   "digest": "73ad8b39e67d9b45ffb959c0dc585e0becb09d762179b900ecdc2b74cf74b88a",
+   "name": "bob_rules_private_text",
+   "size": 240,
+   "text": "# Bob's private working notes\n\n- Draft PR titles as a plain declarative sentence stating the insight.\n- Keep a running list of open questions to raise at the next sync.\n- Re-run the local gate suite before pushing, not just before merging.\n"
+  }
+ ],
  "minted": [
   {
    "name": "alice_binding_id",
@@ -1523,11 +1561,6 @@
    "step": "author_repo_rules"
   },
   {
-   "name": "repo_rules_review_body",
-   "shape": "digest",
-   "step": "author_repo_rules"
-  },
-  {
    "name": "author_bob_rules_committed_at",
    "shape": "instant",
    "step": "author_bob_rules"
@@ -1539,11 +1572,6 @@
   },
   {
    "name": "bob_rules_head",
-   "shape": "digest",
-   "step": "author_bob_rules"
-  },
-  {
-   "name": "bob_rules_private_body",
    "shape": "digest",
    "step": "author_bob_rules"
   },
@@ -2300,16 +2328,16 @@
    }
   },
   {
-   "digest": "e3926ba50dbb0d2c45bde3955ecca4890d1251339332124708365a5231863023",
+   "digest": "3b9406ce0bd651faef6aa2c16b556b1a98d90c6352e930f7463e6b3725d4af82",
    "name": "repo_rules_rev",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "2cad740c84068af1d2d67f0a89fd26f94b324c15a7bbafdc7b0d4274a292336b",
+      "digest": "ad05e3f102bbd8e54db9587a0ec1be1a5685d5f8a1d310163a644183c523689d",
       "path": "rules/review.md",
-      "size": 2048
+      "size": 600
      }
     ],
     "produced_at": "2000-01-01T00:00:00Z",
@@ -2318,7 +2346,7 @@
    }
   },
   {
-   "digest": "18928affcbba3ae6a178d2e8172f97bf7ff188117e80f85e758a6c7accb4e0cf",
+   "digest": "1243f48be5f0dea0c1304f66a5c7bdf3cee6f450013f8170a3c350a9e4a15307",
    "name": "author_repo_rules_result",
    "record": {
     "kind": "operation_result",
@@ -2330,7 +2358,7 @@
     },
     "outputs": [
      {
-      "digest": "e3926ba50dbb0d2c45bde3955ecca4890d1251339332124708365a5231863023",
+      "digest": "3b9406ce0bd651faef6aa2c16b556b1a98d90c6352e930f7463e6b3725d4af82",
       "kind": "source_manifest"
      }
     ],
@@ -2416,16 +2444,16 @@
    }
   },
   {
-   "digest": "87751475e7ed127f5080716c22cb5ea97af115a26a461cc50319c24ca549ca30",
+   "digest": "79c70a03e2721102790d13bdb2f2975238d6531180837e036a6e8e84f026a899",
    "name": "bob_rules_rev",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "096a97d6d7182dcb6bf5ab38289c6804de0ff36db456b42fd09b46e1972b836b",
+      "digest": "73ad8b39e67d9b45ffb959c0dc585e0becb09d762179b900ecdc2b74cf74b88a",
       "path": "private.md",
-      "size": 700
+      "size": 240
      }
     ],
     "produced_at": "2000-01-01T00:00:00Z",
@@ -2434,7 +2462,7 @@
    }
   },
   {
-   "digest": "c2a70bf14bed422cbfe13dc628ef9bc1228632a3388c147295d3b96e592783b1",
+   "digest": "69d7e50bcf4dadee38170bb49a7983ee939994f8070e18105314aa31b9d4459a",
    "name": "author_bob_rules_result",
    "record": {
     "kind": "operation_result",
@@ -2446,7 +2474,7 @@
     },
     "outputs": [
      {
-      "digest": "87751475e7ed127f5080716c22cb5ea97af115a26a461cc50319c24ca549ca30",
+      "digest": "79c70a03e2721102790d13bdb2f2975238d6531180837e036a6e8e84f026a899",
       "kind": "source_manifest"
      }
     ],
@@ -4229,7 +4257,7 @@
    }
   },
   {
-   "digest": "8ba9ca93828ba468e198da4ee6d0090fc8ff2228acd72bafb5c2ab782d579850",
+   "digest": "0d4018bb0b3762ba6b07f98c678434f79bd782009fbbdd122f82cef3a0e4de60",
    "name": "deny_via_setup_plan",
    "record": {
     "entrance": {
@@ -4242,14 +4270,14 @@
     "schema": 1,
     "source_pins": [
      {
-      "revision_digest": "87751475e7ed127f5080716c22cb5ea97af115a26a461cc50319c24ca549ca30",
+      "revision_digest": "79c70a03e2721102790d13bdb2f2975238d6531180837e036a6e8e84f026a899",
       "source_id": "src_dfae51482b547557827181c45217b214"
      }
     ]
    }
   },
   {
-   "digest": "3a8a08c8313b0dd685edfc9a488edab76c0353073afc237b4f07222a27504ecd",
+   "digest": "99908dba4bee2072413dfdaeb56e1924ee4b0bd7a73c1ad77b1dece573962bec",
    "name": "deny_via_setup_request",
    "record": {
     "action": "use",
@@ -4267,7 +4295,7 @@
      "layer": "repository",
      "repository_id": "rep_42ffe644a9d05d291d54a5365eef4e19"
     },
-    "payload_digest": "8ba9ca93828ba468e198da4ee6d0090fc8ff2228acd72bafb5c2ab782d579850",
+    "payload_digest": "0d4018bb0b3762ba6b07f98c678434f79bd782009fbbdd122f82cef3a0e4de60",
     "policy_digests": [],
     "proof_digests": [
      "309481afd4b15f427080666878b67002cfc7b2fab66f71e37cc83742c9f4e640"
@@ -4280,7 +4308,7 @@
    }
   },
   {
-   "digest": "6cf8b51a274aad8621e1a02905fe4f4db39a5326904794e033e38737ff125b72",
+   "digest": "5e17e4a99369adb5e28e71cae7b6c9f64d7e5dc86ad38e874f4d83d6c39452c4",
    "name": "deny_via_setup_result",
    "record": {
     "kind": "operation_result",
@@ -4295,7 +4323,7 @@
     },
     "outputs": [],
     "provider_effect": "not_applicable",
-    "request_digest": "3a8a08c8313b0dd685edfc9a488edab76c0353073afc237b4f07222a27504ecd",
+    "request_digest": "99908dba4bee2072413dfdaeb56e1924ee4b0bd7a73c1ad77b1dece573962bec",
     "request_id": "req_0791ec3a22e0feb5d44de9c3fac8b441",
     "schema": 1,
     "supported_recovery": [
@@ -4304,7 +4332,7 @@
    }
   },
   {
-   "digest": "bd6abc56fa1fa9a9e25b803d88a53444fbb1648d0b5cd551cc12c4882d2d4d82",
+   "digest": "5eb49dbb01ed8c7c731095ebe8f6a6533e92cc5d754ffde07ae8a300f6f13c5b",
    "name": "deny_via_session_start_plan",
    "record": {
     "entrance": {
@@ -4317,14 +4345,14 @@
     "schema": 1,
     "source_pins": [
      {
-      "revision_digest": "87751475e7ed127f5080716c22cb5ea97af115a26a461cc50319c24ca549ca30",
+      "revision_digest": "79c70a03e2721102790d13bdb2f2975238d6531180837e036a6e8e84f026a899",
       "source_id": "src_dfae51482b547557827181c45217b214"
      }
     ]
    }
   },
   {
-   "digest": "8bf9130001239312e19d8be26ffb29419adc6bdf8ea1fedbc3b0e179b8503c95",
+   "digest": "4a4ea90b6716c82a6d677e637fc32fe1f2c39929ff83ace3aa602174a1faf509",
    "name": "deny_via_session_start_request",
    "record": {
     "action": "use",
@@ -4342,7 +4370,7 @@
      "layer": "repository",
      "repository_id": "rep_42ffe644a9d05d291d54a5365eef4e19"
     },
-    "payload_digest": "bd6abc56fa1fa9a9e25b803d88a53444fbb1648d0b5cd551cc12c4882d2d4d82",
+    "payload_digest": "5eb49dbb01ed8c7c731095ebe8f6a6533e92cc5d754ffde07ae8a300f6f13c5b",
     "policy_digests": [],
     "proof_digests": [
      "86b29576499e4bf07f90ba09e994b7547fba0446faf1b3ba9b5a2db62dc48955"
@@ -4355,7 +4383,7 @@
    }
   },
   {
-   "digest": "2034437b7390b2e8ae2afec83e9421efad58de2b7193ce70211c21ad3dbb515e",
+   "digest": "e673bcf94df0b0f14b79a45b31849310fbd34ef422d16d6ec1ed29ec0e99e9ed",
    "name": "deny_via_session_start_result",
    "record": {
     "kind": "operation_result",
@@ -4370,7 +4398,7 @@
     },
     "outputs": [],
     "provider_effect": "not_applicable",
-    "request_digest": "8bf9130001239312e19d8be26ffb29419adc6bdf8ea1fedbc3b0e179b8503c95",
+    "request_digest": "4a4ea90b6716c82a6d677e637fc32fe1f2c39929ff83ace3aa602174a1faf509",
     "request_id": "req_7fe26a9a9e8005f084b5bf33a564f3b3",
     "schema": 1,
     "supported_recovery": [
@@ -4379,7 +4407,7 @@
    }
   },
   {
-   "digest": "90dae72fb9e089a99db73e969f6a8373d09141901ef0be3bea18954525bdd380",
+   "digest": "2b831d4502cbdd3f20dbc831d94e81d1640758266a57b4b939c324879c0c6688",
    "name": "deny_via_maintenance_plan",
    "record": {
     "entrance": {
@@ -4392,14 +4420,14 @@
     "schema": 1,
     "source_pins": [
      {
-      "revision_digest": "87751475e7ed127f5080716c22cb5ea97af115a26a461cc50319c24ca549ca30",
+      "revision_digest": "79c70a03e2721102790d13bdb2f2975238d6531180837e036a6e8e84f026a899",
       "source_id": "src_dfae51482b547557827181c45217b214"
      }
     ]
    }
   },
   {
-   "digest": "431673814bc37e0f558599eed35bfb642bc354c7b7e36204ac586ab1350b55ab",
+   "digest": "17e9d93c34fcf69f8256686f3c10be7b60625c78c1679bb301fb0b42c651a69d",
    "name": "deny_via_maintenance_request",
    "record": {
     "action": "use",
@@ -4417,7 +4445,7 @@
      "layer": "repository",
      "repository_id": "rep_42ffe644a9d05d291d54a5365eef4e19"
     },
-    "payload_digest": "90dae72fb9e089a99db73e969f6a8373d09141901ef0be3bea18954525bdd380",
+    "payload_digest": "2b831d4502cbdd3f20dbc831d94e81d1640758266a57b4b939c324879c0c6688",
     "policy_digests": [],
     "proof_digests": [
      "b281efc26a221d579fd5b872086213beb505f62c70ba1646b798e5499d7c65d5"
@@ -4430,7 +4458,7 @@
    }
   },
   {
-   "digest": "3dbbcebbb7d135f3b4c709c5179789dec9d0423a33a9feb74c9e39fe2f13270c",
+   "digest": "e0f12efac8a06591706d78d6defd2cc3dc01187d8b10d206c5f2dc8bb82094ad",
    "name": "deny_via_maintenance_result",
    "record": {
     "kind": "operation_result",
@@ -4445,7 +4473,7 @@
     },
     "outputs": [],
     "provider_effect": "not_applicable",
-    "request_digest": "431673814bc37e0f558599eed35bfb642bc354c7b7e36204ac586ab1350b55ab",
+    "request_digest": "17e9d93c34fcf69f8256686f3c10be7b60625c78c1679bb301fb0b42c651a69d",
     "request_id": "req_ec8411424638e2ae6787b310052916d6",
     "schema": 1,
     "supported_recovery": [
@@ -4454,7 +4482,7 @@
    }
   },
   {
-   "digest": "a84a9e85fb27aab891fad5d0d6d975435b8261d9046f4bf4902b0596cdc939af",
+   "digest": "9eb0008637e56bd2c9111de58235ff72573614bb482883f11ef41333dc0b5a61",
    "name": "deny_via_studio_hub_plan",
    "record": {
     "entrance": {
@@ -4467,14 +4495,14 @@
     "schema": 1,
     "source_pins": [
      {
-      "revision_digest": "87751475e7ed127f5080716c22cb5ea97af115a26a461cc50319c24ca549ca30",
+      "revision_digest": "79c70a03e2721102790d13bdb2f2975238d6531180837e036a6e8e84f026a899",
       "source_id": "src_dfae51482b547557827181c45217b214"
      }
     ]
    }
   },
   {
-   "digest": "113b9f111a50bf29509ab7e7b87ba3fe0ee152ebab046e2291c81a45addf95d4",
+   "digest": "fed9a4cd1499562504ff35bacbb2a427593d86665acebeda09e67e7cea384320",
    "name": "deny_via_studio_hub_request",
    "record": {
     "action": "use",
@@ -4492,7 +4520,7 @@
      "layer": "repository",
      "repository_id": "rep_42ffe644a9d05d291d54a5365eef4e19"
     },
-    "payload_digest": "a84a9e85fb27aab891fad5d0d6d975435b8261d9046f4bf4902b0596cdc939af",
+    "payload_digest": "9eb0008637e56bd2c9111de58235ff72573614bb482883f11ef41333dc0b5a61",
     "policy_digests": [],
     "proof_digests": [
      "e1535b17e4b8a4f7c5c7bb9db424b4a846b1cdbfbdf4a072fa216d04e53dbe3e"
@@ -4505,7 +4533,7 @@
    }
   },
   {
-   "digest": "6a526fd682d087c06f34b2b40eafde25e83e44d3e0476043b3743f3804178031",
+   "digest": "f4ad976ea88cbdda0516cacea4599946d7af3491e74bac2b0cc43f8b1abcb28d",
    "name": "deny_via_studio_hub_result",
    "record": {
     "kind": "operation_result",
@@ -4520,7 +4548,7 @@
     },
     "outputs": [],
     "provider_effect": "not_applicable",
-    "request_digest": "113b9f111a50bf29509ab7e7b87ba3fe0ee152ebab046e2291c81a45addf95d4",
+    "request_digest": "fed9a4cd1499562504ff35bacbb2a427593d86665acebeda09e67e7cea384320",
     "request_id": "req_de62dc045a90233e2c49bd8fdc22b173",
     "schema": 1,
     "supported_recovery": [
@@ -4529,7 +4557,82 @@
    }
   },
   {
-   "digest": "ad7d3fbfdc070c5935229342c12529678fddbd10a4045550c7a942ac4639f4a1",
+   "digest": "0d4018bb0b3762ba6b07f98c678434f79bd782009fbbdd122f82cef3a0e4de60",
+   "name": "deny_via_app_plan",
+   "record": {
+    "entrance": {
+     "name": "setup",
+     "root_origin": "caller"
+    },
+    "kind": "projection_plan",
+    "recipient_view": "executor",
+    "role": "instructions",
+    "schema": 1,
+    "source_pins": [
+     {
+      "revision_digest": "79c70a03e2721102790d13bdb2f2975238d6531180837e036a6e8e84f026a899",
+      "source_id": "src_dfae51482b547557827181c45217b214"
+     }
+    ]
+   }
+  },
+  {
+   "digest": "18b45eb03833be1f8758ffd728a111bafe7a4a572941db5957b554cafac16415",
+   "name": "deny_via_app_request",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_ced14524234528263f796f44907f47e1",
+     "principal_id": "prn_8b16c4494ab686f35f24cd3617c4c76b",
+     "profile_id": "prf_9e49ac89ab4599c7d2f99729725291ea"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "role.project",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_42ffe644a9d05d291d54a5365eef4e19"
+    },
+    "payload_digest": "0d4018bb0b3762ba6b07f98c678434f79bd782009fbbdd122f82cef3a0e4de60",
+    "policy_digests": [],
+    "proof_digests": [
+     "309481afd4b15f427080666878b67002cfc7b2fab66f71e37cc83742c9f4e640"
+    ],
+    "request_id": "req_42de8b62b7cbc9922851a12417bd1924",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_8b16c4494ab686f35f24cd3617c4c76b"
+    }
+   }
+  },
+  {
+   "digest": "01a68778ac6f98ca732f03a268d5a8d22f61343e894e0192b3a4276029a94210",
+   "name": "deny_via_app_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [
+      {
+       "code": "source_not_authorized"
+      }
+     ],
+     "stage": "refused"
+    },
+    "outputs": [],
+    "provider_effect": "not_applicable",
+    "request_digest": "18b45eb03833be1f8758ffd728a111bafe7a4a572941db5957b554cafac16415",
+    "request_id": "req_42de8b62b7cbc9922851a12417bd1924",
+    "schema": 1,
+    "supported_recovery": [
+     "new_governed_request"
+    ]
+   }
+  },
+  {
+   "digest": "92f5f3f5fb11876d2579b928fe4c697d438320eeb77f57adfafefce72cccd4a2",
    "name": "deny_via_capture_intake_plan",
    "record": {
     "entrance": {
@@ -4542,14 +4645,14 @@
     "schema": 1,
     "source_pins": [
      {
-      "revision_digest": "87751475e7ed127f5080716c22cb5ea97af115a26a461cc50319c24ca549ca30",
+      "revision_digest": "79c70a03e2721102790d13bdb2f2975238d6531180837e036a6e8e84f026a899",
       "source_id": "src_dfae51482b547557827181c45217b214"
      }
     ]
    }
   },
   {
-   "digest": "596fefcfb4d54aaa1955fb5d615adf217ee7bdfb90beafe69bf2ce53cb285a99",
+   "digest": "a3a7d5c0d1f9ad0be74772e2063c53c2eada833a9849639036cad78916d528a5",
    "name": "deny_via_capture_intake_request",
    "record": {
     "action": "use",
@@ -4567,7 +4670,7 @@
      "layer": "repository",
      "repository_id": "rep_42ffe644a9d05d291d54a5365eef4e19"
     },
-    "payload_digest": "ad7d3fbfdc070c5935229342c12529678fddbd10a4045550c7a942ac4639f4a1",
+    "payload_digest": "92f5f3f5fb11876d2579b928fe4c697d438320eeb77f57adfafefce72cccd4a2",
     "policy_digests": [],
     "proof_digests": [
      "b5c604eb74be86bf5cb2a28239aab7e161cf42006063dc21291713a2616ada98"
@@ -4580,7 +4683,7 @@
    }
   },
   {
-   "digest": "b4ac1c3214d49eae5884bc89f156db0dfe7fc9caa0cb5207ac711bffa31a6b80",
+   "digest": "7adb808c5b6c4b87b0277216c251b291f5ab5242024ee7d52cc41a2ac6620a39",
    "name": "deny_via_capture_intake_result",
    "record": {
     "kind": "operation_result",
@@ -4595,7 +4698,7 @@
     },
     "outputs": [],
     "provider_effect": "not_applicable",
-    "request_digest": "596fefcfb4d54aaa1955fb5d615adf217ee7bdfb90beafe69bf2ce53cb285a99",
+    "request_digest": "a3a7d5c0d1f9ad0be74772e2063c53c2eada833a9849639036cad78916d528a5",
     "request_id": "req_6dd6f461b611e954a9e9af9e975d38ce",
     "schema": 1,
     "supported_recovery": [
@@ -4604,7 +4707,7 @@
    }
   },
   {
-   "digest": "ff2bd48dc500925557fb645bd66c984147a7c2cd9eb71b2446b28a731dfd69ca",
+   "digest": "32af754313e38264ca68bd11fddc87c200d87dc7bb7b6cf582b9c391067a2098",
    "name": "deny_via_host_launcher_plan",
    "record": {
     "entrance": {
@@ -4617,14 +4720,14 @@
     "schema": 1,
     "source_pins": [
      {
-      "revision_digest": "87751475e7ed127f5080716c22cb5ea97af115a26a461cc50319c24ca549ca30",
+      "revision_digest": "79c70a03e2721102790d13bdb2f2975238d6531180837e036a6e8e84f026a899",
       "source_id": "src_dfae51482b547557827181c45217b214"
      }
     ]
    }
   },
   {
-   "digest": "8e252b6ee897dfab7a50fd4620edf01bc602f42010a59a35c35d7111646484b0",
+   "digest": "db176b599fe7be785ca10bf3055983cf40692c2dc710de79e194c3db99f040e0",
    "name": "deny_via_host_launcher_request",
    "record": {
     "action": "use",
@@ -4642,7 +4745,7 @@
      "layer": "repository",
      "repository_id": "rep_42ffe644a9d05d291d54a5365eef4e19"
     },
-    "payload_digest": "ff2bd48dc500925557fb645bd66c984147a7c2cd9eb71b2446b28a731dfd69ca",
+    "payload_digest": "32af754313e38264ca68bd11fddc87c200d87dc7bb7b6cf582b9c391067a2098",
     "policy_digests": [],
     "proof_digests": [
      "73c5c294d5180ac3a85b3ffc384b2e324b14ebfba9e4162617f855ac032bc91d"
@@ -4655,7 +4758,7 @@
    }
   },
   {
-   "digest": "89ffcbafd6a7f9afe474d15eaef71954b01e67b9daf9c6afd073bd4effe1473f",
+   "digest": "b6daa01e7915e51800542040af0bf7da6328c2ab9c2ec4d6d498c06ad61ac522",
    "name": "deny_via_host_launcher_result",
    "record": {
     "kind": "operation_result",
@@ -4670,7 +4773,7 @@
     },
     "outputs": [],
     "provider_effect": "not_applicable",
-    "request_digest": "8e252b6ee897dfab7a50fd4620edf01bc602f42010a59a35c35d7111646484b0",
+    "request_digest": "db176b599fe7be785ca10bf3055983cf40692c2dc710de79e194c3db99f040e0",
     "request_id": "req_b729631dfcdee4da57934cf6c6757d6a",
     "schema": 1,
     "supported_recovery": [
@@ -4679,7 +4782,7 @@
    }
   },
   {
-   "digest": "e73d0c4f04316abba139bc2a0e1c4adfe75a54c8143f7a3b85fb575a32d22d2b",
+   "digest": "76f6deb4edfe35a4ac79fd64e9d68287ef4e79f1c92b68ad65a708f700fa5956",
    "name": "deny_via_supplied_request_plan",
    "record": {
     "entrance": {
@@ -4692,14 +4795,14 @@
     "schema": 1,
     "source_pins": [
      {
-      "revision_digest": "87751475e7ed127f5080716c22cb5ea97af115a26a461cc50319c24ca549ca30",
+      "revision_digest": "79c70a03e2721102790d13bdb2f2975238d6531180837e036a6e8e84f026a899",
       "source_id": "src_dfae51482b547557827181c45217b214"
      }
     ]
    }
   },
   {
-   "digest": "4d8c23fcc8c14342b9f5809ab96656730b5a54dc731eb2aaa0b6c1188dcd55fc",
+   "digest": "92d29ca16d0ff2b8be2169e766682cca370fe9c660e834a95b3a27fa1893af7b",
    "name": "deny_via_supplied_request_request",
    "record": {
     "action": "use",
@@ -4717,7 +4820,7 @@
      "layer": "repository",
      "repository_id": "rep_42ffe644a9d05d291d54a5365eef4e19"
     },
-    "payload_digest": "e73d0c4f04316abba139bc2a0e1c4adfe75a54c8143f7a3b85fb575a32d22d2b",
+    "payload_digest": "76f6deb4edfe35a4ac79fd64e9d68287ef4e79f1c92b68ad65a708f700fa5956",
     "policy_digests": [],
     "proof_digests": [
      "cf34a37bf30dbbe29981116827e8c792879cf7362d5e2fac30bd90d422aa2776"
@@ -4730,7 +4833,7 @@
    }
   },
   {
-   "digest": "7460cbdd7b416b9f3bc5b6fc183ce6faf846446722489af726edc4c7fe8cc1cf",
+   "digest": "fce0af76195db04f99c10917783c3bb29f0281fba4fbf8745e20b2a35e67a918",
    "name": "deny_via_supplied_request_result",
    "record": {
     "kind": "operation_result",
@@ -4745,7 +4848,7 @@
     },
     "outputs": [],
     "provider_effect": "not_applicable",
-    "request_digest": "4d8c23fcc8c14342b9f5809ab96656730b5a54dc731eb2aaa0b6c1188dcd55fc",
+    "request_digest": "92d29ca16d0ff2b8be2169e766682cca370fe9c660e834a95b3a27fa1893af7b",
     "request_id": "req_3986f18f872b455b103ea7ee13e3e51d",
     "schema": 1,
     "supported_recovery": [
@@ -4754,7 +4857,7 @@
    }
   },
   {
-   "digest": "fc5549fd6833eb602349097afbde7dff04c3aa80d6458d61a131d7a280284c1f",
+   "digest": "23d8363ba465cb04166fbde898228481f7c6147399e5dd370656ef69729e39e9",
    "name": "bypass_via_capture_intake_plan",
    "record": {
     "entrance": {
@@ -4767,14 +4870,14 @@
     "schema": 1,
     "source_pins": [
      {
-      "revision_digest": "e3926ba50dbb0d2c45bde3955ecca4890d1251339332124708365a5231863023",
+      "revision_digest": "3b9406ce0bd651faef6aa2c16b556b1a98d90c6352e930f7463e6b3725d4af82",
       "source_id": "src_45c20cccb9321b5560db08152fe8c9d5"
      }
     ]
    }
   },
   {
-   "digest": "04e1839b4e5d53932c07c9f55257e71af9ca7d6bc30b32cfcf1f9a52f2146cc5",
+   "digest": "e7fa60b975da03cba2a89219cd65452a33bf0a403ab5cb7279c414f7879d674a",
    "name": "bypass_via_capture_intake_request",
    "record": {
     "action": "use",
@@ -4792,7 +4895,7 @@
      "layer": "repository",
      "repository_id": "rep_42ffe644a9d05d291d54a5365eef4e19"
     },
-    "payload_digest": "fc5549fd6833eb602349097afbde7dff04c3aa80d6458d61a131d7a280284c1f",
+    "payload_digest": "23d8363ba465cb04166fbde898228481f7c6147399e5dd370656ef69729e39e9",
     "policy_digests": [],
     "proof_digests": [
      "b5c604eb74be86bf5cb2a28239aab7e161cf42006063dc21291713a2616ada98"
@@ -4805,7 +4908,7 @@
    }
   },
   {
-   "digest": "65987730096c8a609f79d2039a1fae20b68841eebf8778d1a4d19f086df9fb40",
+   "digest": "13487f65a51561097687f0d9ad01b12b66f05bf86d13e1cbb96740fffc4f6084",
    "name": "bypass_via_capture_intake_result",
    "record": {
     "kind": "operation_result",
@@ -4820,7 +4923,7 @@
     },
     "outputs": [],
     "provider_effect": "not_applicable",
-    "request_digest": "04e1839b4e5d53932c07c9f55257e71af9ca7d6bc30b32cfcf1f9a52f2146cc5",
+    "request_digest": "e7fa60b975da03cba2a89219cd65452a33bf0a403ab5cb7279c414f7879d674a",
     "request_id": "req_c44d003523591242a3e4c8af02f45ace",
     "schema": 1,
     "supported_recovery": [
@@ -4829,7 +4932,7 @@
    }
   },
   {
-   "digest": "23bcb792b1ccaaa4114d7353271a96497df5afb3fbdc02388e428592d1ed3eea",
+   "digest": "743285e1fd77806ccb82f4faaeb84d37777ecb1ab911ce08791b530f0e5f9eb4",
    "name": "bypass_via_supplied_request_plan",
    "record": {
     "entrance": {
@@ -4842,14 +4945,14 @@
     "schema": 1,
     "source_pins": [
      {
-      "revision_digest": "e3926ba50dbb0d2c45bde3955ecca4890d1251339332124708365a5231863023",
+      "revision_digest": "3b9406ce0bd651faef6aa2c16b556b1a98d90c6352e930f7463e6b3725d4af82",
       "source_id": "src_45c20cccb9321b5560db08152fe8c9d5"
      }
     ]
    }
   },
   {
-   "digest": "17296639126f7d4f36d8110b0feecb145fcce2fadb32aa24fb1b0fdf7b308529",
+   "digest": "e17861c921f3f82910c6426ab0231719ffeb9158a32b2c17b3d37fbf49890168",
    "name": "bypass_via_supplied_request_request",
    "record": {
     "action": "use",
@@ -4867,7 +4970,7 @@
      "layer": "repository",
      "repository_id": "rep_42ffe644a9d05d291d54a5365eef4e19"
     },
-    "payload_digest": "23bcb792b1ccaaa4114d7353271a96497df5afb3fbdc02388e428592d1ed3eea",
+    "payload_digest": "743285e1fd77806ccb82f4faaeb84d37777ecb1ab911ce08791b530f0e5f9eb4",
     "policy_digests": [],
     "proof_digests": [
      "cf34a37bf30dbbe29981116827e8c792879cf7362d5e2fac30bd90d422aa2776"
@@ -4880,7 +4983,7 @@
    }
   },
   {
-   "digest": "c7f4edf0226735d284eae07364c60d9e6b7b16b6f1d1904e2126a39be94f3750",
+   "digest": "cc00ea67a6a19c0eaee85cadf5fc73d4a7265f53011d6277947cd5871b7badff",
    "name": "bypass_via_supplied_request_result",
    "record": {
     "kind": "operation_result",
@@ -4895,7 +4998,7 @@
     },
     "outputs": [],
     "provider_effect": "not_applicable",
-    "request_digest": "17296639126f7d4f36d8110b0feecb145fcce2fadb32aa24fb1b0fdf7b308529",
+    "request_digest": "e17861c921f3f82910c6426ab0231719ffeb9158a32b2c17b3d37fbf49890168",
     "request_id": "req_7115d2ad402f8dacd8d6619514f93d10",
     "schema": 1,
     "supported_recovery": [
@@ -4904,7 +5007,7 @@
    }
   },
   {
-   "digest": "2f8e014498d8fa6282884c40de23b1abb551101a58ad2e10babb407ae3fd4e28",
+   "digest": "7219e144c7f88a08507c993c7ff166cd294f5c8d3c95e46ac3a6a4f9ca6fe265",
    "name": "bypass_via_compatibility_route_plan",
    "record": {
     "entrance": {
@@ -4917,14 +5020,14 @@
     "schema": 1,
     "source_pins": [
      {
-      "revision_digest": "e3926ba50dbb0d2c45bde3955ecca4890d1251339332124708365a5231863023",
+      "revision_digest": "3b9406ce0bd651faef6aa2c16b556b1a98d90c6352e930f7463e6b3725d4af82",
       "source_id": "src_45c20cccb9321b5560db08152fe8c9d5"
      }
     ]
    }
   },
   {
-   "digest": "c5195dddb6526420bc669a2c683d59533975b16f515a9bdc25ad175fefec892d",
+   "digest": "77a6cb61c4e8df6e47d53090e60fe538d6df2bb3ae6fce9da0ec3a4b7bba2406",
    "name": "bypass_via_compatibility_route_request",
    "record": {
     "action": "use",
@@ -4942,7 +5045,7 @@
      "layer": "repository",
      "repository_id": "rep_42ffe644a9d05d291d54a5365eef4e19"
     },
-    "payload_digest": "2f8e014498d8fa6282884c40de23b1abb551101a58ad2e10babb407ae3fd4e28",
+    "payload_digest": "7219e144c7f88a08507c993c7ff166cd294f5c8d3c95e46ac3a6a4f9ca6fe265",
     "policy_digests": [],
     "proof_digests": [
      "0861222f358242e2ea2cf8f0dc8fc2c052737d465981a41ee31b64b6928bf817"
@@ -4955,7 +5058,7 @@
    }
   },
   {
-   "digest": "560450d26fc31103b9f7f6f7b3b3d489794b29695027970a19d2ce572fca45d3",
+   "digest": "89a668f6089e09b06683d53144e8c1aa57edfd00c7ca2d9db218f8d3632139f5",
    "name": "bypass_via_compatibility_route_result",
    "record": {
     "kind": "operation_result",
@@ -4971,7 +5074,7 @@
     },
     "outputs": [],
     "provider_effect": "not_applicable",
-    "request_digest": "c5195dddb6526420bc669a2c683d59533975b16f515a9bdc25ad175fefec892d",
+    "request_digest": "77a6cb61c4e8df6e47d53090e60fe538d6df2bb3ae6fce9da0ec3a4b7bba2406",
     "request_id": "req_2d98697e0942f7458f2196ea7766e545",
     "schema": 1,
     "supported_recovery": []
@@ -5030,8 +5133,8 @@
    }
   }
  ],
- "says": "Alice and Bob each have a principal; Bob keeps private rules in his personal source, and Alice's repository has its own rules. The access owner issues Alice a handle through each of eight entrances - setup, session start, maintenance, the studio hub, capture intake, the host launcher, supplied requests, and the old corpus-store compatibility route while it is still a route - and every later request names the handle of the entrance it came through among its proofs. The seven entrances that reach kept state are recorded with their guards, the compatibility route is recorded as retired at cutover naming the store that succeeds it, and a registered package candidate is installed by one fresh-start cutover, which retires that route. Alice then asks, through each of the seven entrances and from a root she chose (as with --repo or AGENT_BIOS_STATE_DIR pointing at another directory - the setup entrance overridden with --repo and the studio hub with AGENT_BIOS_STATE_DIR), for a projection of Bob's rules: every request is refused as source_not_authorized and returns nothing. Asking for her own repository's rules through capture intake and supplied requests, whose guard is the source store rather than the projection owner, is refused as protected_root_bypass. Asking under the compatibility route's handle is refused as route_retired at that proof, and asking for a new handle through that route is refused as route_retired at its entrance: the retired route names its successor and serves nothing itself. No refused request may return a projection, a handle or any body.",
- "spec_sha256": "56c0b5b3178a98ab39013c48aef24ad88436fcc5c407172c283a50f953478e4f",
+ "says": "Alice and Bob each have a principal; Bob keeps private rules in his personal source, and Alice's repository has its own rules. The access owner issues Alice a handle through each of eight entrances - setup, session start, maintenance, the studio hub, capture intake, the host launcher, supplied requests, and the old corpus-store compatibility route while it is still a route - and every later request names the handle of the entrance it came through among its proofs. The seven entrances that reach kept state are recorded with their guards, the compatibility route is recorded as retired at cutover naming the store that succeeds it, and a registered package candidate is installed by one fresh-start cutover, which retires that route. Alice then asks, through each of the seven entrances and from a root she chose (as with --repo or AGENT_BIOS_STATE_DIR pointing at another directory - the setup entrance overridden with --repo and the studio hub with AGENT_BIOS_STATE_DIR), for a projection of Bob's rules: every request is refused as source_not_authorized and returns nothing. The setup handle also proves a request through compose/instructions_app.py, the publication lock's own choke point on that same entrance name; asked there too, overridden to another root, for a projection of Bob's rules, it is refused the same way. Asking for her own repository's rules through capture intake and supplied requests, whose guard is the source store rather than the projection owner, is refused as protected_root_bypass. Asking under the compatibility route's handle is refused as route_retired at that proof, and asking for a new handle through that route is refused as route_retired at its entrance: the retired route names its successor and serves nothing itself. No refused request may return a projection, a handle or any body.",
+ "spec_sha256": "7101ad0a11eee1a5a063a95e98f6857cefcb0a876516e3bad6bb39e07c554991",
  "steps": [
   {
    "carries": [
@@ -5363,6 +5466,22 @@
     "root_override": {
      "by": "state_dir_environment",
      "root": "/alt/state"
+    }
+   }
+  },
+  {
+   "carries": [
+    "deny_via_app_plan"
+   ],
+   "name": "deny_via_app",
+   "request": "deny_via_app_request",
+   "result": "deny_via_app_result",
+   "returns": [],
+   "route": {
+    "path": "compose/instructions_app.py",
+    "root_override": {
+     "by": "repo_argument",
+     "root": "/alt/repo"
     }
    }
   },

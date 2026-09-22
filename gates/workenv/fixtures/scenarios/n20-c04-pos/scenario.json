@@ -492,8 +492,13 @@
    "record": "view"
   },
   {
-   "digest_of": "form_as_it_will_be_committed",
+   "digest_of": "form_attachment_member",
    "pointer": "/members/1/digest",
+   "record": "view"
+  },
+  {
+   "digest_of": "rate_table_member",
+   "pointer": "/members/0/digest",
    "record": "view"
   },
   {
@@ -504,6 +509,16 @@
   {
    "digest_of": "view",
    "pointer": "/outputs/0/digest",
+   "record": "ask_the_question_result"
+  },
+  {
+   "digest_of": "rate_table_member",
+   "pointer": "/outputs/1/digest",
+   "record": "ask_the_question_result"
+  },
+  {
+   "digest_of": "form_attachment_member",
+   "pointer": "/outputs/2/digest",
    "record": "ask_the_question_result"
   },
   {
@@ -1000,6 +1015,20 @@
    "digest_of": "clean_run",
    "pointer": "/outputs/0/digest",
    "record": "validate_every_owned_revision_result"
+  }
+ ],
+ "members": [
+  {
+   "digest": "0f59a1191ed7acd2eddb35bed503d44d3f5e1421104f01b049fd03a68a8a1505",
+   "name": "rate_table_member",
+   "size": 41,
+   "text": "category,rate\nstandard,0.20\nreduced,0.05\n"
+  },
+  {
+   "digest": "5acae5d7b1bba4aab9ae0cd66b5c561f5d86f224d4ed088082e3e2f065048b5f",
+   "name": "form_attachment_member",
+   "size": 81,
+   "text": "{\"fields\":[{\"name\":\"category\",\"type\":\"string\"},{\"name\":\"rate\",\"type\":\"number\"}]}\n"
   }
  ],
  "minted": [
@@ -2449,7 +2478,7 @@
    }
   },
   {
-   "digest": "7dd788838b949b5cee1d6b370ef44df346730035eb2c3ddd062ad3dfe63843a1",
+   "digest": "fa0ad705d328b1a054a4a19d07e95b69e2043de2529a435ba58a5eb002020b7e",
    "name": "view",
    "record": {
     "applicability": {
@@ -2476,7 +2505,7 @@
     "material_gaps": [],
     "members": [
      {
-      "digest": "82f5aa8d50cf761e7731a8ccd43c6ea17c06504385f4f8dac62f74851f3790cb",
+      "digest": "0f59a1191ed7acd2eddb35bed503d44d3f5e1421104f01b049fd03a68a8a1505",
       "layer": "repository",
       "member_kind": "table",
       "path": "tables/rates.csv",
@@ -2484,7 +2513,7 @@
       "standing": "preferred"
      },
      {
-      "digest": "a5382ad4587e21142723d5c59f785c94a57aabdbaff0f2042db70be5f1035e2a",
+      "digest": "5acae5d7b1bba4aab9ae0cd66b5c561f5d86f224d4ed088082e3e2f065048b5f",
       "layer": "repository",
       "member_kind": "attachment",
       "path": "forms/rates.json",
@@ -2499,7 +2528,7 @@
    }
   },
   {
-   "digest": "bc05d5627c856dab329c2fc176158f2833a69895d133a62b910e1cb192e38708",
+   "digest": "2156183bac03a0eaed9b6099ac294d2937e343b482cb4d9650aad955cdbd6b21",
    "name": "ask_the_question_result",
    "record": {
     "kind": "operation_result",
@@ -2510,8 +2539,16 @@
     },
     "outputs": [
      {
-      "digest": "7dd788838b949b5cee1d6b370ef44df346730035eb2c3ddd062ad3dfe63843a1",
+      "digest": "fa0ad705d328b1a054a4a19d07e95b69e2043de2529a435ba58a5eb002020b7e",
       "kind": "knowledge_view"
+     },
+     {
+      "digest": "0f59a1191ed7acd2eddb35bed503d44d3f5e1421104f01b049fd03a68a8a1505",
+      "kind": "source_member"
+     },
+     {
+      "digest": "5acae5d7b1bba4aab9ae0cd66b5c561f5d86f224d4ed088082e3e2f065048b5f",
+      "kind": "source_member"
      }
     ],
     "provider_effect": "not_applicable",
@@ -3457,7 +3494,7 @@
   }
  ],
  "says": "Each editor produces an owned revision or event, and one pinned validation run covers them. The worker binds their device key and checkout. An Instructions source (review rules) is registered and its revision committed on the head the registration moved to. A knowledge source is registered; its rate-table form profile and its tax model are checked with knowledge.member.prepare and returned as they will be committed, and a revision holding the table, the form and the model is committed. A question on that revision is asked and answered with a view the owner keeps privately, and a second revision adds the question itself as a member on the first head. A workstream and a memory source are set up; a choice resting on the knowledge revision is published, and an adoption event on that choice is applied, each committing a new memory revision. A validation request then pins the three resulting revisions by digest, one lens by name, version and digest, the question, and the knowledge revision as the package; the run the owner records is clean and lists a check that ran for every pinned target under that lens.",
- "spec_sha256": "23c3191847a7e7df64273a6a039a67f93dfc51552a658531f2f380682096a0e6",
+ "spec_sha256": "d763868ace008a05c9524331234812b953f538d225e06b4ecf7791a7e5d8fb83",
  "steps": [
   {
    "carries": [
@@ -3559,7 +3596,9 @@
    "request": "ask_request",
    "result": "ask_the_question_result",
    "returns": [
-    "view"
+    "view",
+    "rate_table_member",
+    "form_attachment_member"
    ]
   },
   {

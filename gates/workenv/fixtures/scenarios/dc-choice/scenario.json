@@ -168,6 +168,14 @@
   {
    "id": "req_8c1ec118ce5d11635e4c9a2896ed77f8",
    "name": "ask_repeat_drive_id"
+  },
+  {
+   "id": "req_9e5445034bfc3196abf0c844679e24f9",
+   "name": "submit_agent_consent_id"
+  },
+  {
+   "id": "req_a3ca635be76b82343d8976a9775fa5ca",
+   "name": "resume_on_agent_consent_id"
   }
  ],
  "joins": [
@@ -1179,6 +1187,151 @@
   {
    "minted": "journal_question",
    "pointer": "/target/resource_id",
+   "record": "submit_agent_consent"
+  },
+  {
+   "minted": "alice_link",
+   "pointer": "/link_id",
+   "record": "agent_consent_reply"
+  },
+  {
+   "minted": "first_use",
+   "pointer": "/use_id",
+   "record": "agent_consent_reply"
+  },
+  {
+   "minted": "journal_question",
+   "pointer": "/question_id",
+   "record": "agent_consent_reply"
+  },
+  {
+   "minted": "rollback",
+   "pointer": "/reply/answer/selected/record_id",
+   "record": "agent_consent_reply"
+  },
+  {
+   "digest_of": "agent_consent_reply",
+   "pointer": "/payload_digest",
+   "record": "submit_agent_consent"
+  },
+  {
+   "digest_of": "submit_agent_consent",
+   "pointer": "/request_digest",
+   "record": "submit_agent_consent_receipt"
+  },
+  {
+   "minted": "submit_agent_consent_head",
+   "pointer": "/head_digest",
+   "record": "submit_agent_consent_receipt"
+  },
+  {
+   "minted": "submit_agent_consent_sequence",
+   "pointer": "/sequence",
+   "record": "submit_agent_consent_receipt"
+  },
+  {
+   "minted": "submit_agent_consent_committed_at",
+   "pointer": "/committed_at",
+   "record": "submit_agent_consent_receipt"
+  },
+  {
+   "minted": "journal_question",
+   "pointer": "/target/resource_id",
+   "record": "submit_agent_consent_receipt"
+  },
+  {
+   "minted": "agent_consent_answer",
+   "pointer": "/evidence_id",
+   "record": "agent_consent_answer"
+  },
+  {
+   "minted": "journal_question",
+   "pointer": "/question_id",
+   "record": "agent_consent_answer"
+  },
+  {
+   "minted": "first_use",
+   "pointer": "/use_id",
+   "record": "agent_consent_answer"
+  },
+  {
+   "minted": "alice_link",
+   "pointer": "/link_id",
+   "record": "agent_consent_answer"
+  },
+  {
+   "minted": "agent_consent_measured_at",
+   "pointer": "/measured_at",
+   "record": "agent_consent_configuration"
+  },
+  {
+   "digest_of": "agent_consent_configuration",
+   "pointer": "/measured_configuration_digest",
+   "record": "agent_consent_answer"
+  },
+  {
+   "minted": "agent_consent_answer_at",
+   "pointer": "/observed_at",
+   "record": "agent_consent_answer"
+  },
+  {
+   "digest_of": "submit_agent_consent_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "submit_agent_consent_result"
+  },
+  {
+   "digest_of": "submit_agent_consent",
+   "pointer": "/request_digest",
+   "record": "submit_agent_consent_result"
+  },
+  {
+   "digest_of": "agent_consent_answer",
+   "pointer": "/outputs/0/digest",
+   "record": "submit_agent_consent_result"
+  },
+  {
+   "digest_of": "agent_consent_configuration",
+   "pointer": "/outputs/1/digest",
+   "record": "submit_agent_consent_result"
+  },
+  {
+   "minted": "first_use",
+   "pointer": "/target/resource_id",
+   "record": "resume_on_agent_consent"
+  },
+  {
+   "minted": "first_use",
+   "pointer": "/use_id",
+   "record": "resume_on_agent_consent_payload"
+  },
+  {
+   "minted": "journal_question",
+   "pointer": "/question_id",
+   "record": "resume_on_agent_consent_payload"
+  },
+  {
+   "digest_of": "agent_consent_answer",
+   "pointer": "/answer_evidence_digest",
+   "record": "resume_on_agent_consent_payload"
+  },
+  {
+   "digest_of": "resume_on_agent_consent_payload",
+   "pointer": "/payload_digest",
+   "record": "resume_on_agent_consent"
+  },
+  {
+   "digest_of": "resume_on_agent_consent",
+   "pointer": "/request_digest",
+   "record": "resume_on_agent_consent_result"
+  },
+  {
+   "digest_of": "first_use_waiting",
+   "pointer": "/outputs/0/digest",
+   "record": "resume_on_agent_consent_result"
+  },
+  {
+   "minted": "journal_question",
+   "pointer": "/target/resource_id",
    "record": "alice_chooses"
   },
   {
@@ -1382,6 +1535,11 @@
    "record": "resume_with_her_answer_result"
   },
   {
+   "digest_of": "rollback_choice_body",
+   "pointer": "/outputs/1/digest",
+   "record": "resume_with_her_answer_result"
+  },
+  {
    "digest_of": "resume_with_her_answer_payload",
    "pointer": "/payload_digest",
    "record": "record_the_application"
@@ -1554,6 +1712,11 @@
   {
    "digest_of": "second_use_state",
    "pointer": "/outputs/1/digest",
+   "record": "second_use_result"
+  },
+  {
+   "digest_of": "rollback_choice_body",
+   "pointer": "/outputs/2/digest",
    "record": "second_use_result"
   },
   {
@@ -2052,6 +2215,11 @@
    "record": "resume_third_use_result"
   },
   {
+   "digest_of": "rollback_choice_body",
+   "pointer": "/outputs/1/digest",
+   "record": "resume_third_use_result"
+  },
+  {
    "digest_of": "resume_third_use_payload",
    "pointer": "/payload_digest",
    "record": "record_the_new_application"
@@ -2114,6 +2282,16 @@
   {
    "minted": "kept_application_2_at",
    "pointer": "/created_at",
+   "record": "kept_application_2"
+  },
+  {
+   "minted": "normal",
+   "pointer": "/standing/participants/2/record_id",
+   "record": "kept_application_2"
+  },
+  {
+   "digest_of": "third_alt_stored",
+   "pointer": "/standing/participants/2/revision_digest",
    "record": "kept_application_2"
   },
   {
@@ -2642,6 +2820,11 @@
    "record": "ask_resume_a_result"
   },
   {
+   "digest_of": "replay_before_choice_body",
+   "pointer": "/outputs/1/digest",
+   "record": "ask_resume_a_result"
+  },
+  {
    "digest_of": "ask_resume_payload_a",
    "pointer": "/payload_digest",
    "record": "ask_record_preference_a"
@@ -2837,6 +3020,11 @@
    "record": "ask_use_b_result"
   },
   {
+   "digest_of": "ask_question_b",
+   "pointer": "/link/target/digest",
+   "record": "ask_repeat_keys"
+  },
+  {
    "digest_of": "ask_repeat_keys",
    "pointer": "/payload_digest",
    "record": "ask_repeat_drive"
@@ -2852,8 +3040,23 @@
    "record": "ask_repeat_trace"
   },
   {
-   "digest_of": "replay_before_stored",
+   "digest_of": "ask_question_b",
+   "pointer": "/frames/0/view/target/digest",
+   "record": "ask_repeat_trace"
+  },
+  {
+   "digest_of": "ask_question_b",
    "pointer": "/frames/0/elements/0/refers_to/digest",
+   "record": "ask_repeat_trace"
+  },
+  {
+   "digest_of": "ask_question_b",
+   "pointer": "/frames/1/view/target/digest",
+   "record": "ask_repeat_trace"
+  },
+  {
+   "digest_of": "replay_before_stored",
+   "pointer": "/frames/1/elements/0/refers_to/digest",
    "record": "ask_repeat_trace"
   },
   {
@@ -3072,6 +3275,11 @@
    "record": "ask_resume_b_result"
   },
   {
+   "digest_of": "replay_before_choice_body",
+   "pointer": "/outputs/1/digest",
+   "record": "ask_resume_b_result"
+  },
+  {
    "digest_of": "ask_resume_payload_b",
    "pointer": "/payload_digest",
    "record": "ask_record_preference_b"
@@ -3150,6 +3358,20 @@
    "digest_of": "ask_preference_b",
    "pointer": "/outputs/0/digest",
    "record": "ask_record_preference_b_result"
+  }
+ ],
+ "members": [
+  {
+   "digest": "7f2230d5bcea8b0da328793458008a1df20f7944ea5023de1a906bd7f5ff38f7",
+   "name": "rollback_choice_body",
+   "size": 663,
+   "text": "{\"alternatives\":[{\"choice\":\"WAL with synchronous FULL\",\"reason\":\"My checkout sits on a network volume that does not honour fullfsync.\"}],\"applicability\":{\"conditions\":[{\"dimension\":\"repository\",\"value\":\"this one\"}],\"states\":\"stated\"},\"choice\":\"A rollback journal with synchronous EXTRA.\",\"home\":{\"layer\":\"personal\",\"principal_id\":\"prn_106d80340e47cc0367ecf635fa2f5f67\"},\"kind\":\"choice_record\",\"question\":\"Which journal mode does the local state database use?\",\"reason\":\"On this machine the database is on a network volume where WAL is unsafe.\",\"record_id\":\"rec_b52c93d030d21b823af486d36aef0907\",\"recorded_at\":\"2000-01-01T00:00:00Z\",\"schema\":1,\"workstream_ids\":[]}"
+  },
+  {
+   "digest": "f039410e8767f4e637f1caba3c5f283c0da5ca345320b87d1a1b5e027e7ec5ed",
+   "name": "replay_before_choice_body",
+   "size": 674,
+   "text": "{\"alternatives\":[{\"choice\":\"Replay runs after rollback.\",\"reason\":\"The personal profile's replay runs after rollback on this machine.\"}],\"applicability\":{\"conditions\":[{\"dimension\":\"repository\",\"value\":\"this one\"}],\"states\":\"stated\"},\"choice\":\"Replay runs before rollback.\",\"home\":{\"layer\":\"repository\",\"repository_id\":\"rep_8e3782bec5a2f0b618427be30989365a\"},\"kind\":\"choice_record\",\"question\":\"Does the recovery replay run before or after rollback?\",\"reason\":\"The repository's recovery path replays before rollback so a partial write is never read back.\",\"record_id\":\"rec_3dbc1f6f550391e3834816b234d4dc04\",\"recorded_at\":\"2000-01-01T00:00:00Z\",\"schema\":1,\"workstream_ids\":[]}"
   }
  ],
  "minted": [
@@ -3477,6 +3699,36 @@
    "name": "tool_approval_measured_at",
    "shape": "instant",
    "step": "approve_the_tool"
+  },
+  {
+   "name": "agent_consent_answer",
+   "shape": "ans",
+   "step": "submit_agent_consent"
+  },
+  {
+   "name": "agent_consent_answer_at",
+   "shape": "instant",
+   "step": "submit_agent_consent"
+  },
+  {
+   "name": "agent_consent_measured_at",
+   "shape": "instant",
+   "step": "submit_agent_consent"
+  },
+  {
+   "name": "submit_agent_consent_committed_at",
+   "shape": "instant",
+   "step": "submit_agent_consent"
+  },
+  {
+   "name": "submit_agent_consent_head",
+   "shape": "digest",
+   "step": "submit_agent_consent"
+  },
+  {
+   "name": "submit_agent_consent_sequence",
+   "shape": "integer",
+   "step": "submit_agent_consent"
   },
   {
    "name": "alice_answer",
@@ -6016,6 +6268,214 @@
    }
   },
   {
+   "digest": "2dac3d343616c5b4160ec553674cba30020c1b56b49b003d67e0255cd0eac8df",
+   "name": "agent_consent_reply",
+   "record": {
+    "kind": "host_reply",
+    "link_id": "lnk_7c4263391af37c5b71fcda70c5c86af2",
+    "question_id": "qst_26e6bcddc2f5fd2402c3e7e6c989deaa",
+    "question_version": 1,
+    "reply": {
+     "answer": {
+      "mode": "keep_until_change",
+      "selected": {
+       "record_id": "rec_b52c93d030d21b823af486d36aef0907",
+       "selects": "record"
+      }
+     },
+     "given": "choice"
+    },
+    "route": "conversation",
+    "schema": 1,
+    "use_id": "use_3f5d4b4d87e64bbeef7df6705ffb73c0"
+   }
+  },
+  {
+   "digest": "5808654b0c2ea6f58b10be4e02b50ad4de3429cb10e71413728d678e8bd82da8",
+   "name": "submit_agent_consent",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_8c340e84380ea36e998bb266f8ead552",
+     "principal_id": "prn_106d80340e47cc0367ecf635fa2f5f67",
+     "profile_id": "prf_1e78e8c208fd52d6d948fe464bd9d590"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "recipient.answer.record",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_106d80340e47cc0367ecf635fa2f5f67"
+    },
+    "payload_digest": "2dac3d343616c5b4160ec553674cba30020c1b56b49b003d67e0255cd0eac8df",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_9e5445034bfc3196abf0c844679e24f9",
+    "schema": 1,
+    "target": {
+     "resource_id": "qst_26e6bcddc2f5fd2402c3e7e6c989deaa"
+    }
+   }
+  },
+  {
+   "digest": "4b7f7a2a111f25afdd5230d7a6f6f530447dcebe065b57851d07af691b46896a",
+   "name": "submit_agent_consent_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "3aa840e48f6eb6309997fb9a002f67c1c6e971f7481607c7d778e2b31de4f5bc",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_106d80340e47cc0367ecf635fa2f5f67"
+    },
+    "request_digest": "5808654b0c2ea6f58b10be4e02b50ad4de3429cb10e71413728d678e8bd82da8",
+    "request_id": "req_9e5445034bfc3196abf0c844679e24f9",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "qst_26e6bcddc2f5fd2402c3e7e6c989deaa"
+    }
+   }
+  },
+  {
+   "digest": "40782b10bc064b6e4302b3c64e5e0fb7bbae0c6d98b4921eb538454f04d2313a",
+   "name": "agent_consent_configuration",
+   "record": {
+    "client": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "hooks": [],
+    "kind": "host_configuration",
+    "measured_at": "2000-01-01T00:00:00Z",
+    "mode": {
+     "runs": "real"
+    },
+    "schema": 1
+   }
+  },
+  {
+   "digest": "fc512ab0cce990a01cf29e59ccd19d17021bda6b72f87d9c89d222bdbf9ab544",
+   "name": "agent_consent_answer",
+   "record": {
+    "evidence_id": "ans_cbab31ba6b407bfdaa14e411d7439d83",
+    "host": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "kind": "answer_evidence",
+    "link_id": "lnk_7c4263391af37c5b71fcda70c5c86af2",
+    "measured_configuration_digest": "40782b10bc064b6e4302b3c64e5e0fb7bbae0c6d98b4921eb538454f04d2313a",
+    "observed_at": "2000-01-01T00:00:00Z",
+    "origin": {
+     "origin": "model_quoted"
+    },
+    "question_id": "qst_26e6bcddc2f5fd2402c3e7e6c989deaa",
+    "question_version": 1,
+    "route": "conversation",
+    "schema": 1,
+    "use_id": "use_3f5d4b4d87e64bbeef7df6705ffb73c0"
+   }
+  },
+  {
+   "digest": "7f80c6016644a6a8525d13d339f9e2339926249360823c6fc0237a4c7fd109f3",
+   "name": "submit_agent_consent_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "4b7f7a2a111f25afdd5230d7a6f6f530447dcebe065b57851d07af691b46896a",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "fc512ab0cce990a01cf29e59ccd19d17021bda6b72f87d9c89d222bdbf9ab544",
+      "kind": "answer_evidence"
+     },
+     {
+      "digest": "40782b10bc064b6e4302b3c64e5e0fb7bbae0c6d98b4921eb538454f04d2313a",
+      "kind": "host_configuration"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "5808654b0c2ea6f58b10be4e02b50ad4de3429cb10e71413728d678e8bd82da8",
+    "request_id": "req_9e5445034bfc3196abf0c844679e24f9",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "77332bbd704740ee0b5ae182bfcefea051f9aedf9995a5ffed0fe81029a56278",
+   "name": "resume_on_agent_consent_payload",
+   "record": {
+    "answer_evidence_digest": "fc512ab0cce990a01cf29e59ccd19d17021bda6b72f87d9c89d222bdbf9ab544",
+    "kind": "resume_request",
+    "question_id": "qst_26e6bcddc2f5fd2402c3e7e6c989deaa",
+    "question_version": 1,
+    "schema": 1,
+    "use_id": "use_3f5d4b4d87e64bbeef7df6705ffb73c0"
+   }
+  },
+  {
+   "digest": "34919826b913dbade9c635aede9124a50a17a60578a5b13c6611cc6e87314835",
+   "name": "resume_on_agent_consent",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_8c340e84380ea36e998bb266f8ead552",
+     "principal_id": "prn_106d80340e47cc0367ecf635fa2f5f67",
+     "profile_id": "prf_1e78e8c208fd52d6d948fe464bd9d590"
+    },
+    "control_digests": [],
+    "effect_class": "durable_candidate",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "reader.use.resume",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_106d80340e47cc0367ecf635fa2f5f67"
+    },
+    "payload_digest": "77332bbd704740ee0b5ae182bfcefea051f9aedf9995a5ffed0fe81029a56278",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_a3ca635be76b82343d8976a9775fa5ca",
+    "schema": 1,
+    "target": {
+     "resource_id": "use_3f5d4b4d87e64bbeef7df6705ffb73c0"
+    }
+   }
+  },
+  {
+   "digest": "9fcfd390a5547aea59d0b7ae461d0e6cb9951b49a6eda0216c981cc88bc7ff11",
+   "name": "resume_on_agent_consent_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [
+      {
+       "code": "answer_not_from_a_person"
+      }
+     ],
+     "stage": "blocked"
+    },
+    "outputs": [
+     {
+      "digest": "44d988f6e4457ee0278808febc0426c3ed89ec9f01ed764959f204493a96b151",
+      "kind": "reader_result"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "34919826b913dbade9c635aede9124a50a17a60578a5b13c6611cc6e87314835",
+    "request_id": "req_a3ca635be76b82343d8976a9775fa5ca",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
    "digest": "00bbef1a10e25db4689149b71f2563e1b7e94c645a15f351c81766514b4ef8a3",
    "name": "alice_answer_reply",
    "record": {
@@ -6255,7 +6715,7 @@
    }
   },
   {
-   "digest": "f1265214a744e35f33edd17ddbc4d8adba611e737f8f7f8283e63364ddcb5a7d",
+   "digest": "9e7798551855e4ba5098a46f0db95a8164bc22f32712480edb587506f3ac0f37",
    "name": "resume_with_her_answer_result",
    "record": {
     "kind": "operation_result",
@@ -6268,6 +6728,10 @@
      {
       "digest": "de0b71fe3be76a4f8930124fe83117ce9d255bd71682b5f460a6aee0f6690d5a",
       "kind": "reader_result"
+     },
+     {
+      "digest": "7f2230d5bcea8b0da328793458008a1df20f7944ea5023de1a906bd7f5ff38f7",
+      "kind": "source_member"
      }
     ],
     "provider_effect": "not_applicable",
@@ -6520,7 +6984,7 @@
    }
   },
   {
-   "digest": "f9d5fc433c13f63ebd009bed095c54458d5054703ded9859b0f5842078991c1f",
+   "digest": "efc4c142d8e4ec613952818df0d6428034548ebacf129dab7ed0ea3daa837c36",
    "name": "second_use_result",
    "record": {
     "kind": "operation_result",
@@ -6537,6 +7001,10 @@
      {
       "digest": "76ba6998c27c263c8a1f88b2679037664777194674a9669ec11ee78467e6496a",
       "kind": "qualified_state"
+     },
+     {
+      "digest": "7f2230d5bcea8b0da328793458008a1df20f7944ea5023de1a906bd7f5ff38f7",
+      "kind": "source_member"
      }
     ],
     "provider_effect": "not_applicable",
@@ -7268,7 +7736,7 @@
    }
   },
   {
-   "digest": "4792dcb36d7b33ea5c17ad02f534363ae335e5cae25cf2afd7566947b921e67c",
+   "digest": "4fb2d45642bab37feb1bdb49ca609b9d2cee152105d78ddb840904b0c470156c",
    "name": "resume_third_use_result",
    "record": {
     "kind": "operation_result",
@@ -7281,6 +7749,10 @@
      {
       "digest": "09a4f765e6a042c1bf26719624f16e2eb2957528a33e8becb262bd3d77ff1211",
       "kind": "reader_result"
+     },
+     {
+      "digest": "7f2230d5bcea8b0da328793458008a1df20f7944ea5023de1a906bd7f5ff38f7",
+      "kind": "source_member"
      }
     ],
     "provider_effect": "not_applicable",
@@ -7340,7 +7812,7 @@
    }
   },
   {
-   "digest": "76ad835f4c5b3e4afbcfca606b001680fd3d19c3e80bbe10422914c9f64b2732",
+   "digest": "224a7c49ea0b8afe0338b73bfb1934e5a26d73ce5f204ccbe8e6d76cb2cdd7c4",
    "name": "kept_application_2",
    "record": {
     "answer_evidence_digest": "99ada7e09433ecc1aa734328679305a4a611f0c076b661931f1fc5df1c5626dd",
@@ -7379,13 +7851,20 @@
        "record_id": "rec_b52c93d030d21b823af486d36aef0907",
        "revision_digest": "7f2230d5bcea8b0da328793458008a1df20f7944ea5023de1a906bd7f5ff38f7",
        "source_id": "src_1a50c5186c10fbf57975a9ac4188d998"
+      },
+      {
+       "applicable": true,
+       "lifecycle": "accepted",
+       "record_id": "rec_247105209356b00fe57bebaec2def235",
+       "revision_digest": "b775241436bbe742977e517fcd1cabe69a410ea0d25ba3fd751ac0f5711cb911",
+       "source_id": "src_1a50c5186c10fbf57975a9ac4188d998"
       }
      ]
     }
    }
   },
   {
-   "digest": "ff64b9bb6d331c8a32ef5a34b2318e75182820457e968c2364094807b29eea70",
+   "digest": "56722040af19a11e46da072faa875f6d7c262363f47e2e275f90148d2c21d246",
    "name": "record_the_new_application_result",
    "record": {
     "kind": "operation_result",
@@ -7397,7 +7876,7 @@
     },
     "outputs": [
      {
-      "digest": "76ad835f4c5b3e4afbcfca606b001680fd3d19c3e80bbe10422914c9f64b2732",
+      "digest": "224a7c49ea0b8afe0338b73bfb1934e5a26d73ce5f204ccbe8e6d76cb2cdd7c4",
       "kind": "application_preference"
      }
     ],
@@ -8258,7 +8737,7 @@
    }
   },
   {
-   "digest": "6dbcb2776c1df48eea1e7f3c2e65db7582c085a2aca4db6a31d0cf91add32ca1",
+   "digest": "8a34a46bc1c322bfc5592a8607a5bbfa87f9ba160be73c5629a2d6716e9eadb3",
    "name": "ask_resume_a_result",
    "record": {
     "kind": "operation_result",
@@ -8271,6 +8750,10 @@
      {
       "digest": "508768e71c8444ced30a8bcc2eba15bc93788c2a5403d4c666471c57db37aad9",
       "kind": "reader_result"
+     },
+     {
+      "digest": "f039410e8767f4e637f1caba3c5f283c0da5ca345320b87d1a1b5e027e7ec5ed",
+      "kind": "source_member"
      }
     ],
     "provider_effect": "not_applicable",
@@ -8590,12 +9073,12 @@
    }
   },
   {
-   "digest": "d2520c28baca8af8cb086f72a5c3004a74331243b0b07a241c29a6e283fc92fd",
+   "digest": "0650f60a61877a283b772fceade071fde8261700026fb9464d0fc7ba8f25af0a",
    "name": "ask_repeat_keys",
    "record": {
     "entrance": {
-     "name": "host_launcher",
-     "root_origin": "owner"
+     "name": "work_link",
+     "root_origin": "caller"
     },
     "inputs": [
      {
@@ -8616,7 +9099,13 @@
      }
     ],
     "kind": "surface_script",
-    "locale": "ko",
+    "link": {
+     "target": {
+      "digest": "e44040f67c677141eb7f9a382fd8b20fa2c0edaa284ee5a01e75e36601e91ea1",
+      "ref": "record"
+     }
+    },
+    "locale": "en",
     "schema": 1,
     "terminal": {
      "columns": 80,
@@ -8625,7 +9114,7 @@
    }
   },
   {
-   "digest": "12043dab1c6621e12a3ca37dd07df7a6d1aaf61626efd36b297eb43a5d9e050d",
+   "digest": "26ed3e0a80127a81e5b02a494cb5b55d82298258b8d3809ebee5a49b52336de1",
    "name": "ask_repeat_drive",
    "record": {
     "action": "read",
@@ -8643,7 +9132,7 @@
      "layer": "personal",
      "principal_id": "prn_106d80340e47cc0367ecf635fa2f5f67"
     },
-    "payload_digest": "d2520c28baca8af8cb086f72a5c3004a74331243b0b07a241c29a6e283fc92fd",
+    "payload_digest": "0650f60a61877a283b772fceade071fde8261700026fb9464d0fc7ba8f25af0a",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_8c1ec118ce5d11635e4c9a2896ed77f8",
@@ -8654,7 +9143,7 @@
    }
   },
   {
-   "digest": "51c9d3f3c914460cfe890d7e5c099ae65ed3c774a56455eaf1c2ac25904d8346",
+   "digest": "ee5d7cc4f1d7a7e9a0262d4d954f364a6ed5808a61a00dfb9ca2eaf6a483fe38",
    "name": "ask_repeat_trace",
    "record": {
     "at": "2000-01-01T00:00:00Z",
@@ -8663,6 +9152,45 @@
      "version": "0.20.0"
     },
     "frames": [
+     {
+      "access": "active",
+      "after": 0,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "decision.application",
+        "executing": false,
+        "focused": true,
+        "label": "Does the recovery replay run before or after rollback?",
+        "marks": [],
+        "refers_to": {
+         "digest": "e44040f67c677141eb7f9a382fd8b20fa2c0edaa284ee5a01e75e36601e91ea1",
+         "ref": "record"
+        },
+        "role": "choice",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "en",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "missing_bodies": [],
+       "origin": {
+        "name": "work_link",
+        "root_origin": "caller"
+       },
+       "target": {
+        "digest": "e44040f67c677141eb7f9a382fd8b20fa2c0edaa284ee5a01e75e36601e91ea1",
+        "ref": "record"
+       },
+       "view": "w01"
+      }
+     },
      {
       "access": "active",
       "after": 4,
@@ -8695,6 +9223,10 @@
         "name": "work_link",
         "root_origin": "caller"
        },
+       "target": {
+        "digest": "e44040f67c677141eb7f9a382fd8b20fa2c0edaa284ee5a01e75e36601e91ea1",
+        "ref": "record"
+       },
        "view": "w01"
       }
      }
@@ -8704,11 +9236,11 @@
      "runs": "real"
     },
     "schema": 1,
-    "script_digest": "d2520c28baca8af8cb086f72a5c3004a74331243b0b07a241c29a6e283fc92fd"
+    "script_digest": "0650f60a61877a283b772fceade071fde8261700026fb9464d0fc7ba8f25af0a"
    }
   },
   {
-   "digest": "79c2368fce6ae35e769122e64daabc4c0f1e816cc0977b374c7661a105947523",
+   "digest": "70c30d59580fb972e19f4613165c0ce0ecd0a0c17f20e0ea20c42a7d5aa15077",
    "name": "ask_repeat_drive_result",
    "record": {
     "kind": "operation_result",
@@ -8719,12 +9251,12 @@
     },
     "outputs": [
      {
-      "digest": "51c9d3f3c914460cfe890d7e5c099ae65ed3c774a56455eaf1c2ac25904d8346",
+      "digest": "ee5d7cc4f1d7a7e9a0262d4d954f364a6ed5808a61a00dfb9ca2eaf6a483fe38",
       "kind": "surface_trace"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "12043dab1c6621e12a3ca37dd07df7a6d1aaf61626efd36b297eb43a5d9e050d",
+    "request_digest": "26ed3e0a80127a81e5b02a494cb5b55d82298258b8d3809ebee5a49b52336de1",
     "request_id": "req_8c1ec118ce5d11635e4c9a2896ed77f8",
     "schema": 1,
     "supported_recovery": []
@@ -8970,7 +9502,7 @@
    }
   },
   {
-   "digest": "56263eb99c40208e8d59bd0c3123f323b8b0fb4c6d7c3874652f3717af8da87d",
+   "digest": "3e55501acc2eab532eab9784ce357e0c28e61dba330d45b81bba22f4a5c8227d",
    "name": "ask_resume_b_result",
    "record": {
     "kind": "operation_result",
@@ -8983,6 +9515,10 @@
      {
       "digest": "a6092e45ad89bdca64e5c100fd3f8991010670cf7f4e1a5858a8d95888f00b4e",
       "kind": "reader_result"
+     },
+     {
+      "digest": "f039410e8767f4e637f1caba3c5f283c0da5ca345320b87d1a1b5e027e7ec5ed",
+      "kind": "source_member"
      }
     ],
     "provider_effect": "not_applicable",
@@ -9112,7 +9648,7 @@
   }
  ],
  "says": "Alice's repository memory records WAL for the journal mode and her own memory records a rollback journal; both apply to this repository, so they conflict. Her host is probed for native user events: the probe ran for real and worked. She opens the link of her working conversation, and a session that starts there with no task is composed for that link: both choices come back as unresolved units that do not gate the start, the session is recorded as selected only, and nothing is asked. Her first actual use of the concern waits on a sealed question naming both alternatives. A cancelled prompt and a tool-permission approval that picked the repository's option are each recorded as a non-answer, and resuming the use with either leaves it blocked with answer_not_from_a_person on the same pending question: neither becomes her choice. When she herself chooses her personal rollback journal and keep-until-change in the conversation, the runtime records a verified answer naming the probe that separated her from the automation and the host configuration it measured, the resume admits the use on that choice, and memory.preference.record, given that resume request and targeting the concern, records the preference against the whole participant set. Her next use of the same concern, with nothing changed, is admitted on the kept application without a question. No first option, repository option or unanswered prompt is ever applied as her choice. A third alternative then changes that concern's basis: the next use is blocked with preference_invalidated, the kept application is marked invalidated, and a fresh question over the three-way basis waits for her; only her explicit answer to it admits the use and records a new preference. Separately, a second concern (recovery replay order), with its own published choices, is asked under ask-each-use mode twice: a driven trace of the repeat prompt shows only the application on screen, so the repeated mode is kept, not re-asked.",
- "spec_sha256": "a39e635e5b46b4cfaa32e09c7baaee749e5ed0ae96f3ef833b6c80d2e87e31f6",
+ "spec_sha256": "6c457ffdd3e22b370eca31d9789927e0452c4a393108e69fc4a075bc09f40152",
  "steps": [
   {
    "carries": [
@@ -9284,6 +9820,29 @@
   },
   {
    "carries": [
+    "agent_consent_reply"
+   ],
+   "name": "submit_agent_consent",
+   "request": "submit_agent_consent",
+   "result": "submit_agent_consent_result",
+   "returns": [
+    "agent_consent_answer",
+    "agent_consent_configuration"
+   ]
+  },
+  {
+   "carries": [
+    "resume_on_agent_consent_payload"
+   ],
+   "name": "resume_on_agent_consent",
+   "request": "resume_on_agent_consent",
+   "result": "resume_on_agent_consent_result",
+   "returns": [
+    "first_use_waiting"
+   ]
+  },
+  {
+   "carries": [
     "alice_answer_reply"
    ],
    "name": "alice_chooses",
@@ -9302,7 +9861,8 @@
    "request": "resume_with_her_answer",
    "result": "resume_with_her_answer_result",
    "returns": [
-    "first_use_admitted"
+    "first_use_admitted",
+    "rollback_choice_body"
    ]
   },
   {
@@ -9325,7 +9885,8 @@
    "result": "second_use_result",
    "returns": [
     "second_use_admitted",
-    "second_use_state"
+    "second_use_state",
+    "rollback_choice_body"
    ]
   },
   {
@@ -9376,7 +9937,8 @@
    "request": "resume_third_use",
    "result": "resume_third_use_result",
    "returns": [
-    "third_use_admitted"
+    "third_use_admitted",
+    "rollback_choice_body"
    ]
   },
   {
@@ -9450,7 +10012,8 @@
    "request": "ask_resume_a",
    "result": "ask_resume_a_result",
    "returns": [
-    "ask_admitted_a"
+    "ask_admitted_a",
+    "replay_before_choice_body"
    ]
   },
   {
@@ -9508,7 +10071,8 @@
    "request": "ask_resume_b",
    "result": "ask_resume_b_result",
    "returns": [
-    "ask_admitted_b"
+    "ask_admitted_b",
+    "replay_before_choice_body"
    ]
   },
   {

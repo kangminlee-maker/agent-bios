@@ -291,7 +291,7 @@
    "record": "observation"
   },
   {
-   "minted": "span_bytes",
+   "digest_of": "span_member",
    "pointer": "/read/0/digest",
    "record": "observation"
   },
@@ -326,7 +326,7 @@
    "record": "memory_capture"
   },
   {
-   "minted": "span_bytes",
+   "digest_of": "span_member",
    "pointer": "/processing/inputs/0/evidence_digest",
    "record": "memory_capture"
   },
@@ -356,7 +356,7 @@
    "record": "stored_memory_capture"
   },
   {
-   "minted": "span_bytes",
+   "digest_of": "span_member",
    "pointer": "/processing/inputs/0/evidence_digest",
    "record": "stored_memory_capture"
   },
@@ -401,7 +401,7 @@
    "record": "behaviour_capture"
   },
   {
-   "minted": "span_bytes",
+   "digest_of": "span_member",
    "pointer": "/processing/inputs/0/evidence_digest",
    "record": "behaviour_capture"
   },
@@ -426,7 +426,7 @@
    "record": "stored_behaviour_capture"
   },
   {
-   "minted": "span_bytes",
+   "digest_of": "span_member",
    "pointer": "/processing/inputs/0/evidence_digest",
    "record": "stored_behaviour_capture"
   },
@@ -466,7 +466,7 @@
    "record": "journal_candidate"
   },
   {
-   "minted": "span_bytes",
+   "digest_of": "span_member",
    "pointer": "/origin/evidence_digests/0",
    "record": "journal_candidate"
   },
@@ -481,7 +481,7 @@
    "record": "stored_journal_candidate"
   },
   {
-   "minted": "span_bytes",
+   "digest_of": "span_member",
    "pointer": "/origin/evidence_digests/0",
    "record": "stored_journal_candidate"
   },
@@ -511,7 +511,7 @@
    "record": "backup_candidate"
   },
   {
-   "minted": "span_bytes",
+   "digest_of": "span_member",
    "pointer": "/origin/evidence_digests/0",
    "record": "backup_candidate"
   },
@@ -526,7 +526,7 @@
    "record": "stored_backup_candidate"
   },
   {
-   "minted": "span_bytes",
+   "digest_of": "span_member",
    "pointer": "/origin/evidence_digests/0",
    "record": "stored_backup_candidate"
   },
@@ -549,6 +549,14 @@
    "digest_of": "stored_backup_candidate",
    "pointer": "/outputs/0/digest",
    "record": "store_backup_decision_result"
+  }
+ ],
+ "members": [
+  {
+   "digest": "e63130936ddedeced188ea0b1269888abcc63c9e009d15975d51a8ee32e7ddc4",
+   "name": "span_member",
+   "size": 782,
+   "text": "{\"record\":12,\"role\":\"user\",\"text\":\"Which journal mode does the local state database use?\"}\n{\"record\":13,\"role\":\"assistant\",\"text\":\"WAL, with synchronous FULL. Effective from 2026-01-01 under jurisdiction KR. Reason: 4.11 ms per commit against 11.76, and readers are not blocked.\"}\n{\"record\":14,\"role\":\"user\",\"text\":\"Where are the local state backups written?\"}\n{\"record\":15,\"role\":\"assistant\",\"text\":\"To a second local SSD, not to the network volume. Effective from 2026-03-01 for storage: a local SSD.\"}\n{\"record\":16,\"role\":\"user\",\"text\":\"Keep an eye on the network volume in case that changes.\"}\n{\"record\":17,\"role\":\"assistant\",\"text\":\"Noted; will revisit if the volume changes.\"}\n{\"record\":18,\"role\":\"assistant\",\"text\":\"Filed both decisions with the measured numbers attached.\"}\n"
   }
  ],
  "minted": [
@@ -640,11 +648,6 @@
   {
    "name": "observed_at",
    "shape": "instant",
-   "step": "observe_span"
-  },
-  {
-   "name": "span_bytes",
-   "shape": "digest",
    "step": "observe_span"
   },
   {
@@ -1268,7 +1271,7 @@
    }
   },
   {
-   "digest": "dba940c58d8dd25a8f19fdb240536ee97e26e90b2016373c382c553f6bed7a2d",
+   "digest": "cecdbb7250b41e9191fe9eee6361075a889795d26954ade3c324fffda2b5d312",
    "name": "observation",
    "record": {
     "kind": "source_observation",
@@ -1276,12 +1279,12 @@
     "observed_at": "2000-01-01T00:00:00Z",
     "read": [
      {
-      "digest": "8308ea96f532d7e0e72c84cb9c9fed61754ece109ced4b42276cdb498f53c6e1",
+      "digest": "e63130936ddedeced188ea0b1269888abcc63c9e009d15975d51a8ee32e7ddc4",
       "first_record": 12,
       "last_record": 18,
       "read": "records",
       "root": 0,
-      "size": 4096
+      "size": 782
      }
     ],
     "schema": 1,
@@ -1289,7 +1292,7 @@
    }
   },
   {
-   "digest": "4c1115c0ab8bc362fdd58412c13eac0331ff1580afa767627f74742578d31580",
+   "digest": "de70ae2a0602c01b23b283d36f20ff760dd3f702d6c33f22263b5cda73402c71",
    "name": "observe_span_result",
    "record": {
     "kind": "operation_result",
@@ -1300,7 +1303,7 @@
     },
     "outputs": [
      {
-      "digest": "dba940c58d8dd25a8f19fdb240536ee97e26e90b2016373c382c553f6bed7a2d",
+      "digest": "cecdbb7250b41e9191fe9eee6361075a889795d26954ade3c324fffda2b5d312",
       "kind": "source_observation"
      }
     ],
@@ -1326,7 +1329,7 @@
    }
   },
   {
-   "digest": "b042efc97507cea322d700a367f30fe9a0e8048be6e1aea8cb1a1d5c7f789fdc",
+   "digest": "ccdc16468ae71bec31838964e660d3f25bacf38a08ec14d4f559568165ba84ef",
    "name": "memory_capture",
    "record": {
     "destination_source_id": "src_d4246e183ea36d419f7acb3e39f21dc6",
@@ -1341,7 +1344,7 @@
      }
     ],
     "kind": "memory_capture",
-    "observation_digest": "dba940c58d8dd25a8f19fdb240536ee97e26e90b2016373c382c553f6bed7a2d",
+    "observation_digest": "cecdbb7250b41e9191fe9eee6361075a889795d26954ade3c324fffda2b5d312",
     "processing": {
      "adapter": {
       "digest": "446b029fe11ff71ac8f57cc61d1e686b5cd9b9f987ffe56f8a2190d3b959a2e4",
@@ -1349,7 +1352,7 @@
      },
      "inputs": [
       {
-       "evidence_digest": "8308ea96f532d7e0e72c84cb9c9fed61754ece109ced4b42276cdb498f53c6e1",
+       "evidence_digest": "e63130936ddedeced188ea0b1269888abcc63c9e009d15975d51a8ee32e7ddc4",
        "from": {
         "first_record": 12,
         "from": "session_transcript",
@@ -1382,7 +1385,7 @@
    }
   },
   {
-   "digest": "6882a2eadc398e2a370bdb82421270f9a8b3074913d672719ab0bc60fd0669cf",
+   "digest": "892a6cd1feb88e5007ec301208ee4526838c65bb708c780f051e9d2e097d2d78",
    "name": "distill_submit",
    "record": {
     "action": "contribute",
@@ -1400,7 +1403,7 @@
      "layer": "repository",
      "repository_id": "rep_aa88b275b0ed33e384ac1398bef752e8"
     },
-    "payload_digest": "b042efc97507cea322d700a367f30fe9a0e8048be6e1aea8cb1a1d5c7f789fdc",
+    "payload_digest": "ccdc16468ae71bec31838964e660d3f25bacf38a08ec14d4f559568165ba84ef",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_8047e76ea2e3b19a1b35490e4cc6b4bb",
@@ -1415,7 +1418,7 @@
    }
   },
   {
-   "digest": "7977a46fde2bdf0e243fd69f3287959ff2eb8a8fc40df45754de70606905924f",
+   "digest": "1ef0a4a32778aedb51f5b3b803dfc93269a14596419fabe272e78428bb7752c0",
    "name": "stored_memory_capture",
    "record": {
     "captured_at": "2000-01-01T00:00:00Z",
@@ -1431,7 +1434,7 @@
      }
     ],
     "kind": "memory_capture",
-    "observation_digest": "dba940c58d8dd25a8f19fdb240536ee97e26e90b2016373c382c553f6bed7a2d",
+    "observation_digest": "cecdbb7250b41e9191fe9eee6361075a889795d26954ade3c324fffda2b5d312",
     "processing": {
      "adapter": {
       "digest": "446b029fe11ff71ac8f57cc61d1e686b5cd9b9f987ffe56f8a2190d3b959a2e4",
@@ -1439,7 +1442,7 @@
      },
      "inputs": [
       {
-       "evidence_digest": "8308ea96f532d7e0e72c84cb9c9fed61754ece109ced4b42276cdb498f53c6e1",
+       "evidence_digest": "e63130936ddedeced188ea0b1269888abcc63c9e009d15975d51a8ee32e7ddc4",
        "from": {
         "first_record": 12,
         "from": "session_transcript",
@@ -1502,7 +1505,7 @@
    }
   },
   {
-   "digest": "9b075aa4e9a2296b506c7e69728339e6cebc91e98f9991ed2c4343a5d3230f93",
+   "digest": "0b44993b85be240b071b9323f8ee4a557e74b7148eb9774571b25bab58b787eb",
    "name": "run_distillation_result",
    "record": {
     "kind": "operation_result",
@@ -1513,7 +1516,7 @@
     },
     "outputs": [
      {
-      "digest": "7977a46fde2bdf0e243fd69f3287959ff2eb8a8fc40df45754de70606905924f",
+      "digest": "1ef0a4a32778aedb51f5b3b803dfc93269a14596419fabe272e78428bb7752c0",
       "kind": "memory_capture"
      },
      {
@@ -1522,7 +1525,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "6882a2eadc398e2a370bdb82421270f9a8b3074913d672719ab0bc60fd0669cf",
+    "request_digest": "892a6cd1feb88e5007ec301208ee4526838c65bb708c780f051e9d2e097d2d78",
     "request_id": "req_8047e76ea2e3b19a1b35490e4cc6b4bb",
     "schema": 1,
     "supported_recovery": []
@@ -1536,12 +1539,12 @@
    }
   },
   {
-   "digest": "55b3f85df621b75520be0df654facbf9620c857f4663de9cd1855c34c928caf7",
+   "digest": "f753e25ae0d02ac22064035d34cd64790d1f1eb1b4088f22717f8e4b834ae84e",
    "name": "behaviour_capture",
    "record": {
     "destination_source_id": "src_28f4968382733321ac89d360617e93ef",
     "kind": "behaviour_capture",
-    "observation_digest": "dba940c58d8dd25a8f19fdb240536ee97e26e90b2016373c382c553f6bed7a2d",
+    "observation_digest": "cecdbb7250b41e9191fe9eee6361075a889795d26954ade3c324fffda2b5d312",
     "processing": {
      "adapter": {
       "digest": "45bf17d6b5da9a27b46b42da0fb2abc61c1a467eadddfe9e1ded38251c55056c",
@@ -1549,7 +1552,7 @@
      },
      "inputs": [
       {
-       "evidence_digest": "8308ea96f532d7e0e72c84cb9c9fed61754ece109ced4b42276cdb498f53c6e1",
+       "evidence_digest": "e63130936ddedeced188ea0b1269888abcc63c9e009d15975d51a8ee32e7ddc4",
        "from": {
         "first_record": 12,
         "from": "session_transcript",
@@ -1588,7 +1591,7 @@
    }
   },
   {
-   "digest": "458fdf889693142531135350d0ff896d4b0482d0d2aa51c794fe906f24ccb024",
+   "digest": "d217cc05902cf4665fdfe3d917a36e56625ff71d460c20200c8e1466e1fbdab8",
    "name": "learn_submit",
    "record": {
     "action": "contribute",
@@ -1606,7 +1609,7 @@
      "layer": "repository",
      "repository_id": "rep_aa88b275b0ed33e384ac1398bef752e8"
     },
-    "payload_digest": "55b3f85df621b75520be0df654facbf9620c857f4663de9cd1855c34c928caf7",
+    "payload_digest": "f753e25ae0d02ac22064035d34cd64790d1f1eb1b4088f22717f8e4b834ae84e",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_d3b13eb2c5bbf972c2b085da32c95e61",
@@ -1621,13 +1624,13 @@
    }
   },
   {
-   "digest": "e03118a3cba7a3c3a4e973bea647074009a18f53a92c3a56c326b18970f8a146",
+   "digest": "e528ef4e4dfefd34c4e6308f098381e362f79458426d26d6a6deb494144ead01",
    "name": "stored_behaviour_capture",
    "record": {
     "captured_at": "2000-01-01T00:00:00Z",
     "destination_source_id": "src_28f4968382733321ac89d360617e93ef",
     "kind": "behaviour_capture",
-    "observation_digest": "dba940c58d8dd25a8f19fdb240536ee97e26e90b2016373c382c553f6bed7a2d",
+    "observation_digest": "cecdbb7250b41e9191fe9eee6361075a889795d26954ade3c324fffda2b5d312",
     "processing": {
      "adapter": {
       "digest": "45bf17d6b5da9a27b46b42da0fb2abc61c1a467eadddfe9e1ded38251c55056c",
@@ -1635,7 +1638,7 @@
      },
      "inputs": [
       {
-       "evidence_digest": "8308ea96f532d7e0e72c84cb9c9fed61754ece109ced4b42276cdb498f53c6e1",
+       "evidence_digest": "e63130936ddedeced188ea0b1269888abcc63c9e009d15975d51a8ee32e7ddc4",
        "from": {
         "first_record": 12,
         "from": "session_transcript",
@@ -1704,7 +1707,7 @@
    }
   },
   {
-   "digest": "69abef163dc2b407397e135239b9da7f78151ab5b89cf6e2b3ba910a4ebe4808",
+   "digest": "a85eca3d31cc9a3b0e71a0f4b17466316e20641148238a28eeb72da8bfa2284f",
    "name": "run_learning_result",
    "record": {
     "kind": "operation_result",
@@ -1715,7 +1718,7 @@
     },
     "outputs": [
      {
-      "digest": "e03118a3cba7a3c3a4e973bea647074009a18f53a92c3a56c326b18970f8a146",
+      "digest": "e528ef4e4dfefd34c4e6308f098381e362f79458426d26d6a6deb494144ead01",
       "kind": "behaviour_capture"
      },
      {
@@ -1724,22 +1727,22 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "458fdf889693142531135350d0ff896d4b0482d0d2aa51c794fe906f24ccb024",
+    "request_digest": "d217cc05902cf4665fdfe3d917a36e56625ff71d460c20200c8e1466e1fbdab8",
     "request_id": "req_d3b13eb2c5bbf972c2b085da32c95e61",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "f58080ae0a539ed3629d1336c3892bcaea27835cdcf63fa0d469f82048e1ffc3",
+   "digest": "59fb087610669dc0edc7288c46b1cf38b7d50f8016d182fa8f990a1cac5e4e83",
    "name": "journal_candidate",
    "record": {
     "destination_source_id": "src_d4246e183ea36d419f7acb3e39f21dc6",
     "kind": "memory_candidate",
     "origin": {
-     "capture_digest": "7977a46fde2bdf0e243fd69f3287959ff2eb8a8fc40df45754de70606905924f",
+     "capture_digest": "1ef0a4a32778aedb51f5b3b803dfc93269a14596419fabe272e78428bb7752c0",
      "evidence_digests": [
-      "8308ea96f532d7e0e72c84cb9c9fed61754ece109ced4b42276cdb498f53c6e1"
+      "e63130936ddedeced188ea0b1269888abcc63c9e009d15975d51a8ee32e7ddc4"
      ],
      "from": "capture"
     },
@@ -1779,7 +1782,7 @@
    }
   },
   {
-   "digest": "83be524a2e5568bccfcf3f1eb6933ab4a4d259e4bd228973092fb9c993f6772b",
+   "digest": "097d83b2e3e13193607239356fc410457c304d6d6ff405666ff0c3cf844297a1",
    "name": "journal_submit",
    "record": {
     "action": "contribute",
@@ -1797,7 +1800,7 @@
      "layer": "personal",
      "principal_id": "prn_e2d32b1d1776ae57f80b01923b19e835"
     },
-    "payload_digest": "f58080ae0a539ed3629d1336c3892bcaea27835cdcf63fa0d469f82048e1ffc3",
+    "payload_digest": "59fb087610669dc0edc7288c46b1cf38b7d50f8016d182fa8f990a1cac5e4e83",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_b1be345e2119758c7ccd5f3ac909a59b",
@@ -1808,7 +1811,7 @@
    }
   },
   {
-   "digest": "c44a6b68fe6ecb0d7eb65bf508e6c3601c7ee6f49d06d48701e76d16174667ac",
+   "digest": "8714c78697479233a9278b7d4a005a6bfa2851c4f5ed892b5f3e07f9f2e3ca4a",
    "name": "stored_journal_candidate",
    "record": {
     "candidate_id": "cnd_8e7fc44f86f732ee8e169f2dbb1b0315",
@@ -1816,9 +1819,9 @@
     "destination_source_id": "src_d4246e183ea36d419f7acb3e39f21dc6",
     "kind": "memory_candidate",
     "origin": {
-     "capture_digest": "7977a46fde2bdf0e243fd69f3287959ff2eb8a8fc40df45754de70606905924f",
+     "capture_digest": "1ef0a4a32778aedb51f5b3b803dfc93269a14596419fabe272e78428bb7752c0",
      "evidence_digests": [
-      "8308ea96f532d7e0e72c84cb9c9fed61754ece109ced4b42276cdb498f53c6e1"
+      "e63130936ddedeced188ea0b1269888abcc63c9e009d15975d51a8ee32e7ddc4"
      ],
      "from": "capture"
     },
@@ -1862,7 +1865,7 @@
    }
   },
   {
-   "digest": "7a17698e59731ebc33c8d5722fcd8b3724658b4694dc7ff2d59014b19d6fb911",
+   "digest": "35b4c46d487524b7e976e3f684b6c9662f81f14d08b7f2789bbcc493ae58af1b",
    "name": "store_journal_decision_result",
    "record": {
     "kind": "operation_result",
@@ -1873,27 +1876,27 @@
     },
     "outputs": [
      {
-      "digest": "c44a6b68fe6ecb0d7eb65bf508e6c3601c7ee6f49d06d48701e76d16174667ac",
+      "digest": "8714c78697479233a9278b7d4a005a6bfa2851c4f5ed892b5f3e07f9f2e3ca4a",
       "kind": "memory_candidate"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "83be524a2e5568bccfcf3f1eb6933ab4a4d259e4bd228973092fb9c993f6772b",
+    "request_digest": "097d83b2e3e13193607239356fc410457c304d6d6ff405666ff0c3cf844297a1",
     "request_id": "req_b1be345e2119758c7ccd5f3ac909a59b",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "76e24051f1d04b5e0326dd7326fe983f2fa8e8fa8df097208a09b7ae3fb0ec9a",
+   "digest": "56cef2bf4e08ab49dea7391e27146b70693a7fcf5b44d2ff5ff20fa3fd63a459",
    "name": "backup_candidate",
    "record": {
     "destination_source_id": "src_d4246e183ea36d419f7acb3e39f21dc6",
     "kind": "memory_candidate",
     "origin": {
-     "capture_digest": "7977a46fde2bdf0e243fd69f3287959ff2eb8a8fc40df45754de70606905924f",
+     "capture_digest": "1ef0a4a32778aedb51f5b3b803dfc93269a14596419fabe272e78428bb7752c0",
      "evidence_digests": [
-      "8308ea96f532d7e0e72c84cb9c9fed61754ece109ced4b42276cdb498f53c6e1"
+      "e63130936ddedeced188ea0b1269888abcc63c9e009d15975d51a8ee32e7ddc4"
      ],
      "from": "capture"
     },
@@ -1931,7 +1934,7 @@
    }
   },
   {
-   "digest": "632fb831117d0358493ca7141cbc3c0638bc524784860019d838eca199d69844",
+   "digest": "8e204f9d77cd87720a0b40a28d4256c83a1d10df4883904694e5d626b32faf67",
    "name": "backup_submit",
    "record": {
     "action": "contribute",
@@ -1949,7 +1952,7 @@
      "layer": "personal",
      "principal_id": "prn_e2d32b1d1776ae57f80b01923b19e835"
     },
-    "payload_digest": "76e24051f1d04b5e0326dd7326fe983f2fa8e8fa8df097208a09b7ae3fb0ec9a",
+    "payload_digest": "56cef2bf4e08ab49dea7391e27146b70693a7fcf5b44d2ff5ff20fa3fd63a459",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_a55c18202bd4e84ecf41070d22d3cdc0",
@@ -1960,7 +1963,7 @@
    }
   },
   {
-   "digest": "f3ae6f88bd12a90baccbb4f282829f233ee5fc7a105221a3a5787ccded40b52a",
+   "digest": "215b85c0b55131fb9dd3f735bd4bcea3fa61c2e659bdeb071c04ffade7b04091",
    "name": "stored_backup_candidate",
    "record": {
     "candidate_id": "cnd_6db800a73079c850bb33c13a05f16990",
@@ -1968,9 +1971,9 @@
     "destination_source_id": "src_d4246e183ea36d419f7acb3e39f21dc6",
     "kind": "memory_candidate",
     "origin": {
-     "capture_digest": "7977a46fde2bdf0e243fd69f3287959ff2eb8a8fc40df45754de70606905924f",
+     "capture_digest": "1ef0a4a32778aedb51f5b3b803dfc93269a14596419fabe272e78428bb7752c0",
      "evidence_digests": [
-      "8308ea96f532d7e0e72c84cb9c9fed61754ece109ced4b42276cdb498f53c6e1"
+      "e63130936ddedeced188ea0b1269888abcc63c9e009d15975d51a8ee32e7ddc4"
      ],
      "from": "capture"
     },
@@ -2012,7 +2015,7 @@
    }
   },
   {
-   "digest": "9816df066b7abeb69372b60f350d490f2b798daadde507a899c4f4995704a35e",
+   "digest": "93d42e1be5d39e928d8c2334a953f71194b1acebbbebe13a41f779da05214f78",
    "name": "store_backup_decision_result",
    "record": {
     "kind": "operation_result",
@@ -2023,12 +2026,12 @@
     },
     "outputs": [
      {
-      "digest": "f3ae6f88bd12a90baccbb4f282829f233ee5fc7a105221a3a5787ccded40b52a",
+      "digest": "215b85c0b55131fb9dd3f735bd4bcea3fa61c2e659bdeb071c04ffade7b04091",
       "kind": "memory_candidate"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "632fb831117d0358493ca7141cbc3c0638bc524784860019d838eca199d69844",
+    "request_digest": "8e204f9d77cd87720a0b40a28d4256c83a1d10df4883904694e5d626b32faf67",
     "request_id": "req_a55c18202bd4e84ecf41070d22d3cdc0",
     "schema": 1,
     "supported_recovery": []
@@ -2036,7 +2039,7 @@
   }
  ],
  "says": "A person binds this device's key and the checkout and registers two repository sources: one for decisions (memory) and one for lessons (Instructions). They select records 12 to 18 of one session transcript, stating that its text may be processed locally, with no prompt log, for this repository only; in that span two decisions were made: the journal mode, effective from 2026-01-01 under jurisdiction KR, with its measured reason stated; and the backup volume, effective from 2026-03-01 on a local SSD, with no reason given anywhere in the span. The owner reads exactly that span once (source.observe). Each producer adapter then runs on that one fixed observation through source.capture.record, at the head its destination's registration committed: the packaged distillation adapter yields a memory capture with one entry for each decision, its body the exact span text stating that decision's date, condition and (journal entry only) its reason, and the packaged learning adapter yields a behavioural capture of one lesson whose body restates the journal decision's date, condition and reason too; each answer returns the capture with the extraction_run that names its own adapter by name and digest and the packaged files it loaded - an extraction_run's `loaded` is the adapter's own package files, never the selected evidence, which the capture's own `processing.inputs` carries instead. Every capture's input lies under the selection's one root and restates no more than that root permits, the rule input_within_its_root. From the memory capture the person stores one candidate per decision (memory.candidate.store). The first keeps the date, condition and reason exactly as its entry's body states them; the second keeps its date and condition as stated and lists reason under unrecorded, since no reason appears in that body or anywhere else in the span. No adapter reads outside the observed span, and neither capture nor candidate carries a rationale the input does not contain.",
- "spec_sha256": "dfbd697020e7e4495420e75323ba29fdb0a2e851c9af86982ec0b89c25508af9",
+ "spec_sha256": "390eaefd994ab82180a04c11ebaf3801a001269a402d540f26bb460df18a7416",
  "steps": [
   {
    "carries": [

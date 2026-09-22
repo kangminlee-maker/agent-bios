@@ -1,6 +1,6 @@
 {
  "case": "N24-CANDIDATE-NEG",
- "says": "Alice binds her device key and registers a package candidate. She then submits a cutover whose candidate_digest names a candidate that differs from the registered one in one member's bytes and was never registered: bytes on disk without a registration receipt are not a candidate, so the owner refuses it with candidate_not_registered at candidate_digest and writes nothing. She submits a second cutover naming the registered candidate, but the package that reaches the target holds different bytes than the registration recorded for one of its members (workenv/contracts/c03.py): the owner refuses it with object_digest_mismatch at candidate_digest. A query by that second request id returns the same refused result and no receipt. What must not happen: either cutover installing a package, switching ownership, or committing on the strength of a candidate whose bytes the owner does not hold exactly as registered.",
+ "says": "Alice binds her device key and registers a package candidate. She then submits a cutover whose candidate_digest names a candidate that differs from the registered one in one member's bytes and was never registered: bytes on disk without a registration receipt are not a candidate, so the owner refuses it with candidate_not_registered at candidate_digest and writes nothing. She submits a second cutover naming the registered candidate, but the package that reaches the target holds different bytes than the registration recorded for one of its members (workenv/contracts/c03.py): the owner refuses it with object_digest_mismatch at candidate_digest. A query by that second request id returns the same refused result and no receipt. She submits a third cutover naming the same registered candidate, but this time the candidate's own tarball on disk holds different bytes than the registration recorded, independent of any member: the owner refuses it with object_digest_mismatch at candidate_digest too. What must not happen: any of these cutovers installing a package, switching ownership, or committing on the strength of a candidate whose bytes the owner does not hold exactly as registered.",
  "ids": [
   {
    "name": "alice",
@@ -32,6 +32,10 @@
   },
   {
    "name": "altered_query_request",
+   "prefix": "req"
+  },
+  {
+   "name": "altered_tarball_cutover",
    "prefix": "req"
   }
  ],
@@ -321,6 +325,60 @@
    ]
   },
   {
+   "name": "switch_altered_tarball",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@altered_tarball_cutover"
+    },
+    {
+     "pointer": "/operation",
+     "value": "entrance.cutover.commit"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#registered_plan"
+    }
+   ]
+  },
+  {
    "name": "altered_query",
    "from": "c03/query_by_request_id.json",
    "set": [
@@ -463,6 +521,28 @@
    }
   },
   {
+   "name": "refuse_altered_tarball_object",
+   "request": "switch_altered_tarball",
+   "carries": [
+    "registered_plan"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "object_digest_mismatch",
+      "pointer": "/candidate_digest"
+     }
+    ],
+    "recovery": [
+     "retry_same_request"
+    ],
+    "returns": []
+   }
+  },
+  {
    "name": "query_refused_cutover",
    "request": "ask_altered",
    "carries": [
@@ -487,6 +567,12 @@
     "before": "refuse_altered_tarball",
     "path": "workenv/contracts/c03.py",
     "bytes": "# tampered bytes that do not match the registered member's digest\n"
+   },
+   {
+    "kind": "file_edit",
+    "before": "refuse_altered_tarball_object",
+    "path": "packages/candidate.tar.gz",
+    "bytes": "# tampered tarball bytes that do not match the registered candidate's tarball digest\n"
    }
   ]
  }

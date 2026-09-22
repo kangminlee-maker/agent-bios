@@ -4122,7 +4122,7 @@
    }
   },
   {
-   "digest": "6af20ae3e5fcb1b72f914ae6bef50af97ed14c1524102c9e09fc9d09cb20fbce",
+   "digest": "4e2fa16f1178ccc0d243a4757d3cbe2ff46e23ecf5f4b26080b7215c1c3843e0",
    "name": "claude_configuration_at_timeout_reply",
    "record": {
     "client": {
@@ -4131,7 +4131,7 @@
     },
     "hooks": [
      {
-      "enabled": false,
+      "enabled": true,
       "event": "UserPromptSubmit",
       "handler_digest": "fd3ece5269e94eee790f045e53f7891394091c3c5783fc5a29722829af5155a3"
      }
@@ -4145,7 +4145,7 @@
    }
   },
   {
-   "digest": "f3118b5700d1a620c0ddc9df151b1151b9af165a510059c86601254c566489a6",
+   "digest": "5cb19e5975b66e2d30b97fb1a6eac9bc7713bbc1ee88f31a33a0e3b8e0621fff",
    "name": "timeout_reply_evidence",
    "record": {
     "evidence_id": "ans_b81b14ec196d8cfdae97d71268f59694",
@@ -4155,7 +4155,7 @@
     },
     "kind": "answer_evidence",
     "link_id": "lnk_cc8abf825064ed53c228bb251bfd1b92",
-    "measured_configuration_digest": "6af20ae3e5fcb1b72f914ae6bef50af97ed14c1524102c9e09fc9d09cb20fbce",
+    "measured_configuration_digest": "4e2fa16f1178ccc0d243a4757d3cbe2ff46e23ecf5f4b26080b7215c1c3843e0",
     "observed_at": "2000-01-01T00:00:00Z",
     "origin": {
      "origin": "timed_out"
@@ -4168,7 +4168,7 @@
    }
   },
   {
-   "digest": "07ea717cecb0ccf3a9bc3c22bc726edef7165beb76a0e4de2e701fa2a32513c7",
+   "digest": "0d5aff013497ca7d00c33ce8d3fa1c022d863796e3473bab1d0b53af93794ad5",
    "name": "record_the_timeout_reply_result",
    "record": {
     "kind": "operation_result",
@@ -4180,11 +4180,11 @@
     },
     "outputs": [
      {
-      "digest": "f3118b5700d1a620c0ddc9df151b1151b9af165a510059c86601254c566489a6",
+      "digest": "5cb19e5975b66e2d30b97fb1a6eac9bc7713bbc1ee88f31a33a0e3b8e0621fff",
       "kind": "answer_evidence"
      },
      {
-      "digest": "6af20ae3e5fcb1b72f914ae6bef50af97ed14c1524102c9e09fc9d09cb20fbce",
+      "digest": "4e2fa16f1178ccc0d243a4757d3cbe2ff46e23ecf5f4b26080b7215c1c3843e0",
       "kind": "host_configuration"
      }
     ],
@@ -4650,7 +4650,7 @@
   }
  ],
  "says": "The repository says WAL and the person's own decisions say a rollback journal, and a use in the working Claude Code 2.1.278 conversation needs their answer. A link to that conversation is opened, and so is one to a headless Codex CLI 0.155.1 run. The ordinary-message route is probed for real on Claude Code, and the probe writes the configuration it ran under, the host's one UserPromptSubmit hook disabled: only a message the person typed produced the host's user-prompt event, so the profile qualifies user_event by that probe while the form route stays offered_but_unproven. The owner seals the question and stores it pending before asking, naming the qualified conversation route. Asking through the headless Codex link is recorded unsupported with no channel and answer_origin_unverified, so the use stays pending there rather than counting anything that transport returns. Asked in the conversation, four replies arrive that are not the person's answer, and the owner, measuring the configuration as it classifies each, records the non-answer it is: the assistant quoting the person (model_quoted), a field the agent filled and submitted through a pre-approved tool call (tool_permission), a message injected after the host's hook config file switches the UserPromptSubmit hook on (hook_generated) and a timeout (timed_out). A reply replayed from another conversation names a link this work never opened and is refused with recipient_link_unknown before any evidence is written. Resuming the use with the tool-permission evidence is blocked with answer_not_from_a_person: the same use still waits on the same question version. With the hook config file removed and the hook off again, the person types their choice of WAL; the owner records a verified_native_user_event answer on the conversation route, bound to this link, use and question version, under the configuration measured then and naming the real user-event probe as its separation, and resuming with it admits the same use.",
- "spec_sha256": "3e2bc88f99b717983f24ccf2e005cf388d745a1e80d16b0aff63bf25a6d7dec4",
+ "spec_sha256": "580ffaee5ce68fd6348dd8f4aef19551e8030806096923c3d989c696fa9db782",
  "steps": [
   {
    "carries": [
@@ -4882,6 +4882,14 @@
     "kind": "file_edit",
     "path": ".claude/settings.json",
     "size": 115
+   },
+   {
+    "before": "record_the_hook_reply",
+    "bytes": "#!/bin/sh\nprintf '%s' 'WAL, with synchronous FULL.'\n",
+    "digest": "8181e5e607c7e13304029df56d876e438301b68a22e17150893abf2ed26cab64",
+    "kind": "file_edit",
+    "path": "scripts/answer-the-pending-question.sh",
+    "size": 52
    },
    {
     "absent": true,

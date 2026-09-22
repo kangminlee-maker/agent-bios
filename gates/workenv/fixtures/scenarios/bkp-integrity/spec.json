@@ -1,6 +1,6 @@
 {
  "case": "BKP-INTEGRITY",
- "says": "On her laptop Alice registers her private notes source, commits a revision on the head the registration made and takes a backup, then commits a second revision and takes a second backup. Each backup set binds the exact database snapshot and the immutable members a restore needs — the revision object and the control sequence — by path, digest and size. After the live database is lost, on a rebuilt runtime: restoring the first backup's set with a member added that only the second backup holds is refused with backup_set_incomplete, because the backup directory lacks a member its manifest names; restoring the second backup's set with its object member taken from the first backup is refused with backup_set_damaged, because what is present does not hash to what the set names. Neither refusal writes anything: a query for the second commit's request id on the rebuilt runtime, which nothing has yet been restored onto, still answers request_not_held. Restoring the second backup's set exactly as taken is reported, and the second commit's result and receipt are then returned by the same query. What must not happen: a missing, corrupt or mixed member accepted by guess, or a refused restore leaving any part of either backup in place.",
+ "says": "On her laptop Alice registers her private notes source, commits a revision on the head the registration made and takes a backup, then commits a second revision and takes a second backup. Each backup set binds the exact database snapshot and the immutable members a restore needs \u2014 the revision object and the control sequence \u2014 by path, digest and size. After the live database is lost, on a rebuilt runtime: restoring the first backup's set with a member added that only the second backup holds is refused with backup_set_incomplete, because the backup directory lacks a member its manifest names; restoring the second backup's set with its object member taken from the first backup is refused with backup_set_damaged, because what is present does not hash to what the set names. Neither refusal writes anything: a query for the second commit's request id on the rebuilt runtime, which nothing has yet been restored onto, still answers request_not_held. Restoring the second backup's set exactly as taken is reported, and the second commit's result and receipt are then returned by the same query. What must not happen: a missing, corrupt or mixed member accepted by guess, or a refused restore leaving any part of either backup in place.",
  "ids": [
   {
    "name": "alice",
@@ -252,6 +252,10 @@
      "value": "@notes_source"
     },
     {
+     "pointer": "/members/0/digest",
+     "value": "5becc6cf4d94e6f0baef4404963c03956d7c0abe547f6e40901c4ba19dab5d5d"
+    },
+    {
      "pointer": "/members/0/size",
      "value": 4121
     }
@@ -445,6 +449,10 @@
     {
      "pointer": "/source_id",
      "value": "@notes_source"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "f3e1ed30161e48907e89b876c5ef0eb9d13dc32241f546e5a5f33bdc2a69f5b8"
     },
     {
      "pointer": "/members/0/size",

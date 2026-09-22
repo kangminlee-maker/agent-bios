@@ -84,6 +84,10 @@
   {
    "id": "req_8fb606efec8bf4c4339782ed926c7c96",
    "name": "accept_resend_request"
+  },
+  {
+   "id": "req_eaabf8a00d4d45782d3475b576c7c107",
+   "name": "query_after_restart_request"
   }
  ],
  "joins": [
@@ -486,6 +490,21 @@
    "digest_of": "full_exported",
    "pointer": "/outputs/0/digest",
    "record": "stage_while_offline_result"
+  },
+  {
+   "digest_of": "stage_status_query",
+   "pointer": "/payload_digest",
+   "record": "ask_stage_status"
+  },
+  {
+   "digest_of": "ask_stage_status",
+   "pointer": "/request_digest",
+   "record": "observe_staged_after_restart_result"
+  },
+  {
+   "digest_of": "stage_while_offline_result",
+   "pointer": "/outputs/0/digest",
+   "record": "observe_staged_after_restart_result"
   },
   {
    "digest_of": "full_envelope",
@@ -2162,6 +2181,67 @@
    }
   },
   {
+   "digest": "2c804eb71061a926b8e2b7a211f7fb2cb4aec826a63e8f0c40f58328bc8fe737",
+   "name": "stage_status_query",
+   "record": {
+    "kind": "operation_query",
+    "request_id": "req_6d831e55e7c5bb1939f002466849f1f4",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "af3039abd16b6ba6580d548f8bde8b07820d863f3d789cdcd60862c27fa4ca6c",
+   "name": "ask_stage_status",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_5eca23851ae864da590559dc8d252e0b",
+     "principal_id": "prn_8eded9c74ad0bc01839c03635c411494",
+     "profile_id": "prf_10ecca2c02581747247cdcd0e21ebc1f"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "operation.query",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_d228380bf079a2644c9b39f1d16d95e0"
+    },
+    "payload_digest": "2c804eb71061a926b8e2b7a211f7fb2cb4aec826a63e8f0c40f58328bc8fe737",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_eaabf8a00d4d45782d3475b576c7c107",
+    "schema": 1,
+    "target": {
+     "resource_id": "req_6d831e55e7c5bb1939f002466849f1f4"
+    }
+   }
+  },
+  {
+   "digest": "93f03bb7e82b839adb9ec5a8d0933e9f537104e5299195d6f60370fd96d3a34c",
+   "name": "observe_staged_after_restart_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "1ca3ba52f3f02c21ac5d687b5953c766b55158182b62d376fda4af64ecf68987",
+      "kind": "operation_result"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "af3039abd16b6ba6580d548f8bde8b07820d863f3d789cdcd60862c27fa4ca6c",
+    "request_id": "req_eaabf8a00d4d45782d3475b576c7c107",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
    "digest": "33000c2fd0b9f0520f41a831e6f9fbeae1c2891d6816f5d80d9743d694bad753",
    "name": "outbox_commitment",
    "record": {
@@ -2907,8 +2987,8 @@
    }
   }
  ],
- "says": "Alice founds a Team on her laptop, which returns the Team's founding continuity epoch, registers its knowledge source and commits a revision; her desktop is enrolled but out of reach. The laptop undertakes to keep its own outbox and stages a complete package for the desktop — a draft in its outbox with no receipt, carrying the founding epoch as a member because the desktop does not hold it yet; the laptop process is killed after the staged outbox entry was durable and before it answered, and after the restart the same request answers draft with the exported stage under the same envelope digest. While the desktop is still unreachable the laptop's custody acknowledgment says the staged package is the only copy (unique_outbox_at_risk). Once the desktop is reachable it accepts the package and commits it, the committed stage naming the accept's receipt, and acknowledges holding it. The laptop then sends the same envelope again; the desktop's accept of that resend, under a new request, is settled as a duplicate: the committed stage it already reached and the first accept's receipt, with nothing new written and no new receipt. What must not happen: the staged package lost or restaged under another digest by the restart, a second package staged for one request, the staging claiming a receipt, the outbox reported safe while it is the only copy, or the resend committing a second time.",
- "spec_sha256": "b330bc93038a1a7db3b059a95065f3f8fbb9f16765b897530712860e8b5fe4be",
+ "says": "Alice founds a Team on her laptop, which returns the Team's founding continuity epoch, registers its knowledge source and commits a revision; her desktop is enrolled but out of reach. The laptop undertakes to keep its own outbox and stages a complete package for the desktop — a draft in its outbox with no receipt, carrying the founding epoch as a member because the desktop does not hold it yet; the laptop process is killed after the staged outbox entry was durable and before it answered; the caller never gets that reply, and after the restart a query of the staged request is the first place its draft answer, still the exported stage under the same envelope digest, is seen. While the desktop is still unreachable the laptop's custody acknowledgment says the staged package is the only copy (unique_outbox_at_risk). Once the desktop is reachable it accepts the package and commits it, the committed stage naming the accept's receipt, and acknowledges holding it. The laptop then sends the same envelope again; the desktop's accept of that resend, under a new request, is settled as a duplicate: the committed stage it already reached and the first accept's receipt, with nothing new written and no new receipt. What must not happen: the staged package lost or restaged under another digest by the restart, a second package staged for one request, the staging claiming a receipt, the outbox reported safe while it is the only copy, or the resend committing a second time.",
+ "spec_sha256": "c370f657d82c307e074183e0c96dd173c0186f4a45259822aa79815abf477776",
  "steps": [
   {
    "at": "2026-09-21T09:00:00Z",
@@ -2999,6 +3079,19 @@
    "result": "stage_while_offline_result",
    "returns": [
     "full_exported"
+   ]
+  },
+  {
+   "at": "2026-09-21T09:01:00Z",
+   "carries": [
+    "stage_status_query"
+   ],
+   "name": "observe_staged_after_restart",
+   "process": "laptop",
+   "request": "ask_stage_status",
+   "result": "observe_staged_after_restart_result",
+   "returns": [
+    "stage_while_offline_result"
    ]
   },
   {
@@ -3093,6 +3186,7 @@
   },
   "faults": [
    {
+    "observed_by": "observe_staged_after_restart",
     "point": "after_commit_before_return",
     "step": "stage_while_offline"
    }

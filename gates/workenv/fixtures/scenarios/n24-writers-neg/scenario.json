@@ -150,6 +150,16 @@
    "record": "register_candidate_result"
   },
   {
+   "digest_of": "earlier_candidate",
+   "pointer": "/payload_digest",
+   "record": "register_earlier"
+  },
+  {
+   "digest_of": "register_earlier",
+   "pointer": "/request_digest",
+   "record": "attempt_an_earlier_registration_result"
+  },
+  {
    "digest_of": "candidate",
    "pointer": "/candidate_digest",
    "record": "in_flight_plan"
@@ -233,6 +243,11 @@
    "digest_of": "dropped_unknown_plan",
    "pointer": "/payload_digest",
    "record": "switch_dropped_unknown"
+  },
+  {
+   "digest_of": "switch_dropped_unknown",
+   "pointer": "/request_digest",
+   "record": "refuse_dropped_unknown_result"
   },
   {
    "digest_of": "dropped_unknown_query",
@@ -512,6 +527,98 @@
     "request_id": "req_0e26c5679b44d925fe2133e5cbd8e745",
     "schema": 1,
     "supported_recovery": []
+   }
+  },
+  {
+   "digest": "b5876d075c33051dd0067327f8aa4c068a7053a40d97e862462a4f1f5f06b438",
+   "name": "earlier_candidate",
+   "record": {
+    "kind": "package_candidate",
+    "members": [
+     {
+      "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "origin": {
+       "copied_from": "workenv/contracts/c03.py"
+      },
+      "path": "workenv/contracts/c03.py",
+      "size": 9120
+     },
+     {
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "origin": {
+       "copied_from": "workenv/contracts/schemas/c03_cutover_plan.schema.json"
+      },
+      "path": "workenv/contracts/schemas/c03_cutover_plan.schema.json",
+      "size": 6211
+     },
+     {
+      "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "origin": {
+       "made": "at_pack_time"
+      },
+      "path": "provenance.json",
+      "size": 312
+     }
+    ],
+    "schema": 1,
+    "source_commit": "b184c3b26df4d7ca57c74806fd4c32273835ae3c",
+    "tarball": {
+     "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 482113
+    }
+   }
+  },
+  {
+   "digest": "6fe4fa6fa762a6f8782436afe8cd90f9cddd1898f8c6d47be6aafb141f41cd2d",
+   "name": "register_earlier",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_fe8c40408eb5f7fe4d47aded4225a276",
+     "principal_id": "prn_5695a138501bebc1bcb862cb7f0fdf4d",
+     "profile_id": "prf_9144ff449d3cd4a7b75c9443beb788d9"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "package.candidate.register",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_5695a138501bebc1bcb862cb7f0fdf4d"
+    },
+    "payload_digest": "b5876d075c33051dd0067327f8aa4c068a7053a40d97e862462a4f1f5f06b438",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_672c93dbba4e4cd194ac38e0bd2fae12",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_9144ff449d3cd4a7b75c9443beb788d9"
+    }
+   }
+  },
+  {
+   "digest": "f43fc9233ac72c9850d4c87ae0628a28d43318a4e2b6dd9a8a5914ddcc50da5a",
+   "name": "attempt_an_earlier_registration_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [
+      {
+       "code": "outcome_unknown"
+      }
+     ],
+     "stage": "unknown"
+    },
+    "outputs": [],
+    "provider_effect": "unknown",
+    "request_digest": "6fe4fa6fa762a6f8782436afe8cd90f9cddd1898f8c6d47be6aafb141f41cd2d",
+    "request_id": "req_672c93dbba4e4cd194ac38e0bd2fae12",
+    "schema": 1,
+    "supported_recovery": [
+     "query_same_request"
+    ]
    }
   },
   {
@@ -952,7 +1059,7 @@
    }
   },
   {
-   "digest": "666073c8fe9b5794b1e1accd81657e2d2e968465834c6d2291a69dc4a0a6e547",
+   "digest": "ebcfd91a8c695f472c2db45a1a40df53f273e35ebb1f875b696cd315d3cc2cf4",
    "name": "dropped_unknown_plan",
    "record": {
     "abortable_until": "commit",
@@ -972,11 +1079,7 @@
      },
      "selection_digest": "5555555555555555555555555555555555555555555555555555555555555555",
      "source_after": "kept",
-     "unknown_operations": [
-      {
-       "request_id": "req_672c93dbba4e4cd194ac38e0bd2fae12"
-      }
-     ]
+     "unknown_operations": []
     },
     "kind": "cutover_plan",
     "planned_at": "2026-09-21T11:00:00Z",
@@ -996,7 +1099,7 @@
    }
   },
   {
-   "digest": "b2136ea688dcc3d3c74e9106a1184a9b3ece2c5044056e3a970c4b30647a433e",
+   "digest": "b2b42567ede1edf29564dade0a8342033c342b43f9fed3a0fdb60138c4824756",
    "name": "switch_dropped_unknown",
    "record": {
     "action": "local_profile",
@@ -1014,7 +1117,7 @@
      "layer": "personal",
      "principal_id": "prn_5695a138501bebc1bcb862cb7f0fdf4d"
     },
-    "payload_digest": "666073c8fe9b5794b1e1accd81657e2d2e968465834c6d2291a69dc4a0a6e547",
+    "payload_digest": "ebcfd91a8c695f472c2db45a1a40df53f273e35ebb1f875b696cd315d3cc2cf4",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_0402583220d31900a2e987b6bc82f703",
@@ -1022,6 +1125,31 @@
     "target": {
      "resource_id": "prf_9144ff449d3cd4a7b75c9443beb788d9"
     }
+   }
+  },
+  {
+   "digest": "b8954e28729491c712edd9c9c233b0dedd2683282c19fdf9b7099792ff4516b3",
+   "name": "refuse_dropped_unknown_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [
+      {
+       "code": "unknown_operation_dropped",
+       "pointer": "/data/unknown_operations"
+      }
+     ],
+     "stage": "refused"
+    },
+    "outputs": [],
+    "provider_effect": "not_applicable",
+    "request_digest": "b2b42567ede1edf29564dade0a8342033c342b43f9fed3a0fdb60138c4824756",
+    "request_id": "req_0402583220d31900a2e987b6bc82f703",
+    "schema": 1,
+    "supported_recovery": [
+     "new_governed_request"
+    ]
    }
   },
   {
@@ -1095,8 +1223,8 @@
    }
   }
  ],
- "says": "Alice binds her device key and registers the package candidate. The old runtime left one operation (old_unknown_request) with an unknown outcome. She then submits four cutover plans, each naming the registered candidate and each wrong in one way: one starts with an operation in flight, one seals only the source store and projection owner and not the publication lock, one is verified with a writer left unrouted, and one lists the unknown operation without the recovery that settles it, dropping it. Each is refused at admission by the cutover plan's own rule, at the field that breaks it, and nothing is written; a query by each refused request id afterwards is answered request_not_held, because no result, receipt or head exists for it. What must not happen: any of these plans committing, sealing or switching anything, state ownership moving off the source, or the unknown operation being forgotten.",
- "spec_sha256": "f49c5b0f8e9ab207ac8b727e673447482ceb773d9e628b43c629f7b8c7c1f72a",
+ "says": "Alice binds her device key and registers the package candidate. She then attempts a second registration, old_unknown_request, and the process dies before its reply reaches her: the old runtime — the source side this cutover retires — holds it with an unknown outcome, unsettled and never queried again in this scenario. She then submits four cutover plans, each naming the registered candidate and each wrong in one way: one starts with an operation in flight, one seals only the source store and projection owner and not the publication lock, one is verified with a writer left unrouted, and one is otherwise sealed, verified and quiesced but its unknown_operations names none at all, leaving old_unknown_request out — nothing settles it and nothing carries it forward, so it is refused unknown_operation_dropped. Each is refused at admission by the cutover plan's own rule, at the field that breaks it, and nothing is written; a query by each refused request id afterwards is answered request_not_held, because no result, receipt or head exists for it. What must not happen: any of these plans committing, sealing or switching anything, state ownership moving off the source, or the unknown operation being forgotten.",
+ "spec_sha256": "5f659a468dd5d2efc647a1c1c949b045954103e15ee73f199178acf6c5a6b0d4",
  "steps": [
   {
    "carries": [
@@ -1119,6 +1247,15 @@
    "returns": [
     "candidate"
    ]
+  },
+  {
+   "carries": [
+    "earlier_candidate"
+   ],
+   "name": "attempt_an_earlier_registration",
+   "request": "register_earlier",
+   "result": "attempt_an_earlier_registration_result",
+   "returns": []
   },
   {
    "carries": [
@@ -1200,14 +1337,9 @@
     "dropped_unknown_plan"
    ],
    "name": "refuse_dropped_unknown",
-   "refused": [
-    {
-     "code": "variant_mismatch",
-     "pointer": "/data",
-     "record": "dropped_unknown_plan"
-    }
-   ],
-   "request": "switch_dropped_unknown"
+   "request": "switch_dropped_unknown",
+   "result": "refuse_dropped_unknown_result",
+   "returns": []
   },
   {
    "carries": [

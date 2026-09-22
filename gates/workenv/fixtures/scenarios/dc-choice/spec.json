@@ -169,6 +169,14 @@
   {
    "name": "ask_repeat_drive_id",
    "prefix": "req"
+  },
+  {
+   "name": "submit_agent_consent_id",
+   "prefix": "req"
+  },
+  {
+   "name": "resume_on_agent_consent_id",
+   "prefix": "req"
   }
  ],
  "records": [
@@ -1731,6 +1739,185 @@
     {
      "pointer": "/measured_at",
      "value": "$instant:tool_approval_measured_at"
+    }
+   ]
+  },
+  {
+   "name": "agent_consent_reply",
+   "from": "c11/host_reply_with_a_choice.json",
+   "drop": [
+    "/reply/separation_evidence_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:alice_link"
+    },
+    {
+     "pointer": "/use_id",
+     "value": "$use:first_use"
+    },
+    {
+     "pointer": "/question_id",
+     "value": "$qst:journal_question"
+    },
+    {
+     "pointer": "/reply/answer/selected/record_id",
+     "value": "$rec:rollback"
+    }
+   ]
+  },
+  {
+   "name": "agent_consent_answer",
+   "from": "c11/an_answer_that_names_what_separated_a_person_from_the_automation.json",
+   "drop": [
+    "/origin/answer",
+    "/origin/separation_evidence_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/evidence_id",
+     "value": "$ans:agent_consent_answer"
+    },
+    {
+     "pointer": "/question_id",
+     "value": "$qst:journal_question"
+    },
+    {
+     "pointer": "/use_id",
+     "value": "$use:first_use"
+    },
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:alice_link"
+    },
+    {
+     "pointer": "/measured_configuration_digest",
+     "value": "#agent_consent_configuration"
+    },
+    {
+     "pointer": "/origin/origin",
+     "value": "model_quoted"
+    },
+    {
+     "pointer": "/observed_at",
+     "value": "$instant:agent_consent_answer_at"
+    }
+   ]
+  },
+  {
+   "name": "agent_consent_configuration",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:agent_consent_measured_at"
+    }
+   ]
+  },
+  {
+   "name": "resume_on_agent_consent_payload",
+   "from": "c06/resume_with_the_answer_named_by_digest.json",
+   "set": [
+    {
+     "pointer": "/use_id",
+     "value": "$use:first_use"
+    },
+    {
+     "pointer": "/question_id",
+     "value": "$qst:journal_question"
+    },
+    {
+     "pointer": "/answer_evidence_digest",
+     "value": "#agent_consent_answer"
+    }
+   ]
+  },
+  {
+   "name": "submit_agent_consent",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@submit_agent_consent_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.answer.record"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$qst:journal_question"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#agent_consent_reply"
+    }
+   ]
+  },
+  {
+   "name": "resume_on_agent_consent",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@resume_on_agent_consent_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "reader.use.resume"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$use:first_use"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#resume_on_agent_consent_payload"
     }
    ]
   },
@@ -4527,6 +4714,26 @@
     {
      "pointer": "/created_at",
      "value": "$instant:kept_application_2_at"
+    },
+    {
+     "pointer": "/standing/participants/2/source_id",
+     "value": "@personal_memory"
+    },
+    {
+     "pointer": "/standing/participants/2/record_id",
+     "value": "$rec:normal"
+    },
+    {
+     "pointer": "/standing/participants/2/revision_digest",
+     "value": "#third_alt_stored"
+    },
+    {
+     "pointer": "/standing/participants/2/lifecycle",
+     "value": "accepted"
+    },
+    {
+     "pointer": "/standing/participants/2/applicable",
+     "value": true
     }
    ]
   },
@@ -4886,7 +5093,29 @@
   },
   {
    "name": "ask_repeat_keys",
-   "from": "c12/a_launcher_driven_at_80_by_24.json"
+   "from": "c12/a_launcher_driven_at_80_by_24.json",
+   "set": [
+    {
+     "pointer": "/entrance/name",
+     "value": "work_link"
+    },
+    {
+     "pointer": "/entrance/root_origin",
+     "value": "caller"
+    },
+    {
+     "pointer": "/locale",
+     "value": "en"
+    },
+    {
+     "pointer": "/link/target/ref",
+     "value": "record"
+    },
+    {
+     "pointer": "/link/target/digest",
+     "value": "#ask_question_b"
+    }
+   ]
   },
   {
    "name": "ask_repeat_drive",
@@ -4944,7 +5173,7 @@
     },
     {
      "pointer": "/frames/0/after",
-     "value": 4
+     "value": 0
     },
     {
      "pointer": "/frames/0/terminal/columns",
@@ -4975,6 +5204,14 @@
      "value": "caller"
     },
     {
+     "pointer": "/frames/0/view/target/ref",
+     "value": "record"
+    },
+    {
+     "pointer": "/frames/0/view/target/digest",
+     "value": "#ask_question_b"
+    },
+    {
      "pointer": "/frames/0/view/missing_bodies",
      "value": []
     },
@@ -4996,7 +5233,7 @@
     },
     {
      "pointer": "/frames/0/elements/0/label",
-     "value": "Replay runs before rollback."
+     "value": "Does the recovery replay run before or after rollback?"
     },
     {
      "pointer": "/frames/0/elements/0/marks",
@@ -5008,7 +5245,7 @@
     },
     {
      "pointer": "/frames/0/elements/0/selection",
-     "value": "selected"
+     "value": "none"
     },
     {
      "pointer": "/frames/0/elements/0/executing",
@@ -5024,6 +5261,98 @@
     },
     {
      "pointer": "/frames/0/elements/0/refers_to/digest",
+     "value": "#ask_question_b"
+    },
+    {
+     "pointer": "/frames/1/after",
+     "value": 4
+    },
+    {
+     "pointer": "/frames/1/terminal/columns",
+     "value": 80
+    },
+    {
+     "pointer": "/frames/1/terminal/rows",
+     "value": 24
+    },
+    {
+     "pointer": "/frames/1/locale",
+     "value": "en"
+    },
+    {
+     "pointer": "/frames/1/access",
+     "value": "active"
+    },
+    {
+     "pointer": "/frames/1/view/view",
+     "value": "w01"
+    },
+    {
+     "pointer": "/frames/1/view/origin/name",
+     "value": "work_link"
+    },
+    {
+     "pointer": "/frames/1/view/origin/root_origin",
+     "value": "caller"
+    },
+    {
+     "pointer": "/frames/1/view/target/ref",
+     "value": "record"
+    },
+    {
+     "pointer": "/frames/1/view/target/digest",
+     "value": "#ask_question_b"
+    },
+    {
+     "pointer": "/frames/1/view/missing_bodies",
+     "value": []
+    },
+    {
+     "pointer": "/frames/1/dispatched",
+     "value": []
+    },
+    {
+     "pointer": "/frames/1/calls",
+     "value": []
+    },
+    {
+     "pointer": "/frames/1/elements/0/element_id",
+     "value": "decision.application"
+    },
+    {
+     "pointer": "/frames/1/elements/0/role",
+     "value": "choice"
+    },
+    {
+     "pointer": "/frames/1/elements/0/label",
+     "value": "Replay runs before rollback."
+    },
+    {
+     "pointer": "/frames/1/elements/0/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/1/elements/0/focused",
+     "value": true
+    },
+    {
+     "pointer": "/frames/1/elements/0/selection",
+     "value": "selected"
+    },
+    {
+     "pointer": "/frames/1/elements/0/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/0/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/1/elements/0/refers_to/ref",
+     "value": "record"
+    },
+    {
+     "pointer": "/frames/1/elements/0/refers_to/digest",
      "value": "#replay_before_stored"
     }
    ]
@@ -5295,6 +5624,45 @@
    }
   },
   {
+   "name": "submit_agent_consent",
+   "request": "submit_agent_consent",
+   "carries": [
+    "agent_consent_reply"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "agent_consent_answer",
+     "agent_consent_configuration"
+    ]
+   }
+  },
+  {
+   "name": "resume_on_agent_consent",
+   "request": "resume_on_agent_consent",
+   "carries": [
+    "resume_on_agent_consent_payload"
+   ],
+   "answer": {
+    "stage": "blocked",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "answer_not_from_a_person"
+     }
+    ],
+    "recovery": [],
+    "returns": [
+     "first_use_waiting"
+    ]
+   }
+  },
+  {
    "name": "alice_chooses",
    "request": "alice_chooses",
    "carries": [
@@ -5325,7 +5693,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "first_use_admitted"
+     "first_use_admitted",
+     "rollback_choice_body"
     ]
    }
   },
@@ -5360,7 +5729,8 @@
     "recovery": [],
     "returns": [
      "second_use_admitted",
-     "second_use_state"
+     "second_use_state",
+     "rollback_choice_body"
     ]
    }
   },
@@ -5441,7 +5811,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "third_use_admitted"
+     "third_use_admitted",
+     "rollback_choice_body"
     ]
    }
   },
@@ -5555,7 +5926,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "ask_admitted_a"
+     "ask_admitted_a",
+     "replay_before_choice_body"
     ]
    }
   },
@@ -5647,7 +6019,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "ask_admitted_b"
+     "ask_admitted_b",
+     "replay_before_choice_body"
     ]
    }
   },
@@ -5667,6 +6040,16 @@
      "ask_preference_b"
     ]
    }
+  }
+ ],
+ "members": [
+  {
+   "name": "rollback_choice_body",
+   "text": "{\"alternatives\":[{\"choice\":\"WAL with synchronous FULL\",\"reason\":\"My checkout sits on a network volume that does not honour fullfsync.\"}],\"applicability\":{\"conditions\":[{\"dimension\":\"repository\",\"value\":\"this one\"}],\"states\":\"stated\"},\"choice\":\"A rollback journal with synchronous EXTRA.\",\"home\":{\"layer\":\"personal\",\"principal_id\":\"prn_106d80340e47cc0367ecf635fa2f5f67\"},\"kind\":\"choice_record\",\"question\":\"Which journal mode does the local state database use?\",\"reason\":\"On this machine the database is on a network volume where WAL is unsafe.\",\"record_id\":\"rec_b52c93d030d21b823af486d36aef0907\",\"recorded_at\":\"2000-01-01T00:00:00Z\",\"schema\":1,\"workstream_ids\":[]}"
+  },
+  {
+   "name": "replay_before_choice_body",
+   "text": "{\"alternatives\":[{\"choice\":\"Replay runs after rollback.\",\"reason\":\"The personal profile's replay runs after rollback on this machine.\"}],\"applicability\":{\"conditions\":[{\"dimension\":\"repository\",\"value\":\"this one\"}],\"states\":\"stated\"},\"choice\":\"Replay runs before rollback.\",\"home\":{\"layer\":\"repository\",\"repository_id\":\"rep_8e3782bec5a2f0b618427be30989365a\"},\"kind\":\"choice_record\",\"question\":\"Does the recovery replay run before or after rollback?\",\"reason\":\"The repository's recovery path replays before rollback so a partial write is never read back.\",\"record_id\":\"rec_3dbc1f6f550391e3834816b234d4dc04\",\"recorded_at\":\"2000-01-01T00:00:00Z\",\"schema\":1,\"workstream_ids\":[]}"
   }
  ]
 }

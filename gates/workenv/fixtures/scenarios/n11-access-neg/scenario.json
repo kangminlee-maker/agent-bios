@@ -3693,20 +3693,20 @@
    }
   },
   {
-   "digest": "ed739cfbf72674a9240fa9822adbb350945129e5a6468d603cbe941d4c6fbe90",
+   "digest": "223cad1ec263f2c7b4d9243f0910bb4d12a640ea836d7721adedf38c1237bba1",
    "name": "cho_lock",
    "record": {
     "change": {
      "transition": "lock"
     },
-    "expected_generation": 7,
+    "expected_generation": 1,
     "kind": "access_transition",
     "profile_id": "prf_82913aa478dce37b3c8f10abaa0ae450",
     "schema": 1
    }
   },
   {
-   "digest": "07664ee86b8d9c0ccfa57040d33b829a3aadbf1c41fa37a9811b7cf6ee3eea1f",
+   "digest": "2feccb14d36795321b67242aa890c651b71700eb1259ee8f9660a553588d9c44",
    "name": "cho_locks",
    "record": {
     "action": "local_profile",
@@ -3724,7 +3724,7 @@
      "layer": "personal",
      "principal_id": "prn_508cae3c7c282cdb86540494343a2a30"
     },
-    "payload_digest": "ed739cfbf72674a9240fa9822adbb350945129e5a6468d603cbe941d4c6fbe90",
+    "payload_digest": "223cad1ec263f2c7b4d9243f0910bb4d12a640ea836d7721adedf38c1237bba1",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_44e3619d8e98ae221a53ad85b42787a1",
@@ -3735,7 +3735,7 @@
    }
   },
   {
-   "digest": "1f0959809e8d5a2ed4013a98067563a55757c743ca5ab8f80bcf0425fb5df395",
+   "digest": "aedaeda37cfbaa51393b682353500a3cde2af6de86d0854cd3e1817fa520bf54",
    "name": "cho_locks_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -3745,7 +3745,7 @@
      "layer": "personal",
      "principal_id": "prn_508cae3c7c282cdb86540494343a2a30"
     },
-    "request_digest": "07664ee86b8d9c0ccfa57040d33b829a3aadbf1c41fa37a9811b7cf6ee3eea1f",
+    "request_digest": "2feccb14d36795321b67242aa890c651b71700eb1259ee8f9660a553588d9c44",
     "request_id": "req_44e3619d8e98ae221a53ad85b42787a1",
     "schema": 1,
     "sequence": 1,
@@ -3770,14 +3770,14 @@
    }
   },
   {
-   "digest": "862b59b3c46a0faaac5e07d62495695ccd343d85bb7eea92fb24fdf5772831f0",
+   "digest": "c6b203adea1f04c036cc999c1247b0b5823324794217309ac812858612330c34",
    "name": "cho_locks_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "1f0959809e8d5a2ed4013a98067563a55757c743ca5ab8f80bcf0425fb5df395",
+     "receipt_digest": "aedaeda37cfbaa51393b682353500a3cde2af6de86d0854cd3e1817fa520bf54",
      "stage": "committed"
     },
     "outputs": [
@@ -3787,7 +3787,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "07664ee86b8d9c0ccfa57040d33b829a3aadbf1c41fa37a9811b7cf6ee3eea1f",
+    "request_digest": "2feccb14d36795321b67242aa890c651b71700eb1259ee8f9660a553588d9c44",
     "request_id": "req_44e3619d8e98ae221a53ad85b42787a1",
     "schema": 1,
     "supported_recovery": []
@@ -4020,7 +4020,7 @@
   }
  ],
  "says": "Ana founds a Team; Ben and Cho join by invitation, their own key binding, Ana's in-person verification of that key recorded on the Team, and consent. Ana grants Ben read, use, contribute and grant with room to delegate once, and grants Cho read and review. As the Team's issuing authority Ana records on the Team a control permit for Ben's desktop that attests his grant, and later its revocation (access.control.record); each moves the Team head, and Ben's desktop is never sent the revocation. Ben then seals, on the current Team head, a grant change giving Cho read and use that names his permit. Cho locks her profile, which moves her access generation from 1 (its default since first use) to 2; her approval of Ben's change, sealed under generation 1, is not admitted locally (access_locked, access_generation_moved), and when it reaches the Team owner anyway it is refused with access_generation_moved. Ben's grant change reaches the owner and is refused with credential_revoked, because the permit it relies on was revoked by a recorded control. Neither refusal writes an approval or a grant, and neither moves the Team head.",
- "spec_sha256": "8239cb9e4c89c8110488c446b62710c67e36754ea85a62cf78f6baaa9cfe8db2",
+ "spec_sha256": "0df22b2ee37f159e6d0f79a25fce02dd2e35b43bd0c57513712859a2f70342d1",
  "steps": [
   {
    "carries": [

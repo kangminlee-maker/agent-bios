@@ -635,6 +635,9 @@
         },
         {
           "$ref": "#/$defs/integration_refused"
+        },
+        {
+          "$ref": "#/$defs/recorded_passed_is_the_applied_one"
         }
       ]
     },
@@ -885,6 +888,27 @@
       "properties": {
         "check": {
           "const": "one_recorded_passed"
+        },
+        "node_ids": {
+          "$ref": "#/$defs/node_ids"
+        }
+      }
+    },
+    "recorded_passed_is_the_applied_one": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Of the named nodes, the one recorded `passed` is the one whose integration row for the path was applied: that node's applied row's `result_digest` is the path's final bytes, and every named node whose row for the path was refused ends with no record of outcome `passed`. A runner that applies one node's change and records another's attempt passed fails here, although each node count on its own is right.",
+      "required": [
+        "check",
+        "path",
+        "node_ids"
+      ],
+      "properties": {
+        "check": {
+          "const": "recorded_passed_is_the_applied_one"
+        },
+        "path": {
+          "$ref": "#/$defs/tree_path"
         },
         "node_ids": {
           "$ref": "#/$defs/node_ids"
