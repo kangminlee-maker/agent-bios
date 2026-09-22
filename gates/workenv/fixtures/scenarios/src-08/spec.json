@@ -1,6 +1,6 @@
 {
  "case": "SRC-08",
- "says": "A person starts material in a subject area none of their sources covers, clinical trial protocols. They register a new managed knowledge source in their personal scope whose applicability states that new category as its subject_area condition and whose acceptance authority is themselves (source.home.register), commit its first revision, select records 12 to 18 of one session transcript permitting local processing, no kept prompt log and only their personal scope as destination (source.observe, nothing written), and capture one knowledge member from exactly those bytes into the new source (source.capture.record): the owner stores a draft capture naming the observation, the span evidence and the personal destination it permits, with the extraction run that made it, and commits nothing. The same capture resubmitted as Instructions is refused at admission (a knowledge capture's role cannot be instructions), and projecting the new source's revision as Instructions (role.project) is refused with role_promotion_refused: a new category of knowledge cannot become behavioural text or add an Instructions domain. A checkout inventory taken just before that refusal and again just after it names the same bytes for the Instructions domain manifest and the global ontology file both times, so the refused request changed neither. With a Team the person founded and its own Team knowledge source registered, the same capture aimed at the Team source without stating a widening and its authority is refused with widening_unstated: new-subject material never lands in, or is adopted as, Team content by default, and the Team source stays at its registration head.",
+ "says": "A person starts material in a subject area none of their sources covers, clinical trial protocols. They register a new managed knowledge source in their personal scope whose applicability states that new category as its subject_area condition and whose acceptance authority is themselves (source.home.register), commit its first revision, select records 12 to 18 of one session transcript permitting local processing, no kept prompt log and only their personal scope as destination (source.observe, nothing written), and capture one knowledge member from exactly those bytes into the new source (source.capture.record): the owner stores a draft capture naming the observation, the span evidence and the personal destination it permits, with the extraction run that made it, and commits nothing. An inventory taken before registering the new source and again just after the capture names the same Instructions domain manifest and ontology bytes, so creating and capturing the new category changed neither. The same capture resubmitted as Instructions is refused at admission (a knowledge capture's role cannot be instructions), and projecting the new source's revision as Instructions (role.project) is refused with role_promotion_refused: a new category of knowledge cannot become behavioural text or add an Instructions domain. A checkout inventory taken just before that refusal and again just after it names the same bytes for the Instructions domain manifest and the global ontology file both times, so the refused request changed neither. With a Team the person founded and its own Team knowledge source registered, the same capture aimed at the Team source without stating a widening and its authority is refused with widening_unstated: new-subject material never lands in, or is adopted as, Team content by default, and the Team source stays at its registration head.",
  "ids": [
   {
    "name": "me",
@@ -986,6 +986,44 @@
    ]
   },
   {
+   "name": "checkout_before_domain",
+   "from": "sources/revision_submitted.json",
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "src_0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c"
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "2026-09-20T09:00:00Z"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "compose/domains.json"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 6120
+    },
+    {
+     "pointer": "/members/1/path",
+     "value": "ontology/instances/graph.json"
+    },
+    {
+     "pointer": "/members/1/digest",
+     "value": "e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1"
+    },
+    {
+     "pointer": "/members/1/size",
+     "value": 184320
+    }
+   ]
+  },
+  {
    "name": "checkout_before_promotion",
    "from": "sources/revision_submitted.json",
    "set": [
@@ -1200,6 +1238,18 @@
  ],
  "world": {
   "events": [
+   {
+    "kind": "inventory",
+    "before": "register_new_domain_source",
+    "root": "checkout",
+    "yields": "checkout_before_domain"
+   },
+   {
+    "kind": "inventory",
+    "before": "refuse_capture_as_instructions",
+    "root": "checkout",
+    "equals": "checkout_before_domain"
+   },
    {
     "kind": "inventory",
     "before": "refuse_projection_as_instructions",

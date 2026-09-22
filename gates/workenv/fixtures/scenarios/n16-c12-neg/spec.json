@@ -139,6 +139,10 @@
    "prefix": "req"
   },
   {
+   "name": "archive_request",
+   "prefix": "req"
+  },
+  {
    "name": "close_request",
    "prefix": "req"
   },
@@ -4994,6 +4998,101 @@
    ]
   },
   {
+   "name": "archival",
+   "from": "c08/archive.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "archive",
+   "from": "c03/history_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.lifecycle.apply"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#stored_new_policy"
+     ]
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@archive_request"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:policy_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#archival"
+    }
+   ]
+  },
+  {
+   "name": "archived_state",
+   "from": "c08/team_closed_for_good.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/state",
+     "value": "archived"
+    },
+    {
+     "pointer": "/since",
+     "value": "$instant:archived_at"
+    }
+   ]
+  },
+  {
    "name": "closing",
    "from": "c08/close_naming_the_surviving_stewardship.json",
    "set": [
@@ -5086,7 +5185,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:policy_head"
+     "value": "$digest:archived_head"
     },
     {
      "pointer": "/payload_digest",
@@ -6209,6 +6308,24 @@
      "new_governed_request"
     ],
     "returns": []
+   }
+  },
+  {
+   "name": "archive_team",
+   "request": "archive",
+   "carries": [
+    "archival"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "archived_state"
+    ],
+    "head": "archived_head"
    }
   },
   {

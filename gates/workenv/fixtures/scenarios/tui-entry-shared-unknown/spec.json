@@ -1,6 +1,6 @@
 {
  "case": "TUI-ENTRY-SHARED-UNKNOWN",
- "says": "One person founds Team A 'Platform' and Team B 'Platform Ops' on the laptop; Team B is then closed for good (team.lifecycle.apply close). While the laptop cannot reach the desktop that carries Team A's peer copy, a Team A profile change (team.profile.set) is answered unknown: staged locally, provider effect unknown, recovery query or retry of the same request. Team A's recent history names that request as unknown, local only. The dashboard (surface.drive from the studio hub) shows partial coverage and a signal for that request; the person browses the closed Team B, which offers no action, while the signal still names the Team A request; back on the dashboard, Enter on the signal opens that same request in Team A's own scope with a check action, and Enter on it dispatches one operation.query for the same request id. While reach is still lost, the same profile change submitted again under a new request id is refused with resubmitted_while_unknown at /request_id and no recovery of its own. Once reach is back, the query returns the first request's actual committed result and receipt. Negative: browsing Team B moves the request nowhere; the resubmission under a new id runs nothing and the only way on is the query of the first request; and restoring closed Team B is refused (team_terminal).",
+ "says": "One person founds Team A 'Platform' and Team B 'Platform Ops' on the laptop; Team B is then archived (team.lifecycle.apply archive) and, from that archived head, closed for good (team.lifecycle.apply close). While the laptop cannot reach the desktop that carries Team A's peer copy, a Team A profile change (team.profile.set) is answered unknown: staged locally, provider effect unknown, recovery query or retry of the same request. Team A's recent history names that request as unknown, local only. The dashboard (surface.drive from the studio hub) shows partial coverage and a signal for that request; the person browses the closed Team B, which offers no action, while the signal still names the Team A request; back on the dashboard, Enter on the signal opens that same request in Team A's own scope with a check action, and Enter on it dispatches one operation.query for the same request id. While reach is still lost, the same profile change submitted again under a new request id is refused with resubmitted_while_unknown at /request_id and no recovery of its own. Once reach is back, the query returns the first request's actual committed result and receipt. Negative: browsing Team B moves the request nowhere; the resubmission under a new id runs nothing and the only way on is the query of the first request; and restoring closed Team B is refused (team_terminal).",
  "ids": [
   {
    "name": "me",
@@ -32,6 +32,10 @@
   },
   {
    "name": "team_b_found",
+   "prefix": "req"
+  },
+  {
+   "name": "archive_b_apply",
    "prefix": "req"
   },
   {
@@ -683,6 +687,93 @@
    ]
   },
   {
+   "name": "archive_b",
+   "from": "c08/archive.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team_b"
+    }
+   ]
+  },
+  {
+   "name": "archive_b_request",
+   "from": "c01/link_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.lifecycle.apply"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#archive_b"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_b_policy_stored"
+     ]
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@archive_b_apply"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_b_head"
+    }
+   ]
+  },
+  {
+   "name": "team_b_archived_state",
+   "from": "c08/archived_team.json",
+   "set": [
+    {
+     "pointer": "/since",
+     "value": "$instant:team_b_archived_at"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team_b"
+    }
+   ]
+  },
+  {
    "name": "close_b",
    "from": "c08/close_naming_the_surviving_stewardship.json",
    "drop": [
@@ -774,7 +865,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:team_b_head"
+     "value": "$digest:team_b_archived"
     }
    ]
   },
@@ -2487,6 +2578,25 @@
      "team_b_founding_epoch"
     ],
     "head": "team_b_head"
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "archive_team_b",
+   "request": "archive_b_request",
+   "carries": [
+    "archive_b"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_b_archived_state"
+    ],
+    "head": "team_b_archived"
    },
    "process": "laptop"
   },

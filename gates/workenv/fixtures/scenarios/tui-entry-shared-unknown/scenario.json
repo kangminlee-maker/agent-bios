@@ -34,6 +34,10 @@
    "name": "team_b_found"
   },
   {
+   "id": "req_92d529bb4acae1f922010425ec7860af",
+   "name": "archive_b_apply"
+  },
+  {
    "id": "req_f50f41f8c6decef1d96b88532aaf8fa7",
    "name": "close_b_apply"
   },
@@ -414,6 +418,66 @@
    "record": "found_team_b_result"
   },
   {
+   "digest_of": "archive_b",
+   "pointer": "/payload_digest",
+   "record": "archive_b_request"
+  },
+  {
+   "digest_of": "team_b_policy_stored",
+   "pointer": "/policy_digests/0",
+   "record": "archive_b_request"
+  },
+  {
+   "minted": "team_b_head",
+   "pointer": "/target/base/head_digest",
+   "record": "archive_b_request"
+  },
+  {
+   "digest_of": "archive_b_request",
+   "pointer": "/request_digest",
+   "record": "archive_team_b_receipt"
+  },
+  {
+   "minted": "team_b_archived",
+   "pointer": "/head_digest",
+   "record": "archive_team_b_receipt"
+  },
+  {
+   "minted": "archive_team_b_sequence",
+   "pointer": "/sequence",
+   "record": "archive_team_b_receipt"
+  },
+  {
+   "minted": "archive_team_b_committed_at",
+   "pointer": "/committed_at",
+   "record": "archive_team_b_receipt"
+  },
+  {
+   "minted": "team_b_head",
+   "pointer": "/target/base/head_digest",
+   "record": "archive_team_b_receipt"
+  },
+  {
+   "minted": "team_b_archived_at",
+   "pointer": "/since",
+   "record": "team_b_archived_state"
+  },
+  {
+   "digest_of": "archive_team_b_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "archive_team_b_result"
+  },
+  {
+   "digest_of": "archive_b_request",
+   "pointer": "/request_digest",
+   "record": "archive_team_b_result"
+  },
+  {
+   "digest_of": "team_b_archived_state",
+   "pointer": "/outputs/0/digest",
+   "record": "archive_team_b_result"
+  },
+  {
    "digest_of": "close_b",
    "pointer": "/payload_digest",
    "record": "close_b_request"
@@ -424,7 +488,7 @@
    "record": "close_b_request"
   },
   {
-   "minted": "team_b_head",
+   "minted": "team_b_archived",
    "pointer": "/target/base/head_digest",
    "record": "close_b_request"
   },
@@ -449,7 +513,7 @@
    "record": "close_team_b_receipt"
   },
   {
-   "minted": "team_b_head",
+   "minted": "team_b_archived",
    "pointer": "/target/base/head_digest",
    "record": "close_team_b_receipt"
   },
@@ -769,6 +833,26 @@
    "name": "team_b_proposal_id",
    "shape": "fnd",
    "step": "found_team_b"
+  },
+  {
+   "name": "archive_team_b_committed_at",
+   "shape": "instant",
+   "step": "archive_team_b"
+  },
+  {
+   "name": "archive_team_b_sequence",
+   "shape": "integer",
+   "step": "archive_team_b"
+  },
+  {
+   "name": "team_b_archived",
+   "shape": "digest",
+   "step": "archive_team_b"
+  },
+  {
+   "name": "team_b_archived_at",
+   "shape": "instant",
+   "step": "archive_team_b"
   },
   {
    "name": "close_team_b_committed_at",
@@ -1572,6 +1656,112 @@
    }
   },
   {
+   "digest": "705a92e7b3b19457622f3e66739ce98694443d8e8348bafd82ccbef22f5fe4a4",
+   "name": "archive_b",
+   "record": {
+    "action": {
+     "does": "archive"
+    },
+    "kind": "lifecycle_action",
+    "schema": 1,
+    "team_id": "tem_c38749a5700a676f269ccfafe64bc757"
+   }
+  },
+  {
+   "digest": "d4c43cfc2f7bbbe6e185d49ce9d6fe7bf4f3014a8b77a377230ae72e7d4400df",
+   "name": "archive_b_request",
+   "record": {
+    "action": "policy",
+    "actor": {
+     "device_id": "dev_8b722803e6989e99553985f8456003f4",
+     "principal_id": "prn_ebe407db7d2820b99c4e8bd92bce829b",
+     "profile_id": "prf_d013fcfff0a1d76dcd1924cacc7f8c3f"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "team.lifecycle.apply",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_c38749a5700a676f269ccfafe64bc757"
+    },
+    "payload_digest": "705a92e7b3b19457622f3e66739ce98694443d8e8348bafd82ccbef22f5fe4a4",
+    "policy_digests": [
+     "161facacc7c617534afc7088d8c337fc88d447a92f4a74981eb6ebe41408bb24"
+    ],
+    "proof_digests": [],
+    "request_id": "req_92d529bb4acae1f922010425ec7860af",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "0cb804cb5f3fd565cd7a764225e880788bfa1e640bca90bf35f5cf3ac3587f0c"
+     },
+     "resource_id": "tem_c38749a5700a676f269ccfafe64bc757"
+    }
+   }
+  },
+  {
+   "digest": "a8b73e37369a6bcdddd90ecc4df800dad6b4b45fcd5b66532e16d103facf81b0",
+   "name": "archive_team_b_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "70f9cc98c0f292d8c72a71dd4898b0031e0032913d3032733d7a9d954778cbdb",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_c38749a5700a676f269ccfafe64bc757"
+    },
+    "request_digest": "d4c43cfc2f7bbbe6e185d49ce9d6fe7bf4f3014a8b77a377230ae72e7d4400df",
+    "request_id": "req_92d529bb4acae1f922010425ec7860af",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "0cb804cb5f3fd565cd7a764225e880788bfa1e640bca90bf35f5cf3ac3587f0c"
+     },
+     "resource_id": "tem_c38749a5700a676f269ccfafe64bc757"
+    }
+   }
+  },
+  {
+   "digest": "8b4b414857018f4fda2f9293094d292358a6301969d386650106fc4174f7a051",
+   "name": "team_b_archived_state",
+   "record": {
+    "kind": "team_state",
+    "schema": 1,
+    "since": "2000-01-01T00:00:00Z",
+    "state": "archived",
+    "team_id": "tem_c38749a5700a676f269ccfafe64bc757"
+   }
+  },
+  {
+   "digest": "ab37a429d641746babed49935a711a07dc54c446d25487b844fc2d1b8d503c40",
+   "name": "archive_team_b_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "a8b73e37369a6bcdddd90ecc4df800dad6b4b45fcd5b66532e16d103facf81b0",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "8b4b414857018f4fda2f9293094d292358a6301969d386650106fc4174f7a051",
+      "kind": "team_state"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "d4c43cfc2f7bbbe6e185d49ce9d6fe7bf4f3014a8b77a377230ae72e7d4400df",
+    "request_id": "req_92d529bb4acae1f922010425ec7860af",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
    "digest": "331a674c2a41387941fc9d172f9a3283f06465914576f76f61b8d479dee033fa",
    "name": "close_b",
    "record": {
@@ -1604,7 +1794,7 @@
    }
   },
   {
-   "digest": "dcdc7d6ca1c44b58b504c1e94188985dc64e452b9bd10258073cb60e9a888300",
+   "digest": "a4a13e52b31c412ac08d287613cc0f3150d399fd1630eeef08addab7c5dabc2d",
    "name": "close_b_request",
    "record": {
     "action": "policy",
@@ -1632,14 +1822,14 @@
     "target": {
      "base": {
       "expects": "head",
-      "head_digest": "0cb804cb5f3fd565cd7a764225e880788bfa1e640bca90bf35f5cf3ac3587f0c"
+      "head_digest": "70f9cc98c0f292d8c72a71dd4898b0031e0032913d3032733d7a9d954778cbdb"
      },
      "resource_id": "tem_c38749a5700a676f269ccfafe64bc757"
     }
    }
   },
   {
-   "digest": "b7ff976e41a29229c3adee8651ab11ef2ae9f5973cf8969f60fcb013a14fc8bd",
+   "digest": "191b5ed35162e53c2b9e1118b07fae179b1e6a28ee1570f8be2cef500c274741",
    "name": "close_team_b_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -1649,14 +1839,14 @@
      "layer": "team",
      "team_id": "tem_c38749a5700a676f269ccfafe64bc757"
     },
-    "request_digest": "dcdc7d6ca1c44b58b504c1e94188985dc64e452b9bd10258073cb60e9a888300",
+    "request_digest": "a4a13e52b31c412ac08d287613cc0f3150d399fd1630eeef08addab7c5dabc2d",
     "request_id": "req_f50f41f8c6decef1d96b88532aaf8fa7",
     "schema": 1,
     "sequence": 1,
     "target": {
      "base": {
       "expects": "head",
-      "head_digest": "0cb804cb5f3fd565cd7a764225e880788bfa1e640bca90bf35f5cf3ac3587f0c"
+      "head_digest": "70f9cc98c0f292d8c72a71dd4898b0031e0032913d3032733d7a9d954778cbdb"
      },
      "resource_id": "tem_c38749a5700a676f269ccfafe64bc757"
     }
@@ -1674,14 +1864,14 @@
    }
   },
   {
-   "digest": "0e2a4de52b9426e69ae8f2550368075ce8ac4261cc8167c5d58667255b1c62fd",
+   "digest": "9553364ad990075133a8026ea788c6957c3b01f11aaa8100ca101e3674a35568",
    "name": "close_team_b_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "b7ff976e41a29229c3adee8651ab11ef2ae9f5973cf8969f60fcb013a14fc8bd",
+     "receipt_digest": "191b5ed35162e53c2b9e1118b07fae179b1e6a28ee1570f8be2cef500c274741",
      "stage": "committed"
     },
     "outputs": [
@@ -1691,7 +1881,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "dcdc7d6ca1c44b58b504c1e94188985dc64e452b9bd10258073cb60e9a888300",
+    "request_digest": "a4a13e52b31c412ac08d287613cc0f3150d399fd1630eeef08addab7c5dabc2d",
     "request_id": "req_f50f41f8c6decef1d96b88532aaf8fa7",
     "schema": 1,
     "supported_recovery": []
@@ -2803,8 +2993,8 @@
    }
   }
  ],
- "says": "One person founds Team A 'Platform' and Team B 'Platform Ops' on the laptop; Team B is then closed for good (team.lifecycle.apply close). While the laptop cannot reach the desktop that carries Team A's peer copy, a Team A profile change (team.profile.set) is answered unknown: staged locally, provider effect unknown, recovery query or retry of the same request. Team A's recent history names that request as unknown, local only. The dashboard (surface.drive from the studio hub) shows partial coverage and a signal for that request; the person browses the closed Team B, which offers no action, while the signal still names the Team A request; back on the dashboard, Enter on the signal opens that same request in Team A's own scope with a check action, and Enter on it dispatches one operation.query for the same request id. While reach is still lost, the same profile change submitted again under a new request id is refused with resubmitted_while_unknown at /request_id and no recovery of its own. Once reach is back, the query returns the first request's actual committed result and receipt. Negative: browsing Team B moves the request nowhere; the resubmission under a new id runs nothing and the only way on is the query of the first request; and restoring closed Team B is refused (team_terminal).",
- "spec_sha256": "8d6c0d318e5958b775c9f421c08a38fc37f584449e531a3e423ad9cb8e34a43a",
+ "says": "One person founds Team A 'Platform' and Team B 'Platform Ops' on the laptop; Team B is then archived (team.lifecycle.apply archive) and, from that archived head, closed for good (team.lifecycle.apply close). While the laptop cannot reach the desktop that carries Team A's peer copy, a Team A profile change (team.profile.set) is answered unknown: staged locally, provider effect unknown, recovery query or retry of the same request. Team A's recent history names that request as unknown, local only. The dashboard (surface.drive from the studio hub) shows partial coverage and a signal for that request; the person browses the closed Team B, which offers no action, while the signal still names the Team A request; back on the dashboard, Enter on the signal opens that same request in Team A's own scope with a check action, and Enter on it dispatches one operation.query for the same request id. While reach is still lost, the same profile change submitted again under a new request id is refused with resubmitted_while_unknown at /request_id and no recovery of its own. Once reach is back, the query returns the first request's actual committed result and receipt. Negative: browsing Team B moves the request nowhere; the resubmission under a new id runs nothing and the only way on is the query of the first request; and restoring closed Team B is refused (team_terminal).",
+ "spec_sha256": "4e67778e2ea3c8a4ae18a9e8f6b6d0a92ae9535dbc74027139f9ea5d4a2677fc",
  "steps": [
   {
    "carries": [
@@ -2862,6 +3052,19 @@
    ],
    "submits": [
     "team_b_policy"
+   ]
+  },
+  {
+   "carries": [
+    "archive_b"
+   ],
+   "head": "team_b_archived",
+   "name": "archive_team_b",
+   "process": "laptop",
+   "request": "archive_b_request",
+   "result": "archive_team_b_result",
+   "returns": [
+    "team_b_archived_state"
    ]
   },
   {

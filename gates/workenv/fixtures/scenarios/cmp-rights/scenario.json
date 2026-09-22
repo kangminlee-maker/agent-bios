@@ -468,6 +468,11 @@
    "record": "commit_team_rules_r1"
   },
   {
+   "digest_of": "security_body",
+   "pointer": "/members/0/digest",
+   "record": "team_rules_r1"
+  },
+  {
    "digest_of": "team_rules_r1",
    "pointer": "/payload_digest",
    "record": "commit_team_rules_r1"
@@ -496,6 +501,11 @@
    "minted": "team_rules_h0",
    "pointer": "/target/base/head_digest",
    "record": "commit_team_rules_r1_receipt"
+  },
+  {
+   "digest_of": "security_body",
+   "pointer": "/members/0/digest",
+   "record": "team_rules_r1_stored"
   },
   {
    "minted": "team_rules_r1_at",
@@ -633,6 +643,11 @@
    "record": "commit_repo_rules_r1"
   },
   {
+   "digest_of": "security_body",
+   "pointer": "/members/0/digest",
+   "record": "repo_rules_r1"
+  },
+  {
    "digest_of": "repo_rules_r1",
    "pointer": "/payload_digest",
    "record": "commit_repo_rules_r1"
@@ -661,6 +676,11 @@
    "minted": "repo_rules_h0",
    "pointer": "/target/base/head_digest",
    "record": "commit_repo_rules_r1_receipt"
+  },
+  {
+   "digest_of": "security_body",
+   "pointer": "/members/0/digest",
+   "record": "repo_rules_r1_stored"
   },
   {
    "minted": "repo_rules_r1_at",
@@ -1048,6 +1068,11 @@
    "record": "alice_projects_projection"
   },
   {
+   "digest_of": "security_body",
+   "pointer": "/units/0/body_digest",
+   "record": "alice_projects_projection"
+  },
+  {
    "minted": "team_security",
    "pointer": "/units/1/unit_id",
    "record": "alice_projects_projection"
@@ -1071,6 +1096,19 @@
    "digest_of": "alice_projects_projection",
    "pointer": "/outputs/0/digest",
    "record": "alice_projects_result"
+  },
+  {
+   "digest_of": "security_body",
+   "pointer": "/outputs/1/digest",
+   "record": "alice_projects_result"
+  }
+ ],
+ "members": [
+  {
+   "digest": "a2987d69c5462b6b59c9acdbc2b9312f1dc4632f17699db967c2d582e04802b7",
+   "name": "security_body",
+   "size": 238,
+   "text": "# Repository rules: security baseline\n\nThis repository's security.baseline requires:\n\n- Secrets never committed in plain text.\n- Every dependency pinned to an exact version.\n- Access to production credentials logged and reviewed monthly.\n"
   }
  ],
  "minted": [
@@ -2168,16 +2206,16 @@
    }
   },
   {
-   "digest": "7bd476f7fff9bcadb875cb3686a85cd8fe975307f65590c5ccc0cdc45b45001f",
+   "digest": "d679b1530e1e79277668159195a300c1cc3c4358e818975bdeae9098f054d9cc",
    "name": "team_rules_r1",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "3976577edb9d88eb85508730988f8c0ef5ca2e3a7f6f70963be450ce930620bc",
+      "digest": "a2987d69c5462b6b59c9acdbc2b9312f1dc4632f17699db967c2d582e04802b7",
       "path": "rules/security.md",
-      "size": 400
+      "size": 238
      }
     ],
     "schema": 1,
@@ -2185,7 +2223,7 @@
    }
   },
   {
-   "digest": "9311520794d65904a0a6e612e8e810ad9f891a323de3ad5a3a945f3ca5321ec7",
+   "digest": "acc009a5a6722423df10947bfb1dc153b46df3a70139eccda82c49dab8b4057c",
    "name": "commit_team_rules_r1",
    "record": {
     "action": "publish",
@@ -2203,7 +2241,7 @@
      "layer": "team",
      "team_id": "tem_c068a47893ee047cd70cdcba856fa308"
     },
-    "payload_digest": "7bd476f7fff9bcadb875cb3686a85cd8fe975307f65590c5ccc0cdc45b45001f",
+    "payload_digest": "d679b1530e1e79277668159195a300c1cc3c4358e818975bdeae9098f054d9cc",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_84a58cdc348937971c83abf1cdeb5a81",
@@ -2218,7 +2256,7 @@
    }
   },
   {
-   "digest": "1a5e97ac6af3b2c946115a09721a5d0e9b8448b9fbbeb85474e1b297eec3fcbe",
+   "digest": "2205f7a4eea438b12e1254c22d2adecb1834f2778c66362b2fa6a2ceb018297f",
    "name": "commit_team_rules_r1_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -2228,7 +2266,7 @@
      "layer": "team",
      "team_id": "tem_c068a47893ee047cd70cdcba856fa308"
     },
-    "request_digest": "9311520794d65904a0a6e612e8e810ad9f891a323de3ad5a3a945f3ca5321ec7",
+    "request_digest": "acc009a5a6722423df10947bfb1dc153b46df3a70139eccda82c49dab8b4057c",
     "request_id": "req_84a58cdc348937971c83abf1cdeb5a81",
     "schema": 1,
     "sequence": 1,
@@ -2242,16 +2280,16 @@
    }
   },
   {
-   "digest": "480253060814ed9b4796eaee613c9211dd401aef3c6bc0a5d451d556e43080c8",
+   "digest": "9d5d325655845f41f4f4270838bce334d119eae8ca4e004e00ffcd20ae975c79",
    "name": "team_rules_r1_stored",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "3976577edb9d88eb85508730988f8c0ef5ca2e3a7f6f70963be450ce930620bc",
+      "digest": "a2987d69c5462b6b59c9acdbc2b9312f1dc4632f17699db967c2d582e04802b7",
       "path": "rules/security.md",
-      "size": 400
+      "size": 238
      }
     ],
     "produced_at": "2000-01-01T00:00:00Z",
@@ -2260,24 +2298,24 @@
    }
   },
   {
-   "digest": "d825c4052a86dc39041db76d1aa79816b60477087869fe07a881c954e77b3d19",
+   "digest": "17799664142102bea8df8c6d6bf815549d35ef5af7148e5f5877978c8ca6851d",
    "name": "commit_team_rules_r1_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "1a5e97ac6af3b2c946115a09721a5d0e9b8448b9fbbeb85474e1b297eec3fcbe",
+     "receipt_digest": "2205f7a4eea438b12e1254c22d2adecb1834f2778c66362b2fa6a2ceb018297f",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "480253060814ed9b4796eaee613c9211dd401aef3c6bc0a5d451d556e43080c8",
+      "digest": "9d5d325655845f41f4f4270838bce334d119eae8ca4e004e00ffcd20ae975c79",
       "kind": "source_manifest"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "9311520794d65904a0a6e612e8e810ad9f891a323de3ad5a3a945f3ca5321ec7",
+    "request_digest": "acc009a5a6722423df10947bfb1dc153b46df3a70139eccda82c49dab8b4057c",
     "request_id": "req_84a58cdc348937971c83abf1cdeb5a81",
     "schema": 1,
     "supported_recovery": []
@@ -2541,16 +2579,16 @@
    }
   },
   {
-   "digest": "5d90c7620238bdb54decec3ad6d42d9a3ec00bfab4c6bb0dabe6312dcb96102c",
+   "digest": "5aaf484a67db4179c94eda5726c029491e564689cbd9b4a2b70ed025506984da",
    "name": "repo_rules_r1",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "3976577edb9d88eb85508730988f8c0ef5ca2e3a7f6f70963be450ce930620bc",
+      "digest": "a2987d69c5462b6b59c9acdbc2b9312f1dc4632f17699db967c2d582e04802b7",
       "path": "rules/security.md",
-      "size": 400
+      "size": 238
      }
     ],
     "schema": 1,
@@ -2558,7 +2596,7 @@
    }
   },
   {
-   "digest": "8f3cec485185a65b78b0dd3e43bd0af86f227828bd7ad331ff18e5ed2002bcff",
+   "digest": "edcb6dfbb2ae86174fa6bcf12f175509d32d55a0e45a976e59d34f59bcbfa991",
    "name": "commit_repo_rules_r1",
    "record": {
     "action": "publish",
@@ -2576,7 +2614,7 @@
      "layer": "repository",
      "repository_id": "rep_3f4fd9fac7994086c3844d213e23441f"
     },
-    "payload_digest": "5d90c7620238bdb54decec3ad6d42d9a3ec00bfab4c6bb0dabe6312dcb96102c",
+    "payload_digest": "5aaf484a67db4179c94eda5726c029491e564689cbd9b4a2b70ed025506984da",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_e9c1dd741dbc60af044df5acd6311a7f",
@@ -2591,7 +2629,7 @@
    }
   },
   {
-   "digest": "ddfef3d7240267e394f4feb0537c72304361964b531f88600ecac6fbffd1e978",
+   "digest": "e8c75df82677ce95448c5d44350a73f806ce62603f90dfb7796aaed287d5af52",
    "name": "commit_repo_rules_r1_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -2601,7 +2639,7 @@
      "layer": "repository",
      "repository_id": "rep_3f4fd9fac7994086c3844d213e23441f"
     },
-    "request_digest": "8f3cec485185a65b78b0dd3e43bd0af86f227828bd7ad331ff18e5ed2002bcff",
+    "request_digest": "edcb6dfbb2ae86174fa6bcf12f175509d32d55a0e45a976e59d34f59bcbfa991",
     "request_id": "req_e9c1dd741dbc60af044df5acd6311a7f",
     "schema": 1,
     "sequence": 1,
@@ -2615,16 +2653,16 @@
    }
   },
   {
-   "digest": "c1dfc98eebc7c31aa2060cb634a85264f27c1f94c666743bd79bd932a0b055df",
+   "digest": "fcd917517f73447e5dd3f3ca5b1db1c777ce243738103d0268c59934fdb3d9f5",
    "name": "repo_rules_r1_stored",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "3976577edb9d88eb85508730988f8c0ef5ca2e3a7f6f70963be450ce930620bc",
+      "digest": "a2987d69c5462b6b59c9acdbc2b9312f1dc4632f17699db967c2d582e04802b7",
       "path": "rules/security.md",
-      "size": 400
+      "size": 238
      }
     ],
     "produced_at": "2000-01-01T00:00:00Z",
@@ -2633,24 +2671,24 @@
    }
   },
   {
-   "digest": "b1823a931ed362f367421b843b9465c1a0e3f501f1ac33e4ec7961af7d4c0f26",
+   "digest": "76203180ca0839c38fcbec81995c5077ce0a5178b0cfd7a69d423bc508be557e",
    "name": "commit_repo_rules_r1_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "ddfef3d7240267e394f4feb0537c72304361964b531f88600ecac6fbffd1e978",
+     "receipt_digest": "e8c75df82677ce95448c5d44350a73f806ce62603f90dfb7796aaed287d5af52",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "c1dfc98eebc7c31aa2060cb634a85264f27c1f94c666743bd79bd932a0b055df",
+      "digest": "fcd917517f73447e5dd3f3ca5b1db1c777ce243738103d0268c59934fdb3d9f5",
       "kind": "source_manifest"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "8f3cec485185a65b78b0dd3e43bd0af86f227828bd7ad331ff18e5ed2002bcff",
+    "request_digest": "edcb6dfbb2ae86174fa6bcf12f175509d32d55a0e45a976e59d34f59bcbfa991",
     "request_id": "req_e9c1dd741dbc60af044df5acd6311a7f",
     "schema": 1,
     "supported_recovery": []
@@ -2778,11 +2816,11 @@
    }
   },
   {
-   "digest": "402f419b025250872caf2b83c84914671ca3e28407402aaabd73396a87bcac0f",
+   "digest": "3a0003f5bd4a0dd09e2ac53da4cc6049f382fcd92c714fd08f6835d5c34181f2",
    "name": "repo_rules_ref",
    "record": {
     "kind": "source_ref",
-    "revision_digest": "c1dfc98eebc7c31aa2060cb634a85264f27c1f94c666743bd79bd932a0b055df",
+    "revision_digest": "fcd917517f73447e5dd3f3ca5b1db1c777ce243738103d0268c59934fdb3d9f5",
     "role": "instructions",
     "schema": 1,
     "scope": {
@@ -2793,7 +2831,7 @@
    }
   },
   {
-   "digest": "4c1fe7cd85a1843a6a9491279b6c7633f6fc040eacdb450375bbbab47d07c6d5",
+   "digest": "36989f4c231634217755a859ad324c22cb08bc9c14a6e3ed7c344dd6a2eda6ff",
    "name": "resolve_repo_rules_home",
    "record": {
     "action": "read",
@@ -2811,7 +2849,7 @@
      "layer": "repository",
      "repository_id": "rep_3f4fd9fac7994086c3844d213e23441f"
     },
-    "payload_digest": "402f419b025250872caf2b83c84914671ca3e28407402aaabd73396a87bcac0f",
+    "payload_digest": "3a0003f5bd4a0dd09e2ac53da4cc6049f382fcd92c714fd08f6835d5c34181f2",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_9bbe03ffd6b0cfc09e788df021c10a9b",
@@ -2826,7 +2864,7 @@
    }
   },
   {
-   "digest": "89537e5917c7ca24001d71a2929328be0e283909700e15706298866f7e587347",
+   "digest": "c90dc2978f499b81d833ccea0bd50f5ca114f3c9fc2bfd11848de4797a7b23d9",
    "name": "resolve_repo_rules_home_result",
    "record": {
     "kind": "operation_result",
@@ -2842,7 +2880,7 @@
      }
     ],
     "provider_effect": "none",
-    "request_digest": "4c1fe7cd85a1843a6a9491279b6c7633f6fc040eacdb450375bbbab47d07c6d5",
+    "request_digest": "36989f4c231634217755a859ad324c22cb08bc9c14a6e3ed7c344dd6a2eda6ff",
     "request_id": "req_9bbe03ffd6b0cfc09e788df021c10a9b",
     "schema": 1,
     "supported_recovery": []
@@ -3301,7 +3339,7 @@
    }
   },
   {
-   "digest": "a7266b66f914cd9ce913e853471baf9e1f2457344a7d427be5bda52ffae1a080",
+   "digest": "fcf126ea07c46ca3a19bf84c4d265502a962ef6150b5798b05913876be99e128",
    "name": "bob_projects_team_plan",
    "record": {
     "entrance": {
@@ -3324,14 +3362,14 @@
     "schema": 1,
     "source_pins": [
      {
-      "revision_digest": "480253060814ed9b4796eaee613c9211dd401aef3c6bc0a5d451d556e43080c8",
+      "revision_digest": "9d5d325655845f41f4f4270838bce334d119eae8ca4e004e00ffcd20ae975c79",
       "source_id": "src_d194e1b89622e2557777dcbdf070f8a2"
      }
     ]
    }
   },
   {
-   "digest": "87a60f4f0b645e5d8340e28fa0648cbfc8bf6aeb02ce68b8179160bcc35d7955",
+   "digest": "ed3adafeefb4ad1d65cb5577e481478ccfdf45e7c442d7cb2e6d58b778e7e795",
    "name": "bob_projects_team",
    "record": {
     "action": "use",
@@ -3349,7 +3387,7 @@
      "layer": "repository",
      "repository_id": "rep_3f4fd9fac7994086c3844d213e23441f"
     },
-    "payload_digest": "a7266b66f914cd9ce913e853471baf9e1f2457344a7d427be5bda52ffae1a080",
+    "payload_digest": "fcf126ea07c46ca3a19bf84c4d265502a962ef6150b5798b05913876be99e128",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_7264aa2313ce91adbfc028b0f8eff33a",
@@ -3360,7 +3398,7 @@
    }
   },
   {
-   "digest": "85afed8e8205913a2fde4df7330857746df3ecde47af92e9bf9dfe44dacca38d",
+   "digest": "c6847ff026b314ec03eb19a397a153eee18589b0cd8a001f44002921f7446625",
    "name": "admit_bob",
    "record": {
     "action": "local_profile",
@@ -3378,7 +3416,7 @@
      "layer": "personal",
      "principal_id": "prn_cf3234ea4349c20cf5d22d9c4aba9fc3"
     },
-    "payload_digest": "87a60f4f0b645e5d8340e28fa0648cbfc8bf6aeb02ce68b8179160bcc35d7955",
+    "payload_digest": "ed3adafeefb4ad1d65cb5577e481478ccfdf45e7c442d7cb2e6d58b778e7e795",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_66873c55011155080ab25f17817648e3",
@@ -3403,7 +3441,7 @@
    }
   },
   {
-   "digest": "d3ef6bcc0e30c29ca0c00880730b557e3adef1cf3a637644a02e389a550ed7a2",
+   "digest": "eda93d887e96368ed18d69ab1bcf6211ff127b6afa885ced8cc9b4eee27051b1",
    "name": "admit_bob_result",
    "record": {
     "kind": "operation_result",
@@ -3419,14 +3457,14 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "85afed8e8205913a2fde4df7330857746df3ecde47af92e9bf9dfe44dacca38d",
+    "request_digest": "c6847ff026b314ec03eb19a397a153eee18589b0cd8a001f44002921f7446625",
     "request_id": "req_66873c55011155080ab25f17817648e3",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "676fc02721bb4c82116c944aec942180925f2ca7a3333a5be23984e526d06f7d",
+   "digest": "1fefed2f74e978d50d349b23daf5f3f9068a631b8cc8d0c6216bd785668cf888",
    "name": "bob_projects_team_result",
    "record": {
     "kind": "operation_result",
@@ -3441,7 +3479,7 @@
     },
     "outputs": [],
     "provider_effect": "not_applicable",
-    "request_digest": "87a60f4f0b645e5d8340e28fa0648cbfc8bf6aeb02ce68b8179160bcc35d7955",
+    "request_digest": "ed3adafeefb4ad1d65cb5577e481478ccfdf45e7c442d7cb2e6d58b778e7e795",
     "request_id": "req_7264aa2313ce91adbfc028b0f8eff33a",
     "schema": 1,
     "supported_recovery": [
@@ -3450,7 +3488,7 @@
    }
   },
   {
-   "digest": "ae6e94d9c63a3a75a44cf6a2e2e9d0f42aa8fa0ef4463d3f9071e981f3c8c6bf",
+   "digest": "639ea64386ffbbbd0ac82553584b9178ec4a5af8737698dc06d3d0940a458f72",
    "name": "bob_projects_repo_plan",
    "record": {
     "entrance": {
@@ -3469,14 +3507,14 @@
     "schema": 1,
     "source_pins": [
      {
-      "revision_digest": "c1dfc98eebc7c31aa2060cb634a85264f27c1f94c666743bd79bd932a0b055df",
+      "revision_digest": "fcd917517f73447e5dd3f3ca5b1db1c777ce243738103d0268c59934fdb3d9f5",
       "source_id": "src_1ecf06360ebc89042e2b3a4b133f4d46"
      }
     ]
    }
   },
   {
-   "digest": "0eaed8d0a0bdde691ef2b333920bee438eb209537bb056b98128fd3096eb37ab",
+   "digest": "abf36cb6dc781e8c0b9f8a1d8b7b50809b297de28076ead8206e369dfca5f818",
    "name": "bob_projects_repo",
    "record": {
     "action": "use",
@@ -3494,7 +3532,7 @@
      "layer": "repository",
      "repository_id": "rep_3f4fd9fac7994086c3844d213e23441f"
     },
-    "payload_digest": "ae6e94d9c63a3a75a44cf6a2e2e9d0f42aa8fa0ef4463d3f9071e981f3c8c6bf",
+    "payload_digest": "639ea64386ffbbbd0ac82553584b9178ec4a5af8737698dc06d3d0940a458f72",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_8455226e5fa581294e4c07ad4ec98e61",
@@ -3505,7 +3543,7 @@
    }
   },
   {
-   "digest": "a06f89fe9fe0032ef0128506c8d0d272bef3a57263f4c35346f7195823f8254f",
+   "digest": "ef92d7ec7a4b5ff98d0bddfadc4ae23cd01c20907e33d6802ccce92d4dc66e45",
    "name": "bob_projects_repository_result",
    "record": {
     "kind": "operation_result",
@@ -3520,7 +3558,7 @@
     },
     "outputs": [],
     "provider_effect": "not_applicable",
-    "request_digest": "0eaed8d0a0bdde691ef2b333920bee438eb209537bb056b98128fd3096eb37ab",
+    "request_digest": "abf36cb6dc781e8c0b9f8a1d8b7b50809b297de28076ead8206e369dfca5f818",
     "request_id": "req_8455226e5fa581294e4c07ad4ec98e61",
     "schema": 1,
     "supported_recovery": [
@@ -3601,7 +3639,7 @@
    }
   },
   {
-   "digest": "1c42625af207235195fd463f01096b191548eeb1938d242bfc388fd3577a954b",
+   "digest": "95bd9dd2d5f8106cf83ea37acf50a235bfc3a5bf6378b8e13dfc8c59df3b4ec3",
    "name": "alice_projects_plan",
    "record": {
     "entrance": {
@@ -3624,18 +3662,18 @@
     "schema": 1,
     "source_pins": [
      {
-      "revision_digest": "c1dfc98eebc7c31aa2060cb634a85264f27c1f94c666743bd79bd932a0b055df",
+      "revision_digest": "fcd917517f73447e5dd3f3ca5b1db1c777ce243738103d0268c59934fdb3d9f5",
       "source_id": "src_1ecf06360ebc89042e2b3a4b133f4d46"
      },
      {
-      "revision_digest": "480253060814ed9b4796eaee613c9211dd401aef3c6bc0a5d451d556e43080c8",
+      "revision_digest": "9d5d325655845f41f4f4270838bce334d119eae8ca4e004e00ffcd20ae975c79",
       "source_id": "src_d194e1b89622e2557777dcbdf070f8a2"
      }
     ]
    }
   },
   {
-   "digest": "d8ab79121dc13537bcb7719dddf577e57c0c2a374e0b95c96736179bd2a42af6",
+   "digest": "9a9f55581340cd2241e14ea366ee396bceb2aed8c1265576e73d71e2ba80e4d5",
    "name": "alice_projects",
    "record": {
     "action": "use",
@@ -3653,7 +3691,7 @@
      "layer": "repository",
      "repository_id": "rep_3f4fd9fac7994086c3844d213e23441f"
     },
-    "payload_digest": "1c42625af207235195fd463f01096b191548eeb1938d242bfc388fd3577a954b",
+    "payload_digest": "95bd9dd2d5f8106cf83ea37acf50a235bfc3a5bf6378b8e13dfc8c59df3b4ec3",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_3324e7a41758448d28f7b8a814e54958",
@@ -3664,12 +3702,12 @@
    }
   },
   {
-   "digest": "1b67a414c697073e6f84c08e4494b51d9163bd6397bda7582406a16aa76052c7",
+   "digest": "75de9da67f82ddc7c0ed88bab3f088d40108aaf35b7c0b5e729a78f1039361b7",
    "name": "alice_projects_projection",
    "record": {
     "kind": "role_projection",
     "material_gaps": [],
-    "plan_digest": "1c42625af207235195fd463f01096b191548eeb1938d242bfc388fd3577a954b",
+    "plan_digest": "95bd9dd2d5f8106cf83ea37acf50a235bfc3a5bf6378b8e13dfc8c59df3b4ec3",
     "prepared_at": "2000-01-01T00:00:00Z",
     "projection_id": "prj_7df944dc6c4dbc69afdf217d86431c37",
     "recipient_view": "executor",
@@ -3677,10 +3715,10 @@
     "schema": 1,
     "units": [
      {
-      "body_digest": "3976577edb9d88eb85508730988f8c0ef5ca2e3a7f6f70963be450ce930620bc",
+      "body_digest": "a2987d69c5462b6b59c9acdbc2b9312f1dc4632f17699db967c2d582e04802b7",
       "concern": "security.baseline",
       "layer": "repository",
-      "revision_digest": "c1dfc98eebc7c31aa2060cb634a85264f27c1f94c666743bd79bd932a0b055df",
+      "revision_digest": "fcd917517f73447e5dd3f3ca5b1db1c777ce243738103d0268c59934fdb3d9f5",
       "source_id": "src_1ecf06360ebc89042e2b3a4b133f4d46",
       "source_role": "instructions",
       "standing": "winning",
@@ -3689,7 +3727,7 @@
      {
       "concern": "security.baseline",
       "layer": "team",
-      "revision_digest": "480253060814ed9b4796eaee613c9211dd401aef3c6bc0a5d451d556e43080c8",
+      "revision_digest": "9d5d325655845f41f4f4270838bce334d119eae8ca4e004e00ffcd20ae975c79",
       "shadowed_by": "unt_c62e2dd161da32d81f247a8d0fc36c0b",
       "source_id": "src_d194e1b89622e2557777dcbdf070f8a2",
       "source_role": "instructions",
@@ -3700,7 +3738,7 @@
    }
   },
   {
-   "digest": "539c969a224ff17885a966b513c871f09404750e9aeb73f3f61025455f4b0c27",
+   "digest": "3dc1ca8373ac6ac49d805421a46197d8432ab77839a686438368a065cd11e80e",
    "name": "alice_projects_result",
    "record": {
     "kind": "operation_result",
@@ -3711,12 +3749,16 @@
     },
     "outputs": [
      {
-      "digest": "1b67a414c697073e6f84c08e4494b51d9163bd6397bda7582406a16aa76052c7",
+      "digest": "75de9da67f82ddc7c0ed88bab3f088d40108aaf35b7c0b5e729a78f1039361b7",
       "kind": "role_projection"
+     },
+     {
+      "digest": "a2987d69c5462b6b59c9acdbc2b9312f1dc4632f17699db967c2d582e04802b7",
+      "kind": "source_member"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "d8ab79121dc13537bcb7719dddf577e57c0c2a374e0b95c96736179bd2a42af6",
+    "request_digest": "9a9f55581340cd2241e14ea366ee396bceb2aed8c1265576e73d71e2ba80e4d5",
     "request_id": "req_3324e7a41758448d28f7b8a814e54958",
     "schema": 1,
     "supported_recovery": []
@@ -3724,7 +3766,7 @@
   }
  ],
  "says": "The Team platform keeps a security rule source and, as that source's owner, sets its rights to read, use and derive, and not export. The repository reuses the Team's security.md bytes unchanged in a repository source of its own, and records rights for it that carry the Team source's rights and allow read and use: the reused bytes keep their owner's ceiling while the repository layer outranks the Team for the concern. A second rights change that would let the repository copy export those bytes is refused with source_right_not_overridable, and the first rights stay in force. bob, who works in the same repository with no grant from the Team, keeps an independent personal source and sets its rights to everything, export included; that commits with no Team policy named, because the Team's content policy does not reach content it does not own. bob's access is admitted for a projection of the Team's source (his profile is unlocked), and the projection itself is refused with source_not_authorized: admission and layer priority grant no right to a Team body. bob's attempt to widen the Team source's rights is refused with grant_not_held, since only the Team's owner changes Team-owned state. alice's projection over the repository and Team sources then names the repository security unit winning, with the Team's bytes by digest, and the Team unit shadowed by it. What must not happen: local content blocked by Team policy, a local override used to export or read protected Team bodies, or Team state changed by someone the Team did not authorize.",
- "spec_sha256": "2148872ff58475ceca0bd920a7ce31e70754b8d8aa7f6d17b6007173476f6447",
+ "spec_sha256": "5759d6fb2ad697053521660015c9c30d824478ed2e8c63178d4e8ced77ed5833",
  "steps": [
   {
    "carries": [
@@ -3954,7 +3996,8 @@
    "request": "alice_projects",
    "result": "alice_projects_result",
    "returns": [
-    "alice_projects_projection"
+    "alice_projects_projection",
+    "security_body"
    ]
   }
  ]

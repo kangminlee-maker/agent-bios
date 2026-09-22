@@ -38,6 +38,10 @@
    "name": "bind_clone_request"
   },
   {
+   "id": "req_2688e3d48e863c2d6971190b5548603d",
+   "name": "rebind_clone_request"
+  },
+  {
    "id": "req_f3ef473ea1408394c3d4a63f50d67b1d",
    "name": "observe_worktree_request"
   },
@@ -698,6 +702,56 @@
    "record": "observe_after_the_branch_switch_result"
   },
   {
+   "digest_of": "switched_observation",
+   "pointer": "/proof_digests/0",
+   "record": "bind_clone_after_switch"
+  },
+  {
+   "digest_of": "clone_checkout_after_switch",
+   "pointer": "/payload_digest",
+   "record": "bind_clone_after_switch"
+  },
+  {
+   "digest_of": "bind_clone_after_switch",
+   "pointer": "/request_digest",
+   "record": "rebind_after_the_switch_receipt"
+  },
+  {
+   "minted": "rebind_after_the_switch_head",
+   "pointer": "/head_digest",
+   "record": "rebind_after_the_switch_receipt"
+  },
+  {
+   "minted": "rebind_after_the_switch_sequence",
+   "pointer": "/sequence",
+   "record": "rebind_after_the_switch_receipt"
+  },
+  {
+   "minted": "rebind_after_the_switch_committed_at",
+   "pointer": "/committed_at",
+   "record": "rebind_after_the_switch_receipt"
+  },
+  {
+   "digest_of": "switched_observation",
+   "pointer": "/observed/working_bytes_digest",
+   "record": "stored_clone_checkout_after_switch"
+  },
+  {
+   "digest_of": "rebind_after_the_switch_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "rebind_after_the_switch_result"
+  },
+  {
+   "digest_of": "bind_clone_after_switch",
+   "pointer": "/request_digest",
+   "record": "rebind_after_the_switch_result"
+  },
+  {
+   "digest_of": "stored_clone_checkout_after_switch",
+   "pointer": "/outputs/0/digest",
+   "record": "rebind_after_the_switch_result"
+  },
+  {
    "minted": "lane",
    "pointer": "/workstream_ids/0",
    "record": "question"
@@ -958,6 +1012,21 @@
    "name": "switched_observed_at",
    "shape": "instant",
    "step": "observe_after_the_branch_switch"
+  },
+  {
+   "name": "rebind_after_the_switch_committed_at",
+   "shape": "instant",
+   "step": "rebind_after_the_switch"
+  },
+  {
+   "name": "rebind_after_the_switch_head",
+   "shape": "digest",
+   "step": "rebind_after_the_switch"
+  },
+  {
+   "name": "rebind_after_the_switch_sequence",
+   "shape": "integer",
+   "step": "rebind_after_the_switch"
   },
   {
    "name": "state_prepared_at",
@@ -2490,6 +2559,111 @@
    }
   },
   {
+   "digest": "34bf172ff16a5ee9af94ce8479c6c74b69da437d1e91732658811356b93e4a63",
+   "name": "clone_checkout_after_switch",
+   "record": {
+    "kind": "repository_binding",
+    "relation": {
+     "how": "clone"
+    },
+    "repository_id": "rep_4a42b13d545e6046ad83a49ddd00bf87",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "7e11687f5d36e48c12eec3782a353b833c4bf5c1a4d2b8254acf89dd4604b748",
+   "name": "bind_clone_after_switch",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_43151f713db011655cddbc58b7ca9dc3",
+     "principal_id": "prn_745d4b6f6b44b6fd58995269ba01f522",
+     "profile_id": "prf_878a658cb65815e85fc684f065ceff4f"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "repository.bind",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_745d4b6f6b44b6fd58995269ba01f522"
+    },
+    "payload_digest": "34bf172ff16a5ee9af94ce8479c6c74b69da437d1e91732658811356b93e4a63",
+    "policy_digests": [],
+    "proof_digests": [
+     "12b2f010d0289e2966902c77632f02f286b10f0a5ceffaf122019ac4b92b27cb"
+    ],
+    "request_id": "req_2688e3d48e863c2d6971190b5548603d",
+    "schema": 1,
+    "target": {
+     "resource_id": "rep_4a42b13d545e6046ad83a49ddd00bf87"
+    }
+   }
+  },
+  {
+   "digest": "10e0e951940326448530f89fe4c8051d2eebe048498f1c7475a056b5c91ae244",
+   "name": "rebind_after_the_switch_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "fe55bce4044720ef0c78e28243276e70b18e8233697b3909f85af788a2494aad",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_745d4b6f6b44b6fd58995269ba01f522"
+    },
+    "request_digest": "7e11687f5d36e48c12eec3782a353b833c4bf5c1a4d2b8254acf89dd4604b748",
+    "request_id": "req_2688e3d48e863c2d6971190b5548603d",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "rep_4a42b13d545e6046ad83a49ddd00bf87"
+    }
+   }
+  },
+  {
+   "digest": "c1ef3c141819ef98c2ebfdacb8030a4f388a18508328f723514a7c8b15f723b7",
+   "name": "stored_clone_checkout_after_switch",
+   "record": {
+    "kind": "repository_binding",
+    "observed": {
+     "branch": "chore/prune-old-adrs",
+     "commit": "fedcba9876543210fedcba9876543210fedcba98",
+     "locator": "git@github.com:example/work.git",
+     "working_bytes_digest": "12b2f010d0289e2966902c77632f02f286b10f0a5ceffaf122019ac4b92b27cb"
+    },
+    "relation": {
+     "how": "clone"
+    },
+    "repository_id": "rep_4a42b13d545e6046ad83a49ddd00bf87",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "32ba09671ecc4821d4f3524a3499a5c5f19ac06ec3f3d63f596178be4fcfa9fc",
+   "name": "rebind_after_the_switch_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "10e0e951940326448530f89fe4c8051d2eebe048498f1c7475a056b5c91ae244",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "c1ef3c141819ef98c2ebfdacb8030a4f388a18508328f723514a7c8b15f723b7",
+      "kind": "repository_binding"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "7e11687f5d36e48c12eec3782a353b833c4bf5c1a4d2b8254acf89dd4604b748",
+    "request_id": "req_2688e3d48e863c2d6971190b5548603d",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
    "digest": "ede599d62d4235602090d26aecf8b1dea49044157357ed62d7d866a1e8096c0d",
    "name": "question",
    "record": {
@@ -2597,8 +2771,8 @@
    }
   }
  ],
- "says": "One person has two checkouts of repository W on their laptop: a clone on main at /home/ana/work and a worktree on a feature branch at /home/ana/work-feature-backups; each observation's selection names its own checkout. Each is observed and bound with repository.bind; both bindings name the same repository id W, each with the working_bytes_digest of its own observation. The ADR directory of W is registered as a memory source, a workstream is opened, and memory.record.publish records the journal-mode choice from 0001-journal-mode.md as that source's first revision. A fork of W is observed and bound with its own repository id, naming W as the ancestor it derives new authority from and the clone's binding as its authority evidence, not as an explicit binding to read W through it. Resolving the ADR source from the fork as if it were W is refused with repository_binding_required, and registering a second home for the same source in the fork (a copied manifest taking over as another writer) is refused with source_home_conflict; neither writes anything. Then the clone switches to a branch where 0001-journal-mode.md is absent and a new observation no longer lists it; memory.state.resolve for the workstream still reports the choice as current from the ADR source at the head it was published at: a file missing from a checkout or a branch switch is not a withdrawal.",
- "spec_sha256": "96e3de772579ee26cf2abbbbcd9818b7b4d4df64c51e3659b3967489c5687c84",
+ "says": "One person has two checkouts of repository W on their laptop: a clone on main at /home/ana/work and a worktree on a feature branch at /home/ana/work-feature-backups; each observation's selection names its own checkout. Each is observed and bound with repository.bind; both bindings name the same repository id W, each with the working_bytes_digest of its own observation. The ADR directory of W is registered as a memory source, a workstream is opened, and memory.record.publish records the journal-mode choice from 0001-journal-mode.md as that source's first revision. A fork of W is observed and bound with its own repository id, naming W as the ancestor it derives new authority from and the clone's binding as its authority evidence, not as an explicit binding to read W through it. Resolving the ADR source from the fork as if it were W is refused with repository_binding_required, and registering a second home for the same source in the fork (a copied manifest taking over as another writer) is refused with source_home_conflict; neither writes anything. Then the clone switches to a branch where 0001-journal-mode.md is absent; a new observation no longer lists it, and rebinding the same repository id now observes branch chore/prune-old-adrs in place of main, still sharing W's identity and this later observation's working_bytes_digest. memory.state.resolve for the workstream still reports the choice as current from the ADR source at the head it was published at: a file missing from a checkout or a branch switch is not a withdrawal.",
+ "spec_sha256": "e1d65f4ae2f02f78193985b1e8878357182705ec1882f70c15986ec71cdf478f",
  "steps": [
   {
    "carries": [
@@ -2742,6 +2916,17 @@
    "result": "observe_after_the_branch_switch_result",
    "returns": [
     "switched_observation"
+   ]
+  },
+  {
+   "carries": [
+    "clone_checkout_after_switch"
+   ],
+   "name": "rebind_after_the_switch",
+   "request": "bind_clone_after_switch",
+   "result": "rebind_after_the_switch_result",
+   "returns": [
+    "stored_clone_checkout_after_switch"
    ]
   },
   {

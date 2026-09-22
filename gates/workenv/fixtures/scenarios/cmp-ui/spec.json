@@ -685,7 +685,7 @@
     },
     {
      "pointer": "/read/0/digest",
-     "value": "$digest:instr_bytes"
+     "value": "#repo_instr_body"
     },
     {
      "pointer": "/read/0/path",
@@ -693,7 +693,7 @@
     },
     {
      "pointer": "/read/0/size",
-     "value": 2048
+     "value": 1110
     },
     {
      "pointer": "/selection_digest",
@@ -710,7 +710,7 @@
    "set": [
     {
      "pointer": "/members/0/digest",
-     "value": "$digest:instr_bytes"
+     "value": "#repo_instr_body"
     },
     {
      "pointer": "/members/0/path",
@@ -718,7 +718,7 @@
     },
     {
      "pointer": "/members/0/size",
-     "value": 2048
+     "value": 1110
     },
     {
      "pointer": "/source_id",
@@ -2257,7 +2257,7 @@
     },
     {
      "pointer": "/units/0/body_digest",
-     "value": "$digest:instr_bytes"
+     "value": "#repo_instr_body"
     },
     {
      "pointer": "/units/0/concern",
@@ -4109,6 +4109,50 @@
     {
      "pointer": "/frames/4/elements/1/label",
      "value": "Esc \ub4a4\ub85c"
+    },
+    {
+     "pointer": "/frames/4/elements/2/element_id",
+     "value": "original.team_instructions.body"
+    },
+    {
+     "pointer": "/frames/4/elements/2/role",
+     "value": "detail"
+    },
+    {
+     "pointer": "/frames/4/elements/2/label",
+     "value": "\ubcf8\ubb38 \u00b7 team/platform.md \u00b7 \uc774 \uc801\uc6a9\uc5d0\uc11c\ub294 \uac00\ub824\uc9d0"
+    },
+    {
+     "pointer": "/frames/4/elements/2/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/4/elements/2/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/2/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/4/elements/2/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/2/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/4/elements/2/refers_to/ref",
+     "value": "record"
+    },
+    {
+     "pointer": "/frames/4/elements/2/refers_to/digest",
+     "value": "#team_instr_revision"
+    },
+    {
+     "pointer": "/frames/4/elements/2/value",
+     "value": "# Team platform instructions\n\n## response.style\n\nKeep answers direct. State the recommended option first, then the reasoning\nbehind it. Avoid hedging language when the evidence already supports one\nconclusion, and say plainly when it does not.\n\n## review.approval\n\nA change to a shared interface needs one platform reviewer's approval before\nit merges, recorded against the exact revision reviewed. A reviewer checks\nthe change against the interface's own contract, not against personal taste.\n\n## escalation\n\nWhen a decision affects more than one repository, raise it in the platform\nchannel before committing, and record the outcome against the concern it\nresolved so a later reader can find why the choice was made.\n\n## formatting\n\nPrefer short paragraphs over long ones, and prefer a worked example over an\nabstract description when both are available. Code samples should compile\nagainst the platform's current pinned toolchain version, not an older one.\n\n## journal mode\n\nThe platform's shared volume does not honour fullfsync, so a rollback\njournal is the safe default there; write-ahead logging is fine on a volume\nthat does honour it, and each repository states which volume it runs on.\n\n## incident handling\n\nOpen an incident record the moment a shared service degrades, even before\nthe cause is known. Close it only after the fix is verified in the same\nenvironment the incident was observed in, and link the record it resolved.\n\n## onboarding\n\nA new team member reads this file and the repository's own instructions\nbefore their first change, and asks in the platform channel when the two\ndisagree, rather than guessing which one applies. A short pairing session\nin the first week answers most questions, and the buddy stays reachable\nfor that month, available for anything left unclear.\n"
     },
     {
      "pointer": "/frames/4/dispatched",
@@ -6090,7 +6134,7 @@
     },
     {
      "pointer": "/outcome/consumed/bytes",
-     "value": 200
+     "value": 629
     },
     {
      "pointer": "/outcome/frontiers/0/source_id",
@@ -6110,7 +6154,7 @@
     },
     {
      "pointer": "/outcome/units/0/body_digest",
-     "value": "#team_mem_choice_stored"
+     "value": "#team_mem_choice"
     },
     {
      "pointer": "/outcome/units/0/layer",
@@ -17558,7 +17602,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "effective_projection"
+     "effective_projection",
+     "repo_instr_body"
     ]
    }
   },
@@ -17835,7 +17880,11 @@
   },
   {
    "name": "team_mem_choice_body",
-   "text": "{\"applicability\":{\"conditions\":[{\"dimension\":\"jurisdiction\",\"value\":\"KR\"}],\"period\":{\"effective_from\":\"2026-01-01\"},\"states\":\"stated\"},\"choice\":\"A rollback journal with EXTRA.\",\"context\":\"Measured on APFS with fullfsync on.\",\"expected_consequences\":\"A checkpoint fault point has to be tested.\",\"home\":{\"layer\":\"team\",\"team_id\":\"tem_598a6050a1dce72d9bdf63e695dded1c\"},\"kind\":\"choice_record\",\"question\":\"Which journal mode does the local state database use?\",\"reason\":\"4.11 ms per commit against 11.76, and readers are not blocked.\",\"record_id\":\"rec_0c5b4e6f529fec91a5666dbf808decfb\",\"recorded_at\":\"2000-01-01T00:00:00Z\",\"revisit_condition\":\"A filesystem that does not honour fullfsync.\",\"schema\":1,\"workstream_ids\":[]}"
+   "text": "{\"applicability\":{\"conditions\":[{\"dimension\":\"jurisdiction\",\"value\":\"KR\"}],\"period\":{\"effective_from\":\"2026-01-01\"},\"states\":\"stated\"},\"choice\":\"A rollback journal with EXTRA.\",\"context\":\"Measured on APFS with fullfsync on.\",\"expected_consequences\":\"A checkpoint fault point has to be tested.\",\"home\":{\"layer\":\"team\",\"team_id\":\"tem_598a6050a1dce72d9bdf63e695dded1c\"},\"kind\":\"choice_record\",\"question\":\"Which journal mode does the local state database use?\",\"reason\":\"4.11 ms per commit against 11.76, and readers are not blocked.\",\"revisit_condition\":\"A filesystem that does not honour fullfsync.\",\"schema\":1,\"workstream_ids\":[]}"
+  },
+  {
+   "name": "repo_instr_body",
+   "text": "# Repository instructions\n\n## response.style\n\nState the recommended option first, then the evidence behind it. Keep the\nfirst paragraph free of hedging when the evidence already supports one\nconclusion, and name the open question plainly when it does not.\n\n## review.approval\n\nA change to a public interface needs one maintainer's approval before it\nmerges, recorded against the exact revision reviewed. A reviewer checks the\nchange against this file's own rules, not against a personal preference.\n\n## testing\n\nRun the test suite before every commit and report its output, not only\nwhether it passed. A change with no test coverage states why none applies.\n\n## journal mode\n\nThis repository's local state database uses a rollback journal by default;\nwrite-ahead logging is the alternative when a volume supports fullfsync,\nand the choice is recorded against the concern it resolves.\n\n## escalation\n\nWhen a decision affects more than this repository, raise it in the shared\nplatform channel before committing, and link the outcome to the concern it\nresolved so a later reader can find why the choice was made.\n"
   }
  ]
 }

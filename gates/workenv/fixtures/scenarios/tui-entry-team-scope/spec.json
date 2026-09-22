@@ -1012,7 +1012,7 @@
     },
     {
      "pointer": "/read/0/digest",
-     "value": "$digest:a_src_bytes"
+     "value": "#a_src_body"
     },
     {
      "pointer": "/read/0/path",
@@ -1020,7 +1020,7 @@
     },
     {
      "pointer": "/read/0/size",
-     "value": 1200
+     "value": 644
     },
     {
      "pointer": "/selection_digest",
@@ -1037,7 +1037,7 @@
    "set": [
     {
      "pointer": "/members/0/digest",
-     "value": "$digest:a_src_bytes"
+     "value": "#a_src_body"
     },
     {
      "pointer": "/members/0/path",
@@ -1045,7 +1045,7 @@
     },
     {
      "pointer": "/members/0/size",
-     "value": 1200
+     "value": 644
     },
     {
      "pointer": "/source_id",
@@ -1389,7 +1389,7 @@
     },
     {
      "pointer": "/inventory/7/size",
-     "value": 274
+     "value": 273
     },
     {
      "pointer": "/inventory/7/object_kind",
@@ -2220,7 +2220,7 @@
     },
     {
      "pointer": "/units/0/body_digest",
-     "value": "$digest:a_src_bytes"
+     "value": "#a_src_body"
     }
    ]
   },
@@ -2423,7 +2423,7 @@
     },
     {
      "pointer": "/units/0/body_digest",
-     "value": "$digest:a_src_bytes"
+     "value": "#a_src_body"
     },
     {
      "pointer": "/units/0/layer",
@@ -4563,6 +4563,12 @@
    ]
   }
  ],
+ "members": [
+  {
+   "name": "a_src_body",
+   "text": "# Team A platform instructions\n\n## response.style\n\nState the recommended option first, then the reasoning behind it. Avoid\nhedging language when the evidence already supports one conclusion.\n\n## review.approval\n\nA change to a shared interface needs one platform reviewer's approval\nbefore it merges, recorded against the exact revision reviewed.\n\n## escalation\n\nWhen a decision affects more than one repository, raise it in the\nplatform channel before committing, and record the outcome.\n\n## journal mode\n\nTeam A's shared volume does not honour fullfsync, so a rollback journal\nis the safe default there; write-ahead logging is fine elsewhere.\n"
+  }
+ ],
  "steps": [
   {
    "name": "bind_device_key",
@@ -4941,7 +4947,8 @@
     "recovery": [],
     "returns": [
      "a_activation_routing",
-     "instructions_projection"
+     "instructions_projection",
+     "a_src_body"
     ]
    },
    "process": "laptop"

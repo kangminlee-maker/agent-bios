@@ -971,6 +971,11 @@
    "record": "tool_reply"
   },
   {
+   "digest_of": "message_probe",
+   "pointer": "/reply/separation_evidence_digest",
+   "record": "tool_reply"
+  },
+  {
    "digest_of": "tool_reply",
    "pointer": "/payload_digest",
    "record": "record_tool_reply"
@@ -1291,6 +1296,11 @@
    "record": "replayed_reply"
   },
   {
+   "digest_of": "message_probe",
+   "pointer": "/reply/separation_evidence_digest",
+   "record": "replayed_reply"
+  },
+  {
    "digest_of": "replayed_reply",
    "pointer": "/payload_digest",
    "record": "record_replayed_reply"
@@ -1564,6 +1574,19 @@
    "digest_of": "resume_with_the_answer_result_admitted",
    "pointer": "/outputs/0/digest",
    "record": "resume_the_use_result"
+  },
+  {
+   "digest_of": "journal_repo_choice_body",
+   "pointer": "/outputs/1/digest",
+   "record": "resume_the_use_result"
+  }
+ ],
+ "members": [
+  {
+   "digest": "bf65f572e6cf0e5063403a386a764085fcccbed691301f094c192da53a8b5f33",
+   "name": "journal_repo_choice_body",
+   "size": 822,
+   "text": "{\"alternatives\":[{\"choice\":\"A rollback journal with EXTRA\",\"reason\":\"One read waited 766 ms during a commit burst.\"}],\"applicability\":{\"conditions\":[{\"dimension\":\"jurisdiction\",\"value\":\"KR\"}],\"period\":{\"effective_from\":\"2026-01-01\"},\"states\":\"stated\"},\"choice\":\"WAL, with synchronous FULL.\",\"context\":\"Measured on APFS with fullfsync on.\",\"expected_consequences\":\"A checkpoint fault point has to be tested.\",\"home\":{\"layer\":\"repository\",\"repository_id\":\"rep_19ee4dfce8bf59b8a8fdeae54070133a\"},\"kind\":\"choice_record\",\"question\":\"Which journal mode applies here?\",\"reason\":\"4.11 ms per commit against 11.76, and readers are not blocked.\",\"record_id\":\"rec_8fd6215d83984b93091a201dd2fd1d17\",\"recorded_at\":\"2000-01-01T00:00:00Z\",\"revisit_condition\":\"A filesystem that does not honour fullfsync.\",\"schema\":1,\"workstream_ids\":[]}"
   }
  ],
  "minted": [
@@ -3764,7 +3787,7 @@
    }
   },
   {
-   "digest": "1a258828bdc82e1ff00fd03f17e866f7a8098db04792e0116e6429ef91a23b49",
+   "digest": "743734738acf36a93ea0e1c1a1e0669236fc68b84864dbe7aa87db365563e3f3",
    "name": "tool_reply",
    "record": {
     "kind": "host_reply",
@@ -3779,15 +3802,16 @@
        "selects": "record"
       }
      },
-     "given": "choice"
+     "given": "choice",
+     "separation_evidence_digest": "cf8f4753ce7d2ebe1a22665bee0870a9a9cc56f2ac788446f37b1b4ef07f00d1"
     },
-    "route": "conversation",
+    "route": "native_question_tool",
     "schema": 1,
     "use_id": "use_fef3a5202ff8de86593409d7815def48"
    }
   },
   {
-   "digest": "9ed223386ff820ebbcbe76af5804c2b4c4641f237c968f92cd5f896f599ac070",
+   "digest": "7a3018664d267ac1973761ca6b2e30bf39fd7b5abca42df4663c29fd790210d6",
    "name": "record_tool_reply",
    "record": {
     "action": "use",
@@ -3805,7 +3829,7 @@
      "layer": "personal",
      "principal_id": "prn_fc4d661fba416c00f467f4e2969f188f"
     },
-    "payload_digest": "1a258828bdc82e1ff00fd03f17e866f7a8098db04792e0116e6429ef91a23b49",
+    "payload_digest": "743734738acf36a93ea0e1c1a1e0669236fc68b84864dbe7aa87db365563e3f3",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_2ce80ad5ba077b17fc8ac14c1371f5f4",
@@ -3816,7 +3840,7 @@
    }
   },
   {
-   "digest": "f8ff31e4b563276df0984bfbe95d96dca2071c51c91ecc9184f604bc4bbf4c1c",
+   "digest": "fac65a5a44a7b3628917f7ab33091d0eaaa1ec5044142d38f7c64b5f52e52bdf",
    "name": "record_the_tool_reply_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -3826,7 +3850,7 @@
      "layer": "personal",
      "principal_id": "prn_fc4d661fba416c00f467f4e2969f188f"
     },
-    "request_digest": "9ed223386ff820ebbcbe76af5804c2b4c4641f237c968f92cd5f896f599ac070",
+    "request_digest": "7a3018664d267ac1973761ca6b2e30bf39fd7b5abca42df4663c29fd790210d6",
     "request_id": "req_2ce80ad5ba077b17fc8ac14c1371f5f4",
     "schema": 1,
     "sequence": 1,
@@ -3859,7 +3883,7 @@
    }
   },
   {
-   "digest": "979772f7e61d51aa9cebf1fcf812d9ec3842a5c147f792010a35400e240495a5",
+   "digest": "e019532cab88de21b03d808c5bbd11f98bd81bb4b5f38962bd07fe63b447ba4c",
    "name": "tool_reply_evidence",
    "record": {
     "evidence_id": "ans_13ce55f162f64c328956938d90b67901",
@@ -3876,25 +3900,25 @@
     },
     "question_id": "qst_befbd0471c14204ffbe19bb2f87ec921",
     "question_version": 1,
-    "route": "conversation",
+    "route": "native_question_tool",
     "schema": 1,
     "use_id": "use_fef3a5202ff8de86593409d7815def48"
    }
   },
   {
-   "digest": "efe3aec9a092c7b42bca2bf5e6128c41e32f06cb0ba68732d55a3e03179e426e",
+   "digest": "92f5121661f1e0e83aba9a61974368b8f14ac1606e351defb251411aa6bd6fac",
    "name": "record_the_tool_reply_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "f8ff31e4b563276df0984bfbe95d96dca2071c51c91ecc9184f604bc4bbf4c1c",
+     "receipt_digest": "fac65a5a44a7b3628917f7ab33091d0eaaa1ec5044142d38f7c64b5f52e52bdf",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "979772f7e61d51aa9cebf1fcf812d9ec3842a5c147f792010a35400e240495a5",
+      "digest": "e019532cab88de21b03d808c5bbd11f98bd81bb4b5f38962bd07fe63b447ba4c",
       "kind": "answer_evidence"
      },
      {
@@ -3903,7 +3927,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "9ed223386ff820ebbcbe76af5804c2b4c4641f237c968f92cd5f896f599ac070",
+    "request_digest": "7a3018664d267ac1973761ca6b2e30bf39fd7b5abca42df4663c29fd790210d6",
     "request_id": "req_2ce80ad5ba077b17fc8ac14c1371f5f4",
     "schema": 1,
     "supported_recovery": []
@@ -4196,7 +4220,7 @@
    }
   },
   {
-   "digest": "7cf1608a064363a7958a176b905ed0e20bd864b1cd7f2697fcdbd176a83dac25",
+   "digest": "409ba88446cc1f89ceadd860a6698cc67f91b150057eb2970352a60516f51c83",
    "name": "replayed_reply",
    "record": {
     "kind": "host_reply",
@@ -4211,15 +4235,16 @@
        "selects": "record"
       }
      },
-     "given": "choice"
+     "given": "choice",
+     "separation_evidence_digest": "cf8f4753ce7d2ebe1a22665bee0870a9a9cc56f2ac788446f37b1b4ef07f00d1"
     },
-    "route": "conversation",
+    "route": "native_question_tool",
     "schema": 1,
     "use_id": "use_fef3a5202ff8de86593409d7815def48"
    }
   },
   {
-   "digest": "89afcf2ae00f9474650cd606d792bc1dc0d4051c9e3bcabfb04c5d532198a36a",
+   "digest": "bb996bc4ee794d9a4202731175a1c27228efff0bc3421bb6b86b50a81014fd54",
    "name": "record_replayed_reply",
    "record": {
     "action": "use",
@@ -4237,7 +4262,7 @@
      "layer": "personal",
      "principal_id": "prn_fc4d661fba416c00f467f4e2969f188f"
     },
-    "payload_digest": "7cf1608a064363a7958a176b905ed0e20bd864b1cd7f2697fcdbd176a83dac25",
+    "payload_digest": "409ba88446cc1f89ceadd860a6698cc67f91b150057eb2970352a60516f51c83",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_6232bc8326c6af110fbcb433e7363194",
@@ -4248,7 +4273,7 @@
    }
   },
   {
-   "digest": "afa19331e4d6b6b96715170bb8cbeeb68ac5c81f89894a60c359ba7d7c319102",
+   "digest": "890df930aa9b7908872de03bf98bf1f9a7a9dabdc1111c902a54f3f5d23e940d",
    "name": "record_a_reply_from_another_conversation_result",
    "record": {
     "kind": "operation_result",
@@ -4263,17 +4288,17 @@
     },
     "outputs": [],
     "provider_effect": "not_applicable",
-    "request_digest": "89afcf2ae00f9474650cd606d792bc1dc0d4051c9e3bcabfb04c5d532198a36a",
+    "request_digest": "bb996bc4ee794d9a4202731175a1c27228efff0bc3421bb6b86b50a81014fd54",
     "request_id": "req_6232bc8326c6af110fbcb433e7363194",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "ebd00c5be212bc6852784ad8d7ab79c2916b803895c9646914ccbc3670279eeb",
+   "digest": "6c5869466d7037863e8ed27efc1732fc82bb3d81ae79982e15b4b74a1b07d95d",
    "name": "resume_with_the_tool_call_submitted",
    "record": {
-    "answer_evidence_digest": "979772f7e61d51aa9cebf1fcf812d9ec3842a5c147f792010a35400e240495a5",
+    "answer_evidence_digest": "e019532cab88de21b03d808c5bbd11f98bd81bb4b5f38962bd07fe63b447ba4c",
     "kind": "resume_request",
     "question_id": "qst_befbd0471c14204ffbe19bb2f87ec921",
     "question_version": 1,
@@ -4282,7 +4307,7 @@
    }
   },
   {
-   "digest": "65dca809a19d44cf82c00d1f32ad1cd9c5d89c17a90073481125ae34365a3712",
+   "digest": "f4920dec84a688433f0e75c2a158665c2d3e8ae108edc2c0b14966c6c1b430ce",
    "name": "resume_with_the_tool_call",
    "record": {
     "action": "use",
@@ -4300,7 +4325,7 @@
      "layer": "personal",
      "principal_id": "prn_fc4d661fba416c00f467f4e2969f188f"
     },
-    "payload_digest": "ebd00c5be212bc6852784ad8d7ab79c2916b803895c9646914ccbc3670279eeb",
+    "payload_digest": "6c5869466d7037863e8ed27efc1732fc82bb3d81ae79982e15b4b74a1b07d95d",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_0f9e3392d8f83274667c0a37e3f3e8eb",
@@ -4354,7 +4379,7 @@
    }
   },
   {
-   "digest": "f9557eec4884e1292978720679e2dace021d3f91755e51e308db123f26156443",
+   "digest": "339f8eb8432913dae6527a2ab3b57f603ac2045d3ef6f6f42e99cb50e1681fbe",
    "name": "resume_with_a_tool_permission_result",
    "record": {
     "kind": "operation_result",
@@ -4374,7 +4399,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "65dca809a19d44cf82c00d1f32ad1cd9c5d89c17a90073481125ae34365a3712",
+    "request_digest": "f4920dec84a688433f0e75c2a158665c2d3e8ae108edc2c0b14966c6c1b430ce",
     "request_id": "req_0f9e3392d8f83274667c0a37e3f3e8eb",
     "schema": 1,
     "supported_recovery": []
@@ -4626,7 +4651,7 @@
    }
   },
   {
-   "digest": "5bd476327950e36df928d8cfd5cc63131b152a2b81160675b393ca0364ea7377",
+   "digest": "4ca0efcdb476c2a2f21cee9edf84d9dd53c5ef877c742cbd900a2cea7a7e3f59",
    "name": "resume_the_use_result",
    "record": {
     "kind": "operation_result",
@@ -4639,6 +4664,10 @@
      {
       "digest": "88080d64175252cd63ff147411e678b84e2391e725e16fda0497a2ad80ea2594",
       "kind": "reader_result"
+     },
+     {
+      "digest": "bf65f572e6cf0e5063403a386a764085fcccbed691301f094c192da53a8b5f33",
+      "kind": "source_member"
      }
     ],
     "provider_effect": "not_applicable",
@@ -4649,8 +4678,8 @@
    }
   }
  ],
- "says": "The repository says WAL and the person's own decisions say a rollback journal, and a use in the working Claude Code 2.1.278 conversation needs their answer. A link to that conversation is opened, and so is one to a headless Codex CLI 0.155.1 run. The ordinary-message route is probed for real on Claude Code, and the probe writes the configuration it ran under, the host's one UserPromptSubmit hook disabled: only a message the person typed produced the host's user-prompt event, so the profile qualifies user_event by that probe while the form route stays offered_but_unproven. The owner seals the question and stores it pending before asking, naming the qualified conversation route. Asking through the headless Codex link is recorded unsupported with no channel and answer_origin_unverified, so the use stays pending there rather than counting anything that transport returns. Asked in the conversation, four replies arrive that are not the person's answer, and the owner, measuring the configuration as it classifies each, records the non-answer it is: the assistant quoting the person (model_quoted), a field the agent filled and submitted through a pre-approved tool call (tool_permission), a message injected after the host's hook config file switches the UserPromptSubmit hook on (hook_generated) and a timeout (timed_out). A reply replayed from another conversation names a link this work never opened and is refused with recipient_link_unknown before any evidence is written. Resuming the use with the tool-permission evidence is blocked with answer_not_from_a_person: the same use still waits on the same question version. With the hook config file removed and the hook off again, the person types their choice of WAL; the owner records a verified_native_user_event answer on the conversation route, bound to this link, use and question version, under the configuration measured then and naming the real user-event probe as its separation, and resuming with it admits the same use.",
- "spec_sha256": "580ffaee5ce68fd6348dd8f4aef19551e8030806096923c3d989c696fa9db782",
+ "says": "The repository says WAL and the person's own decisions say a rollback journal, and a use in the working Claude Code 2.1.278 conversation needs their answer. A link to that conversation is opened, and so is one to a headless Codex CLI 0.155.1 run. The ordinary-message route is probed for real on Claude Code, and the probe writes the configuration it ran under, the host's one UserPromptSubmit hook disabled: only a message the person typed produced the host's user-prompt event, so the profile qualifies user_event by that probe while the form route stays offered_but_unproven. The owner seals the question and stores it pending before asking, naming the qualified conversation route. Asking through the headless Codex link is recorded unsupported with no channel and answer_origin_unverified, so the use stays pending there. Asked in the conversation, three replies are not the person's answer: the assistant quoting the person (model_quoted), a message injected after the host's hook config file switches the UserPromptSubmit hook on (hook_generated), and a timeout (timed_out). A fourth reply, a field the agent filled and submitted through a pre-approved tool call naming the same worked probe, arrives on the unproven form route and is still tool_permission: the owner measures the configuration and route as it classifies each. A reply replayed from another conversation names a link this work never opened and is refused with recipient_link_unknown before any evidence is written. Resuming the use with the tool-permission evidence is blocked with answer_not_from_a_person: the same use still waits on the same question version. With the hook config file removed and the hook off again, the person types their choice of WAL; the owner records a verified_native_user_event answer on the conversation route, bound to this link, use and question version, under the configuration measured then and naming the real user-event probe as its separation, and resuming with it admits the same use.",
+ "spec_sha256": "b71c21cf98f46b33ee3d21ec11188c94d0ac286c9934e555276e6a4cd73c50b4",
  "steps": [
   {
    "carries": [
@@ -4869,7 +4898,8 @@
    "request": "resume_with_the_answer",
    "result": "resume_the_use_result",
    "returns": [
-    "resume_with_the_answer_result_admitted"
+    "resume_with_the_answer_result_admitted",
+    "journal_repo_choice_body"
    ]
   }
  ],

@@ -51,10 +51,6 @@
    "prefix": "req"
   },
   {
-   "name": "while_locked_decide",
-   "prefix": "req"
-  },
-  {
    "name": "implicit_unlock_transition",
    "prefix": "req"
   },
@@ -1139,78 +1135,6 @@
    ]
   },
   {
-   "name": "while_locked_request",
-   "from": "c01/link_request.json",
-   "set": [
-    {
-     "pointer": "/action",
-     "value": "local_profile"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@me"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@profile"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "pure_preview"
-    },
-    {
-     "pointer": "/local_access_generation",
-     "value": 1
-    },
-    {
-     "pointer": "/operation",
-     "value": "access.admission.decide"
-    },
-    {
-     "pointer": "/owner/principal_id",
-     "value": "@me"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#late_read"
-    },
-    {
-     "pointer": "/request_id",
-     "value": "@while_locked_decide"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@profile"
-    }
-   ]
-  },
-  {
-   "name": "while_locked_decision",
-   "from": "c02/sign_after_lock.json",
-   "set": [
-    {
-     "pointer": "/profile_id",
-     "value": "@profile"
-    },
-    {
-     "pointer": "/request_id",
-     "value": "@late_read_request"
-    },
-    {
-     "pointer": "/outcome/material_gaps/1/code",
-     "value": "access_generation_moved"
-    },
-    {
-     "pointer": "/access_generation",
-     "value": 2
-    }
-   ]
-  },
-  {
    "name": "implicit_unlock",
    "from": "c02/unlock_without_a_method.json",
    "set": [
@@ -1979,20 +1903,26 @@
   },
   {
    "name": "late_read_while_locked",
-   "request": "while_locked_request",
+   "request": "late_read",
    "carries": [
-    "late_read",
     "read_envelope"
    ],
    "answer": {
-    "stage": "previewed",
+    "stage": "refused",
     "local_effect": "none",
     "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "while_locked_decision"
-    ]
+    "gaps": [
+     {
+      "code": "access_locked"
+     },
+     {
+      "code": "access_generation_moved"
+     }
+    ],
+    "recovery": [
+     "unlock"
+    ],
+    "returns": []
    }
   },
   {

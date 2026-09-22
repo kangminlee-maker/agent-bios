@@ -1,6 +1,6 @@
 {
  "case": "SRC-10",
- "says": "One person has two checkouts of repository W on their laptop: a clone on main at /home/ana/work and a worktree on a feature branch at /home/ana/work-feature-backups; each observation's selection names its own checkout. Each is observed and bound with repository.bind; both bindings name the same repository id W, each with the working_bytes_digest of its own observation. The ADR directory of W is registered as a memory source, a workstream is opened, and memory.record.publish records the journal-mode choice from 0001-journal-mode.md as that source's first revision. A fork of W is observed and bound with its own repository id, naming W as the ancestor it derives new authority from and the clone's binding as its authority evidence, not as an explicit binding to read W through it. Resolving the ADR source from the fork as if it were W is refused with repository_binding_required, and registering a second home for the same source in the fork (a copied manifest taking over as another writer) is refused with source_home_conflict; neither writes anything. Then the clone switches to a branch where 0001-journal-mode.md is absent and a new observation no longer lists it; memory.state.resolve for the workstream still reports the choice as current from the ADR source at the head it was published at: a file missing from a checkout or a branch switch is not a withdrawal.",
+ "says": "One person has two checkouts of repository W on their laptop: a clone on main at /home/ana/work and a worktree on a feature branch at /home/ana/work-feature-backups; each observation's selection names its own checkout. Each is observed and bound with repository.bind; both bindings name the same repository id W, each with the working_bytes_digest of its own observation. The ADR directory of W is registered as a memory source, a workstream is opened, and memory.record.publish records the journal-mode choice from 0001-journal-mode.md as that source's first revision. A fork of W is observed and bound with its own repository id, naming W as the ancestor it derives new authority from and the clone's binding as its authority evidence, not as an explicit binding to read W through it. Resolving the ADR source from the fork as if it were W is refused with repository_binding_required, and registering a second home for the same source in the fork (a copied manifest taking over as another writer) is refused with source_home_conflict; neither writes anything. Then the clone switches to a branch where 0001-journal-mode.md is absent; a new observation no longer lists it, and rebinding the same repository id now observes branch chore/prune-old-adrs in place of main, still sharing W's identity and this later observation's working_bytes_digest. memory.state.resolve for the workstream still reports the choice as current from the ADR source at the head it was published at: a file missing from a checkout or a branch switch is not a withdrawal.",
  "ids": [
   {
    "name": "me",
@@ -36,6 +36,10 @@
   },
   {
    "name": "bind_clone_request",
+   "prefix": "req"
+  },
+  {
+   "name": "rebind_clone_request",
    "prefix": "req"
   },
   {
@@ -1177,6 +1181,52 @@
    ]
   },
   {
+   "name": "clone_checkout_after_switch",
+   "from": "clone_checkout"
+  },
+  {
+   "name": "bind_clone_after_switch",
+   "from": "bind_clone",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@rebind_clone_request"
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#switched_observation"
+     ]
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#clone_checkout_after_switch"
+    }
+   ]
+  },
+  {
+   "name": "stored_clone_checkout_after_switch",
+   "from": "clone_checkout_after_switch",
+   "set": [
+    {
+     "pointer": "/observed/working_bytes_digest",
+     "value": "#switched_observation"
+    },
+    {
+     "pointer": "/observed/locator",
+     "value": "git@github.com:example/work.git"
+    },
+    {
+     "pointer": "/observed/branch",
+     "value": "chore/prune-old-adrs"
+    },
+    {
+     "pointer": "/observed/commit",
+     "value": "fedcba9876543210fedcba9876543210fedcba98"
+    }
+   ]
+  },
+  {
    "name": "question",
    "from": "c05/state_question_for_one_lane.json",
    "drop": [
@@ -1520,6 +1570,23 @@
     "recovery": [],
     "returns": [
      "switched_observation"
+    ]
+   }
+  },
+  {
+   "name": "rebind_after_the_switch",
+   "request": "bind_clone_after_switch",
+   "carries": [
+    "clone_checkout_after_switch"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_clone_checkout_after_switch"
     ]
    }
   },

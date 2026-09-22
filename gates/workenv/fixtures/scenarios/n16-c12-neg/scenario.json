@@ -138,6 +138,10 @@
    "name": "approve_request"
   },
   {
+   "id": "req_73b23c2ed2ab965826c2d88054ad9381",
+   "name": "archive_request"
+  },
+  {
    "id": "req_993dcdba281b0fed7809e6cad76d5f3d",
    "name": "close_request"
   },
@@ -1540,10 +1544,70 @@
   {
    "digest_of": "stored_new_policy",
    "pointer": "/policy_digests/0",
-   "record": "close"
+   "record": "archive"
   },
   {
    "minted": "policy_head",
+   "pointer": "/target/base/head_digest",
+   "record": "archive"
+  },
+  {
+   "digest_of": "archival",
+   "pointer": "/payload_digest",
+   "record": "archive"
+  },
+  {
+   "digest_of": "archive",
+   "pointer": "/request_digest",
+   "record": "archive_team_receipt"
+  },
+  {
+   "minted": "archived_head",
+   "pointer": "/head_digest",
+   "record": "archive_team_receipt"
+  },
+  {
+   "minted": "archive_team_sequence",
+   "pointer": "/sequence",
+   "record": "archive_team_receipt"
+  },
+  {
+   "minted": "archive_team_committed_at",
+   "pointer": "/committed_at",
+   "record": "archive_team_receipt"
+  },
+  {
+   "minted": "policy_head",
+   "pointer": "/target/base/head_digest",
+   "record": "archive_team_receipt"
+  },
+  {
+   "minted": "archived_at",
+   "pointer": "/since",
+   "record": "archived_state"
+  },
+  {
+   "digest_of": "archive_team_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "archive_team_result"
+  },
+  {
+   "digest_of": "archive",
+   "pointer": "/request_digest",
+   "record": "archive_team_result"
+  },
+  {
+   "digest_of": "archived_state",
+   "pointer": "/outputs/0/digest",
+   "record": "archive_team_result"
+  },
+  {
+   "digest_of": "stored_new_policy",
+   "pointer": "/policy_digests/0",
+   "record": "close"
+  },
+  {
+   "minted": "archived_head",
    "pointer": "/target/base/head_digest",
    "record": "close"
   },
@@ -1573,7 +1637,7 @@
    "record": "close_team_receipt"
   },
   {
-   "minted": "policy_head",
+   "minted": "archived_head",
    "pointer": "/target/base/head_digest",
    "record": "close_team_receipt"
   },
@@ -2078,6 +2142,26 @@
    "name": "bob_driven_at",
    "shape": "instant",
    "step": "bob_opens_the_review"
+  },
+  {
+   "name": "archive_team_committed_at",
+   "shape": "instant",
+   "step": "archive_team"
+  },
+  {
+   "name": "archive_team_sequence",
+   "shape": "integer",
+   "step": "archive_team"
+  },
+  {
+   "name": "archived_at",
+   "shape": "instant",
+   "step": "archive_team"
+  },
+  {
+   "name": "archived_head",
+   "shape": "digest",
+   "step": "archive_team"
   },
   {
    "name": "close_team_committed_at",
@@ -5965,6 +6049,112 @@
    }
   },
   {
+   "digest": "a3b0bb614782246a1b8bb6262c65fabe97d4bac499bfdcce7e4f3ef0ebdc557c",
+   "name": "archival",
+   "record": {
+    "action": {
+     "does": "archive"
+    },
+    "kind": "lifecycle_action",
+    "schema": 1,
+    "team_id": "tem_5a8d151965b101a197097d8d9899401f"
+   }
+  },
+  {
+   "digest": "9cfd8b0fc0482bfeda5a60c84cbbe8e7848cfce4aee3b1c001a3acc18c385f71",
+   "name": "archive",
+   "record": {
+    "action": "policy",
+    "actor": {
+     "device_id": "dev_a75f6e4929a2fe89db6a4d4404350e59",
+     "principal_id": "prn_dac8991eb90610e530e472e54a34ce1c",
+     "profile_id": "prf_c9d55875c17a727238f3d5681eba4bda"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "team.lifecycle.apply",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_5a8d151965b101a197097d8d9899401f"
+    },
+    "payload_digest": "a3b0bb614782246a1b8bb6262c65fabe97d4bac499bfdcce7e4f3ef0ebdc557c",
+    "policy_digests": [
+     "1f4c079f3262a37d46d5fd3a076a05839fe93bbf0314c718d91ca0b0c3698b0e"
+    ],
+    "proof_digests": [],
+    "request_id": "req_73b23c2ed2ab965826c2d88054ad9381",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "064b36a13ce6a6fa8728f5b2a34ed8e119b4a5113e4cd3e3bfb3eadbbd8ff267"
+     },
+     "resource_id": "tem_5a8d151965b101a197097d8d9899401f"
+    }
+   }
+  },
+  {
+   "digest": "479f8609e35d9f1678217777d00efba9c34904039ebdb4af6e7dac362506130c",
+   "name": "archive_team_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "5996c3ff12d59f2ca9dab58f4baa7c475a49d0061b20330c299b6096e91d4e30",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_5a8d151965b101a197097d8d9899401f"
+    },
+    "request_digest": "9cfd8b0fc0482bfeda5a60c84cbbe8e7848cfce4aee3b1c001a3acc18c385f71",
+    "request_id": "req_73b23c2ed2ab965826c2d88054ad9381",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "064b36a13ce6a6fa8728f5b2a34ed8e119b4a5113e4cd3e3bfb3eadbbd8ff267"
+     },
+     "resource_id": "tem_5a8d151965b101a197097d8d9899401f"
+    }
+   }
+  },
+  {
+   "digest": "4fc3838c6d1adb34fe03b3c75b6ba1a2aa1f4b26011d6ce39dfadcb7ac7f94ba",
+   "name": "archived_state",
+   "record": {
+    "kind": "team_state",
+    "schema": 1,
+    "since": "2000-01-01T00:00:00Z",
+    "state": "archived",
+    "team_id": "tem_5a8d151965b101a197097d8d9899401f"
+   }
+  },
+  {
+   "digest": "9c42389d574f63e210c942cb5569133605497e1b8a5d54008341d1fd5bbbba97",
+   "name": "archive_team_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "479f8609e35d9f1678217777d00efba9c34904039ebdb4af6e7dac362506130c",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "4fc3838c6d1adb34fe03b3c75b6ba1a2aa1f4b26011d6ce39dfadcb7ac7f94ba",
+      "kind": "team_state"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "9cfd8b0fc0482bfeda5a60c84cbbe8e7848cfce4aee3b1c001a3acc18c385f71",
+    "request_id": "req_73b23c2ed2ab965826c2d88054ad9381",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
    "digest": "ccab4790fa0d733df3136ed97eb996c5fd5c15f12f8bdb935ae14952ed782a54",
    "name": "closing",
    "record": {
@@ -6001,7 +6191,7 @@
    }
   },
   {
-   "digest": "7096713c82f908867e96ce2c06e6db6d45b6afaa1047bec52a7d8e120a8c229e",
+   "digest": "8a143b83d630dbc1e809364bf1bc8b4ff4708b7a26ac9fc2d35f5a24b374761b",
    "name": "close",
    "record": {
     "action": "policy",
@@ -6029,14 +6219,14 @@
     "target": {
      "base": {
       "expects": "head",
-      "head_digest": "064b36a13ce6a6fa8728f5b2a34ed8e119b4a5113e4cd3e3bfb3eadbbd8ff267"
+      "head_digest": "5996c3ff12d59f2ca9dab58f4baa7c475a49d0061b20330c299b6096e91d4e30"
      },
      "resource_id": "tem_5a8d151965b101a197097d8d9899401f"
     }
    }
   },
   {
-   "digest": "7868fd6078b6b70b8d917290b9d75d8990c7070bd39e352fa9f0ae32bac8026b",
+   "digest": "fe16c5bd3c65b33a220f645086674f5de2f9df649ed9040d00f87c7939ec3690",
    "name": "close_team_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -6046,14 +6236,14 @@
      "layer": "team",
      "team_id": "tem_5a8d151965b101a197097d8d9899401f"
     },
-    "request_digest": "7096713c82f908867e96ce2c06e6db6d45b6afaa1047bec52a7d8e120a8c229e",
+    "request_digest": "8a143b83d630dbc1e809364bf1bc8b4ff4708b7a26ac9fc2d35f5a24b374761b",
     "request_id": "req_993dcdba281b0fed7809e6cad76d5f3d",
     "schema": 1,
     "sequence": 1,
     "target": {
      "base": {
       "expects": "head",
-      "head_digest": "064b36a13ce6a6fa8728f5b2a34ed8e119b4a5113e4cd3e3bfb3eadbbd8ff267"
+      "head_digest": "5996c3ff12d59f2ca9dab58f4baa7c475a49d0061b20330c299b6096e91d4e30"
      },
      "resource_id": "tem_5a8d151965b101a197097d8d9899401f"
     }
@@ -6071,14 +6261,14 @@
    }
   },
   {
-   "digest": "8d0c7e69588f0101d0449968eb9933c6d201d48fa94a2da071543b9a541936f2",
+   "digest": "0bb9325fb52467b2dfab55408ce52e2bf855111d951db1aee054dc256c38782a",
    "name": "close_team_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "7868fd6078b6b70b8d917290b9d75d8990c7070bd39e352fa9f0ae32bac8026b",
+     "receipt_digest": "fe16c5bd3c65b33a220f645086674f5de2f9df649ed9040d00f87c7939ec3690",
      "stage": "committed"
     },
     "outputs": [
@@ -6088,7 +6278,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "7096713c82f908867e96ce2c06e6db6d45b6afaa1047bec52a7d8e120a8c229e",
+    "request_digest": "8a143b83d630dbc1e809364bf1bc8b4ff4708b7a26ac9fc2d35f5a24b374761b",
     "request_id": "req_993dcdba281b0fed7809e6cad76d5f3d",
     "schema": 1,
     "supported_recovery": []
@@ -6626,7 +6816,7 @@
   }
  ],
  "says": "alice binds her key and founds the Team Platform under a policy needing one independent approval to publish; bob binds his key and is invited, alice verifies his key in person against the invitation, and bob consents naming that verification and is admitted. alice grants him read and review standing, parented on her founder grant. alice registers a Team knowledge source's home; bob independently approves its publish commit, and she commits it against the head the registration moved to, and a preparation for her work comes back with its required body absent. She registers the Team's decisions source and proposes a publication into it, which waits for review. Four things are then refused, each through the visible control and again by direct submission. (1) Review-only save: in the W05 review of her proposed publication, focusing Save and pressing Enter only shows a blocker, selects nothing and dispatches nothing; selecting Save and pressing Enter again shows a review-only blocker; a route.select naming the save route as focused but not selected is refused at admission (missing_field /selected), one naming it selected as route_unsupported. (2) A body cleared by navigation: W08 shows the preparation's missing body, and going to W01 and back keeps the same missing-body set; a route.select claiming that the back route delivered it is refused with navigation_changed_state. (3) A stale approval: alice changes the policy while the publication waits; bob's W05 shows the proposal as stale and the approve control blocked, and Enter dispatches nothing; his team.approval.record under the replaced policy version is refused as policy_superseded, its way back a new governed request. (4) A closed Team's revival: after alice closes the Team, W07 reads its state and shows the Team as closed, and the reopen control only shows a blocker; team.lifecycle.apply restore is refused with team_terminal. None of the four is saved, cleared, approved or reopened by either path.",
- "spec_sha256": "502ce0b929922da0e0a9fa91b2a1311c988a9bde1f447148b12f2f3b2bdebfb9",
+ "spec_sha256": "5dec7c51117c2a9f00f01fb2234ff261b503d9ae8557034d3f598ef5681b5490",
  "steps": [
   {
    "carries": [
@@ -6899,6 +7089,18 @@
    "request": "approve",
    "result": "bob_submits_the_stale_approval_result",
    "returns": []
+  },
+  {
+   "carries": [
+    "archival"
+   ],
+   "head": "archived_head",
+   "name": "archive_team",
+   "request": "archive",
+   "result": "archive_team_result",
+   "returns": [
+    "archived_state"
+   ]
   },
   {
    "carries": [

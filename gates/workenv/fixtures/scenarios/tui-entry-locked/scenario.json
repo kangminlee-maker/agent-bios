@@ -50,10 +50,6 @@
    "name": "drive_request"
   },
   {
-   "id": "req_8a059ca3933425ffc35c0185884c81b5",
-   "name": "while_locked_decide"
-  },
-  {
    "id": "req_a68dc8f625b99677f6f98f2f89a32fe5",
    "name": "implicit_unlock_transition"
   },
@@ -418,17 +414,7 @@
   },
   {
    "digest_of": "late_read",
-   "pointer": "/payload_digest",
-   "record": "while_locked_request"
-  },
-  {
-   "digest_of": "while_locked_request",
    "pointer": "/request_digest",
-   "record": "late_read_while_locked_result"
-  },
-  {
-   "digest_of": "while_locked_decision",
-   "pointer": "/outputs/0/digest",
    "record": "late_read_while_locked_result"
   },
   {
@@ -1624,42 +1610,12 @@
    }
   },
   {
-   "digest": "a30367d7b5c5f6fb091541c3f010ac266d58126259cfd81b25309d27da56a0e2",
-   "name": "while_locked_request",
+   "digest": "63c4ee3ed8816824cb63be33772b083a8619f7cc8bf07a748d3a9156303967a8",
+   "name": "late_read_while_locked_result",
    "record": {
-    "action": "local_profile",
-    "actor": {
-     "device_id": "dev_d600c8a0a67905410c136c293087ca6c",
-     "principal_id": "prn_94473a8ec28bfd6d90b1cd2b2f7ccdb1",
-     "profile_id": "prf_fa34c3aa014d7ce6b76bc3fbffda755d"
-    },
-    "control_digests": [],
-    "effect_class": "pure_preview",
-    "kind": "operation_request",
-    "local_access_generation": 1,
-    "operation": "access.admission.decide",
-    "owner": {
-     "layer": "personal",
-     "principal_id": "prn_94473a8ec28bfd6d90b1cd2b2f7ccdb1"
-    },
-    "payload_digest": "7f386d31ccd946b3604c1192b4e043f3da0cfead309a01bf50865363115a7c5a",
-    "policy_digests": [],
-    "proof_digests": [],
-    "request_id": "req_8a059ca3933425ffc35c0185884c81b5",
-    "schema": 1,
-    "target": {
-     "resource_id": "prf_fa34c3aa014d7ce6b76bc3fbffda755d"
-    }
-   }
-  },
-  {
-   "digest": "101172059e149acafa78d4232f8cab47f21576245e5c54caebe4841b81a402da",
-   "name": "while_locked_decision",
-   "record": {
-    "access_generation": 2,
-    "kind": "access_admission",
+    "kind": "operation_result",
+    "local_effect": "none",
     "outcome": {
-     "admission": "not_admitted",
      "material_gaps": [
       {
        "code": "access_locked"
@@ -1667,34 +1623,17 @@
       {
        "code": "access_generation_moved"
       }
-     ]
+     ],
+     "stage": "refused"
     },
-    "profile_id": "prf_fa34c3aa014d7ce6b76bc3fbffda755d",
-    "request_id": "req_130738b3a9b2da99cfc3de2a11d32cc7",
-    "schema": 1
-   }
-  },
-  {
-   "digest": "cd27525f7f4a1222ea4637a84022f48cf33d4a8b63ece8a9e412255080bb16f5",
-   "name": "late_read_while_locked_result",
-   "record": {
-    "kind": "operation_result",
-    "local_effect": "none",
-    "outcome": {
-     "material_gaps": [],
-     "stage": "previewed"
-    },
-    "outputs": [
-     {
-      "digest": "101172059e149acafa78d4232f8cab47f21576245e5c54caebe4841b81a402da",
-      "kind": "access_admission"
-     }
-    ],
+    "outputs": [],
     "provider_effect": "not_applicable",
-    "request_digest": "a30367d7b5c5f6fb091541c3f010ac266d58126259cfd81b25309d27da56a0e2",
-    "request_id": "req_8a059ca3933425ffc35c0185884c81b5",
+    "request_digest": "7f386d31ccd946b3604c1192b4e043f3da0cfead309a01bf50865363115a7c5a",
+    "request_id": "req_130738b3a9b2da99cfc3de2a11d32cc7",
     "schema": 1,
-    "supported_recovery": []
+    "supported_recovery": [
+     "unlock"
+    ]
    }
   },
   {
@@ -2667,7 +2606,7 @@
   }
  ],
  "says": "Reading the profile first (access.profile.read) shows it active at access generation 1, its first use, opened by the device key. A person with a bound repository and a committed instructions source has a read of that source sealed at generation 1, admitted and held in flight while they lock the profile (access.transition lock: locked, generation 2); the in-flight read is rechecked before its result is shown and is not admitted, with access_locked and access_generation_moved, so no stale body reaches the now-locked scope. The locked entry (surface.drive from the locked scope entrance) shows only that the profile is locked, how to unlock at a terminal, and an unlock action; Down, Tab and Enter move nothing and unlock nothing, and every frame stays access locked with nothing dispatched or called. An unlock naming no explicit method is refused at admission (variant_mismatch /change). The person unlocks explicitly with the device key at a terminal (active again, still generation 2: only a restriction moves the generation); the same old read, still sealed at generation 1, is again not admitted (access_generation_moved) rather than delivered into the reopened session, while the same read sealed afresh at generation 2 for the same actor and repository is allowed. The person then signs out (access.transition sign_out: signed out, generation 3); the signed-out entry (surface.drive from the locked scope entrance) shows only that the profile is signed out and how to sign back in at a terminal, and a Down key moves and signs nothing back in: the frame stays access signed_out with nothing dispatched or called. Negative: no frame shows the source's path, title, counts or repository name while locked or signed out; navigation never changes access or signs back in; and the late read never becomes admitted under the new generation.",
- "spec_sha256": "8f316a570ac6765bccfb9caa0e6772fdc7e6a2fae88e7b1f9a32379cdf71d424",
+ "spec_sha256": "33dbdeb868e32f578439e6ea5d00a06cc8f177b97523e4c8d97abc10c5711c25",
  "steps": [
   {
    "carries": [],
@@ -2749,15 +2688,12 @@
   },
   {
    "carries": [
-    "late_read",
     "read_envelope"
    ],
    "name": "late_read_while_locked",
-   "request": "while_locked_request",
+   "request": "late_read",
    "result": "late_read_while_locked_result",
-   "returns": [
-    "while_locked_decision"
-   ]
+   "returns": []
   },
   {
    "carries": [

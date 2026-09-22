@@ -1,6 +1,6 @@
 {
  "case": "DH-CONVERSATION",
- "says": "The repository says WAL and the person's own decisions say a rollback journal, and a use in the working Claude Code 2.1.278 conversation needs their answer. A link to that conversation is opened, and so is one to a headless Codex CLI 0.155.1 run. The ordinary-message route is probed for real on Claude Code, and the probe writes the configuration it ran under, the host's one UserPromptSubmit hook disabled: only a message the person typed produced the host's user-prompt event, so the profile qualifies user_event by that probe while the form route stays offered_but_unproven. The owner seals the question and stores it pending before asking, naming the qualified conversation route. Asking through the headless Codex link is recorded unsupported with no channel and answer_origin_unverified, so the use stays pending there rather than counting anything that transport returns. Asked in the conversation, four replies arrive that are not the person's answer, and the owner, measuring the configuration as it classifies each, records the non-answer it is: the assistant quoting the person (model_quoted), a field the agent filled and submitted through a pre-approved tool call (tool_permission), a message injected after the host's hook config file switches the UserPromptSubmit hook on (hook_generated) and a timeout (timed_out). A reply replayed from another conversation names a link this work never opened and is refused with recipient_link_unknown before any evidence is written. Resuming the use with the tool-permission evidence is blocked with answer_not_from_a_person: the same use still waits on the same question version. With the hook config file removed and the hook off again, the person types their choice of WAL; the owner records a verified_native_user_event answer on the conversation route, bound to this link, use and question version, under the configuration measured then and naming the real user-event probe as its separation, and resuming with it admits the same use.",
+ "says": "The repository says WAL and the person's own decisions say a rollback journal, and a use in the working Claude Code 2.1.278 conversation needs their answer. A link to that conversation is opened, and so is one to a headless Codex CLI 0.155.1 run. The ordinary-message route is probed for real on Claude Code, and the probe writes the configuration it ran under, the host's one UserPromptSubmit hook disabled: only a message the person typed produced the host's user-prompt event, so the profile qualifies user_event by that probe while the form route stays offered_but_unproven. The owner seals the question and stores it pending before asking, naming the qualified conversation route. Asking through the headless Codex link is recorded unsupported with no channel and answer_origin_unverified, so the use stays pending there. Asked in the conversation, three replies are not the person's answer: the assistant quoting the person (model_quoted), a message injected after the host's hook config file switches the UserPromptSubmit hook on (hook_generated), and a timeout (timed_out). A fourth reply, a field the agent filled and submitted through a pre-approved tool call naming the same worked probe, arrives on the unproven form route and is still tool_permission: the owner measures the configuration and route as it classifies each. A reply replayed from another conversation names a link this work never opened and is refused with recipient_link_unknown before any evidence is written. Resuming the use with the tool-permission evidence is blocked with answer_not_from_a_person: the same use still waits on the same question version. With the hook config file removed and the hook off again, the person types their choice of WAL; the owner records a verified_native_user_event answer on the conversation route, bound to this link, use and question version, under the configuration measured then and naming the real user-event probe as its separation, and resuming with it admits the same use.",
  "ids": [
   {
    "name": "alice",
@@ -1644,9 +1644,6 @@
   {
    "name": "tool_reply",
    "from": "c11/host_reply_with_a_choice.json",
-   "drop": [
-    "/reply/separation_evidence_digest"
-   ],
    "set": [
     {
      "pointer": "/link_id",
@@ -1666,7 +1663,7 @@
     },
     {
      "pointer": "/route",
-     "value": "conversation"
+     "value": "native_question_tool"
     },
     {
      "pointer": "/reply/answer/selected/record_id",
@@ -1675,6 +1672,10 @@
     {
      "pointer": "/reply/answer/mode",
      "value": "keep_until_change"
+    },
+    {
+     "pointer": "/reply/separation_evidence_digest",
+     "value": "#message_probe"
     }
    ]
   },
@@ -1766,7 +1767,7 @@
     },
     {
      "pointer": "/route",
-     "value": "conversation"
+     "value": "native_question_tool"
     },
     {
      "pointer": "/use_id",
@@ -2926,9 +2927,16 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "resume_with_the_answer_result_admitted"
+     "resume_with_the_answer_result_admitted",
+     "journal_repo_choice_body"
     ]
    }
+  }
+ ],
+ "members": [
+  {
+   "name": "journal_repo_choice_body",
+   "text": "{\"alternatives\":[{\"choice\":\"A rollback journal with EXTRA\",\"reason\":\"One read waited 766 ms during a commit burst.\"}],\"applicability\":{\"conditions\":[{\"dimension\":\"jurisdiction\",\"value\":\"KR\"}],\"period\":{\"effective_from\":\"2026-01-01\"},\"states\":\"stated\"},\"choice\":\"WAL, with synchronous FULL.\",\"context\":\"Measured on APFS with fullfsync on.\",\"expected_consequences\":\"A checkpoint fault point has to be tested.\",\"home\":{\"layer\":\"repository\",\"repository_id\":\"rep_19ee4dfce8bf59b8a8fdeae54070133a\"},\"kind\":\"choice_record\",\"question\":\"Which journal mode applies here?\",\"reason\":\"4.11 ms per commit against 11.76, and readers are not blocked.\",\"record_id\":\"rec_8fd6215d83984b93091a201dd2fd1d17\",\"recorded_at\":\"2000-01-01T00:00:00Z\",\"revisit_condition\":\"A filesystem that does not honour fullfsync.\",\"schema\":1,\"workstream_ids\":[]}"
   }
  ],
  "world": {

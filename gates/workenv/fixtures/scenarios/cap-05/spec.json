@@ -1,6 +1,6 @@
 {
  "case": "CAP-05",
- "says": "A person binds this device's key and the checkout and registers the repository's memory source. The owner reads records 12 to 18 of a session transcript in which a journal mode was chosen and nobody said why or what else was considered; the packaged local adapter captures it, and the candidate extracted from the capture proposes the choice with its alternatives and reason named as unrecorded rather than filled in. Publishing it at the memory source, on the head its registration committed and stating that it promotes version 1 of that candidate, commits a choice record that still names alternatives and reason as unrecorded, a revision holding it, and the candidate's version 2 promoted with that commit's receipt, proposing exactly what was published. When the reason is explained later, the explanation is a second record published on the moved head: it relies on the first record by id and says it was written afterwards, and the first record is not changed. Nothing may be invented or backdated: a choice submitted with an approval field is refused at admission (a choice record has no field for one), a choice that states its own recorded time before the commit is refused at admission, and a capture that states its own capture time is refused at admission. None of those writes anything.",
+ "says": "A person binds this device's key and the checkout and registers the repository's memory source. The owner reads records 12 to 18 of a session transcript in which a journal mode was chosen and nobody said why or what else was considered; the packaged local adapter captures it, and the candidate extracted from the capture proposes the choice with its alternatives and reason named as unrecorded rather than filled in. Publishing it at the memory source, on the head its registration committed and stating that it promotes version 1 of that candidate, commits a choice record that still names alternatives and reason as unrecorded, a revision holding it, and the candidate's version 2 promoted with that commit's receipt, proposing exactly what was published. When the reason is explained later, the explanation is a second record published on the moved head: it relies on the first record by id and says it was written afterwards, and the first record is not changed. Nothing may be invented or backdated: a choice submitted with an approval field is refused at admission (a choice record has no field for one), a choice that states its own recorded time before the commit is refused at admission, a capture that states its own capture time is refused at admission, and a lifecycle event recording that choice as adopted, backdated to before the commit, is refused at admission the same way. None of those writes anything.",
  "ids": [
   {
    "name": "alice",
@@ -68,6 +68,10 @@
   },
   {
    "name": "backdated_capture_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "backdated_lifecycle_rid",
    "prefix": "req"
   }
  ],
@@ -1047,6 +1051,91 @@
      "value": "$digest:register_memory_home_head"
     }
    ]
+  },
+  {
+   "name": "backdated_lifecycle_event",
+   "from": "c05/event_submission_dates_itself.json",
+   "set": [
+    {
+     "pointer": "/attributed_to",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/record_id",
+     "value": "$rec:first_choice"
+    },
+    {
+     "pointer": "/evidence_digests/0",
+     "value": "$digest:span_bytes"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "2025-11-04T00:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "apply_backdated_lifecycle_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/recipient_digest",
+    "/work_scope"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@backdated_lifecycle_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.lifecycle.apply"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@memory_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:memory_head_2"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#backdated_lifecycle_event"
+    }
+   ]
   }
  ],
  "steps": [
@@ -1231,6 +1320,20 @@
      "record": "backdated_capture",
      "code": "runtime_owned_field",
      "pointer": "/captured_at"
+    }
+   ]
+  },
+  {
+   "name": "apply_a_backdated_lifecycle_event",
+   "request": "apply_backdated_lifecycle_request",
+   "carries": [
+    "backdated_lifecycle_event"
+   ],
+   "refused": [
+    {
+     "record": "backdated_lifecycle_event",
+     "code": "runtime_owned_field",
+     "pointer": "/recorded_at"
     }
    ]
   }

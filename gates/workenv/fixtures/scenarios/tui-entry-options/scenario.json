@@ -213,7 +213,7 @@
    "record": "instr_observation"
   },
   {
-   "minted": "instr_bytes",
+   "digest_of": "instr_body",
    "pointer": "/read/0/digest",
    "record": "instr_observation"
   },
@@ -288,7 +288,7 @@
    "record": "register_instr_result"
   },
   {
-   "minted": "instr_bytes",
+   "digest_of": "instr_body",
    "pointer": "/members/0/digest",
    "record": "instr_manifest"
   },
@@ -328,7 +328,7 @@
    "record": "commit_instr_receipt"
   },
   {
-   "minted": "instr_bytes",
+   "digest_of": "instr_body",
    "pointer": "/members/0/digest",
    "record": "instr_revision"
   },
@@ -723,7 +723,7 @@
    "record": "start_preparation"
   },
   {
-   "minted": "instr_bytes",
+   "digest_of": "instr_body",
    "pointer": "/units/0/body_digest",
    "record": "start_preparation"
   },
@@ -848,7 +848,7 @@
    "record": "start_projection"
   },
   {
-   "minted": "instr_bytes",
+   "digest_of": "instr_body",
    "pointer": "/units/0/body_digest",
    "record": "start_projection"
   },
@@ -880,6 +880,11 @@
   {
    "digest_of": "start_projection",
    "pointer": "/outputs/1/digest",
+   "record": "activate_session_result"
+  },
+  {
+   "digest_of": "instr_body",
+   "pointer": "/outputs/2/digest",
    "record": "activate_session_result"
   },
   {
@@ -916,6 +921,14 @@
    "digest_of": "focus_only",
    "pointer": "/payload_digest",
    "record": "focus_only_request"
+  }
+ ],
+ "members": [
+  {
+   "digest": "af26ac6e67fd24e2e873454623df72f19c8d23fb7ec382c97e5825d0f4270e76",
+   "name": "instr_body",
+   "size": 1110,
+   "text": "# Repository instructions\n\n## response.style\n\nState the recommended option first, then the evidence behind it. Keep the\nfirst paragraph free of hedging when the evidence already supports one\nconclusion, and name the open question plainly when it does not.\n\n## review.approval\n\nA change to a public interface needs one maintainer's approval before it\nmerges, recorded against the exact revision reviewed. A reviewer checks the\nchange against this file's own rules, not against a personal preference.\n\n## testing\n\nRun the test suite before every commit and report its output, not only\nwhether it passed. A change with no test coverage states why none applies.\n\n## journal mode\n\nThis repository's local state database uses a rollback journal by default;\nwrite-ahead logging is the alternative when a volume supports fullfsync,\nand the choice is recorded against the concern it resolves.\n\n## escalation\n\nWhen a decision affects more than this repository, raise it in the shared\nplatform channel before committing, and link the outcome to the concern it\nresolved so a later reader can find why the choice was made.\n"
   }
  ],
  "minted": [
@@ -963,11 +976,6 @@
    "name": "checkout_bytes",
    "shape": "digest",
    "step": "bind_repository"
-  },
-  {
-   "name": "instr_bytes",
-   "shape": "digest",
-   "step": "observe_instr"
   },
   {
    "name": "instr_observed_at",
@@ -1467,7 +1475,7 @@
    }
   },
   {
-   "digest": "5a8376b044cefaf1f992541b6647403ff06fee5f9a543fffe46fcff3afc4e0ac",
+   "digest": "eeee45c38543d7d4f6e5191d37882c71e0d3feb93e459d5b7096a5759afe74cf",
    "name": "instr_observation",
    "record": {
     "kind": "source_observation",
@@ -1475,11 +1483,11 @@
     "observed_at": "2000-01-01T00:00:00Z",
     "read": [
      {
-      "digest": "55610600f2885bf7202a42054b42c1d5ff9f1c3e6d5fa41fcd9f9b0e9c6592dc",
+      "digest": "af26ac6e67fd24e2e873454623df72f19c8d23fb7ec382c97e5825d0f4270e76",
       "path": "AGENTS.md",
       "read": "tree",
       "root": 0,
-      "size": 2048,
+      "size": 1110,
       "state": "committed"
      }
     ],
@@ -1488,7 +1496,7 @@
    }
   },
   {
-   "digest": "8d4476c9c7b55f233c93eabf6ae1fd06045197bc66d0da1ad6591a66076dfdd0",
+   "digest": "033bc00a09f3b30e8e79951eb33be035ad4dbb7a27838618178a89fee88bb93c",
    "name": "observe_instr_result",
    "record": {
     "kind": "operation_result",
@@ -1499,7 +1507,7 @@
     },
     "outputs": [
      {
-      "digest": "5a8376b044cefaf1f992541b6647403ff06fee5f9a543fffe46fcff3afc4e0ac",
+      "digest": "eeee45c38543d7d4f6e5191d37882c71e0d3feb93e459d5b7096a5759afe74cf",
       "kind": "source_observation"
      }
     ],
@@ -1657,16 +1665,16 @@
    }
   },
   {
-   "digest": "533f8cf0d4f3b7a1c63fe68f94d102ff2975445992aa9d1111f198675062b257",
+   "digest": "0eebf8add8229d3f5d4a3762a163beb330bae335de3ff65faf3a2acb31f9df9c",
    "name": "instr_manifest",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "55610600f2885bf7202a42054b42c1d5ff9f1c3e6d5fa41fcd9f9b0e9c6592dc",
+      "digest": "af26ac6e67fd24e2e873454623df72f19c8d23fb7ec382c97e5825d0f4270e76",
       "path": "AGENTS.md",
-      "size": 2048
+      "size": 1110
      }
     ],
     "schema": 1,
@@ -1674,7 +1682,7 @@
    }
   },
   {
-   "digest": "9fa561e5a20fcd97a3857959fa513c1b114f46aef033f99c14dbe7e1bd81f9a0",
+   "digest": "8c5d64cc687258decef1e0a30535586949741b8fc6772ef9556947c44c2b4c9c",
    "name": "instr_commit_request",
    "record": {
     "action": "publish",
@@ -1692,7 +1700,7 @@
      "layer": "repository",
      "repository_id": "rep_75a3fe4d467f0d62486f0e6d9726009c"
     },
-    "payload_digest": "533f8cf0d4f3b7a1c63fe68f94d102ff2975445992aa9d1111f198675062b257",
+    "payload_digest": "0eebf8add8229d3f5d4a3762a163beb330bae335de3ff65faf3a2acb31f9df9c",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_dc51ef980358707e9d6c64f4fdf25d3a",
@@ -1707,7 +1715,7 @@
    }
   },
   {
-   "digest": "7a02cdbaa6f2cf363dc56c7bbb85aa107cf3e57b43f147492ddbc6fe90301546",
+   "digest": "5252245f3afef528654d7780101865f1e5e72c724f8dd90299d38547131520fb",
    "name": "commit_instr_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -1717,7 +1725,7 @@
      "layer": "repository",
      "repository_id": "rep_75a3fe4d467f0d62486f0e6d9726009c"
     },
-    "request_digest": "9fa561e5a20fcd97a3857959fa513c1b114f46aef033f99c14dbe7e1bd81f9a0",
+    "request_digest": "8c5d64cc687258decef1e0a30535586949741b8fc6772ef9556947c44c2b4c9c",
     "request_id": "req_dc51ef980358707e9d6c64f4fdf25d3a",
     "schema": 1,
     "sequence": 1,
@@ -1731,16 +1739,16 @@
    }
   },
   {
-   "digest": "be50564de5646174e8ea0853d6c7a236aff9740cf7adb94a13981977362f3883",
+   "digest": "9998af208fe6513b4327069482131ea95c23429280e5a834ac88d783076031eb",
    "name": "instr_revision",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "55610600f2885bf7202a42054b42c1d5ff9f1c3e6d5fa41fcd9f9b0e9c6592dc",
+      "digest": "af26ac6e67fd24e2e873454623df72f19c8d23fb7ec382c97e5825d0f4270e76",
       "path": "AGENTS.md",
-      "size": 2048
+      "size": 1110
      }
     ],
     "produced_at": "2000-01-01T00:00:00Z",
@@ -1749,24 +1757,24 @@
    }
   },
   {
-   "digest": "dad9ed5bbccbf69500b24592114a2a8ea927e70a8d3a51d6f48dddee31974faf",
+   "digest": "3dd1dd08369d6d7657837cbc493c81df1e193b038d03ccbffc324dd1e5efce8b",
    "name": "commit_instr_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "7a02cdbaa6f2cf363dc56c7bbb85aa107cf3e57b43f147492ddbc6fe90301546",
+     "receipt_digest": "5252245f3afef528654d7780101865f1e5e72c724f8dd90299d38547131520fb",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "be50564de5646174e8ea0853d6c7a236aff9740cf7adb94a13981977362f3883",
+      "digest": "9998af208fe6513b4327069482131ea95c23429280e5a834ac88d783076031eb",
       "kind": "source_manifest"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "9fa561e5a20fcd97a3857959fa513c1b114f46aef033f99c14dbe7e1bd81f9a0",
+    "request_digest": "8c5d64cc687258decef1e0a30535586949741b8fc6772ef9556947c44c2b4c9c",
     "request_id": "req_dc51ef980358707e9d6c64f4fdf25d3a",
     "schema": 1,
     "supported_recovery": []
@@ -2493,7 +2501,7 @@
    }
   },
   {
-   "digest": "c9847ecae6b5db2f03f188953bd91dc54b42bdb8624ced4d549b5c7ec39428f2",
+   "digest": "07abe2dbbf97924101c6acc90c6e0d370ec8c9cff779d7c6c972a7c2c9a45be4",
    "name": "start_basis",
    "record": {
     "basis": {
@@ -2510,7 +2518,7 @@
      ],
      "source_pins": [
       {
-       "revision_digest": "be50564de5646174e8ea0853d6c7a236aff9740cf7adb94a13981977362f3883",
+       "revision_digest": "9998af208fe6513b4327069482131ea95c23429280e5a834ac88d783076031eb",
        "source_id": "src_b617fbe65d4741c4dc953ea133da59a0"
       }
      ]
@@ -2524,7 +2532,7 @@
    }
   },
   {
-   "digest": "4686756fc660c680b4a01b24d1a9b268e7483951c939df97d300c5089f91cac3",
+   "digest": "d6c89974bbdd3071fda4ab8dc71e5722ecaacf1baa2e8e0323a6bb6c93731ad9",
    "name": "start_compose",
    "record": {
     "action": "use",
@@ -2542,7 +2550,7 @@
      "layer": "personal",
      "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
     },
-    "payload_digest": "c9847ecae6b5db2f03f188953bd91dc54b42bdb8624ced4d549b5c7ec39428f2",
+    "payload_digest": "07abe2dbbf97924101c6acc90c6e0d370ec8c9cff779d7c6c972a7c2c9a45be4",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_57371e2d23d485c05aa0e15daab87017",
@@ -2553,7 +2561,7 @@
    }
   },
   {
-   "digest": "f23a46d5ceef2d02eaeb551414727924a1c9730ca502b2ec59d3950f5ae5b31b",
+   "digest": "e104d8135f3827287cdd885a8021633bfff441a62084f2229de87576868addb5",
    "name": "script_trace",
    "record": {
     "at": "2000-01-01T00:00:00Z",
@@ -2870,7 +2878,7 @@
        {
         "operation": "preparation.compose",
         "reads": "bodies",
-        "request_digest": "4686756fc660c680b4a01b24d1a9b268e7483951c939df97d300c5089f91cac3"
+        "request_digest": "d6c89974bbdd3071fda4ab8dc71e5722ecaacf1baa2e8e0323a6bb6c93731ad9"
        }
       ],
       "dispatched": [
@@ -3048,7 +3056,7 @@
    }
   },
   {
-   "digest": "17f3d652070d60e874cd7ba6efc13bfc3e53469c2b1cc0df8d23905847f46497",
+   "digest": "2a25cad69a088e9d76b0d0b3ddd38577639278c9b33c460dc12624633e22c1ec",
    "name": "drive_entry_result",
    "record": {
     "kind": "operation_result",
@@ -3059,7 +3067,7 @@
     },
     "outputs": [
      {
-      "digest": "f23a46d5ceef2d02eaeb551414727924a1c9730ca502b2ec59d3950f5ae5b31b",
+      "digest": "e104d8135f3827287cdd885a8021633bfff441a62084f2229de87576868addb5",
       "kind": "surface_trace"
      }
     ],
@@ -3225,7 +3233,7 @@
    }
   },
   {
-   "digest": "2cbbcab50ae2caff0d02eb0cf72f6be24736f7b407b38d04155c4367db519850",
+   "digest": "deb92a374686feb2f43d8f6cd38bcb892c0796e4a4eac2fa6db6100a570af9a0",
    "name": "start_preparation",
    "record": {
     "adapter": {
@@ -3267,14 +3275,14 @@
       "repository_id": "rep_75a3fe4d467f0d62486f0e6d9726009c"
      }
     },
-    "request_digest": "c9847ecae6b5db2f03f188953bd91dc54b42bdb8624ced4d549b5c7ec39428f2",
+    "request_digest": "07abe2dbbf97924101c6acc90c6e0d370ec8c9cff779d7c6c972a7c2c9a45be4",
     "schema": 1,
     "units": [
      {
-      "body_digest": "55610600f2885bf7202a42054b42c1d5ff9f1c3e6d5fa41fcd9f9b0e9c6592dc",
+      "body_digest": "af26ac6e67fd24e2e873454623df72f19c8d23fb7ec382c97e5825d0f4270e76",
       "home_digest": "3a1c177fa2313f03bd6e2d2d1a11e55c38bc64ab5f3117cb29d67c75292105f8",
       "layer": "repository",
-      "revision_digest": "be50564de5646174e8ea0853d6c7a236aff9740cf7adb94a13981977362f3883",
+      "revision_digest": "9998af208fe6513b4327069482131ea95c23429280e5a834ac88d783076031eb",
       "role": "instructions",
       "source_id": "src_b617fbe65d4741c4dc953ea133da59a0",
       "standing": "layered",
@@ -3287,7 +3295,7 @@
    }
   },
   {
-   "digest": "8e480e8a7f9fecf1f45ad02b127713c75c902c98d236cbe2ebd34781958c2ea1",
+   "digest": "74553c02ae4fa46e3d389f485386d27d23cbd7f258fdd34b3376181720ac40a1",
    "name": "compose_start_result",
    "record": {
     "kind": "operation_result",
@@ -3298,12 +3306,12 @@
     },
     "outputs": [
      {
-      "digest": "2cbbcab50ae2caff0d02eb0cf72f6be24736f7b407b38d04155c4367db519850",
+      "digest": "deb92a374686feb2f43d8f6cd38bcb892c0796e4a4eac2fa6db6100a570af9a0",
       "kind": "preparation"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "4686756fc660c680b4a01b24d1a9b268e7483951c939df97d300c5089f91cac3",
+    "request_digest": "d6c89974bbdd3071fda4ab8dc71e5722ecaacf1baa2e8e0323a6bb6c93731ad9",
     "request_id": "req_57371e2d23d485c05aa0e15daab87017",
     "schema": 1,
     "supported_recovery": []
@@ -3376,7 +3384,7 @@
    }
   },
   {
-   "digest": "f56ebb94ef6ba360c6569894573e91db4c6a2b31b5c2d25829ed9d31f6c837fa",
+   "digest": "fbf059f9b43ee47605c74d2b9a09a7045906109e776fbc7df0f99392546884b0",
    "name": "selection_outcome",
    "record": {
     "at": "2000-01-01T00:00:00Z",
@@ -3393,13 +3401,13 @@
     },
     "result": {
      "got": "result",
-     "output_digest": "2cbbcab50ae2caff0d02eb0cf72f6be24736f7b407b38d04155c4367db519850"
+     "output_digest": "deb92a374686feb2f43d8f6cd38bcb892c0796e4a4eac2fa6db6100a570af9a0"
     },
     "schema": 1
    }
   },
   {
-   "digest": "de6ed52cb47eca301553356d8f71a71d194f76ad88ac597ae22ce8a21787b4b1",
+   "digest": "d9681dc14d50a7aa13b06ae0642c57909fe73e6b0705fb5825641b03e3fafdca",
    "name": "select_start_result",
    "record": {
     "kind": "operation_result",
@@ -3411,7 +3419,7 @@
     },
     "outputs": [
      {
-      "digest": "f56ebb94ef6ba360c6569894573e91db4c6a2b31b5c2d25829ed9d31f6c837fa",
+      "digest": "fbf059f9b43ee47605c74d2b9a09a7045906109e776fbc7df0f99392546884b0",
       "kind": "route_outcome"
      }
     ],
@@ -3423,11 +3431,11 @@
    }
   },
   {
-   "digest": "17d26f160f6bcdbfa93574665fafd47608e5fa3a07806d6c6a512c6f1308ae36",
+   "digest": "be5fb76fc035e803488de15abca822c3b5841ab02e992c1d8f48a225e8f679ee",
    "name": "activation",
    "record": {
     "kind": "session_activation",
-    "preparation_digest": "2cbbcab50ae2caff0d02eb0cf72f6be24736f7b407b38d04155c4367db519850",
+    "preparation_digest": "deb92a374686feb2f43d8f6cd38bcb892c0796e4a4eac2fa6db6100a570af9a0",
     "schema": 1,
     "session": {
      "host": {
@@ -3439,7 +3447,7 @@
    }
   },
   {
-   "digest": "edca01d76e7faa994fa3dd1164160ef77570ccdd4598d38d2e673a62403f322e",
+   "digest": "a6e92b93abf59759a8ce23c02802ad1308f60aaa7e371a1ccaa558efaad3950b",
    "name": "activation_request",
    "record": {
     "action": "use",
@@ -3457,7 +3465,7 @@
      "layer": "personal",
      "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
     },
-    "payload_digest": "17d26f160f6bcdbfa93574665fafd47608e5fa3a07806d6c6a512c6f1308ae36",
+    "payload_digest": "be5fb76fc035e803488de15abca822c3b5841ab02e992c1d8f48a225e8f679ee",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_32b1891222e830f173b6bf4309505a1f",
@@ -3468,7 +3476,7 @@
    }
   },
   {
-   "digest": "7a2ae1e6c86ad05ab28c8928f173e59159d748eb9e0331df906043b1010c8777",
+   "digest": "6b14d9fed27802dbbcf3fbe4d7360b89ef5751557ce3783c8f2ebd8895428d5c",
    "name": "activate_session_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -3478,7 +3486,7 @@
      "layer": "personal",
      "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
     },
-    "request_digest": "edca01d76e7faa994fa3dd1164160ef77570ccdd4598d38d2e673a62403f322e",
+    "request_digest": "a6e92b93abf59759a8ce23c02802ad1308f60aaa7e371a1ccaa558efaad3950b",
     "request_id": "req_32b1891222e830f173b6bf4309505a1f",
     "schema": 1,
     "sequence": 1,
@@ -3488,7 +3496,7 @@
    }
   },
   {
-   "digest": "74b9459962d24658a07b0bd593ddab6183cc32098f71ee68bed6265841fd147b",
+   "digest": "09f8f8b1e26e323fac91b23f10086462be22336a3b2ad021bffdbcb7f57382d2",
    "name": "start_projection",
    "record": {
     "kind": "role_projection",
@@ -3501,9 +3509,9 @@
     "schema": 1,
     "units": [
      {
-      "body_digest": "55610600f2885bf7202a42054b42c1d5ff9f1c3e6d5fa41fcd9f9b0e9c6592dc",
+      "body_digest": "af26ac6e67fd24e2e873454623df72f19c8d23fb7ec382c97e5825d0f4270e76",
       "layer": "repository",
-      "revision_digest": "be50564de5646174e8ea0853d6c7a236aff9740cf7adb94a13981977362f3883",
+      "revision_digest": "9998af208fe6513b4327069482131ea95c23429280e5a834ac88d783076031eb",
       "source_id": "src_b617fbe65d4741c4dc953ea133da59a0",
       "source_role": "instructions",
       "standing": "layered",
@@ -3513,7 +3521,7 @@
    }
   },
   {
-   "digest": "f82d7e33609987873b04ef5c7ab45e2d07479fffe264fbd93f45cf9a48c77f6e",
+   "digest": "ce685dd03da482e9bcf0f0717735a1bc38bb12223ec339b84253aa01452cb6b3",
    "name": "start_routing",
    "record": {
     "always_surface": "unchanged",
@@ -3526,7 +3534,7 @@
       "text": "Decision memory is read, never applied on your behalf. When an actual use would rely on incompatible current choices, ask the person. The procedure is in the guide this points at."
      },
      "projections": [
-      "74b9459962d24658a07b0bd593ddab6183cc32098f71ee68bed6265841fd147b"
+      "09f8f8b1e26e323fac91b23f10086462be22336a3b2ad021bffdbcb7f57382d2"
      ],
      "state": "activated"
     },
@@ -3544,28 +3552,32 @@
    }
   },
   {
-   "digest": "5c3d644bbfba9cd09d76be984f9a5b11ea6c5f209d6073cb988bf7bdc0f54d80",
+   "digest": "f710603fb013acf92d6e4a456741c20809d7efa88f9eb754dfdb492755038545",
    "name": "activate_session_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "7a2ae1e6c86ad05ab28c8928f173e59159d748eb9e0331df906043b1010c8777",
+     "receipt_digest": "6b14d9fed27802dbbcf3fbe4d7360b89ef5751557ce3783c8f2ebd8895428d5c",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "f82d7e33609987873b04ef5c7ab45e2d07479fffe264fbd93f45cf9a48c77f6e",
+      "digest": "ce685dd03da482e9bcf0f0717735a1bc38bb12223ec339b84253aa01452cb6b3",
       "kind": "session_routing"
      },
      {
-      "digest": "74b9459962d24658a07b0bd593ddab6183cc32098f71ee68bed6265841fd147b",
+      "digest": "09f8f8b1e26e323fac91b23f10086462be22336a3b2ad021bffdbcb7f57382d2",
       "kind": "role_projection"
+     },
+     {
+      "digest": "af26ac6e67fd24e2e873454623df72f19c8d23fb7ec382c97e5825d0f4270e76",
+      "kind": "source_member"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "edca01d76e7faa994fa3dd1164160ef77570ccdd4598d38d2e673a62403f322e",
+    "request_digest": "a6e92b93abf59759a8ce23c02802ad1308f60aaa7e371a1ccaa558efaad3950b",
     "request_id": "req_32b1891222e830f173b6bf4309505a1f",
     "schema": 1,
     "supported_recovery": []
@@ -3718,7 +3730,7 @@
   }
  ],
  "says": "From the host launcher in a bound repository, the entry shows concrete names and values: the repository and branch, the selected instructions source AGENTS.md, the unselected knowledge source, the suggested tool 'Claude Code 2.1.278 · 새 세션' marked as a suggestion with its model-call effect, a blocker for the unqualified personal decision route that names why and how to fix it, and one start action whose file-change, model-call and permission effects sit on the action itself. The person presses Tab and Enter (surface.drive): the single Enter dispatches exactly one request, with no preview, confirm or extra view between, and the call it makes is preparation.compose — the owner check — for a session start that declares session.routing.activate and carries no work_request, so no business intent is inferred from the launcher. route.select records the start route, selected in the launcher's own repository scope, and answers for that request with the preparation. Negative: selecting the unqualified decision route is answered by its owner as refused with capability_not_qualified and an unsupported route outcome, never run; a selection carrying only a focused route is refused at admission (missing_field /selected); and no frame shows a generic effect panel or confirmation view.",
- "spec_sha256": "8bc7682b7fa25a459d1acdaa49d0bbc2b6a2796a62e07c6ce1291c05f0ef8a8d",
+ "spec_sha256": "080e52b9101f068e0dcf52a06b72b580d31ee0380e668c49a2606db9cc40f45e",
  "steps": [
   {
    "carries": [
@@ -3888,7 +3900,8 @@
    "result": "activate_session_result",
    "returns": [
     "start_routing",
-    "start_projection"
+    "start_projection",
+    "instr_body"
    ]
   },
   {

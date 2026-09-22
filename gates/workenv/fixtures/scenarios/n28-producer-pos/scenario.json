@@ -466,8 +466,13 @@
    "record": "journal_candidate"
   },
   {
-   "digest_of": "span_member",
+   "digest_of": "journal_entry_body",
    "pointer": "/origin/evidence_digests/0",
+   "record": "journal_candidate"
+  },
+  {
+   "digest_of": "span_member",
+   "pointer": "/origin/evidence_digests/1",
    "record": "journal_candidate"
   },
   {
@@ -481,8 +486,13 @@
    "record": "stored_journal_candidate"
   },
   {
-   "digest_of": "span_member",
+   "digest_of": "journal_entry_body",
    "pointer": "/origin/evidence_digests/0",
+   "record": "stored_journal_candidate"
+  },
+  {
+   "digest_of": "span_member",
+   "pointer": "/origin/evidence_digests/1",
    "record": "stored_journal_candidate"
   },
   {
@@ -511,8 +521,13 @@
    "record": "backup_candidate"
   },
   {
-   "digest_of": "span_member",
+   "digest_of": "backup_entry_body",
    "pointer": "/origin/evidence_digests/0",
+   "record": "backup_candidate"
+  },
+  {
+   "digest_of": "span_member",
+   "pointer": "/origin/evidence_digests/1",
    "record": "backup_candidate"
   },
   {
@@ -526,8 +541,13 @@
    "record": "stored_backup_candidate"
   },
   {
-   "digest_of": "span_member",
+   "digest_of": "backup_entry_body",
    "pointer": "/origin/evidence_digests/0",
+   "record": "stored_backup_candidate"
+  },
+  {
+   "digest_of": "span_member",
+   "pointer": "/origin/evidence_digests/1",
    "record": "stored_backup_candidate"
   },
   {
@@ -1734,7 +1754,7 @@
    }
   },
   {
-   "digest": "59fb087610669dc0edc7288c46b1cf38b7d50f8016d182fa8f990a1cac5e4e83",
+   "digest": "3f202394fdc8d019f72502763e9ce4f60d08fd3471780d0a376757bc6605da2d",
    "name": "journal_candidate",
    "record": {
     "destination_source_id": "src_d4246e183ea36d419f7acb3e39f21dc6",
@@ -1742,17 +1762,12 @@
     "origin": {
      "capture_digest": "1ef0a4a32778aedb51f5b3b803dfc93269a14596419fabe272e78428bb7752c0",
      "evidence_digests": [
+      "77c10b9c15c276308528e3814d738842388c95941cb385ed125de88ffd7a219a",
       "e63130936ddedeced188ea0b1269888abcc63c9e009d15975d51a8ee32e7ddc4"
      ],
      "from": "capture"
     },
     "proposed": {
-     "alternatives": [
-      {
-       "choice": "A rollback journal with EXTRA",
-       "reason": "One read waited 766 ms during a commit burst."
-      }
-     ],
      "applicability": {
       "conditions": [
        {
@@ -1766,8 +1781,6 @@
       "states": "stated"
      },
      "choice": "WAL, with synchronous FULL.",
-     "context": "Measured on APFS with fullfsync on.",
-     "expected_consequences": "A checkpoint fault point has to be tested.",
      "home": {
       "layer": "repository",
       "repository_id": "rep_aa88b275b0ed33e384ac1398bef752e8"
@@ -1775,14 +1788,13 @@
      "proposes": "choice_record",
      "question": "Which journal mode does the local state database use?",
      "reason": "4.11 ms per commit against 11.76, and readers are not blocked.",
-     "revisit_condition": "A filesystem that does not honour fullfsync.",
      "workstream_ids": []
     },
     "schema": 1
    }
   },
   {
-   "digest": "097d83b2e3e13193607239356fc410457c304d6d6ff405666ff0c3cf844297a1",
+   "digest": "60e8ef715e40477ee498446449b013ff5a6a02f96899391223d28031a08551ca",
    "name": "journal_submit",
    "record": {
     "action": "contribute",
@@ -1800,7 +1812,7 @@
      "layer": "personal",
      "principal_id": "prn_e2d32b1d1776ae57f80b01923b19e835"
     },
-    "payload_digest": "59fb087610669dc0edc7288c46b1cf38b7d50f8016d182fa8f990a1cac5e4e83",
+    "payload_digest": "3f202394fdc8d019f72502763e9ce4f60d08fd3471780d0a376757bc6605da2d",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_b1be345e2119758c7ccd5f3ac909a59b",
@@ -1811,7 +1823,7 @@
    }
   },
   {
-   "digest": "8714c78697479233a9278b7d4a005a6bfa2851c4f5ed892b5f3e07f9f2e3ca4a",
+   "digest": "3a8bcc9c32462bdfb24f2dbb547a301b23264d8424c721460a02be1a0076665a",
    "name": "stored_journal_candidate",
    "record": {
     "candidate_id": "cnd_8e7fc44f86f732ee8e169f2dbb1b0315",
@@ -1821,17 +1833,12 @@
     "origin": {
      "capture_digest": "1ef0a4a32778aedb51f5b3b803dfc93269a14596419fabe272e78428bb7752c0",
      "evidence_digests": [
+      "77c10b9c15c276308528e3814d738842388c95941cb385ed125de88ffd7a219a",
       "e63130936ddedeced188ea0b1269888abcc63c9e009d15975d51a8ee32e7ddc4"
      ],
      "from": "capture"
     },
     "proposed": {
-     "alternatives": [
-      {
-       "choice": "A rollback journal with EXTRA",
-       "reason": "One read waited 766 ms during a commit burst."
-      }
-     ],
      "applicability": {
       "conditions": [
        {
@@ -1845,8 +1852,6 @@
       "states": "stated"
      },
      "choice": "WAL, with synchronous FULL.",
-     "context": "Measured on APFS with fullfsync on.",
-     "expected_consequences": "A checkpoint fault point has to be tested.",
      "home": {
       "layer": "repository",
       "repository_id": "rep_aa88b275b0ed33e384ac1398bef752e8"
@@ -1854,7 +1859,6 @@
      "proposes": "choice_record",
      "question": "Which journal mode does the local state database use?",
      "reason": "4.11 ms per commit against 11.76, and readers are not blocked.",
-     "revisit_condition": "A filesystem that does not honour fullfsync.",
      "workstream_ids": []
     },
     "schema": 1,
@@ -1865,7 +1869,7 @@
    }
   },
   {
-   "digest": "35b4c46d487524b7e976e3f684b6c9662f81f14d08b7f2789bbcc493ae58af1b",
+   "digest": "dc4b29350c9879b66b11af33bd8b5c089e870922e871609a5a3dab21bbf645b7",
    "name": "store_journal_decision_result",
    "record": {
     "kind": "operation_result",
@@ -1876,19 +1880,19 @@
     },
     "outputs": [
      {
-      "digest": "8714c78697479233a9278b7d4a005a6bfa2851c4f5ed892b5f3e07f9f2e3ca4a",
+      "digest": "3a8bcc9c32462bdfb24f2dbb547a301b23264d8424c721460a02be1a0076665a",
       "kind": "memory_candidate"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "097d83b2e3e13193607239356fc410457c304d6d6ff405666ff0c3cf844297a1",
+    "request_digest": "60e8ef715e40477ee498446449b013ff5a6a02f96899391223d28031a08551ca",
     "request_id": "req_b1be345e2119758c7ccd5f3ac909a59b",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "56cef2bf4e08ab49dea7391e27146b70693a7fcf5b44d2ff5ff20fa3fd63a459",
+   "digest": "a3718836b075a3729c29ffc41c9df99ee554d355eece888745f746a9b5d2e3c6",
    "name": "backup_candidate",
    "record": {
     "destination_source_id": "src_d4246e183ea36d419f7acb3e39f21dc6",
@@ -1896,6 +1900,7 @@
     "origin": {
      "capture_digest": "1ef0a4a32778aedb51f5b3b803dfc93269a14596419fabe272e78428bb7752c0",
      "evidence_digests": [
+      "684005cedae28521544a38f2112bce9e8e01e268e66d146530ed32e6957420ea",
       "e63130936ddedeced188ea0b1269888abcc63c9e009d15975d51a8ee32e7ddc4"
      ],
      "from": "capture"
@@ -1934,7 +1939,7 @@
    }
   },
   {
-   "digest": "8e204f9d77cd87720a0b40a28d4256c83a1d10df4883904694e5d626b32faf67",
+   "digest": "a9183795f4ffcb0e6f215d6658f28176c2005905b4bb15dd79c555889594452b",
    "name": "backup_submit",
    "record": {
     "action": "contribute",
@@ -1952,7 +1957,7 @@
      "layer": "personal",
      "principal_id": "prn_e2d32b1d1776ae57f80b01923b19e835"
     },
-    "payload_digest": "56cef2bf4e08ab49dea7391e27146b70693a7fcf5b44d2ff5ff20fa3fd63a459",
+    "payload_digest": "a3718836b075a3729c29ffc41c9df99ee554d355eece888745f746a9b5d2e3c6",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_a55c18202bd4e84ecf41070d22d3cdc0",
@@ -1963,7 +1968,7 @@
    }
   },
   {
-   "digest": "215b85c0b55131fb9dd3f735bd4bcea3fa61c2e659bdeb071c04ffade7b04091",
+   "digest": "cf214bce633bcd2047f899e7cc663b10d72327f9e030fe21ca3f34a819df15af",
    "name": "stored_backup_candidate",
    "record": {
     "candidate_id": "cnd_6db800a73079c850bb33c13a05f16990",
@@ -1973,6 +1978,7 @@
     "origin": {
      "capture_digest": "1ef0a4a32778aedb51f5b3b803dfc93269a14596419fabe272e78428bb7752c0",
      "evidence_digests": [
+      "684005cedae28521544a38f2112bce9e8e01e268e66d146530ed32e6957420ea",
       "e63130936ddedeced188ea0b1269888abcc63c9e009d15975d51a8ee32e7ddc4"
      ],
      "from": "capture"
@@ -2015,7 +2021,7 @@
    }
   },
   {
-   "digest": "93d42e1be5d39e928d8c2334a953f71194b1acebbbebe13a41f779da05214f78",
+   "digest": "7f1e055aa2872cbd0e365cecccc504b26348ee3ac795e9439fc2195bd3ca4873",
    "name": "store_backup_decision_result",
    "record": {
     "kind": "operation_result",
@@ -2026,12 +2032,12 @@
     },
     "outputs": [
      {
-      "digest": "215b85c0b55131fb9dd3f735bd4bcea3fa61c2e659bdeb071c04ffade7b04091",
+      "digest": "cf214bce633bcd2047f899e7cc663b10d72327f9e030fe21ca3f34a819df15af",
       "kind": "memory_candidate"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "8e204f9d77cd87720a0b40a28d4256c83a1d10df4883904694e5d626b32faf67",
+    "request_digest": "a9183795f4ffcb0e6f215d6658f28176c2005905b4bb15dd79c555889594452b",
     "request_id": "req_a55c18202bd4e84ecf41070d22d3cdc0",
     "schema": 1,
     "supported_recovery": []
@@ -2039,7 +2045,7 @@
   }
  ],
  "says": "A person binds this device's key and the checkout and registers two repository sources: one for decisions (memory) and one for lessons (Instructions). They select records 12 to 18 of one session transcript, stating that its text may be processed locally, with no prompt log, for this repository only; in that span two decisions were made: the journal mode, effective from 2026-01-01 under jurisdiction KR, with its measured reason stated; and the backup volume, effective from 2026-03-01 on a local SSD, with no reason given anywhere in the span. The owner reads exactly that span once (source.observe). Each producer adapter then runs on that one fixed observation through source.capture.record, at the head its destination's registration committed: the packaged distillation adapter yields a memory capture with one entry for each decision, its body the exact span text stating that decision's date, condition and (journal entry only) its reason, and the packaged learning adapter yields a behavioural capture of one lesson whose body restates the journal decision's date, condition and reason too; each answer returns the capture with the extraction_run that names its own adapter by name and digest and the packaged files it loaded - an extraction_run's `loaded` is the adapter's own package files, never the selected evidence, which the capture's own `processing.inputs` carries instead. Every capture's input lies under the selection's one root and restates no more than that root permits, the rule input_within_its_root. From the memory capture the person stores one candidate per decision (memory.candidate.store). The first keeps the date, condition and reason exactly as its entry's body states them; the second keeps its date and condition as stated and lists reason under unrecorded, since no reason appears in that body or anywhere else in the span. No adapter reads outside the observed span, and neither capture nor candidate carries a rationale the input does not contain.",
- "spec_sha256": "390eaefd994ab82180a04c11ebaf3801a001269a402d540f26bb460df18a7416",
+ "spec_sha256": "40a9460b1be9baa103dfa7f12b45b9c6ad4cc0dd48efbf7870c84ec4c42899ad",
  "steps": [
   {
    "carries": [

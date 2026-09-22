@@ -1,6 +1,6 @@
 {
  "case": "CAP-11",
- "says": "A person binds this device's key and the checkout and registers the repository's decisions source, founds a Team alone (team.found), registers the Team's decision source, and selects one transcript span permitting results in the repository and the Team (source.observe). The owner admits the capture at generation 7 (access.admission.decide) and saves it as a Team-source draft stating its widening from the repository with the founder's grant as authority (source.capture.record). A candidate is stored (memory.candidate.store) and presented unchanged (memory.candidate.read); while its promotion is admitted against that head, the Team resets its own rights on the source, moving the head, so promotion is refused stale_base on completion - present and promote both reevaluate the fixed target's current state, not admission-time state. Six later changes must each stop a late extraction being saved, redirected or revived, none writing anything: an executing extraction for the repository's source is cancelled by request id (operation.cancel); querying it returns withdrawn with no output, still true much later under a moved access generation; the transcript file is rewritten, a second observation reads other bytes, and the same capture naming the first, now-superseded observation is refused working_bytes_moved when resealed; the Team's policy moves to version 2, and the same capture naming the old policy digest is refused policy_superseded; the Team is archived, and the same capture for it is refused team_archived; and a capture admitted at generation 7 arrives after sign-out (generation 8): refused access_signed_out and access_generation_moved, and readmission answers not_admitted with the same two gaps. No late result attaches to another request, target, the changed bytes or the superseded policy.",
+ "says": "A person binds this device's key and the checkout, registers the repository's and the Team's decision sources (team.found), and selects one transcript span permitting results in both (source.observe). The owner admits the capture at generation 7 (access.admission.decide) and saves it as a Team-source draft stating its widening from the repository under the founder's grant (source.capture.record). A candidate is stored (memory.candidate.store) and presented unchanged (memory.candidate.read); while promotion is admitted against that head, the Team resets its rights, moving the head, so promotion is refused stale_base - present and promote reevaluate current state, not admission-time state. The Team then narrows those rights to export only: a fresh capture, the same presentation and a resealed promotion are each refused source_right_not_overridable, and restoring read, use and derive lifts exactly that block. Seven later changes must each stop a late extraction being saved, redirected or revived, none writing anything: resending the original capture's request id under a different Team is refused request_id_conflict; an executing extraction for the repository's source is cancelled by request id (operation.cancel); querying it returns withdrawn with no output, still true under a moved access generation; the transcript file is rewritten, a second observation reads other bytes, and the same capture naming the first observation is refused working_bytes_moved when resealed; the Team's policy moves to version 2, and the same capture naming the old policy digest is refused policy_superseded; the Team is archived, and the same capture for it is refused team_archived; and a capture admitted at generation 7 arrives after sign-out (generation 8): refused access_signed_out and access_generation_moved, and readmission answers not_admitted with the same two gaps. No late result attaches to another request, target, the changed bytes, the superseded policy or a newly selected Team.",
  "ids": [
   {
    "name": "me",
@@ -140,6 +140,30 @@
   },
   {
    "name": "present_after_sign_out_request",
+   "prefix": "req"
+  },
+  {
+   "name": "other_team",
+   "prefix": "tem"
+  },
+  {
+   "name": "restrict_rights_request",
+   "prefix": "req"
+  },
+  {
+   "name": "capture_after_restriction_request",
+   "prefix": "req"
+  },
+  {
+   "name": "present_after_restriction_request",
+   "prefix": "req"
+  },
+  {
+   "name": "promote_resealed_request",
+   "prefix": "req"
+  },
+  {
+   "name": "restore_rights_request",
    "prefix": "req"
   }
  ],
@@ -1784,6 +1808,206 @@
      "value": "@present_after_sign_out_request"
     }
    ]
+  },
+  {
+   "name": "team_capture_redirected",
+   "from": "capture_submit",
+   "set": [
+    {
+     "pointer": "/owner/team_id",
+     "value": "@other_team"
+    }
+   ]
+  },
+  {
+   "name": "team_decisions_rights_restricted_submitted",
+   "from": "c08/rights_the_owner_set.json",
+   "drop": [
+    "/set_by",
+    "/set_at"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/allows",
+     "value": [
+      "export"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "team_decisions_rights_restricted",
+   "from": "team_decisions_rights_restricted_submitted",
+   "set": [
+    {
+     "pointer": "/set_by",
+     "value": "@me"
+    },
+    {
+     "pointer": "/set_at",
+     "value": "$instant:rights_restricted_set_at"
+    }
+   ]
+  },
+  {
+   "name": "restrict_rights_submit",
+   "from": "c08/rights_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@restrict_rights_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_decisions_rights_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_decisions_rights_restricted_submitted"
+    }
+   ]
+  },
+  {
+   "name": "capture_after_restriction",
+   "from": "capture_submit",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@capture_after_restriction_request"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_decisions_rights_restricted_head"
+    }
+   ]
+  },
+  {
+   "name": "present_after_restriction",
+   "from": "present_submit",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@present_after_restriction_request"
+    }
+   ]
+  },
+  {
+   "name": "promote_resealed_after_restriction",
+   "from": "promote_submit",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@promote_resealed_request"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_decisions_rights_restricted_head"
+    }
+   ]
+  },
+  {
+   "name": "team_decisions_rights_restored_submitted",
+   "from": "c08/rights_the_owner_set.json",
+   "drop": [
+    "/set_by",
+    "/set_at"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@team_decisions"
+    }
+   ]
+  },
+  {
+   "name": "team_decisions_rights_restored",
+   "from": "team_decisions_rights_restored_submitted",
+   "set": [
+    {
+     "pointer": "/set_by",
+     "value": "@me"
+    },
+    {
+     "pointer": "/set_at",
+     "value": "$instant:rights_restored_set_at"
+    }
+   ]
+  },
+  {
+   "name": "restore_rights_submit",
+   "from": "c08/rights_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@restore_rights_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_decisions_rights_restricted_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_decisions_rights_restored_submitted"
+    }
+   ]
   }
  ],
  "steps": [
@@ -2004,6 +2228,118 @@
      "reseal_on_current_head"
     ],
     "returns": []
+   }
+  },
+  {
+   "name": "attempt_redirect_to_another_team",
+   "request": "team_capture_redirected",
+   "carries": [
+    "team_capture"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "request_id_conflict"
+     }
+    ],
+    "recovery": [
+     "query_same_request"
+    ],
+    "returns": []
+   }
+  },
+  {
+   "name": "restrict_team_decisions_rights",
+   "request": "restrict_rights_submit",
+   "carries": [
+    "team_decisions_rights_restricted_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_decisions_rights_restricted"
+    ],
+    "head": "team_decisions_rights_restricted_head"
+   }
+  },
+  {
+   "name": "capture_after_rights_restricted",
+   "request": "capture_after_restriction",
+   "carries": [
+    "team_capture"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "source_right_not_overridable"
+     }
+    ],
+    "recovery": [],
+    "returns": []
+   }
+  },
+  {
+   "name": "present_candidate_after_rights_restricted",
+   "request": "present_after_restriction",
+   "carries": [],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "source_right_not_overridable"
+     }
+    ],
+    "recovery": [],
+    "returns": []
+   }
+  },
+  {
+   "name": "reseal_promote_after_rights_restricted",
+   "request": "promote_resealed_after_restriction",
+   "carries": [
+    "promote_choice"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "source_right_not_overridable"
+     }
+    ],
+    "recovery": [],
+    "returns": []
+   }
+  },
+  {
+   "name": "restore_team_decisions_rights",
+   "request": "restore_rights_submit",
+   "carries": [
+    "team_decisions_rights_restored_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_decisions_rights_restored"
+    ],
+    "head": "team_decisions_rights_restored_head"
    }
   },
   {

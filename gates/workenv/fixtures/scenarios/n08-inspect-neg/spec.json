@@ -1,6 +1,6 @@
 {
   "case": "N08-INSPECT-NEG",
-  "says": "The reader binds their device key and their checkout of the repository, opens a workstream and registers a repository memory source named by that checkout binding, and two choices on the local journal mode are published there: first a rollback journal, then WAL, which replaces the first whole. An inspection (reader.body.read, role memory, reviewer view, history included) returns the current WAL choice as the winning required unit and the replaced choice as an optional unit marked superseded, each body carrying the alternatives its choice weighed, and its result carries no use: reading it admitted nothing. The reader then offers what it inspected as a use of the journal-mode concern (memory.use.prepare targeting the concern, with an envelope declaring it retains the inspected body and that result's qualifications). The owner refuses it with use_not_admitted: no pending question, qualified state or admitted use is returned, no use is started, and nothing is written.",
+  "says": "The reader binds their device key and their checkout of the repository, opens a workstream and registers a repository memory source named by that checkout binding, and two choices on the local journal mode are published there: first a rollback journal, then WAL, which replaces the first whole. An inspection (reader.body.read, role memory, reviewer view, history included) returns the current WAL choice as the winning required unit and the replaced choice as an optional unit marked superseded, each body carrying the alternatives its choice weighed, and its result carries no use: reading it admitted nothing. The reader then offers what it inspected as a use by resuming a use id and question id no admission ever created (reader.use.resume, its answer evidence the inspected body). The owner refuses it with use_not_admitted: no pending question, qualified state or admitted use is returned, no use is started, and nothing is written.",
   "ids": [
     {
       "name": "repo",
@@ -57,6 +57,14 @@
     {
       "name": "journal_concern",
       "prefix": "cnc"
+    },
+    {
+      "name": "offered_use",
+      "prefix": "use"
+    },
+    {
+      "name": "offered_question",
+      "prefix": "qst"
     }
   ],
   "records": [
@@ -788,6 +796,10 @@
         {
           "pointer": "/outcome/units/1/body_digest",
           "value": "#rollback_choice_body"
+        },
+        {
+          "pointer": "/outcome/consumed/bytes",
+          "value": 1846
         }
       ],
       "drop": [
@@ -845,59 +857,19 @@
     },
     {
       "name": "inspection_offered_as_a_use",
-      "from": "c06/envelope_declaring_a_retained_body.json",
+      "from": "c06/resume_with_the_answer_named_by_digest.json",
       "set": [
         {
-          "pointer": "/role_view/role",
-          "value": "memory"
+          "pointer": "/use_id",
+          "value": "@offered_use"
         },
         {
-          "pointer": "/role_view/view",
-          "value": "executor"
+          "pointer": "/question_id",
+          "value": "@offered_question"
         },
         {
-          "pointer": "/selector/concern/question",
-          "value": "Which journal mode does the local state database use?"
-        },
-        {
-          "pointer": "/history",
-          "value": "excluded"
-        },
-        {
-          "pointer": "/budget/max_examined",
-          "value": 64
-        },
-        {
-          "pointer": "/budget/max_units",
-          "value": 8
-        },
-        {
-          "pointer": "/budget/max_bytes",
-          "value": 40000
-        },
-        {
-          "pointer": "/required/0/role",
-          "value": "memory"
-        },
-        {
-          "pointer": "/required/0/source_id",
-          "value": "@decisions"
-        },
-        {
-          "pointer": "/work_scope/repository_id",
-          "value": "@repo"
-        },
-        {
-          "pointer": "/retains/0/unit_id",
-          "value": "$unt:wal_unit"
-        },
-        {
-          "pointer": "/retains/0/body_digest",
-          "value": "#wal_stored"
-        },
-        {
-          "pointer": "/retains/0/qualifications_digest",
-          "value": "#inspection"
+          "pointer": "/answer_evidence_digest",
+          "value": "#wal_choice_body"
         }
       ]
     },
@@ -907,7 +879,7 @@
       "set": [
         {
           "pointer": "/envelope_digest",
-          "value": "#inspection_offered_as_a_use"
+          "value": "#inspection_envelope"
         },
         {
           "pointer": "/prepared_at",
@@ -937,10 +909,7 @@
     },
     {
       "name": "use_request",
-      "from": "c04/model_check_request.json",
-      "drop": [
-        "/target/base"
-      ],
+      "from": "c01/link_request.json",
       "set": [
         {
           "pointer": "/request_id",
@@ -948,7 +917,7 @@
         },
         {
           "pointer": "/operation",
-          "value": "memory.use.prepare"
+          "value": "reader.use.resume"
         },
         {
           "pointer": "/action",
@@ -971,16 +940,16 @@
           "value": "@profile"
         },
         {
+          "pointer": "/owner/principal_id",
+          "value": "@me"
+        },
+        {
           "pointer": "/target/resource_id",
-          "value": "@journal_concern"
+          "value": "@offered_use"
         },
         {
           "pointer": "/payload_digest",
           "value": "#inspection_offered_as_a_use"
-        },
-        {
-          "pointer": "/owner/repository_id",
-          "value": "@repo"
         }
       ]
     }
@@ -988,11 +957,11 @@
   "members": [
     {
       "name": "wal_choice_body",
-      "text": "WAL, with synchronous FULL."
+      "text": "{\"alternatives\":[{\"choice\":\"A rollback journal with EXTRA\",\"reason\":\"One read waited 766 ms during a commit burst.\"}],\"applicability\":{\"conditions\":[{\"dimension\":\"jurisdiction\",\"value\":\"KR\"}],\"period\":{\"effective_from\":\"2026-01-01\"},\"states\":\"stated\"},\"choice\":\"WAL, with synchronous FULL.\",\"context\":\"Measured on APFS with fullfsync on.\",\"expected_consequences\":\"A checkpoint fault point has to be tested.\",\"home\":{\"layer\":\"repository\",\"repository_id\":\"rep_82f0939e15df4a2ed32cc262531b35a5\"},\"kind\":\"choice_record\",\"question\":\"Which journal mode does the local state database use?\",\"reason\":\"4.11 ms per commit against 11.76, and readers are not blocked.\",\"record_id\":\"rec_c227ffcb9a2d66e02696b8aaa0db38aa\",\"recorded_at\":\"2000-01-01T00:00:00Z\",\"replaces\":{\"extent\":\"whole\",\"record_id\":\"rec_856d4bc7126513a017e2f9dc80c75961\"},\"revisit_condition\":\"A filesystem that does not honour fullfsync.\",\"schema\":1,\"workstream_ids\":[\"wst_789a816101b6475940fed49be1471932\"]}"
     },
     {
       "name": "rollback_choice_body",
-      "text": "A rollback journal with EXTRA."
+      "text": "{\"alternatives\":[{\"choice\":\"A rollback journal with EXTRA\",\"reason\":\"One read waited 766 ms during a commit burst.\"}],\"applicability\":{\"conditions\":[{\"dimension\":\"jurisdiction\",\"value\":\"KR\"}],\"period\":{\"effective_from\":\"2026-01-01\"},\"states\":\"stated\"},\"choice\":\"A rollback journal with EXTRA.\",\"context\":\"Measured on APFS with fullfsync on.\",\"expected_consequences\":\"A checkpoint fault point has to be tested.\",\"home\":{\"layer\":\"repository\",\"repository_id\":\"rep_82f0939e15df4a2ed32cc262531b35a5\"},\"kind\":\"choice_record\",\"question\":\"Which journal mode does the local state database use?\",\"reason\":\"4.11 ms per commit against 11.76, and readers are not blocked.\",\"record_id\":\"rec_856d4bc7126513a017e2f9dc80c75961\",\"recorded_at\":\"2000-01-01T00:00:00Z\",\"revisit_condition\":\"A filesystem that does not honour fullfsync.\",\"schema\":1,\"workstream_ids\":[\"wst_789a816101b6475940fed49be1471932\"]}"
     }
   ],
   "steps": [

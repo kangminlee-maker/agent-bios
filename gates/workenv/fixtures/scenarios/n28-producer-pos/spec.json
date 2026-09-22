@@ -678,8 +678,11 @@
      "value": "#stored_memory_capture"
     },
     {
-     "pointer": "/origin/evidence_digests/0",
-     "value": "#span_member"
+     "pointer": "/origin/evidence_digests",
+     "value": [
+      "#journal_entry_body",
+      "#span_member"
+     ]
     },
     {
      "pointer": "/proposed/home/repository_id",
@@ -691,20 +694,27 @@
     }
    ],
    "drop": [
-    "/proposed/basis"
+    "/proposed/basis",
+    "/proposed/alternatives",
+    "/proposed/context",
+    "/proposed/expected_consequences",
+    "/proposed/revisit_condition"
    ]
   },
   {
    "name": "backup_candidate",
    "from": "journal_candidate",
    "drop": [
-    "/proposed/reason",
-    "/proposed/expected_consequences",
-    "/proposed/revisit_condition",
-    "/proposed/context",
-    "/proposed/alternatives/0/reason"
+    "/proposed/reason"
    ],
    "set": [
+    {
+     "pointer": "/origin/evidence_digests",
+     "value": [
+      "#backup_entry_body",
+      "#span_member"
+     ]
+    },
     {
      "pointer": "/proposed/question",
      "value": "Where are the local state backups written?"

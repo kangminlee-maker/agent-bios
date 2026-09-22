@@ -36,6 +36,22 @@
   {
    "id": "req_c0c4a26c62d834705c694d34dd4d4b08",
    "name": "question_request"
+  },
+  {
+   "id": "rep_ffabd6afd6d0f8d258a905c9e5418939",
+   "name": "repo"
+  },
+  {
+   "id": "req_74ce0efee1fd50684c25d986fe4c34ed",
+   "name": "bind_repo_rid"
+  },
+  {
+   "id": "src_8593b2cfa737c02c0c9613ab749b7b8e",
+   "name": "repo_pkg_source"
+  },
+  {
+   "id": "req_42124e421c19eef90968018e1f95a517",
+   "name": "install_repo_request"
   }
  ],
  "joins": [
@@ -88,6 +104,51 @@
    "digest_of": "stored_key",
    "pointer": "/outputs/0/digest",
    "record": "bind_device_key_result"
+  },
+  {
+   "digest_of": "repo_binding_submitted",
+   "pointer": "/payload_digest",
+   "record": "bind_repo_request"
+  },
+  {
+   "digest_of": "bind_repo_request",
+   "pointer": "/request_digest",
+   "record": "bind_repository_receipt"
+  },
+  {
+   "minted": "bind_repository_head",
+   "pointer": "/head_digest",
+   "record": "bind_repository_receipt"
+  },
+  {
+   "minted": "bind_repository_sequence",
+   "pointer": "/sequence",
+   "record": "bind_repository_receipt"
+  },
+  {
+   "minted": "bind_repository_committed_at",
+   "pointer": "/committed_at",
+   "record": "bind_repository_receipt"
+  },
+  {
+   "minted": "checkout_bytes",
+   "pointer": "/observed/working_bytes_digest",
+   "record": "repo_binding"
+  },
+  {
+   "digest_of": "bind_repository_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "bind_repository_result"
+  },
+  {
+   "digest_of": "bind_repo_request",
+   "pointer": "/request_digest",
+   "record": "bind_repository_result"
+  },
+  {
+   "digest_of": "repo_binding",
+   "pointer": "/outputs/0/digest",
+   "record": "bind_repository_result"
   },
   {
    "digest_of": "rates_csv",
@@ -170,6 +231,86 @@
    "record": "install_package_result"
   },
   {
+   "digest_of": "rates_csv",
+   "pointer": "/members/1/digest",
+   "record": "repo_pkg_manifest"
+  },
+  {
+   "digest_of": "concepts_body",
+   "pointer": "/members/0/digest",
+   "record": "repo_pkg_manifest"
+  },
+  {
+   "digest_of": "repo_pkg_manifest",
+   "pointer": "/route/revision_digest",
+   "record": "install_repo_payload"
+  },
+  {
+   "digest_of": "install_repo_payload",
+   "pointer": "/payload_digest",
+   "record": "install_repo"
+  },
+  {
+   "digest_of": "install_repo",
+   "pointer": "/request_digest",
+   "record": "install_package_to_repository_receipt"
+  },
+  {
+   "minted": "repo_pkg_head",
+   "pointer": "/head_digest",
+   "record": "install_package_to_repository_receipt"
+  },
+  {
+   "minted": "install_package_to_repository_sequence",
+   "pointer": "/sequence",
+   "record": "install_package_to_repository_receipt"
+  },
+  {
+   "minted": "install_package_to_repository_committed_at",
+   "pointer": "/committed_at",
+   "record": "install_package_to_repository_receipt"
+  },
+  {
+   "minted": "publisher_evidence",
+   "pointer": "/origin/publisher_evidence_digest",
+   "record": "repo_pkg_provenance"
+  },
+  {
+   "minted": "repo_installed_at",
+   "pointer": "/acquisition/acquired_at",
+   "record": "repo_pkg_provenance"
+  },
+  {
+   "minted": "package_bytes",
+   "pointer": "/acquisition/availability_evidence_digest",
+   "record": "repo_pkg_provenance"
+  },
+  {
+   "minted": "content_review_evidence",
+   "pointer": "/claims/0/support/evidence_digest",
+   "record": "repo_pkg_provenance"
+  },
+  {
+   "digest_of": "install_package_to_repository_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "install_package_to_repository_result"
+  },
+  {
+   "digest_of": "install_repo",
+   "pointer": "/request_digest",
+   "record": "install_package_to_repository_result"
+  },
+  {
+   "digest_of": "repo_pkg_manifest",
+   "pointer": "/outputs/0/digest",
+   "record": "install_package_to_repository_result"
+  },
+  {
+   "digest_of": "repo_pkg_provenance",
+   "pointer": "/outputs/1/digest",
+   "record": "install_package_to_repository_result"
+  },
+  {
    "minted": "pkg_head",
    "pointer": "/target/base/head_digest",
    "record": "resolve"
@@ -215,6 +356,11 @@
    "record": "question"
   },
   {
+   "digest_of": "repo_pkg_manifest",
+   "pointer": "/source_pins/1/revision_digest",
+   "record": "question"
+  },
+  {
    "digest_of": "question",
    "pointer": "/payload_digest",
    "record": "ask"
@@ -245,8 +391,23 @@
    "record": "view"
   },
   {
+   "digest_of": "rates_csv",
+   "pointer": "/members/2/digest",
+   "record": "view"
+  },
+  {
+   "digest_of": "concepts_body",
+   "pointer": "/members/3/digest",
+   "record": "view"
+  },
+  {
    "digest_of": "pkg_manifest",
    "pointer": "/evidence/0/revision_digest",
+   "record": "view"
+  },
+  {
+   "digest_of": "repo_pkg_manifest",
+   "pointer": "/evidence/1/revision_digest",
    "record": "view"
   },
   {
@@ -311,6 +472,26 @@
    "step": "bind_device_key"
   },
   {
+   "name": "bind_repository_committed_at",
+   "shape": "instant",
+   "step": "bind_repository"
+  },
+  {
+   "name": "bind_repository_head",
+   "shape": "digest",
+   "step": "bind_repository"
+  },
+  {
+   "name": "bind_repository_sequence",
+   "shape": "integer",
+   "step": "bind_repository"
+  },
+  {
+   "name": "checkout_bytes",
+   "shape": "digest",
+   "step": "bind_repository"
+  },
+  {
    "name": "content_review_evidence",
    "shape": "digest",
    "step": "install_package"
@@ -344,6 +525,26 @@
    "name": "publisher_evidence",
    "shape": "digest",
    "step": "install_package"
+  },
+  {
+   "name": "install_package_to_repository_committed_at",
+   "shape": "instant",
+   "step": "install_package_to_repository"
+  },
+  {
+   "name": "install_package_to_repository_sequence",
+   "shape": "integer",
+   "step": "install_package_to_repository"
+  },
+  {
+   "name": "repo_installed_at",
+   "shape": "instant",
+   "step": "install_package_to_repository"
+  },
+  {
+   "name": "repo_pkg_head",
+   "shape": "digest",
+   "step": "install_package_to_repository"
   },
   {
    "name": "package_view",
@@ -462,6 +663,109 @@
     "provider_effect": "not_applicable",
     "request_digest": "15b00657f347c734bf7ddbe17e9e8589e9d7e934cde8bfbcbcaba7be3a9b9212",
     "request_id": "req_be45d5b5ec8674e0639d35d03c674a91",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "87781f80b0da1a9c06291e66ec76b48d49bbac378fdf7cf5bac851cac7337e63",
+   "name": "repo_binding_submitted",
+   "record": {
+    "kind": "repository_binding",
+    "relation": {
+     "how": "clone"
+    },
+    "repository_id": "rep_ffabd6afd6d0f8d258a905c9e5418939",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "16750bb5cd797dd7cbf260b84c78e5e897ebddeeea6821b5206122371ead3deb",
+   "name": "bind_repo_request",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_1ccf6164c992be31e3a37fc10a4216e7",
+     "principal_id": "prn_21fc383fc99162d36a050e2a43ed5cf7",
+     "profile_id": "prf_b382e07bae866d982adc56ffa493e49e"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "repository.bind",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_21fc383fc99162d36a050e2a43ed5cf7"
+    },
+    "payload_digest": "87781f80b0da1a9c06291e66ec76b48d49bbac378fdf7cf5bac851cac7337e63",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_74ce0efee1fd50684c25d986fe4c34ed",
+    "schema": 1,
+    "target": {
+     "resource_id": "rep_ffabd6afd6d0f8d258a905c9e5418939"
+    }
+   }
+  },
+  {
+   "digest": "bf88be5225ed1eeea2d9db56149e5cedefd3dfebc95d4adab2e103d8f8c31a35",
+   "name": "bind_repository_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "5096efde39be972029804fd7d6e6a5837d965adff67fd9894abad94527678e73",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_21fc383fc99162d36a050e2a43ed5cf7"
+    },
+    "request_digest": "16750bb5cd797dd7cbf260b84c78e5e897ebddeeea6821b5206122371ead3deb",
+    "request_id": "req_74ce0efee1fd50684c25d986fe4c34ed",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "rep_ffabd6afd6d0f8d258a905c9e5418939"
+    }
+   }
+  },
+  {
+   "digest": "fce2665d5ffbdf9bf2ebfaad4700b382376cce0231a330b1379750856b1928f2",
+   "name": "repo_binding",
+   "record": {
+    "kind": "repository_binding",
+    "observed": {
+     "branch": "main",
+     "commit": "0123456789abcdef0123456789abcdef01234567",
+     "locator": "git@github.com:example/work.git",
+     "working_bytes_digest": "77744edded358a95c0ad6d1b02cd6cfce606de2aaefac4bad6aa6218529cc884"
+    },
+    "relation": {
+     "how": "clone"
+    },
+    "repository_id": "rep_ffabd6afd6d0f8d258a905c9e5418939",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "f6e71d9b2811555d1983ad4c2ce77240b6a7414411102189a2938daecbbaa365",
+   "name": "bind_repository_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "bf88be5225ed1eeea2d9db56149e5cedefd3dfebc95d4adab2e103d8f8c31a35",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "fce2665d5ffbdf9bf2ebfaad4700b382376cce0231a330b1379750856b1928f2",
+      "kind": "repository_binding"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "16750bb5cd797dd7cbf260b84c78e5e897ebddeeea6821b5206122371ead3deb",
+    "request_id": "req_74ce0efee1fd50684c25d986fe4c34ed",
     "schema": 1,
     "supported_recovery": []
    }
@@ -626,6 +930,165 @@
    }
   },
   {
+   "digest": "c2812472d84f52e5f379446f3e752c2656cf381791e659d73c83281e6fbf3f26",
+   "name": "repo_pkg_manifest",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "7b5a1cd9fe90020be25a6ad69bc52e98bea705766bebe358c91ded7c0655c358",
+      "path": "concepts.md",
+      "size": 4120
+     },
+     {
+      "digest": "0f59a1191ed7acd2eddb35bed503d44d3f5e1421104f01b049fd03a68a8a1505",
+      "path": "tables/rates.csv",
+      "size": 41
+     }
+    ],
+    "produced_at": "2026-09-20T09:00:00Z",
+    "schema": 1,
+    "source_id": "src_8593b2cfa737c02c0c9613ab749b7b8e"
+   }
+  },
+  {
+   "digest": "3003b296577af848bf074d375728ac28271d9ccc449dd5bf711b455ca071f7ca",
+   "name": "install_repo_payload",
+   "record": {
+    "destination": {
+     "home_mode": "package_published",
+     "scope": {
+      "layer": "repository",
+      "repository_id": "rep_ffabd6afd6d0f8d258a905c9e5418939"
+     }
+    },
+    "kind": "source_request",
+    "role": "knowledge",
+    "route": {
+     "package_id": "pkg_9a54bda7212eb2e6ea405c4d3c54feb3",
+     "revision_digest": "c2812472d84f52e5f379446f3e752c2656cf381791e659d73c83281e6fbf3f26",
+     "route": "add_published_package"
+    },
+    "schema": 1
+   }
+  },
+  {
+   "digest": "aafc3fbc27bab3d4b20df73c76f28539ea3fe6f37588107fe6a60bdbda660c07",
+   "name": "install_repo",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_1ccf6164c992be31e3a37fc10a4216e7",
+     "principal_id": "prn_21fc383fc99162d36a050e2a43ed5cf7",
+     "profile_id": "prf_b382e07bae866d982adc56ffa493e49e"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "source.revision.admit",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_ffabd6afd6d0f8d258a905c9e5418939"
+    },
+    "payload_digest": "3003b296577af848bf074d375728ac28271d9ccc449dd5bf711b455ca071f7ca",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_42124e421c19eef90968018e1f95a517",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_8593b2cfa737c02c0c9613ab749b7b8e"
+    }
+   }
+  },
+  {
+   "digest": "5e5b66d029082dc23ac367d54538908b44032bfa4e832de11ed6a691a295ab36",
+   "name": "install_package_to_repository_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "62ed450ee477f1e63f6b03ead87dca06f1c330a64449f3a919de6b16028b37af",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_ffabd6afd6d0f8d258a905c9e5418939"
+    },
+    "request_digest": "aafc3fbc27bab3d4b20df73c76f28539ea3fe6f37588107fe6a60bdbda660c07",
+    "request_id": "req_42124e421c19eef90968018e1f95a517",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_8593b2cfa737c02c0c9613ab749b7b8e"
+    }
+   }
+  },
+  {
+   "digest": "75b416333b1df4144ca6ac5ff79d23a684528499c4a4c987acc49d14775fa23f",
+   "name": "repo_pkg_provenance",
+   "record": {
+    "acceptance": {
+     "state": "not_accepted"
+    },
+    "acquisition": {
+     "acquired_at": "2000-01-01T00:00:00Z",
+     "availability_evidence_digest": "9c06d68e1aca24a59f0fd1d84466696c7cf367ca72546edc2e9d7724bb499c64"
+    },
+    "claims": [
+     {
+      "as_stated": "Content reviewed by the publisher's tax editors for the 2026 edition",
+      "claim": "approval",
+      "support": {
+       "evidence_digest": "c191c9510cc55be75e9ec2379868e9886bb4416e24de1f0a639daa62bff91a69",
+       "support": "verified"
+      }
+     }
+    ],
+    "kind": "source_provenance",
+    "origin": {
+     "origin": "product_supplied_package",
+     "package_id": "pkg_9a54bda7212eb2e6ea405c4d3c54feb3",
+     "publisher_evidence_digest": "49a7e3fc6b1503f806fb5f5f12a97616da19a670dec2ec050474debf6ca88324"
+    },
+    "role": "knowledge",
+    "schema": 1,
+    "source_id": "src_8593b2cfa737c02c0c9613ab749b7b8e"
+   }
+  },
+  {
+   "digest": "fd8ad045c455874235fec840d290b91e5d523c697067fa95acca6b20d5b2087a",
+   "name": "install_package_to_repository_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "5e5b66d029082dc23ac367d54538908b44032bfa4e832de11ed6a691a295ab36",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "c2812472d84f52e5f379446f3e752c2656cf381791e659d73c83281e6fbf3f26",
+      "kind": "source_manifest"
+     },
+     {
+      "digest": "75b416333b1df4144ca6ac5ff79d23a684528499c4a4c987acc49d14775fa23f",
+      "kind": "source_provenance"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "aafc3fbc27bab3d4b20df73c76f28539ea3fe6f37588107fe6a60bdbda660c07",
+    "request_id": "req_42124e421c19eef90968018e1f95a517",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
    "digest": "432620c172559ea6695c8fec3690290c58ab9422a607efd9b253bd97fcb5fc55",
    "name": "package_ref",
    "record": {
@@ -710,7 +1173,7 @@
    }
   },
   {
-   "digest": "ed18196a0912e86b1bbb855ac655e67d2ea23e92c64fa14a23fa8847e7026e38",
+   "digest": "1a710c3535b23f2ccc9218f6fb0ba1b4e6ba45c103c15f3930b19974ab3cab13",
    "name": "question",
    "record": {
     "companions": "optional",
@@ -729,13 +1192,17 @@
      {
       "revision_digest": "491e5bb5d7e0df75ee47e9cd82a14cf9db0f20a4cfba55329259fe4004c46290",
       "source_id": "src_5603a3f1537aeeef833219d29049b22b"
+     },
+     {
+      "revision_digest": "c2812472d84f52e5f379446f3e752c2656cf381791e659d73c83281e6fbf3f26",
+      "source_id": "src_8593b2cfa737c02c0c9613ab749b7b8e"
      }
     ],
     "want": "both"
    }
   },
   {
-   "digest": "7d4f6882a6501171e8d8ac7a1ce190264eb6c652e02b50dafbfc293feb3e0dac",
+   "digest": "b8c59cc0301b71a945528077b5677c1f3a12e23bae3ea0b8a5db5427d204c9f0",
    "name": "ask",
    "record": {
     "action": "read",
@@ -753,7 +1220,7 @@
      "layer": "personal",
      "principal_id": "prn_21fc383fc99162d36a050e2a43ed5cf7"
     },
-    "payload_digest": "ed18196a0912e86b1bbb855ac655e67d2ea23e92c64fa14a23fa8847e7026e38",
+    "payload_digest": "1a710c3535b23f2ccc9218f6fb0ba1b4e6ba45c103c15f3930b19974ab3cab13",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_c0c4a26c62d834705c694d34dd4d4b08",
@@ -764,7 +1231,7 @@
    }
   },
   {
-   "digest": "c2a8abd957b8bc134f7410596ccb7d225e50471dc85ffa85cb105162764900c9",
+   "digest": "e6c898c8e93a3d82f343cbe5ce145552ac55629452feed9184bb58e970311282",
    "name": "view",
    "record": {
     "applicability": {
@@ -785,6 +1252,11 @@
       "cited_edition": "2026 edition as shipped",
       "revision_digest": "491e5bb5d7e0df75ee47e9cd82a14cf9db0f20a4cfba55329259fe4004c46290",
       "source_id": "src_5603a3f1537aeeef833219d29049b22b"
+     },
+     {
+      "cited_edition": "2026 edition as shipped",
+      "revision_digest": "c2812472d84f52e5f379446f3e752c2656cf381791e659d73c83281e6fbf3f26",
+      "source_id": "src_8593b2cfa737c02c0c9613ab749b7b8e"
      }
     ],
     "kind": "knowledge_view",
@@ -796,7 +1268,7 @@
       "member_kind": "table",
       "path": "tables/rates.csv",
       "source_id": "src_5603a3f1537aeeef833219d29049b22b",
-      "standing": "preferred"
+      "standing": "retained"
      },
      {
       "digest": "7b5a1cd9fe90020be25a6ad69bc52e98bea705766bebe358c91ded7c0655c358",
@@ -804,17 +1276,33 @@
       "member_kind": "prose",
       "path": "concepts.md",
       "source_id": "src_5603a3f1537aeeef833219d29049b22b",
+      "standing": "retained"
+     },
+     {
+      "digest": "0f59a1191ed7acd2eddb35bed503d44d3f5e1421104f01b049fd03a68a8a1505",
+      "layer": "repository",
+      "member_kind": "table",
+      "path": "tables/rates.csv",
+      "source_id": "src_8593b2cfa737c02c0c9613ab749b7b8e",
+      "standing": "preferred"
+     },
+     {
+      "digest": "7b5a1cd9fe90020be25a6ad69bc52e98bea705766bebe358c91ded7c0655c358",
+      "layer": "repository",
+      "member_kind": "prose",
+      "path": "concepts.md",
+      "source_id": "src_8593b2cfa737c02c0c9613ab749b7b8e",
       "standing": "preferred"
      }
     ],
     "prepared_at": "2000-01-01T00:00:00Z",
-    "question_digest": "ed18196a0912e86b1bbb855ac655e67d2ea23e92c64fa14a23fa8847e7026e38",
+    "question_digest": "1a710c3535b23f2ccc9218f6fb0ba1b4e6ba45c103c15f3930b19974ab3cab13",
     "schema": 1,
     "view_id": "viw_c3a275a8683ef8551072cd065d284ccf"
    }
   },
   {
-   "digest": "43c62fcfe8eaa72c08841132693ae1b3feedc56566d2479991f098f8a8fad620",
+   "digest": "f27b892bbab3a4c121d002fd3b3112da66d5676aac8d389f4b8837ef19d12566",
    "name": "ask_the_package_result",
    "record": {
     "kind": "operation_result",
@@ -825,7 +1313,7 @@
     },
     "outputs": [
      {
-      "digest": "c2a8abd957b8bc134f7410596ccb7d225e50471dc85ffa85cb105162764900c9",
+      "digest": "e6c898c8e93a3d82f343cbe5ce145552ac55629452feed9184bb58e970311282",
       "kind": "knowledge_view"
      },
      {
@@ -838,15 +1326,15 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "7d4f6882a6501171e8d8ac7a1ce190264eb6c652e02b50dafbfc293feb3e0dac",
+    "request_digest": "b8c59cc0301b71a945528077b5677c1f3a12e23bae3ea0b8a5db5427d204c9f0",
     "request_id": "req_c0c4a26c62d834705c694d34dd4d4b08",
     "schema": 1,
     "supported_recovery": []
    }
   }
  ],
- "says": "A person with no Team installs the knowledge package shipped in the product through the add_published_package route (source.revision.admit), naming the exact revision by the digest of the shipped manifest. The owner commits it and returns that same manifest and a provenance whose origin is the product-supplied package, whose acceptance is not_accepted and whose content-review statement is kept as an approval claim with verified support against the publisher's own review evidence, never as a Team acceptance. Resolving an exact member (reference.resolve) returns the same manifest, whose member digest is the member the reference names, the same provenance, and that member's own bytes. Asking a question against that exact revision (knowledge.question.ask) returns a view whose members are the package's bytes in the person's own layer, cited to that revision. Nothing here adopts the package for a Team, records a Team acceptance, or gives it a priority: the provenance has no priority field and the view places it only in the layer it was installed into.",
- "spec_sha256": "f80cf93cf755aef682fe239e11409a94e152e247bb56a9924232eb34470cb430",
+ "says": "A person with no Team installs the knowledge package shipped in the product through the add_published_package route (source.revision.admit), naming the exact revision by the digest of the shipped manifest. The owner commits it and returns that same manifest and a provenance whose origin is the product-supplied package, whose acceptance is not_accepted and whose content-review statement is kept as an approval claim with verified support against the publisher's own review evidence, never as a Team acceptance. The same shipped revision is also installed into a bound repository, as a second, distinct source; asking one question pinned to both returns a view citing the repository copy as preferred and the personal copy as retained, by the ordinary layer order alone, since being the product's own package earns it no elevated standing. Resolving an exact member (reference.resolve) returns the same manifest, whose member digest is the member the reference names, the same provenance, and that member's own bytes. Asking a question against that exact revision (knowledge.question.ask) returns a view whose members are the package's bytes in the person's own layer, cited to that revision. Nothing here adopts the package for a Team, records a Team acceptance, or gives it a priority beyond ordinary layer order: the provenance has no priority field, and the view places each copy in the layer it was installed into.",
+ "spec_sha256": "db854348b7b5a18fd3d7116742afe633f9d88ed2684b601973377501fc44b301",
  "steps": [
   {
    "carries": [
@@ -861,6 +1349,17 @@
   },
   {
    "carries": [
+    "repo_binding_submitted"
+   ],
+   "name": "bind_repository",
+   "request": "bind_repo_request",
+   "result": "bind_repository_result",
+   "returns": [
+    "repo_binding"
+   ]
+  },
+  {
+   "carries": [
     "install_payload"
    ],
    "head": "pkg_head",
@@ -870,6 +1369,19 @@
    "returns": [
     "pkg_manifest",
     "pkg_provenance"
+   ]
+  },
+  {
+   "carries": [
+    "install_repo_payload"
+   ],
+   "head": "repo_pkg_head",
+   "name": "install_package_to_repository",
+   "request": "install_repo",
+   "result": "install_package_to_repository_result",
+   "returns": [
+    "repo_pkg_manifest",
+    "repo_pkg_provenance"
    ]
   },
   {
@@ -906,6 +1418,12 @@
     "kind": "inventory",
     "root": "shipped_knowledge",
     "yields": "pkg_manifest"
+   },
+   {
+    "before": "install_package_to_repository",
+    "kind": "inventory",
+    "root": "shipped_knowledge",
+    "yields": "repo_pkg_manifest"
    }
   ]
  }

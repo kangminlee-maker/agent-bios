@@ -1,6 +1,6 @@
 {
  "case": "N05-CRASH-NEG",
- "says": "Alice registers a private notes source on her laptop, which makes its first head, and commits it once on that head; she then commits seven more times, the process being killed at a different B03 publication fault point during each commit \u2014 before staging, after the member write before sync, after staging before rename, after rename before the directory sync, after that sync before the transaction begins, inside the transaction before commit, and after commit before the answer returns. A kill before the transaction commits leaves the prior head and no receipt, so the same request, sent again after the restart, commits exactly once; each next commit expects exactly the head the previous one moved to and is accepted, so no staged member was counted as committed and no request moved a head twice. The kill after commit and before the answer leaves Alice without a reply: the outcome is unknown to her, and querying that request id settles it with the original result and its receipt, whose head the next commit then expects. Alice then takes two backups of the profile, outside the source's head: the first killed during its checkpoint and the second killed during the backup copy itself; each is answered by the same discipline as the commits \u2014 the same request, sent again after its own restart, commits exactly once, writing one backup_set and one receipt. A later commit on the source, after both backups, still expects the head the last commit moved to. A later query of the commit killed inside its transaction returns the one result and receipt its resubmission wrote. Submitting the settled request id again with other bytes (another revision) is refused with request_id_conflict and writes nothing. What must not happen: a head naming staged members without a receipt, a second receipt for one request, or the conflicting bytes replacing the original.",
+ "says": "Alice registers a private notes source on her laptop, which makes its first head, and commits it once on that head; she then commits seven more times, the process being killed at a different B03 publication fault point during each commit \u2014 before staging, after the member write before sync, after staging before rename, after rename before the directory sync, after that sync before the transaction begins, inside the transaction before commit, and after commit before the answer returns. A kill before the transaction commits leaves the prior head and no receipt \u2014 a query of that request id taken before the retry finds the owner never held it \u2014 so the same request, sent again after the restart, commits exactly once; each next commit expects exactly the head the previous one moved to and is accepted, so no staged member was counted as committed and no request moved a head twice. The kill after commit and before the answer leaves Alice without a reply: the outcome is unknown to her, and querying that request id settles it with the original result and its receipt, whose head the next commit then expects. Alice then takes two backups of the profile, outside the source's head: the first killed during its checkpoint and the second killed during the backup copy itself; each is answered by the same discipline as the commits \u2014 the same request, sent again after its own restart, commits exactly once, writing one backup_set and one receipt. A later commit on the source, after both backups, still expects the head the last commit moved to. A later query of the commit killed inside its transaction returns the one result and receipt its resubmission wrote. Submitting the settled request id again with other bytes (another revision) is refused with request_id_conflict and writes nothing. What must not happen: a head naming staged members without a receipt, a second receipt for one request, or the conflicting bytes replacing the original.",
  "ids": [
   {
    "name": "alice",
@@ -76,6 +76,30 @@
   },
   {
    "name": "backup_request_backup",
+   "prefix": "req"
+  },
+  {
+   "name": "query_before_retry_1_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "query_before_retry_2_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "query_before_retry_3_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "query_before_retry_4_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "query_before_retry_5_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "query_before_retry_6_request_id",
    "prefix": "req"
   }
  ],
@@ -368,6 +392,80 @@
    ]
   },
   {
+   "name": "query_before_retry_1_payload",
+   "from": "c03/query_by_request_id.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_request_1"
+    }
+   ]
+  },
+  {
+   "name": "query_before_retry_1_request",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@query_before_retry_1_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.query"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@commit_request_1"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#query_before_retry_1_payload"
+    }
+   ]
+  },
+  {
+   "name": "not_held_1",
+   "from": "c03/query_for_a_request_never_received.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_request_1"
+    }
+   ]
+  },
+  {
    "name": "commit_1",
    "from": "bindings/storing_request.json",
    "drop": [
@@ -454,6 +552,80 @@
     {
      "pointer": "/members/0/size",
      "value": 4122
+    }
+   ]
+  },
+  {
+   "name": "query_before_retry_2_payload",
+   "from": "c03/query_by_request_id.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_request_2"
+    }
+   ]
+  },
+  {
+   "name": "query_before_retry_2_request",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@query_before_retry_2_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.query"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@commit_request_2"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#query_before_retry_2_payload"
+    }
+   ]
+  },
+  {
+   "name": "not_held_2",
+   "from": "c03/query_for_a_request_never_received.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_request_2"
     }
    ]
   },
@@ -548,6 +720,80 @@
    ]
   },
   {
+   "name": "query_before_retry_3_payload",
+   "from": "c03/query_by_request_id.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_request_3"
+    }
+   ]
+  },
+  {
+   "name": "query_before_retry_3_request",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@query_before_retry_3_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.query"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@commit_request_3"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#query_before_retry_3_payload"
+    }
+   ]
+  },
+  {
+   "name": "not_held_3",
+   "from": "c03/query_for_a_request_never_received.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_request_3"
+    }
+   ]
+  },
+  {
    "name": "commit_3",
    "from": "bindings/storing_request.json",
    "drop": [
@@ -634,6 +880,80 @@
     {
      "pointer": "/members/0/size",
      "value": 4124
+    }
+   ]
+  },
+  {
+   "name": "query_before_retry_4_payload",
+   "from": "c03/query_by_request_id.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_request_4"
+    }
+   ]
+  },
+  {
+   "name": "query_before_retry_4_request",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@query_before_retry_4_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.query"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@commit_request_4"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#query_before_retry_4_payload"
+    }
+   ]
+  },
+  {
+   "name": "not_held_4",
+   "from": "c03/query_for_a_request_never_received.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_request_4"
     }
    ]
   },
@@ -728,6 +1048,80 @@
    ]
   },
   {
+   "name": "query_before_retry_5_payload",
+   "from": "c03/query_by_request_id.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_request_5"
+    }
+   ]
+  },
+  {
+   "name": "query_before_retry_5_request",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@query_before_retry_5_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.query"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@commit_request_5"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#query_before_retry_5_payload"
+    }
+   ]
+  },
+  {
+   "name": "not_held_5",
+   "from": "c03/query_for_a_request_never_received.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_request_5"
+    }
+   ]
+  },
+  {
    "name": "commit_5",
    "from": "bindings/storing_request.json",
    "drop": [
@@ -814,6 +1208,80 @@
     {
      "pointer": "/members/0/size",
      "value": 4126
+    }
+   ]
+  },
+  {
+   "name": "query_before_retry_6_payload",
+   "from": "c03/query_by_request_id.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_request_6"
+    }
+   ]
+  },
+  {
+   "name": "query_before_retry_6_request",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@query_before_retry_6_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.query"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@commit_request_6"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#query_before_retry_6_payload"
+    }
+   ]
+  },
+  {
+   "name": "not_held_6",
+   "from": "c03/query_for_a_request_never_received.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_request_6"
     }
    ]
   },
@@ -1487,6 +1955,23 @@
    }
   },
   {
+   "name": "query_before_retry_1",
+   "request": "query_before_retry_1_request",
+   "carries": [
+    "query_before_retry_1_payload"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "not_held_1"
+    ]
+   }
+  },
+  {
    "name": "commit_revision_2",
    "request": "commit_2",
    "carries": [
@@ -1502,6 +1987,23 @@
      "stored_revision_2"
     ],
     "head": "head_2"
+   }
+  },
+  {
+   "name": "query_before_retry_2",
+   "request": "query_before_retry_2_request",
+   "carries": [
+    "query_before_retry_2_payload"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "not_held_2"
+    ]
    }
   },
   {
@@ -1523,6 +2025,23 @@
    }
   },
   {
+   "name": "query_before_retry_3",
+   "request": "query_before_retry_3_request",
+   "carries": [
+    "query_before_retry_3_payload"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "not_held_3"
+    ]
+   }
+  },
+  {
    "name": "commit_revision_4",
    "request": "commit_4",
    "carries": [
@@ -1538,6 +2057,23 @@
      "stored_revision_4"
     ],
     "head": "head_4"
+   }
+  },
+  {
+   "name": "query_before_retry_4",
+   "request": "query_before_retry_4_request",
+   "carries": [
+    "query_before_retry_4_payload"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "not_held_4"
+    ]
    }
   },
   {
@@ -1559,6 +2095,23 @@
    }
   },
   {
+   "name": "query_before_retry_5",
+   "request": "query_before_retry_5_request",
+   "carries": [
+    "query_before_retry_5_payload"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "not_held_5"
+    ]
+   }
+  },
+  {
    "name": "commit_revision_6",
    "request": "commit_6",
    "carries": [
@@ -1574,6 +2127,23 @@
      "stored_revision_6"
     ],
     "head": "head_6"
+   }
+  },
+  {
+   "name": "query_before_retry_6",
+   "request": "query_before_retry_6_request",
+   "carries": [
+    "query_before_retry_6_payload"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "not_held_6"
+    ]
    }
   },
   {
@@ -1738,6 +2308,32 @@
    {
     "step": "take_backup_after_the_last_commit",
     "point": "during_backup"
+   }
+  ],
+  "during": [
+   {
+    "step": "query_before_retry_1",
+    "runs": "commit_revision_1"
+   },
+   {
+    "step": "query_before_retry_2",
+    "runs": "commit_revision_2"
+   },
+   {
+    "step": "query_before_retry_3",
+    "runs": "commit_revision_3"
+   },
+   {
+    "step": "query_before_retry_4",
+    "runs": "commit_revision_4"
+   },
+   {
+    "step": "query_before_retry_5",
+    "runs": "commit_revision_5"
+   },
+   {
+    "step": "query_before_retry_6",
+    "runs": "commit_revision_6"
    }
   ]
  }

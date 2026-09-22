@@ -27,9 +27,10 @@ carries accepted.
 Controls come before bodies. `controls_verified` names the control records it put in force — a
 `control_evidence` permit or revocation its Team's issuing authority issued through
 `access.control.record` (C02), or an authority's continuity epoch — and they stay in force when
-the bodies then fail; `verified` names the controls record it follows. A holder comes to hold
-control evidence only through a package that carries it as a `control_evidence` member. An
-authority's continuity is one `authority_continuity` record per epoch: a successor names its
+the bodies then fail; `verified` names the controls record it follows. A holder other than the
+device that issued it comes to hold control evidence only through a package that carries it as a
+`control_evidence` member; the issuing device holds it from the issue (C02). An authority's
+continuity is one `authority_continuity` record per epoch: a successor names its
 predecessor and the finalizer it fences, and two successors of one predecessor are fork
 evidence. A package names each member by a relative path, digest, size and kind, where a kind is
 a declared record kind or `source_member`, so a member that climbs out of the package has no

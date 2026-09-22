@@ -1,6 +1,6 @@
 {
   "case": "N27-PACKAGE-POS",
-  "says": "A person with no Team installs the knowledge package shipped in the product through the add_published_package route (source.revision.admit), naming the exact revision by the digest of the shipped manifest. The owner commits it and returns that same manifest and a provenance whose origin is the product-supplied package, whose acceptance is not_accepted and whose content-review statement is kept as an approval claim with verified support against the publisher's own review evidence, never as a Team acceptance. Resolving an exact member (reference.resolve) returns the same manifest, whose member digest is the member the reference names, the same provenance, and that member's own bytes. Asking a question against that exact revision (knowledge.question.ask) returns a view whose members are the package's bytes in the person's own layer, cited to that revision. Nothing here adopts the package for a Team, records a Team acceptance, or gives it a priority: the provenance has no priority field and the view places it only in the layer it was installed into.",
+  "says": "A person with no Team installs the knowledge package shipped in the product through the add_published_package route (source.revision.admit), naming the exact revision by the digest of the shipped manifest. The owner commits it and returns that same manifest and a provenance whose origin is the product-supplied package, whose acceptance is not_accepted and whose content-review statement is kept as an approval claim with verified support against the publisher's own review evidence, never as a Team acceptance. The same shipped revision is also installed into a bound repository, as a second, distinct source; asking one question pinned to both returns a view citing the repository copy as preferred and the personal copy as retained, by the ordinary layer order alone, since being the product's own package earns it no elevated standing. Resolving an exact member (reference.resolve) returns the same manifest, whose member digest is the member the reference names, the same provenance, and that member's own bytes. Asking a question against that exact revision (knowledge.question.ask) returns a view whose members are the package's bytes in the person's own layer, cited to that revision. Nothing here adopts the package for a Team, records a Team acceptance, or gives it a priority beyond ordinary layer order: the provenance has no priority field, and the view places each copy in the layer it was installed into.",
   "ids": [
     {
       "name": "me",
@@ -36,6 +36,22 @@
     },
     {
       "name": "question_request",
+      "prefix": "req"
+    },
+    {
+      "name": "repo",
+      "prefix": "rep"
+    },
+    {
+      "name": "bind_repo_rid",
+      "prefix": "req"
+    },
+    {
+      "name": "repo_pkg_source",
+      "prefix": "src"
+    },
+    {
+      "name": "install_repo_request",
       "prefix": "req"
     }
   ],
@@ -129,6 +145,64 @@
         {
           "pointer": "/created_at",
           "value": "$instant:bound_at"
+        }
+      ]
+    },
+    {
+      "name": "repo_binding_submitted",
+      "from": "c01/repository_binding_as_submitted.json",
+      "set": [
+        {
+          "pointer": "/repository_id",
+          "value": "@repo"
+        }
+      ]
+    },
+    {
+      "name": "bind_repo_request",
+      "from": "c01/repository_bind_request.json",
+      "set": [
+        {
+          "pointer": "/request_id",
+          "value": "@bind_repo_rid"
+        },
+        {
+          "pointer": "/actor/principal_id",
+          "value": "@me"
+        },
+        {
+          "pointer": "/actor/device_id",
+          "value": "@laptop"
+        },
+        {
+          "pointer": "/actor/profile_id",
+          "value": "@profile"
+        },
+        {
+          "pointer": "/owner/principal_id",
+          "value": "@me"
+        },
+        {
+          "pointer": "/target/resource_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/payload_digest",
+          "value": "#repo_binding_submitted"
+        }
+      ]
+    },
+    {
+      "name": "repo_binding",
+      "from": "c01/clone_shares_the_repository_id.json",
+      "set": [
+        {
+          "pointer": "/repository_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/observed/working_bytes_digest",
+          "value": "$digest:checkout_bytes"
         }
       ]
     },
@@ -328,6 +402,171 @@
       ]
     },
     {
+      "name": "repo_pkg_manifest",
+      "from": "sources/revision_of_a_published_package.json",
+      "set": [
+        {
+          "pointer": "/source_id",
+          "value": "@repo_pkg_source"
+        },
+        {
+          "pointer": "/members/1/digest",
+          "value": "#rates_csv"
+        },
+        {
+          "pointer": "/members/1/size",
+          "value": 41
+        },
+        {
+          "pointer": "/members/0/digest",
+          "value": "#concepts_body"
+        }
+      ]
+    },
+    {
+      "name": "install_repo_payload",
+      "from": "sources/request_to_add_a_published_package.json",
+      "drop": [
+        "/destination/scope/team_id"
+      ],
+      "set": [
+        {
+          "pointer": "/role",
+          "value": "knowledge"
+        },
+        {
+          "pointer": "/destination/scope/layer",
+          "value": "repository"
+        },
+        {
+          "pointer": "/destination/scope/repository_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/route/package_id",
+          "value": "@pkg"
+        },
+        {
+          "pointer": "/route/revision_digest",
+          "value": "#repo_pkg_manifest"
+        }
+      ]
+    },
+    {
+      "name": "install_repo",
+      "from": "c01/link_request.json",
+      "drop": [
+        "/owner/principal_id"
+      ],
+      "set": [
+        {
+          "pointer": "/request_id",
+          "value": "@install_repo_request"
+        },
+        {
+          "pointer": "/actor/principal_id",
+          "value": "@me"
+        },
+        {
+          "pointer": "/actor/device_id",
+          "value": "@laptop"
+        },
+        {
+          "pointer": "/actor/profile_id",
+          "value": "@profile"
+        },
+        {
+          "pointer": "/operation",
+          "value": "source.revision.admit"
+        },
+        {
+          "pointer": "/effect_class",
+          "value": "owner_commit"
+        },
+        {
+          "pointer": "/action",
+          "value": "contribute"
+        },
+        {
+          "pointer": "/owner/layer",
+          "value": "repository"
+        },
+        {
+          "pointer": "/owner/repository_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/target/resource_id",
+          "value": "@repo_pkg_source"
+        },
+        {
+          "pointer": "/target/base/expects",
+          "value": "absent"
+        },
+        {
+          "pointer": "/payload_digest",
+          "value": "#install_repo_payload"
+        }
+      ]
+    },
+    {
+      "name": "repo_pkg_provenance",
+      "from": "c01/provenance_of_an_imported_record_keeping_its_own_claims.json",
+      "drop": [
+        "/claims/3",
+        "/claims/2",
+        "/claims/1",
+        "/origin/declared_origin",
+        "/origin/license_conditions"
+      ],
+      "set": [
+        {
+          "pointer": "/source_id",
+          "value": "@repo_pkg_source"
+        },
+        {
+          "pointer": "/role",
+          "value": "knowledge"
+        },
+        {
+          "pointer": "/origin/origin",
+          "value": "product_supplied_package"
+        },
+        {
+          "pointer": "/origin/package_id",
+          "value": "@pkg"
+        },
+        {
+          "pointer": "/origin/publisher_evidence_digest",
+          "value": "$digest:publisher_evidence"
+        },
+        {
+          "pointer": "/acquisition/acquired_at",
+          "value": "$instant:repo_installed_at"
+        },
+        {
+          "pointer": "/acquisition/availability_evidence_digest",
+          "value": "$digest:package_bytes"
+        },
+        {
+          "pointer": "/claims/0/claim",
+          "value": "approval"
+        },
+        {
+          "pointer": "/claims/0/as_stated",
+          "value": "Content reviewed by the publisher's tax editors for the 2026 edition"
+        },
+        {
+          "pointer": "/claims/0/support/support",
+          "value": "verified"
+        },
+        {
+          "pointer": "/claims/0/support/evidence_digest",
+          "value": "$digest:content_review_evidence"
+        }
+      ]
+    },
+    {
       "name": "resolve",
       "from": "c01/link_request.json",
       "set": [
@@ -395,6 +634,14 @@
         {
           "pointer": "/source_pins/0/revision_digest",
           "value": "#pkg_manifest"
+        },
+        {
+          "pointer": "/source_pins/1/source_id",
+          "value": "@repo_pkg_source"
+        },
+        {
+          "pointer": "/source_pins/1/revision_digest",
+          "value": "#repo_pkg_manifest"
         },
         {
           "pointer": "/companions",
@@ -484,6 +731,10 @@
           "value": "#rates_csv"
         },
         {
+          "pointer": "/members/0/standing",
+          "value": "retained"
+        },
+        {
           "pointer": "/members/1/source_id",
           "value": "@pkg_source"
         },
@@ -500,6 +751,58 @@
           "value": "#concepts_body"
         },
         {
+          "pointer": "/members/1/standing",
+          "value": "retained"
+        },
+        {
+          "pointer": "/members/2/member_kind",
+          "value": "table"
+        },
+        {
+          "pointer": "/members/2/source_id",
+          "value": "@repo_pkg_source"
+        },
+        {
+          "pointer": "/members/2/layer",
+          "value": "repository"
+        },
+        {
+          "pointer": "/members/2/path",
+          "value": "tables/rates.csv"
+        },
+        {
+          "pointer": "/members/2/digest",
+          "value": "#rates_csv"
+        },
+        {
+          "pointer": "/members/2/standing",
+          "value": "preferred"
+        },
+        {
+          "pointer": "/members/3/member_kind",
+          "value": "prose"
+        },
+        {
+          "pointer": "/members/3/source_id",
+          "value": "@repo_pkg_source"
+        },
+        {
+          "pointer": "/members/3/layer",
+          "value": "repository"
+        },
+        {
+          "pointer": "/members/3/path",
+          "value": "concepts.md"
+        },
+        {
+          "pointer": "/members/3/digest",
+          "value": "#concepts_body"
+        },
+        {
+          "pointer": "/members/3/standing",
+          "value": "preferred"
+        },
+        {
           "pointer": "/evidence/0/source_id",
           "value": "@pkg_source"
         },
@@ -509,6 +812,18 @@
         },
         {
           "pointer": "/evidence/0/cited_edition",
+          "value": "2026 edition as shipped"
+        },
+        {
+          "pointer": "/evidence/1/source_id",
+          "value": "@repo_pkg_source"
+        },
+        {
+          "pointer": "/evidence/1/revision_digest",
+          "value": "#repo_pkg_manifest"
+        },
+        {
+          "pointer": "/evidence/1/cited_edition",
           "value": "2026 edition as shipped"
         }
       ]
@@ -533,6 +848,23 @@
       }
     },
     {
+      "name": "bind_repository",
+      "request": "bind_repo_request",
+      "carries": [
+        "repo_binding_submitted"
+      ],
+      "answer": {
+        "stage": "committed",
+        "local_effect": "committed",
+        "provider_effect": "not_applicable",
+        "gaps": [],
+        "recovery": [],
+        "returns": [
+          "repo_binding"
+        ]
+      }
+    },
+    {
       "name": "install_package",
       "request": "install",
       "carries": [
@@ -549,6 +881,25 @@
           "pkg_provenance"
         ],
         "head": "pkg_head"
+      }
+    },
+    {
+      "name": "install_package_to_repository",
+      "request": "install_repo",
+      "carries": [
+        "install_repo_payload"
+      ],
+      "answer": {
+        "stage": "committed",
+        "local_effect": "committed",
+        "provider_effect": "not_applicable",
+        "gaps": [],
+        "recovery": [],
+        "returns": [
+          "repo_pkg_manifest",
+          "repo_pkg_provenance"
+        ],
+        "head": "repo_pkg_head"
       }
     },
     {
@@ -597,6 +948,12 @@
         "before": "install_package",
         "root": "shipped_knowledge",
         "yields": "pkg_manifest"
+      },
+      {
+        "kind": "inventory",
+        "before": "install_package_to_repository",
+        "root": "shipped_knowledge",
+        "yields": "repo_pkg_manifest"
       }
     ]
   }

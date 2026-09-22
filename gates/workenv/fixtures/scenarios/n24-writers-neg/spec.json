@@ -1,6 +1,6 @@
 {
  "case": "N24-WRITERS-NEG",
- "says": "Alice binds her device key and registers the package candidate. She then attempts a second registration, old_unknown_request, and the process dies before its reply reaches her: the old runtime — the source side this cutover retires — holds it with an unknown outcome, unsettled and never queried again in this scenario. She then submits four cutover plans, each naming the registered candidate and each wrong in one way: one starts with an operation in flight, one seals only the source store and projection owner and not the publication lock, one is verified with a writer left unrouted, and one is otherwise sealed, verified and quiesced but its unknown_operations names none at all, leaving old_unknown_request out — nothing settles it and nothing carries it forward, so it is refused unknown_operation_dropped. Each is refused at admission by the cutover plan's own rule, at the field that breaks it, and nothing is written; a query by each refused request id afterwards is answered request_not_held, because no result, receipt or head exists for it. What must not happen: any of these plans committing, sealing or switching anything, state ownership moving off the source, or the unknown operation being forgotten.",
+ "says": "Alice binds her device key and registers the package candidate. She then attempts a second registration, old_unknown_request, and the process dies before its reply reaches her: the old runtime — the source side this cutover retires — holds it with an unknown outcome, unsettled and never queried again in this scenario. She then submits four cutover plans, each naming the registered candidate and each wrong in one way: one starts with an operation in flight, one seals only the source store and projection owner and not the publication lock, one is verified with a writer left unrouted, and one is otherwise sealed, verified and quiesced but its unknown_operations names none at all, leaving old_unknown_request out — nothing settles it and nothing carries it forward, so it is refused unknown_operation_dropped. Each is refused at admission by the cutover plan's own rule, at the field that breaks it, and nothing is written; a query afterwards by each of the first three plans' request ids is answered request_not_held, since none ever reached its owner, while a query by the fourth's request id returns its own held, refused result — no receipt or head, since nothing committed. What must not happen: any of these plans committing, sealing or switching anything, state ownership moving off the source, or the unknown operation being forgotten.",
  "ids": [
   {
    "name": "alice",
@@ -827,16 +827,6 @@
      "value": "#dropped_unknown_query"
     }
    ]
-  },
-  {
-   "name": "dropped_unknown_not_held",
-   "from": "c03/query_for_a_request_never_received.json",
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@dropped_unknown_cutover"
-    }
-   ]
   }
  ],
  "steps": [
@@ -1023,9 +1013,17 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "dropped_unknown_not_held"
+     "refuse_dropped_unknown_result"
     ]
    }
   }
- ]
+ ],
+ "world": {
+  "faults": [
+   {
+    "step": "attempt_an_earlier_registration",
+    "point": "before_stage"
+   }
+  ]
+ }
 }

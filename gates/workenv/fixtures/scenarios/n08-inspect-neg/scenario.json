@@ -56,6 +56,14 @@
   {
    "id": "cnc_e2ad5294fa0051c78a431eaa6a8116ee",
    "name": "journal_concern"
+  },
+  {
+   "id": "use_86dfaa5b5c36e84a632727c4e1c9dfdc",
+   "name": "offered_use"
+  },
+  {
+   "id": "qst_ff3be22980b3d985c451be99cce6ce4c",
+   "name": "offered_question"
   }
  ],
  "joins": [
@@ -525,18 +533,8 @@
    "record": "inspect_the_history_result"
   },
   {
-   "minted": "wal_unit",
-   "pointer": "/retains/0/unit_id",
-   "record": "inspection_offered_as_a_use"
-  },
-  {
-   "digest_of": "wal_stored",
-   "pointer": "/retains/0/body_digest",
-   "record": "inspection_offered_as_a_use"
-  },
-  {
-   "digest_of": "inspection",
-   "pointer": "/retains/0/qualifications_digest",
+   "digest_of": "wal_choice_body",
+   "pointer": "/answer_evidence_digest",
    "record": "inspection_offered_as_a_use"
   },
   {
@@ -545,7 +543,7 @@
    "record": "use_request"
   },
   {
-   "digest_of": "inspection_offered_as_a_use",
+   "digest_of": "inspection_envelope",
    "pointer": "/envelope_digest",
    "record": "offered_as_use_result"
   },
@@ -572,16 +570,16 @@
  ],
  "members": [
   {
-   "digest": "b0a21eaef2dbdea3a0784eadf8ba72c94c5768a221f7cafa57fdf00272fd45c9",
+   "digest": "1ee550ddebe4af93b07942a733e26a7f36e5da6ea3d01418ef7b4d44aef267c8",
    "name": "wal_choice_body",
-   "size": 27,
-   "text": "WAL, with synchronous FULL."
+   "size": 962,
+   "text": "{\"alternatives\":[{\"choice\":\"A rollback journal with EXTRA\",\"reason\":\"One read waited 766 ms during a commit burst.\"}],\"applicability\":{\"conditions\":[{\"dimension\":\"jurisdiction\",\"value\":\"KR\"}],\"period\":{\"effective_from\":\"2026-01-01\"},\"states\":\"stated\"},\"choice\":\"WAL, with synchronous FULL.\",\"context\":\"Measured on APFS with fullfsync on.\",\"expected_consequences\":\"A checkpoint fault point has to be tested.\",\"home\":{\"layer\":\"repository\",\"repository_id\":\"rep_82f0939e15df4a2ed32cc262531b35a5\"},\"kind\":\"choice_record\",\"question\":\"Which journal mode does the local state database use?\",\"reason\":\"4.11 ms per commit against 11.76, and readers are not blocked.\",\"record_id\":\"rec_c227ffcb9a2d66e02696b8aaa0db38aa\",\"recorded_at\":\"2000-01-01T00:00:00Z\",\"replaces\":{\"extent\":\"whole\",\"record_id\":\"rec_856d4bc7126513a017e2f9dc80c75961\"},\"revisit_condition\":\"A filesystem that does not honour fullfsync.\",\"schema\":1,\"workstream_ids\":[\"wst_789a816101b6475940fed49be1471932\"]}"
   },
   {
-   "digest": "cac9b3e73c5aa7565f1b15febb16dddc4263215c7543b7b695192141e901d574",
+   "digest": "10c46b8b99dbfc0d8ec196b71244275ce52ff801e8c9c77e79574a911a0ce0f4",
    "name": "rollback_choice_body",
-   "size": 30,
-   "text": "A rollback journal with EXTRA."
+   "size": 884,
+   "text": "{\"alternatives\":[{\"choice\":\"A rollback journal with EXTRA\",\"reason\":\"One read waited 766 ms during a commit burst.\"}],\"applicability\":{\"conditions\":[{\"dimension\":\"jurisdiction\",\"value\":\"KR\"}],\"period\":{\"effective_from\":\"2026-01-01\"},\"states\":\"stated\"},\"choice\":\"A rollback journal with EXTRA.\",\"context\":\"Measured on APFS with fullfsync on.\",\"expected_consequences\":\"A checkpoint fault point has to be tested.\",\"home\":{\"layer\":\"repository\",\"repository_id\":\"rep_82f0939e15df4a2ed32cc262531b35a5\"},\"kind\":\"choice_record\",\"question\":\"Which journal mode does the local state database use?\",\"reason\":\"4.11 ms per commit against 11.76, and readers are not blocked.\",\"record_id\":\"rec_856d4bc7126513a017e2f9dc80c75961\",\"recorded_at\":\"2000-01-01T00:00:00Z\",\"revisit_condition\":\"A filesystem that does not honour fullfsync.\",\"schema\":1,\"workstream_ids\":[\"wst_789a816101b6475940fed49be1471932\"]}"
   }
  ],
  "minted": [
@@ -1712,7 +1710,7 @@
    }
   },
   {
-   "digest": "075938ba9245f629def59484a018024afe6234ad7e208f2d36649c40adc4e724",
+   "digest": "69fb12e47a762dbc9c498a337b6ea4f75d72caed0341cfbfa46029b9b5a28316",
    "name": "inspection",
    "record": {
     "ended": true,
@@ -1722,7 +1720,7 @@
     "omissions": [],
     "outcome": {
      "consumed": {
-      "bytes": 4096,
+      "bytes": 1846,
       "examined": 12,
       "units": 2
      },
@@ -1735,7 +1733,7 @@
      "standing": "delivered",
      "units": [
       {
-       "body_digest": "b0a21eaef2dbdea3a0784eadf8ba72c94c5768a221f7cafa57fdf00272fd45c9",
+       "body_digest": "1ee550ddebe4af93b07942a733e26a7f36e5da6ea3d01418ef7b4d44aef267c8",
        "layer": "repository",
        "need": "required",
        "revision_digest": "2ac508b378fb6db8705993f7f59f166f01fef819687348569f10cc9a7c52e756",
@@ -1745,7 +1743,7 @@
        "unit_id": "unt_462a55ab0e3e9ca89e102cb11e90d43a"
       },
       {
-       "body_digest": "cac9b3e73c5aa7565f1b15febb16dddc4263215c7543b7b695192141e901d574",
+       "body_digest": "10c46b8b99dbfc0d8ec196b71244275ce52ff801e8c9c77e79574a911a0ce0f4",
        "layer": "repository",
        "need": "optional",
        "revision_digest": "2ac508b378fb6db8705993f7f59f166f01fef819687348569f10cc9a7c52e756",
@@ -1762,7 +1760,7 @@
    }
   },
   {
-   "digest": "92d7e6de31ff65fc61410d9a52a187a09fadee8a4ac94f77ac52ba607f7e43d4",
+   "digest": "1832a0737bfb9db52a607a97821b231c5d3958006f96d70d4839ca0a4bf2ca3f",
    "name": "inspect_the_history_result",
    "record": {
     "kind": "operation_result",
@@ -1773,15 +1771,15 @@
     },
     "outputs": [
      {
-      "digest": "075938ba9245f629def59484a018024afe6234ad7e208f2d36649c40adc4e724",
+      "digest": "69fb12e47a762dbc9c498a337b6ea4f75d72caed0341cfbfa46029b9b5a28316",
       "kind": "reader_result"
      },
      {
-      "digest": "b0a21eaef2dbdea3a0784eadf8ba72c94c5768a221f7cafa57fdf00272fd45c9",
+      "digest": "1ee550ddebe4af93b07942a733e26a7f36e5da6ea3d01418ef7b4d44aef267c8",
       "kind": "source_member"
      },
      {
-      "digest": "cac9b3e73c5aa7565f1b15febb16dddc4263215c7543b7b695192141e901d574",
+      "digest": "10c46b8b99dbfc0d8ec196b71244275ce52ff801e8c9c77e79574a911a0ce0f4",
       "kind": "source_member"
      }
     ],
@@ -1793,48 +1791,19 @@
    }
   },
   {
-   "digest": "d50aeff51ee8dc741a3771209edb62950a2a1739946e353958ab1461e4f573ee",
+   "digest": "142c2f04c97e61ba149c9bb61b485d9f8ca2fa61cb34d5049aff8adbf37f4190",
    "name": "inspection_offered_as_a_use",
    "record": {
-    "budget": {
-     "max_bytes": 40000,
-     "max_examined": 64,
-     "max_units": 8
-    },
-    "history": "excluded",
-    "kind": "reader_envelope",
-    "required": [
-     {
-      "role": "memory",
-      "source_id": "src_2eaa2d66dfc96eef162d390467c4074a"
-     }
-    ],
-    "retains": [
-     {
-      "body_digest": "1ee550ddebe4af93b07942a733e26a7f36e5da6ea3d01418ef7b4d44aef267c8",
-      "qualifications_digest": "075938ba9245f629def59484a018024afe6234ad7e208f2d36649c40adc4e724",
-      "unit_id": "unt_462a55ab0e3e9ca89e102cb11e90d43a"
-     }
-    ],
-    "role_view": {
-     "role": "memory",
-     "view": "executor"
-    },
+    "answer_evidence_digest": "1ee550ddebe4af93b07942a733e26a7f36e5da6ea3d01418ef7b4d44aef267c8",
+    "kind": "resume_request",
+    "question_id": "qst_ff3be22980b3d985c451be99cce6ce4c",
+    "question_version": 1,
     "schema": 1,
-    "selector": {
-     "asks": "concern",
-     "concern": {
-      "question": "Which journal mode does the local state database use?"
-     }
-    },
-    "work_scope": {
-     "layer": "repository",
-     "repository_id": "rep_82f0939e15df4a2ed32cc262531b35a5"
-    }
+    "use_id": "use_86dfaa5b5c36e84a632727c4e1c9dfdc"
    }
   },
   {
-   "digest": "42ce301399a7ecc55db6da383e762c0885706baed1446b4db0f232a477df26db",
+   "digest": "aa2b833e7323e351b292c29463b3cc65d23d5065e2592181424bf460043d78b1",
    "name": "use_request",
    "record": {
     "action": "use",
@@ -1847,27 +1816,27 @@
     "effect_class": "durable_candidate",
     "kind": "operation_request",
     "local_access_generation": 7,
-    "operation": "memory.use.prepare",
+    "operation": "reader.use.resume",
     "owner": {
-     "layer": "repository",
-     "repository_id": "rep_82f0939e15df4a2ed32cc262531b35a5"
+     "layer": "personal",
+     "principal_id": "prn_1d50293b24d2aac361cc77080d0e7a63"
     },
-    "payload_digest": "d50aeff51ee8dc741a3771209edb62950a2a1739946e353958ab1461e4f573ee",
+    "payload_digest": "142c2f04c97e61ba149c9bb61b485d9f8ca2fa61cb34d5049aff8adbf37f4190",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_a46d186145ad24b6803e5689dfc2198c",
     "schema": 1,
     "target": {
-     "resource_id": "cnc_e2ad5294fa0051c78a431eaa6a8116ee"
+     "resource_id": "use_86dfaa5b5c36e84a632727c4e1c9dfdc"
     }
    }
   },
   {
-   "digest": "31e0835ce39b93c5f0332bc2d495ec5897ec8edfa3dda14b92cf71d992ec48e8",
+   "digest": "f3dfbbcabc954238b7c9b897c135bcb07db0c6d0968b6608cb570cf6d0ec971c",
    "name": "offered_as_use_result",
    "record": {
     "ended": true,
-    "envelope_digest": "d50aeff51ee8dc741a3771209edb62950a2a1739946e353958ab1461e4f573ee",
+    "envelope_digest": "374d04ee0fde7c176b84b16ad1182b98a4f03fdfa815e1d530dd193fd7a17a09",
     "kind": "reader_result",
     "material_gaps": [
      {
@@ -1896,7 +1865,7 @@
    }
   },
   {
-   "digest": "8f3df5c7668afe1b7157159922c6c550b1ca0a6f4c3e7b425630200f58022018",
+   "digest": "c93375d77d438c997d50301dadc8de5979d4b78581439ed5a48ba7925d349f4c",
    "name": "offer_the_inspection_as_a_use_result",
    "record": {
     "kind": "operation_result",
@@ -1911,20 +1880,20 @@
     },
     "outputs": [
      {
-      "digest": "31e0835ce39b93c5f0332bc2d495ec5897ec8edfa3dda14b92cf71d992ec48e8",
+      "digest": "f3dfbbcabc954238b7c9b897c135bcb07db0c6d0968b6608cb570cf6d0ec971c",
       "kind": "reader_result"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "42ce301399a7ecc55db6da383e762c0885706baed1446b4db0f232a477df26db",
+    "request_digest": "aa2b833e7323e351b292c29463b3cc65d23d5065e2592181424bf460043d78b1",
     "request_id": "req_a46d186145ad24b6803e5689dfc2198c",
     "schema": 1,
     "supported_recovery": []
    }
   }
  ],
- "says": "The reader binds their device key and their checkout of the repository, opens a workstream and registers a repository memory source named by that checkout binding, and two choices on the local journal mode are published there: first a rollback journal, then WAL, which replaces the first whole. An inspection (reader.body.read, role memory, reviewer view, history included) returns the current WAL choice as the winning required unit and the replaced choice as an optional unit marked superseded, each body carrying the alternatives its choice weighed, and its result carries no use: reading it admitted nothing. The reader then offers what it inspected as a use of the journal-mode concern (memory.use.prepare targeting the concern, with an envelope declaring it retains the inspected body and that result's qualifications). The owner refuses it with use_not_admitted: no pending question, qualified state or admitted use is returned, no use is started, and nothing is written.",
- "spec_sha256": "f5b2184279de01ed24e1dc6b59cf3fedf35fc33971635035ff09a9d53062d755",
+ "says": "The reader binds their device key and their checkout of the repository, opens a workstream and registers a repository memory source named by that checkout binding, and two choices on the local journal mode are published there: first a rollback journal, then WAL, which replaces the first whole. An inspection (reader.body.read, role memory, reviewer view, history included) returns the current WAL choice as the winning required unit and the replaced choice as an optional unit marked superseded, each body carrying the alternatives its choice weighed, and its result carries no use: reading it admitted nothing. The reader then offers what it inspected as a use by resuming a use id and question id no admission ever created (reader.use.resume, its answer evidence the inspected body). The owner refuses it with use_not_admitted: no pending question, qualified state or admitted use is returned, no use is started, and nothing is written.",
+ "spec_sha256": "54a0f20039584cd0ea32c79344383d2665d481907687965498ce6547b21dfb40",
  "steps": [
   {
    "carries": [

@@ -260,7 +260,7 @@
    "record": "query_dropped_unknown_result"
   },
   {
-   "digest_of": "dropped_unknown_not_held",
+   "digest_of": "refuse_dropped_unknown_result",
    "pointer": "/outputs/0/digest",
    "record": "query_dropped_unknown_result"
   }
@@ -1191,16 +1191,7 @@
    }
   },
   {
-   "digest": "2ff1f59a69754fedce7ed20c5f9d8582e20c4d1d6a2de97128d0c0a289ef761c",
-   "name": "dropped_unknown_not_held",
-   "record": {
-    "kind": "request_not_held",
-    "request_id": "req_0402583220d31900a2e987b6bc82f703",
-    "schema": 1
-   }
-  },
-  {
-   "digest": "57c2c6eee006e6d42be2b42e10ae05e8d29a678bf832f0e2025518b489fc9cf0",
+   "digest": "761737a32c4724eaa3586283353125ed3a7130a51ad6c27f9f123747a85d235e",
    "name": "query_dropped_unknown_result",
    "record": {
     "kind": "operation_result",
@@ -1211,8 +1202,8 @@
     },
     "outputs": [
      {
-      "digest": "2ff1f59a69754fedce7ed20c5f9d8582e20c4d1d6a2de97128d0c0a289ef761c",
-      "kind": "request_not_held"
+      "digest": "b8954e28729491c712edd9c9c233b0dedd2683282c19fdf9b7099792ff4516b3",
+      "kind": "operation_result"
      }
     ],
     "provider_effect": "not_applicable",
@@ -1223,8 +1214,8 @@
    }
   }
  ],
- "says": "Alice binds her device key and registers the package candidate. She then attempts a second registration, old_unknown_request, and the process dies before its reply reaches her: the old runtime — the source side this cutover retires — holds it with an unknown outcome, unsettled and never queried again in this scenario. She then submits four cutover plans, each naming the registered candidate and each wrong in one way: one starts with an operation in flight, one seals only the source store and projection owner and not the publication lock, one is verified with a writer left unrouted, and one is otherwise sealed, verified and quiesced but its unknown_operations names none at all, leaving old_unknown_request out — nothing settles it and nothing carries it forward, so it is refused unknown_operation_dropped. Each is refused at admission by the cutover plan's own rule, at the field that breaks it, and nothing is written; a query by each refused request id afterwards is answered request_not_held, because no result, receipt or head exists for it. What must not happen: any of these plans committing, sealing or switching anything, state ownership moving off the source, or the unknown operation being forgotten.",
- "spec_sha256": "5f659a468dd5d2efc647a1c1c949b045954103e15ee73f199178acf6c5a6b0d4",
+ "says": "Alice binds her device key and registers the package candidate. She then attempts a second registration, old_unknown_request, and the process dies before its reply reaches her: the old runtime — the source side this cutover retires — holds it with an unknown outcome, unsettled and never queried again in this scenario. She then submits four cutover plans, each naming the registered candidate and each wrong in one way: one starts with an operation in flight, one seals only the source store and projection owner and not the publication lock, one is verified with a writer left unrouted, and one is otherwise sealed, verified and quiesced but its unknown_operations names none at all, leaving old_unknown_request out — nothing settles it and nothing carries it forward, so it is refused unknown_operation_dropped. Each is refused at admission by the cutover plan's own rule, at the field that breaks it, and nothing is written; a query afterwards by each of the first three plans' request ids is answered request_not_held, since none ever reached its owner, while a query by the fourth's request id returns its own held, refused result — no receipt or head, since nothing committed. What must not happen: any of these plans committing, sealing or switching anything, state ownership moving off the source, or the unknown operation being forgotten.",
+ "spec_sha256": "f2cc85690290a2b087bee29ce92ddb9fd44231dd8581c770c9013b63b777f328",
  "steps": [
   {
    "carries": [
@@ -1349,8 +1340,16 @@
    "request": "ask_dropped_unknown",
    "result": "query_dropped_unknown_result",
    "returns": [
-    "dropped_unknown_not_held"
+    "refuse_dropped_unknown_result"
    ]
   }
- ]
+ ],
+ "world": {
+  "faults": [
+   {
+    "point": "before_stage",
+    "step": "attempt_an_earlier_registration"
+   }
+  ]
+ }
 }

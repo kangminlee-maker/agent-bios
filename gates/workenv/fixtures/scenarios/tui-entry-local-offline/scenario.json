@@ -114,6 +114,14 @@
    "name": "team_read_request"
   },
   {
+   "id": "req_f1eb98d6d6a77daebb174cbb499ecf52",
+   "name": "lock_before_team_read_id"
+  },
+  {
+   "id": "req_75612825fc6b10a04b3859c0327dbdd9",
+   "name": "unlock_after_team_read_id"
+  },
+  {
    "id": "req_63a18733fc98b91d3c5b3923784b36c5",
    "name": "drive_request"
   },
@@ -1452,6 +1460,51 @@
    "record": "read_selected_offline_result"
   },
   {
+   "digest_of": "lock_before_team_read",
+   "pointer": "/payload_digest",
+   "record": "lock_before_team_read_request"
+  },
+  {
+   "digest_of": "lock_before_team_read_request",
+   "pointer": "/request_digest",
+   "record": "lock_before_team_read_receipt"
+  },
+  {
+   "minted": "lock_before_team_read_head",
+   "pointer": "/head_digest",
+   "record": "lock_before_team_read_receipt"
+  },
+  {
+   "minted": "lock_before_team_read_sequence",
+   "pointer": "/sequence",
+   "record": "lock_before_team_read_receipt"
+  },
+  {
+   "minted": "lock_before_team_read_committed_at",
+   "pointer": "/committed_at",
+   "record": "lock_before_team_read_receipt"
+  },
+  {
+   "minted": "locked_before_team_read_at",
+   "pointer": "/changed_at",
+   "record": "locked_state_before_team_read"
+  },
+  {
+   "digest_of": "lock_before_team_read_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "lock_before_team_read_result"
+  },
+  {
+   "digest_of": "lock_before_team_read_request",
+   "pointer": "/request_digest",
+   "record": "lock_before_team_read_result"
+  },
+  {
+   "digest_of": "locked_state_before_team_read",
+   "pointer": "/outputs/0/digest",
+   "record": "lock_before_team_read_result"
+  },
+  {
    "digest_of": "team_envelope",
    "pointer": "/payload_digest",
    "record": "team_read"
@@ -1475,6 +1528,51 @@
    "digest_of": "team_result",
    "pointer": "/outputs/0/digest",
    "record": "read_team_offline_result"
+  },
+  {
+   "digest_of": "unlock_after_team_read",
+   "pointer": "/payload_digest",
+   "record": "unlock_after_team_read_request"
+  },
+  {
+   "digest_of": "unlock_after_team_read_request",
+   "pointer": "/request_digest",
+   "record": "unlock_after_team_read_receipt"
+  },
+  {
+   "minted": "unlock_after_team_read_head",
+   "pointer": "/head_digest",
+   "record": "unlock_after_team_read_receipt"
+  },
+  {
+   "minted": "unlock_after_team_read_sequence",
+   "pointer": "/sequence",
+   "record": "unlock_after_team_read_receipt"
+  },
+  {
+   "minted": "unlock_after_team_read_committed_at",
+   "pointer": "/committed_at",
+   "record": "unlock_after_team_read_receipt"
+  },
+  {
+   "minted": "unlocked_after_team_read_at",
+   "pointer": "/changed_at",
+   "record": "active_state_after_team_read"
+  },
+  {
+   "digest_of": "unlock_after_team_read_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "unlock_after_team_read_result"
+  },
+  {
+   "digest_of": "unlock_after_team_read_request",
+   "pointer": "/request_digest",
+   "record": "unlock_after_team_read_result"
+  },
+  {
+   "digest_of": "active_state_after_team_read",
+   "pointer": "/outputs/0/digest",
+   "record": "unlock_after_team_read_result"
   },
   {
    "digest_of": "script",
@@ -2104,9 +2202,49 @@
    "step": "read_selected_offline"
   },
   {
+   "name": "lock_before_team_read_committed_at",
+   "shape": "instant",
+   "step": "lock_before_team_read"
+  },
+  {
+   "name": "lock_before_team_read_head",
+   "shape": "digest",
+   "step": "lock_before_team_read"
+  },
+  {
+   "name": "lock_before_team_read_sequence",
+   "shape": "integer",
+   "step": "lock_before_team_read"
+  },
+  {
+   "name": "locked_before_team_read_at",
+   "shape": "instant",
+   "step": "lock_before_team_read"
+  },
+  {
    "name": "team_read_at",
    "shape": "instant",
    "step": "read_team_offline"
+  },
+  {
+   "name": "unlock_after_team_read_committed_at",
+   "shape": "instant",
+   "step": "unlock_after_team_read"
+  },
+  {
+   "name": "unlock_after_team_read_head",
+   "shape": "digest",
+   "step": "unlock_after_team_read"
+  },
+  {
+   "name": "unlock_after_team_read_sequence",
+   "shape": "integer",
+   "step": "unlock_after_team_read"
+  },
+  {
+   "name": "unlocked_after_team_read_at",
+   "shape": "instant",
+   "step": "unlock_after_team_read"
   },
   {
    "name": "script_driven_at",
@@ -5247,17 +5385,13 @@
    }
   },
   {
-   "digest": "7116557a4e3c87b9d2c4379e29bbc0eeeda5f4bf4809080c79f5d650bf972cfa",
+   "digest": "5c41f1effe21df35fa7560641d214f5593056e350f33db5507ae323d53fa1b48",
    "name": "read_selected_offline_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "none",
     "outcome": {
-     "material_gaps": [
-      {
-       "code": "carrier_unreachable"
-      }
-     ],
+     "material_gaps": [],
      "stage": "previewed"
     },
     "outputs": [
@@ -5270,9 +5404,108 @@
     "request_digest": "cf7cdd6ba0f17924da98d3cd4a78c3d53d1e284d1ff6a7a587a25c66393f5fb6",
     "request_id": "req_653c817e647a7e56b2f1ec7c5ce5b1e0",
     "schema": 1,
-    "supported_recovery": [
-     "retry_same_request"
-    ]
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "634d229d82485c0eac6d30e3b88d74f546439777764f31ca942a7a6bf02dc277",
+   "name": "lock_before_team_read",
+   "record": {
+    "change": {
+     "transition": "lock"
+    },
+    "expected_generation": 7,
+    "kind": "access_transition",
+    "profile_id": "prf_bac02ace53166abae83fd15cad817b7a",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "2f17071ecaf764fee4ef146687192ce13f049dc8613f136b1cc1d57cab685d85",
+   "name": "lock_before_team_read_request",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_f189a33ac59e8bb3d79a5280084128ee",
+     "principal_id": "prn_2f354c0a891d5084d07356ba9c35185f",
+     "profile_id": "prf_bac02ace53166abae83fd15cad817b7a"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "access.transition",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_2f354c0a891d5084d07356ba9c35185f"
+    },
+    "payload_digest": "634d229d82485c0eac6d30e3b88d74f546439777764f31ca942a7a6bf02dc277",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_f1eb98d6d6a77daebb174cbb499ecf52",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_bac02ace53166abae83fd15cad817b7a"
+    }
+   }
+  },
+  {
+   "digest": "b97eb549ee52b8d4e3242577406ce6701f92793c9858d5010d679a56ca4d01d1",
+   "name": "lock_before_team_read_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "431500523addd110b8aa0a516131797feeebe7ccd32bc2fa9cb2425e0a767070",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_2f354c0a891d5084d07356ba9c35185f"
+    },
+    "request_digest": "2f17071ecaf764fee4ef146687192ce13f049dc8613f136b1cc1d57cab685d85",
+    "request_id": "req_f1eb98d6d6a77daebb174cbb499ecf52",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_bac02ace53166abae83fd15cad817b7a"
+    }
+   }
+  },
+  {
+   "digest": "9cad5e2d8a720a8be102c84cab53521c14320ee206210050e03580310b66c81e",
+   "name": "locked_state_before_team_read",
+   "record": {
+    "access_generation": 8,
+    "changed_at": "2000-01-01T00:00:00Z",
+    "kind": "access_state",
+    "profile_id": "prf_bac02ace53166abae83fd15cad817b7a",
+    "schema": 1,
+    "state": {
+     "because": "lock",
+     "is": "locked"
+    }
+   }
+  },
+  {
+   "digest": "c9e63b2f178c51a7d5fa25cf500ca8b005298fc35a105718fec51a3620a95e93",
+   "name": "lock_before_team_read_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "b97eb549ee52b8d4e3242577406ce6701f92793c9858d5010d679a56ca4d01d1",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "9cad5e2d8a720a8be102c84cab53521c14320ee206210050e03580310b66c81e",
+      "kind": "access_state"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "2f17071ecaf764fee4ef146687192ce13f049dc8613f136b1cc1d57cab685d85",
+    "request_id": "req_f1eb98d6d6a77daebb174cbb499ecf52",
+    "schema": 1,
+    "supported_recovery": []
    }
   },
   {
@@ -5305,7 +5538,7 @@
    }
   },
   {
-   "digest": "363850302c3baf9b101552b5b1336a398dbbddf72325792e0d6a6b1aec0e87eb",
+   "digest": "c4970d8e0348bc5ab4d4542843fef7d1fdf24e4f99a71ecb0da8fcbd1389e044",
    "name": "team_read",
    "record": {
     "action": "read",
@@ -5317,7 +5550,7 @@
     "control_digests": [],
     "effect_class": "pure_preview",
     "kind": "operation_request",
-    "local_access_generation": 7,
+    "local_access_generation": 8,
     "operation": "reader.body.read",
     "owner": {
      "layer": "team",
@@ -5355,7 +5588,7 @@
    }
   },
   {
-   "digest": "f9d639fe1082993ab19f888cb597d07aa8644f0bdfdd790c437d6677650b7e40",
+   "digest": "196ede8aec692f087b0a2f5540fd15dca0f14059604ba334f40ed689547c317c",
    "name": "read_team_offline_result",
    "record": {
     "kind": "operation_result",
@@ -5375,12 +5608,114 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "363850302c3baf9b101552b5b1336a398dbbddf72325792e0d6a6b1aec0e87eb",
+    "request_digest": "c4970d8e0348bc5ab4d4542843fef7d1fdf24e4f99a71ecb0da8fcbd1389e044",
     "request_id": "req_4e9a060b2bbdb90bebe4b78790e22f31",
     "schema": 1,
     "supported_recovery": [
      "retry_same_request"
     ]
+   }
+  },
+  {
+   "digest": "ce3515682b29ed6cd9da5cdd8951bc841e8c2d3c6b28b657a377bd5768071ae5",
+   "name": "unlock_after_team_read",
+   "record": {
+    "change": {
+     "method": "device_key_at_terminal",
+     "transition": "unlock"
+    },
+    "expected_generation": 8,
+    "kind": "access_transition",
+    "profile_id": "prf_bac02ace53166abae83fd15cad817b7a",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "87299402cfa71c488019f5abe387fd8e3bc95fc747f30629ebaf93264913d853",
+   "name": "unlock_after_team_read_request",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_f189a33ac59e8bb3d79a5280084128ee",
+     "principal_id": "prn_2f354c0a891d5084d07356ba9c35185f",
+     "profile_id": "prf_bac02ace53166abae83fd15cad817b7a"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 8,
+    "operation": "access.transition",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_2f354c0a891d5084d07356ba9c35185f"
+    },
+    "payload_digest": "ce3515682b29ed6cd9da5cdd8951bc841e8c2d3c6b28b657a377bd5768071ae5",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_75612825fc6b10a04b3859c0327dbdd9",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_bac02ace53166abae83fd15cad817b7a"
+    }
+   }
+  },
+  {
+   "digest": "b9faf2e998b1fa3dc4943e8c650911f05ca5532c0c6bc0300cc0bfdd93ac8e42",
+   "name": "unlock_after_team_read_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "8181e47c1c192e5f57df76844f3402ad9e78f0fe1ad5f0f724469cbd38c904e0",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_2f354c0a891d5084d07356ba9c35185f"
+    },
+    "request_digest": "87299402cfa71c488019f5abe387fd8e3bc95fc747f30629ebaf93264913d853",
+    "request_id": "req_75612825fc6b10a04b3859c0327dbdd9",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_bac02ace53166abae83fd15cad817b7a"
+    }
+   }
+  },
+  {
+   "digest": "20c768b82d08c377029122bd8fd6cd1314c4e9892e7a658693c433fa2730485a",
+   "name": "active_state_after_team_read",
+   "record": {
+    "access_generation": 8,
+    "changed_at": "2000-01-01T00:00:00Z",
+    "kind": "access_state",
+    "profile_id": "prf_bac02ace53166abae83fd15cad817b7a",
+    "schema": 1,
+    "state": {
+     "because": "unlock",
+     "is": "active"
+    }
+   }
+  },
+  {
+   "digest": "8edb4a6aedb19ee6a784c9562ff2076e02d278f7f50fabfa68bd99f811e1abe8",
+   "name": "unlock_after_team_read_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "b9faf2e998b1fa3dc4943e8c650911f05ca5532c0c6bc0300cc0bfdd93ac8e42",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "20c768b82d08c377029122bd8fd6cd1314c4e9892e7a658693c433fa2730485a",
+      "kind": "access_state"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "87299402cfa71c488019f5abe387fd8e3bc95fc747f30629ebaf93264913d853",
+    "request_id": "req_75612825fc6b10a04b3859c0327dbdd9",
+    "schema": 1,
+    "supported_recovery": []
    }
   },
   {
@@ -5411,7 +5746,7 @@
    }
   },
   {
-   "digest": "899f3b55df2b592cf2131490d87c3f940448115e014bd75323c56fc98b62c2b1",
+   "digest": "83236879529ba358ce0b7c75b96c5bb40795ca7d4782d5bafbadebfe3d46ae37",
    "name": "script_request",
    "record": {
     "action": "read",
@@ -5423,7 +5758,7 @@
     "control_digests": [],
     "effect_class": "pure_preview",
     "kind": "operation_request",
-    "local_access_generation": 7,
+    "local_access_generation": 8,
     "operation": "surface.drive",
     "owner": {
      "layer": "personal",
@@ -5479,7 +5814,7 @@
    }
   },
   {
-   "digest": "803373693e7fae4cf3320b0e061a7252de62667537bbbef49416525fe105a5ac",
+   "digest": "ecbafcd2ed75569e750391c4d620e61802937d420819bee810ace2fcc0e79d75",
    "name": "start_compose",
    "record": {
     "action": "use",
@@ -5491,7 +5826,7 @@
     "control_digests": [],
     "effect_class": "durable_candidate",
     "kind": "operation_request",
-    "local_access_generation": 7,
+    "local_access_generation": 8,
     "operation": "preparation.compose",
     "owner": {
      "layer": "personal",
@@ -5508,7 +5843,7 @@
    }
   },
   {
-   "digest": "b5523161864fbd12dca8780e34b5e231e0e8fbe20f810334c14d6fb3e1d99bbb",
+   "digest": "19081da7943884155d5df29a7a7f3e7390c13e1ae0bd8081554152b57a652f6f",
    "name": "script_trace",
    "record": {
     "at": "2000-01-01T00:00:00Z",
@@ -5976,7 +6311,7 @@
        {
         "operation": "preparation.compose",
         "reads": "bodies",
-        "request_digest": "803373693e7fae4cf3320b0e061a7252de62667537bbbef49416525fe105a5ac"
+        "request_digest": "ecbafcd2ed75569e750391c4d620e61802937d420819bee810ace2fcc0e79d75"
        }
       ],
       "dispatched": [
@@ -6230,7 +6565,7 @@
    }
   },
   {
-   "digest": "a3673b2c04f1817aced6195fa9dc31f1db42674fff19fdbab9f733f0979431ac",
+   "digest": "fa81c9c904aa9b93dcb2eb78727abca14079db9655420e010aa61f9d2018263e",
    "name": "drive_entry_result",
    "record": {
     "kind": "operation_result",
@@ -6241,12 +6576,12 @@
     },
     "outputs": [
      {
-      "digest": "b5523161864fbd12dca8780e34b5e231e0e8fbe20f810334c14d6fb3e1d99bbb",
+      "digest": "19081da7943884155d5df29a7a7f3e7390c13e1ae0bd8081554152b57a652f6f",
       "kind": "surface_trace"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "899f3b55df2b592cf2131490d87c3f940448115e014bd75323c56fc98b62c2b1",
+    "request_digest": "83236879529ba358ce0b7c75b96c5bb40795ca7d4782d5bafbadebfe3d46ae37",
     "request_id": "req_63a18733fc98b91d3c5b3923784b36c5",
     "schema": 1,
     "supported_recovery": []
@@ -6355,7 +6690,7 @@
    }
   },
   {
-   "digest": "e98c8e0a3b3dad06dc7a9885bf179ad776b5668f4f7647f69fbcd338b41156df",
+   "digest": "a9ef9513b664b68f10b6754c7bf1b2c53678302d2a8d3a3f04bfaeb692b438a4",
    "name": "compose_start_result",
    "record": {
     "kind": "operation_result",
@@ -6371,7 +6706,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "803373693e7fae4cf3320b0e061a7252de62667537bbbef49416525fe105a5ac",
+    "request_digest": "ecbafcd2ed75569e750391c4d620e61802937d420819bee810ace2fcc0e79d75",
     "request_id": "req_3cf1106877dc9c2faa27083b99d5d6d4",
     "schema": 1,
     "supported_recovery": []
@@ -6395,7 +6730,7 @@
    }
   },
   {
-   "digest": "65a451849fac28b070e8de28790d07279760dc5c472b89b30fa5c2356bd1668e",
+   "digest": "736ca838bcc6ac7c375551803a8502b87d94ec5924209c9a073c592f18ca3d23",
    "name": "selection_request",
    "record": {
     "action": "read",
@@ -6407,7 +6742,7 @@
     "control_digests": [],
     "effect_class": "owner_commit",
     "kind": "operation_request",
-    "local_access_generation": 7,
+    "local_access_generation": 8,
     "operation": "route.select",
     "owner": {
      "layer": "personal",
@@ -6424,7 +6759,7 @@
    }
   },
   {
-   "digest": "2a29ba3eb9d9fc6282ce20504368ec7074c58f8a77b62e7e47994c59ffa7cd7d",
+   "digest": "128d81311e2e2a74a9114812b570e51b034ec22eb52f96d9b99e66347403313f",
    "name": "select_start_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -6434,7 +6769,7 @@
      "layer": "personal",
      "principal_id": "prn_2f354c0a891d5084d07356ba9c35185f"
     },
-    "request_digest": "65a451849fac28b070e8de28790d07279760dc5c472b89b30fa5c2356bd1668e",
+    "request_digest": "736ca838bcc6ac7c375551803a8502b87d94ec5924209c9a073c592f18ca3d23",
     "request_id": "req_48040ac97413e3af9a8f0d3baf3d1ede",
     "schema": 1,
     "sequence": 1,
@@ -6467,14 +6802,14 @@
    }
   },
   {
-   "digest": "49f4b6b2ce51fc20c4e488fd3ad962cca8396eba6514c9faac1361f30df86fc7",
+   "digest": "bb989cfee86268e284a4c23b3f7dbf964bd5aed0079612e50a60913fd998db63",
    "name": "select_start_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "2a29ba3eb9d9fc6282ce20504368ec7074c58f8a77b62e7e47994c59ffa7cd7d",
+     "receipt_digest": "128d81311e2e2a74a9114812b570e51b034ec22eb52f96d9b99e66347403313f",
      "stage": "committed"
     },
     "outputs": [
@@ -6484,15 +6819,15 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "65a451849fac28b070e8de28790d07279760dc5c472b89b30fa5c2356bd1668e",
+    "request_digest": "736ca838bcc6ac7c375551803a8502b87d94ec5924209c9a073c592f18ca3d23",
     "request_id": "req_48040ac97413e3af9a8f0d3baf3d1ede",
     "schema": 1,
     "supported_recovery": []
    }
   }
  ],
- "says": "On their desktop the same person registers two personal sources (notes/retry.md as knowledge, notes/decisions.md as decision memory), commits each on the head its registration made, and selects them in their personal knowledge and memory positions. They enroll the laptop's key and, while both devices are reachable, the desktop stages a personal package carrying the two homes and the two positions but not the bodies, trusted by the desktop's own binding, and the laptop accepts it; from then on the laptop cannot reach the desktop. On the laptop they bind the same repository, commit an instructions and a knowledge source, and found a Team 'Platform'. One read of the selected knowledge and memory (reader.body.read) checks the repository knowledge and finds nothing for the question, and names the desktop note as remote_unknown and the desktop decisions as missing here, with carrier_unreachable and retry of the same request; a read of the Team's instructions is refused with access_not_established and returns a result whose standing is denied, which is not an empty answer. The entry (surface.drive) shows each position with its own state — installed, checked_empty, remote_unknown, missing, denied and not_checked — every selected one still selected, and a start that uses this device's material. Enter dispatches one preparation.compose over the repository, personal and Team scopes that states only local reach, carries the instructions unit, names both personal positions at the heads the package brought (the note's unit by its revision and home, with no body) and names the decision memory as omitted because no frontier of it was observed here; route.select answers for it. Negative: the unreachable desktop and Team empty no selection and are never shown as empty or current, no step signs in, refreshes access or syncs, and the preparation claims no reach it did not have.",
- "spec_sha256": "e68bf06d1b9676f6ee8b73b65f9a9f2848e916fcd01809e6941ae92128570526",
+ "says": "On their desktop the same person registers two personal sources (notes/retry.md as knowledge, notes/decisions.md as decision memory), commits each on the head its registration made, and selects them in their personal knowledge and memory positions. They enroll the laptop's key and, while both devices are reachable, the desktop stages a personal package carrying the two homes and the two positions but not the bodies, trusted by the desktop's own binding, and the laptop accepts it; from then on the laptop cannot reach the desktop. On the laptop they bind the same repository, commit an instructions and a knowledge source, and found a Team 'Platform'. One read of the selected knowledge and memory (reader.body.read) checks the repository knowledge and finds nothing for the question, and names the desktop note as remote_unknown and the desktop decisions as missing here. The profile is then locked (access.transition) and a read of the Team's instructions is refused with access_not_established and returns a result whose standing is denied, which is not an empty answer; the profile is unlocked again before the entry is driven. The entry (surface.drive) shows each position with its own state — installed, checked_empty, remote_unknown, missing, denied and not_checked — every selected one still selected, and a start that uses this device's material. Enter dispatches one preparation.compose over the repository, personal and Team scopes that states only local reach, carries the instructions unit, names both personal positions at the heads the package brought (the note's unit by its revision and home, with no body) and names the decision memory as omitted because no frontier of it was observed here; route.select answers for it. Negative: the unreachable desktop and Team empty no selection and are never shown as empty or current, no step signs in, refreshes access or syncs, and the preparation claims no reach it did not have.",
+ "spec_sha256": "65bc074f99d76d841ed67503d9193e5ebfeb5913453a8a3c94addd922dc9f128",
  "steps": [
   {
    "carries": [
@@ -6816,6 +7151,18 @@
   },
   {
    "carries": [
+    "lock_before_team_read"
+   ],
+   "name": "lock_before_team_read",
+   "process": "laptop",
+   "request": "lock_before_team_read_request",
+   "result": "lock_before_team_read_result",
+   "returns": [
+    "locked_state_before_team_read"
+   ]
+  },
+  {
+   "carries": [
     "team_envelope"
    ],
    "name": "read_team_offline",
@@ -6824,6 +7171,18 @@
    "result": "read_team_offline_result",
    "returns": [
     "team_result"
+   ]
+  },
+  {
+   "carries": [
+    "unlock_after_team_read"
+   ],
+   "name": "unlock_after_team_read",
+   "process": "laptop",
+   "request": "unlock_after_team_read_request",
+   "result": "unlock_after_team_read_result",
+   "returns": [
+    "active_state_after_team_read"
    ]
   },
   {

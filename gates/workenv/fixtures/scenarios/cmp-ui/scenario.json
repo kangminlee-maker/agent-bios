@@ -451,7 +451,7 @@
    "record": "instr_observation"
   },
   {
-   "minted": "instr_bytes",
+   "digest_of": "repo_instr_body",
    "pointer": "/read/0/digest",
    "record": "instr_observation"
   },
@@ -526,7 +526,7 @@
    "record": "register_instr_result"
   },
   {
-   "minted": "instr_bytes",
+   "digest_of": "repo_instr_body",
    "pointer": "/members/0/digest",
    "record": "instr_manifest"
   },
@@ -566,7 +566,7 @@
    "record": "commit_instr_receipt"
   },
   {
-   "minted": "instr_bytes",
+   "digest_of": "repo_instr_body",
    "pointer": "/members/0/digest",
    "record": "instr_revision"
   },
@@ -1231,7 +1231,7 @@
    "record": "effective_projection"
   },
   {
-   "minted": "instr_bytes",
+   "digest_of": "repo_instr_body",
    "pointer": "/units/0/body_digest",
    "record": "effective_projection"
   },
@@ -1258,6 +1258,11 @@
   {
    "digest_of": "effective_projection",
    "pointer": "/outputs/0/digest",
+   "record": "project_effective_instructions_result"
+  },
+  {
+   "digest_of": "repo_instr_body",
+   "pointer": "/outputs/1/digest",
    "record": "project_effective_instructions_result"
   },
   {
@@ -1746,6 +1751,11 @@
    "record": "script_trace"
   },
   {
+   "digest_of": "team_instr_revision",
+   "pointer": "/frames/4/elements/2/refers_to/digest",
+   "record": "script_trace"
+  },
+  {
    "digest_of": "original_read",
    "pointer": "/frames/4/calls/0/request_digest",
    "record": "script_trace"
@@ -1819,6 +1829,11 @@
    "digest_of": "tour_script",
    "pointer": "/payload_digest",
    "record": "tour_script_request"
+  },
+  {
+   "digest_of": "team_instr_revision",
+   "pointer": "/frames/4/elements/2/refers_to/digest",
+   "record": "tour_trace"
   },
   {
    "digest_of": "delivery_seen",
@@ -2341,7 +2356,7 @@
    "record": "journal_use_admitted"
   },
   {
-   "digest_of": "team_mem_choice_stored",
+   "digest_of": "team_mem_choice",
    "pointer": "/outcome/units/0/body_digest",
    "record": "journal_use_admitted"
   },
@@ -2529,10 +2544,16 @@
    "text": "# Team platform instructions\n\n## response.style\n\nKeep answers direct. State the recommended option first, then the reasoning\nbehind it. Avoid hedging language when the evidence already supports one\nconclusion, and say plainly when it does not.\n\n## review.approval\n\nA change to a shared interface needs one platform reviewer's approval before\nit merges, recorded against the exact revision reviewed. A reviewer checks\nthe change against the interface's own contract, not against personal taste.\n\n## escalation\n\nWhen a decision affects more than one repository, raise it in the platform\nchannel before committing, and record the outcome against the concern it\nresolved so a later reader can find why the choice was made.\n\n## formatting\n\nPrefer short paragraphs over long ones, and prefer a worked example over an\nabstract description when both are available. Code samples should compile\nagainst the platform's current pinned toolchain version, not an older one.\n\n## journal mode\n\nThe platform's shared volume does not honour fullfsync, so a rollback\njournal is the safe default there; write-ahead logging is fine on a volume\nthat does honour it, and each repository states which volume it runs on.\n\n## incident handling\n\nOpen an incident record the moment a shared service degrades, even before\nthe cause is known. Close it only after the fix is verified in the same\nenvironment the incident was observed in, and link the record it resolved.\n\n## onboarding\n\nA new team member reads this file and the repository's own instructions\nbefore their first change, and asks in the platform channel when the two\ndisagree, rather than guessing which one applies. A short pairing session\nin the first week answers most questions, and the buddy stays reachable\nfor that month, available for anything left unclear.\n"
   },
   {
-   "digest": "ab25f76926f1330dabcaf96412272117ab57aa689a2c3325b6442a9a0b20a654",
+   "digest": "3c652013b9be7057b1c08b6f3728bd489d216af24b4484c90ad7fcb166927d7a",
    "name": "team_mem_choice_body",
-   "size": 717,
-   "text": "{\"applicability\":{\"conditions\":[{\"dimension\":\"jurisdiction\",\"value\":\"KR\"}],\"period\":{\"effective_from\":\"2026-01-01\"},\"states\":\"stated\"},\"choice\":\"A rollback journal with EXTRA.\",\"context\":\"Measured on APFS with fullfsync on.\",\"expected_consequences\":\"A checkpoint fault point has to be tested.\",\"home\":{\"layer\":\"team\",\"team_id\":\"tem_598a6050a1dce72d9bdf63e695dded1c\"},\"kind\":\"choice_record\",\"question\":\"Which journal mode does the local state database use?\",\"reason\":\"4.11 ms per commit against 11.76, and readers are not blocked.\",\"record_id\":\"rec_0c5b4e6f529fec91a5666dbf808decfb\",\"recorded_at\":\"2000-01-01T00:00:00Z\",\"revisit_condition\":\"A filesystem that does not honour fullfsync.\",\"schema\":1,\"workstream_ids\":[]}"
+   "size": 629,
+   "text": "{\"applicability\":{\"conditions\":[{\"dimension\":\"jurisdiction\",\"value\":\"KR\"}],\"period\":{\"effective_from\":\"2026-01-01\"},\"states\":\"stated\"},\"choice\":\"A rollback journal with EXTRA.\",\"context\":\"Measured on APFS with fullfsync on.\",\"expected_consequences\":\"A checkpoint fault point has to be tested.\",\"home\":{\"layer\":\"team\",\"team_id\":\"tem_598a6050a1dce72d9bdf63e695dded1c\"},\"kind\":\"choice_record\",\"question\":\"Which journal mode does the local state database use?\",\"reason\":\"4.11 ms per commit against 11.76, and readers are not blocked.\",\"revisit_condition\":\"A filesystem that does not honour fullfsync.\",\"schema\":1,\"workstream_ids\":[]}"
+  },
+  {
+   "digest": "af26ac6e67fd24e2e873454623df72f19c8d23fb7ec382c97e5825d0f4270e76",
+   "name": "repo_instr_body",
+   "size": 1110,
+   "text": "# Repository instructions\n\n## response.style\n\nState the recommended option first, then the evidence behind it. Keep the\nfirst paragraph free of hedging when the evidence already supports one\nconclusion, and name the open question plainly when it does not.\n\n## review.approval\n\nA change to a public interface needs one maintainer's approval before it\nmerges, recorded against the exact revision reviewed. A reviewer checks the\nchange against this file's own rules, not against a personal preference.\n\n## testing\n\nRun the test suite before every commit and report its output, not only\nwhether it passed. A change with no test coverage states why none applies.\n\n## journal mode\n\nThis repository's local state database uses a rollback journal by default;\nwrite-ahead logging is the alternative when a volume supports fullfsync,\nand the choice is recorded against the concern it resolves.\n\n## escalation\n\nWhen a decision affects more than this repository, raise it in the shared\nplatform channel before committing, and link the outcome to the concern it\nresolved so a later reader can find why the choice was made.\n"
   }
  ],
  "minted": [
@@ -2620,11 +2641,6 @@
    "name": "team_proposal_id",
    "shape": "fnd",
    "step": "found_team"
-  },
-  {
-   "name": "instr_bytes",
-   "shape": "digest",
-   "step": "observe_instr"
   },
   {
    "name": "instr_observed_at",
@@ -3769,7 +3785,7 @@
    }
   },
   {
-   "digest": "1c1f90110618441a038fe711fe443bd9a8921779cfde8bc73c8862aa115fa3c8",
+   "digest": "03878733bd9776342a023a4fe7a1388e29ce37642db198ae9ed1531eeebcc445",
    "name": "instr_observation",
    "record": {
     "kind": "source_observation",
@@ -3777,11 +3793,11 @@
     "observed_at": "2000-01-01T00:00:00Z",
     "read": [
      {
-      "digest": "ff1d7de4948ca14ad3cbbf1dd21994dbe05f0b71195a32dfdef893b53f1e6d41",
+      "digest": "af26ac6e67fd24e2e873454623df72f19c8d23fb7ec382c97e5825d0f4270e76",
       "path": "AGENTS.md",
       "read": "tree",
       "root": 0,
-      "size": 2048,
+      "size": 1110,
       "state": "committed"
      }
     ],
@@ -3790,7 +3806,7 @@
    }
   },
   {
-   "digest": "49811c72075392a725d9b2966a53001882db6bae67cacc74e14ee54ba91a78d6",
+   "digest": "b00b6657c5cfffc9b13ced9ebf19632eee97eaa9153f303aa374eac664998ea0",
    "name": "observe_instr_result",
    "record": {
     "kind": "operation_result",
@@ -3801,7 +3817,7 @@
     },
     "outputs": [
      {
-      "digest": "1c1f90110618441a038fe711fe443bd9a8921779cfde8bc73c8862aa115fa3c8",
+      "digest": "03878733bd9776342a023a4fe7a1388e29ce37642db198ae9ed1531eeebcc445",
       "kind": "source_observation"
      }
     ],
@@ -3959,16 +3975,16 @@
    }
   },
   {
-   "digest": "b3aad22f71e270ac5e4bbe79554d8847360707ded9d64541339ebd3c829c5bcd",
+   "digest": "ea4930e6f092c15df7974479df8a64213e57bb9825b2891ee8930f8123a65860",
    "name": "instr_manifest",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "ff1d7de4948ca14ad3cbbf1dd21994dbe05f0b71195a32dfdef893b53f1e6d41",
+      "digest": "af26ac6e67fd24e2e873454623df72f19c8d23fb7ec382c97e5825d0f4270e76",
       "path": "AGENTS.md",
-      "size": 2048
+      "size": 1110
      }
     ],
     "schema": 1,
@@ -3976,7 +3992,7 @@
    }
   },
   {
-   "digest": "929536ff2eb04c31343ca086f8ac4b7688ce3790a0ac53dba7451decc30c6921",
+   "digest": "9331f9adf1da87367314a58e1903bbd29aff1a12b57ad68cf859ac976a7abb8f",
    "name": "instr_commit_request",
    "record": {
     "action": "publish",
@@ -3994,7 +4010,7 @@
      "layer": "repository",
      "repository_id": "rep_b3431ec49ef42b32279c6d26037daf90"
     },
-    "payload_digest": "b3aad22f71e270ac5e4bbe79554d8847360707ded9d64541339ebd3c829c5bcd",
+    "payload_digest": "ea4930e6f092c15df7974479df8a64213e57bb9825b2891ee8930f8123a65860",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_4c4e468ebbdffd4a6a1e98d7a216d5ff",
@@ -4009,7 +4025,7 @@
    }
   },
   {
-   "digest": "f2c7b7d9a361dca98aac01a01e15097ff9fd2b5fc1735b04c0f3ff33e4d015e8",
+   "digest": "1581d6d0c39d251845db409e8cca8ffb56489f1e74459998c79bc238eb3d1c92",
    "name": "commit_instr_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -4019,7 +4035,7 @@
      "layer": "repository",
      "repository_id": "rep_b3431ec49ef42b32279c6d26037daf90"
     },
-    "request_digest": "929536ff2eb04c31343ca086f8ac4b7688ce3790a0ac53dba7451decc30c6921",
+    "request_digest": "9331f9adf1da87367314a58e1903bbd29aff1a12b57ad68cf859ac976a7abb8f",
     "request_id": "req_4c4e468ebbdffd4a6a1e98d7a216d5ff",
     "schema": 1,
     "sequence": 1,
@@ -4033,16 +4049,16 @@
    }
   },
   {
-   "digest": "4974011a629fd71748b9f045fef9dd9273a2dad59a3e3841fd26996584c6d0d9",
+   "digest": "7c915c5cd1c80b89161a95d67680d09a2372550bbf0b9ca1fc74d447831313c6",
    "name": "instr_revision",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "ff1d7de4948ca14ad3cbbf1dd21994dbe05f0b71195a32dfdef893b53f1e6d41",
+      "digest": "af26ac6e67fd24e2e873454623df72f19c8d23fb7ec382c97e5825d0f4270e76",
       "path": "AGENTS.md",
-      "size": 2048
+      "size": 1110
      }
     ],
     "produced_at": "2000-01-01T00:00:00Z",
@@ -4051,24 +4067,24 @@
    }
   },
   {
-   "digest": "1d713c7eb5e615668fdd514734cd4a9ead3f2586dc851d07434d1e67b0a35ad5",
+   "digest": "36bfd3ea87bed7557e5002d257e30170c233bcb3642d6b0c3b07baa2c1e3783a",
    "name": "commit_instr_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "f2c7b7d9a361dca98aac01a01e15097ff9fd2b5fc1735b04c0f3ff33e4d015e8",
+     "receipt_digest": "1581d6d0c39d251845db409e8cca8ffb56489f1e74459998c79bc238eb3d1c92",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "4974011a629fd71748b9f045fef9dd9273a2dad59a3e3841fd26996584c6d0d9",
+      "digest": "7c915c5cd1c80b89161a95d67680d09a2372550bbf0b9ca1fc74d447831313c6",
       "kind": "source_manifest"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "929536ff2eb04c31343ca086f8ac4b7688ce3790a0ac53dba7451decc30c6921",
+    "request_digest": "9331f9adf1da87367314a58e1903bbd29aff1a12b57ad68cf859ac976a7abb8f",
     "request_id": "req_4c4e468ebbdffd4a6a1e98d7a216d5ff",
     "schema": 1,
     "supported_recovery": []
@@ -5578,7 +5594,7 @@
    }
   },
   {
-   "digest": "b7ae0d1733b6460978f88db868abf59414027c7adbf11685438c22619e0be9a3",
+   "digest": "88ed51476c92857dbb2715767e061de7183aa5943494090010ce0c4414096990",
    "name": "effective_plan",
    "record": {
     "entrance": {
@@ -5605,7 +5621,7 @@
     "schema": 1,
     "source_pins": [
      {
-      "revision_digest": "4974011a629fd71748b9f045fef9dd9273a2dad59a3e3841fd26996584c6d0d9",
+      "revision_digest": "7c915c5cd1c80b89161a95d67680d09a2372550bbf0b9ca1fc74d447831313c6",
       "source_id": "src_79c006f291eb76ce9309b534c15a8f80"
      },
      {
@@ -5616,7 +5632,7 @@
    }
   },
   {
-   "digest": "2234fae510d9b9b980e552f52750e3338ff27145dc20806712508e7846103c2e",
+   "digest": "9953032136cd47becbb00b2ce32c66c83a6879be5631e9299eb611c9d56d2303",
    "name": "project_request",
    "record": {
     "action": "use",
@@ -5634,7 +5650,7 @@
      "layer": "repository",
      "repository_id": "rep_b3431ec49ef42b32279c6d26037daf90"
     },
-    "payload_digest": "b7ae0d1733b6460978f88db868abf59414027c7adbf11685438c22619e0be9a3",
+    "payload_digest": "88ed51476c92857dbb2715767e061de7183aa5943494090010ce0c4414096990",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_8516b3a032a86ef2bacef2552242ed10",
@@ -5645,12 +5661,12 @@
    }
   },
   {
-   "digest": "eb9e20a3ac22da1cf0eaf86721c3d3aa9b63a1ca9ea997574a283c8ec81785a2",
+   "digest": "734f355c15ac1d6e02377d5dd5f37a938380bf71d3128bfa8e5792a4baa12060",
    "name": "effective_projection",
    "record": {
     "kind": "role_projection",
     "material_gaps": [],
-    "plan_digest": "b7ae0d1733b6460978f88db868abf59414027c7adbf11685438c22619e0be9a3",
+    "plan_digest": "88ed51476c92857dbb2715767e061de7183aa5943494090010ce0c4414096990",
     "prepared_at": "2000-01-01T00:00:00Z",
     "projection_id": "prj_eaaf9a48814f5707d00f299c56fe577b",
     "recipient_view": "executor",
@@ -5658,10 +5674,10 @@
     "schema": 1,
     "units": [
      {
-      "body_digest": "ff1d7de4948ca14ad3cbbf1dd21994dbe05f0b71195a32dfdef893b53f1e6d41",
+      "body_digest": "af26ac6e67fd24e2e873454623df72f19c8d23fb7ec382c97e5825d0f4270e76",
       "concern": "response.style",
       "layer": "repository",
-      "revision_digest": "4974011a629fd71748b9f045fef9dd9273a2dad59a3e3841fd26996584c6d0d9",
+      "revision_digest": "7c915c5cd1c80b89161a95d67680d09a2372550bbf0b9ca1fc74d447831313c6",
       "source_id": "src_79c006f291eb76ce9309b534c15a8f80",
       "source_role": "instructions",
       "standing": "winning",
@@ -5681,7 +5697,7 @@
    }
   },
   {
-   "digest": "f5b9d0892ad21bfd8248c701e908527e239aecb7313078472472194a510d57af",
+   "digest": "128433dee2140d59bb2c51ef4c1eaa8e431e39d24a75dfec666c61ab1cc0b7a1",
    "name": "project_effective_instructions_result",
    "record": {
     "kind": "operation_result",
@@ -5692,12 +5708,16 @@
     },
     "outputs": [
      {
-      "digest": "eb9e20a3ac22da1cf0eaf86721c3d3aa9b63a1ca9ea997574a283c8ec81785a2",
+      "digest": "734f355c15ac1d6e02377d5dd5f37a938380bf71d3128bfa8e5792a4baa12060",
       "kind": "role_projection"
+     },
+     {
+      "digest": "af26ac6e67fd24e2e873454623df72f19c8d23fb7ec382c97e5825d0f4270e76",
+      "kind": "source_member"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "2234fae510d9b9b980e552f52750e3338ff27145dc20806712508e7846103c2e",
+    "request_digest": "9953032136cd47becbb00b2ce32c66c83a6879be5631e9299eb611c9d56d2303",
     "request_id": "req_8516b3a032a86ef2bacef2552242ed10",
     "schema": 1,
     "supported_recovery": []
@@ -6724,7 +6744,7 @@
    }
   },
   {
-   "digest": "ad8ecefe2c7d3f6ee829bbbadfa067cddc56c7091119eca7eda9545e8476ff88",
+   "digest": "e5100560e18ad31c8625b6611f274ef05254bb78a8a57c58c7d046e235e9af0b",
    "name": "script_trace",
    "record": {
     "at": "2000-01-01T00:00:00Z",
@@ -7284,7 +7304,7 @@
        {
         "operation": "role.project",
         "reads": "source_map",
-        "request_digest": "2234fae510d9b9b980e552f52750e3338ff27145dc20806712508e7846103c2e"
+        "request_digest": "9953032136cd47becbb00b2ce32c66c83a6879be5631e9299eb611c9d56d2303"
        },
        {
         "operation": "memory.state.resolve",
@@ -7303,7 +7323,7 @@
          "›"
         ],
         "refers_to": {
-         "digest": "eb9e20a3ac22da1cf0eaf86721c3d3aa9b63a1ca9ea997574a283c8ec81785a2",
+         "digest": "734f355c15ac1d6e02377d5dd5f37a938380bf71d3128bfa8e5792a4baa12060",
          "ref": "record"
         },
         "role": "detail",
@@ -7391,7 +7411,7 @@
         "label": "적용됨 · 레포 지침 AGENTS.md (레포) · response.style",
         "marks": [],
         "refers_to": {
-         "digest": "eb9e20a3ac22da1cf0eaf86721c3d3aa9b63a1ca9ea997574a283c8ec81785a2",
+         "digest": "734f355c15ac1d6e02377d5dd5f37a938380bf71d3128bfa8e5792a4baa12060",
          "ref": "record"
         },
         "role": "detail",
@@ -7513,6 +7533,21 @@
         "role": "help",
         "selection": "none",
         "shown": "whole"
+       },
+       {
+        "element_id": "original.team_instructions.body",
+        "executing": false,
+        "focused": false,
+        "label": "본문 · team/platform.md · 이 적용에서는 가려짐",
+        "marks": [],
+        "refers_to": {
+         "digest": "da833eba78704f70fb88a070e5255b1b1368e9d550e5d0109914c35fd91d339e",
+         "ref": "record"
+        },
+        "role": "detail",
+        "selection": "none",
+        "shown": "whole",
+        "value": "# Team platform instructions\n\n## response.style\n\nKeep answers direct. State the recommended option first, then the reasoning\nbehind it. Avoid hedging language when the evidence already supports one\nconclusion, and say plainly when it does not.\n\n## review.approval\n\nA change to a shared interface needs one platform reviewer's approval before\nit merges, recorded against the exact revision reviewed. A reviewer checks\nthe change against the interface's own contract, not against personal taste.\n\n## escalation\n\nWhen a decision affects more than one repository, raise it in the platform\nchannel before committing, and record the outcome against the concern it\nresolved so a later reader can find why the choice was made.\n\n## formatting\n\nPrefer short paragraphs over long ones, and prefer a worked example over an\nabstract description when both are available. Code samples should compile\nagainst the platform's current pinned toolchain version, not an older one.\n\n## journal mode\n\nThe platform's shared volume does not honour fullfsync, so a rollback\njournal is the safe default there; write-ahead logging is fine on a volume\nthat does honour it, and each repository states which volume it runs on.\n\n## incident handling\n\nOpen an incident record the moment a shared service degrades, even before\nthe cause is known. Close it only after the fix is verified in the same\nenvironment the incident was observed in, and link the record it resolved.\n\n## onboarding\n\nA new team member reads this file and the repository's own instructions\nbefore their first change, and asks in the platform channel when the two\ndisagree, rather than guessing which one applies. A short pairing session\nin the first week answers most questions, and the buddy stays reachable\nfor that month, available for anything left unclear.\n"
        }
       ],
       "locale": "ko",
@@ -7559,7 +7594,7 @@
         "label": "적용됨 · 레포 지침 AGENTS.md (레포) · response.style",
         "marks": [],
         "refers_to": {
-         "digest": "eb9e20a3ac22da1cf0eaf86721c3d3aa9b63a1ca9ea997574a283c8ec81785a2",
+         "digest": "734f355c15ac1d6e02377d5dd5f37a938380bf71d3128bfa8e5792a4baa12060",
          "ref": "record"
         },
         "role": "detail",
@@ -7910,7 +7945,7 @@
    }
   },
   {
-   "digest": "856d28f10fd0ad88dd206b6950e607e954ab1ec757de087d79578bfed75723b7",
+   "digest": "819d048cc2cf0917f22e447d4953f661874440a606caa12470b21300011cc599",
    "name": "drive_entry_result",
    "record": {
     "kind": "operation_result",
@@ -7921,7 +7956,7 @@
     },
     "outputs": [
      {
-      "digest": "ad8ecefe2c7d3f6ee829bbbadfa067cddc56c7091119eca7eda9545e8476ff88",
+      "digest": "e5100560e18ad31c8625b6611f274ef05254bb78a8a57c58c7d046e235e9af0b",
       "kind": "surface_trace"
      }
     ],
@@ -8077,7 +8112,7 @@
    }
   },
   {
-   "digest": "d6906b43b680171d647f36a3b44ca0f6b58c1329d2fb38e4f6389bb73f628934",
+   "digest": "70b2da0a0d859e9e0b4b8f9a6e6b2f8b7d1deaddd14b2b0be52867629baea4b5",
    "name": "tour_trace",
    "record": {
     "at": "2000-01-01T00:00:00Z",
@@ -8999,6 +9034,21 @@
         "role": "help",
         "selection": "none",
         "shown": "whole"
+       },
+       {
+        "element_id": "original.team_instructions.body",
+        "executing": false,
+        "focused": false,
+        "label": "본문 · team/platform.md · 이 적용에서는 가려짐",
+        "marks": [],
+        "refers_to": {
+         "digest": "da833eba78704f70fb88a070e5255b1b1368e9d550e5d0109914c35fd91d339e",
+         "ref": "record"
+        },
+        "role": "detail",
+        "selection": "none",
+        "shown": "whole",
+        "value": "# Team platform instructions\n\n## response.style\n\nKeep answers direct. State the recommended option first, then the reasoning\nbehind it. Avoid hedging language when the evidence already supports one\nconclusion, and say plainly when it does not.\n\n## review.approval\n\nA change to a shared interface needs one platform reviewer's approval before\nit merges, recorded against the exact revision reviewed. A reviewer checks\nthe change against the interface's own contract, not against personal taste.\n\n## escalation\n\nWhen a decision affects more than one repository, raise it in the platform\nchannel before committing, and record the outcome against the concern it\nresolved so a later reader can find why the choice was made.\n\n## formatting\n\nPrefer short paragraphs over long ones, and prefer a worked example over an\nabstract description when both are available. Code samples should compile\nagainst the platform's current pinned toolchain version, not an older one.\n\n## journal mode\n\nThe platform's shared volume does not honour fullfsync, so a rollback\njournal is the safe default there; write-ahead logging is fine on a volume\nthat does honour it, and each repository states which volume it runs on.\n\n## incident handling\n\nOpen an incident record the moment a shared service degrades, even before\nthe cause is known. Close it only after the fix is verified in the same\nenvironment the incident was observed in, and link the record it resolved.\n\n## onboarding\n\nA new team member reads this file and the repository's own instructions\nbefore their first change, and asks in the platform channel when the two\ndisagree, rather than guessing which one applies. A short pairing session\nin the first week answers most questions, and the buddy stays reachable\nfor that month, available for anything left unclear.\n"
        }
       ],
       "locale": "ko",
@@ -13148,7 +13198,7 @@
    }
   },
   {
-   "digest": "16cfb082a12eb9c5310f960e39bc2bd02803d5b4471a818466976078477a105d",
+   "digest": "c6cdaf6072f49f42aeac678ed6ac5634cc7e2d97aebbbc95f627fa33131bdec6",
    "name": "tour_original_positions_result",
    "record": {
     "kind": "operation_result",
@@ -13159,7 +13209,7 @@
     },
     "outputs": [
      {
-      "digest": "d6906b43b680171d647f36a3b44ca0f6b58c1329d2fb38e4f6389bb73f628934",
+      "digest": "70b2da0a0d859e9e0b4b8f9a6e6b2f8b7d1deaddd14b2b0be52867629baea4b5",
       "kind": "surface_trace"
      }
     ],
@@ -13768,7 +13818,7 @@
    }
   },
   {
-   "digest": "2acf41299cb182d93a1236967800afa1d382bef3b54bce42eb779da9666fb939",
+   "digest": "ef9ceeffd13d797b457b64ba8e229413bb65fb24c9f88923c5ebeeb0de316341",
    "name": "journal_use_admitted",
    "record": {
     "ended": true,
@@ -13778,7 +13828,7 @@
     "omissions": [],
     "outcome": {
      "consumed": {
-      "bytes": 200,
+      "bytes": 629,
       "examined": 2,
       "units": 1
      },
@@ -13795,7 +13845,7 @@
      "standing": "delivered",
      "units": [
       {
-       "body_digest": "ab25f76926f1330dabcaf96412272117ab57aa689a2c3325b6442a9a0b20a654",
+       "body_digest": "3c652013b9be7057b1c08b6f3728bd489d216af24b4484c90ad7fcb166927d7a",
        "layer": "team",
        "need": "required",
        "revision_digest": "ab25f76926f1330dabcaf96412272117ab57aa689a2c3325b6442a9a0b20a654",
@@ -13817,7 +13867,7 @@
    }
   },
   {
-   "digest": "a1a51dac4bcce0e309ef30d4ec116cc45fc4ade27359183542a513000fb4c921",
+   "digest": "35f6e19d6fba96d0dee95e3890e947d060fa64f5c863de43808415956e81d889",
    "name": "resume_journal_use_result",
    "record": {
     "kind": "operation_result",
@@ -13828,11 +13878,11 @@
     },
     "outputs": [
      {
-      "digest": "2acf41299cb182d93a1236967800afa1d382bef3b54bce42eb779da9666fb939",
+      "digest": "ef9ceeffd13d797b457b64ba8e229413bb65fb24c9f88923c5ebeeb0de316341",
       "kind": "reader_result"
      },
      {
-      "digest": "ab25f76926f1330dabcaf96412272117ab57aa689a2c3325b6442a9a0b20a654",
+      "digest": "3c652013b9be7057b1c08b6f3728bd489d216af24b4484c90ad7fcb166927d7a",
       "kind": "source_member"
      }
     ],
@@ -14018,7 +14068,7 @@
    }
   },
   {
-   "digest": "d912a85b4816edd0708b10337e882505ff7661593018dcb19134f1764a073028",
+   "digest": "9f47586a9cd64069049f22c4f2e5f8a0b2bb64fe2120ea648c9351fdfec01a7d",
    "name": "resolved_trace",
    "record": {
     "at": "2000-01-01T00:00:00Z",
@@ -14586,7 +14636,7 @@
          "›"
         ],
         "refers_to": {
-         "digest": "eb9e20a3ac22da1cf0eaf86721c3d3aa9b63a1ca9ea997574a283c8ec81785a2",
+         "digest": "734f355c15ac1d6e02377d5dd5f37a938380bf71d3128bfa8e5792a4baa12060",
          "ref": "record"
         },
         "role": "detail",
@@ -14615,7 +14665,7 @@
         "label": "결정 반영됨 · 저널 모드 · Platform 팀 선택(롤백 저널) · 본인 답변으로 해결",
         "marks": [],
         "refers_to": {
-         "digest": "2acf41299cb182d93a1236967800afa1d382bef3b54bce42eb779da9666fb939",
+         "digest": "ef9ceeffd13d797b457b64ba8e229413bb65fb24c9f88923c5ebeeb0de316341",
          "ref": "record"
         },
         "role": "detail",
@@ -14671,7 +14721,7 @@
    }
   },
   {
-   "digest": "cbfdaa81c231056bcd6aaf806c318478d949b702a1b775dfb4f08e9652c2f51a",
+   "digest": "8399ac16849d5c95c00b296251d58296b4fd5528255f643d11254ee09d6ee749",
    "name": "drive_resolved_view_result",
    "record": {
     "kind": "operation_result",
@@ -14682,7 +14732,7 @@
     },
     "outputs": [
      {
-      "digest": "d912a85b4816edd0708b10337e882505ff7661593018dcb19134f1764a073028",
+      "digest": "9f47586a9cd64069049f22c4f2e5f8a0b2bb64fe2120ea648c9351fdfec01a7d",
       "kind": "surface_trace"
      }
     ],
@@ -14695,7 +14745,7 @@
   }
  ],
  "says": "One person has a bound repository and a Team 'Platform'. Repository and Team instructions sources are committed, and each scope's decision source receives a published choice for the same question (memory.record.publish): WAL in the repository, a rollback journal in the Team. memory.state.resolve leaves both entries unresolved with choice_conflict_unresolved; role.project over repository, personal and Team applies the repository unit and names the Team unit as shadowed by it under one concern key; reader.body.read of the Team original returns that unit's own body. The studio hub (surface.drive) lists all nine scope and role positions as separate elements, each with its own selection and state, both decision positions pending. Tab and Enter open the effective view (target the repository instructions position, effective), which names the applied unit, the shadowed Team unit with its Team original unchanged, and the decision conflict as waiting for the person; Down and Enter open the Team original with its body; Esc twice returns to the hub with every position as it was. Negative: no frame merges the three scopes into one list or shows the effective result as the Team original; the conflict is never resolved to the repository's choice; and navigating dispatches nothing and changes no other scope's selection or any recipient. A recipient link opened earlier, with a delivery already observed for it, names the same recipient_link_id in every frame while navigation proceeds. Further scripts open each of the other eight original positions in turn and return, each frame showing that position's own target and state. The person then resolves the journal-mode conflict through a probed real user event, memory.use.prepare, recipient.answer.record and reader.use.resume naming the Team's rollback journal, and memory.preference.record against the whole participant set; a further script's effective view then names the resolved application, not an automatic repository winner.",
- "spec_sha256": "5026f37976b80b5d6fb5f11edacd9ba2d32c5ffe6571da0fc7ea44532271832d",
+ "spec_sha256": "fb51fb1fadaea45e615df5d76f07ccbe3f20dcd8f4bc2abce83c2ae6e620df41",
  "steps": [
   {
    "carries": [
@@ -14924,7 +14974,8 @@
    "request": "project_request",
    "result": "project_effective_instructions_result",
    "returns": [
-    "effective_projection"
+    "effective_projection",
+    "repo_instr_body"
    ]
   },
   {

@@ -68,6 +68,10 @@
   {
    "id": "req_1e3d1a8426aa80933eac6bf02be91602",
    "name": "backdated_capture_rid"
+  },
+  {
+   "id": "req_ae7ebcfe33f51f09360cea2db1726176",
+   "name": "backdated_lifecycle_rid"
   }
  ],
  "joins": [
@@ -600,6 +604,26 @@
    "minted": "register_memory_home_head",
    "pointer": "/target/base/head_digest",
    "record": "backdated_capture_request"
+  },
+  {
+   "minted": "memory_head_2",
+   "pointer": "/target/base/head_digest",
+   "record": "apply_backdated_lifecycle_request"
+  },
+  {
+   "minted": "first_choice",
+   "pointer": "/target/record_id",
+   "record": "backdated_lifecycle_event"
+  },
+  {
+   "minted": "span_bytes",
+   "pointer": "/evidence_digests/0",
+   "record": "backdated_lifecycle_event"
+  },
+  {
+   "digest_of": "backdated_lifecycle_event",
+   "pointer": "/payload_digest",
+   "record": "apply_backdated_lifecycle_request"
   }
  ],
  "minted": [
@@ -2227,10 +2251,64 @@
      "resource_id": "src_0c0d913b29ffd1e0099899255f6ff1c8"
     }
    }
+  },
+  {
+   "digest": "f674d48475ba732d65f0e255e9b3653a5779c60b3a5f9bed5dd4d49ffcfbc265",
+   "name": "backdated_lifecycle_event",
+   "record": {
+    "attributed_to": "prn_645492ebadd105cfc33f6767a3f99691",
+    "effect": {
+     "did": "adopted"
+    },
+    "evidence_digests": [
+     "49bec500e9347363827848ac0a67f409a25d3ff68d318d656caadae647ad192c"
+    ],
+    "kind": "lifecycle_event",
+    "recorded_at": "2025-11-04T00:00:00Z",
+    "schema": 1,
+    "target": {
+     "record_id": "rec_4a551e7a7a90730d6991793e2fc0d0bf",
+     "targets": "record"
+    }
+   }
+  },
+  {
+   "digest": "32e7ed1ae1d160f72e77cc4e8d47f53fa7393f37bb0946455392ea69a49bd282",
+   "name": "apply_backdated_lifecycle_request",
+   "record": {
+    "action": "publish",
+    "actor": {
+     "device_id": "dev_53c3826f111ef5a370597786e06b2b63",
+     "principal_id": "prn_645492ebadd105cfc33f6767a3f99691",
+     "profile_id": "prf_de41e987afc799423e482645a7c6b432"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "memory.lifecycle.apply",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_f6ee5e6ab48ced5d1afce83916f33f01"
+    },
+    "payload_digest": "f674d48475ba732d65f0e255e9b3653a5779c60b3a5f9bed5dd4d49ffcfbc265",
+    "policy_digests": [],
+    "proof_digests": [],
+    "rationale": "Record the decision taken on 2026-09-18.",
+    "request_id": "req_ae7ebcfe33f51f09360cea2db1726176",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "8b8e8ef206699c0dba58e23cc8bc47e19611a5fbda24b8fe2a517e47018c812e"
+     },
+     "resource_id": "src_0c0d913b29ffd1e0099899255f6ff1c8"
+    }
+   }
   }
  ],
- "says": "A person binds this device's key and the checkout and registers the repository's memory source. The owner reads records 12 to 18 of a session transcript in which a journal mode was chosen and nobody said why or what else was considered; the packaged local adapter captures it, and the candidate extracted from the capture proposes the choice with its alternatives and reason named as unrecorded rather than filled in. Publishing it at the memory source, on the head its registration committed and stating that it promotes version 1 of that candidate, commits a choice record that still names alternatives and reason as unrecorded, a revision holding it, and the candidate's version 2 promoted with that commit's receipt, proposing exactly what was published. When the reason is explained later, the explanation is a second record published on the moved head: it relies on the first record by id and says it was written afterwards, and the first record is not changed. Nothing may be invented or backdated: a choice submitted with an approval field is refused at admission (a choice record has no field for one), a choice that states its own recorded time before the commit is refused at admission, and a capture that states its own capture time is refused at admission. None of those writes anything.",
- "spec_sha256": "887f5b482b2f071dcf7f1a931eea0020b6f4235732b6bf5af4e8bb861b38eec2",
+ "says": "A person binds this device's key and the checkout and registers the repository's memory source. The owner reads records 12 to 18 of a session transcript in which a journal mode was chosen and nobody said why or what else was considered; the packaged local adapter captures it, and the candidate extracted from the capture proposes the choice with its alternatives and reason named as unrecorded rather than filled in. Publishing it at the memory source, on the head its registration committed and stating that it promotes version 1 of that candidate, commits a choice record that still names alternatives and reason as unrecorded, a revision holding it, and the candidate's version 2 promoted with that commit's receipt, proposing exactly what was published. When the reason is explained later, the explanation is a second record published on the moved head: it relies on the first record by id and says it was written afterwards, and the first record is not changed. Nothing may be invented or backdated: a choice submitted with an approval field is refused at admission (a choice record has no field for one), a choice that states its own recorded time before the commit is refused at admission, a capture that states its own capture time is refused at admission, and a lifecycle event recording that choice as adopted, backdated to before the commit, is refused at admission the same way. None of those writes anything.",
+ "spec_sha256": "a830582ac64cd16e981690e7827c6495bff9ebdfdee4e7a50c98d5a15ec66dd3",
  "steps": [
   {
    "carries": [
@@ -2367,6 +2445,20 @@
     }
    ],
    "request": "backdated_capture_request"
+  },
+  {
+   "carries": [
+    "backdated_lifecycle_event"
+   ],
+   "name": "apply_a_backdated_lifecycle_event",
+   "refused": [
+    {
+     "code": "runtime_owned_field",
+     "pointer": "/recorded_at",
+     "record": "backdated_lifecycle_event"
+    }
+   ],
+   "request": "apply_backdated_lifecycle_request"
   }
  ]
 }

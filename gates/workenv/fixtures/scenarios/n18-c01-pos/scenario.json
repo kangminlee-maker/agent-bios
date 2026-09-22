@@ -939,8 +939,13 @@
    "record": "recover_key_request"
   },
   {
-   "digest_of": "admitting_policy",
+   "digest_of": "team_sealed_proposal",
    "pointer": "/policy_digests/0",
+   "record": "recover_key_request"
+  },
+  {
+   "digest_of": "admitting_policy",
+   "pointer": "/policy_digests/1",
    "record": "recover_key_request"
   },
   {
@@ -2792,7 +2797,7 @@
    }
   },
   {
-   "digest": "4fa9846fa3a8ae4d090f73240d2aacc04b0b688cf935a62ccd8d155f2aec2d87",
+   "digest": "ee2d9452ae71115a6818acbc6cc7060f0031aa75e389cb7e6dc1c0bf34b1759f",
    "name": "recover_key_request",
    "record": {
     "action": "local_profile",
@@ -2812,6 +2817,7 @@
     },
     "payload_digest": "8f7d26c670ebae96b0eb7ca00619d6cb0b7199c51f13d8eb9465e761380e5696",
     "policy_digests": [
+     "b2ed26428268196d4a7cf9eb6594d0d6de448f9db81b64566360916177ff9148",
      "7d148e63fefaca3774c6d20c5e200974aa699b4cdc1039473ffb3dca42716093"
     ],
     "proof_digests": [
@@ -2825,7 +2831,7 @@
    }
   },
   {
-   "digest": "918b044a9f789ebf66aa149a817ec7d96ffb5b69faf1f931c104269cb8cde837",
+   "digest": "27af8b64060c2f2f455e0ab0977f6086beeba7f5fe678c1aa249618aa8f6ec8c",
    "name": "bind_recovered_key_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -2835,7 +2841,7 @@
      "layer": "personal",
      "principal_id": "prn_960ca86b49bc7972d1660f701dc9150f"
     },
-    "request_digest": "4fa9846fa3a8ae4d090f73240d2aacc04b0b688cf935a62ccd8d155f2aec2d87",
+    "request_digest": "ee2d9452ae71115a6818acbc6cc7060f0031aa75e389cb7e6dc1c0bf34b1759f",
     "request_id": "req_0753684af8b3cb1ee1236828c35fe231",
     "schema": 1,
     "sequence": 1,
@@ -2866,14 +2872,14 @@
    }
   },
   {
-   "digest": "760f4aa96ad4d02aedfb1d4eb4fc02a587e7a264e6ccb7b3abc0a20045168a07",
+   "digest": "9cc09296ad7e5a365134220ed10f545ced4220c95e7c017b3f7839653e9914bc",
    "name": "bind_recovered_key_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "918b044a9f789ebf66aa149a817ec7d96ffb5b69faf1f931c104269cb8cde837",
+     "receipt_digest": "27af8b64060c2f2f455e0ab0977f6086beeba7f5fe678c1aa249618aa8f6ec8c",
      "stage": "committed"
     },
     "outputs": [
@@ -2883,7 +2889,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "4fa9846fa3a8ae4d090f73240d2aacc04b0b688cf935a62ccd8d155f2aec2d87",
+    "request_digest": "ee2d9452ae71115a6818acbc6cc7060f0031aa75e389cb7e6dc1c0bf34b1759f",
     "request_id": "req_0753684af8b3cb1ee1236828c35fe231",
     "schema": 1,
     "supported_recovery": []
@@ -2891,7 +2897,7 @@
   }
  ],
  "says": "Three isolated runtimes: Alice's laptop, Bob's laptop and, later, a new desktop of Bob's. Alice founds a Team (becoming its member and issuing authority) and configures a Google connection for it that trusts one hosted domain, then sets the Team's policy so that a verified Google identity in that domain is admitted to read and use. Bob, on his own laptop with his own device key and no account, begins linking his Google identity to his principal. The callback matches the attempt's state and nonce and the connection's issuer, audience and domain: the answer is the sign-in evidence and an external-identity binding for Bob's principal, established by governed link. Alice, as the Team's authority on its finalizer laptop, admits Bob as a member through his provider claim, naming his sign-in evidence, under the policy that admits it. Later Bob loses his laptop. On a new desktop he explicitly begins a recovery sign-in for his principal; the verified evidence is what a new device key is then bound on, established by governed recovery, to the same principal id. What must not happen: the link or the membership landing on any principal but Bob's, a membership without the policy that admits the claim, or the recovery minting a new principal.",
- "spec_sha256": "9230eca512db6492cb781f971ba6b433a67d4fc776296b159a1577dc80d63747",
+ "spec_sha256": "9da3a64854fc4981a1a7eb9027c62391b39c9c4f5244fbd4ff5efecdb16cf308",
  "steps": [
   {
    "at": "2026-09-21T09:00:00Z",

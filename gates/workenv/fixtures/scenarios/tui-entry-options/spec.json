@@ -321,7 +321,7 @@
     },
     {
      "pointer": "/read/0/digest",
-     "value": "$digest:instr_bytes"
+     "value": "#instr_body"
     },
     {
      "pointer": "/read/0/path",
@@ -329,7 +329,7 @@
     },
     {
      "pointer": "/read/0/size",
-     "value": 2048
+     "value": 1110
     },
     {
      "pointer": "/selection_digest",
@@ -346,7 +346,7 @@
    "set": [
     {
      "pointer": "/members/0/digest",
-     "value": "$digest:instr_bytes"
+     "value": "#instr_body"
     },
     {
      "pointer": "/members/0/path",
@@ -354,7 +354,7 @@
     },
     {
      "pointer": "/members/0/size",
-     "value": 2048
+     "value": 1110
     },
     {
      "pointer": "/source_id",
@@ -2064,7 +2064,7 @@
     },
     {
      "pointer": "/units/0/body_digest",
-     "value": "$digest:instr_bytes"
+     "value": "#instr_body"
     }
    ]
   },
@@ -2189,7 +2189,7 @@
     },
     {
      "pointer": "/units/0/body_digest",
-     "value": "$digest:instr_bytes"
+     "value": "#instr_body"
     }
    ]
   },
@@ -2435,6 +2435,12 @@
      "value": "@profile"
     }
    ]
+  }
+ ],
+ "members": [
+  {
+   "name": "instr_body",
+   "text": "# Repository instructions\n\n## response.style\n\nState the recommended option first, then the evidence behind it. Keep the\nfirst paragraph free of hedging when the evidence already supports one\nconclusion, and name the open question plainly when it does not.\n\n## review.approval\n\nA change to a public interface needs one maintainer's approval before it\nmerges, recorded against the exact revision reviewed. A reviewer checks the\nchange against this file's own rules, not against a personal preference.\n\n## testing\n\nRun the test suite before every commit and report its output, not only\nwhether it passed. A change with no test coverage states why none applies.\n\n## journal mode\n\nThis repository's local state database uses a rollback journal by default;\nwrite-ahead logging is the alternative when a volume supports fullfsync,\nand the choice is recorded against the concern it resolves.\n\n## escalation\n\nWhen a decision affects more than this repository, raise it in the shared\nplatform channel before committing, and link the outcome to the concern it\nresolved so a later reader can find why the choice was made.\n"
   }
  ],
  "steps": [
@@ -2695,7 +2701,8 @@
     "recovery": [],
     "returns": [
      "start_routing",
-     "start_projection"
+     "start_projection",
+     "instr_body"
     ]
    }
   },
