@@ -1,6 +1,6 @@
 {
  "case": "DH-PENDING",
- "says": "Two concerns are in conflict for this person: the test runner (the repository says pytest, their own decisions say unittest) and the journal mode (WAL against a rollback journal). In an attended Claude Code conversation whose ordinary-message route is qualified by a real probe, with its one hook disabled in every configuration the owner measures, they were asked about the test runner and chose pytest, kept until the choices change: the owner recorded the verified answer, admitted the use and, from the same resume request, recorded the keep preference over both runner records. The journal use then arises in a headless Codex CLI run, whose real probe declined with nobody present. The owner seals the journal question and stores it pending before asking; the process is killed after that commit and restarted, and the same request returns the same pending question. Asking through the headless run is recorded with no channel and answer_origin_unverified; ten minutes later its reply is a timeout, recorded as a timed_out non-answer, and resuming with it is blocked with answer_not_from_a_person: the use stays pending_user on the same question version, and no default or first option is chosen. Preparing that same use again, by its id, finds its one question version rather than minting another use or question; an attempt under a question id nobody sealed is recorded as retry_under_a_new_id_refused; routing the question to the agent-bios management screen is recorded as management_detour_refused. Meanwhile an independent use of the test-runner concern is admitted on the kept preference without a new question. When the person reconnects in a new Claude Code conversation, the same question version is asked there, they choose WAL, the owner records a verified answer, and resuming admits the original journal use under its existing identity.",
+ "says": "Two concerns are in conflict for this person: the test runner (the repository says pytest, their own decisions say unittest) and the journal mode (WAL against a rollback journal). In an attended Claude Code conversation whose ordinary-message route is qualified by a real probe, with its one hook disabled in every configuration the owner measures, they were asked about the test runner and chose pytest, kept until the choices change: the owner recorded the verified answer, admitted the use and, from the same resume request, recorded the keep preference over both runner records. The journal use then arises in a headless Codex CLI run, whose real probe declined with nobody present. The owner seals the journal question and stores it pending before asking; the process is killed after that commit and restarted, and the same request returns the same pending question. Asking through the headless run is recorded with no channel and answer_origin_unverified; ten minutes later its reply is a timeout, recorded as a timed_out non-answer, and resuming with it is blocked with answer_not_from_a_person: the use stays pending_user on the same question version, and no default or first option is chosen. A cancelled reply and a declined reply are each recorded and resumed the same way, still pending_user. Preparing that same use again, by its id, finds its one question version rather than minting another use or question; an attempt under a question id nobody sealed is recorded as retry_under_a_new_id_refused; routing the question to the agent-bios management screen is recorded as management_detour_refused. Meanwhile an independent use of the test-runner concern is admitted on the kept preference without a new question. When the person reconnects in a new Claude Code conversation, the same question version is asked there, they choose WAL, the owner records a verified answer, and resuming admits the original journal use under its existing identity.",
  "ids": [
   {
    "name": "alice",
@@ -116,6 +116,22 @@
   },
   {
    "name": "resume_with_timeout_id",
+   "prefix": "req"
+  },
+  {
+   "name": "record_cancel_reply_id",
+   "prefix": "req"
+  },
+  {
+   "name": "resume_with_cancel_id",
+   "prefix": "req"
+  },
+  {
+   "name": "record_decline_reply_id",
+   "prefix": "req"
+  },
+  {
+   "name": "resume_with_decline_id",
    "prefix": "req"
   },
   {
@@ -2878,6 +2894,466 @@
    ]
   },
   {
+   "name": "cancel_reply",
+   "from": "c11/host_reply_the_person_cancelled.json",
+   "set": [
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:headless_link"
+    },
+    {
+     "pointer": "/use_id",
+     "value": "$use:journal_use"
+    },
+    {
+     "pointer": "/question_id",
+     "value": "$qst:journal_question"
+    },
+    {
+     "pointer": "/question_version",
+     "value": 1
+    },
+    {
+     "pointer": "/route",
+     "value": "conversation"
+    },
+    {
+     "pointer": "/reply/because",
+     "value": "cancelled"
+    }
+   ]
+  },
+  {
+   "name": "record_cancel_reply",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@record_cancel_reply_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.answer.record"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$qst:journal_question"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#cancel_reply"
+    }
+   ]
+  },
+  {
+   "name": "cancel_reply_evidence",
+   "from": "c11/an_answer_that_names_what_separated_a_person_from_the_automation.json",
+   "drop": [
+    "/origin/separation_evidence_digest",
+    "/origin/answer"
+   ],
+   "set": [
+    {
+     "pointer": "/evidence_id",
+     "value": "$ans:cancel_reply_evidence"
+    },
+    {
+     "pointer": "/host/name",
+     "value": "codex-cli"
+    },
+    {
+     "pointer": "/host/version",
+     "value": "0.155.1"
+    },
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:headless_link"
+    },
+    {
+     "pointer": "/measured_configuration_digest",
+     "value": "#codex_configuration_at_cancel"
+    },
+    {
+     "pointer": "/observed_at",
+     "value": "$instant:cancel_reply_evidence_at"
+    },
+    {
+     "pointer": "/question_id",
+     "value": "$qst:journal_question"
+    },
+    {
+     "pointer": "/question_version",
+     "value": 1
+    },
+    {
+     "pointer": "/route",
+     "value": "conversation"
+    },
+    {
+     "pointer": "/use_id",
+     "value": "$use:journal_use"
+    },
+    {
+     "pointer": "/origin/origin",
+     "value": "cancelled"
+    }
+   ]
+  },
+  {
+   "name": "codex_configuration_at_cancel",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/client/name",
+     "value": "codex-cli"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.155.1"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:codex_configuration_at_cancel_at"
+    }
+   ]
+  },
+  {
+   "name": "resume_with_cancel_submitted",
+   "from": "c06/resume_with_the_answer_named_by_digest.json",
+   "set": [
+    {
+     "pointer": "/use_id",
+     "value": "$use:journal_use"
+    },
+    {
+     "pointer": "/question_id",
+     "value": "$qst:journal_question"
+    },
+    {
+     "pointer": "/question_version",
+     "value": 1
+    },
+    {
+     "pointer": "/answer_evidence_digest",
+     "value": "#cancel_reply_evidence"
+    }
+   ]
+  },
+  {
+   "name": "resume_with_cancel",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@resume_with_cancel_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "reader.use.resume"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$use:journal_use"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#resume_with_cancel_submitted"
+    }
+   ]
+  },
+  {
+   "name": "journal_still_waiting_after_the_cancel",
+   "from": "journal_waiting",
+   "set": [
+    {
+     "pointer": "/material_gaps/0/code",
+     "value": "choice_conflict_unresolved"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:journal_still_waiting_after_the_cancel_at"
+    }
+   ]
+  },
+  {
+   "name": "decline_reply",
+   "from": "c11/host_reply_the_person_cancelled.json",
+   "set": [
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:headless_link"
+    },
+    {
+     "pointer": "/use_id",
+     "value": "$use:journal_use"
+    },
+    {
+     "pointer": "/question_id",
+     "value": "$qst:journal_question"
+    },
+    {
+     "pointer": "/question_version",
+     "value": 1
+    },
+    {
+     "pointer": "/route",
+     "value": "conversation"
+    },
+    {
+     "pointer": "/reply/because",
+     "value": "declined"
+    }
+   ]
+  },
+  {
+   "name": "record_decline_reply",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@record_decline_reply_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.answer.record"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$qst:journal_question"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#decline_reply"
+    }
+   ]
+  },
+  {
+   "name": "decline_reply_evidence",
+   "from": "c11/an_answer_that_names_what_separated_a_person_from_the_automation.json",
+   "drop": [
+    "/origin/separation_evidence_digest",
+    "/origin/answer"
+   ],
+   "set": [
+    {
+     "pointer": "/evidence_id",
+     "value": "$ans:decline_reply_evidence"
+    },
+    {
+     "pointer": "/host/name",
+     "value": "codex-cli"
+    },
+    {
+     "pointer": "/host/version",
+     "value": "0.155.1"
+    },
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:headless_link"
+    },
+    {
+     "pointer": "/measured_configuration_digest",
+     "value": "#codex_configuration_at_decline"
+    },
+    {
+     "pointer": "/observed_at",
+     "value": "$instant:decline_reply_evidence_at"
+    },
+    {
+     "pointer": "/question_id",
+     "value": "$qst:journal_question"
+    },
+    {
+     "pointer": "/question_version",
+     "value": 1
+    },
+    {
+     "pointer": "/route",
+     "value": "conversation"
+    },
+    {
+     "pointer": "/use_id",
+     "value": "$use:journal_use"
+    },
+    {
+     "pointer": "/origin/origin",
+     "value": "declined"
+    }
+   ]
+  },
+  {
+   "name": "codex_configuration_at_decline",
+   "from": "c12/a_host_measured_with_no_hooks.json",
+   "set": [
+    {
+     "pointer": "/client/name",
+     "value": "codex-cli"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.155.1"
+    },
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:codex_configuration_at_decline_at"
+    }
+   ]
+  },
+  {
+   "name": "resume_with_decline_submitted",
+   "from": "c06/resume_with_the_answer_named_by_digest.json",
+   "set": [
+    {
+     "pointer": "/use_id",
+     "value": "$use:journal_use"
+    },
+    {
+     "pointer": "/question_id",
+     "value": "$qst:journal_question"
+    },
+    {
+     "pointer": "/question_version",
+     "value": 1
+    },
+    {
+     "pointer": "/answer_evidence_digest",
+     "value": "#decline_reply_evidence"
+    }
+   ]
+  },
+  {
+   "name": "resume_with_decline",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@resume_with_decline_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "reader.use.resume"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$use:journal_use"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#resume_with_decline_submitted"
+    }
+   ]
+  },
+  {
+   "name": "journal_still_waiting_after_the_decline",
+   "from": "journal_waiting",
+   "set": [
+    {
+     "pointer": "/material_gaps/0/code",
+     "value": "choice_conflict_unresolved"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:journal_still_waiting_after_the_decline_at"
+    }
+   ]
+  },
+  {
    "name": "prepare_journal_again",
    "from": "c05/memory_use_request.json",
    "set": [
@@ -4236,6 +4712,84 @@
     "recovery": [],
     "returns": [
      "journal_still_waiting_after_the_timeout"
+    ]
+   }
+  },
+  {
+   "name": "record_the_cancel",
+   "request": "record_cancel_reply",
+   "carries": [
+    "cancel_reply"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "cancel_reply_evidence",
+     "codex_configuration_at_cancel"
+    ]
+   }
+  },
+  {
+   "name": "resume_with_the_cancel",
+   "request": "resume_with_cancel",
+   "carries": [
+    "resume_with_cancel_submitted"
+   ],
+   "answer": {
+    "stage": "blocked",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "answer_not_from_a_person"
+     }
+    ],
+    "recovery": [],
+    "returns": [
+     "journal_still_waiting_after_the_cancel"
+    ]
+   }
+  },
+  {
+   "name": "record_the_decline",
+   "request": "record_decline_reply",
+   "carries": [
+    "decline_reply"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "decline_reply_evidence",
+     "codex_configuration_at_decline"
+    ]
+   }
+  },
+  {
+   "name": "resume_with_the_decline",
+   "request": "resume_with_decline",
+   "carries": [
+    "resume_with_decline_submitted"
+   ],
+   "answer": {
+    "stage": "blocked",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "answer_not_from_a_person"
+     }
+    ],
+    "recovery": [],
+    "returns": [
+     "journal_still_waiting_after_the_decline"
     ]
    }
   },

@@ -1,6 +1,6 @@
 {
  "case": "N05-CRASH-NEG",
- "says": "Alice registers a private notes source on her laptop, which makes its first head, and commits it once on that head; she then commits eight more times, the process being killed at a different B03 fault point during each commit — before staging, after the member write before sync, after staging before rename, after rename before the directory sync, after that sync before the transaction begins, inside the transaction before commit, after commit before the answer returns, and during the checkpoint that follows — and once more during the backup taken after the last commit. A kill before the transaction commits leaves the prior head and no receipt, so the same request, sent again after the restart, commits exactly once; each next commit expects exactly the head the previous one moved to and is accepted, so no staged member was counted as committed and no request moved a head twice. The kill after commit and before the answer leaves Alice without a reply: the outcome is unknown to her, and querying that request id settles it with the original result and its receipt, whose head the next commit then expects. A later query of the commit killed inside its transaction returns the one result and receipt its resubmission wrote. Submitting the settled request id again with other bytes (another revision) is refused with request_id_conflict and writes nothing. What must not happen: a head naming staged members without a receipt, a second receipt for one request, or the conflicting bytes replacing the original.",
+ "says": "Alice registers a private notes source on her laptop, which makes its first head, and commits it once on that head; she then commits seven more times, the process being killed at a different B03 publication fault point during each commit — before staging, after the member write before sync, after staging before rename, after rename before the directory sync, after that sync before the transaction begins, inside the transaction before commit, and after commit before the answer returns. A kill before the transaction commits leaves the prior head and no receipt, so the same request, sent again after the restart, commits exactly once; each next commit expects exactly the head the previous one moved to and is accepted, so no staged member was counted as committed and no request moved a head twice. The kill after commit and before the answer leaves Alice without a reply: the outcome is unknown to her, and querying that request id settles it with the original result and its receipt, whose head the next commit then expects. Alice then takes two backups of the profile, outside the source's head: the first killed during its checkpoint and the second killed during the backup copy itself; each is answered by the same discipline as the commits — the same request, sent again after its own restart, commits exactly once, writing one backup_set and one receipt. A later commit on the source, after both backups, still expects the head the last commit moved to. A later query of the commit killed inside its transaction returns the one result and receipt its resubmission wrote. Submitting the settled request id again with other bytes (another revision) is refused with request_id_conflict and writes nothing. What must not happen: a head naming staged members without a receipt, a second receipt for one request, or the conflicting bytes replacing the original.",
  "ids": [
   {
    "name": "alice",
@@ -59,14 +59,6 @@
    "prefix": "req"
   },
   {
-   "name": "commit_request_8",
-   "prefix": "req"
-  },
-  {
-   "name": "backup_request",
-   "prefix": "req"
-  },
-  {
    "name": "commit_request_after",
    "prefix": "req"
   },
@@ -76,6 +68,14 @@
   },
   {
    "name": "settle_request_7",
+   "prefix": "req"
+  },
+  {
+   "name": "backup_request_checkpoint",
+   "prefix": "req"
+  },
+  {
+   "name": "backup_request_backup",
    "prefix": "req"
   }
  ],
@@ -1012,38 +1012,25 @@
    ]
   },
   {
-   "name": "revision_8",
-   "from": "sources/revision_submitted.json",
-   "set": [
-    {
-     "pointer": "/source_id",
-     "value": "@notes_source"
-    },
-    {
-     "pointer": "/members/0/size",
-     "value": 4128
-    }
-   ]
-  },
-  {
-   "name": "commit_8",
+   "name": "take_backup_checkpoint",
    "from": "bindings/storing_request.json",
    "drop": [
     "/owner/team_id",
-    "/target/base"
+    "/target/base",
+    "/payload_digest"
    ],
    "set": [
     {
      "pointer": "/request_id",
-     "value": "@commit_request_8"
+     "value": "@backup_request_checkpoint"
     },
     {
      "pointer": "/operation",
-     "value": "source.revision.commit"
+     "value": "store.backup.create"
     },
     {
      "pointer": "/action",
-     "value": "publish"
+     "value": "local_profile"
     },
     {
      "pointer": "/effect_class",
@@ -1071,29 +1058,50 @@
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@notes_source"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "head"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:head_7"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#revision_8"
+     "value": "@alice_profile"
     }
    ]
   },
   {
-   "name": "stored_revision_8",
-   "from": "revision_8",
+   "name": "backup_at_checkpoint",
+   "from": "c03/backup_taken_before_the_loss.json",
+   "drop": [
+    "/members/3",
+    "/members/2",
+    "/members/1"
+   ],
    "set": [
     {
-     "pointer": "/produced_at",
-     "value": "$instant:produced_at_8"
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/taken_at",
+     "value": "$instant:backup_checkpoint_taken_at"
+    },
+    {
+     "pointer": "/covered_through",
+     "value": "$integer:backup_checkpoint_covered_through"
+    },
+    {
+     "pointer": "/database/digest",
+     "value": "$digest:backup_checkpoint_database"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "objects/revision.json"
+    },
+    {
+     "pointer": "/members/0/holds",
+     "value": "object"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "#stored_revision_7"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 382
     }
    ]
   },
@@ -1108,7 +1116,7 @@
    "set": [
     {
      "pointer": "/request_id",
-     "value": "@backup_request"
+     "value": "@backup_request_backup"
     },
     {
      "pointer": "/operation",
@@ -1183,7 +1191,7 @@
     },
     {
      "pointer": "/members/0/digest",
-     "value": "#stored_revision_8"
+     "value": "#stored_revision_7"
     },
     {
      "pointer": "/members/0/size",
@@ -1259,7 +1267,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:head_8"
+     "value": "$digest:head_7"
     },
     {
      "pointer": "/payload_digest",
@@ -1565,11 +1573,9 @@
    }
   },
   {
-   "name": "commit_revision_8",
-   "request": "commit_8",
-   "carries": [
-    "revision_8"
-   ],
+   "name": "take_backup_at_the_checkpoint",
+   "request": "take_backup_checkpoint",
+   "carries": [],
    "answer": {
     "stage": "committed",
     "local_effect": "committed",
@@ -1577,9 +1583,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "stored_revision_8"
-    ],
-    "head": "head_8"
+     "backup_at_checkpoint"
+    ]
    }
   },
   {
@@ -1687,7 +1692,7 @@
     "observed_by": "settle_the_commit_killed_before_its_answer"
    },
    {
-    "step": "commit_revision_8",
+    "step": "take_backup_at_the_checkpoint",
     "point": "during_checkpoint"
    },
    {

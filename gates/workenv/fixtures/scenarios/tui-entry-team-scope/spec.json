@@ -51,6 +51,10 @@
    "prefix": "req"
   },
   {
+   "name": "register_a_rid",
+   "prefix": "req"
+  },
+  {
    "name": "a_src_commit",
    "prefix": "req"
   },
@@ -60,6 +64,10 @@
   },
   {
    "name": "b_src_observe",
+   "prefix": "req"
+  },
+  {
+   "name": "register_b_rid",
    "prefix": "req"
   },
   {
@@ -1045,6 +1053,120 @@
    ]
   },
   {
+   "name": "a_src_home",
+   "from": "sources/home_of_a_repository_document.json",
+   "drop": [
+    "/registered_at",
+    "/acceptance_authority/repository_id",
+    "/scope/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/acceptance_authority/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/acceptance_authority/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/disclosure",
+     "value": "team"
+    },
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/document_root",
+     "value": "team/platform-a.md"
+    },
+    {
+     "pointer": "/home/binding_evidence_digest",
+     "value": "#desktop_repo_bound"
+    },
+    {
+     "pointer": "/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@a_src"
+    }
+   ]
+  },
+  {
+   "name": "a_src_home_stored",
+   "from": "a_src_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:a_src_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "register_a_request",
+   "from": "c01/link_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@desktop_profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#a_src_home"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@register_a_rid"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@a_src"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    }
+   ]
+  },
+  {
    "name": "a_src_commit_request",
    "from": "c01/link_request.json",
    "drop": [
@@ -1093,7 +1215,11 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:a_src_registered"
     }
    ]
   },
@@ -1571,6 +1697,120 @@
    ]
   },
   {
+   "name": "b_src_home",
+   "from": "sources/home_of_a_repository_document.json",
+   "drop": [
+    "/registered_at",
+    "/acceptance_authority/repository_id",
+    "/scope/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/acceptance_authority/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/acceptance_authority/team_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/disclosure",
+     "value": "team"
+    },
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/document_root",
+     "value": "team/platform-b.md"
+    },
+    {
+     "pointer": "/home/binding_evidence_digest",
+     "value": "#repo_bound"
+    },
+    {
+     "pointer": "/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@b_src"
+    }
+   ]
+  },
+  {
+   "name": "b_src_home_stored",
+   "from": "b_src_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:b_src_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "register_b_request",
+   "from": "c01/link_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team_b"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#b_src_home"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@register_b_rid"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@b_src"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    }
+   ]
+  },
+  {
    "name": "b_src_commit_request",
    "from": "c01/link_request.json",
    "drop": [
@@ -1619,7 +1859,11 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:b_src_registered"
     }
    ]
   },
@@ -4439,6 +4683,25 @@
    "process": "desktop"
   },
   {
+   "name": "register_a_src",
+   "request": "register_a_request",
+   "carries": [
+    "a_src_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "a_src_home_stored"
+    ],
+    "head": "a_src_registered"
+   },
+   "process": "desktop"
+  },
+  {
    "name": "commit_a_src",
    "request": "a_src_commit_request",
    "carries": [
@@ -4549,6 +4812,25 @@
     "returns": [
      "b_src_observation"
     ]
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "register_b_src",
+   "request": "register_b_request",
+   "carries": [
+    "b_src_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "b_src_home_stored"
+    ],
+    "head": "b_src_registered"
    },
    "process": "laptop"
   },

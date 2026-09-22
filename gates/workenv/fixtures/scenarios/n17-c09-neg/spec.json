@@ -1,6 +1,6 @@
 {
  "case": "N17-C09-NEG",
- "says": "Alice founds the Platform Team on her laptop selecting GitHub beside local and peer, registers its knowledge source and commits a revision. Selecting GitHub is only a preference: the founding answers with no provider effect, returning its policy, state and founding continuity epoch and no carrier record, and a package staged before any binding — a draft with no receipt, carrying the epoch as a member — goes by peer with no provider effect either. Alice then binds the Team's repository, which moves the Team head, and provisions it against that head; the provider does not answer, so the provisioning is answered unknown with the binding in doubt. A second provisioning request for the same binding is refused with provisioning_in_doubt and creates nothing; querying the first request by its id returns its settled result, provisioned against the bound repository, with its receipt and the head it moved to. Platform then stages a package through the repository against that head. Bob, who holds write rights on that repository but no grant in the Team, returns a contribution through it; that is refused with repository_rights_not_a_grant and nothing is written. What must not happen: a network call, sign-in or upload caused by the preference alone, a second repository created by repeating an unknown provisioning, or repository rights accepted as Team authority.",
+ "says": "Alice founds the Platform Team on her laptop selecting GitHub beside local and peer, registers its knowledge source and commits a revision. Selecting GitHub is only a preference: the founding answers with no provider effect, returning its policy, state and founding continuity epoch and no carrier record, and a package staged before any binding — a draft with no receipt, carrying the epoch as a member — goes by peer with no provider effect either. Alice then binds the Team's repository, naming Bob's laptop as the device that holds its credential, which moves the Team head, and provisions it against that head; the provider does not answer, so the provisioning is answered unknown with the binding in doubt. A second provisioning request for the same binding, under a new request id, repeats the operation, target and payload of the first while its outcome is still unknown: refused with both provisioning_in_doubt and resubmitted_while_unknown, and creates nothing; querying the first request by its id returns its settled result, provisioned against the bound repository with write among the credential's repository rights, its receipt and the head it moved to. Platform then stages a package through the repository against that head. Bob, whose device holds that credential and its write rights on the repository but who holds no grant in the Team, returns a contribution through it; that is refused with repository_rights_not_a_grant and nothing is written. What must not happen: a network call, sign-in or upload caused by the preference alone, a second repository created by repeating an unknown provisioning, or repository rights accepted as Team authority.",
  "ids": [
   {
    "name": "desktop_peer",
@@ -702,7 +702,7 @@
     },
     {
      "pointer": "/inventory/0/size",
-     "value": 4096
+     "value": 382
     },
     {
      "pointer": "/inventory/0/object_kind",
@@ -718,7 +718,7 @@
     },
     {
      "pointer": "/inventory/1/size",
-     "value": 512
+     "value": 378
     },
     {
      "pointer": "/inventory/1/object_kind",
@@ -839,7 +839,7 @@
     },
     {
      "pointer": "/credential_held_by",
-     "value": "@laptop"
+     "value": "@bob_laptop"
     }
    ]
   },
@@ -1274,7 +1274,7 @@
     },
     {
      "pointer": "/inventory/0/size",
-     "value": 4096
+     "value": 382
     },
     {
      "pointer": "/inventory/0/object_kind",
@@ -1290,7 +1290,7 @@
     },
     {
      "pointer": "/inventory/1/size",
-     "value": 512
+     "value": 378
     },
     {
      "pointer": "/inventory/1/object_kind",
@@ -1525,7 +1525,7 @@
     },
     {
      "pointer": "/inventory/0/size",
-     "value": 4500
+     "value": 345
     },
     {
      "pointer": "/inventory/0/object_kind",
@@ -1768,6 +1768,9 @@
     "gaps": [
      {
       "code": "provisioning_in_doubt"
+     },
+     {
+      "code": "resubmitted_while_unknown"
      }
     ],
     "recovery": [

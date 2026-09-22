@@ -1,6 +1,6 @@
 {
  "case": "N03-SECRET-NEG",
- "says": "Alice's laptop reads its fresh profile (active, generation 1); she binds her device key and registers a private notes source, then locks the profile (generation 2). She tries to unlock while her key's private half sits beside the public key the signing call names: the unlock is refused with private_key_beside_public and the profile stays locked, because under that layout OpenSSH would prompt for the passphrase again outside the unlock. She tries again while SSH_AUTH_SOCK names a signing agent this runtime does not own: refused with agent_not_owned_here. While locked, the signed commit of her notes' first revision is not admitted, with access_locked: no signature is made. With the public half stored apart and the runtime's own agent, an unlock at a terminal succeeds with the real device key (still generation 2: an unlock moves no generation), and the same commit is admitted. What must not happen: a signature made while locked, an unlock through an agent the runtime does not own, or any passphrase prompt other than the one inside the unlock transition.",
+ "says": "Alice's laptop reads its fresh profile (active, generation 1); she binds her device key and registers a private notes source, then locks the profile (generation 2). She tries to unlock while her key's private half sits beside the public key the signing call names: the unlock is refused with private_key_beside_public and the profile stays locked, because under that layout OpenSSH would prompt for the passphrase again outside the unlock. She tries again while SSH_AUTH_SOCK names a signing agent this runtime does not own: refused with agent_not_owned_here. While locked, the signed commit of her notes' first revision is not admitted, with access_locked: no signature is made. With the public half stored apart and the runtime's own agent, an unlock at a terminal succeeds with the real device key (still generation 2: an unlock moves no generation), and the same commit is admitted. What must not happen: a signature made while locked, or an unlock through an agent the runtime does not own.",
  "ids": [
   {
    "name": "alice",
@@ -949,6 +949,12 @@
     "before": "unlock_through_a_foreign_agent",
     "key": "alice_laptop_binding",
     "layout": "foreign_agent"
+   },
+   {
+    "kind": "key_layout",
+    "before": "unlock_at_terminal",
+    "key": "alice_laptop_binding",
+    "layout": "owned_agent"
    }
   ]
  }

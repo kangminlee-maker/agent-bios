@@ -220,6 +220,12 @@ class Generator(unittest.TestCase):
                                       "provider_effect": "not_applicable", "gaps": [],
                                       "recovery": [], "returns": []}}]}
         self.generate(spec)
+        # An item request's own payload rides too: the plan names the item, and the item names it.
+        nested = copy.deepcopy(spec)
+        nested["records"].insert(0, {"name": "item_payload", "from": MANIFEST})
+        nested["records"][1]["set"] = [{"pointer": "/payload_digest", "value": "#item_payload"}]
+        nested["steps"][0]["carries"].append("item_payload")
+        self.generate(nested)
         spec["records"][1]["set"] = []
         with self.assertRaises(scenarios.ScenarioError) as caught:
             self.generate(spec)
@@ -481,13 +487,17 @@ class World(unittest.TestCase):
                    "bytes": "other", "executable": True},
                   {"kind": "key_layout", "before": "bind_first_key", "key": "first_key",
                    "layout": "private_beside_public"},
+                  {"kind": "key_layout", "before": "bind_first_key", "key": "first_key",
+                   "layout": "owned_agent"},
                   {"kind": "configure", "before": "bind_first_key",
                    "setting": "recovery_objective_seconds", "value": 3600},
                   {"kind": "inventory", "before": "bind_first_key", "root": "checkout",
                    "yields": "checkout_before"},
                   {"kind": "inventory", "before": "bind_first_key", "root": "checkout",
                    "equals": "checkout_before"},
-                  {"kind": "reply_lost", "step": "bind_first_key"}]
+                  {"kind": "reply_lost", "step": "bind_first_key"},
+                  {"kind": "carrier_reports", "before": "bind_first_key",
+                   "repository_id": "701239999"}]
         spec = self.spec({"events": events})
         spec["records"].append({"name": "checkout_before", "from": MANIFEST})
         built = self.generate(spec)
@@ -526,6 +536,48 @@ class World(unittest.TestCase):
         self.assertEqual(routed["steps"][0]["route"], {"path": "install.sh", "command": "install"})
         self.refused("which is no entrance disposition",
                      self.spec({}, route={"path": "install.sh", "command": "teleport"}))
+
+    def test_a_route_overrides_its_root_only_where_the_caller_chooses_it(self):
+        override = {"by": "repo_argument", "root": "/elsewhere"}
+        routed = self.generate(self.spec({}, route={"path": "install.sh", "command": "install",
+                                                    "root_override": override}))
+        self.assertEqual(routed["steps"][0]["route"]["root_override"], override)
+        self.refused("does not take its root from the caller", self.spec(
+            {}, route={"path": "install.sh", "command": "help", "root_override": override}))
+
+    def member_spec(self, size=6, **extra):
+        spec = self.spec({"events": [{"kind": "inventory", "before": "bind_first_key",
+                                      "root": "shipped_knowledge", "yields": "shipped"}]})
+        spec["members"] = [{"name": "notes", "text": "hello\n"}]
+        spec["records"].append({"name": "shipped", "from": MANIFEST, "set": [
+            {"pointer": "/members/0/digest", "value": "#notes"},
+            {"pointer": "/members/0/size", "value": size}]})
+        spec.update(extra)
+        return spec
+
+    def test_a_member_is_its_bytes_and_a_size_beside_a_digest_is_theirs(self):
+        # Positive control: the member's digest is the sha256 of its bytes, stated with its size.
+        built = self.generate(self.member_spec())
+        digest = hashlib.sha256(b"hello\n").hexdigest()
+        self.assertEqual(built["members"], [{"name": "notes", "text": "hello\n",
+                                             "digest": digest, "size": 6}])
+        shipped = next(r for r in built["records"] if r["name"] == "shipped")["record"]
+        self.assertEqual(shipped["members"][0]["digest"], digest)
+        self.refused("states size 7 beside a digest of 6 bytes", self.member_spec(size=7))
+
+    def test_a_size_beside_a_records_digest_is_its_canonical_size(self):
+        spec = self.member_spec()
+        spec["records"][-1]["set"] += [{"pointer": "/members/1/digest", "value": "#first_key"},
+                                       {"pointer": "/members/1/size", "value": 1}]
+        self.refused("/members/1 states size 1 beside a digest of", spec)
+
+    def test_a_member_is_named_or_returned_and_only_where_its_operation_returns_one(self):
+        spec = self.member_spec()
+        spec["members"].append({"name": "stray", "text": "x"})
+        self.refused("['stray'] are named by no record and returned by no step", spec)
+        spec = self.member_spec()
+        spec["steps"][0]["answer"]["returns"] = ["stored_key", "notes"]
+        self.refused("not source_member (notes)", spec)
 
     def test_a_runner_step_names_a_situation_of_its_own_case(self):
         spec = {"case": "RUN-MODE", "says": "A runner refused unattended dispatches nothing.",

@@ -84,6 +84,14 @@
   {
    "id": "req_f05cf9e7225b831e5554fad375a0b04e",
    "name": "compose_after_commit_rid"
+  },
+  {
+   "id": "req_5748a89d3c2b98b05238f5b7f6a5d8ad",
+   "name": "upload_request"
+  },
+  {
+   "id": "req_01bcaf5dfd155e4eda1773c3d45ef431",
+   "name": "compose_after_upload_rid"
   }
  ],
  "joins": [
@@ -558,6 +566,81 @@
    "record": "compose_after_candidate_result"
   },
   {
+   "digest_of": "candidate_v1",
+   "pointer": "/inventory/0/digest",
+   "record": "candidate_package"
+  },
+  {
+   "digest_of": "alice_key",
+   "pointer": "/continuity_evidence_digests/0",
+   "record": "candidate_package"
+  },
+  {
+   "digest_of": "candidate_package",
+   "pointer": "/payload_digest",
+   "record": "upload_candidate_request"
+  },
+  {
+   "digest_of": "candidate_package",
+   "pointer": "/envelope_digest",
+   "record": "candidate_package_staged"
+  },
+  {
+   "minted": "uploaded_at",
+   "pointer": "/at",
+   "record": "candidate_package_staged"
+  },
+  {
+   "digest_of": "upload_candidate_request",
+   "pointer": "/request_digest",
+   "record": "upload_candidate_package_result"
+  },
+  {
+   "digest_of": "candidate_package_staged",
+   "pointer": "/outputs/0/digest",
+   "record": "upload_candidate_package_result"
+  },
+  {
+   "digest_of": "adopted_basis",
+   "pointer": "/payload_digest",
+   "record": "compose_after_upload_request"
+  },
+  {
+   "minted": "checkout_bytes",
+   "pointer": "/observed/working_bytes_digest",
+   "record": "preparation_after_upload"
+  },
+  {
+   "minted": "register_memory_home_head",
+   "pointer": "/frontiers/0/checkpoint_digest",
+   "record": "preparation_after_upload"
+  },
+  {
+   "minted": "preparation_after_upload",
+   "pointer": "/preparation_id",
+   "record": "preparation_after_upload"
+  },
+  {
+   "minted": "preparation_after_upload_at",
+   "pointer": "/prepared_at",
+   "record": "preparation_after_upload"
+  },
+  {
+   "digest_of": "adopted_basis",
+   "pointer": "/request_digest",
+   "record": "preparation_after_upload"
+  },
+  {
+   "digest_of": "compose_after_upload_request",
+   "pointer": "/request_digest",
+   "record": "compose_after_upload_result"
+  },
+  {
+   "digest_of": "preparation_after_upload",
+   "pointer": "/outputs/0/digest",
+   "record": "compose_after_upload_result"
+  },
+  {
    "minted": "choice_candidate",
    "pointer": "/promotes/candidate_id",
    "record": "choice"
@@ -873,6 +956,21 @@
    "name": "preparation_after_candidate_at",
    "shape": "instant",
    "step": "compose_after_candidate"
+  },
+  {
+   "name": "uploaded_at",
+   "shape": "instant",
+   "step": "upload_candidate_package"
+  },
+  {
+   "name": "preparation_after_upload",
+   "shape": "prp",
+   "step": "compose_after_upload"
+  },
+  {
+   "name": "preparation_after_upload_at",
+   "shape": "instant",
+   "step": "compose_after_upload"
   },
   {
    "name": "candidate_promoted_at",
@@ -2231,6 +2329,223 @@
    }
   },
   {
+   "digest": "b331fbc34c12c18a5337d1fe6217229ddac4340c7f0b4b1536f7cf26a321b4f2",
+   "name": "candidate_package",
+   "record": {
+    "authority": {
+     "layer": "personal",
+     "principal_id": "prn_551e5022968cf32f8e028dee70985878"
+    },
+    "completeness": {
+     "carries": "complete"
+    },
+    "confidentiality": "at_rest",
+    "continuity_evidence_digests": [
+     "44b1c72dfbe12a2f9d47aa035ab50636a08a4de3602b871a73d7a9809752d7dd"
+    ],
+    "inventory": [
+     {
+      "digest": "8dea69ce8553927f80646bbf6feb9999c4069e6407daf2fbff6075962a848a20",
+      "object_kind": "memory_candidate",
+      "path": "objects/0000.json",
+      "size": 1193
+     }
+    ],
+    "kind": "transfer_envelope",
+    "namespace": {
+     "layer": "personal",
+     "principal_id": "prn_551e5022968cf32f8e028dee70985878"
+    },
+    "prerequisites": [],
+    "recipient": {
+     "permitted_scope": {
+      "layer": "personal",
+      "principal_id": "prn_551e5022968cf32f8e028dee70985878"
+     },
+     "principal_id": "prn_551e5022968cf32f8e028dee70985878"
+    },
+    "schema": 1,
+    "semantics": [
+     {
+      "name": "knowledge_revision",
+      "version": 1
+     }
+    ]
+   }
+  },
+  {
+   "digest": "3eef5ceea3f4762ce4d1a32698ff7cab5e334e9f3ebe97984dda094a67113647",
+   "name": "upload_candidate_request",
+   "record": {
+    "action": "transfer",
+    "actor": {
+     "device_id": "dev_179d168e8765989e1077c35647be8852",
+     "principal_id": "prn_551e5022968cf32f8e028dee70985878",
+     "profile_id": "prf_04d34e8d2fab61483c69f09d673e5ee6"
+    },
+    "control_digests": [],
+    "effect_class": "durable_candidate",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "transfer.stage",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_551e5022968cf32f8e028dee70985878"
+    },
+    "payload_digest": "b331fbc34c12c18a5337d1fe6217229ddac4340c7f0b4b1536f7cf26a321b4f2",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_5748a89d3c2b98b05238f5b7f6a5d8ad",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_551e5022968cf32f8e028dee70985878"
+    }
+   }
+  },
+  {
+   "digest": "992e540a5a24cb81d94f51b1f9609c5f6f062e94ec374075f92357f12a1bd63a",
+   "name": "candidate_package_staged",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "envelope_digest": "b331fbc34c12c18a5337d1fe6217229ddac4340c7f0b4b1536f7cf26a321b4f2",
+    "kind": "transfer_stage_record",
+    "schema": 1,
+    "stage": {
+     "is": "exported",
+     "material_gaps": [],
+     "route": {
+      "via": "package"
+     }
+    }
+   }
+  },
+  {
+   "digest": "a4d8ac19e01580fa8a9e02d3c79595433ee1112e419e85ebbaa014aa6eaf8b65",
+   "name": "upload_candidate_package_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "objects_staged",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "draft"
+    },
+    "outputs": [
+     {
+      "digest": "992e540a5a24cb81d94f51b1f9609c5f6f062e94ec374075f92357f12a1bd63a",
+      "kind": "transfer_stage_record"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "3eef5ceea3f4762ce4d1a32698ff7cab5e334e9f3ebe97984dda094a67113647",
+    "request_id": "req_5748a89d3c2b98b05238f5b7f6a5d8ad",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "854eb06165f369e3e804d4c885da287b6b1e7f03ea114725fac083fdcb0201ba",
+   "name": "compose_after_upload_request",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_179d168e8765989e1077c35647be8852",
+     "principal_id": "prn_551e5022968cf32f8e028dee70985878",
+     "profile_id": "prf_04d34e8d2fab61483c69f09d673e5ee6"
+    },
+    "control_digests": [],
+    "effect_class": "durable_candidate",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "preparation.compose",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_2edbb95847c1ed5d5c9f1f236efdea71"
+    },
+    "payload_digest": "42741eaf6e08bdb9529055ac2366724fe05349fc2283a7e95c147cb7dc6460ec",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_01bcaf5dfd155e4eda1773c3d45ef431",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_551e5022968cf32f8e028dee70985878"
+    }
+   }
+  },
+  {
+   "digest": "735360d543f08170213769b9417749cb58c88dd7e34b06611cb22c7e5e9a0e7a",
+   "name": "preparation_after_upload",
+   "record": {
+    "adapter": {
+     "name": "session_adapter",
+     "version": "0.1.0"
+    },
+    "collections": [],
+    "frontiers": [
+     {
+      "checkpoint_digest": "4072fbc02146d1a66f07d1c3ca85e9f3e0d3ae44f1e4e1406e46cebb33161965",
+      "source_id": "src_0d4f235306ea9951c9b2d1c4a4085fdd"
+     }
+    ],
+    "kind": "preparation",
+    "material_gaps": [],
+    "observed": {
+     "branch": "main",
+     "commit": "0123456789abcdef0123456789abcdef01234567",
+     "locator": "git@github.com:example/work.git",
+     "working_bytes_digest": "03a6f84840243b7044253f9723f00cc0607d6c02d1d8b4a0cd134e5bb5f51ec7"
+    },
+    "omissions": [],
+    "order": [
+     {
+      "layer": "repository",
+      "repository_id": "rep_2edbb95847c1ed5d5c9f1f236efdea71"
+     },
+     {
+      "layer": "personal",
+      "principal_id": "prn_551e5022968cf32f8e028dee70985878"
+     }
+    ],
+    "preparation_id": "prp_7913b8c2235fd8b5151601cc94555e47",
+    "prepared_at": "2000-01-01T00:00:00Z",
+    "recipient": {
+     "isolation": "proven_fresh",
+     "work_scope": {
+      "layer": "repository",
+      "repository_id": "rep_2edbb95847c1ed5d5c9f1f236efdea71"
+     }
+    },
+    "request_digest": "42741eaf6e08bdb9529055ac2366724fe05349fc2283a7e95c147cb7dc6460ec",
+    "schema": 1,
+    "units": [],
+    "work_support": {
+     "assessed": "not_requested"
+    }
+   }
+  },
+  {
+   "digest": "08c91837f5686fbd992c3337bea50f8fdb4bd835f1acbc88d26dcede1a5980bc",
+   "name": "compose_after_upload_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "private_state_written",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "735360d543f08170213769b9417749cb58c88dd7e34b06611cb22c7e5e9a0e7a",
+      "kind": "preparation"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "854eb06165f369e3e804d4c885da287b6b1e7f03ea114725fac083fdcb0201ba",
+    "request_id": "req_01bcaf5dfd155e4eda1773c3d45ef431",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
    "digest": "61f0f317c1d7a4110d404a24592248d2204f85a4af6ccc56c0927f6267dd6619",
    "name": "choice",
    "record": {
@@ -2428,7 +2743,7 @@
    }
   },
   {
-   "digest": "2194c64379ab28a3fbed7ff22402552ce15cd369ca6e461b4f5eb00217420447",
+   "digest": "c5878c444e20f180f381137a80733b93a557d1b1d5a5b29a9e4b328a4fa364bc",
    "name": "memory_revision",
    "record": {
     "format_version": 1,
@@ -2437,7 +2752,7 @@
      {
       "digest": "d999742956d1bf9f18beace28e6a96ee42a43816c45126c10bc25820a5d0172a",
       "path": "decisions/0001.json",
-      "size": 4120
+      "size": 922
      }
     ],
     "produced_at": "2000-01-01T00:00:00Z",
@@ -2501,7 +2816,7 @@
    }
   },
   {
-   "digest": "0465c36b2d0f993fe3b7cdc032943e35cb0573db3faaef1df374af3c9c96a5ff",
+   "digest": "3d7c19bf6d7393f8c3daee376c3bc40aa8eb88835fd2c2a05abaa952c4c7a154",
    "name": "publish_choice_result",
    "record": {
     "kind": "operation_result",
@@ -2517,7 +2832,7 @@
       "kind": "choice_record"
      },
      {
-      "digest": "2194c64379ab28a3fbed7ff22402552ce15cd369ca6e461b4f5eb00217420447",
+      "digest": "c5878c444e20f180f381137a80733b93a557d1b1d5a5b29a9e4b328a4fa364bc",
       "kind": "source_manifest"
      },
      {
@@ -2636,8 +2951,8 @@
    }
   }
  ],
- "says": "A person binds this device's key and the checkout, registers the repository's memory source, publishes an environment edition for this repository whose memory policy names that source, and adopts it: the adoption names the edition as the environment's head it expects and leaves that head where it was. A preparation that names the environment without its adoption evidence is refused at admission; one resting on the adoption is composed as a private record with no receipt, reading the memory source at the head its registration committed. The owner then reads records 12 to 18 of a session transcript, a packaged local adapter captures a memory entry from them, and a candidate choice from that capture is stored. The capture and the candidate are drafts: neither names a receipt, neither moves the memory source's head, and the preparation composed again afterwards reads the same head and composes the same units. A review-only publication of the choice, a publish request stating pure_preview, is refused with effect_class_mismatch and writes nothing. Only the destination's own commit of that exact choice at the memory source, stating the candidate version it promotes, names a receipt and moves the head; it returns the committed record, the revision holding it and the candidate promoted with that receipt. Adoption stays a separate act: the commit adopts nothing, and the preparation composed after it, under the adoption made before, is the first to observe the memory source at the committed head.",
- "spec_sha256": "5680cef5c1fd735357196745eb248409c9b6da3085de94eaea6ae5a46d613122",
+ "says": "A person binds this device's key and the checkout, registers the repository's memory source, publishes an environment edition for this repository whose memory policy names that source, and adopts it: the adoption names the edition as the environment's head it expects and leaves that head where it was. A preparation that names the environment without its adoption evidence is refused at admission; one resting on the adoption is composed as a private record with no receipt, reading the memory source at the head its registration committed. The owner then reads records 12 to 18 of a session transcript, a packaged local adapter captures a memory entry from them, and a candidate choice from that capture is stored. The capture and the candidate are drafts: neither names a receipt, neither moves the memory source's head, and the preparation composed again afterwards reads the same head and composes the same units. The person then uploads that same candidate as a personal transfer package (transfer.stage, owner personal, target themselves): staging writes an outbox stage record with no receipt and touches neither the memory source nor the environment, so the preparation composed once more afterwards still reads the identical head and the identical units - an upload no more publishes, adopts or disturbs active preparation than the candidate save did. A review-only publication of the choice, a publish request stating pure_preview, is refused with effect_class_mismatch and writes nothing. Only the destination's own commit of that exact choice at the memory source, stating the candidate version it promotes, names a receipt and moves the head; it returns the committed record, the revision holding it and the candidate promoted with that receipt. Adoption stays a separate act: the commit adopts nothing, and the preparation composed after it, under the adoption made before, is the first to observe the memory source at the committed head.",
+ "spec_sha256": "60b94c28a466ed9159a5ca75a1ecb9baad62fc2ad91ac084f48aeb428df96baf",
  "steps": [
   {
    "carries": [
@@ -2762,6 +3077,28 @@
    "result": "compose_after_candidate_result",
    "returns": [
     "preparation_after_candidate"
+   ]
+  },
+  {
+   "carries": [
+    "candidate_package"
+   ],
+   "name": "upload_candidate_package",
+   "request": "upload_candidate_request",
+   "result": "upload_candidate_package_result",
+   "returns": [
+    "candidate_package_staged"
+   ]
+  },
+  {
+   "carries": [
+    "adopted_basis"
+   ],
+   "name": "compose_after_upload",
+   "request": "compose_after_upload_request",
+   "result": "compose_after_upload_result",
+   "returns": [
+    "preparation_after_upload"
    ]
   },
   {

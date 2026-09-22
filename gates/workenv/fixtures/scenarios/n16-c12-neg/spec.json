@@ -1,6 +1,6 @@
 {
  "case": "N16-C12-NEG",
- "says": "alice binds her key and founds the Team Platform under a policy needing one independent approval to publish; bob binds his key and is invited, alice verifies his key in person against the invitation, and bob consents naming that verification and is admitted. alice registers a Team knowledge source's home and commits its revision against the head the registration moved to, and a preparation for her work comes back with its required body absent. She registers the Team's decisions source and proposes a publication into it, which waits for review. Four things are then refused, each through the visible control and again by direct submission. (1) Review-only save: in the W05 review of her proposed publication, focusing Save and pressing Enter only shows a blocker, selects nothing and dispatches nothing; a route.select naming the save route as focused but not selected is refused at admission (missing_field /selected). (2) A body cleared by navigation: W08 shows the preparation's missing body, and going to W01 and back keeps the same missing-body set; a route.select claiming that the back route delivered it is refused with navigation_changed_state. (3) A stale approval: alice changes the policy while the publication waits; bob's W05 shows the proposal as stale and the approve control blocked, and Enter dispatches nothing; his team.approval.record under the replaced policy version is refused as policy_superseded, its way back a new governed request. (4) A closed Team's revival: after alice closes the Team, W07 reads its state and shows the Team as closed, and the reopen control only shows a blocker; team.lifecycle.apply restore is refused with team_terminal. None of the four is saved, cleared, approved or reopened by either path.",
+ "says": "alice binds her key and founds the Team Platform under a policy needing one independent approval to publish; bob binds his key and is invited, alice verifies his key in person against the invitation, and bob consents naming that verification and is admitted. alice grants him read and review standing, parented on her founder grant. alice registers a Team knowledge source's home; bob independently approves its publish commit, and she commits it against the head the registration moved to, and a preparation for her work comes back with its required body absent. She registers the Team's decisions source and proposes a publication into it, which waits for review. Four things are then refused, each through the visible control and again by direct submission. (1) Review-only save: in the W05 review of her proposed publication, focusing Save and pressing Enter only shows a blocker, selects nothing and dispatches nothing; selecting Save and pressing Enter again shows a review-only blocker; a route.select naming the save route as focused but not selected is refused at admission (missing_field /selected), one naming it selected as route_unsupported. (2) A body cleared by navigation: W08 shows the preparation's missing body, and going to W01 and back keeps the same missing-body set; a route.select claiming that the back route delivered it is refused with navigation_changed_state. (3) A stale approval: alice changes the policy while the publication waits; bob's W05 shows the proposal as stale and the approve control blocked, and Enter dispatches nothing; his team.approval.record under the replaced policy version is refused as policy_superseded, its way back a new governed request. (4) A closed Team's revival: after alice closes the Team, W07 reads its state and shows the Team as closed, and the reopen control only shows a blocker; team.lifecycle.apply restore is refused with team_terminal. None of the four is saved, cleared, approved or reopened by either path.",
  "ids": [
   {
    "name": "alice",
@@ -156,6 +156,14 @@
   },
   {
    "name": "register_decisions_request",
+   "prefix": "req"
+  },
+  {
+   "name": "grant_bob_request",
+   "prefix": "req"
+  },
+  {
+   "name": "approve_commit_request",
    "prefix": "req"
   }
  ],
@@ -1026,6 +1034,128 @@
    ]
   },
   {
+   "name": "bob_grant_submitted",
+   "from": "c08/grant_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "review"
+     ]
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 0
+    },
+    {
+     "pointer": "/parent_grant_id",
+     "value": "$gra:founder_grant"
+    }
+   ]
+  },
+  {
+   "name": "grant_bob",
+   "from": "c03/history_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.grant.change"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@grant_bob_request"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:admitted_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#bob_grant_submitted"
+    }
+   ]
+  },
+  {
+   "name": "bob_grant",
+   "from": "bob_grant_submitted",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:bob_grant_id"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/grant_revision",
+     "value": 1
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:bob_granted_at"
+    }
+   ]
+  },
+  {
    "name": "home",
    "from": "sources/home_submitted.json",
    "drop": [
@@ -1301,6 +1431,101 @@
     {
      "pointer": "/source_id",
      "value": "@rules"
+    }
+   ]
+  },
+  {
+   "name": "commit_approval",
+   "from": "c08/approval_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/policy_digest",
+     "value": "#team_policy"
+    },
+    {
+     "pointer": "/request_digest",
+     "value": "#commit"
+    }
+   ]
+  },
+  {
+   "name": "approve_commit",
+   "from": "c03/history_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "review"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bob_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.approval.record"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@approve_commit_request"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@commit_request"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#commit_approval"
+    }
+   ]
+  },
+  {
+   "name": "stored_commit_approval",
+   "from": "commit_approval",
+   "set": [
+    {
+     "pointer": "/approval_id",
+     "value": "$apr:commit_approval_id"
+    },
+    {
+     "pointer": "/approver_principal_id",
+     "value": "@bob"
+    },
+    {
+     "pointer": "/approver_kind/kind",
+     "value": "human"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:commit_approved_at"
     }
    ]
   },
@@ -1790,7 +2015,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:admitted_head"
+     "value": "$digest:bob_granted_head"
     },
     {
      "pointer": "/payload_digest",
@@ -2180,11 +2405,7 @@
     },
     {
      "pointer": "/inputs/2/key",
-     "value": "right"
-    },
-    {
-     "pointer": "/inputs/3/key",
-     "value": "escape"
+     "value": "space"
     },
     {
      "pointer": "/inputs/4/input",
@@ -2192,6 +2413,22 @@
     },
     {
      "pointer": "/inputs/4/key",
+     "value": "right"
+    },
+    {
+     "pointer": "/inputs/5/input",
+     "value": "key"
+    },
+    {
+     "pointer": "/inputs/5/key",
+     "value": "escape"
+    },
+    {
+     "pointer": "/inputs/6/input",
+     "value": "key"
+    },
+    {
+     "pointer": "/inputs/6/key",
      "value": "enter"
     }
    ]
@@ -2295,11 +2532,14 @@
     "/frames/4/elements/7",
     "/frames/4/elements/6",
     "/frames/4/elements/5",
-    "/frames/4/elements/4",
-    "/frames/4/elements/3",
     "/frames/4/elements/0/refers_to/scope/repository_id",
-    "/frames/4/elements/2/refers_to",
     "/frames/4/elements/2/state",
+    "/frames/4/elements/2/refers_to/position",
+    "/frames/4/elements/2/refers_to/view",
+    "/frames/4/elements/3/refers_to/position",
+    "/frames/4/elements/3/refers_to/view",
+    "/frames/4/elements/4/refers_to",
+    "/frames/4/elements/4/state",
     "/frames/4/view/selected_scope/repository_id"
    ],
    "set": [
@@ -2746,12 +2986,48 @@
      "value": "hub"
     },
     {
+     "pointer": "/script_digest",
+     "value": "#review_keys"
+    },
+    {
+     "pointer": "/frames/3/access",
+     "value": "active"
+    },
+    {
+     "pointer": "/frames/3/after",
+     "value": 3
+    },
+    {
+     "pointer": "/frames/3/calls",
+     "value": []
+    },
+    {
+     "pointer": "/frames/3/dispatched",
+     "value": []
+    },
+    {
      "pointer": "/frames/3/elements/0/element_id",
      "value": "context.scope"
     },
     {
+     "pointer": "/frames/3/elements/0/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/0/focused",
+     "value": false
+    },
+    {
      "pointer": "/frames/3/elements/0/label",
      "value": "팀 · Platform"
+    },
+    {
+     "pointer": "/frames/3/elements/0/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/3/elements/0/refers_to/ref",
+     "value": "scope"
     },
     {
      "pointer": "/frames/3/elements/0/refers_to/scope/layer",
@@ -2762,48 +3038,82 @@
      "value": "@team"
     },
     {
+     "pointer": "/frames/3/elements/0/role",
+     "value": "context"
+    },
+    {
+     "pointer": "/frames/3/elements/0/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/3/elements/0/shown",
+     "value": "whole"
+    },
+    {
      "pointer": "/frames/3/elements/1/element_id",
-     "value": "detail.missing"
+     "value": "detail.change"
+    },
+    {
+     "pointer": "/frames/3/elements/1/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/1/focused",
+     "value": false
     },
     {
      "pointer": "/frames/3/elements/1/label",
-     "value": "빠진 본문 1개 · review-rules.md · 아직 확인 안 됨"
+     "value": "결정 게시 제안 · 검토 중 · 검토 전용 보기"
+    },
+    {
+     "pointer": "/frames/3/elements/1/marks",
+     "value": []
     },
     {
      "pointer": "/frames/3/elements/1/role",
      "value": "detail"
     },
     {
+     "pointer": "/frames/3/elements/1/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/3/elements/1/shown",
+     "value": "whole"
+    },
+    {
      "pointer": "/frames/3/elements/1/state",
-     "value": "missing"
+     "value": "pending"
     },
     {
      "pointer": "/frames/3/elements/1/refers_to/ref",
-     "value": "record"
+     "value": "request"
     },
     {
-     "pointer": "/frames/3/elements/1/refers_to/digest",
-     "value": "#prepared_without_body"
+     "pointer": "/frames/3/elements/1/refers_to/request_id",
+     "value": "@publish_request"
     },
     {
      "pointer": "/frames/3/elements/2/element_id",
-     "value": "action.back"
+     "value": "action.save"
+    },
+    {
+     "pointer": "/frames/3/elements/2/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/2/focused",
+     "value": true
     },
     {
      "pointer": "/frames/3/elements/2/label",
-     "value": "작업으로 돌아가기"
+     "value": "초안으로 저장"
     },
     {
      "pointer": "/frames/3/elements/2/marks",
-     "value": []
-    },
-    {
-     "pointer": "/frames/3/elements/2/role",
-     "value": "action"
-    },
-    {
-     "pointer": "/frames/3/elements/2/selection",
-     "value": "none"
+     "value": [
+      "›"
+     ]
     },
     {
      "pointer": "/frames/3/elements/2/refers_to/ref",
@@ -2811,15 +3121,41 @@
     },
     {
      "pointer": "/frames/3/elements/2/refers_to/route_id",
-     "value": "@route_back"
+     "value": "@route_save"
+    },
+    {
+     "pointer": "/frames/3/elements/2/role",
+     "value": "action"
+    },
+    {
+     "pointer": "/frames/3/elements/2/selection",
+     "value": "selected"
+    },
+    {
+     "pointer": "/frames/3/elements/2/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/3/elements/2/effects",
+     "value": [
+      "file_changes"
+     ]
     },
     {
      "pointer": "/frames/3/elements/3/element_id",
      "value": "help.keys"
     },
     {
+     "pointer": "/frames/3/elements/3/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/3/focused",
+     "value": false
+    },
+    {
      "pointer": "/frames/3/elements/3/label",
-     "value": "Esc 뒤로"
+     "value": "Tab 이동 · Space 선택 · Enter 실행 · Esc 뒤로"
     },
     {
      "pointer": "/frames/3/elements/3/marks",
@@ -2830,26 +3166,36 @@
      "value": "help"
     },
     {
-     "pointer": "/frames/3/view/view",
-     "value": "w08"
+     "pointer": "/frames/3/elements/3/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/3/elements/3/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/3/locale",
+     "value": "ko"
+    },
+    {
+     "pointer": "/frames/3/terminal/columns",
+     "value": 80
+    },
+    {
+     "pointer": "/frames/3/terminal/rows",
+     "value": 24
+    },
+    {
+     "pointer": "/frames/3/view/missing_bodies",
+     "value": []
     },
     {
      "pointer": "/frames/3/view/origin/name",
      "value": "studio_hub"
     },
     {
-     "pointer": "/frames/3/view/missing_bodies",
-     "value": [
-      "$digest:rules_body"
-     ]
-    },
-    {
-     "pointer": "/frames/3/view/browse_scope/layer",
-     "value": "team"
-    },
-    {
-     "pointer": "/frames/3/view/browse_scope/team_id",
-     "value": "@team"
+     "pointer": "/frames/3/view/origin/root_origin",
+     "value": "owner"
     },
     {
      "pointer": "/frames/3/view/selected_scope/layer",
@@ -2860,16 +3206,36 @@
      "value": "@team"
     },
     {
-     "pointer": "/frames/3/view/target/ref",
-     "value": "record"
+     "pointer": "/frames/3/view/view",
+     "value": "w05"
     },
     {
-     "pointer": "/frames/3/view/target/digest",
-     "value": "#prepared_without_body"
+     "pointer": "/frames/3/view/browse_scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/frames/3/view/browse_scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/frames/3/view/target/ref",
+     "value": "request"
+    },
+    {
+     "pointer": "/frames/3/view/target/request_id",
+     "value": "@publish_request"
     },
     {
      "pointer": "/frames/3/view/return_view",
-     "value": "w01"
+     "value": "hub"
+    },
+    {
+     "pointer": "/frames/4/access",
+     "value": "active"
+    },
+    {
+     "pointer": "/frames/4/after",
+     "value": 4
     },
     {
      "pointer": "/frames/4/calls",
@@ -2884,8 +3250,24 @@
      "value": "context.scope"
     },
     {
+     "pointer": "/frames/4/elements/0/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/0/focused",
+     "value": false
+    },
+    {
      "pointer": "/frames/4/elements/0/label",
      "value": "팀 · Platform"
+    },
+    {
+     "pointer": "/frames/4/elements/0/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/4/elements/0/refers_to/ref",
+     "value": "scope"
     },
     {
      "pointer": "/frames/4/elements/0/refers_to/scope/layer",
@@ -2896,66 +3278,208 @@
      "value": "@team"
     },
     {
+     "pointer": "/frames/4/elements/0/role",
+     "value": "context"
+    },
+    {
+     "pointer": "/frames/4/elements/0/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/4/elements/0/shown",
+     "value": "whole"
+    },
+    {
      "pointer": "/frames/4/elements/1/element_id",
-     "value": "detail.preparation"
+     "value": "detail.change"
+    },
+    {
+     "pointer": "/frames/4/elements/1/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/1/focused",
+     "value": false
     },
     {
      "pointer": "/frames/4/elements/1/label",
-     "value": "준비된 작업 · 필요한 본문 1개 빠짐"
+     "value": "결정 게시 제안 · 검토 중 · 검토 전용 보기"
+    },
+    {
+     "pointer": "/frames/4/elements/1/marks",
+     "value": []
     },
     {
      "pointer": "/frames/4/elements/1/role",
      "value": "detail"
     },
     {
+     "pointer": "/frames/4/elements/1/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/4/elements/1/shown",
+     "value": "whole"
+    },
+    {
      "pointer": "/frames/4/elements/1/state",
-     "value": "missing"
+     "value": "pending"
     },
     {
      "pointer": "/frames/4/elements/1/refers_to/ref",
-     "value": "record"
+     "value": "request"
     },
     {
-     "pointer": "/frames/4/elements/1/refers_to/digest",
-     "value": "#prepared_without_body"
+     "pointer": "/frames/4/elements/1/refers_to/request_id",
+     "value": "@publish_request"
     },
     {
      "pointer": "/frames/4/elements/2/element_id",
-     "value": "help.keys"
+     "value": "action.save"
+    },
+    {
+     "pointer": "/frames/4/elements/2/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/2/focused",
+     "value": true
     },
     {
      "pointer": "/frames/4/elements/2/label",
-     "value": "Esc 뒤로"
+     "value": "초안으로 저장"
     },
     {
      "pointer": "/frames/4/elements/2/marks",
-     "value": []
+     "value": [
+      "›"
+     ]
+    },
+    {
+     "pointer": "/frames/4/elements/2/refers_to/ref",
+     "value": "route"
+    },
+    {
+     "pointer": "/frames/4/elements/2/refers_to/route_id",
+     "value": "@route_save"
     },
     {
      "pointer": "/frames/4/elements/2/role",
-     "value": "help"
+     "value": "action"
     },
     {
      "pointer": "/frames/4/elements/2/selection",
+     "value": "selected"
+    },
+    {
+     "pointer": "/frames/4/elements/2/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/4/elements/2/effects",
+     "value": [
+      "file_changes"
+     ]
+    },
+    {
+     "pointer": "/frames/4/elements/3/element_id",
+     "value": "blocker.save"
+    },
+    {
+     "pointer": "/frames/4/elements/3/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/3/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/3/label",
+     "value": "검토 중입니다 · 검토가 끝나기 전에는 저장할 수 없습니다"
+    },
+    {
+     "pointer": "/frames/4/elements/3/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/4/elements/3/refers_to/ref",
+     "value": "route"
+    },
+    {
+     "pointer": "/frames/4/elements/3/refers_to/route_id",
+     "value": "@route_save"
+    },
+    {
+     "pointer": "/frames/4/elements/3/role",
+     "value": "blocker"
+    },
+    {
+     "pointer": "/frames/4/elements/3/selection",
      "value": "none"
+    },
+    {
+     "pointer": "/frames/4/elements/3/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/4/elements/3/state",
+     "value": "blocked"
+    },
+    {
+     "pointer": "/frames/4/elements/4/element_id",
+     "value": "help.keys"
+    },
+    {
+     "pointer": "/frames/4/elements/4/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/4/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/4/label",
+     "value": "Tab 이동 · Space 선택 · Enter 실행 · Esc 뒤로"
+    },
+    {
+     "pointer": "/frames/4/elements/4/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/4/elements/4/role",
+     "value": "help"
+    },
+    {
+     "pointer": "/frames/4/elements/4/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/4/elements/4/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/4/locale",
+     "value": "ko"
+    },
+    {
+     "pointer": "/frames/4/terminal/columns",
+     "value": 80
+    },
+    {
+     "pointer": "/frames/4/terminal/rows",
+     "value": 24
+    },
+    {
+     "pointer": "/frames/4/view/missing_bodies",
+     "value": []
     },
     {
      "pointer": "/frames/4/view/origin/name",
      "value": "studio_hub"
     },
     {
-     "pointer": "/frames/4/view/missing_bodies",
-     "value": [
-      "$digest:rules_body"
-     ]
-    },
-    {
-     "pointer": "/frames/4/view/browse_scope/layer",
-     "value": "team"
-    },
-    {
-     "pointer": "/frames/4/view/browse_scope/team_id",
-     "value": "@team"
+     "pointer": "/frames/4/view/origin/root_origin",
+     "value": "owner"
     },
     {
      "pointer": "/frames/4/view/selected_scope/layer",
@@ -2966,16 +3490,28 @@
      "value": "@team"
     },
     {
-     "pointer": "/frames/4/view/target/ref",
-     "value": "record"
+     "pointer": "/frames/4/view/view",
+     "value": "w05"
     },
     {
-     "pointer": "/frames/4/view/target/digest",
-     "value": "#prepared_without_body"
+     "pointer": "/frames/4/view/browse_scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/frames/4/view/browse_scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/frames/4/view/target/ref",
+     "value": "request"
+    },
+    {
+     "pointer": "/frames/4/view/target/request_id",
+     "value": "@publish_request"
     },
     {
      "pointer": "/frames/4/view/return_view",
-     "value": "w08"
+     "value": "hub"
     },
     {
      "pointer": "/frames/5/access",
@@ -2991,10 +3527,6 @@
     },
     {
      "pointer": "/frames/5/dispatched",
-     "value": []
-    },
-    {
-     "pointer": "/frames/5/elements",
      "value": []
     },
     {
@@ -3018,18 +3550,6 @@
      "value": []
     },
     {
-     "pointer": "/frames/5/elements/0/role",
-     "value": "context"
-    },
-    {
-     "pointer": "/frames/5/elements/0/selection",
-     "value": "none"
-    },
-    {
-     "pointer": "/frames/5/elements/0/shown",
-     "value": "whole"
-    },
-    {
      "pointer": "/frames/5/elements/0/refers_to/ref",
      "value": "scope"
     },
@@ -3040,6 +3560,18 @@
     {
      "pointer": "/frames/5/elements/0/refers_to/scope/team_id",
      "value": "@team"
+    },
+    {
+     "pointer": "/frames/5/elements/0/role",
+     "value": "context"
+    },
+    {
+     "pointer": "/frames/5/elements/0/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/5/elements/0/shown",
+     "value": "whole"
     },
     {
      "pointer": "/frames/5/elements/1/element_id",
@@ -3106,6 +3638,14 @@
      "value": []
     },
     {
+     "pointer": "/frames/5/elements/2/refers_to/ref",
+     "value": "route"
+    },
+    {
+     "pointer": "/frames/5/elements/2/refers_to/route_id",
+     "value": "@route_back"
+    },
+    {
      "pointer": "/frames/5/elements/2/role",
      "value": "action"
     },
@@ -3116,14 +3656,6 @@
     {
      "pointer": "/frames/5/elements/2/shown",
      "value": "whole"
-    },
-    {
-     "pointer": "/frames/5/elements/2/refers_to/ref",
-     "value": "route"
-    },
-    {
-     "pointer": "/frames/5/elements/2/refers_to/route_id",
-     "value": "@route_back"
     },
     {
      "pointer": "/frames/5/elements/3/element_id",
@@ -3170,8 +3702,10 @@
      "value": 24
     },
     {
-     "pointer": "/frames/5/view/view",
-     "value": "w08"
+     "pointer": "/frames/5/view/missing_bodies",
+     "value": [
+      "$digest:rules_body"
+     ]
     },
     {
      "pointer": "/frames/5/view/origin/name",
@@ -3182,10 +3716,16 @@
      "value": "owner"
     },
     {
-     "pointer": "/frames/5/view/missing_bodies",
-     "value": [
-      "$digest:rules_body"
-     ]
+     "pointer": "/frames/5/view/selected_scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/frames/5/view/selected_scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/frames/5/view/view",
+     "value": "w08"
     },
     {
      "pointer": "/frames/5/view/browse_scope/layer",
@@ -3193,14 +3733,6 @@
     },
     {
      "pointer": "/frames/5/view/browse_scope/team_id",
-     "value": "@team"
-    },
-    {
-     "pointer": "/frames/5/view/selected_scope/layer",
-     "value": "team"
-    },
-    {
-     "pointer": "/frames/5/view/selected_scope/team_id",
      "value": "@team"
     },
     {
@@ -3216,8 +3748,432 @@
      "value": "w01"
     },
     {
-     "pointer": "/script_digest",
-     "value": "#review_keys"
+     "pointer": "/frames/6/access",
+     "value": "active"
+    },
+    {
+     "pointer": "/frames/6/after",
+     "value": 6
+    },
+    {
+     "pointer": "/frames/6/calls",
+     "value": []
+    },
+    {
+     "pointer": "/frames/6/dispatched",
+     "value": []
+    },
+    {
+     "pointer": "/frames/6/elements/0/element_id",
+     "value": "context.scope"
+    },
+    {
+     "pointer": "/frames/6/elements/0/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/6/elements/0/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/6/elements/0/label",
+     "value": "팀 · Platform"
+    },
+    {
+     "pointer": "/frames/6/elements/0/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/6/elements/0/refers_to/ref",
+     "value": "scope"
+    },
+    {
+     "pointer": "/frames/6/elements/0/refers_to/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/frames/6/elements/0/refers_to/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/frames/6/elements/0/role",
+     "value": "context"
+    },
+    {
+     "pointer": "/frames/6/elements/0/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/6/elements/0/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/6/elements/1/element_id",
+     "value": "detail.preparation"
+    },
+    {
+     "pointer": "/frames/6/elements/1/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/6/elements/1/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/6/elements/1/label",
+     "value": "준비된 작업 · 필요한 본문 1개 빠짐"
+    },
+    {
+     "pointer": "/frames/6/elements/1/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/6/elements/1/role",
+     "value": "detail"
+    },
+    {
+     "pointer": "/frames/6/elements/1/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/6/elements/1/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/6/elements/1/state",
+     "value": "missing"
+    },
+    {
+     "pointer": "/frames/6/elements/1/refers_to/ref",
+     "value": "record"
+    },
+    {
+     "pointer": "/frames/6/elements/1/refers_to/digest",
+     "value": "#prepared_without_body"
+    },
+    {
+     "pointer": "/frames/6/elements/2/element_id",
+     "value": "help.keys"
+    },
+    {
+     "pointer": "/frames/6/elements/2/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/6/elements/2/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/6/elements/2/label",
+     "value": "Esc 뒤로"
+    },
+    {
+     "pointer": "/frames/6/elements/2/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/6/elements/2/role",
+     "value": "help"
+    },
+    {
+     "pointer": "/frames/6/elements/2/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/6/elements/2/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/6/locale",
+     "value": "ko"
+    },
+    {
+     "pointer": "/frames/6/terminal/columns",
+     "value": 80
+    },
+    {
+     "pointer": "/frames/6/terminal/rows",
+     "value": 24
+    },
+    {
+     "pointer": "/frames/6/view/missing_bodies",
+     "value": [
+      "$digest:rules_body"
+     ]
+    },
+    {
+     "pointer": "/frames/6/view/origin/name",
+     "value": "studio_hub"
+    },
+    {
+     "pointer": "/frames/6/view/origin/root_origin",
+     "value": "owner"
+    },
+    {
+     "pointer": "/frames/6/view/selected_scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/frames/6/view/selected_scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/frames/6/view/view",
+     "value": "w01"
+    },
+    {
+     "pointer": "/frames/6/view/browse_scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/frames/6/view/browse_scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/frames/6/view/target/ref",
+     "value": "record"
+    },
+    {
+     "pointer": "/frames/6/view/target/digest",
+     "value": "#prepared_without_body"
+    },
+    {
+     "pointer": "/frames/6/view/return_view",
+     "value": "w08"
+    },
+    {
+     "pointer": "/frames/7/access",
+     "value": "active"
+    },
+    {
+     "pointer": "/frames/7/after",
+     "value": 7
+    },
+    {
+     "pointer": "/frames/7/calls",
+     "value": []
+    },
+    {
+     "pointer": "/frames/7/dispatched",
+     "value": []
+    },
+    {
+     "pointer": "/frames/7/elements/0/element_id",
+     "value": "context.scope"
+    },
+    {
+     "pointer": "/frames/7/elements/0/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/7/elements/0/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/7/elements/0/label",
+     "value": "팀 · Platform"
+    },
+    {
+     "pointer": "/frames/7/elements/0/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/7/elements/0/role",
+     "value": "context"
+    },
+    {
+     "pointer": "/frames/7/elements/0/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/7/elements/0/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/7/elements/0/refers_to/ref",
+     "value": "scope"
+    },
+    {
+     "pointer": "/frames/7/elements/0/refers_to/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/frames/7/elements/0/refers_to/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/frames/7/elements/1/element_id",
+     "value": "detail.missing"
+    },
+    {
+     "pointer": "/frames/7/elements/1/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/7/elements/1/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/7/elements/1/label",
+     "value": "빠진 본문 1개 · review-rules.md · 아직 확인 안 됨"
+    },
+    {
+     "pointer": "/frames/7/elements/1/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/7/elements/1/role",
+     "value": "detail"
+    },
+    {
+     "pointer": "/frames/7/elements/1/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/7/elements/1/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/7/elements/1/state",
+     "value": "missing"
+    },
+    {
+     "pointer": "/frames/7/elements/1/refers_to/ref",
+     "value": "record"
+    },
+    {
+     "pointer": "/frames/7/elements/1/refers_to/digest",
+     "value": "#prepared_without_body"
+    },
+    {
+     "pointer": "/frames/7/elements/2/element_id",
+     "value": "action.back"
+    },
+    {
+     "pointer": "/frames/7/elements/2/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/7/elements/2/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/7/elements/2/label",
+     "value": "작업으로 돌아가기"
+    },
+    {
+     "pointer": "/frames/7/elements/2/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/7/elements/2/role",
+     "value": "action"
+    },
+    {
+     "pointer": "/frames/7/elements/2/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/7/elements/2/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/7/elements/2/refers_to/ref",
+     "value": "route"
+    },
+    {
+     "pointer": "/frames/7/elements/2/refers_to/route_id",
+     "value": "@route_back"
+    },
+    {
+     "pointer": "/frames/7/elements/3/element_id",
+     "value": "help.keys"
+    },
+    {
+     "pointer": "/frames/7/elements/3/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/7/elements/3/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/7/elements/3/label",
+     "value": "Esc 뒤로"
+    },
+    {
+     "pointer": "/frames/7/elements/3/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/7/elements/3/role",
+     "value": "help"
+    },
+    {
+     "pointer": "/frames/7/elements/3/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/7/elements/3/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/7/locale",
+     "value": "ko"
+    },
+    {
+     "pointer": "/frames/7/terminal/columns",
+     "value": 80
+    },
+    {
+     "pointer": "/frames/7/terminal/rows",
+     "value": 24
+    },
+    {
+     "pointer": "/frames/7/view/view",
+     "value": "w08"
+    },
+    {
+     "pointer": "/frames/7/view/origin/name",
+     "value": "studio_hub"
+    },
+    {
+     "pointer": "/frames/7/view/origin/root_origin",
+     "value": "owner"
+    },
+    {
+     "pointer": "/frames/7/view/missing_bodies",
+     "value": [
+      "$digest:rules_body"
+     ]
+    },
+    {
+     "pointer": "/frames/7/view/browse_scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/frames/7/view/browse_scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/frames/7/view/selected_scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/frames/7/view/selected_scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/frames/7/view/target/ref",
+     "value": "record"
+    },
+    {
+     "pointer": "/frames/7/view/target/digest",
+     "value": "#prepared_without_body"
+    },
+    {
+     "pointer": "/frames/7/view/return_view",
+     "value": "w01"
     }
    ]
   },
@@ -4932,6 +5888,24 @@
    }
   },
   {
+   "name": "grant_bob_review_access",
+   "request": "grant_bob",
+   "carries": [
+    "bob_grant_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "bob_grant"
+    ],
+    "head": "bob_granted_head"
+   }
+  },
+  {
    "name": "register_home",
    "request": "register",
    "carries": [
@@ -4947,6 +5921,23 @@
      "stored_home"
     ],
     "head": "rules_registered"
+   }
+  },
+  {
+   "name": "bob_approves_the_commit",
+   "request": "approve_commit",
+   "carries": [
+    "commit_approval"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_commit_approval"
+    ]
    }
   },
   {

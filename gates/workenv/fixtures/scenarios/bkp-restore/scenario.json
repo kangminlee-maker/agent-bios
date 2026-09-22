@@ -76,6 +76,10 @@
   {
    "id": "req_f09b1babae251a020c2e1ade876d061b",
    "name": "backup_after_restore_request"
+  },
+  {
+   "id": "req_bdfe72a6952090d1f399c3eccab81b95",
+   "name": "unlock_request"
   }
  ],
  "joins": [
@@ -510,6 +514,51 @@
    "record": "restore_the_backup_result"
   },
   {
+   "digest_of": "unlock_change",
+   "pointer": "/payload_digest",
+   "record": "unlock"
+  },
+  {
+   "digest_of": "unlock",
+   "pointer": "/request_digest",
+   "record": "unlock_the_restored_copy_receipt"
+  },
+  {
+   "minted": "unlock_the_restored_copy_head",
+   "pointer": "/head_digest",
+   "record": "unlock_the_restored_copy_receipt"
+  },
+  {
+   "minted": "unlock_the_restored_copy_sequence",
+   "pointer": "/sequence",
+   "record": "unlock_the_restored_copy_receipt"
+  },
+  {
+   "minted": "unlock_the_restored_copy_committed_at",
+   "pointer": "/committed_at",
+   "record": "unlock_the_restored_copy_receipt"
+  },
+  {
+   "minted": "unlocked_at",
+   "pointer": "/changed_at",
+   "record": "unlocked"
+  },
+  {
+   "digest_of": "unlock_the_restored_copy_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "unlock_the_restored_copy_result"
+  },
+  {
+   "digest_of": "unlock",
+   "pointer": "/request_digest",
+   "record": "unlock_the_restored_copy_result"
+  },
+  {
+   "digest_of": "unlocked",
+   "pointer": "/outputs/0/digest",
+   "record": "unlock_the_restored_copy_result"
+  },
+  {
    "digest_of": "commit_query",
    "pointer": "/payload_digest",
    "record": "ask_commit_2"
@@ -600,11 +649,6 @@
    "record": "backup_after_restore"
   },
   {
-   "minted": "backup_database",
-   "pointer": "/database/digest",
-   "record": "backup_after_restore"
-  },
-  {
    "digest_of": "stored_draft",
    "pointer": "/members/0/digest",
    "record": "backup_after_restore"
@@ -627,6 +671,11 @@
   {
    "minted": "backup_after_restore_taken_at",
    "pointer": "/taken_at",
+   "record": "backup_after_restore"
+  },
+  {
+   "minted": "backup_after_restore_database",
+   "pointer": "/database/digest",
    "record": "backup_after_restore"
   },
   {
@@ -805,6 +854,31 @@
    "name": "restored_at",
    "shape": "instant",
    "step": "restore_the_backup"
+  },
+  {
+   "name": "unlock_the_restored_copy_committed_at",
+   "shape": "instant",
+   "step": "unlock_the_restored_copy"
+  },
+  {
+   "name": "unlock_the_restored_copy_head",
+   "shape": "digest",
+   "step": "unlock_the_restored_copy"
+  },
+  {
+   "name": "unlock_the_restored_copy_sequence",
+   "shape": "integer",
+   "step": "unlock_the_restored_copy"
+  },
+  {
+   "name": "unlocked_at",
+   "shape": "instant",
+   "step": "unlock_the_restored_copy"
+  },
+  {
+   "name": "backup_after_restore_database",
+   "shape": "digest",
+   "step": "take_a_backup_after_restore"
   },
   {
    "name": "backup_after_restore_taken_at",
@@ -1668,7 +1742,7 @@
    }
   },
   {
-   "digest": "6dddb169e370603746da882317c54f5287183a69ef381b623b1f3ac51e0fc2ed",
+   "digest": "c3a0a476966179508ad9ef62523c143d919cf3b90f467ba81c6dd71ecda56dd1",
    "name": "backup",
    "record": {
     "access_generation": 7,
@@ -1690,7 +1764,7 @@
       "digest": "6ccc2eec958ce538bf1bf2ecd96669ee2a95a7f85ac74cbe7d5e6ef1872d42ea",
       "holds": "outbox",
       "path": "outbox/0001.json",
-      "size": 930
+      "size": 929
      },
      {
       "digest": "9d9e53f69e46d52d038cf1bd616004a25d26fdd8ec799eafc1ab441b5c1aa22a",
@@ -1711,7 +1785,7 @@
    }
   },
   {
-   "digest": "afd8653729aecfc8efc5932bb20b7b76abbf0410c5b51447ab29875d1e458f75",
+   "digest": "4d2cc610c70ded475dd124b7d57c98fcf57b4cf7968f38450d65c89532aa9a3b",
    "name": "take_a_backup_result",
    "record": {
     "kind": "operation_result",
@@ -1723,7 +1797,7 @@
     },
     "outputs": [
      {
-      "digest": "6dddb169e370603746da882317c54f5287183a69ef381b623b1f3ac51e0fc2ed",
+      "digest": "c3a0a476966179508ad9ef62523c143d919cf3b90f467ba81c6dd71ecda56dd1",
       "kind": "backup_set"
      }
     ],
@@ -1805,7 +1879,7 @@
    }
   },
   {
-   "digest": "3bd0a0c59a2f1b0c043bfcb950807bbbcce1f14e9034673ae034a7a8bab4f6f7",
+   "digest": "3a2f46bceac264803fd63e6b3048734e12ba6492720a0a9ab74e9ca940ea4a00",
    "name": "restore",
    "record": {
     "action": "local_profile",
@@ -1823,7 +1897,7 @@
      "layer": "personal",
      "principal_id": "prn_49ee05d353821d093974dc26cd895ae5"
     },
-    "payload_digest": "6dddb169e370603746da882317c54f5287183a69ef381b623b1f3ac51e0fc2ed",
+    "payload_digest": "c3a0a476966179508ad9ef62523c143d919cf3b90f467ba81c6dd71ecda56dd1",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_4ed5b2483e652edf2fc78dd19068a993",
@@ -1834,7 +1908,7 @@
    }
   },
   {
-   "digest": "c52a9fc94f54529259c8e9b7301b922c519f86daa8a2d5549118ea06769b23bf",
+   "digest": "a9cc25674a0f271f4870bc31a9a059e255fac01c23dfedd0acf6086d689fd9c1",
    "name": "restore_the_backup_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -1844,7 +1918,7 @@
      "layer": "personal",
      "principal_id": "prn_49ee05d353821d093974dc26cd895ae5"
     },
-    "request_digest": "3bd0a0c59a2f1b0c043bfcb950807bbbcce1f14e9034673ae034a7a8bab4f6f7",
+    "request_digest": "3a2f46bceac264803fd63e6b3048734e12ba6492720a0a9ab74e9ca940ea4a00",
     "request_id": "req_4ed5b2483e652edf2fc78dd19068a993",
     "schema": 1,
     "sequence": 1,
@@ -1854,12 +1928,12 @@
    }
   },
   {
-   "digest": "12d3e695bfbe89c9da75c35066e4109ab2258f0a170c1beda33d84a70e0517bb",
+   "digest": "5091df05887a8a6b428410ac5580e9e11666c90c5572e449dac39361748e035b",
    "name": "report",
    "record": {
     "after_backup": "not_known",
     "authority": "passive",
-    "backup_digest": "6dddb169e370603746da882317c54f5287183a69ef381b623b1f3ac51e0fc2ed",
+    "backup_digest": "c3a0a476966179508ad9ef62523c143d919cf3b90f467ba81c6dd71ecda56dd1",
     "covered_through": 1,
     "kind": "restore_report",
     "recovery_objective_seconds": 3600,
@@ -1869,31 +1943,136 @@
    }
   },
   {
-   "digest": "e546ae364a95e49efd9e4fd3646831d690b054382a2940bb8cf4a18ebd7694a1",
+   "digest": "6d58effb7b1fadabbe8e3a7447c6d4dc586875b523fb1f9f47de9ec49a24adec",
    "name": "restore_the_backup_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "c52a9fc94f54529259c8e9b7301b922c519f86daa8a2d5549118ea06769b23bf",
+     "receipt_digest": "a9cc25674a0f271f4870bc31a9a059e255fac01c23dfedd0acf6086d689fd9c1",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "12d3e695bfbe89c9da75c35066e4109ab2258f0a170c1beda33d84a70e0517bb",
+      "digest": "5091df05887a8a6b428410ac5580e9e11666c90c5572e449dac39361748e035b",
       "kind": "restore_report"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "3bd0a0c59a2f1b0c043bfcb950807bbbcce1f14e9034673ae034a7a8bab4f6f7",
+    "request_digest": "3a2f46bceac264803fd63e6b3048734e12ba6492720a0a9ab74e9ca940ea4a00",
     "request_id": "req_4ed5b2483e652edf2fc78dd19068a993",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "67a82dd96f9c90ad74e35f3773802ba5809f9734509412d3861cdc4f59e371ed",
+   "digest": "159babe13f63c62bed62d341814f20a51fcf0711b2279ebeb37b0a821d2c9627",
+   "name": "unlock_change",
+   "record": {
+    "change": {
+     "method": "device_key_at_terminal",
+     "transition": "unlock"
+    },
+    "expected_generation": 8,
+    "kind": "access_transition",
+    "profile_id": "prf_669c57c911d98ac1751fb1cf67087405",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "b5dc1d67885a01e048ff574fd371753fb37ed080f9324c3bcc32b4ae8cd60389",
+   "name": "unlock",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_fc66a533553a2eda9b41eee45f351283",
+     "principal_id": "prn_49ee05d353821d093974dc26cd895ae5",
+     "profile_id": "prf_669c57c911d98ac1751fb1cf67087405"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 8,
+    "operation": "access.transition",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_49ee05d353821d093974dc26cd895ae5"
+    },
+    "payload_digest": "159babe13f63c62bed62d341814f20a51fcf0711b2279ebeb37b0a821d2c9627",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_bdfe72a6952090d1f399c3eccab81b95",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_669c57c911d98ac1751fb1cf67087405"
+    }
+   }
+  },
+  {
+   "digest": "ce560114cabfe86f6ea089606710624bd8e6710a46ce9e7b26232d8978158600",
+   "name": "unlock_the_restored_copy_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "d532a47881f797612b84d6936eac540ee1bf5e400fd65fd24ad7506e9e6a76b3",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_49ee05d353821d093974dc26cd895ae5"
+    },
+    "request_digest": "b5dc1d67885a01e048ff574fd371753fb37ed080f9324c3bcc32b4ae8cd60389",
+    "request_id": "req_bdfe72a6952090d1f399c3eccab81b95",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_669c57c911d98ac1751fb1cf67087405"
+    }
+   }
+  },
+  {
+   "digest": "191332fea6c762f86fe8ecd8a8af0bc03109b94d5fb30de324f54c392b77b0da",
+   "name": "unlocked",
+   "record": {
+    "access_generation": 8,
+    "changed_at": "2000-01-01T00:00:00Z",
+    "kind": "access_state",
+    "profile_id": "prf_669c57c911d98ac1751fb1cf67087405",
+    "schema": 1,
+    "state": {
+     "because": "unlock",
+     "is": "active",
+     "key_mode": {
+      "runs": "real"
+     }
+    }
+   }
+  },
+  {
+   "digest": "2faf76422909bb3cd54fbe4c264b5ab28f227c0a3a2b963350573de58044b942",
+   "name": "unlock_the_restored_copy_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "ce560114cabfe86f6ea089606710624bd8e6710a46ce9e7b26232d8978158600",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "191332fea6c762f86fe8ecd8a8af0bc03109b94d5fb30de324f54c392b77b0da",
+      "kind": "access_state"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "b5dc1d67885a01e048ff574fd371753fb37ed080f9324c3bcc32b4ae8cd60389",
+    "request_id": "req_bdfe72a6952090d1f399c3eccab81b95",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "2884b1d7f0bef005bde87efe292977ace0968fc44538cddae9c45f2e1a4e1289",
    "name": "ask_commit_2",
    "record": {
     "action": "read",
@@ -1905,7 +2084,7 @@
     "control_digests": [],
     "effect_class": "pure_preview",
     "kind": "operation_request",
-    "local_access_generation": 7,
+    "local_access_generation": 8,
     "operation": "operation.query",
     "owner": {
      "layer": "personal",
@@ -1922,7 +2101,7 @@
    }
   },
   {
-   "digest": "80bf84dcbe66f886027101c9c82581f608a55cfd0fda6ea0b0a11aa4db140384",
+   "digest": "ba6018ed9c5573fb2f54bd7639a88919ce13b9563b4bd64a5b3cebdc237e88e4",
    "name": "query_the_commit_result",
    "record": {
     "kind": "operation_result",
@@ -1942,7 +2121,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "67a82dd96f9c90ad74e35f3773802ba5809f9734509412d3861cdc4f59e371ed",
+    "request_digest": "2884b1d7f0bef005bde87efe292977ace0968fc44538cddae9c45f2e1a4e1289",
     "request_id": "req_c42cf213f1ffdc91c4a9761193dbf640",
     "schema": 1,
     "supported_recovery": []
@@ -1958,7 +2137,7 @@
    }
   },
   {
-   "digest": "01d99497dd293f371b4bf20a49fc911a6022ef5998a344de6f259b648104f75b",
+   "digest": "17447f77e5325eb2287f41b95ba6a39e81d807d67c5cf754b3d09f097bfcec34",
    "name": "ask_draft",
    "record": {
     "action": "read",
@@ -1970,7 +2149,7 @@
     "control_digests": [],
     "effect_class": "pure_preview",
     "kind": "operation_request",
-    "local_access_generation": 7,
+    "local_access_generation": 8,
     "operation": "operation.query",
     "owner": {
      "layer": "personal",
@@ -1987,7 +2166,7 @@
    }
   },
   {
-   "digest": "0af6c0a149252dc431b75985c27378d0ed00f768e058879d6804e2594fab919b",
+   "digest": "8199bf45025c255fbc43587c77e6de9eca72bdb4202fa1de1afae07e24d369be",
    "name": "query_the_draft_result",
    "record": {
     "kind": "operation_result",
@@ -2003,7 +2182,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "01d99497dd293f371b4bf20a49fc911a6022ef5998a344de6f259b648104f75b",
+    "request_digest": "17447f77e5325eb2287f41b95ba6a39e81d807d67c5cf754b3d09f097bfcec34",
     "request_id": "req_a665a929248bc71a2bd8393054bc1635",
     "schema": 1,
     "supported_recovery": []
@@ -2019,7 +2198,7 @@
    }
   },
   {
-   "digest": "bc270935e7cf0e566c7ed5383a0e066e1ec559168b394f8b547aece360bc45a6",
+   "digest": "978fc67a9ccb665e7b8f772be3bafc178429403bfb41a4e8fc5145a6459e47ed",
    "name": "ask_export",
    "record": {
     "action": "read",
@@ -2031,7 +2210,7 @@
     "control_digests": [],
     "effect_class": "pure_preview",
     "kind": "operation_request",
-    "local_access_generation": 7,
+    "local_access_generation": 8,
     "operation": "operation.query",
     "owner": {
      "layer": "personal",
@@ -2048,7 +2227,7 @@
    }
   },
   {
-   "digest": "30e492ba644ff4d93a0ee18f54884e6c9564df5ad954f461764afab58ebb21db",
+   "digest": "5ec292456af30f6f4405526cff9d4ee6143214aaf850f3b3309de97b2ae482be",
    "name": "query_the_export_result",
    "record": {
     "kind": "operation_result",
@@ -2064,14 +2243,14 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "bc270935e7cf0e566c7ed5383a0e066e1ec559168b394f8b547aece360bc45a6",
+    "request_digest": "978fc67a9ccb665e7b8f772be3bafc178429403bfb41a4e8fc5145a6459e47ed",
     "request_id": "req_36b506583a0db9d6021907baf5a22d32",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "82f280068714a0ac203f93146fe22ff5a1e67c38214450cbd98f0438c12c0e22",
+   "digest": "c3a7c7b46988058a2de1caa88399cd8f3bb924cc2d5725157ebd32d3f453febc",
    "name": "read_draft_after_restore",
    "record": {
     "action": "read",
@@ -2083,7 +2262,7 @@
     "control_digests": [],
     "effect_class": "pure_preview",
     "kind": "operation_request",
-    "local_access_generation": 7,
+    "local_access_generation": 8,
     "operation": "memory.candidate.read",
     "owner": {
      "layer": "personal",
@@ -2099,7 +2278,7 @@
    }
   },
   {
-   "digest": "2b5233df2fe996e0e7fd75a45fbe2219ef3e9f1c64061116bfccdf385186e2dc",
+   "digest": "5ce925c1d42a9f76bea178c1e4e84afc194400a048d8327a3a25e47a745f1090",
    "name": "read_the_candidate_after_restore_result",
    "record": {
     "kind": "operation_result",
@@ -2115,14 +2294,14 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "82f280068714a0ac203f93146fe22ff5a1e67c38214450cbd98f0438c12c0e22",
+    "request_digest": "c3a7c7b46988058a2de1caa88399cd8f3bb924cc2d5725157ebd32d3f453febc",
     "request_id": "req_5d592b3f2e07815c917e39b1f010f839",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "3710bcf283d3d52931a7ad99a28fe225ac5031ec0edf371647b4edc9a2e61f2c",
+   "digest": "6e24011c6f4ae926875b5d97ccd4c6ad67a9e3db647254b81a55e2d82fa68bfc",
    "name": "take_backup_after_restore",
    "record": {
     "action": "local_profile",
@@ -2134,7 +2313,7 @@
     "control_digests": [],
     "effect_class": "owner_commit",
     "kind": "operation_request",
-    "local_access_generation": 7,
+    "local_access_generation": 8,
     "operation": "store.backup.create",
     "owner": {
      "layer": "personal",
@@ -2150,7 +2329,7 @@
    }
   },
   {
-   "digest": "9a2c70f3e315ee40bc2e3cef8c2f6d9225fd638be524e3acf6f033285286e44c",
+   "digest": "dc8a39bc63e714d4ef4f031d046f74e8c524ad7269479b3d4fc2be906ec82d53",
    "name": "take_a_backup_after_restore_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -2160,7 +2339,7 @@
      "layer": "personal",
      "principal_id": "prn_49ee05d353821d093974dc26cd895ae5"
     },
-    "request_digest": "3710bcf283d3d52931a7ad99a28fe225ac5031ec0edf371647b4edc9a2e61f2c",
+    "request_digest": "6e24011c6f4ae926875b5d97ccd4c6ad67a9e3db647254b81a55e2d82fa68bfc",
     "request_id": "req_f09b1babae251a020c2e1ade876d061b",
     "schema": 1,
     "sequence": 1,
@@ -2170,13 +2349,13 @@
    }
   },
   {
-   "digest": "6dddb169e370603746da882317c54f5287183a69ef381b623b1f3ac51e0fc2ed",
+   "digest": "3600dc487d5aa55f86709dde8af0339ef0f3f169c3674d2394d87951979b646d",
    "name": "backup_after_restore",
    "record": {
-    "access_generation": 7,
+    "access_generation": 8,
     "covered_through": 1,
     "database": {
-     "digest": "0ab0d7a7e721b8de3597c0d0d162317106890174251e0e5764c66cb2c367c75e",
+     "digest": "b27a8751ac6f53b16c545a87a59c2e5b3a0d1ce5178f869529676e9f9c8284ef",
      "path": "state.sqlite3",
      "size": 1048576
     },
@@ -2192,7 +2371,7 @@
       "digest": "6ccc2eec958ce538bf1bf2ecd96669ee2a95a7f85ac74cbe7d5e6ef1872d42ea",
       "holds": "outbox",
       "path": "outbox/0001.json",
-      "size": 930
+      "size": 929
      },
      {
       "digest": "9d9e53f69e46d52d038cf1bd616004a25d26fdd8ec799eafc1ab441b5c1aa22a",
@@ -2213,32 +2392,32 @@
    }
   },
   {
-   "digest": "1b573448cf507854d455c88a4fd7587adb9ebedf91fc0358056a48665ddea5a7",
+   "digest": "2875cf28364ed47cc596631a7be15928d35597e88e1398b728e316028d50dc11",
    "name": "take_a_backup_after_restore_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "9a2c70f3e315ee40bc2e3cef8c2f6d9225fd638be524e3acf6f033285286e44c",
+     "receipt_digest": "dc8a39bc63e714d4ef4f031d046f74e8c524ad7269479b3d4fc2be906ec82d53",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "6dddb169e370603746da882317c54f5287183a69ef381b623b1f3ac51e0fc2ed",
+      "digest": "3600dc487d5aa55f86709dde8af0339ef0f3f169c3674d2394d87951979b646d",
       "kind": "backup_set"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "3710bcf283d3d52931a7ad99a28fe225ac5031ec0edf371647b4edc9a2e61f2c",
+    "request_digest": "6e24011c6f4ae926875b5d97ccd4c6ad67a9e3db647254b81a55e2d82fa68bfc",
     "request_id": "req_f09b1babae251a020c2e1ade876d061b",
     "schema": 1,
     "supported_recovery": []
    }
   }
  ],
- "says": "On her laptop Alice registers her private notes source and commits a revision on the head the registration made (a receipt and the head it moved), keeps a hand-written choice as a draft candidate whose id the owner assigns, and exports a package carrying the revision, trusted by the binding that enrolled the laptop, to her desktop over a peer route while the two cannot reach each other, so the export stays in her outbox with an unknown outcome. She then takes a backup, which names the database snapshot and each member beside it: the draft, the outbox package, the unknown operation and the control sequence. The laptop's live database is then lost: on a rebuilt runtime that never held it, a query for the commit's request id first answers request_not_held — nothing survived to be restarted. Restoring the backup there reports the receipt sequence and instant the backup covers, work after it not known and authority passive. Afterwards the same queries return exactly the originals: the commit's result and its receipt naming its request and head, the draft candidate's result, and the export's unknown result with its query-the-same-request recovery. Reading the draft candidate directly there returns the same stored candidate content, not only its historical result. A fresh backup taken there afterward names the same database, draft, outbox and control-sequence members by digest and size as the one restored, so the restored outbox package and control-state member are shown exactly restored, not only their result mappings. What must not count as this proof: a surviving database restarted in place, or the desktop's copy of the exported package standing in for the laptop's draft, outbox, unknown operation and control mappings; nothing here is rebuilt from a peer.",
- "spec_sha256": "dc21902617e0b60f8911110f7233a4cad975644cd4e90b975714a7c60866c9cf",
+ "says": "On her laptop Alice registers her private notes source and commits a revision on the head the registration made (a receipt and the head it moved), keeps a hand-written choice as a draft candidate whose id the owner assigns, and exports a package carrying the revision, trusted by the binding that enrolled the laptop, to her desktop over a peer route while the two cannot reach each other, so the export stays in her outbox with an unknown outcome. She then takes a backup, which names the database snapshot and each member beside it: the draft, the outbox package, the unknown operation and the control sequence. The laptop's live database is then lost: on a rebuilt runtime that never held it, a query for the commit's request id first answers request_not_held — nothing survived to be restarted. Restoring the backup there reports the receipt sequence and instant the backup covers, work after it not known and authority passive, at a generation past the one it restored. She then unlocks the rebuilt copy at a terminal, expecting that later generation, which makes its access active there. Afterwards the same queries return exactly the originals: the commit's result and its receipt naming its request and head, the draft candidate's result, and the export's unknown result with its query-the-same-request recovery. Reading the draft candidate directly there returns the same stored candidate content, not only its historical result. A fresh backup taken there afterward, at the unlocked generation, names the same draft, outbox and control-sequence members by digest and size as the one restored, so the restored outbox package and control-state member are shown exactly restored, not only their result mappings. What must not count as this proof: a surviving database restarted in place, or the desktop's copy of the exported package standing in for the laptop's draft, outbox, unknown operation and control mappings; nothing here is rebuilt from a peer.",
+ "spec_sha256": "387ec22c6d521fbbb61e5b72432bba2e695e11e89e6f7dd37f6b5ddda4aeb47c",
  "steps": [
   {
    "carries": [
@@ -2348,6 +2527,18 @@
    "result": "restore_the_backup_result",
    "returns": [
     "report"
+   ]
+  },
+  {
+   "carries": [
+    "unlock_change"
+   ],
+   "name": "unlock_the_restored_copy",
+   "process": "rebuilt",
+   "request": "unlock",
+   "result": "unlock_the_restored_copy_result",
+   "returns": [
+    "unlocked"
    ]
   },
   {

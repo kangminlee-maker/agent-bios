@@ -22,6 +22,10 @@
    "name": "team"
   },
   {
+   "id": "tem_a244d749fac68101c3a00c43dccede11",
+   "name": "team_two"
+  },
+  {
    "id": "src_a750aca6ade68bc2cbc6f88047ccebb6",
    "name": "team_decisions"
   },
@@ -60,6 +64,10 @@
   {
    "id": "req_6f9d5c49f121f998787c37bb65c54c9e",
    "name": "private_request"
+  },
+  {
+   "id": "req_c00cf876551f07e0649a744b142d786f",
+   "name": "cross_team_request"
   }
  ],
  "joins": [
@@ -497,6 +505,41 @@
    "digest_of": "private_submit",
    "pointer": "/request_digest",
    "record": "capture_input_kept_in_the_repository_result"
+  },
+  {
+   "digest_of": "team_policy",
+   "pointer": "/policy_digests/0",
+   "record": "cross_team_submit"
+  },
+  {
+   "minted": "register_team_decisions_head",
+   "pointer": "/target/base/head_digest",
+   "record": "cross_team_submit"
+  },
+  {
+   "digest_of": "observation",
+   "pointer": "/observation_digest",
+   "record": "cross_team_capture"
+  },
+  {
+   "minted": "span_bytes",
+   "pointer": "/processing/inputs/0/evidence_digest",
+   "record": "cross_team_capture"
+  },
+  {
+   "digest_of": "team_founder_grant",
+   "pointer": "/widens/authority_evidence_digest",
+   "record": "cross_team_capture"
+  },
+  {
+   "digest_of": "cross_team_capture",
+   "pointer": "/payload_digest",
+   "record": "cross_team_submit"
+  },
+  {
+   "digest_of": "cross_team_submit",
+   "pointer": "/request_digest",
+   "record": "capture_widening_across_teams_result"
   }
  ],
  "minted": [
@@ -1953,10 +1996,136 @@
     "schema": 1,
     "supported_recovery": []
    }
+  },
+  {
+   "digest": "32ca23925a2258b1eb603b7f6d57eb9195788dc0667a1785715305e49b68027f",
+   "name": "cross_team_capture",
+   "record": {
+    "destination_source_id": "src_a750aca6ade68bc2cbc6f88047ccebb6",
+    "entries": [
+     {
+      "body_digest": "33eff2c748192ebe99c9e960d63ed1b7d0cce0d556f1b39028440ecfafb2da4f",
+      "entry_id": "ent_7213c7c5705701d7927915db1bf2f371"
+     }
+    ],
+    "kind": "memory_capture",
+    "observation_digest": "fb9820c562cf3a0b64d444472c000e79c9deea0d155a2d04bec9057712db9c78",
+    "processing": {
+     "adapter": {
+      "digest": "446b029fe11ff71ac8f57cc61d1e686b5cd9b9f987ffe56f8a2190d3b959a2e4",
+      "name": "agent-bios distill"
+     },
+     "inputs": [
+      {
+       "evidence_digest": "2f0f7f872af5836a536e3140b0db5e70918a924777f182c81bfe549399d8c1fe",
+       "from": {
+        "first_record": 12,
+        "from": "session_transcript",
+        "last_record": 18,
+        "transcript": {
+         "host": {
+          "name": "claude-code",
+          "version": "2.1.278"
+         },
+         "session_id": "5f0d2c9e-7a41-4b8e-9c2d-1e6f3a8b0c47"
+        }
+       },
+       "permits": {
+        "destinations": [
+         {
+          "layer": "team",
+          "team_id": "tem_a244d749fac68101c3a00c43dccede11"
+         }
+        ],
+        "processing": "local_processing",
+        "prompt_log": "not_kept"
+       }
+      }
+     ],
+     "prompt_log": "not_kept",
+     "runs": "local"
+    },
+    "role": "memory",
+    "schema": 1,
+    "widens": {
+     "applicability": {
+      "conditions": [
+       {
+        "dimension": "storage",
+        "value": "a shared network volume"
+       }
+      ],
+      "states": "stated"
+     },
+     "authority_evidence_digest": "27d5a55683fd156d99ee5aeb3e57db49a90104976d26275199bb471e25b31f51",
+     "from_scope": {
+      "layer": "team",
+      "team_id": "tem_a244d749fac68101c3a00c43dccede11"
+     }
+    }
+   }
+  },
+  {
+   "digest": "67eaa59baf8f9552a3ffb416b0542a27e70bae3735db5c742913d459f7446f7c",
+   "name": "cross_team_submit",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_6d0f44b763defa9873db3b04a529b600",
+     "principal_id": "prn_d199a9f32e27bc980201e5db1076b318",
+     "profile_id": "prf_b0f972f892a004734a1a77d42baeebd8"
+    },
+    "control_digests": [],
+    "effect_class": "durable_candidate",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "source.capture.record",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_3cdcf748fc086fcde85f5d614fabcd08"
+    },
+    "payload_digest": "32ca23925a2258b1eb603b7f6d57eb9195788dc0667a1785715305e49b68027f",
+    "policy_digests": [
+     "031b1f1da3a30eaa4542bde32fb9faf5a363cc81aa8e42f2f7f3c5d3d6eb799f"
+    ],
+    "proof_digests": [],
+    "request_id": "req_c00cf876551f07e0649a744b142d786f",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "58cb13fc4ec58f84ea98613c31eaff3c230518765e1c2b72b25405cccf47e905"
+     },
+     "resource_id": "src_a750aca6ade68bc2cbc6f88047ccebb6"
+    }
+   }
+  },
+  {
+   "digest": "64414c73f6dab131f14132587178e8a6e8a90ed58c840cba73aa3518d6585cbb",
+   "name": "capture_widening_across_teams_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [
+      {
+       "code": "input_not_permitted",
+       "pointer": "/processing/inputs/0/permits"
+      }
+     ],
+     "stage": "refused"
+    },
+    "outputs": [],
+    "provider_effect": "not_applicable",
+    "request_digest": "67eaa59baf8f9552a3ffb416b0542a27e70bae3735db5c742913d459f7446f7c",
+    "request_id": "req_c00cf876551f07e0649a744b142d786f",
+    "schema": 1,
+    "supported_recovery": []
+   }
   }
  ],
- "says": "A person founds a Team on their own (team.found, self-founded, threshold 0): the owner commits the sealed proposal, the policy, the founder's membership, a grant that lets the founder contribute in the Team, the Team's state and profile and its founding authority epoch. The Team then registers a decision source of its own (source.home.register). The person selects one span of a repository session transcript (source.observe) whose selection permits results in both that repository and that Team, and captures a memory entry from it for the Team decision source, at the head its registration committed, stating the widening: the repository scope it came from, the applicability it proposes (a shared network volume), and the founder's grant as the authority to widen (source.capture.record). The owner stores that capture as a draft with its extraction run, and the person stores a candidate from it for the same Team destination (memory.candidate.store). Three attempts to widen otherwise must fail and leave nothing stored: the same capture sent to the Team without the widening is refused with widening_unstated; one that states the widening but names no authority is refused at admission (missing_field at /widens/authority_evidence_digest); and one whose input permits only the repository is refused with input_not_permitted at the input's permits, returning no output, so no private evidence reaches the Team.",
- "spec_sha256": "47bf303d2078ced94af0c5d6e668410c9e774f6fc2e854d4c9dfad1999f3c91a",
+ "says": "A person founds a Team on their own (team.found, self-founded, threshold 0): the owner commits the sealed proposal, the policy, the founder's membership, a grant that lets the founder contribute in the Team, the Team's state and profile and its founding authority epoch. The Team then registers a decision source of its own (source.home.register). The person selects one span of a repository session transcript (source.observe) whose selection permits results in both that repository and that Team, and captures a memory entry from it for the Team decision source, at the head its registration committed, stating the widening: the repository scope it came from, the applicability it proposes (a shared network volume), and the founder's grant as the authority to widen (source.capture.record). The owner stores that capture as a draft with its extraction run, and the person stores a candidate from it for the same Team destination (memory.candidate.store). Four attempts to widen otherwise must fail and leave nothing stored: the same capture sent to the Team without the widening is refused with widening_unstated; one that states the widening but names no authority is refused at admission (missing_field at /widens/authority_evidence_digest); one whose input permits only the repository is refused with input_not_permitted at the input's permits, returning no output, so no private evidence reaches the Team; and one that restates the same material as widened from a second Team's scope (team_two, not a repository) but whose input still permits only that second Team is refused the same way - a Team-to-Team promotion cannot silently widen into a Team its material was never permitted to reach, either.",
+ "spec_sha256": "8c0b5b5b86307b11b0eb9e3d2186f767a4f40a60ff0ea68c5ea56edf02c1d0d6",
  "steps": [
   {
    "carries": [
@@ -2055,6 +2224,15 @@
    "name": "capture_input_kept_in_the_repository",
    "request": "private_submit",
    "result": "capture_input_kept_in_the_repository_result",
+   "returns": []
+  },
+  {
+   "carries": [
+    "cross_team_capture"
+   ],
+   "name": "capture_widening_across_teams",
+   "request": "cross_team_submit",
+   "result": "capture_widening_across_teams_result",
    "returns": []
   }
  ]

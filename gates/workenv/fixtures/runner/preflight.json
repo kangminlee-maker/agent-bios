@@ -12,7 +12,7 @@
     "run": "The driver loads the current plan, its catalog, the dated evaluator (`validator`) and the regression suite (`regression_tests`) beside it; builds the suite's `Fixture(evaluator, plan, catalog, <situation directory>, unattended=<base is unattended>)`; applies the situation's changes in order to the Fixture's run; and writes that run as `run.json` in the Fixture's artifact directory, so record artifacts resolve beside it. Every record carries the suite's marker SYNTHETIC-AUTHOR-REGRESSION-NOT-PRODUCT-EVIDENCE. The run's `runner_fingerprint` is the Fixture's own; the adapter under qualification is what R0's real record will bind, not this synthetic value.",
     "tree": "A new git repository `tree` in the situation directory, with one commit holding revision 1 of every listed file and, when any file has two revisions, a second commit adding revision 2 of those. An empty file list still makes one commit, of an empty `.keep` file. HEAD after these commits is the base every packet must name.",
     "stubs": "The invocation's `worker_command` runs the driver's stub worker with the packet path. For each packet the stub appends a start line and, on finishing, an end line to the driver's stub log, each naming the node id, the attempt id and the sha256 of the packet bytes; writes one evidence file `stub-evidence.txt` in the packet's `evidence_dir` holding `SYNTHETIC-RUNNER-EVIDENCE <node_id> <attempt_id>` and a newline, unless its row says `evidence: none`; and writes its worker_result at the packet's `result_path`: the stub row's outcome, one change per append with `base_digest` the sha256 of the bytes it read, and the evidence file when it wrote one. A row saying `result: none` writes the evidence file and no worker_result; its outcome and appends are not read.",
-    "restart": "After a stopped round the driver leaves the situation directory exactly as the round left it (run file, tree, results, evidence, stub log) and runs the same invocation without `stop_at`. `always` applies to every round that was not stopped; a situation's checks read the state after its last round. A stopped round is interrupted before writing its own `runner_report` (report.schema.json describes what the runner writes at the end of one round), so no report exists for it; the restart's own report says only what that round did — including what a restart `reconciliation` found already integrated — and does not restate an earlier round's integration as its own. A check described as holding `across all rounds` (such as `applied_once`) is therefore evaluated against the run file's accumulated records and the tree as they stand after the last round, which the interrupted round's work already moved and the restart preserved, not against any one round's `integrations` list alone."
+    "restart": "After a stopped round the driver leaves the situation directory exactly as the round left it (run file, tree, results, evidence, stub log) and runs the same invocation without `stop_at`. `always` applies to every round that was not stopped; a situation's checks read the state after its last round. A stopped round writes no `runner_report`, and the restart's report says only what that round did, so a check over all rounds (such as `applied_once`) reads the tree's final bytes and the reports that exist, not a row the stopped round never wrote."
   },
   "always": [
     "report_conforms",
@@ -484,6 +484,66 @@
             {
               "check": "not_recorded_passed",
               "node_id": "M4"
+            },
+            {
+              "check": "no_terminal_claim"
+            }
+          ]
+        },
+        {
+          "name": "stale_verification",
+          "says": "With every node kept through M3 but M1's record naming another node digest, M1's dependents are never dispatched, M4 is never reached, and the report claims no terminal acceptance.",
+          "given": {
+            "base": "coordinator",
+            "changes": [
+              {
+                "change": "keep_records",
+                "node_ids": [
+                  "P00",
+                  "P01",
+                  "P02",
+                  "P03",
+                  "P04",
+                  "P05",
+                  "P06",
+                  "P07",
+                  "P08",
+                  "P09",
+                  "P10",
+                  "P11",
+                  "P12",
+                  "P13",
+                  "P14",
+                  "P15",
+                  "P16",
+                  "P17",
+                  "P18",
+                  "P19",
+                  "M1",
+                  "M2",
+                  "M3"
+                ]
+              },
+              {
+                "change": "stale_node_digest",
+                "node_id": "M1"
+              }
+            ]
+          },
+          "tree": {
+            "files": []
+          },
+          "stubs": [],
+          "rounds": {
+            "stop_at": "none"
+          },
+          "checks": [
+            {
+              "check": "not_dispatched",
+              "node_ids": [
+                "P17",
+                "M4"
+              ]
             },
             {
               "check": "no_terminal_claim"

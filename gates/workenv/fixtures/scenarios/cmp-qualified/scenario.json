@@ -152,6 +152,10 @@
   {
    "id": "req_e323a3027dc6839027f8b081184a2bb7",
    "name": "commit_repo_broken_r1_rid"
+  },
+  {
+   "id": "req_9db85f9803a24b58148139387bdd6623",
+   "name": "set_repo_secret_rights_v1_rid"
   }
  ],
  "joins": [
@@ -914,6 +918,61 @@
    "digest_of": "repo_secret_r1_stored",
    "pointer": "/outputs/0/digest",
    "record": "commit_repo_secret_r1_result"
+  },
+  {
+   "minted": "repo_secret_h1",
+   "pointer": "/target/base/head_digest",
+   "record": "set_repo_secret_rights_v1"
+  },
+  {
+   "digest_of": "repo_secret_rights_v1",
+   "pointer": "/payload_digest",
+   "record": "set_repo_secret_rights_v1"
+  },
+  {
+   "digest_of": "set_repo_secret_rights_v1",
+   "pointer": "/request_digest",
+   "record": "set_repo_secret_rights_v1_receipt"
+  },
+  {
+   "minted": "repo_secret_h2",
+   "pointer": "/head_digest",
+   "record": "set_repo_secret_rights_v1_receipt"
+  },
+  {
+   "minted": "set_repo_secret_rights_v1_sequence",
+   "pointer": "/sequence",
+   "record": "set_repo_secret_rights_v1_receipt"
+  },
+  {
+   "minted": "set_repo_secret_rights_v1_committed_at",
+   "pointer": "/committed_at",
+   "record": "set_repo_secret_rights_v1_receipt"
+  },
+  {
+   "minted": "repo_secret_h1",
+   "pointer": "/target/base/head_digest",
+   "record": "set_repo_secret_rights_v1_receipt"
+  },
+  {
+   "minted": "repo_secret_rights_v1_at",
+   "pointer": "/set_at",
+   "record": "repo_secret_rights_v1_stored"
+  },
+  {
+   "digest_of": "set_repo_secret_rights_v1_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "set_repo_secret_rights_v1_result"
+  },
+  {
+   "digest_of": "set_repo_secret_rights_v1",
+   "pointer": "/request_digest",
+   "record": "set_repo_secret_rights_v1_result"
+  },
+  {
+   "digest_of": "repo_secret_rights_v1_stored",
+   "pointer": "/outputs/0/digest",
+   "record": "set_repo_secret_rights_v1_result"
   },
   {
    "digest_of": "repo_bound",
@@ -2111,6 +2170,26 @@
    "name": "repo_secret_r1_at",
    "shape": "instant",
    "step": "commit_repo_secret_r1"
+  },
+  {
+   "name": "repo_secret_h2",
+   "shape": "digest",
+   "step": "set_repo_secret_rights_v1"
+  },
+  {
+   "name": "repo_secret_rights_v1_at",
+   "shape": "instant",
+   "step": "set_repo_secret_rights_v1"
+  },
+  {
+   "name": "set_repo_secret_rights_v1_committed_at",
+   "shape": "instant",
+   "step": "set_repo_secret_rights_v1"
+  },
+  {
+   "name": "set_repo_secret_rights_v1_sequence",
+   "shape": "integer",
+   "step": "set_repo_secret_rights_v1"
   },
   {
    "name": "register_repo_broken_committed_at",
@@ -4195,6 +4274,113 @@
    }
   },
   {
+   "digest": "7bb69f4989903252ed6324e3c2d951abb87da00202a1a9b96aa4a77600b5b090",
+   "name": "repo_secret_rights_v1",
+   "record": {
+    "allows": [
+     "read"
+    ],
+    "kind": "source_rights",
+    "schema": 1,
+    "source_id": "src_dd49f9c504f74211dde84a44c7f55a0a"
+   }
+  },
+  {
+   "digest": "a85dad6cb97457f066bbe49033d00bc61ccd4170bbdd179eede1199af9e3e509",
+   "name": "set_repo_secret_rights_v1",
+   "record": {
+    "action": "policy",
+    "actor": {
+     "device_id": "dev_e0fe0a08648abb297d824c829635ded8",
+     "principal_id": "prn_142321b14f31e66e185169dcbe44140d",
+     "profile_id": "prf_7cb1779fcc9dc9ba782821c7c6e496e1"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "source.rights.set",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_491373da01fd614779d9e244a5a9c1bb"
+    },
+    "payload_digest": "7bb69f4989903252ed6324e3c2d951abb87da00202a1a9b96aa4a77600b5b090",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_9db85f9803a24b58148139387bdd6623",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "5b65e1497be2648e748d546f6ab69df04f8a318c4b1af6184b45c01af8daf3c6"
+     },
+     "resource_id": "src_dd49f9c504f74211dde84a44c7f55a0a"
+    }
+   }
+  },
+  {
+   "digest": "1cb187f6fabff4f7651fec45a354e923d421925a93b13d02953ff59cd08110ff",
+   "name": "set_repo_secret_rights_v1_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "5473cf1fed8f826ff93147d67fed6c5df594c7e70c4a7671c98fef0fcd4a4d9d",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_491373da01fd614779d9e244a5a9c1bb"
+    },
+    "request_digest": "a85dad6cb97457f066bbe49033d00bc61ccd4170bbdd179eede1199af9e3e509",
+    "request_id": "req_9db85f9803a24b58148139387bdd6623",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "5b65e1497be2648e748d546f6ab69df04f8a318c4b1af6184b45c01af8daf3c6"
+     },
+     "resource_id": "src_dd49f9c504f74211dde84a44c7f55a0a"
+    }
+   }
+  },
+  {
+   "digest": "52de50cf941da33c5bf8f8530585ab86cbd3f60d704254baa21401a926555cd3",
+   "name": "repo_secret_rights_v1_stored",
+   "record": {
+    "allows": [
+     "read"
+    ],
+    "kind": "source_rights",
+    "schema": 1,
+    "set_at": "2000-01-01T00:00:00Z",
+    "set_by": "prn_142321b14f31e66e185169dcbe44140d",
+    "source_id": "src_dd49f9c504f74211dde84a44c7f55a0a"
+   }
+  },
+  {
+   "digest": "d62222871826843faabc802fa290dacdcb97292b6c99b6f0525ea50c90f2606b",
+   "name": "set_repo_secret_rights_v1_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "1cb187f6fabff4f7651fec45a354e923d421925a93b13d02953ff59cd08110ff",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "52de50cf941da33c5bf8f8530585ab86cbd3f60d704254baa21401a926555cd3",
+      "kind": "source_rights"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "a85dad6cb97457f066bbe49033d00bc61ccd4170bbdd179eede1199af9e3e509",
+    "request_id": "req_9db85f9803a24b58148139387bdd6623",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
    "digest": "08e9b913aed7a91ed6147e91c8f4a7cc79dcca02e3487a67d8b73c678e83bf76",
    "name": "repo_broken_home",
    "record": {
@@ -5056,7 +5242,7 @@
    }
   },
   {
-   "digest": "b3dfe575d80fdb783cb1d12388361517be61d588be20d008f345349e23a0a9bf",
+   "digest": "ff46a3fc74c21fb87a0039e54f103d698f694f046e1d9e23cbfee43051b692e8",
    "name": "start_with_an_unavailable_winner_prepared",
    "record": {
     "adapter": {
@@ -5096,7 +5282,7 @@
       "pointer": "/units/3"
      },
      {
-      "code": "source_not_authorized",
+      "code": "source_right_not_overridable",
       "pointer": "/units/4"
      },
      {
@@ -5186,21 +5372,27 @@
       "unit_id": "unt_6b891050436dbe18bcb240c261d06866"
      },
      {
+      "concern": "setup.guide",
       "home_digest": "e2c515f86f7a480cbeaeae08d0cdb433115e1ec1622d9d91bff47abce381abfa",
       "layer": "repository",
+      "member": "rules/setup.md",
       "revision_digest": "343c4cc006bae87df950011fcb85d73f0b4fe814a428b17d5a712b2e875882d2",
       "role": "instructions",
       "source_id": "src_dd49f9c504f74211dde84a44c7f55a0a",
       "standing": "winning",
+      "startup": "required",
       "unit_id": "unt_732c1d79c0295886b2eb5b3b3a7ba9e2"
      },
      {
+      "concern": "deploy.checklist",
       "home_digest": "afab574f62c304303ef3a3ff443a110cbba76ebca738b55e8bf805767f97a7aa",
       "layer": "repository",
+      "member": "rules/deploy.md",
       "revision_digest": "d4ffe515fec73bd794fee943631ed368ac1befcbf00f94ae084b45f10a98b77b",
       "role": "instructions",
       "source_id": "src_0c663d89e40f6aaf14edf1e8c755ec7b",
       "standing": "winning",
+      "startup": "required",
       "unit_id": "unt_5d31c5c8c8c39f6bd8c42aad6c6b3f60"
      }
     ],
@@ -5210,7 +5402,7 @@
    }
   },
   {
-   "digest": "246ec7691500685748b5461347e2220bdc60e8903eec943e2a66093afcb8db43",
+   "digest": "2cab0bc8355a88bd35dd5ac909660ee4d8bd4474047114b8e11ee581ba471891",
    "name": "start_with_an_unavailable_winner_result",
    "record": {
     "kind": "operation_result",
@@ -5242,7 +5434,7 @@
     },
     "outputs": [
      {
-      "digest": "b3dfe575d80fdb783cb1d12388361517be61d588be20d008f345349e23a0a9bf",
+      "digest": "ff46a3fc74c21fb87a0039e54f103d698f694f046e1d9e23cbfee43051b692e8",
       "kind": "preparation"
      }
     ],
@@ -6155,7 +6347,7 @@
   }
  ],
  "says": "The repository and the Team each select an Instructions source whose review.md answers review.approval as a required startup unit; the Team's knowledge position selects two sources that both answer tax.rate with no precedence between them. The repository's revision is committed, but its review.md bytes are not held on this device. The first session start must name the repository unit as the winner with no body and the gap role_body_unavailable at that unit, and the Team unit for the same concern shadowed by it: a lower layer does not silently satisfy an inaccessible winner. The two tax.rate units are named unresolved, each with same_layer_unordered, and work support reads not_requested because no task was asked for. alice explicitly deselects the repository source (switches it off); the next start names that unit disabled, the Team unit wins, and the session is activated on it although tax.rate is still unresolved (the activation returns the instructions projection it routed: the Team unit winning, the repository unit disabled): an ambiguity no actual question needs holds nothing back and asks nothing at startup. The Team then states an explicit precedence between its two tax.rate sources, and the last start names the first winning and the second shadowed, with no gap. What must not happen: the Team unit reported as satisfying review.approval while the repository winner is unavailable, or the unrelated tax.rate ambiguity becoming a startup question.",
- "spec_sha256": "9553d1a16ddc39020d83ed2164f1a7d2179cceaf14fbf9c3e7daf473e52fe55f",
+ "spec_sha256": "dc51ffdfb6ede3be25da6a2daefd09803eb36c613a6952a4b35ec34f0581a4f5",
  "steps": [
   {
    "carries": [
@@ -6323,6 +6515,18 @@
   },
   {
    "carries": [
+    "repo_secret_rights_v1"
+   ],
+   "head": "repo_secret_h2",
+   "name": "set_repo_secret_rights_v1",
+   "request": "set_repo_secret_rights_v1",
+   "result": "set_repo_secret_rights_v1_result",
+   "returns": [
+    "repo_secret_rights_v1_stored"
+   ]
+  },
+  {
+   "carries": [
     "repo_broken_home"
    ],
    "head": "repo_broken_h0",
@@ -6450,5 +6654,17 @@
     "start_with_an_explicit_precedence_prepared"
    ]
   }
- ]
+ ],
+ "world": {
+  "events": [
+   {
+    "before": "start_with_an_unavailable_winner",
+    "bytes": "# Deploy checklist\n\nThis file was mid-edit on disk when the checkout was last read: the working copy no longer matches the committed revision rules/deploy.md was read at, and the object a fresh read now finds is not the one repo_broken_r1 committed.\n",
+    "digest": "4eb3e198eeb8d999a226227e2a5743a4d1fdff55513496968ec4f3155c68f4b0",
+    "kind": "file_edit",
+    "path": "rules/deploy.md",
+    "size": 250
+   }
+  ]
+ }
 }

@@ -116,6 +116,14 @@
   {
    "id": "req_3324e7a41758448d28f7b8a814e54958",
    "name": "alice_projects_rid"
+  },
+  {
+   "id": "req_9bbe03ffd6b0cfc09e788df021c10a9b",
+   "name": "resolve_repo_rules_home_rid"
+  },
+  {
+   "id": "req_8455226e5fa581294e4c07ad4ec98e61",
+   "name": "bob_projects_repo_rid"
   }
  ],
  "joins": [
@@ -742,6 +750,31 @@
   {
    "minted": "repo_rules_h2",
    "pointer": "/target/base/head_digest",
+   "record": "resolve_repo_rules_home"
+  },
+  {
+   "digest_of": "repo_rules_r1_stored",
+   "pointer": "/revision_digest",
+   "record": "repo_rules_ref"
+  },
+  {
+   "digest_of": "repo_rules_ref",
+   "pointer": "/payload_digest",
+   "record": "resolve_repo_rules_home"
+  },
+  {
+   "digest_of": "resolve_repo_rules_home",
+   "pointer": "/request_digest",
+   "record": "resolve_repo_rules_home_result"
+  },
+  {
+   "digest_of": "repo_rules_home_stored",
+   "pointer": "/outputs/0/digest",
+   "record": "resolve_repo_rules_home_result"
+  },
+  {
+   "minted": "repo_rules_h2",
+   "pointer": "/target/base/head_digest",
    "record": "set_repo_rules_rights_v2"
   },
   {
@@ -943,6 +976,21 @@
    "digest_of": "bob_projects_team",
    "pointer": "/request_digest",
    "record": "bob_projects_team_result"
+  },
+  {
+   "digest_of": "repo_rules_r1_stored",
+   "pointer": "/source_pins/0/revision_digest",
+   "record": "bob_projects_repo_plan"
+  },
+  {
+   "digest_of": "bob_projects_repo_plan",
+   "pointer": "/payload_digest",
+   "record": "bob_projects_repo"
+  },
+  {
+   "digest_of": "bob_projects_repo",
+   "pointer": "/request_digest",
+   "record": "bob_projects_repository_result"
   },
   {
    "minted": "team_rules_h2",
@@ -2729,6 +2777,77 @@
    }
   },
   {
+   "digest": "402f419b025250872caf2b83c84914671ca3e28407402aaabd73396a87bcac0f",
+   "name": "repo_rules_ref",
+   "record": {
+    "kind": "source_ref",
+    "revision_digest": "c1dfc98eebc7c31aa2060cb634a85264f27c1f94c666743bd79bd932a0b055df",
+    "role": "instructions",
+    "schema": 1,
+    "scope": {
+     "layer": "repository",
+     "repository_id": "rep_3f4fd9fac7994086c3844d213e23441f"
+    },
+    "source_id": "src_1ecf06360ebc89042e2b3a4b133f4d46"
+   }
+  },
+  {
+   "digest": "4c1fe7cd85a1843a6a9491279b6c7633f6fc040eacdb450375bbbab47d07c6d5",
+   "name": "resolve_repo_rules_home",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_93666ef16df123bbad1bd567150e5c68",
+     "principal_id": "prn_20f3fdee52d71d277102fde14bf2c286",
+     "profile_id": "prf_00b841993d683cbe184129f590945848"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "reference.resolve",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_3f4fd9fac7994086c3844d213e23441f"
+    },
+    "payload_digest": "402f419b025250872caf2b83c84914671ca3e28407402aaabd73396a87bcac0f",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_9bbe03ffd6b0cfc09e788df021c10a9b",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "ca11c2e9e276e3e5449db87849ae381c29292604bcc5c56ddf7fc607ada11d5f"
+     },
+     "resource_id": "src_1ecf06360ebc89042e2b3a4b133f4d46"
+    }
+   }
+  },
+  {
+   "digest": "89537e5917c7ca24001d71a2929328be0e283909700e15706298866f7e587347",
+   "name": "resolve_repo_rules_home_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "ec30070dfa3d0a86fe3645fcf75451e2f8b20e33b627e5fb0452570c30edde82",
+      "kind": "source_home"
+     }
+    ],
+    "provider_effect": "none",
+    "request_digest": "4c1fe7cd85a1843a6a9491279b6c7633f6fc040eacdb450375bbbab47d07c6d5",
+    "request_id": "req_9bbe03ffd6b0cfc09e788df021c10a9b",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
    "digest": "235bb0de0764e83f8aa905f2e444a07af9798c161f7f19e6b36d30ccb6e92a3c",
    "name": "repo_rules_rights_v2",
    "record": {
@@ -3330,6 +3449,85 @@
    }
   },
   {
+   "digest": "ae6e94d9c63a3a75a44cf6a2e2e9d0f42aa8fa0ef4463d3f9071e981f3c8c6bf",
+   "name": "bob_projects_repo_plan",
+   "record": {
+    "entrance": {
+     "name": "session_start",
+     "root_origin": "owner"
+    },
+    "kind": "projection_plan",
+    "order": [
+     {
+      "layer": "repository",
+      "repository_id": "rep_3f4fd9fac7994086c3844d213e23441f"
+     }
+    ],
+    "recipient_view": "executor",
+    "role": "instructions",
+    "schema": 1,
+    "source_pins": [
+     {
+      "revision_digest": "c1dfc98eebc7c31aa2060cb634a85264f27c1f94c666743bd79bd932a0b055df",
+      "source_id": "src_1ecf06360ebc89042e2b3a4b133f4d46"
+     }
+    ]
+   }
+  },
+  {
+   "digest": "0eaed8d0a0bdde691ef2b333920bee438eb209537bb056b98128fd3096eb37ab",
+   "name": "bob_projects_repo",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_2aeaed566b5850c9f9aaa6b31917a430",
+     "principal_id": "prn_cf3234ea4349c20cf5d22d9c4aba9fc3",
+     "profile_id": "prf_9c551547ab8f8bffe4dee4ba6860cb41"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "role.project",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_3f4fd9fac7994086c3844d213e23441f"
+    },
+    "payload_digest": "ae6e94d9c63a3a75a44cf6a2e2e9d0f42aa8fa0ef4463d3f9071e981f3c8c6bf",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_8455226e5fa581294e4c07ad4ec98e61",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_cf3234ea4349c20cf5d22d9c4aba9fc3"
+    }
+   }
+  },
+  {
+   "digest": "a06f89fe9fe0032ef0128506c8d0d272bef3a57263f4c35346f7195823f8254f",
+   "name": "bob_projects_repository_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [
+      {
+       "code": "source_not_authorized"
+      }
+     ],
+     "stage": "refused"
+    },
+    "outputs": [],
+    "provider_effect": "not_applicable",
+    "request_digest": "0eaed8d0a0bdde691ef2b333920bee438eb209537bb056b98128fd3096eb37ab",
+    "request_id": "req_8455226e5fa581294e4c07ad4ec98e61",
+    "schema": 1,
+    "supported_recovery": [
+     "new_governed_request"
+    ]
+   }
+  },
+  {
    "digest": "4b6f2bdd9288abc888b56b019ff3bfdb899ed29cd5ee77e4f1dea8de11f34689",
    "name": "team_rules_rights_v2",
    "record": {
@@ -3525,7 +3723,7 @@
   }
  ],
  "says": "The Team platform keeps a security rule source and, as that source's owner, sets its rights to read, use and derive, and not export. The repository reuses the Team's security.md bytes unchanged in a repository source of its own, and records rights for it that carry the Team source's rights and allow read and use: the reused bytes keep their owner's ceiling while the repository layer outranks the Team for the concern. A second rights change that would let the repository copy export those bytes is refused with source_right_not_overridable, and the first rights stay in force. bob, who works in the same repository with no grant from the Team, keeps an independent personal source and sets its rights to everything, export included; that commits with no Team policy named, because the Team's content policy does not reach content it does not own. bob's access is admitted for a projection of the Team's source (his profile is unlocked), and the projection itself is refused with source_not_authorized: admission and layer priority grant no right to a Team body. bob's attempt to widen the Team source's rights is refused with grant_not_held, since only the Team's owner changes Team-owned state. alice's projection over the repository and Team sources then names the repository security unit winning, with the Team's bytes by digest, and the Team unit shadowed by it. What must not happen: local content blocked by Team policy, a local override used to export or read protected Team bodies, or Team state changed by someone the Team did not authorize.",
- "spec_sha256": "f73c56182b7e5274ac17330ff70e593e5d71c0955c8f947af81fa36a80865ba3",
+ "spec_sha256": "b3fb06735e477ff9d0bef5422ec985cd9fbdd2b83a61ddf483ed4aeae9c2b299",
  "steps": [
   {
    "carries": [
@@ -3656,6 +3854,17 @@
   },
   {
    "carries": [
+    "repo_rules_ref"
+   ],
+   "name": "resolve_repo_rules_home",
+   "request": "resolve_repo_rules_home",
+   "result": "resolve_repo_rules_home_result",
+   "returns": [
+    "repo_rules_home_stored"
+   ]
+  },
+  {
+   "carries": [
     "repo_rules_rights_v2"
    ],
    "name": "let_the_copy_be_exported",
@@ -3716,6 +3925,15 @@
    "name": "bob_projects_team",
    "request": "bob_projects_team",
    "result": "bob_projects_team_result",
+   "returns": []
+  },
+  {
+   "carries": [
+    "bob_projects_repo_plan"
+   ],
+   "name": "bob_projects_repository",
+   "request": "bob_projects_repo",
+   "result": "bob_projects_repository_result",
    "returns": []
   },
   {

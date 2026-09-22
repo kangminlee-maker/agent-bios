@@ -206,16 +206,6 @@
    "digest_of": "register_closed_candidate_result",
    "pointer": "/outputs/0/digest",
    "record": "query_closed_registration_result"
-  },
-  {
-   "minted": "checkout_before_at",
-   "pointer": "/produced_at",
-   "record": "checkout_before"
-  },
-  {
-   "minted": "installed_before_at",
-   "pointer": "/produced_at",
-   "record": "installed_before"
   }
  ],
  "minted": [
@@ -958,7 +948,7 @@
    }
   },
   {
-   "digest": "21c249feb8c9777f945cbaf97189b21d45c3bdb32539477f3787134c3b48ca0c",
+   "digest": "f671303d63e65ec49084df1f7a1bde65a183d6119a4c145f1db28ce7f6547d11",
    "name": "checkout_before",
    "record": {
     "format_version": 1,
@@ -975,13 +965,13 @@
       "size": 918
      }
     ],
-    "produced_at": "2000-01-01T00:00:00Z",
+    "produced_at": "2026-09-21T09:00:00Z",
     "schema": 1,
     "source_id": "src_bd4584fef141edcdee56b3c41c41593a"
    }
   },
   {
-   "digest": "32f96f32d7d9883d5ce81dbbf19ca39661d574ef97c9f520e01d3ed7da481e00",
+   "digest": "4fc694dfc5767618af4771ddb68c3a6e53c4bac4c8d8c17ac0d2ec385933064c",
    "name": "installed_before",
    "record": {
     "format_version": 1,
@@ -998,14 +988,14 @@
       "size": 918
      }
     ],
-    "produced_at": "2000-01-01T00:00:00Z",
+    "produced_at": "2026-09-21T09:00:05Z",
     "schema": 1,
     "source_id": "src_1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a"
    }
   }
  ],
- "says": "Alice binds her device key and registers package candidates built from one commit of the integrated source. The first candidate packs install.sh, which reaches compose/assemble.py and compose/instructions_catalog.py when it runs, but no member provides compose/instructions_catalog.py: the owner refuses the registration with runtime_path_missing at /members/0/reaches/1, the place naming that path. The second candidate is closed but also packs gates/check-package.sh, a path the integrated source declares author-side: refused with author_side_member at that member's copied_from. The third lists a member with neither a source path nor a pack-time origin, and is refused at admission with missing_field at /members/0/origin. Each refusal writes nothing (local effect none, no receipt): a query by the first request id returns the same refused result and no receipt, and a query by the third, which the owner never admitted, is answered request_not_held. Only a candidate whose every reached path is a member, with no author-side member and an origin for each, is registered: the owner commits it and returns it exactly as submitted, and every path its members reach is one of its members. What must not happen: a candidate registered while a reached path is missing, an author-side file shipping, a member with no origin listed, or a refused registration writing anything to the source checkout or the user's installed state.",
- "spec_sha256": "7e0a62c7554e55359e1fcfda13be559755d4afa6e45f011d5971bc7bc68d3d91",
+ "says": "Alice binds her device key and registers package candidates built from one commit of the integrated source. The first candidate packs install.sh, which reaches compose/assemble.py and compose/instructions_catalog.py when it runs, but no member provides compose/instructions_catalog.py: the owner refuses the registration with runtime_path_missing at /members/0/reaches/1, the place naming that path. The second candidate is closed but also packs gates/check-package.sh, a path the integrated source declares author-side: refused with author_side_member at that member's copied_from. The third lists a member with neither a source path nor a pack-time origin, and is refused at admission with missing_field at /members/0/origin. Each refusal writes nothing (local effect none, no receipt): a query by the first request id returns the same refused result and no receipt, and a query by the third, which the owner never admitted, is answered request_not_held. Only a candidate whose every reached path is a member, with no author-side member and an origin for each, is registered: the harness packs the checkout once more, immediately before this closing registration, and the owner commits the closed candidate it built and returns it exactly as submitted, with every path its members reach one of its members. An inventory of the source checkout and of the user's installed state taken before the first, refused registration equals one taken after the closing registration and its query: nothing here, refused or committed, wrote to either. What must not happen: a candidate registered while a reached path is missing, an author-side file shipping, a member with no origin listed, or any registration — refused or committed — writing anything to the source checkout or the user's installed state.",
+ "spec_sha256": "2164d7475363ebe62c25c4b0bbcbf8bcd2efabf92813894c2f852f0aee5caffc",
  "steps": [
   {
    "carries": [
@@ -1108,6 +1098,11 @@
     "kind": "inventory",
     "root": "installed",
     "yields": "installed_before"
+   },
+   {
+    "before": "register_closed_candidate",
+    "kind": "build",
+    "yields": "closed_candidate"
    },
    {
     "before": "query_closed_registration",

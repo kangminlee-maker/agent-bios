@@ -96,6 +96,14 @@
   {
    "id": "req_5f95455e72c32a86c2b65145529be744",
    "name": "record_through_studio_hub_request_req"
+  },
+  {
+   "id": "req_ad8f668e915211b844485eb9d8310d98",
+   "name": "trace_app_request_req"
+  },
+  {
+   "id": "req_f8d51260df6ca5e52bd3169ed56d79bd",
+   "name": "project_via_app_request_req"
   }
  ],
  "joins": [
@@ -973,6 +981,101 @@
    "digest_of": "record_through_studio_hub_revision",
    "pointer": "/outputs/1/digest",
    "record": "record_through_studio_hub_result"
+  },
+  {
+   "digest_of": "app_disposition",
+   "pointer": "/payload_digest",
+   "record": "trace_app_request"
+  },
+  {
+   "digest_of": "trace_app_request",
+   "pointer": "/request_digest",
+   "record": "trace_app_receipt"
+  },
+  {
+   "minted": "trace_app_head",
+   "pointer": "/head_digest",
+   "record": "trace_app_receipt"
+  },
+  {
+   "minted": "trace_app_sequence",
+   "pointer": "/sequence",
+   "record": "trace_app_receipt"
+  },
+  {
+   "minted": "trace_app_committed_at",
+   "pointer": "/committed_at",
+   "record": "trace_app_receipt"
+  },
+  {
+   "digest_of": "trace_app_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "trace_app_result"
+  },
+  {
+   "digest_of": "trace_app_request",
+   "pointer": "/request_digest",
+   "record": "trace_app_result"
+  },
+  {
+   "digest_of": "app_disposition",
+   "pointer": "/outputs/0/digest",
+   "record": "trace_app_result"
+  },
+  {
+   "digest_of": "setup_handle",
+   "pointer": "/proof_digests/0",
+   "record": "project_via_app_request"
+  },
+  {
+   "digest_of": "repo_rules_rev",
+   "pointer": "/source_pins/0/revision_digest",
+   "record": "app_plan"
+  },
+  {
+   "digest_of": "app_plan",
+   "pointer": "/payload_digest",
+   "record": "project_via_app_request"
+  },
+  {
+   "digest_of": "app_plan",
+   "pointer": "/plan_digest",
+   "record": "app_projection"
+  },
+  {
+   "minted": "app_projection_at",
+   "pointer": "/prepared_at",
+   "record": "app_projection"
+  },
+  {
+   "minted": "app_projection_id",
+   "pointer": "/projection_id",
+   "record": "app_projection"
+  },
+  {
+   "minted": "repo_rules_review_body",
+   "pointer": "/units/0/body_digest",
+   "record": "app_projection"
+  },
+  {
+   "digest_of": "repo_rules_rev",
+   "pointer": "/units/0/revision_digest",
+   "record": "app_projection"
+  },
+  {
+   "minted": "app_projection_unit",
+   "pointer": "/units/0/unit_id",
+   "record": "app_projection"
+  },
+  {
+   "digest_of": "project_via_app_request",
+   "pointer": "/request_digest",
+   "record": "project_via_app_result"
+  },
+  {
+   "digest_of": "app_projection",
+   "pointer": "/outputs/0/digest",
+   "record": "project_via_app_result"
   }
  ],
  "minted": [
@@ -1330,6 +1433,36 @@
    "name": "record_through_studio_hub_sequence",
    "shape": "integer",
    "step": "record_through_studio_hub"
+  },
+  {
+   "name": "trace_app_committed_at",
+   "shape": "instant",
+   "step": "trace_app"
+  },
+  {
+   "name": "trace_app_head",
+   "shape": "digest",
+   "step": "trace_app"
+  },
+  {
+   "name": "trace_app_sequence",
+   "shape": "integer",
+   "step": "trace_app"
+  },
+  {
+   "name": "app_projection_at",
+   "shape": "instant",
+   "step": "project_via_app"
+  },
+  {
+   "name": "app_projection_id",
+   "shape": "prj",
+   "step": "project_via_app"
+  },
+  {
+   "name": "app_projection_unit",
+   "shape": "unt",
+   "step": "project_via_app"
   }
  ],
  "records": [
@@ -3193,10 +3326,205 @@
     "schema": 1,
     "supported_recovery": []
    }
+  },
+  {
+   "digest": "31aa4e0e18fc01f0862763c4ec5fa2bf7ae969fec68cb72ffc95577778e96dd2",
+   "name": "app_disposition",
+   "record": {
+    "disposition": {
+     "admits": [
+      "role.project"
+     ],
+     "owns": "publication_lock",
+     "root_origin": "caller",
+     "state": "choke_point"
+    },
+    "entrance": {
+     "name": "setup"
+    },
+    "kind": "entrance_disposition",
+    "route": {
+     "path": "compose/instructions_app.py"
+    },
+    "schema": 1,
+    "traced_at": "2026-09-21T14:00:00Z"
+   }
+  },
+  {
+   "digest": "9cb6616c3d2a440871bcebafc19133b80ac95bca68480dd18becfc0373ff00cc",
+   "name": "trace_app_request",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_26fc1a67b0b422425bcd73ba423c799b",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346",
+     "profile_id": "prf_bb4e47b2fd39ab63d754af4a43700f84"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "entrance.disposition.record",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346"
+    },
+    "payload_digest": "31aa4e0e18fc01f0862763c4ec5fa2bf7ae969fec68cb72ffc95577778e96dd2",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_ad8f668e915211b844485eb9d8310d98",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_bb4e47b2fd39ab63d754af4a43700f84"
+    }
+   }
+  },
+  {
+   "digest": "9b0ed06950154beb154339ae120b32fa49531f404c8206074b9c316a1bf3c3fe",
+   "name": "trace_app_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "02ef876a5235d0722f3e8908ad8f87461fc52d8f49aa08b85eff530af3c94435",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346"
+    },
+    "request_digest": "9cb6616c3d2a440871bcebafc19133b80ac95bca68480dd18becfc0373ff00cc",
+    "request_id": "req_ad8f668e915211b844485eb9d8310d98",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_bb4e47b2fd39ab63d754af4a43700f84"
+    }
+   }
+  },
+  {
+   "digest": "9dc23b26f8fa608d56fb35fba81aec849ee22b95c2a51f5050023d47629f8c63",
+   "name": "trace_app_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "9b0ed06950154beb154339ae120b32fa49531f404c8206074b9c316a1bf3c3fe",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "31aa4e0e18fc01f0862763c4ec5fa2bf7ae969fec68cb72ffc95577778e96dd2",
+      "kind": "entrance_disposition"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "9cb6616c3d2a440871bcebafc19133b80ac95bca68480dd18becfc0373ff00cc",
+    "request_id": "req_ad8f668e915211b844485eb9d8310d98",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "0dfd1f7af061f015a9c1c8490290c1bc8ad9c632090665c71a5ff539c486cdb0",
+   "name": "app_plan",
+   "record": {
+    "entrance": {
+     "name": "setup",
+     "root_origin": "caller"
+    },
+    "kind": "projection_plan",
+    "recipient_view": "executor",
+    "role": "instructions",
+    "schema": 1,
+    "source_pins": [
+     {
+      "revision_digest": "f4c0105a4e07c6747ca65afa8dcaf72c6ba0ff8d659a5632b0b7d20fde3a7692",
+      "source_id": "src_9fcfb24e8f6b2fe84b22c42f31e7fea9"
+     }
+    ]
+   }
+  },
+  {
+   "digest": "83c94b910cd444c0ff4969a675ab8265460983a982d45ff6324497c91238d7d7",
+   "name": "project_via_app_request",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_26fc1a67b0b422425bcd73ba423c799b",
+     "principal_id": "prn_630b59abb31c4c437d6e6d0b76175346",
+     "profile_id": "prf_bb4e47b2fd39ab63d754af4a43700f84"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "role.project",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_dd0bbb5181d59816c36a0389958bf1b0"
+    },
+    "payload_digest": "0dfd1f7af061f015a9c1c8490290c1bc8ad9c632090665c71a5ff539c486cdb0",
+    "policy_digests": [],
+    "proof_digests": [
+     "7e3f913c1f2ad0d6a748a60f8443529ec34ffb114e873c178a1df41e7af70468"
+    ],
+    "request_id": "req_f8d51260df6ca5e52bd3169ed56d79bd",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_630b59abb31c4c437d6e6d0b76175346"
+    }
+   }
+  },
+  {
+   "digest": "8f9302ede331585c956fcae288fe8957830bc24781363ccd35d378c359d4a27e",
+   "name": "app_projection",
+   "record": {
+    "kind": "role_projection",
+    "material_gaps": [],
+    "plan_digest": "0dfd1f7af061f015a9c1c8490290c1bc8ad9c632090665c71a5ff539c486cdb0",
+    "prepared_at": "2000-01-01T00:00:00Z",
+    "projection_id": "prj_afec0ae60109568ea24467a344049bdd",
+    "recipient_view": "executor",
+    "role": "instructions",
+    "schema": 1,
+    "units": [
+     {
+      "body_digest": "2641fea60c8c32d8645fb78263bd5141ee952f5be11ebb7f79a08594eb0b7d06",
+      "layer": "repository",
+      "revision_digest": "f4c0105a4e07c6747ca65afa8dcaf72c6ba0ff8d659a5632b0b7d20fde3a7692",
+      "source_id": "src_9fcfb24e8f6b2fe84b22c42f31e7fea9",
+      "source_role": "instructions",
+      "standing": "layered",
+      "unit_id": "unt_728a9ae3b23b518b9bf825cf9441c51f"
+     }
+    ]
+   }
+  },
+  {
+   "digest": "3578f7996fce95906488bef885e85a8535c19c41c37d2decb182946eb6f3ffba",
+   "name": "project_via_app_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "8f9302ede331585c956fcae288fe8957830bc24781363ccd35d378c359d4a27e",
+      "kind": "role_projection"
+     }
+    ],
+    "provider_effect": "none",
+    "request_digest": "83c94b910cd444c0ff4969a675ab8265460983a982d45ff6324497c91238d7d7",
+    "request_id": "req_f8d51260df6ca5e52bd3169ed56d79bd",
+    "schema": 1,
+    "supported_recovery": []
+   }
   }
  ],
- "says": "Four entrances are traced and recorded on Alice's profile with the guard each reaches kept state through: setup is a choke point of the projection owner admitting role.project and session.routing.activate; session start and a maintenance command, both with roots the caller chooses, are routed through the projection owner; the studio hub is a choke point of the source store admitting source and memory writes. The access owner then issues Alice a handle through each entrance she will ask through - setup, session start, maintenance and the studio hub - and every later request names the handle of the entrance it came through among its proofs. A repository's rules revision is projected for the executor view through each entrance whose guard is the projection owner - setup, session start and maintenance - and each projection succeeds with the rules body; for setup, the access owner first answers that exact request, under the setup handle at the current generation, as allowed. The memory write the studio hub's store admits, publishing a choice to the repository's memory under the studio hub's handle, succeeds as well. Nothing is projected through the store's entrances, because their dispositions do not admit role.project, and no entrance is asked for an operation its disposition does not name.",
- "spec_sha256": "06e4f79233790ddc2f836076781fadb8b0ba244c4ae7c26afba599eff195ee07",
+ "says": "Four entrances are traced and recorded on Alice's profile with the guard each reaches kept state through: setup is a choke point of the projection owner admitting role.project and session.routing.activate; session start and a maintenance command, both with roots the caller chooses, are routed through the projection owner; the studio hub is a choke point of the source store admitting source and memory writes. The access owner then issues Alice a handle through each entrance she will ask through - setup, session start, maintenance and the studio hub - and every later request names the handle of the entrance it came through among its proofs. A repository's rules revision is projected for the executor view through each entrance whose guard is the projection owner - setup, session start and maintenance - and each projection succeeds with the rules body; for setup, the access owner first answers that exact request, under the setup handle at the current generation, as allowed. The memory write the studio hub's store admits, publishing a choice to the repository's memory under the studio hub's handle, succeeds as well. Nothing is projected through the store's entrances, because their dispositions do not admit role.project, and no entrance is asked for an operation its disposition does not name. Compose/instructions_app.py is traced and recorded as the choke point of the publication lock, admitting role.project; Alice's setup handle, already issued through the setup entrance, also proves a request through this route, and projecting the repository's rules for the executor view through it succeeds the same way as through the projection owner's entrances.",
+ "spec_sha256": "3a6e8dc4f8fada270bbbc5468a262bfcc9d02082606336bdba19831999347848",
  "steps": [
   {
    "carries": [
@@ -3425,6 +3753,31 @@
    ],
    "route": {
     "path": "compose/instructions_store.py"
+   }
+  },
+  {
+   "carries": [
+    "app_disposition"
+   ],
+   "name": "trace_app",
+   "request": "trace_app_request",
+   "result": "trace_app_result",
+   "returns": [
+    "app_disposition"
+   ]
+  },
+  {
+   "carries": [
+    "app_plan"
+   ],
+   "name": "project_via_app",
+   "request": "project_via_app_request",
+   "result": "project_via_app_result",
+   "returns": [
+    "app_projection"
+   ],
+   "route": {
+    "path": "compose/instructions_app.py"
    }
   }
  ]

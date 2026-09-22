@@ -102,6 +102,11 @@
    "record": "bind_device_key_result"
   },
   {
+   "digest_of": "rates_csv",
+   "pointer": "/members/1/digest",
+   "record": "pkg_manifest"
+  },
+  {
    "digest_of": "pkg_manifest",
    "pointer": "/route/revision_digest",
    "record": "install_payload"
@@ -242,6 +247,11 @@
    "record": "package_ref"
   },
   {
+   "digest_of": "rates_csv",
+   "pointer": "/member/digest",
+   "record": "package_ref"
+  },
+  {
    "digest_of": "package_ref",
    "pointer": "/payload_digest",
    "record": "resolve"
@@ -264,6 +274,11 @@
   {
    "digest_of": "stored_home",
    "pointer": "/outputs/2/digest",
+   "record": "resolve_installed_member_result"
+  },
+  {
+   "digest_of": "rates_csv",
+   "pointer": "/outputs/3/digest",
    "record": "resolve_installed_member_result"
   },
   {
@@ -305,6 +320,14 @@
    "digest_of": "no_choice",
    "pointer": "/outputs/0/digest",
    "record": "ask_for_the_current_choice_result"
+  }
+ ],
+ "members": [
+  {
+   "digest": "0f59a1191ed7acd2eddb35bed503d44d3f5e1421104f01b049fd03a68a8a1505",
+   "name": "rates_csv",
+   "size": 41,
+   "text": "category,rate\nstandard,0.20\nreduced,0.05\n"
   }
  ],
  "minted": [
@@ -500,7 +523,7 @@
    }
   },
   {
-   "digest": "bc87d32b54755b57fe05ed081cc1ba4776546d1471b2c7326d9853c6ee8682e5",
+   "digest": "cb3eee2cf4e777fc61bf999a35b1ac9b66c883896f7a07f9ba397d933f741b18",
    "name": "pkg_manifest",
    "record": {
     "format_version": 1,
@@ -512,9 +535,9 @@
       "size": 4120
      },
      {
-      "digest": "2702a48949ff2ef94c13c8f8e0a45a7a481e0e19482d3ffa8f8fc2c584a1d2c2",
+      "digest": "0f59a1191ed7acd2eddb35bed503d44d3f5e1421104f01b049fd03a68a8a1505",
       "path": "tables/rates.csv",
-      "size": 918
+      "size": 41
      }
     ],
     "produced_at": "2026-09-20T09:00:00Z",
@@ -523,7 +546,7 @@
    }
   },
   {
-   "digest": "98e6583828fdeb27a2148f2f029ea738ee8543b698a9f57fbb35d8b84aa27bb8",
+   "digest": "a96a8a696d93e9b09e9c7815ad5c870082fc24648538e2d37f2a073acc691c00",
    "name": "install_payload",
    "record": {
     "destination": {
@@ -537,14 +560,14 @@
     "role": "knowledge",
     "route": {
      "package_id": "pkg_08944764bfb3d0ac0f96b4f54471a54c",
-     "revision_digest": "bc87d32b54755b57fe05ed081cc1ba4776546d1471b2c7326d9853c6ee8682e5",
+     "revision_digest": "cb3eee2cf4e777fc61bf999a35b1ac9b66c883896f7a07f9ba397d933f741b18",
      "route": "add_published_package"
     },
     "schema": 1
    }
   },
   {
-   "digest": "ccf99e4b6b5d73fa3ba903ce0c88b97f04c9da1a0b8bdcdcf1d74652338c3ef6",
+   "digest": "b8101c32f618e7c06a171b5d11f12fd68721106cc397b8915907b7dfccb66498",
    "name": "install",
    "record": {
     "action": "contribute",
@@ -562,7 +585,7 @@
      "layer": "personal",
      "principal_id": "prn_6f0377da457c8641e396820866937d38"
     },
-    "payload_digest": "98e6583828fdeb27a2148f2f029ea738ee8543b698a9f57fbb35d8b84aa27bb8",
+    "payload_digest": "a96a8a696d93e9b09e9c7815ad5c870082fc24648538e2d37f2a073acc691c00",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_7807992249dc3955b442cb78e96349e4",
@@ -576,7 +599,7 @@
    }
   },
   {
-   "digest": "ac7ed6e23f8139c8dfaf68a28f141f6ef17865242fd598e42405ef392d78ae51",
+   "digest": "a08bf0ccb5ef16e182926cc4e466fa3ab3818cec93460e304d7e335a824b0531",
    "name": "install_package_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -586,7 +609,7 @@
      "layer": "personal",
      "principal_id": "prn_6f0377da457c8641e396820866937d38"
     },
-    "request_digest": "ccf99e4b6b5d73fa3ba903ce0c88b97f04c9da1a0b8bdcdcf1d74652338c3ef6",
+    "request_digest": "b8101c32f618e7c06a171b5d11f12fd68721106cc397b8915907b7dfccb66498",
     "request_id": "req_7807992249dc3955b442cb78e96349e4",
     "schema": 1,
     "sequence": 1,
@@ -651,19 +674,19 @@
    }
   },
   {
-   "digest": "5ca8e505279d69179e34bcffdbd9a56131080c0ac087ed5dc835661be41bcf03",
+   "digest": "856887a9c5ffe1fcf4a81a84191613abceea7c9b9743cf2e258e4d3ce00e1f51",
    "name": "install_package_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "ac7ed6e23f8139c8dfaf68a28f141f6ef17865242fd598e42405ef392d78ae51",
+     "receipt_digest": "a08bf0ccb5ef16e182926cc4e466fa3ab3818cec93460e304d7e335a824b0531",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "bc87d32b54755b57fe05ed081cc1ba4776546d1471b2c7326d9853c6ee8682e5",
+      "digest": "cb3eee2cf4e777fc61bf999a35b1ac9b66c883896f7a07f9ba397d933f741b18",
       "kind": "source_manifest"
      },
      {
@@ -672,7 +695,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "ccf99e4b6b5d73fa3ba903ce0c88b97f04c9da1a0b8bdcdcf1d74652338c3ef6",
+    "request_digest": "b8101c32f618e7c06a171b5d11f12fd68721106cc397b8915907b7dfccb66498",
     "request_id": "req_7807992249dc3955b442cb78e96349e4",
     "schema": 1,
     "supported_recovery": []
@@ -847,16 +870,16 @@
    }
   },
   {
-   "digest": "799a488b24470cf5fe5f91936c9de23a8465ab4deed4f6fd54899fa970407db0",
+   "digest": "8471e656d12b0021ee7c4908de04a793ce34e3eb132d8da933a3d7c4d525686d",
    "name": "package_ref",
    "record": {
     "kind": "source_ref",
     "member": {
-     "digest": "2702a48949ff2ef94c13c8f8e0a45a7a481e0e19482d3ffa8f8fc2c584a1d2c2",
+     "digest": "0f59a1191ed7acd2eddb35bed503d44d3f5e1421104f01b049fd03a68a8a1505",
      "path": "tables/rates.csv",
-     "size": 918
+     "size": 41
     },
-    "revision_digest": "bc87d32b54755b57fe05ed081cc1ba4776546d1471b2c7326d9853c6ee8682e5",
+    "revision_digest": "cb3eee2cf4e777fc61bf999a35b1ac9b66c883896f7a07f9ba397d933f741b18",
     "role": "knowledge",
     "schema": 1,
     "scope": {
@@ -867,7 +890,7 @@
    }
   },
   {
-   "digest": "52ecf21fba75aebda2f34a71333176dc23c97c815e490457153efb432acf84b8",
+   "digest": "e9ec2af6f9c71c2b02cb034a39984c7bb44bfe9e9f8d19974a30e9a63706f40f",
    "name": "resolve",
    "record": {
     "action": "read",
@@ -885,7 +908,7 @@
      "layer": "personal",
      "principal_id": "prn_6f0377da457c8641e396820866937d38"
     },
-    "payload_digest": "799a488b24470cf5fe5f91936c9de23a8465ab4deed4f6fd54899fa970407db0",
+    "payload_digest": "8471e656d12b0021ee7c4908de04a793ce34e3eb132d8da933a3d7c4d525686d",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_f0c32bd7ba7f82b56f1525bf976bad67",
@@ -900,7 +923,7 @@
    }
   },
   {
-   "digest": "c5261e40175e543ad0f37ec5ec463105d4620065fa957ba31ce010590c6f5d39",
+   "digest": "83968d07df5d58a9efdff97afd85ce2d72353e61efee92fcad62e758898488f5",
    "name": "resolve_installed_member_result",
    "record": {
     "kind": "operation_result",
@@ -911,7 +934,7 @@
     },
     "outputs": [
      {
-      "digest": "bc87d32b54755b57fe05ed081cc1ba4776546d1471b2c7326d9853c6ee8682e5",
+      "digest": "cb3eee2cf4e777fc61bf999a35b1ac9b66c883896f7a07f9ba397d933f741b18",
       "kind": "source_manifest"
      },
      {
@@ -921,10 +944,14 @@
      {
       "digest": "1fab3603cbd52da58f08227258e25f44778a0212a47ffc4eb89875d4e3682efd",
       "kind": "source_home"
+     },
+     {
+      "digest": "0f59a1191ed7acd2eddb35bed503d44d3f5e1421104f01b049fd03a68a8a1505",
+      "kind": "source_member"
      }
     ],
     "provider_effect": "none",
-    "request_digest": "52ecf21fba75aebda2f34a71333176dc23c97c815e490457153efb432acf84b8",
+    "request_digest": "e9ec2af6f9c71c2b02cb034a39984c7bb44bfe9e9f8d19974a30e9a63706f40f",
     "request_id": "req_f0c32bd7ba7f82b56f1525bf976bad67",
     "schema": 1,
     "supported_recovery": []
@@ -1097,8 +1124,8 @@
    }
   }
  ],
- "says": "A person with no Team installs a product-supplied knowledge package into their own scope through the add_published_package route (source.revision.admit), naming the exact revision by the digest of the publisher's manifest. The owner commits it and returns that same manifest and a provenance whose origin is the product-supplied package with its publisher evidence, whose acceptance is not_accepted, and which keeps the package's illustrative ADR statements (author, decision date, status Accepted, a council approval) as stated_only claims. The person registers the publisher-owned home (package_published, the package id and license conditions) and resolves an exact member back to the same manifest and provenance, with that publisher-owned home as it stands at the head the registration left. Negative: a commit of a manifest that edits a publisher member in place is refused with publisher_bytes_modified and nothing changes; installing records no Team acceptance, adoption or history, and asking the person's memory state for the decision the illustrative ADR describes returns no entry, because an example ADR in a package is not a past choice of this person or any Team.",
- "spec_sha256": "bcd91f480af4812e55fcc9651935aff77325218d023defe62e09fad46cd354dd",
+ "says": "A person with no Team installs a product-supplied knowledge package into their own scope through the add_published_package route (source.revision.admit), naming the exact revision by the digest of the publisher's manifest. The owner commits it and returns that same manifest and a provenance whose origin is the product-supplied package with its publisher evidence, whose acceptance is not_accepted, and which keeps the package's illustrative ADR statements (author, decision date, status Accepted, a council approval) as stated_only claims. The person registers the publisher-owned home (package_published, the package id and license conditions) and resolves an exact member back to the same manifest, provenance and that member's own bytes, with the publisher-owned home as it stands at the head the registration left. Negative: a commit of a manifest that edits a publisher member in place is refused with publisher_bytes_modified and nothing changes; installing records no Team acceptance, adoption or history, and asking the person's memory state for the decision the illustrative ADR describes returns no entry, because an example ADR in a package is not a past choice of this person or any Team.",
+ "spec_sha256": "661bd746c1fa926b441cae62152ded7992571c697e848449e1c5c96a0cea68ef",
  "steps": [
   {
    "carries": [
@@ -1146,7 +1173,8 @@
    "returns": [
     "pkg_manifest",
     "pkg_provenance",
-    "stored_home"
+    "stored_home",
+    "rates_csv"
    ]
   },
   {

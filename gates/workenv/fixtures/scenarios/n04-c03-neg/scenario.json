@@ -5030,8 +5030,8 @@
    }
   }
  ],
- "says": "Alice and Bob each have a principal; Bob keeps private rules in his personal source, and Alice's repository has its own rules. The access owner issues Alice a handle through each of eight entrances - setup, session start, maintenance, the studio hub, capture intake, the host launcher, supplied requests, and the old corpus-store compatibility route while it is still a route - and every later request names the handle of the entrance it came through among its proofs. The seven entrances that reach kept state are recorded with their guards, the compatibility route is recorded as retired at cutover naming the store that succeeds it, and a registered package candidate is installed by one fresh-start cutover, which retires that route. Alice then asks, through each of the seven entrances and from a root she chose (as with --repo or AGENT_BIOS_STATE_DIR pointing at another directory), for a projection of Bob's rules: every request is refused as source_not_authorized and returns nothing. Asking for her own repository's rules through capture intake and supplied requests, whose guard is the source store rather than the projection owner, is refused as protected_root_bypass. Asking under the compatibility route's handle is refused as route_retired at that proof, and asking for a new handle through that route is refused as route_retired at its entrance: the retired route names its successor and serves nothing itself. No refused request may return a projection, a handle or any body.",
- "spec_sha256": "bf754a4859f537ca16176fa1b7f7b33c1c08f5bae64596e10d31cf31b91f7858",
+ "says": "Alice and Bob each have a principal; Bob keeps private rules in his personal source, and Alice's repository has its own rules. The access owner issues Alice a handle through each of eight entrances - setup, session start, maintenance, the studio hub, capture intake, the host launcher, supplied requests, and the old corpus-store compatibility route while it is still a route - and every later request names the handle of the entrance it came through among its proofs. The seven entrances that reach kept state are recorded with their guards, the compatibility route is recorded as retired at cutover naming the store that succeeds it, and a registered package candidate is installed by one fresh-start cutover, which retires that route. Alice then asks, through each of the seven entrances and from a root she chose (as with --repo or AGENT_BIOS_STATE_DIR pointing at another directory - the setup entrance overridden with --repo and the studio hub with AGENT_BIOS_STATE_DIR), for a projection of Bob's rules: every request is refused as source_not_authorized and returns nothing. Asking for her own repository's rules through capture intake and supplied requests, whose guard is the source store rather than the projection owner, is refused as protected_root_bypass. Asking under the compatibility route's handle is refused as route_retired at that proof, and asking for a new handle through that route is refused as route_retired at its entrance: the retired route names its successor and serves nothing itself. No refused request may return a projection, a handle or any body.",
+ "spec_sha256": "56c0b5b3178a98ab39013c48aef24ad88436fcc5c407172c283a50f953478e4f",
  "steps": [
   {
    "carries": [
@@ -5319,7 +5319,11 @@
    "result": "deny_via_setup_result",
    "returns": [],
    "route": {
-    "path": "compose/instructions_install.py"
+    "path": "compose/instructions_install.py",
+    "root_override": {
+     "by": "repo_argument",
+     "root": "/alt/repo"
+    }
    }
   },
   {
@@ -5355,7 +5359,11 @@
    "result": "deny_via_studio_hub_result",
    "returns": [],
    "route": {
-    "path": "compose/instructions_store.py"
+    "path": "compose/instructions_store.py",
+    "root_override": {
+     "by": "state_dir_environment",
+     "root": "/alt/state"
+    }
    }
   },
   {

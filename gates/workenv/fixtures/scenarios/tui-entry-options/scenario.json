@@ -100,6 +100,10 @@
   {
    "id": "req_2cb41f5d854167f25fee8dda293d0516",
    "name": "exact_link_request_id"
+  },
+  {
+   "id": "req_32b1891222e830f173b6bf4309505a1f",
+   "name": "activate_request"
   }
  ],
  "joins": [
@@ -714,6 +718,11 @@
    "record": "start_preparation"
   },
   {
+   "digest_of": "instr_home_stored",
+   "pointer": "/units/0/home_digest",
+   "record": "start_preparation"
+  },
+  {
    "minted": "instr_bytes",
    "pointer": "/units/0/body_digest",
    "record": "start_preparation"
@@ -782,6 +791,96 @@
    "digest_of": "selection_outcome",
    "pointer": "/outputs/0/digest",
    "record": "select_start_result"
+  },
+  {
+   "digest_of": "start_preparation",
+   "pointer": "/preparation_digest",
+   "record": "activation"
+  },
+  {
+   "digest_of": "activation",
+   "pointer": "/payload_digest",
+   "record": "activation_request"
+  },
+  {
+   "digest_of": "activation_request",
+   "pointer": "/request_digest",
+   "record": "activate_session_receipt"
+  },
+  {
+   "minted": "activate_session_head",
+   "pointer": "/head_digest",
+   "record": "activate_session_receipt"
+  },
+  {
+   "minted": "activate_session_sequence",
+   "pointer": "/sequence",
+   "record": "activate_session_receipt"
+  },
+  {
+   "minted": "activate_session_committed_at",
+   "pointer": "/committed_at",
+   "record": "activate_session_receipt"
+  },
+  {
+   "minted": "start_activation_plan",
+   "pointer": "/plan_digest",
+   "record": "start_projection"
+  },
+  {
+   "minted": "start_projection_id",
+   "pointer": "/projection_id",
+   "record": "start_projection"
+  },
+  {
+   "minted": "start_routing_at",
+   "pointer": "/prepared_at",
+   "record": "start_projection"
+  },
+  {
+   "minted": "instr_unit",
+   "pointer": "/units/0/unit_id",
+   "record": "start_projection"
+  },
+  {
+   "digest_of": "instr_revision",
+   "pointer": "/units/0/revision_digest",
+   "record": "start_projection"
+  },
+  {
+   "minted": "instr_bytes",
+   "pointer": "/units/0/body_digest",
+   "record": "start_projection"
+  },
+  {
+   "digest_of": "start_projection",
+   "pointer": "/delivery/projections/0",
+   "record": "start_routing"
+  },
+  {
+   "minted": "start_routing_at",
+   "pointer": "/routed_at",
+   "record": "start_routing"
+  },
+  {
+   "digest_of": "activate_session_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "activate_session_result"
+  },
+  {
+   "digest_of": "activation_request",
+   "pointer": "/request_digest",
+   "record": "activate_session_result"
+  },
+  {
+   "digest_of": "start_routing",
+   "pointer": "/outputs/0/digest",
+   "record": "activate_session_result"
+  },
+  {
+   "digest_of": "start_projection",
+   "pointer": "/outputs/1/digest",
+   "record": "activate_session_result"
   },
   {
    "digest_of": "offer_stored",
@@ -1059,6 +1158,36 @@
    "name": "selection_at",
    "shape": "instant",
    "step": "select_start"
+  },
+  {
+   "name": "activate_session_committed_at",
+   "shape": "instant",
+   "step": "activate_session"
+  },
+  {
+   "name": "activate_session_head",
+   "shape": "digest",
+   "step": "activate_session"
+  },
+  {
+   "name": "activate_session_sequence",
+   "shape": "integer",
+   "step": "activate_session"
+  },
+  {
+   "name": "start_activation_plan",
+   "shape": "digest",
+   "step": "activate_session"
+  },
+  {
+   "name": "start_projection_id",
+   "shape": "prj",
+   "step": "activate_session"
+  },
+  {
+   "name": "start_routing_at",
+   "shape": "instant",
+   "step": "activate_session"
   },
   {
    "name": "decide_refused_at",
@@ -3096,7 +3225,7 @@
    }
   },
   {
-   "digest": "748f6c712ebb308533f4db85296d91504ef161a016f8f27d699362e0d7c90086",
+   "digest": "2cbbcab50ae2caff0d02eb0cf72f6be24736f7b407b38d04155c4367db519850",
    "name": "start_preparation",
    "record": {
     "adapter": {
@@ -3143,6 +3272,7 @@
     "units": [
      {
       "body_digest": "55610600f2885bf7202a42054b42c1d5ff9f1c3e6d5fa41fcd9f9b0e9c6592dc",
+      "home_digest": "3a1c177fa2313f03bd6e2d2d1a11e55c38bc64ab5f3117cb29d67c75292105f8",
       "layer": "repository",
       "revision_digest": "be50564de5646174e8ea0853d6c7a236aff9740cf7adb94a13981977362f3883",
       "role": "instructions",
@@ -3157,7 +3287,7 @@
    }
   },
   {
-   "digest": "cef231ba9c63e170c893908f2ec7317edb81cc935a67720aff506e94e94ea9f0",
+   "digest": "8e480e8a7f9fecf1f45ad02b127713c75c902c98d236cbe2ebd34781958c2ea1",
    "name": "compose_start_result",
    "record": {
     "kind": "operation_result",
@@ -3168,7 +3298,7 @@
     },
     "outputs": [
      {
-      "digest": "748f6c712ebb308533f4db85296d91504ef161a016f8f27d699362e0d7c90086",
+      "digest": "2cbbcab50ae2caff0d02eb0cf72f6be24736f7b407b38d04155c4367db519850",
       "kind": "preparation"
      }
     ],
@@ -3246,7 +3376,7 @@
    }
   },
   {
-   "digest": "2aeec198096e65a54f5230c0f876327d9b2756c84421d0d0b55a11749aa40198",
+   "digest": "f56ebb94ef6ba360c6569894573e91db4c6a2b31b5c2d25829ed9d31f6c837fa",
    "name": "selection_outcome",
    "record": {
     "at": "2000-01-01T00:00:00Z",
@@ -3263,13 +3393,13 @@
     },
     "result": {
      "got": "result",
-     "output_digest": "748f6c712ebb308533f4db85296d91504ef161a016f8f27d699362e0d7c90086"
+     "output_digest": "2cbbcab50ae2caff0d02eb0cf72f6be24736f7b407b38d04155c4367db519850"
     },
     "schema": 1
    }
   },
   {
-   "digest": "4f4cac7b0dddff5015fcb2d600f682d4cd882d0fc24f56a86529bb1b551c7380",
+   "digest": "de6ed52cb47eca301553356d8f71a71d194f76ad88ac597ae22ce8a21787b4b1",
    "name": "select_start_result",
    "record": {
     "kind": "operation_result",
@@ -3281,13 +3411,162 @@
     },
     "outputs": [
      {
-      "digest": "2aeec198096e65a54f5230c0f876327d9b2756c84421d0d0b55a11749aa40198",
+      "digest": "f56ebb94ef6ba360c6569894573e91db4c6a2b31b5c2d25829ed9d31f6c837fa",
       "kind": "route_outcome"
      }
     ],
     "provider_effect": "not_applicable",
     "request_digest": "8c12df038dabbed595fa85d53e7d636e27ed41561d3d795e12edebab8d76a362",
     "request_id": "req_a5edf5ae77c88922d6897b58c663c8b2",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "17d26f160f6bcdbfa93574665fafd47608e5fa3a07806d6c6a512c6f1308ae36",
+   "name": "activation",
+   "record": {
+    "kind": "session_activation",
+    "preparation_digest": "2cbbcab50ae2caff0d02eb0cf72f6be24736f7b407b38d04155c4367db519850",
+    "schema": 1,
+    "session": {
+     "host": {
+      "name": "claude-code",
+      "version": "2.1.278"
+     },
+     "profile_id": "prf_a685c9283e187989b60506b032b7665f"
+    }
+   }
+  },
+  {
+   "digest": "edca01d76e7faa994fa3dd1164160ef77570ccdd4598d38d2e673a62403f322e",
+   "name": "activation_request",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_38412629d43df2ecf936b0c330f28dba",
+     "principal_id": "prn_eecbbea79af4af8423345babb1947b92",
+     "profile_id": "prf_a685c9283e187989b60506b032b7665f"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "session.routing.activate",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
+    },
+    "payload_digest": "17d26f160f6bcdbfa93574665fafd47608e5fa3a07806d6c6a512c6f1308ae36",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_32b1891222e830f173b6bf4309505a1f",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_a685c9283e187989b60506b032b7665f"
+    }
+   }
+  },
+  {
+   "digest": "7a2ae1e6c86ad05ab28c8928f173e59159d748eb9e0331df906043b1010c8777",
+   "name": "activate_session_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "756ecba586b33e0f838726f68c824048e77c3cbbbd979aa9695fda550f778bc8",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
+    },
+    "request_digest": "edca01d76e7faa994fa3dd1164160ef77570ccdd4598d38d2e673a62403f322e",
+    "request_id": "req_32b1891222e830f173b6bf4309505a1f",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_a685c9283e187989b60506b032b7665f"
+    }
+   }
+  },
+  {
+   "digest": "74b9459962d24658a07b0bd593ddab6183cc32098f71ee68bed6265841fd147b",
+   "name": "start_projection",
+   "record": {
+    "kind": "role_projection",
+    "material_gaps": [],
+    "plan_digest": "267770883ead7f98580cb699f0589ee20d50d3528316e80bf33a8c32e2c97fe4",
+    "prepared_at": "2000-01-01T00:00:00Z",
+    "projection_id": "prj_b0c11338585855a41f2aed2d33317173",
+    "recipient_view": "executor",
+    "role": "instructions",
+    "schema": 1,
+    "units": [
+     {
+      "body_digest": "55610600f2885bf7202a42054b42c1d5ff9f1c3e6d5fa41fcd9f9b0e9c6592dc",
+      "layer": "repository",
+      "revision_digest": "be50564de5646174e8ea0853d6c7a236aff9740cf7adb94a13981977362f3883",
+      "source_id": "src_b617fbe65d4741c4dc953ea133da59a0",
+      "source_role": "instructions",
+      "standing": "layered",
+      "unit_id": "unt_9e7d489d01a5a937ba162e31425bc1ba"
+     }
+    ]
+   }
+  },
+  {
+   "digest": "f82d7e33609987873b04ef5c7ab45e2d07479fffe264fbd93f45cf9a48c77f6e",
+   "name": "start_routing",
+   "record": {
+    "always_surface": "unchanged",
+    "delivery": {
+     "memory_usage": {
+      "guide": {
+       "digest": "7d4eeeb65f6c90260aa22160754515fa76acf4e0acfe0f313de84b9abaca9e01",
+       "path": "guides/memory-use.md"
+      },
+      "text": "Decision memory is read, never applied on your behalf. When an actual use would rely on incompatible current choices, ask the person. The procedure is in the guide this points at."
+     },
+     "projections": [
+      "74b9459962d24658a07b0bd593ddab6183cc32098f71ee68bed6265841fd147b"
+     ],
+     "state": "activated"
+    },
+    "kind": "session_routing",
+    "native_files": "preserved",
+    "routed_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "session": {
+     "host": {
+      "name": "claude-code",
+      "version": "2.1.278"
+     },
+     "profile_id": "prf_a685c9283e187989b60506b032b7665f"
+    }
+   }
+  },
+  {
+   "digest": "5c3d644bbfba9cd09d76be984f9a5b11ea6c5f209d6073cb988bf7bdc0f54d80",
+   "name": "activate_session_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "7a2ae1e6c86ad05ab28c8928f173e59159d748eb9e0331df906043b1010c8777",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "f82d7e33609987873b04ef5c7ab45e2d07479fffe264fbd93f45cf9a48c77f6e",
+      "kind": "session_routing"
+     },
+     {
+      "digest": "74b9459962d24658a07b0bd593ddab6183cc32098f71ee68bed6265841fd147b",
+      "kind": "role_projection"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "edca01d76e7faa994fa3dd1164160ef77570ccdd4598d38d2e673a62403f322e",
+    "request_id": "req_32b1891222e830f173b6bf4309505a1f",
     "schema": 1,
     "supported_recovery": []
    }
@@ -3439,7 +3718,7 @@
   }
  ],
  "says": "From the host launcher in a bound repository, the entry shows concrete names and values: the repository and branch, the selected instructions source AGENTS.md, the unselected knowledge source, the suggested tool 'Claude Code 2.1.278 · 새 세션' marked as a suggestion with its model-call effect, a blocker for the unqualified personal decision route that names why and how to fix it, and one start action whose file-change, model-call and permission effects sit on the action itself. The person presses Tab and Enter (surface.drive): the single Enter dispatches exactly one request, with no preview, confirm or extra view between, and the call it makes is preparation.compose — the owner check — for a session start that declares session.routing.activate and carries no work_request, so no business intent is inferred from the launcher. route.select records the start route, selected in the launcher's own repository scope, and answers for that request with the preparation. Negative: selecting the unqualified decision route is answered by its owner as refused with capability_not_qualified and an unsupported route outcome, never run; a selection carrying only a focused route is refused at admission (missing_field /selected); and no frame shows a generic effect panel or confirmation view.",
- "spec_sha256": "5b06f3a3c67218d7ceac6a0b625e069a5a893cbe6312ccd2c53fbf916a4c0737",
+ "spec_sha256": "8bc7682b7fa25a459d1acdaa49d0bbc2b6a2796a62e07c6ce1291c05f0ef8a8d",
  "steps": [
   {
    "carries": [
@@ -3598,6 +3877,18 @@
    "result": "select_start_result",
    "returns": [
     "selection_outcome"
+   ]
+  },
+  {
+   "carries": [
+    "activation"
+   ],
+   "name": "activate_session",
+   "request": "activation_request",
+   "result": "activate_session_result",
+   "returns": [
+    "start_routing",
+    "start_projection"
    ]
   },
   {

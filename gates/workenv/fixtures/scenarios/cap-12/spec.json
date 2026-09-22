@@ -257,7 +257,8 @@
       "use",
       "contribute",
       "grant",
-      "policy"
+      "policy",
+      "retain_delete"
      ]
     },
     {
@@ -449,6 +450,10 @@
     {
      "pointer": "/roots/0/permits/processing",
      "value": "local_processing"
+    },
+    {
+     "pointer": "/roots/0/permits/prompt_log",
+     "value": "kept"
     }
    ]
   },
@@ -531,6 +536,14 @@
     {
      "pointer": "/processing/inputs/0/permits/destinations/1/team_id",
      "value": "@team"
+    },
+    {
+     "pointer": "/processing/inputs/0/permits/prompt_log",
+     "value": "kept"
+    },
+    {
+     "pointer": "/processing/prompt_log",
+     "value": "kept"
     },
     {
      "pointer": "/widens/from_scope/repository_id",
@@ -817,6 +830,14 @@
      "value": "candidate"
     },
     {
+     "pointer": "/derivatives/3/digest",
+     "value": "$digest:prompt"
+    },
+    {
+     "pointer": "/derivatives/3/derived_as",
+     "value": "prompt"
+    },
+    {
      "pointer": "/read_at",
      "value": "$instant:derivations_read_at"
     }
@@ -840,7 +861,7 @@
     },
     {
      "pointer": "/promised/0/size",
-     "value": 1377
+     "value": 1369
     },
     {
      "pointer": "/evictable/0/digest",
@@ -940,6 +961,10 @@
     {
      "pointer": "/evictable/0/object_kind",
      "value": "candidate"
+    },
+    {
+     "pointer": "/evictable/0/size",
+     "value": 1197
     }
    ]
   },
@@ -1124,6 +1149,26 @@
      "value": "$digest:candidate_tombstone"
     },
     {
+     "pointer": "/derived_copies/3/object_digest",
+     "value": "$digest:prompt"
+    },
+    {
+     "pointer": "/derived_copies/3/per_copy/0/outcome",
+     "value": "confirmed"
+    },
+    {
+     "pointer": "/derived_copies/3/per_copy/0/holder/holds_on",
+     "value": "device"
+    },
+    {
+     "pointer": "/derived_copies/3/per_copy/0/holder/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/derived_copies/3/per_copy/0/tombstone_digest",
+     "value": "$digest:prompt_tombstone"
+    },
+    {
      "pointer": "/at",
      "value": "$instant:removed_at"
     }
@@ -1147,6 +1192,7 @@
    "name": "empty_map",
    "from": "derivation_map",
    "drop": [
+    "/derivatives/3",
     "/derivatives/2",
     "/derivatives/1",
     "/derivatives/0"
@@ -1374,5 +1420,5 @@
    }
   }
  ],
- "says": "A person founds a Team alone (team.found, whose founding grants them what the Team allows) and registers the Team's decision source (source.home.register), selects one transcript span whose selection permits results in the repository and the Team (source.observe), captures a memory entry from it for that Team decision source, at the head its registration committed, with the widening and its authority stated (source.capture.record), and stores a candidate from that capture (memory.candidate.store). Reading what the store derived from the capture (retention.derivations.read) returns its derivation map: an excerpt, an index and the candidate, each by digest. The person sets the Team's retention plan (retention.plan.set): the capture is promised, only the rebuildable index is evictable, and cleanup of candidates, prompts and excerpts is governed by the Team's committed policy. Two plans are refused at admission and write nothing: one whose cleanup names no governing policy (missing_field at /cleanup/governed_by) and one offering the candidate for eviction (value_not_allowed at /evictable/0/object_kind). The person then sets a second retention plan that promises the Team's policy instead of the capture, releasing the capture from custody (retention.plan.set), and only then removes the capture (removal.execute) — removal while the first plan still promised it would be removal_held, not confirmed. The removal outcome names the laptop's copy as confirmed with its tombstone and, under derived_copies, every object the derivation map named, each confirmed with its own tombstone, and states erasure_not_promised; nothing names a replacement proof. Reading the derivations of the removed capture afterwards returns an empty map, so no excerpt, index or candidate is silently kept."
+ "says": "A person founds a Team alone (team.found, whose founding grants them what the Team allows) and registers the Team's decision source (source.home.register), selects one transcript span whose selection permits results in the repository and the Team (source.observe), captures a memory entry from it for that Team decision source, at the head its registration committed, with the widening and its authority stated (source.capture.record), and stores a candidate from that capture (memory.candidate.store). Reading what the store derived from the capture (retention.derivations.read) returns its derivation map: an excerpt, an index, the candidate and a kept prompt, each by digest. The person sets the Team's retention plan (retention.plan.set): the capture is promised, only the rebuildable index is evictable, and cleanup of candidates, prompts and excerpts is governed by the Team's committed policy. Two plans are refused at admission and write nothing: one whose cleanup names no governing policy (missing_field at /cleanup/governed_by) and one offering the candidate for eviction (value_not_allowed at /evictable/0/object_kind). The person then sets a second retention plan that promises the Team's policy instead of the capture, releasing the capture from custody (retention.plan.set), and only then removes the capture (removal.execute) — removal while the first plan still promised it would be removal_held, not confirmed. The removal outcome names the laptop's copy as confirmed with its tombstone and, under derived_copies, every object the derivation map named, each confirmed with its own tombstone, and states erasure_not_promised; nothing names a replacement proof. Reading the derivations of the removed capture afterwards returns an empty map, so no excerpt, index, candidate or prompt is silently kept."
 }

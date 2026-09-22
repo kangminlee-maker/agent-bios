@@ -1,6 +1,6 @@
 {
  "case": "N04-C03-POS",
- "says": "Four entrances are traced and recorded on Alice's profile with the guard each reaches kept state through: setup is a choke point of the projection owner admitting role.project and session.routing.activate; session start and a maintenance command, both with roots the caller chooses, are routed through the projection owner; the studio hub is a choke point of the source store admitting source and memory writes. The access owner then issues Alice a handle through each entrance she will ask through - setup, session start, maintenance and the studio hub - and every later request names the handle of the entrance it came through among its proofs. A repository's rules revision is projected for the executor view through each entrance whose guard is the projection owner - setup, session start and maintenance - and each projection succeeds with the rules body; for setup, the access owner first answers that exact request, under the setup handle at the current generation, as allowed. The memory write the studio hub's store admits, publishing a choice to the repository's memory under the studio hub's handle, succeeds as well. Nothing is projected through the store's entrances, because their dispositions do not admit role.project, and no entrance is asked for an operation its disposition does not name.",
+ "says": "Four entrances are traced and recorded on Alice's profile with the guard each reaches kept state through: setup is a choke point of the projection owner admitting role.project and session.routing.activate; session start and a maintenance command, both with roots the caller chooses, are routed through the projection owner; the studio hub is a choke point of the source store admitting source and memory writes. The access owner then issues Alice a handle through each entrance she will ask through - setup, session start, maintenance and the studio hub - and every later request names the handle of the entrance it came through among its proofs. A repository's rules revision is projected for the executor view through each entrance whose guard is the projection owner - setup, session start and maintenance - and each projection succeeds with the rules body; for setup, the access owner first answers that exact request, under the setup handle at the current generation, as allowed. The memory write the studio hub's store admits, publishing a choice to the repository's memory under the studio hub's handle, succeeds as well. Nothing is projected through the store's entrances, because their dispositions do not admit role.project, and no entrance is asked for an operation its disposition does not name. Compose/instructions_app.py is traced and recorded as the choke point of the publication lock, admitting role.project; Alice's setup handle, already issued through the setup entrance, also proves a request through this route, and projecting the repository's rules for the executor view through it succeeds the same way as through the projection owner's entrances.",
  "ids": [
   {
    "name": "alice",
@@ -96,6 +96,14 @@
   },
   {
    "name": "record_through_studio_hub_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "trace_app_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "project_via_app_request_req",
    "prefix": "req"
   }
  ],
@@ -1942,6 +1950,225 @@
      "value": "@repo_memory"
     }
    ]
+  },
+  {
+   "name": "app_disposition",
+   "from": "c03/the_store_admits_what_it_owns.json",
+   "set": [
+    {
+     "pointer": "/disposition/admits",
+     "value": [
+      "role.project"
+     ]
+    },
+    {
+     "pointer": "/disposition/owns",
+     "value": "publication_lock"
+    },
+    {
+     "pointer": "/entrance/name",
+     "value": "setup"
+    },
+    {
+     "pointer": "/traced_at",
+     "value": "2026-09-21T14:00:00Z"
+    },
+    {
+     "pointer": "/route/path",
+     "value": "compose/instructions_app.py"
+    }
+   ]
+  },
+  {
+   "name": "trace_app_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "entrance.disposition.record"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@trace_app_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#app_disposition"
+    }
+   ]
+  },
+  {
+   "name": "app_plan",
+   "from": "c04/plan_for_one_source.json",
+   "set": [
+    {
+     "pointer": "/entrance/name",
+     "value": "setup"
+    },
+    {
+     "pointer": "/entrance/root_origin",
+     "value": "caller"
+    },
+    {
+     "pointer": "/source_pins/0/revision_digest",
+     "value": "#repo_rules_rev"
+    },
+    {
+     "pointer": "/source_pins/0/source_id",
+     "value": "@repo_rules"
+    }
+   ]
+  },
+  {
+   "name": "project_via_app_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/recipient_digest",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/operation",
+     "value": "role.project"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#setup_handle"
+     ]
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@project_via_app_request_req"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#app_plan"
+    }
+   ]
+  },
+  {
+   "name": "app_projection",
+   "from": "c04/projection_keeps_a_shadowed_unit_attributable.json",
+   "drop": [
+    "/units/1"
+   ],
+   "set": [
+    {
+     "pointer": "/plan_digest",
+     "value": "#app_plan"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:app_projection_at"
+    },
+    {
+     "pointer": "/projection_id",
+     "value": "$prj:app_projection_id"
+    },
+    {
+     "pointer": "/units/0/body_digest",
+     "value": "$digest:repo_rules_review_body"
+    },
+    {
+     "pointer": "/units/0/revision_digest",
+     "value": "#repo_rules_rev"
+    },
+    {
+     "pointer": "/units/0/source_id",
+     "value": "@repo_rules"
+    },
+    {
+     "pointer": "/units/0/standing",
+     "value": "layered"
+    },
+    {
+     "pointer": "/units/0/unit_id",
+     "value": "$unt:app_projection_unit"
+    }
+   ]
   }
  ],
  "steps": [
@@ -2280,6 +2507,43 @@
    },
    "route": {
     "path": "compose/instructions_store.py"
+   }
+  },
+  {
+   "name": "trace_app",
+   "request": "trace_app_request",
+   "carries": [
+    "app_disposition"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "app_disposition"
+    ]
+   }
+  },
+  {
+   "name": "project_via_app",
+   "request": "project_via_app_request",
+   "carries": [
+    "app_plan"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "none",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "app_projection"
+    ]
+   },
+   "route": {
+    "path": "compose/instructions_app.py"
    }
   }
  ]

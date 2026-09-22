@@ -44,6 +44,10 @@
   {
    "id": "req_ec5efbbafd545e91776dede4ae367419",
    "name": "read_profile_request_id"
+  },
+  {
+   "id": "req_8364c53327bee69cadbcd2ebd72e42f9",
+   "name": "query_binding_request_id"
   }
  ],
  "joins": [
@@ -406,6 +410,21 @@
    "digest_of": "renamed_profile",
    "pointer": "/outputs/0/digest",
    "record": "rename_after_rotation_result"
+  },
+  {
+   "digest_of": "first_binding_query",
+   "pointer": "/payload_digest",
+   "record": "query_first_binding_request"
+  },
+  {
+   "digest_of": "query_first_binding_request",
+   "pointer": "/request_digest",
+   "record": "query_first_binding_after_rotation_result"
+  },
+  {
+   "digest_of": "bind_first_key_result",
+   "pointer": "/outputs/0/digest",
+   "record": "query_first_binding_after_rotation_result"
   }
  ],
  "minted": [
@@ -1329,10 +1348,71 @@
     "schema": 1,
     "supported_recovery": []
    }
+  },
+  {
+   "digest": "29495e665e0cb5b51ce67605c10d5462390418dff0426a9c139333abd5c53a4f",
+   "name": "first_binding_query",
+   "record": {
+    "kind": "operation_query",
+    "request_id": "req_6652f6df6764f22bbea058b4379f7b0c",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "9d85b10e91db75d4b1cc4c63e84b5063073e7b347cccd4893115266e90cc121d",
+   "name": "query_first_binding_request",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_de325700e0e3f9502816cdb67231c80d",
+     "principal_id": "prn_e49dc0d1fb3125e10e4d3598deddfd84",
+     "profile_id": "prf_98329f4c9fdde9847a22b8ffa8917b9b"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 2,
+    "operation": "operation.query",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_e49dc0d1fb3125e10e4d3598deddfd84"
+    },
+    "payload_digest": "29495e665e0cb5b51ce67605c10d5462390418dff0426a9c139333abd5c53a4f",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_8364c53327bee69cadbcd2ebd72e42f9",
+    "schema": 1,
+    "target": {
+     "resource_id": "req_6652f6df6764f22bbea058b4379f7b0c"
+    }
+   }
+  },
+  {
+   "digest": "ff9fdb0b57ec22c3440e5538f0be2d1d9afecc31057f45359206fd22bbe6b3a2",
+   "name": "query_first_binding_after_rotation_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "223f65a7839a2b8dc0cea8b3898ef70f97d5818d4667a6c2e3062baaeb11aa87",
+      "kind": "operation_result"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "9d85b10e91db75d4b1cc4c63e84b5063073e7b347cccd4893115266e90cc121d",
+    "request_id": "req_8364c53327bee69cadbcd2ebd72e42f9",
+    "schema": 1,
+    "supported_recovery": []
+   }
   }
  ],
- "says": "Alice starts personal work on her laptop with no Team, account, sign-up or network: her first step reads the profile the runtime wrote at first use (active, generation 1), and she binds her first device key to the principal that profile names (established by local creation). She locks the profile (generation 2) and unlocks it at a terminal with that key (still generation 2), and names the profile 'Laptop'. She then rotates her credential: a second key, signed by the first as proof of control, is bound to the same principal, and the first binding is revoked. Every answer names the same principal id and profile id: the second binding, and the profile after a second rename, carry alice's principal id and the creation time the first read returned. No step reaches a provider, a Team or the network. What must not happen: a new principal id after the rotation, a profile whose identity moves with its name, or any step that needs an account or Team.",
- "spec_sha256": "ebd55ba7297125fa75f6fb31aee94b72b38876ee32f49bf6e5ba77cadb01ecc0",
+ "says": "Alice starts personal work on her laptop with no Team, account, sign-up or network: her first step reads the profile the runtime wrote at first use (active, generation 1), and she binds her first device key to the principal that profile names (established by local creation). She locks the profile (generation 2) and unlocks it at a terminal with that key (still generation 2), and names the profile 'Laptop'. She then rotates her credential: a second key, signed by the first as proof of control, is bound to the same principal, and the first binding is revoked. Every answer names the same principal id and profile id: the second binding, and the profile after a second rename, carry alice's principal id and the creation time the first read returned. After the rotation and the second rename, a query for the first binding's own request still answers with its original, unchanged result, naming the same principal. No step reaches a provider, a Team or the network. What must not happen: a new principal id after the rotation, a profile whose identity moves with its name, the first binding's stored result changing after the revoke, or any step that needs an account or Team.",
+ "spec_sha256": "bb7ca4e005bed2b143d3da2c68582099120d3ba373a5f7f8818bc910a1c8bd21",
  "steps": [
   {
    "carries": [],
@@ -1416,6 +1496,17 @@
    "result": "rename_after_rotation_result",
    "returns": [
     "renamed_profile"
+   ]
+  },
+  {
+   "carries": [
+    "first_binding_query"
+   ],
+   "name": "query_first_binding_after_rotation",
+   "request": "query_first_binding_request",
+   "result": "query_first_binding_after_rotation_result",
+   "returns": [
+    "bind_first_key_result"
    ]
   }
  ]

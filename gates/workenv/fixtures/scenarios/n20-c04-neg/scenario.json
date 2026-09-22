@@ -407,15 +407,15 @@
   {
    "digest_of": "rates_rev1",
    "pointer": "/targets/0",
-   "record": "pinned_to_the_old_head"
+   "record": "pinned_to_the_current_head"
   },
   {
    "digest_of": "rates_rev1",
    "pointer": "/package_digest",
-   "record": "pinned_to_the_old_head"
+   "record": "pinned_to_the_current_head"
   },
   {
-   "digest_of": "pinned_to_the_old_head",
+   "digest_of": "pinned_to_the_current_head",
    "pointer": "/payload_digest",
    "record": "run_against_a_target_that_changed_request"
   },
@@ -440,7 +440,7 @@
    "record": "run_against_a_target_that_changed_receipt"
   },
   {
-   "digest_of": "pinned_to_the_old_head",
+   "digest_of": "pinned_to_the_current_head",
    "pointer": "/request_digest",
    "record": "changed_target_run"
   },
@@ -1532,7 +1532,7 @@
   },
   {
    "digest": "919a87b1fc732ddcd36a3638730450eb43f24e21fc978bd39111136c1f3c8ec9",
-   "name": "pinned_to_the_old_head",
+   "name": "pinned_to_the_current_head",
    "record": {
     "kind": "validation_request",
     "lenses": [
@@ -1653,8 +1653,8 @@
    }
   }
  ],
- "says": "A knowledge source whose applicability carries an exception (companies founded before 2020 keep the 2025 rate) is registered and its first revision committed on the head the registration moved to. None of the following becomes accepted clean state. A model whose relation computed_from names gross_income, a node the model lacks, is refused with model_reference_dangling. A form profile with nowhere to hold the source's exceptions is refused with form_mapping_invalid. A validation request naming a lens without its digest (an arbitrary validator) is refused at admission and nothing runs. A run pinned to two lenses where only one ran is recorded unverified (partial_run), never clean. A run whose lens met nothing to check is recorded unverified (empty_subject). A second revision is then committed, and a run whose request still explicitly and validly pins the first, now-superseded revision is nonetheless recorded unverified (target_changed): currency with the source's head is checked independently of the pinned digest's own validity, so an explicit, valid historical pin does not exempt a run from it. No knowledge_model or form_profile is returned for the refused checks, and no clean verdict is written for any of these runs.",
- "spec_sha256": "ff258c37f0db01162a0a9f26e102860b193ea7a3e42da6e7b49fd82f8fba49a5",
+ "says": "A knowledge source whose applicability carries an exception (companies founded before 2020 keep the 2025 rate) is registered and its first revision committed on the head the registration moved to. None of the following becomes accepted clean state. A model whose relation computed_from names gross_income, a node the model lacks, is refused with model_reference_dangling. A form profile with nowhere to hold the source's exceptions is refused with form_mapping_invalid. A validation request naming a lens without its digest (an arbitrary validator) is refused at admission and nothing runs. A run pinned to two lenses where only one ran is recorded unverified (partial_run), never clean. A run whose lens met nothing to check is recorded unverified (empty_subject). A validation run pinned to the source's current revision is then admitted, and while it is still in flight a second revision is committed, moving that source's head; the run is nonetheless recorded unverified (target_changed) rather than clean, because its target changed while it ran. No knowledge_model or form_profile is returned for the refused checks, and no clean verdict is written for any of these runs.",
+ "spec_sha256": "ac6e3a244f92c6c1740c7d1f5022341f9bb1ff15128df829e54a4cce06856889",
  "steps": [
   {
    "carries": [
@@ -1748,7 +1748,7 @@
   },
   {
    "carries": [
-    "pinned_to_the_old_head"
+    "pinned_to_the_current_head"
    ],
    "name": "run_against_a_target_that_changed",
    "request": "run_against_a_target_that_changed_request",
@@ -1757,5 +1757,13 @@
     "changed_target_run"
    ]
   }
- ]
+ ],
+ "world": {
+  "during": [
+   {
+    "runs": "commit_rates_revision_2",
+    "step": "run_against_a_target_that_changed"
+   }
+  ]
+ }
 }

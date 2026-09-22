@@ -1,6 +1,6 @@
 {
  "case": "N16-C12-POS",
- "says": "One actor, alice, binds her laptop key and founds the Team Platform (the founding returns her membership by founding and the Team's first authority epoch), and a probe qualifies the installed client's read capability. From the host launcher she starts personally: the launcher's route.offer offers one start route qualified by that probe, she selects the Team's instructions beside her own, and Enter on the single start action dispatches preparation.compose, which composes her own preparation and stores it without a receipt, and one route.select. The selection names the compose request and expects it prepared; compose returns the preparation, and the route outcome is a real run whose output is that preparation. From the Studio hub the same Team and preparation are then carried through W01 to W10, each view keeping the Team as browse and selected scope, the preparation as its target and the view it came from as its return; W07 reads the Team's state through team.state.read and W08 its recent history through operation.history.read, both real owner operations run as steps here. Esc returns to W01 with the same target. A direct work link opens W09 on the same preparation in the same scope, and Esc returns to W01 on it. No view changes the actor, the Team or the preparation, and no navigation dispatches a request.",
+ "says": "One actor, alice, binds her laptop key and founds the Team Platform (the founding returns her membership by founding and the Team's first authority epoch), and a probe qualifies the installed client's read capability. Alice also registers the Team's notes source at its canonical authoring home and admits its first revision, source.home.register and source.revision.admit run here as real owner operations, returning the source's home and its provenance. From the host launcher she starts personally: the launcher's route.offer offers one start route qualified by that probe, she selects the Team's instructions beside her own, and Enter on the single start action dispatches preparation.compose, which composes her own preparation and stores it without a receipt, and one route.select. The selection names the compose request and expects it prepared; compose returns the preparation, and the route outcome is a real run whose output is that preparation. From the Studio hub the same Team and preparation are then carried through W01 to W10, each view keeping the Team as browse and selected scope, the preparation as its target and the view it came from as its return; W07 reads the Team's state through team.state.read and W08 its recent history through operation.history.read, both real owner operations run as steps here; W03's authoring view shows that source's canonical authoring home, owner, home and applicability scope, and origin, each element joined to the real source_home and source_provenance records. Esc returns to W01 with the same target. A direct work link opens W09 on the same preparation in the same scope, and Esc returns to W01 on it. No view changes the actor, the Team or the preparation, and no navigation dispatches a request.",
  "ids": [
   {
    "name": "alice",
@@ -64,6 +64,18 @@
   },
   {
    "name": "link_drive_request",
+   "prefix": "req"
+  },
+  {
+   "name": "team_notes",
+   "prefix": "src"
+  },
+  {
+   "name": "register_notes_request",
+   "prefix": "req"
+  },
+  {
+   "name": "admit_notes_request",
    "prefix": "req"
   }
  ],
@@ -410,6 +422,297 @@
     {
      "pointer": "/recorded_at",
      "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "notes_home",
+   "from": "sources/home_of_a_managed_collection.json",
+   "drop": [
+    "/registered_at",
+    "/scope/principal_id",
+    "/acceptance_authority/principal_id",
+    "/retention/until"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@team_notes"
+    },
+    {
+     "pointer": "/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/acceptance_authority/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/acceptance_authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/applicability/conditions/0/dimension",
+     "value": "repository"
+    },
+    {
+     "pointer": "/applicability/conditions/0/value",
+     "value": "platform"
+    },
+    {
+     "pointer": "/disclosure",
+     "value": "team"
+    },
+    {
+     "pointer": "/retention/keep",
+     "value": "until_withdrawn"
+    },
+    {
+     "pointer": "/home/markdown_view/path",
+     "value": "views/team-platform-notes.md"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    }
+   ]
+  },
+  {
+   "name": "stored_notes_home",
+   "from": "notes_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:notes_home_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "register_notes",
+   "from": "c03/history_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@register_notes_request"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_notes"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#notes_home"
+    }
+   ]
+  },
+  {
+   "name": "notes_request_payload",
+   "from": "sources/request_to_author_here.json",
+   "drop": [
+    "/destination/scope/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/destination/home_mode",
+     "value": "managed"
+    },
+    {
+     "pointer": "/destination/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/destination/scope/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "admit_notes",
+   "from": "c03/history_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.revision.admit"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@admit_notes_request"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_notes"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:notes_home_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#notes_request_payload"
+    }
+   ]
+  },
+  {
+   "name": "notes_manifest",
+   "from": "sources/revision_submitted.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/members/0/path",
+     "value": "team-platform-notes.md"
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@team_notes"
+    }
+   ]
+  },
+  {
+   "name": "stored_notes_manifest",
+   "from": "notes_manifest",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:notes_produced_at"
+    }
+   ]
+  },
+  {
+   "name": "notes_provenance",
+   "from": "sources/provenance_of_a_record_set_captured_from_a_session.json",
+   "drop": [
+    "/acceptance/accepted_by",
+    "/acceptance/receipt_digest",
+    "/origin/evidence_digests"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@team_notes"
+    },
+    {
+     "pointer": "/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/origin/origin",
+     "value": "authored_here"
+    },
+    {
+     "pointer": "/origin/author_scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/origin/author_scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/acceptance/state",
+     "value": "not_accepted"
+    },
+    {
+     "pointer": "/acquisition/acquired_at",
+     "value": "$instant:notes_acquired_at"
     }
    ]
   },
@@ -2524,16 +2827,7 @@
     "/frames/3/elements/3/refers_to",
     "/frames/3/elements/3/state",
     "/frames/3/view/selected_scope/repository_id",
-    "/frames/4/elements/8",
-    "/frames/4/elements/7",
-    "/frames/4/elements/6",
-    "/frames/4/elements/5",
-    "/frames/4/elements/4",
-    "/frames/4/elements/0/refers_to/scope/repository_id",
-    "/frames/4/elements/2/state",
-    "/frames/4/elements/2/refers_to/position/scope/repository_id",
-    "/frames/4/elements/3/refers_to",
-    "/frames/4/elements/3/state",
+    "/frames/4/elements",
     "/frames/4/view/selected_scope/repository_id"
    ],
    "set": [
@@ -3022,8 +3316,36 @@
      "value": "context.scope"
     },
     {
+     "pointer": "/frames/4/elements/0/role",
+     "value": "context"
+    },
+    {
      "pointer": "/frames/4/elements/0/label",
      "value": "\ud300 \u00b7 Platform"
+    },
+    {
+     "pointer": "/frames/4/elements/0/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/4/elements/0/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/0/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/4/elements/0/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/0/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/4/elements/0/refers_to/ref",
+     "value": "scope"
     },
     {
      "pointer": "/frames/4/elements/0/refers_to/scope/layer",
@@ -3038,20 +3360,48 @@
      "value": "context.preparation"
     },
     {
+     "pointer": "/frames/4/elements/1/role",
+     "value": "context"
+    },
+    {
      "pointer": "/frames/4/elements/1/label",
      "value": "\uc9c0\uae08 \uc900\ube44\ub41c \uc791\uc5c5"
     },
     {
-     "pointer": "/frames/4/elements/1/refers_to/ref",
-     "value": "record"
+     "pointer": "/frames/4/elements/1/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/4/elements/1/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/1/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/4/elements/1/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/1/shown",
+     "value": "whole"
     },
     {
      "pointer": "/frames/4/elements/1/refers_to/digest",
      "value": "#team_preparation"
     },
     {
+     "pointer": "/frames/4/elements/1/refers_to/ref",
+     "value": "record"
+    },
+    {
      "pointer": "/frames/4/elements/2/element_id",
      "value": "view.w03"
+    },
+    {
+     "pointer": "/frames/4/elements/2/role",
+     "value": "detail"
     },
     {
      "pointer": "/frames/4/elements/2/label",
@@ -3062,12 +3412,20 @@
      "value": []
     },
     {
-     "pointer": "/frames/4/elements/2/role",
-     "value": "detail"
+     "pointer": "/frames/4/elements/2/focused",
+     "value": false
     },
     {
      "pointer": "/frames/4/elements/2/selection",
      "value": "none"
+    },
+    {
+     "pointer": "/frames/4/elements/2/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/2/shown",
+     "value": "whole"
     },
     {
      "pointer": "/frames/4/elements/2/refers_to/position/role",
@@ -3082,24 +3440,124 @@
      "value": "@team"
     },
     {
-     "pointer": "/frames/4/elements/3/element_id",
-     "value": "help.keys"
+     "pointer": "/frames/4/elements/2/refers_to/ref",
+     "value": "position"
     },
     {
-     "pointer": "/frames/4/elements/3/focused",
-     "value": false
+     "pointer": "/frames/4/elements/2/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/4/elements/3/element_id",
+     "value": "detail.source_home"
+    },
+    {
+     "pointer": "/frames/4/elements/3/role",
+     "value": "detail"
     },
     {
      "pointer": "/frames/4/elements/3/label",
-     "value": "\u2192 \ub2e4\uc74c \ud654\uba74 \u00b7 Esc \ub3cc\uc544\uac00\uae30"
+     "value": "\uc9c0\uc2dd \uc704\uce58 \u00b7 \uad00\ub9ac\ud615 \u00b7 \ud300 Platform \uc18c\uc720 \u00b7 \uc801\uc6a9 \ubc94\uc704 repository:platform"
     },
     {
      "pointer": "/frames/4/elements/3/marks",
      "value": []
     },
     {
-     "pointer": "/frames/4/elements/3/role",
+     "pointer": "/frames/4/elements/3/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/3/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/4/elements/3/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/3/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/4/elements/3/refers_to/ref",
+     "value": "record"
+    },
+    {
+     "pointer": "/frames/4/elements/3/refers_to/digest",
+     "value": "#stored_notes_home"
+    },
+    {
+     "pointer": "/frames/4/elements/4/element_id",
+     "value": "detail.source_origin"
+    },
+    {
+     "pointer": "/frames/4/elements/4/role",
+     "value": "detail"
+    },
+    {
+     "pointer": "/frames/4/elements/4/label",
+     "value": "\ucd9c\ucc98 \u00b7 \ud300 Platform\uc5d0\uc11c \uc9c1\uc811 \uc791\uc131"
+    },
+    {
+     "pointer": "/frames/4/elements/4/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/4/elements/4/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/4/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/4/elements/4/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/4/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/4/elements/4/refers_to/ref",
+     "value": "record"
+    },
+    {
+     "pointer": "/frames/4/elements/4/refers_to/digest",
+     "value": "#notes_provenance"
+    },
+    {
+     "pointer": "/frames/4/elements/5/element_id",
+     "value": "help.keys"
+    },
+    {
+     "pointer": "/frames/4/elements/5/role",
      "value": "help"
+    },
+    {
+     "pointer": "/frames/4/elements/5/label",
+     "value": "\u2192 \ub2e4\uc74c \ud654\uba74 \u00b7 Esc \ub3cc\uc544\uac00\uae30"
+    },
+    {
+     "pointer": "/frames/4/elements/5/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/4/elements/5/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/5/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/4/elements/5/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/5/shown",
+     "value": "whole"
     },
     {
      "pointer": "/frames/4/view/view",
@@ -3140,6 +3598,10 @@
     {
      "pointer": "/frames/4/dispatched",
      "value": []
+    },
+    {
+     "pointer": "/frames/4/calls/0/request_digest",
+     "value": "#compose"
     },
     {
      "pointer": "/frames/5/access",
@@ -3295,34 +3757,114 @@
     },
     {
      "pointer": "/frames/5/elements/3/element_id",
-     "value": "help.keys"
+     "value": "detail.source_home"
     },
     {
-     "pointer": "/frames/5/elements/3/executing",
-     "value": false
-    },
-    {
-     "pointer": "/frames/5/elements/3/focused",
-     "value": false
+     "pointer": "/frames/5/elements/3/role",
+     "value": "detail"
     },
     {
      "pointer": "/frames/5/elements/3/label",
-     "value": "\u2192 \ub2e4\uc74c \ud654\uba74 \u00b7 Esc \ub3cc\uc544\uac00\uae30"
+     "value": "\uc9c0\uc2dd \uc704\uce58 \u00b7 \uad00\ub9ac\ud615 \u00b7 \ud300 Platform \uc18c\uc720 \u00b7 \uc801\uc6a9 \ubc94\uc704 repository:platform"
     },
     {
      "pointer": "/frames/5/elements/3/marks",
      "value": []
     },
     {
-     "pointer": "/frames/5/elements/3/role",
-     "value": "help"
+     "pointer": "/frames/5/elements/3/focused",
+     "value": false
     },
     {
      "pointer": "/frames/5/elements/3/selection",
      "value": "none"
     },
     {
+     "pointer": "/frames/5/elements/3/executing",
+     "value": false
+    },
+    {
      "pointer": "/frames/5/elements/3/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/5/elements/3/refers_to/ref",
+     "value": "record"
+    },
+    {
+     "pointer": "/frames/5/elements/3/refers_to/digest",
+     "value": "#stored_notes_home"
+    },
+    {
+     "pointer": "/frames/5/elements/4/element_id",
+     "value": "detail.source_origin"
+    },
+    {
+     "pointer": "/frames/5/elements/4/role",
+     "value": "detail"
+    },
+    {
+     "pointer": "/frames/5/elements/4/label",
+     "value": "\ucd9c\ucc98 \u00b7 \ud300 Platform\uc5d0\uc11c \uc9c1\uc811 \uc791\uc131"
+    },
+    {
+     "pointer": "/frames/5/elements/4/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/5/elements/4/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/5/elements/4/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/5/elements/4/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/5/elements/4/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/5/elements/4/refers_to/ref",
+     "value": "record"
+    },
+    {
+     "pointer": "/frames/5/elements/4/refers_to/digest",
+     "value": "#notes_provenance"
+    },
+    {
+     "pointer": "/frames/5/elements/5/element_id",
+     "value": "help.keys"
+    },
+    {
+     "pointer": "/frames/5/elements/5/role",
+     "value": "help"
+    },
+    {
+     "pointer": "/frames/5/elements/5/label",
+     "value": "\u2192 \ub2e4\uc74c \ud654\uba74 \u00b7 Esc \ub3cc\uc544\uac00\uae30"
+    },
+    {
+     "pointer": "/frames/5/elements/5/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/5/elements/5/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/5/elements/5/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/5/elements/5/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/5/elements/5/shown",
      "value": "whole"
     },
     {
@@ -6463,7 +7005,7 @@
     },
     {
      "pointer": "/frames/18/view/return_view",
-     "value": "w09"
+     "value": "w01"
     },
     {
      "pointer": "/frames/19/access",
@@ -7103,6 +7645,43 @@
    "submits": [
     "proposed_policy"
    ]
+  },
+  {
+   "name": "register_notes_home",
+   "request": "register_notes",
+   "carries": [
+    "notes_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_notes_home"
+    ],
+    "head": "notes_home_head"
+   }
+  },
+  {
+   "name": "admit_notes_revision",
+   "request": "admit_notes",
+   "carries": [
+    "notes_request_payload"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_notes_manifest",
+     "notes_provenance"
+    ],
+    "head": "notes_admitted_head"
+   }
   },
   {
    "name": "probe_read",

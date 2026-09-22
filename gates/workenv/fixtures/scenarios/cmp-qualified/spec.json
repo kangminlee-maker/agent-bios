@@ -153,6 +153,10 @@
   {
    "name": "commit_repo_broken_r1_rid",
    "prefix": "req"
+  },
+  {
+   "name": "set_repo_secret_rights_v1_rid",
+   "prefix": "req"
   }
  ],
  "records": [
@@ -2369,7 +2373,7 @@
     },
     {
      "pointer": "/material_gaps/3/code",
-     "value": "source_not_authorized"
+     "value": "source_right_not_overridable"
     },
     {
      "pointer": "/material_gaps/3/pointer",
@@ -2406,6 +2410,30 @@
     {
      "pointer": "/units/5/standing",
      "value": "winning"
+    },
+    {
+     "pointer": "/units/4/startup",
+     "value": "required"
+    },
+    {
+     "pointer": "/units/4/concern",
+     "value": "setup.guide"
+    },
+    {
+     "pointer": "/units/4/member",
+     "value": "rules/setup.md"
+    },
+    {
+     "pointer": "/units/5/startup",
+     "value": "required"
+    },
+    {
+     "pointer": "/units/5/concern",
+     "value": "deploy.checklist"
+    },
+    {
+     "pointer": "/units/5/member",
+     "value": "rules/deploy.md"
     }
    ]
   },
@@ -3344,6 +3372,82 @@
      "value": "#rates_b_home_stored"
     }
    ]
+  },
+  {
+   "name": "repo_secret_rights_v1",
+   "from": "c08/rights_allowing_derivation_but_not_export.json",
+   "set": [
+    {
+     "pointer": "/allows",
+     "value": [
+      "read"
+     ]
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@repo_secret"
+    }
+   ]
+  },
+  {
+   "name": "repo_secret_rights_v1_stored",
+   "from": "repo_secret_rights_v1",
+   "set": [
+    {
+     "pointer": "/set_by",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/set_at",
+     "value": "$instant:repo_secret_rights_v1_at"
+    }
+   ]
+  },
+  {
+   "name": "set_repo_secret_rights_v1",
+   "from": "c07/collection_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@set_repo_secret_rights_v1_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.rights.set"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_secret"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:repo_secret_h1"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_secret_rights_v1"
+    }
+   ]
   }
  ],
  "steps": [
@@ -3590,6 +3694,24 @@
    }
   },
   {
+   "name": "set_repo_secret_rights_v1",
+   "request": "set_repo_secret_rights_v1",
+   "carries": [
+    "repo_secret_rights_v1"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_secret_rights_v1_stored"
+    ],
+    "head": "repo_secret_h2"
+   }
+  },
+  {
    "name": "register_repo_broken",
    "request": "register_repo_broken",
    "carries": [
@@ -3814,5 +3936,15 @@
     ]
    }
   }
- ]
+ ],
+ "world": {
+  "events": [
+   {
+    "kind": "file_edit",
+    "before": "start_with_an_unavailable_winner",
+    "path": "rules/deploy.md",
+    "bytes": "# Deploy checklist\n\nThis file was mid-edit on disk when the checkout was last read: the working copy no longer matches the committed revision rules/deploy.md was read at, and the object a fresh read now finds is not the one repo_broken_r1 committed.\n"
+   }
+  ]
+ }
 }

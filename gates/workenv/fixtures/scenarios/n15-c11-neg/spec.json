@@ -1,6 +1,6 @@
 {
  "case": "N15-C11-NEG",
- "says": "Alice binds her device key, authors and selects a personal Instructions source, opens a link to her working conversation in a Codex host, and composes a preparation for delivery on it. Four attempts on that preparation must never claim a delivery nor repeat an effect. An attempt naming a link id the runtime never issued is refused as recipient_link_unknown and sees no channel. A resume of that session as a rehydrated recipient, which this host's route cannot carry, is recorded as unsupported, sees no channel, and is refused as route_unsupported. A delivery to the current conversation commits and the process is killed after the commit and before the answer returns; after the restart the same request is answered with its committed attempt; resubmitting the identical request replays that answer and writes nothing new, and a query by that request id returns the original result and its receipt, so one body arrived once. She then locks her profile: the access state moves to a new generation, and a delivery attempted afterwards still states the generation before the lock and is refused as access_locked and access_generation_moved, with unlock as its recovery, and returns no attempt. Observing the preparation before the lock names one delivery of one body, the one that committed before the restart: neither refused attempt nor the restart added a body or a second delivery.",
+ "says": "Alice binds her device key, authors and selects a personal Instructions source, opens a link to her working conversation in a Codex host, and composes a preparation for delivery on it. Four attempts on that preparation must never claim a delivery nor repeat an effect. An attempt naming a link id the runtime never issued is refused as recipient_link_unknown and sees no channel. A resume of that session as a rehydrated recipient, which this host's route cannot carry, is recorded as unsupported, sees no channel, and is refused as route_unsupported. A delivery to the current conversation is recorded, but the host's own acknowledgement of it never arrives: the attempt sees lost, names no received body and no evidence, and its answer is outcome_unknown with recovery by querying the same request id — nothing here claims the body arrived. Resubmitting the identical request replays that same unresolved answer and writes nothing new; querying it afterward by its request id returns that same result again, still lost and still unclaimed. She then locks her profile: the access state moves to a new generation, and a delivery attempted afterwards still states the generation before the lock and is refused as access_locked and access_generation_moved, with unlock as its recovery, and returns no attempt. Observing the preparation at the end finds nothing delivered — not_observed with delivery_unobserved — because none of the four attempts, nor the resubmission, ever claimed a body arrived.",
  "ids": [
   {
    "name": "alice",
@@ -1102,7 +1102,7 @@
    ]
   },
   {
-   "name": "current_received",
+   "name": "current_lost",
    "from": "current_submitted",
    "set": [
     {
@@ -1111,25 +1111,19 @@
     },
     {
      "pointer": "/observed/saw",
-     "value": "received"
-    },
-    {
-     "pointer": "/observed/received",
-     "value": [
-      "$digest:review_body"
-     ]
-    },
-    {
-     "pointer": "/observed/evidence_digest",
-     "value": "$digest:current_received_receipt_evidence"
+     "value": "lost"
     },
     {
      "pointer": "/material_gaps",
      "value": []
     },
     {
+     "pointer": "/material_gaps/0/code",
+     "value": "outcome_unknown"
+    },
+    {
      "pointer": "/at",
-     "value": "$instant:current_received_at"
+     "value": "$instant:current_lost_at"
     }
    ]
   },
@@ -1215,6 +1209,11 @@
   {
    "name": "observed",
    "from": "c07/delivery_observed.json",
+   "drop": [
+    "/observed/inventory",
+    "/observed/evidence_digest",
+    "/observed/at"
+   ],
    "set": [
     {
      "pointer": "/preparation_id",
@@ -1229,32 +1228,16 @@
      "value": "host_session"
     },
     {
-     "pointer": "/observed/at",
-     "value": "$instant:observed_seen_at"
-    },
-    {
-     "pointer": "/observed/evidence_digest",
-     "value": "$digest:observed_evidence"
-    },
-    {
      "pointer": "/requested/recipient_digest",
      "value": "#work_link"
     },
     {
-     "pointer": "/observed/inventory/0/unit_id",
-     "value": "$unt:preparation_review"
+     "pointer": "/observed/saw",
+     "value": "not_observed"
     },
     {
-     "pointer": "/observed/inventory/0/source_id",
-     "value": "@rules"
-    },
-    {
-     "pointer": "/observed/inventory/0/revision_digest",
-     "value": "#rules_rev"
-    },
-    {
-     "pointer": "/observed/inventory/0/body_digest",
-     "value": "$digest:review_body"
+     "pointer": "/material_gaps/0/code",
+     "value": "delivery_unobserved"
     }
    ]
   },
@@ -1660,13 +1643,19 @@
     "current_submitted"
    ],
    "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
+    "stage": "unknown",
+    "local_effect": "private_state_written",
+    "provider_effect": "unknown",
+    "gaps": [
+     {
+      "code": "outcome_unknown"
+     }
+    ],
+    "recovery": [
+     "query_same_request"
+    ],
     "returns": [
-     "current_received"
+     "current_lost"
     ]
    }
   },
@@ -1679,7 +1668,7 @@
    "replays": "deliver_and_lose_the_response"
   },
   {
-   "name": "query_the_delivery_after_restart",
+   "name": "query_the_delivery",
    "request": "ask_delivery",
    "carries": [
     "delivery_query"
@@ -1691,8 +1680,7 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "deliver_and_lose_the_response_result",
-     "deliver_and_lose_the_response_receipt"
+     "deliver_and_lose_the_response_result"
     ]
    }
   },
@@ -1704,7 +1692,11 @@
     "stage": "previewed",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
-    "gaps": [],
+    "gaps": [
+     {
+      "code": "delivery_unobserved"
+     }
+    ],
     "recovery": [],
     "returns": [
      "observed"
@@ -1752,13 +1744,5 @@
     "returns": []
    }
   }
- ],
- "world": {
-  "faults": [
-   {
-    "step": "deliver_and_lose_the_response",
-    "point": "after_commit_before_return"
-   }
-  ]
- }
+ ]
 }

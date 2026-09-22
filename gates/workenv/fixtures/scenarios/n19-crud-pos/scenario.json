@@ -34,6 +34,10 @@
    "name": "read_after_rename_id"
   },
   {
+   "id": "req_c649a89e1cad14c4488ed538842010fc",
+   "name": "archive_request_id"
+  },
+  {
    "id": "req_863b6de0223c0dec207818c21501197a",
    "name": "close_request_id"
   },
@@ -331,10 +335,70 @@
   {
    "digest_of": "team_policy",
    "pointer": "/policy_digests/0",
-   "record": "close_request"
+   "record": "archive_request"
   },
   {
    "minted": "renamed",
+   "pointer": "/target/base/head_digest",
+   "record": "archive_request"
+  },
+  {
+   "digest_of": "archive_action",
+   "pointer": "/payload_digest",
+   "record": "archive_request"
+  },
+  {
+   "digest_of": "archive_request",
+   "pointer": "/request_digest",
+   "record": "archive_receipt"
+  },
+  {
+   "minted": "archived",
+   "pointer": "/head_digest",
+   "record": "archive_receipt"
+  },
+  {
+   "minted": "archive_sequence",
+   "pointer": "/sequence",
+   "record": "archive_receipt"
+  },
+  {
+   "minted": "archive_committed_at",
+   "pointer": "/committed_at",
+   "record": "archive_receipt"
+  },
+  {
+   "minted": "renamed",
+   "pointer": "/target/base/head_digest",
+   "record": "archive_receipt"
+  },
+  {
+   "minted": "archived_at",
+   "pointer": "/since",
+   "record": "archived_state"
+  },
+  {
+   "digest_of": "archive_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "archive_result"
+  },
+  {
+   "digest_of": "archive_request",
+   "pointer": "/request_digest",
+   "record": "archive_result"
+  },
+  {
+   "digest_of": "archived_state",
+   "pointer": "/outputs/0/digest",
+   "record": "archive_result"
+  },
+  {
+   "digest_of": "team_policy",
+   "pointer": "/policy_digests/0",
+   "record": "close_request"
+  },
+  {
+   "minted": "archived",
    "pointer": "/target/base/head_digest",
    "record": "close_request"
   },
@@ -364,7 +428,7 @@
    "record": "close_receipt"
   },
   {
-   "minted": "renamed",
+   "minted": "archived",
    "pointer": "/target/base/head_digest",
    "record": "close_receipt"
   },
@@ -489,6 +553,26 @@
    "name": "renamed_at",
    "shape": "instant",
    "step": "rename"
+  },
+  {
+   "name": "archive_committed_at",
+   "shape": "instant",
+   "step": "archive"
+  },
+  {
+   "name": "archive_sequence",
+   "shape": "integer",
+   "step": "archive"
+  },
+  {
+   "name": "archived",
+   "shape": "digest",
+   "step": "archive"
+  },
+  {
+   "name": "archived_at",
+   "shape": "instant",
+   "step": "archive"
   },
   {
    "name": "close_committed_at",
@@ -1088,6 +1172,112 @@
    }
   },
   {
+   "digest": "aa263cc1c2128f42e984686121652605c9c8bffca2ba355b32de47c7ea8687f1",
+   "name": "archive_action",
+   "record": {
+    "action": {
+     "does": "archive"
+    },
+    "kind": "lifecycle_action",
+    "schema": 1,
+    "team_id": "tem_3e8331787772c4a65bfad24ad8143b7c"
+   }
+  },
+  {
+   "digest": "b29e8cf327582adae6a60ad7b753d3c3174b66f6399cad83ae880af2ba5734e1",
+   "name": "archive_request",
+   "record": {
+    "action": "policy",
+    "actor": {
+     "device_id": "dev_6faf4e22f5d11412cd68517ae89cd6b4",
+     "principal_id": "prn_51260eb7ab8f472cb2d22d02e6e732ad",
+     "profile_id": "prf_8ec7455a8a0fbc83d080b1abd1642355"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "team.lifecycle.apply",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_3e8331787772c4a65bfad24ad8143b7c"
+    },
+    "payload_digest": "aa263cc1c2128f42e984686121652605c9c8bffca2ba355b32de47c7ea8687f1",
+    "policy_digests": [
+     "b00719e331638267192eb4e9a22f349957261e4b14eb3cf4d5ff809b7916b7e3"
+    ],
+    "proof_digests": [],
+    "request_id": "req_c649a89e1cad14c4488ed538842010fc",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "6c0348aae3a0eb5ca1b6e699b954671c885e1fd5206ccea2582f3b4500a13600"
+     },
+     "resource_id": "tem_3e8331787772c4a65bfad24ad8143b7c"
+    }
+   }
+  },
+  {
+   "digest": "bf2a2dd82510ad2feaa8ce5e1d01dabcb4885c8f2ef1b039cb7cfb89ce7d99b2",
+   "name": "archive_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "f179d54eca375ee6273692faae3332f75185bdb070b9f1c3bed3b9c1f509f72e",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_3e8331787772c4a65bfad24ad8143b7c"
+    },
+    "request_digest": "b29e8cf327582adae6a60ad7b753d3c3174b66f6399cad83ae880af2ba5734e1",
+    "request_id": "req_c649a89e1cad14c4488ed538842010fc",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "6c0348aae3a0eb5ca1b6e699b954671c885e1fd5206ccea2582f3b4500a13600"
+     },
+     "resource_id": "tem_3e8331787772c4a65bfad24ad8143b7c"
+    }
+   }
+  },
+  {
+   "digest": "fb1e691c65a788ac445143f40297bdb84670a527975599c1bb5fd173c8803f28",
+   "name": "archived_state",
+   "record": {
+    "kind": "team_state",
+    "schema": 1,
+    "since": "2000-01-01T00:00:00Z",
+    "state": "archived",
+    "team_id": "tem_3e8331787772c4a65bfad24ad8143b7c"
+   }
+  },
+  {
+   "digest": "baa30d05815cdee8a85985a7bf002f6c55c06e19a73b0879752d12a79604fad0",
+   "name": "archive_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "bf2a2dd82510ad2feaa8ce5e1d01dabcb4885c8f2ef1b039cb7cfb89ce7d99b2",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "fb1e691c65a788ac445143f40297bdb84670a527975599c1bb5fd173c8803f28",
+      "kind": "team_state"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "b29e8cf327582adae6a60ad7b753d3c3174b66f6399cad83ae880af2ba5734e1",
+    "request_id": "req_c649a89e1cad14c4488ed538842010fc",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
    "digest": "1cf9bf248c232b4dd3b6d6625f1142e768a8a01f61fd91d20e4397f55e9eebb4",
    "name": "closure",
    "record": {
@@ -1120,7 +1310,7 @@
    }
   },
   {
-   "digest": "0525fde39bac18abb8129c47cf3565e0faf0466c6dfadf4f8f47a761c4c81f42",
+   "digest": "93c1653172514b49b5cc22ae417001c447f35f761730c2f55fecda78ba8f0027",
    "name": "close_request",
    "record": {
     "action": "policy",
@@ -1148,14 +1338,14 @@
     "target": {
      "base": {
       "expects": "head",
-      "head_digest": "6c0348aae3a0eb5ca1b6e699b954671c885e1fd5206ccea2582f3b4500a13600"
+      "head_digest": "f179d54eca375ee6273692faae3332f75185bdb070b9f1c3bed3b9c1f509f72e"
      },
      "resource_id": "tem_3e8331787772c4a65bfad24ad8143b7c"
     }
    }
   },
   {
-   "digest": "5aeb56a1b2f42e89786bd4cc3325340fd7ca622e2738bb9e69a0ccd8250153ec",
+   "digest": "5d6d0c2abe4307f6b872d30a58c514a32dc07d92c85f616f27e7c7df8405f116",
    "name": "close_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -1165,14 +1355,14 @@
      "layer": "team",
      "team_id": "tem_3e8331787772c4a65bfad24ad8143b7c"
     },
-    "request_digest": "0525fde39bac18abb8129c47cf3565e0faf0466c6dfadf4f8f47a761c4c81f42",
+    "request_digest": "93c1653172514b49b5cc22ae417001c447f35f761730c2f55fecda78ba8f0027",
     "request_id": "req_863b6de0223c0dec207818c21501197a",
     "schema": 1,
     "sequence": 1,
     "target": {
      "base": {
       "expects": "head",
-      "head_digest": "6c0348aae3a0eb5ca1b6e699b954671c885e1fd5206ccea2582f3b4500a13600"
+      "head_digest": "f179d54eca375ee6273692faae3332f75185bdb070b9f1c3bed3b9c1f509f72e"
      },
      "resource_id": "tem_3e8331787772c4a65bfad24ad8143b7c"
     }
@@ -1190,14 +1380,14 @@
    }
   },
   {
-   "digest": "164f9690edcabbe12c59e10c98c8fcff411b125fae0afa430903567061d9b591",
+   "digest": "6b2d108b419d600aaf3dd1017c2778d2d6adb83adcfc56e5751744bdbd438dd3",
    "name": "close_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "5aeb56a1b2f42e89786bd4cc3325340fd7ca622e2738bb9e69a0ccd8250153ec",
+     "receipt_digest": "5d6d0c2abe4307f6b872d30a58c514a32dc07d92c85f616f27e7c7df8405f116",
      "stage": "committed"
     },
     "outputs": [
@@ -1207,7 +1397,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "0525fde39bac18abb8129c47cf3565e0faf0466c6dfadf4f8f47a761c4c81f42",
+    "request_digest": "93c1653172514b49b5cc22ae417001c447f35f761730c2f55fecda78ba8f0027",
     "request_id": "req_863b6de0223c0dec207818c21501197a",
     "schema": 1,
     "supported_recovery": []
@@ -1287,8 +1477,8 @@
    }
   }
  ],
- "says": "One person founds a Team alone (team.found, self-founded mode that says it reviewed itself, finalized on their laptop): the owner commits and returns the sealed proposal, the Team's policy, the founder's membership by founding and grant, an active team_state, a team_profile named Platform and the founding epoch with the laptop as finalizer, and moves the Team's head. A team.state.read at that head returns exactly the state, profile, policy, membership and grant it wrote. The founder then renames the Team to Platform standards (team.profile.set on the head the founding moved to): the stored profile keeps the same team_id and only the name and its updated_at change; a read at the new head shows the new profile beside the unchanged state, policy, membership and grant. The founder then closes the Team (team.lifecycle.apply close, whose plan names the founder as surviving owner, lists the laptop as the one holder it reached, holds no outbox entry or custody, keeps no repository and requests no purge): the owner returns a closed team_state under a third receipt, and a last read shows the closed state and the renamed profile. Each read names the head of the step it follows, so every change is seen under its own receipt; no read writes anything, and no step changes the team_id.",
- "spec_sha256": "c4921b577f1ba80192a2f952870a512eed3dd8312d30d6efd91cf882c11e4796",
+ "says": "One person founds a Team alone (team.found, self-founded mode that says it reviewed itself, finalized on their laptop): the owner commits and returns the sealed proposal, the Team's policy, the founder's membership by founding and grant, an active team_state, a team_profile named Platform and the founding epoch with the laptop as finalizer, and moves the Team's head. A team.state.read at that head returns exactly the state, profile, policy, membership and grant it wrote. The founder then renames the Team to Platform standards (team.profile.set on the head the founding moved to): the stored profile keeps the same team_id and only the name and its updated_at change; a read at the new head shows the new profile beside the unchanged state, policy, membership and grant. The founder then archives the Team (team.lifecycle.apply archive, on the head the rename moved to): the owner returns an archived team_state under a new receipt and moves the head again, establishing the no-new-work state permanent closure requires. The founder then closes the archived Team (team.lifecycle.apply close, on the head the archive moved to, whose plan names the founder as surviving owner, lists the laptop as the one holder it reached, holds no outbox entry or custody, keeps no repository and requests no purge): the owner returns a closed team_state under a further receipt, and a last read shows the closed state and the renamed profile. Each read names the head of the step it follows, so every change is seen under its own receipt; no read writes anything, and no step changes the team_id.",
+ "spec_sha256": "8ccba1729a93668c405dcf1b419abd0357e0813b367e1d78e02e06030822b7aa",
  "steps": [
   {
    "carries": [
@@ -1348,6 +1538,18 @@
     "team_policy",
     "team_founder_membership",
     "founder_grant"
+   ]
+  },
+  {
+   "carries": [
+    "archive_action"
+   ],
+   "head": "archived",
+   "name": "archive",
+   "request": "archive_request",
+   "result": "archive_result",
+   "returns": [
+    "archived_state"
    ]
   },
   {

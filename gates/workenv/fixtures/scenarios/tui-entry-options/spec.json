@@ -101,6 +101,10 @@
   {
    "name": "exact_link_request_id",
    "prefix": "req"
+  },
+  {
+   "name": "activate_request",
+   "prefix": "req"
   }
  ],
  "records": [
@@ -2051,6 +2055,135 @@
      "value": "#instr_revision"
     },
     {
+     "pointer": "/units/0/home_digest",
+     "value": "#instr_home_stored"
+    },
+    {
+     "pointer": "/units/0/standing",
+     "value": "layered"
+    },
+    {
+     "pointer": "/units/0/body_digest",
+     "value": "$digest:instr_bytes"
+    }
+   ]
+  },
+  {
+   "name": "activation",
+   "from": "c04/activation_of_one_session.json",
+   "set": [
+    {
+     "pointer": "/preparation_digest",
+     "value": "#start_preparation"
+    },
+    {
+     "pointer": "/session/profile_id",
+     "value": "@profile"
+    }
+   ]
+  },
+  {
+   "name": "activation_request",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "session.routing.activate"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#activation"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@activate_request"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    }
+   ]
+  },
+  {
+   "name": "start_routing",
+   "from": "session/activated_with_a_projection.json",
+   "set": [
+    {
+     "pointer": "/delivery/projections",
+     "value": [
+      "#start_projection"
+     ]
+    },
+    {
+     "pointer": "/routed_at",
+     "value": "$instant:start_routing_at"
+    },
+    {
+     "pointer": "/session/profile_id",
+     "value": "@profile"
+    }
+   ]
+  },
+  {
+   "name": "start_projection",
+   "from": "c04/projection_keeps_a_shadowed_unit_attributable.json",
+   "drop": [
+    "/units/1"
+   ],
+   "set": [
+    {
+     "pointer": "/plan_digest",
+     "value": "$digest:start_activation_plan"
+    },
+    {
+     "pointer": "/projection_id",
+     "value": "$prj:start_projection_id"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:start_routing_at"
+    },
+    {
+     "pointer": "/units/0/unit_id",
+     "value": "$unt:instr_unit"
+    },
+    {
+     "pointer": "/units/0/source_id",
+     "value": "@instr"
+    },
+    {
+     "pointer": "/units/0/revision_digest",
+     "value": "#instr_revision"
+    },
+    {
+     "pointer": "/units/0/source_role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/units/0/layer",
+     "value": "repository"
+    },
+    {
      "pointer": "/units/0/standing",
      "value": "layered"
     },
@@ -2545,6 +2678,24 @@
     "recovery": [],
     "returns": [
      "selection_outcome"
+    ]
+   }
+  },
+  {
+   "name": "activate_session",
+   "request": "activation_request",
+   "carries": [
+    "activation"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "start_routing",
+     "start_projection"
     ]
    }
   },

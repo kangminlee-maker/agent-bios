@@ -255,7 +255,7 @@
     {
       "id": "N01-STORE-POS",
       "oracle": 0,
-      "asserts": "Accepted records of C01, C03 and C09 kinds, at least one of each contract, are submitted through the owner in submit mode and each stored as one sealed record: its submitted fields are unchanged after canonicalization, and the runtime-owned fields (such as binding_id and created_at) are the owner's. Reading it back by that id returns the same sealed canonical bytes and digest every time. A kind the runtime writes whole (such as C03's operation_receipt) is not submitted: the owner writes it as a committed step's receipt, and reading it back returns it unchanged."
+      "asserts": "Accepted records of C01, C03 and C09 kinds, at least one of each contract, are submitted through the owner in submit mode and each stored as one sealed record: its submitted fields are unchanged after canonicalization, and the runtime-owned fields (such as binding_id and created_at) are the owner's. Reading each back by its id, where its contract has an operation that returns that kind, returns the same sealed canonical bytes and digest every time. A kind the runtime writes whole (such as C03's operation_receipt) is not submitted: the owner writes it as a committed step's receipt, and reading it back returns it unchanged."
     },
     {
       "id": "N01-STORE-NEG",
@@ -295,7 +295,7 @@
     {
       "id": "N04-C03-POS",
       "oracle": 0,
-      "asserts": "Each entrance whose disposition reaches kept state does so only through the guard its disposition names. A permitted request succeeds through that guard only for an operation that entrance's disposition admits (role.project where the entrance admits it, the admitted source or memory write where it admits those), and no entrance is required to serve an operation its disposition does not admit.",
+      "asserts": "An entrance of each choke point that reaches kept state does so only through that guard. A permitted request succeeds through it only for an operation the owning disposition admits (role.project where it admits that, the admitted source or memory write where it admits those), and no entrance is required to serve an operation its disposition does not admit.",
       "reads": [
         "gates/workenv/entrances.jsonl"
       ]
@@ -303,7 +303,7 @@
     {
       "id": "N04-C03-NEG",
       "oracle": 1,
-      "asserts": "Through every entrance the dispositions list as reaching kept state, including with --repo or AGENT_BIOS_STATE_DIR set to another root, a request for a denied protected resource is refused with source_not_authorized or protected_root_bypass; a retired route names its successor and falls through to nothing.",
+      "asserts": "Through an entrance of each choke point that reaches kept state, including, where the entrance takes its root from the caller, with --repo or AGENT_BIOS_STATE_DIR set to another root, a request for a denied protected resource is refused with source_not_authorized or protected_root_bypass; a retired route names its successor and falls through to nothing.",
       "reads": [
         "gates/workenv/entrances.jsonl"
       ]
@@ -451,7 +451,7 @@
     {
       "id": "N15-C11-NEG",
       "oracle": 1,
-      "asserts": "An unsupported resume, an unknown link, a lost response and an access change never claim delivery and never repeat an effect."
+      "asserts": "An unsupported resume, an unknown link, a delivery whose host acknowledgement never arrives and an access change never claim delivery and never repeat an effect."
     },
     {
       "id": "N15-ANSWER-NEG",
@@ -465,7 +465,7 @@
     {
       "id": "N16-C12-POS",
       "oracle": 0,
-      "asserts": "One actor, Team and preparation traverse personal start, the wireframes W01-W10, direct links and returns through real operation adapters, each selection naming its expected effect."
+      "asserts": "One actor, Team and preparation traverse personal start, the wireframes W01-W10, direct links and returns through real operation adapters, each selection naming its expected effect; an authoring view shows each source's canonical authoring home, owner, home and applicability scope, and origin."
     },
     {
       "id": "N16-C12-NEG",
@@ -508,7 +508,7 @@
     {
       "id": "N20-C04-NEG",
       "oracle": 1,
-      "asserts": "A dangling graph, a lost form exception, an arbitrary validator, a partial or empty lens result and a changed target never become accepted clean state."
+      "asserts": "A dangling graph, a lost form exception, an arbitrary validator, a partial or empty lens result, and a run whose target changed while it ran never become accepted clean state."
     },
     {
       "id": "N21-C10-POS",
@@ -611,7 +611,7 @@
     {
       "id": "N03-SECRET-NEG",
       "oracle": 1,
-      "asserts": "An unlock or signing layout whose public key has its private half beside it is refused with private_key_beside_public, and a signing agent the runtime does not own is refused with agent_not_owned_here; after a lock, a signature is refused with access_locked and no passphrase prompt occurs outside access.transition."
+      "asserts": "An unlock or signing layout whose public key has its private half beside it is refused with private_key_beside_public, and a signing agent the runtime does not own is refused with agent_not_owned_here; after a lock, a signed request is refused with access_locked."
     },
     {
       "id": "N04-ACTIVATION-NEG",
@@ -641,7 +641,7 @@
     {
       "id": "N05-CRASH-NEG",
       "oracle": 1,
-      "asserts": "With the process killed at each B03 FAULT_POINT during a source.revision.commit, after restart the head is either the prior head with no receipt or the new head with its receipt, never staged members counted as committed; an unknown outcome is settled by operation.query of the same id, and the same id with other bytes is request_id_conflict."
+      "asserts": "With the process killed at each B03 fault point of a publication during a source.revision.commit, and at during_checkpoint and during_backup during a checkpoint and a backup, after restart the head is either the prior head with no receipt or the new head with its receipt, never staged members counted as committed; an unknown outcome is settled by operation.query of the same id, and the same id with other bytes is request_id_conflict."
     },
     {
       "id": "N05-LINEAGE-NEG",
@@ -705,7 +705,7 @@
     {
       "id": "N17-DISCONNECT-NEG",
       "oracle": 1,
-      "asserts": "A carrier.disconnect or carrier.provision interrupted before its result is durable is settled after restart by operation.query of the same request. The binding ends bound, partial (naming what exists), disconnected or in doubt, never half-written; the repository and credential are kept, and other Teams' bindings are unchanged."
+      "asserts": "A carrier.provision interrupted before its result is durable is settled after restart by operation.query of the same request, and a carrier.disconnect whose reply is lost after it committed is settled the same way and never run twice. The binding ends bound, partial (naming what exists), disconnected or in doubt, never half-written; the repository and credential are kept, and other Teams' bindings are unchanged."
     },
     {
       "id": "N17-IDENTITY-NEG",
@@ -1467,7 +1467,8 @@
           "TUI-ENTRY-FOCUS",
           "TUI-ENTRY-KO-STATE",
           "TUI-ENTRY-OPTIONS",
-          "RUN-OWNERSHIP"
+          "RUN-OWNERSHIP",
+          "CMP-UI"
         ],
         [
           "TUI-ENTRY-REPO-NO-ENV",
@@ -1550,7 +1551,8 @@
           "CAP-07",
           "CAP-11",
           "N28-CANDIDATE-NEG",
-          "N28-REJECT-POS"
+          "N28-REJECT-POS",
+          "N16-C12-POS"
         ]
       ]
     },

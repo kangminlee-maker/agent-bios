@@ -1222,7 +1222,10 @@ class ClosedNames(NamedExamples, unittest.TestCase):
                 self.assertTrue(row["targets"], operation)
                 self.assertLessEqual(set(row["targets"]), prefixes, operation)
                 for kind in row["takes"] + row["returns"]:
-                    self.assertIn(kind, owned, f"{operation} names {kind}, which no module owns")
+                    self.assertIn(kind, owned | {c01.MEMBER_KIND},
+                                  f"{operation} names {kind}, which no module owns")
+                self.assertNotIn(c01.MEMBER_KIND, row["takes"],
+                                 f"{operation} takes member bytes, which are not a record")
                 for kind in row["takes"]:
                     document = self.schemas[kinds[kind][1]].document
                     self.assertNotIn(schema.RUNTIME_OWNED, document,

@@ -1,6 +1,6 @@
 {
  "case": "CMP-PINS",
- "says": "Alice binds her device key, authors a personal Instructions source (revision one, whose body digest the owner computes) and selects revision one in her personal Instructions position. She opens a link to her working conversation, composes a first preparation for delivery on it (basis scoped to her personal layer alone), delivers its body to the current recipient and observes the delivery: the inventory names revision one's unit and body. Later she authors revision two of the same source against the head revision one left, re-pins her position to revision two against the position's head (the digest of the collection her first change stored), and composes a second preparation for the same recipient whose basis now also scopes a repository layer alongside her personal one (a scope change from the first preparation): it names the position's new head and revision two's body. She then switches that entry off, and composes a third preparation over the same two scopes but with an explicit order preferring the repository layer over her personal one (an order change from the second preparation, which left order unstated): it names the position's newest head and holds the same source, member and revision two as disabled, with no body. Each preparation mints its own unit id; a unit is followed across preparations by its source, member and revision. Observing the first preparation after all three changes \u2014 the revision, the scope and the order \u2014 returns the same delivery observation as before, naming revision one, and writes nothing: the changes reached only the preparations composed after them. What must not happen: a recomposition rewriting the first preparation, the recipient's delivered inventory or the revision, scope or order it was composed under, or a change to the position writing the source itself \u2014 revision two moves the source's own head only through its own admission.",
+ "says": "Alice binds her device key, authors a personal Instructions source (revision one, whose body digest the owner computes) and selects revision one in her personal Instructions position. She opens a link to her working conversation, composes a first preparation for delivery on it (basis scoped to her personal layer alone), delivers its body to the current recipient and observes the delivery: the inventory names revision one's unit and body. Later she authors revision two of the same source against the head revision one left, re-pins her position to revision two against the position's head (the digest of the collection her first change stored), and composes a second preparation for the same recipient whose basis now also scopes a repository layer alongside her personal one (a scope change from the first preparation): it names the position's new head and revision two's body. She then switches that entry off, and composes a third preparation over the same two scopes but with an explicit order preferring her personal layer over the repository one — the reverse of the repository-before-personal default the second preparation's unstated order applied (an order change from the second preparation): it names the position's newest head and holds the same source, member and revision two as disabled, with no body. Each preparation mints its own unit id; a unit is followed across preparations by its source, member and revision. Observing the first preparation after all three changes \u2014 the revision, the scope and the order \u2014 returns the same delivery observation as before, naming revision one, and writes nothing: the changes reached only the preparations composed after them. What must not happen: a recomposition rewriting the first preparation, the recipient's delivered inventory or the revision, scope or order it was composed under, or a change to the position writing the source itself \u2014 revision two moves the source's own head only through its own admission.",
  "ids": [
   {
    "name": "alice",
@@ -1356,8 +1356,6 @@
    "from": "c07/preparation_where_a_winning_unit_keeps_what_it_needs.json",
    "drop": [
     "/order/2",
-    "/order/1",
-    "/order/0/repository_id",
     "/recipient/work_scope/repository_id",
     "/units/2",
     "/units/1"
@@ -1376,11 +1374,11 @@
      "value": "$instant:second_preparation_at"
     },
     {
-     "pointer": "/order/0/layer",
-     "value": "personal"
+     "pointer": "/order/0/repository_id",
+     "value": "@shared_repo"
     },
     {
-     "pointer": "/order/0/principal_id",
+     "pointer": "/order/1/principal_id",
      "value": "@alice"
     },
     {
@@ -1603,19 +1601,19 @@
     },
     {
      "pointer": "/order/0/layer",
-     "value": "repository"
-    },
-    {
-     "pointer": "/order/0/repository_id",
-     "value": "@shared_repo"
-    },
-    {
-     "pointer": "/order/1/layer",
      "value": "personal"
     },
     {
-     "pointer": "/order/1/principal_id",
+     "pointer": "/order/0/principal_id",
      "value": "@alice"
+    },
+    {
+     "pointer": "/order/1/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/order/1/repository_id",
+     "value": "@shared_repo"
     }
    ]
   },
@@ -1696,8 +1694,8 @@
    "from": "c07/preparation_where_a_winning_unit_keeps_what_it_needs.json",
    "drop": [
     "/order/2",
-    "/order/1",
     "/order/0/repository_id",
+    "/order/1/principal_id",
     "/recipient/work_scope/repository_id",
     "/units/2",
     "/units/1",
@@ -1725,6 +1723,14 @@
     {
      "pointer": "/order/0/principal_id",
      "value": "@alice"
+    },
+    {
+     "pointer": "/order/1/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/order/1/repository_id",
+     "value": "@shared_repo"
     },
     {
      "pointer": "/collections/0/collection_id",

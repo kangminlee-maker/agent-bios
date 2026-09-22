@@ -1,6 +1,6 @@
 {
  "case": "N20-C04-NEG",
- "says": "A knowledge source whose applicability carries an exception (companies founded before 2020 keep the 2025 rate) is registered and its first revision committed on the head the registration moved to. None of the following becomes accepted clean state. A model whose relation computed_from names gross_income, a node the model lacks, is refused with model_reference_dangling. A form profile with nowhere to hold the source's exceptions is refused with form_mapping_invalid. A validation request naming a lens without its digest (an arbitrary validator) is refused at admission and nothing runs. A run pinned to two lenses where only one ran is recorded unverified (partial_run), never clean. A run whose lens met nothing to check is recorded unverified (empty_subject). A second revision is then committed, and a run whose request still explicitly and validly pins the first, now-superseded revision is nonetheless recorded unverified (target_changed): currency with the source's head is checked independently of the pinned digest's own validity, so an explicit, valid historical pin does not exempt a run from it. No knowledge_model or form_profile is returned for the refused checks, and no clean verdict is written for any of these runs.",
+ "says": "A knowledge source whose applicability carries an exception (companies founded before 2020 keep the 2025 rate) is registered and its first revision committed on the head the registration moved to. None of the following becomes accepted clean state. A model whose relation computed_from names gross_income, a node the model lacks, is refused with model_reference_dangling. A form profile with nowhere to hold the source's exceptions is refused with form_mapping_invalid. A validation request naming a lens without its digest (an arbitrary validator) is refused at admission and nothing runs. A run pinned to two lenses where only one ran is recorded unverified (partial_run), never clean. A run whose lens met nothing to check is recorded unverified (empty_subject). A validation run pinned to the source's current revision is then admitted, and while it is still in flight a second revision is committed, moving that source's head; the run is nonetheless recorded unverified (target_changed) rather than clean, because its target changed while it ran. No knowledge_model or form_profile is returned for the refused checks, and no clean verdict is written for any of these runs.",
  "ids": [
   {
    "name": "rates",
@@ -853,7 +853,7 @@
    ]
   },
   {
-   "name": "pinned_to_the_old_head",
+   "name": "pinned_to_the_current_head",
    "from": "c12/a_validation_pinned_to_one_revision_and_one_lens.json",
    "drop": [
     "/expected",
@@ -890,7 +890,7 @@
    "set": [
     {
      "pointer": "/request_digest",
-     "value": "#pinned_to_the_old_head"
+     "value": "#pinned_to_the_current_head"
     },
     {
      "pointer": "/at",
@@ -957,7 +957,7 @@
     },
     {
      "pointer": "/payload_digest",
-     "value": "#pinned_to_the_old_head"
+     "value": "#pinned_to_the_current_head"
     },
     {
      "pointer": "/owner/repository_id",
@@ -1117,7 +1117,7 @@
    "name": "run_against_a_target_that_changed",
    "request": "run_against_a_target_that_changed_request",
    "carries": [
-    "pinned_to_the_old_head"
+    "pinned_to_the_current_head"
    ],
    "answer": {
     "stage": "committed",
@@ -1130,5 +1130,13 @@
     ]
    }
   }
- ]
+ ],
+ "world": {
+  "during": [
+   {
+    "step": "run_against_a_target_that_changed",
+    "runs": "commit_rates_revision_2"
+   }
+  ]
+ }
 }

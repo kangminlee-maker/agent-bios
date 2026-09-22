@@ -396,6 +396,11 @@
    "record": "behaviour_capture"
   },
   {
+   "digest_of": "lesson_unit_body",
+   "pointer": "/units/0/body_digest",
+   "record": "behaviour_capture"
+  },
+  {
    "minted": "span_bytes",
    "pointer": "/processing/inputs/0/evidence_digest",
    "record": "behaviour_capture"
@@ -413,6 +418,11 @@
   {
    "digest_of": "observation",
    "pointer": "/observation_digest",
+   "record": "stored_behaviour_capture"
+  },
+  {
+   "digest_of": "lesson_unit_body",
+   "pointer": "/units/0/body_digest",
    "record": "stored_behaviour_capture"
   },
   {
@@ -1519,7 +1529,14 @@
    }
   },
   {
-   "digest": "d7c1e5e6084cbac58f1badb7dab1eda967cc93d6e490ab665d4d481d97f35878",
+   "digest": "303f7045bcc988b4d9ce4cbbee8b2096b1df991fbb31374bd269e6e79a8cda65",
+   "name": "lesson_unit_body",
+   "record": {
+    "text": "Lesson: when asked which journal mode the local state database uses, the answer observed in this span was WAL, with synchronous FULL, effective from 2026-01-01 under jurisdiction KR, for the stated reason of 4.11 ms per commit against 11.76 with readers not blocked."
+   }
+  },
+  {
+   "digest": "55b3f85df621b75520be0df654facbf9620c857f4663de9cd1855c34c928caf7",
    "name": "behaviour_capture",
    "record": {
     "destination_source_id": "src_28f4968382733321ac89d360617e93ef",
@@ -1564,14 +1581,14 @@
     "schema": 1,
     "units": [
      {
-      "body_digest": "0b881471eaf4ece4f5df26a6e2b80502816ffeb9be7118bdf3bc38e2cfbb8caf",
+      "body_digest": "303f7045bcc988b4d9ce4cbbee8b2096b1df991fbb31374bd269e6e79a8cda65",
       "unit_id": "unt_798c2259397daff6d2e733d52acabf3d"
      }
     ]
    }
   },
   {
-   "digest": "a1db21f6f3746b8826db3756770b2286de9aedad3584f639b2467aedb1c3c5b9",
+   "digest": "458fdf889693142531135350d0ff896d4b0482d0d2aa51c794fe906f24ccb024",
    "name": "learn_submit",
    "record": {
     "action": "contribute",
@@ -1589,7 +1606,7 @@
      "layer": "repository",
      "repository_id": "rep_aa88b275b0ed33e384ac1398bef752e8"
     },
-    "payload_digest": "d7c1e5e6084cbac58f1badb7dab1eda967cc93d6e490ab665d4d481d97f35878",
+    "payload_digest": "55b3f85df621b75520be0df654facbf9620c857f4663de9cd1855c34c928caf7",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_d3b13eb2c5bbf972c2b085da32c95e61",
@@ -1604,7 +1621,7 @@
    }
   },
   {
-   "digest": "064654d91d10b35ed7a90f9d9227236d13fcf772ec4b6d3df544524a2916eaa8",
+   "digest": "e03118a3cba7a3c3a4e973bea647074009a18f53a92c3a56c326b18970f8a146",
    "name": "stored_behaviour_capture",
    "record": {
     "captured_at": "2000-01-01T00:00:00Z",
@@ -1650,7 +1667,7 @@
     "schema": 1,
     "units": [
      {
-      "body_digest": "0b881471eaf4ece4f5df26a6e2b80502816ffeb9be7118bdf3bc38e2cfbb8caf",
+      "body_digest": "303f7045bcc988b4d9ce4cbbee8b2096b1df991fbb31374bd269e6e79a8cda65",
       "unit_id": "unt_798c2259397daff6d2e733d52acabf3d"
      }
     ]
@@ -1687,7 +1704,7 @@
    }
   },
   {
-   "digest": "0af41a2c73c0fdc1aefa8576e855a87beca473f6a18cd4a259bf4fbf4dc1027e",
+   "digest": "69abef163dc2b407397e135239b9da7f78151ab5b89cf6e2b3ba910a4ebe4808",
    "name": "run_learning_result",
    "record": {
     "kind": "operation_result",
@@ -1698,7 +1715,7 @@
     },
     "outputs": [
      {
-      "digest": "064654d91d10b35ed7a90f9d9227236d13fcf772ec4b6d3df544524a2916eaa8",
+      "digest": "e03118a3cba7a3c3a4e973bea647074009a18f53a92c3a56c326b18970f8a146",
       "kind": "behaviour_capture"
      },
      {
@@ -1707,7 +1724,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "a1db21f6f3746b8826db3756770b2286de9aedad3584f639b2467aedb1c3c5b9",
+    "request_digest": "458fdf889693142531135350d0ff896d4b0482d0d2aa51c794fe906f24ccb024",
     "request_id": "req_d3b13eb2c5bbf972c2b085da32c95e61",
     "schema": 1,
     "supported_recovery": []
@@ -2018,8 +2035,8 @@
    }
   }
  ],
- "says": "A person binds this device's key and the checkout and registers two repository sources: one for decisions (memory) and one for lessons (Instructions). They select records 12 to 18 of one session transcript, stating that its text may be processed locally, with no prompt log, for this repository only; in that span two decisions were made: the journal mode, effective from 2026-01-01 under jurisdiction KR, with its measured reason stated; and the backup volume, effective from 2026-03-01 on a local SSD, with no reason given anywhere in the span. The owner reads exactly that span once (source.observe). Each producer adapter then runs on that one fixed observation through source.capture.record, at the head its destination's registration committed: the packaged distillation adapter yields a memory capture with one entry for each decision, its body the exact span text stating that decision's date, condition and (journal entry only) its reason, and the packaged learning adapter yields a behavioural capture of one lesson; each answer returns the capture with the extraction_run that names its own adapter by name and digest and the packaged files it loaded - an extraction_run's `loaded` is the adapter's own package files, never the selected evidence, which the capture's own `processing.inputs` carries instead. Every capture's input lies under the selection's one root and restates no more than that root permits (local processing, no log, this repository), the rule input_within_its_root. From the memory capture the person stores one candidate per decision (memory.candidate.store). The first keeps the date, condition and reason exactly as its entry's body states them; the second keeps its date and condition as stated and lists reason under unrecorded, since no reason appears in that body or anywhere else in the span. No adapter reads outside the observed span, and neither capture nor candidate carries a rationale the input does not contain.",
- "spec_sha256": "b6bb7ac8a305185c2bf45e2ef98a7652a819b13d383c37b18299517416aa05b2",
+ "says": "A person binds this device's key and the checkout and registers two repository sources: one for decisions (memory) and one for lessons (Instructions). They select records 12 to 18 of one session transcript, stating that its text may be processed locally, with no prompt log, for this repository only; in that span two decisions were made: the journal mode, effective from 2026-01-01 under jurisdiction KR, with its measured reason stated; and the backup volume, effective from 2026-03-01 on a local SSD, with no reason given anywhere in the span. The owner reads exactly that span once (source.observe). Each producer adapter then runs on that one fixed observation through source.capture.record, at the head its destination's registration committed: the packaged distillation adapter yields a memory capture with one entry for each decision, its body the exact span text stating that decision's date, condition and (journal entry only) its reason, and the packaged learning adapter yields a behavioural capture of one lesson whose body restates the journal decision's date, condition and reason too; each answer returns the capture with the extraction_run that names its own adapter by name and digest and the packaged files it loaded - an extraction_run's `loaded` is the adapter's own package files, never the selected evidence, which the capture's own `processing.inputs` carries instead. Every capture's input lies under the selection's one root and restates no more than that root permits, the rule input_within_its_root. From the memory capture the person stores one candidate per decision (memory.candidate.store). The first keeps the date, condition and reason exactly as its entry's body states them; the second keeps its date and condition as stated and lists reason under unrecorded, since no reason appears in that body or anywhere else in the span. No adapter reads outside the observed span, and neither capture nor candidate carries a rationale the input does not contain.",
+ "spec_sha256": "dfbd697020e7e4495420e75323ba29fdb0a2e851c9af86982ec0b89c25508af9",
  "steps": [
   {
    "carries": [

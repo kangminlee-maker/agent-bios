@@ -174,21 +174,43 @@
       }
     },
     "subject": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "subject_id",
-        "fingerprint"
-      ],
-      "properties": {
-        "subject_id": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?::[A-Z][A-Z0-9]*)?$"
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "subject_id",
+            "fingerprint"
+          ],
+          "properties": {
+            "subject_id": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?::[A-Z][A-Z0-9]*)?$"
+            },
+            "fingerprint": {
+              "$ref": "#/$defs/digest"
+            }
+          }
         },
-        "fingerprint": {
-          "$ref": "#/$defs/digest"
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "subject_id",
+            "unwritten"
+          ],
+          "description": "The node's own component before the node writes it: its closure names paths no node has written yet, so there is nothing to measure at dispatch, and the node's record measures it.",
+          "properties": {
+            "subject_id": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?::[A-Z][A-Z0-9]*)?$"
+            },
+            "unwritten": {
+              "const": true
+            }
+          }
         }
-      }
+      ]
     },
     "dispatch": {
       "oneOf": [

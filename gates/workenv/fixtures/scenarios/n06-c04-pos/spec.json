@@ -334,11 +334,11 @@
         },
         {
           "pointer": "/members/0/digest",
-          "value": "82f5aa8d50cf761e7731a8ccd43c6ea17c06504385f4f8dac62f74851f3790cb"
+          "value": "#rates_table_v1"
         },
         {
           "pointer": "/members/0/size",
-          "value": 2048
+          "value": 94
         },
         {
           "pointer": "/members/1/path",
@@ -346,11 +346,11 @@
         },
         {
           "pointer": "/members/1/digest",
-          "value": "4876e236e3b0623954adb10a0d23c94041088fc2913e6addd63f77a3b9a12efd"
+          "value": "#rates_concepts"
         },
         {
           "pointer": "/members/1/size",
-          "value": 4120
+          "value": 179
         }
       ]
     },
@@ -466,7 +466,7 @@
         },
         {
           "pointer": "/members/0/digest",
-          "value": "82f5aa8d50cf761e7731a8ccd43c6ea17c06504385f4f8dac62f74851f3790cb"
+          "value": "#rates_table_v1"
         },
         {
           "pointer": "/members/0/layer",
@@ -478,7 +478,7 @@
         },
         {
           "pointer": "/members/1/digest",
-          "value": "4876e236e3b0623954adb10a0d23c94041088fc2913e6addd63f77a3b9a12efd"
+          "value": "#rates_concepts"
         },
         {
           "pointer": "/members/1/layer",
@@ -553,11 +553,11 @@
         },
         {
           "pointer": "/members/0/digest",
-          "value": "2702a48949ff2ef94c13c8f8e0a45a7a481e0e19482d3ffa8f8fc2c584a1d2c2"
+          "value": "#rates_table_v2"
         },
         {
           "pointer": "/members/0/size",
-          "value": 2071
+          "value": 94
         },
         {
           "pointer": "/members/1/path",
@@ -565,11 +565,11 @@
         },
         {
           "pointer": "/members/1/digest",
-          "value": "4876e236e3b0623954adb10a0d23c94041088fc2913e6addd63f77a3b9a12efd"
+          "value": "#rates_concepts"
         },
         {
           "pointer": "/members/1/size",
-          "value": 4120
+          "value": 179
         }
       ]
     },
@@ -681,7 +681,7 @@
         },
         {
           "pointer": "/members/0/digest",
-          "value": "2702a48949ff2ef94c13c8f8e0a45a7a481e0e19482d3ffa8f8fc2c584a1d2c2"
+          "value": "#rates_table_v2"
         },
         {
           "pointer": "/members/0/layer",
@@ -693,7 +693,7 @@
         },
         {
           "pointer": "/members/1/digest",
-          "value": "4876e236e3b0623954adb10a0d23c94041088fc2913e6addd63f77a3b9a12efd"
+          "value": "#rates_concepts"
         },
         {
           "pointer": "/members/1/layer",
@@ -982,7 +982,7 @@
         },
         {
           "pointer": "/members/0/digest",
-          "value": "2702a48949ff2ef94c13c8f8e0a45a7a481e0e19482d3ffa8f8fc2c584a1d2c2"
+          "value": "#rates_table_v2"
         },
         {
           "pointer": "/members/0/layer",
@@ -994,7 +994,7 @@
         },
         {
           "pointer": "/members/1/digest",
-          "value": "4876e236e3b0623954adb10a0d23c94041088fc2913e6addd63f77a3b9a12efd"
+          "value": "#rates_concepts"
         },
         {
           "pointer": "/members/1/layer",
@@ -1093,7 +1093,7 @@
         },
         {
           "pointer": "/members/0/digest",
-          "value": "2702a48949ff2ef94c13c8f8e0a45a7a481e0e19482d3ffa8f8fc2c584a1d2c2"
+          "value": "#rates_table_v2"
         },
         {
           "pointer": "/members/0/layer",
@@ -1105,7 +1105,7 @@
         },
         {
           "pointer": "/members/1/digest",
-          "value": "4876e236e3b0623954adb10a0d23c94041088fc2913e6addd63f77a3b9a12efd"
+          "value": "#rates_concepts"
         },
         {
           "pointer": "/members/1/layer",
@@ -1165,212 +1165,20 @@
           "value": "@repo"
         }
       ]
+    }
+  ],
+  "members": [
+    {
+      "name": "rates_table_v1",
+      "text": "jurisdiction,entity_form,rate\nKR,small_company,0.10\nKR,mid_company,0.15\nKR,large_company,0.20\n"
     },
     {
-      "name": "rates_amendment_home",
-      "from": "rates_home",
-      "set": [
-        {
-          "pointer": "/applicability/period/effective_from",
-          "value": "2027-06-01"
-        }
-      ]
+      "name": "rates_table_v2",
+      "text": "jurisdiction,entity_form,rate\nKR,small_company,0.08\nKR,mid_company,0.15\nKR,large_company,0.20\n"
     },
     {
-      "name": "rates_amendment_home_stored",
-      "from": "rates_amendment_home",
-      "set": [
-        {
-          "pointer": "/registered_at",
-          "value": "$instant:rates_amendment_registered_at"
-        }
-      ]
-    },
-    {
-      "name": "register_amendment",
-      "from": "c04/model_check_request.json",
-      "drop": [
-        "/target/base/head_digest"
-      ],
-      "set": [
-        {
-          "pointer": "/request_id",
-          "value": "@register_amendment_id"
-        },
-        {
-          "pointer": "/operation",
-          "value": "source.home.register"
-        },
-        {
-          "pointer": "/action",
-          "value": "contribute"
-        },
-        {
-          "pointer": "/effect_class",
-          "value": "owner_commit"
-        },
-        {
-          "pointer": "/actor/principal_id",
-          "value": "@me"
-        },
-        {
-          "pointer": "/actor/device_id",
-          "value": "@laptop"
-        },
-        {
-          "pointer": "/actor/profile_id",
-          "value": "@profile"
-        },
-        {
-          "pointer": "/target/resource_id",
-          "value": "@rates"
-        },
-        {
-          "pointer": "/target/base/expects",
-          "value": "head"
-        },
-        {
-          "pointer": "/target/base/head_digest",
-          "value": "$digest:rates_head2"
-        },
-        {
-          "pointer": "/payload_digest",
-          "value": "#rates_amendment_home"
-        },
-        {
-          "pointer": "/owner/repository_id",
-          "value": "@repo"
-        }
-      ]
-    },
-    {
-      "name": "question_after_amendment",
-      "from": "c04/question_with_the_conditions_that_change_its_answer.json",
-      "drop": [
-        "/concern/conditions/1",
-        "/companions"
-      ],
-      "set": [
-        {
-          "pointer": "/source_pins/0/source_id",
-          "value": "@rates"
-        },
-        {
-          "pointer": "/source_pins/0/revision_digest",
-          "value": "#rates_rev2"
-        }
-      ]
-    },
-    {
-      "name": "ask_after_amendment_request",
-      "from": "c04/model_check_request.json",
-      "drop": [
-        "/target/base"
-      ],
-      "set": [
-        {
-          "pointer": "/request_id",
-          "value": "@ask_after_amendment_id"
-        },
-        {
-          "pointer": "/operation",
-          "value": "knowledge.question.ask"
-        },
-        {
-          "pointer": "/action",
-          "value": "read"
-        },
-        {
-          "pointer": "/effect_class",
-          "value": "durable_candidate"
-        },
-        {
-          "pointer": "/actor/principal_id",
-          "value": "@me"
-        },
-        {
-          "pointer": "/actor/device_id",
-          "value": "@laptop"
-        },
-        {
-          "pointer": "/actor/profile_id",
-          "value": "@profile"
-        },
-        {
-          "pointer": "/target/resource_id",
-          "value": "@me"
-        },
-        {
-          "pointer": "/payload_digest",
-          "value": "#question_after_amendment"
-        },
-        {
-          "pointer": "/owner/repository_id",
-          "value": "@repo"
-        }
-      ]
-    },
-    {
-      "name": "after_amendment_view",
-      "from": "c04/view_with_the_evidence_behind_it.json",
-      "set": [
-        {
-          "pointer": "/view_id",
-          "value": "$viw:after_amendment_view"
-        },
-        {
-          "pointer": "/question_digest",
-          "value": "#question_after_amendment"
-        },
-        {
-          "pointer": "/prepared_at",
-          "value": "$instant:after_amendment_view_at"
-        },
-        {
-          "pointer": "/applicability/period/effective_from",
-          "value": "2027-06-01"
-        },
-        {
-          "pointer": "/evidence/0/source_id",
-          "value": "@rates"
-        },
-        {
-          "pointer": "/evidence/0/revision_digest",
-          "value": "#rates_rev2"
-        },
-        {
-          "pointer": "/evidence/0/cited_edition",
-          "value": "2026 schedule, corrected edition, amended effective 2027-06-01"
-        },
-        {
-          "pointer": "/members/0/source_id",
-          "value": "@rates"
-        },
-        {
-          "pointer": "/members/0/digest",
-          "value": "2702a48949ff2ef94c13c8f8e0a45a7a481e0e19482d3ffa8f8fc2c584a1d2c2"
-        },
-        {
-          "pointer": "/members/0/layer",
-          "value": "repository"
-        },
-        {
-          "pointer": "/members/1/source_id",
-          "value": "@rates"
-        },
-        {
-          "pointer": "/members/1/digest",
-          "value": "4876e236e3b0623954adb10a0d23c94041088fc2913e6addd63f77a3b9a12efd"
-        },
-        {
-          "pointer": "/members/1/layer",
-          "value": "repository"
-        },
-        {
-          "pointer": "/companions",
-          "value": []
-        }
-      ]
+      "name": "rates_concepts",
+      "text": "Relief rate depends on jurisdiction and entity form as stated in tables/rates.csv. The rate applies to taxable income reported for the period named in the source's applicability.\n"
     }
   ],
   "steps": [
@@ -1457,7 +1265,9 @@
         "gaps": [],
         "recovery": [],
         "returns": [
-          "first_view"
+          "first_view",
+          "rates_table_v1",
+          "rates_concepts"
         ]
       }
     },
@@ -1492,7 +1302,9 @@
         "gaps": [],
         "recovery": [],
         "returns": [
-          "corrected_view"
+          "corrected_view",
+          "rates_table_v2",
+          "rates_concepts"
         ]
       }
     },
@@ -1542,7 +1354,9 @@
         "gaps": [],
         "recovery": [],
         "returns": [
-          "view_before_amendment"
+          "view_before_amendment",
+          "rates_table_v2",
+          "rates_concepts"
         ]
       }
     },
@@ -1559,45 +1373,12 @@
         "gaps": [],
         "recovery": [],
         "returns": [
-          "view_after_amendment"
+          "view_after_amendment",
+          "rates_table_v2",
+          "rates_concepts"
         ]
       },
-      "advance_seconds": 8953200
-    },
-    {
-      "name": "register_amendment",
-      "request": "register_amendment",
-      "carries": [
-        "rates_amendment_home"
-      ],
-      "answer": {
-        "stage": "committed",
-        "local_effect": "committed",
-        "provider_effect": "not_applicable",
-        "gaps": [],
-        "recovery": [],
-        "returns": [
-          "rates_amendment_home_stored"
-        ],
-        "head": "rates_amended"
-      }
-    },
-    {
-      "name": "ask_after_amendment",
-      "request": "ask_after_amendment_request",
-      "carries": [
-        "question_after_amendment"
-      ],
-      "answer": {
-        "stage": "previewed",
-        "local_effect": "private_state_written",
-        "provider_effect": "not_applicable",
-        "gaps": [],
-        "recovery": [],
-        "returns": [
-          "after_amendment_view"
-        ]
-      }
+      "advance_seconds": 34182000
     }
   ],
   "world": {

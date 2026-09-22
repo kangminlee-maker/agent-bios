@@ -180,6 +180,18 @@
   {
    "id": "req_a81c1c183af084da28844474140e0516",
    "name": "resolved_request_id"
+  },
+  {
+   "id": "req_18cb49f1b1a264153906244917ea49d8",
+   "name": "earlier_compose_id"
+  },
+  {
+   "id": "use_6db969febe6f9934043d6188ffaf3c62",
+   "name": "earlier_delivery_use"
+  },
+  {
+   "id": "req_a4d74d251d2648ec7890aa3acd4eb8e4",
+   "name": "earlier_attempt_id"
   }
  ],
  "joins": [
@@ -1484,6 +1496,151 @@
    "record": "open_recipient_link_result"
   },
   {
+   "digest_of": "earlier_prep_request",
+   "pointer": "/payload_digest",
+   "record": "earlier_prep_compose_request"
+  },
+  {
+   "digest_of": "link_stored",
+   "pointer": "/recipient_digest",
+   "record": "earlier_prep_compose_request"
+  },
+  {
+   "digest_of": "earlier_prep_request",
+   "pointer": "/request_digest",
+   "record": "earlier_preparation"
+  },
+  {
+   "minted": "earlier_prepared_at",
+   "pointer": "/prepared_at",
+   "record": "earlier_preparation"
+  },
+  {
+   "digest_of": "link_stored",
+   "pointer": "/recipient/recipient_digest",
+   "record": "earlier_preparation"
+  },
+  {
+   "minted": "delivered_unit",
+   "pointer": "/units/0/unit_id",
+   "record": "earlier_preparation"
+  },
+  {
+   "digest_of": "team_instr_revision",
+   "pointer": "/units/0/revision_digest",
+   "record": "earlier_preparation"
+  },
+  {
+   "minted": "team_instr_bytes",
+   "pointer": "/units/0/body_digest",
+   "record": "earlier_preparation"
+  },
+  {
+   "digest_of": "earlier_prep_compose_request",
+   "pointer": "/request_digest",
+   "record": "compose_earlier_preparation_result"
+  },
+  {
+   "digest_of": "earlier_preparation",
+   "pointer": "/outputs/0/digest",
+   "record": "compose_earlier_preparation_result"
+  },
+  {
+   "minted": "work_link",
+   "pointer": "/target/resource_id",
+   "record": "earlier_delivery_attempt_request"
+  },
+  {
+   "minted": "work_link",
+   "pointer": "/link_id",
+   "record": "earlier_delivery_submitted"
+  },
+  {
+   "digest_of": "earlier_preparation",
+   "pointer": "/requested/preparation_digest",
+   "record": "earlier_delivery_submitted"
+  },
+  {
+   "minted": "team_instr_bytes",
+   "pointer": "/requested/bodies/0",
+   "record": "earlier_delivery_submitted"
+  },
+  {
+   "digest_of": "earlier_delivery_submitted",
+   "pointer": "/payload_digest",
+   "record": "earlier_delivery_attempt_request"
+  },
+  {
+   "digest_of": "earlier_delivery_attempt_request",
+   "pointer": "/request_digest",
+   "record": "attempt_earlier_delivery_receipt"
+  },
+  {
+   "minted": "attempt_earlier_delivery_head",
+   "pointer": "/head_digest",
+   "record": "attempt_earlier_delivery_receipt"
+  },
+  {
+   "minted": "attempt_earlier_delivery_sequence",
+   "pointer": "/sequence",
+   "record": "attempt_earlier_delivery_receipt"
+  },
+  {
+   "minted": "attempt_earlier_delivery_committed_at",
+   "pointer": "/committed_at",
+   "record": "attempt_earlier_delivery_receipt"
+  },
+  {
+   "minted": "work_link",
+   "pointer": "/target/resource_id",
+   "record": "attempt_earlier_delivery_receipt"
+  },
+  {
+   "minted": "work_link",
+   "pointer": "/link_id",
+   "record": "earlier_delivery_received"
+  },
+  {
+   "digest_of": "earlier_preparation",
+   "pointer": "/requested/preparation_digest",
+   "record": "earlier_delivery_received"
+  },
+  {
+   "minted": "team_instr_bytes",
+   "pointer": "/requested/bodies/0",
+   "record": "earlier_delivery_received"
+  },
+  {
+   "minted": "team_instr_bytes",
+   "pointer": "/observed/received/0",
+   "record": "earlier_delivery_received"
+  },
+  {
+   "minted": "earlier_delivery_evidence",
+   "pointer": "/observed/evidence_digest",
+   "record": "earlier_delivery_received"
+  },
+  {
+   "minted": "earlier_delivery_received_at",
+   "pointer": "/at",
+   "record": "earlier_delivery_received"
+  },
+  {
+   "digest_of": "attempt_earlier_delivery_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "attempt_earlier_delivery_result"
+  },
+  {
+   "digest_of": "earlier_delivery_attempt_request",
+   "pointer": "/request_digest",
+   "record": "attempt_earlier_delivery_result"
+  },
+  {
+   "digest_of": "earlier_delivery_received",
+   "pointer": "/outputs/0/digest",
+   "record": "attempt_earlier_delivery_result"
+  },
+  {
    "minted": "delivery_observed_at",
    "pointer": "/observed/at",
    "record": "delivery_seen"
@@ -1504,13 +1661,18 @@
    "record": "delivery_seen"
   },
   {
-   "minted": "delivered_body",
+   "minted": "team_instr_bytes",
    "pointer": "/observed/inventory/0/body_digest",
    "record": "delivery_seen"
   },
   {
    "minted": "delivery_recorded_at",
    "pointer": "/recorded_at",
+   "record": "delivery_seen"
+  },
+  {
+   "digest_of": "link_stored",
+   "pointer": "/requested/recipient_digest",
    "record": "delivery_seen"
   },
   {
@@ -1619,6 +1781,11 @@
    "record": "script_trace"
   },
   {
+   "digest_of": "delivery_seen",
+   "pointer": "/frames/0/elements/11/refers_to/digest",
+   "record": "script_trace"
+  },
+  {
    "digest_of": "script_request",
    "pointer": "/request_digest",
    "record": "drive_entry_result"
@@ -1632,6 +1799,11 @@
    "digest_of": "tour_script",
    "pointer": "/payload_digest",
    "record": "tour_script_request"
+  },
+  {
+   "digest_of": "delivery_seen",
+   "pointer": "/frames/0/elements/11/refers_to/digest",
+   "record": "tour_trace"
   },
   {
    "minted": "tour_driven_at",
@@ -2279,6 +2451,11 @@
    "record": "resolved_trace"
   },
   {
+   "digest_of": "delivery_seen",
+   "pointer": "/frames/0/elements/11/refers_to/digest",
+   "record": "resolved_trace"
+  },
+  {
    "minted": "resolved_view_driven_at",
    "pointer": "/at",
    "record": "resolved_trace"
@@ -2761,14 +2938,39 @@
    "step": "open_recipient_link"
   },
   {
-   "name": "delivered_body",
-   "shape": "digest",
-   "step": "observe_earlier_delivery"
-  },
-  {
    "name": "delivered_unit",
    "shape": "unt",
-   "step": "observe_earlier_delivery"
+   "step": "compose_earlier_preparation"
+  },
+  {
+   "name": "earlier_prepared_at",
+   "shape": "instant",
+   "step": "compose_earlier_preparation"
+  },
+  {
+   "name": "attempt_earlier_delivery_committed_at",
+   "shape": "instant",
+   "step": "attempt_earlier_delivery"
+  },
+  {
+   "name": "attempt_earlier_delivery_head",
+   "shape": "digest",
+   "step": "attempt_earlier_delivery"
+  },
+  {
+   "name": "attempt_earlier_delivery_sequence",
+   "shape": "integer",
+   "step": "attempt_earlier_delivery"
+  },
+  {
+   "name": "earlier_delivery_evidence",
+   "shape": "digest",
+   "step": "attempt_earlier_delivery"
+  },
+  {
+   "name": "earlier_delivery_received_at",
+   "shape": "instant",
+   "step": "attempt_earlier_delivery"
   },
   {
    "name": "delivery_evidence",
@@ -6046,6 +6248,270 @@
    }
   },
   {
+   "digest": "df5e44cf3469a7d810cde6d56b63f2ab659e7eab34c021760047eb8a113fd971",
+   "name": "earlier_prep_request",
+   "record": {
+    "basis": {
+     "from": "ad_hoc",
+     "scopes": [
+      {
+       "layer": "personal",
+       "principal_id": "prn_8d081ce4391edd02fcd02c986079cb6d"
+      }
+     ],
+     "source_pins": []
+    },
+    "declared_operation": {
+     "action": "use",
+     "name": "recipient.delivery.attempt"
+    },
+    "kind": "preparation_request",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "0386f3c78efb7d12aec680827f8bdf8c35ee79662848bff4d7d76b19d10ba941",
+   "name": "earlier_prep_compose_request",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_cfed48dfe5f4050b361d1987b9f811bd",
+     "principal_id": "prn_8d081ce4391edd02fcd02c986079cb6d",
+     "profile_id": "prf_1e2170f69507581e7540fc46d13a6495"
+    },
+    "control_digests": [],
+    "effect_class": "durable_candidate",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "preparation.compose",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_8d081ce4391edd02fcd02c986079cb6d"
+    },
+    "payload_digest": "df5e44cf3469a7d810cde6d56b63f2ab659e7eab34c021760047eb8a113fd971",
+    "policy_digests": [],
+    "proof_digests": [],
+    "recipient_digest": "5e37253964d673424705d7902859d53af1c8df987d6744274defdf1d7789115f",
+    "request_id": "req_18cb49f1b1a264153906244917ea49d8",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_8d081ce4391edd02fcd02c986079cb6d"
+    }
+   }
+  },
+  {
+   "digest": "30cd4bfa770e52682326885a06be576a1d394dbc80d56982a5435d6bcf4affd2",
+   "name": "earlier_preparation",
+   "record": {
+    "adapter": {
+     "name": "session_adapter",
+     "version": "0.1.0"
+    },
+    "collections": [
+     {
+      "collection_id": "col_7e5c3a1b9d7f5e3c1a9b7d5f3e1c9a72",
+      "head_digest": "2cbbe3be08b85ff53080cd45981a19a49eb0ce78a8d6d91ad4eee0c6c5692972",
+      "state": "applied"
+     }
+    ],
+    "frontiers": [],
+    "kind": "preparation",
+    "material_gaps": [],
+    "observed": {
+     "branch": "main",
+     "commit": "0123456789abcdef0123456789abcdef01234567",
+     "locator": "git@github.com:example/work.git",
+     "working_bytes_digest": "e25c4d2ee80d2ce0ab6f4947588d809091acb05158fb152d90ae65744ce3c151"
+    },
+    "omissions": [],
+    "order": [
+     {
+      "layer": "repository",
+      "repository_id": "rep_b3431ec49ef42b32279c6d26037daf90"
+     },
+     {
+      "layer": "personal",
+      "principal_id": "prn_8d081ce4391edd02fcd02c986079cb6d"
+     },
+     {
+      "layer": "team",
+      "team_id": "tem_598a6050a1dce72d9bdf63e695dded1c"
+     }
+    ],
+    "preparation_id": "prp_040526bac5165b576d6c035e0b47d727",
+    "prepared_at": "2000-01-01T00:00:00Z",
+    "recipient": {
+     "isolation": "proven_fresh",
+     "recipient_digest": "5e37253964d673424705d7902859d53af1c8df987d6744274defdf1d7789115f",
+     "work_scope": {
+      "layer": "personal",
+      "principal_id": "prn_8d081ce4391edd02fcd02c986079cb6d"
+     }
+    },
+    "request_digest": "df5e44cf3469a7d810cde6d56b63f2ab659e7eab34c021760047eb8a113fd971",
+    "schema": 1,
+    "units": [
+     {
+      "body_digest": "7432cb36013a4019d60f582fc49c44950915c57855c5eb8e4f8889cc157c81f5",
+      "concern": "response.style",
+      "layer": "team",
+      "member": "team/platform.md",
+      "revision_digest": "372504810f9affb31636c28e132f9690c16f1aaae390a041a327baa35e131923",
+      "role": "instructions",
+      "source_id": "src_fcacadc39a52d00b4a1af3a943076d96",
+      "standing": "winning",
+      "startup": "required",
+      "unit_id": "unt_e4f77dcc1b3c3b632bad3ceb969aff1c"
+     }
+    ],
+    "work_support": {
+     "assessed": "not_requested"
+    }
+   }
+  },
+  {
+   "digest": "0caf0bbb78e1b087eceab0c4f4bf1f04507567194065293ebce1865b44d9be62",
+   "name": "compose_earlier_preparation_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "private_state_written",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "30cd4bfa770e52682326885a06be576a1d394dbc80d56982a5435d6bcf4affd2",
+      "kind": "preparation"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "0386f3c78efb7d12aec680827f8bdf8c35ee79662848bff4d7d76b19d10ba941",
+    "request_id": "req_18cb49f1b1a264153906244917ea49d8",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "12d4b8f372d5691ca4f4332bcbec6d701b32a626b1cb07ccb65926f280e9b250",
+   "name": "earlier_delivery_submitted",
+   "record": {
+    "kind": "delivery_attempt",
+    "link_id": "lnk_94d0a80f38c52af3555705b11f818ead",
+    "requested": {
+     "bodies": [
+      "7432cb36013a4019d60f582fc49c44950915c57855c5eb8e4f8889cc157c81f5"
+     ],
+     "preparation_digest": "30cd4bfa770e52682326885a06be576a1d394dbc80d56982a5435d6bcf4affd2",
+     "recipient": "current",
+     "what": "body"
+    },
+    "schema": 1,
+    "use_id": "use_6db969febe6f9934043d6188ffaf3c62"
+   }
+  },
+  {
+   "digest": "ffe79a5e79061e6d89eacb73f08626c367ef05003c88eb39a56dc7f2907e0b94",
+   "name": "earlier_delivery_attempt_request",
+   "record": {
+    "action": "use",
+    "actor": {
+     "device_id": "dev_cfed48dfe5f4050b361d1987b9f811bd",
+     "principal_id": "prn_8d081ce4391edd02fcd02c986079cb6d",
+     "profile_id": "prf_1e2170f69507581e7540fc46d13a6495"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "recipient.delivery.attempt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_8d081ce4391edd02fcd02c986079cb6d"
+    },
+    "payload_digest": "12d4b8f372d5691ca4f4332bcbec6d701b32a626b1cb07ccb65926f280e9b250",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_a4d74d251d2648ec7890aa3acd4eb8e4",
+    "schema": 1,
+    "target": {
+     "resource_id": "lnk_94d0a80f38c52af3555705b11f818ead"
+    }
+   }
+  },
+  {
+   "digest": "e5f12ffcd73ad5bfb384c0fa068062325eedd7ef88b66c3928c6c9bc21aa0288",
+   "name": "attempt_earlier_delivery_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "27ca310f44cf1c6d2a9d4c55ca358a3d8036d0d885aa8313bac90c83d2831a95",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_8d081ce4391edd02fcd02c986079cb6d"
+    },
+    "request_digest": "ffe79a5e79061e6d89eacb73f08626c367ef05003c88eb39a56dc7f2907e0b94",
+    "request_id": "req_a4d74d251d2648ec7890aa3acd4eb8e4",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "lnk_94d0a80f38c52af3555705b11f818ead"
+    }
+   }
+  },
+  {
+   "digest": "e8d6589bf7b72fd0530199d212b09812adc253528cb9c7cfdc1df1522de86500",
+   "name": "earlier_delivery_received",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "kind": "delivery_attempt",
+    "link_id": "lnk_94d0a80f38c52af3555705b11f818ead",
+    "material_gaps": [],
+    "observed": {
+     "evidence_digest": "8ca2201700e42cfb8b673765eb2b459037442599457c1fe0a7bb02172609e94e",
+     "received": [
+      "7432cb36013a4019d60f582fc49c44950915c57855c5eb8e4f8889cc157c81f5"
+     ],
+     "saw": "received"
+    },
+    "requested": {
+     "bodies": [
+      "7432cb36013a4019d60f582fc49c44950915c57855c5eb8e4f8889cc157c81f5"
+     ],
+     "preparation_digest": "30cd4bfa770e52682326885a06be576a1d394dbc80d56982a5435d6bcf4affd2",
+     "recipient": "current",
+     "what": "body"
+    },
+    "schema": 1,
+    "supported": true,
+    "use_id": "use_6db969febe6f9934043d6188ffaf3c62"
+   }
+  },
+  {
+   "digest": "91d59602b19a151e39cb91b4f8a9109e5daf72b86c3047cbfe745e05c84563eb",
+   "name": "attempt_earlier_delivery_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "e5f12ffcd73ad5bfb384c0fa068062325eedd7ef88b66c3928c6c9bc21aa0288",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "e8d6589bf7b72fd0530199d212b09812adc253528cb9c7cfdc1df1522de86500",
+      "kind": "delivery_attempt"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "ffe79a5e79061e6d89eacb73f08626c367ef05003c88eb39a56dc7f2907e0b94",
+    "request_id": "req_a4d74d251d2648ec7890aa3acd4eb8e4",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
    "digest": "3f3885f0d8e1bd716389c0a4b3162cac51c818ec71fb62da25f8c9d00b7ad347",
    "name": "observe_delivery_request",
    "record": {
@@ -6074,7 +6540,7 @@
    }
   },
   {
-   "digest": "7d29db60a88d71cfd03617db8c863b38a55eb8fec25f8bcabf597c39d39ab297",
+   "digest": "cb77c1bc560261ece9a5f1d991b9985092cbb3706605556eef971868328b0814",
    "name": "delivery_seen",
    "record": {
     "kind": "delivery_observation",
@@ -6084,7 +6550,7 @@
      "evidence_digest": "a5020331bb3dbb0c8e9d94b9c30cdc2d52e4cfe4296d7c3b5402fff5cf855af0",
      "inventory": [
       {
-       "body_digest": "15976403cbf216d53d4c76b22ab1445c0b635df418f37fbc6ba560228b8bf984",
+       "body_digest": "7432cb36013a4019d60f582fc49c44950915c57855c5eb8e4f8889cc157c81f5",
        "revision_digest": "372504810f9affb31636c28e132f9690c16f1aaae390a041a327baa35e131923",
        "source_id": "src_fcacadc39a52d00b4a1af3a943076d96",
        "unit_id": "unt_e4f77dcc1b3c3b632bad3ceb969aff1c"
@@ -6095,14 +6561,14 @@
     "preparation_id": "prp_040526bac5165b576d6c035e0b47d727",
     "recorded_at": "2000-01-01T00:00:00Z",
     "requested": {
-     "recipient_digest": "df52341b0001922b045d89c33f28412fba55ecf56259939b0b0ae8b30635f4e5",
+     "recipient_digest": "5e37253964d673424705d7902859d53af1c8df987d6744274defdf1d7789115f",
      "recipient_kind": "host_session"
     },
     "schema": 1
    }
   },
   {
-   "digest": "0f5e92318006451d7abea8ddc1b32af101f1f6378e6cf76ffa07f6b2e3d4d11d",
+   "digest": "449138150235ced9fa9361ace62a376a260eaae4d1afb21919963e9fbed932ec",
    "name": "observe_earlier_delivery_result",
    "record": {
     "kind": "operation_result",
@@ -6113,7 +6579,7 @@
     },
     "outputs": [
      {
-      "digest": "7d29db60a88d71cfd03617db8c863b38a55eb8fec25f8bcabf597c39d39ab297",
+      "digest": "cb77c1bc560261ece9a5f1d991b9985092cbb3706605556eef971868328b0814",
       "kind": "delivery_observation"
      }
     ],
@@ -6197,7 +6663,7 @@
    }
   },
   {
-   "digest": "f21ab422cb05bb955b5c30ca4041b7fcaf58bd004fd84d7a606e8e3d2de11c2c",
+   "digest": "30a56ec5736bc767e18b4ff0871804789cbc71e78ba19aa781698e3f3689c70c",
    "name": "script_trace",
    "record": {
     "at": "2000-01-01T00:00:00Z",
@@ -6452,6 +6918,23 @@
         "role": "help",
         "selection": "none",
         "shown": "whole"
+       },
+       {
+        "element_id": "delivery.earlier",
+        "executing": false,
+        "focused": false,
+        "label": "이전 전달 · 완료",
+        "marks": [
+         "[x]"
+        ],
+        "refers_to": {
+         "digest": "cb77c1bc560261ece9a5f1d991b9985092cbb3706605556eef971868328b0814",
+         "ref": "record"
+        },
+        "role": "detail",
+        "selection": "none",
+        "shown": "whole",
+        "state": "delivered"
        }
       ],
       "locale": "ko",
@@ -7366,7 +7849,7 @@
    }
   },
   {
-   "digest": "feb4b8ed1e4c067b05f56121c2a3f48e4c4e21762e4e78f35b749606252fe430",
+   "digest": "b27080440208167d1f4981612179330b882f944ab7521374662815c0f8ba2ff4",
    "name": "drive_entry_result",
    "record": {
     "kind": "operation_result",
@@ -7377,7 +7860,7 @@
     },
     "outputs": [
      {
-      "digest": "f21ab422cb05bb955b5c30ca4041b7fcaf58bd004fd84d7a606e8e3d2de11c2c",
+      "digest": "30a56ec5736bc767e18b4ff0871804789cbc71e78ba19aa781698e3f3689c70c",
       "kind": "surface_trace"
      }
     ],
@@ -7533,7 +8016,7 @@
    }
   },
   {
-   "digest": "f794660d169efb21ac04c63fc1e47878e4f7da1a01573e852909c617aedaebff",
+   "digest": "9b2f9494a63f1b0d8c24fd1b322a969150bdb174574a86de15260c39b32547bc",
    "name": "tour_trace",
    "record": {
     "at": "2000-01-01T00:00:00Z",
@@ -7788,6 +8271,23 @@
         "role": "help",
         "selection": "none",
         "shown": "whole"
+       },
+       {
+        "element_id": "delivery.earlier",
+        "executing": false,
+        "focused": false,
+        "label": "이전 전달 · 완료",
+        "marks": [
+         "[x]"
+        ],
+        "refers_to": {
+         "digest": "cb77c1bc560261ece9a5f1d991b9985092cbb3706605556eef971868328b0814",
+         "ref": "record"
+        },
+        "role": "detail",
+        "selection": "none",
+        "shown": "whole",
+        "state": "delivered"
        }
       ],
       "locale": "ko",
@@ -12587,7 +13087,7 @@
    }
   },
   {
-   "digest": "69d90680fc238b2076315573f09dbda378b7e46c3c8b7b547a434d90c43b2867",
+   "digest": "df14f1521daca54e41348df0dd37ccd12d802143cc2d5dbed111548626c8b9c9",
    "name": "tour_original_positions_result",
    "record": {
     "kind": "operation_result",
@@ -12598,7 +13098,7 @@
     },
     "outputs": [
      {
-      "digest": "f794660d169efb21ac04c63fc1e47878e4f7da1a01573e852909c617aedaebff",
+      "digest": "9b2f9494a63f1b0d8c24fd1b322a969150bdb174574a86de15260c39b32547bc",
       "kind": "surface_trace"
      }
     ],
@@ -13453,7 +13953,7 @@
    }
   },
   {
-   "digest": "bbedd51f10bb16a17bca29aedbd2ba2a9a40ddb30c8ef0aa82f46e3530f1245e",
+   "digest": "44b269806ae46e3b12c28d9edf91c21fe746bfabde666356555b4cd012c59981",
    "name": "resolved_trace",
    "record": {
     "at": "2000-01-01T00:00:00Z",
@@ -13708,6 +14208,23 @@
         "role": "help",
         "selection": "none",
         "shown": "whole"
+       },
+       {
+        "element_id": "delivery.earlier",
+        "executing": false,
+        "focused": false,
+        "label": "이전 전달 · 완료",
+        "marks": [
+         "[x]"
+        ],
+        "refers_to": {
+         "digest": "cb77c1bc560261ece9a5f1d991b9985092cbb3706605556eef971868328b0814",
+         "ref": "record"
+        },
+        "role": "detail",
+        "selection": "none",
+        "shown": "whole",
+        "state": "delivered"
        }
       ],
       "locale": "ko",
@@ -14089,7 +14606,7 @@
    }
   },
   {
-   "digest": "3579ba99bad0bbab0b97cf34281c60af055a8f5ac8cbe63ef33e9ffd4d00179b",
+   "digest": "78a54677980356780e67240f4443cd39350a5af545ad6f9ddfe6cfc745458771",
    "name": "drive_resolved_view_result",
    "record": {
     "kind": "operation_result",
@@ -14100,7 +14617,7 @@
     },
     "outputs": [
      {
-      "digest": "bbedd51f10bb16a17bca29aedbd2ba2a9a40ddb30c8ef0aa82f46e3530f1245e",
+      "digest": "44b269806ae46e3b12c28d9edf91c21fe746bfabde666356555b4cd012c59981",
       "kind": "surface_trace"
      }
     ],
@@ -14113,7 +14630,7 @@
   }
  ],
  "says": "One person has a bound repository and a Team 'Platform'. Repository and Team instructions sources are committed, and each scope's decision source receives a published choice for the same question (memory.record.publish): WAL in the repository, a rollback journal in the Team. memory.state.resolve leaves both entries unresolved with choice_conflict_unresolved; role.project over repository, personal and Team applies the repository unit and names the Team unit as shadowed by it under one concern key; reader.body.read of the Team original returns that unit's own body. The studio hub (surface.drive) lists all nine scope and role positions as separate elements, each with its own selection and state, both decision positions pending. Tab and Enter open the effective view (target the repository instructions position, effective), which names the applied unit, the shadowed Team unit with its Team original unchanged, and the decision conflict as waiting for the person; Down and Enter open the Team original with its body; Esc twice returns to the hub with every position as it was. Negative: no frame merges the three scopes into one list or shows the effective result as the Team original; the conflict is never resolved to the repository's choice; and navigating dispatches nothing and changes no other scope's selection or any recipient. A recipient link opened earlier, with a delivery already observed for it, names the same recipient_link_id in every frame while navigation proceeds. Further scripts open each of the other eight original positions in turn and return, each frame showing that position's own target and state. The person then resolves the journal-mode conflict through a probed real user event, memory.use.prepare, recipient.answer.record and reader.use.resume naming the Team's rollback journal, and memory.preference.record against the whole participant set; a further script's effective view then names the resolved application, not an automatic repository winner.",
- "spec_sha256": "a857510e1638c9f74bb1a728146962836ef9270453b7f062c8c487e3ba8e8f5e",
+ "spec_sha256": "e22289d5f9903798a2002381fd3855442dd3a85ed0ac68c5c09994f44cc9e25f",
  "steps": [
   {
    "carries": [
@@ -14388,6 +14905,28 @@
    "result": "open_recipient_link_result",
    "returns": [
     "link_stored"
+   ]
+  },
+  {
+   "carries": [
+    "earlier_prep_request"
+   ],
+   "name": "compose_earlier_preparation",
+   "request": "earlier_prep_compose_request",
+   "result": "compose_earlier_preparation_result",
+   "returns": [
+    "earlier_preparation"
+   ]
+  },
+  {
+   "carries": [
+    "earlier_delivery_submitted"
+   ],
+   "name": "attempt_earlier_delivery",
+   "request": "earlier_delivery_attempt_request",
+   "result": "attempt_earlier_delivery_result",
+   "returns": [
+    "earlier_delivery_received"
    ]
   },
   {

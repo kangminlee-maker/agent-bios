@@ -58,14 +58,6 @@
    "name": "commit_request_7"
   },
   {
-   "id": "req_2051b2b3b1d328ff0cc8363d0a7f7ef9",
-   "name": "commit_request_8"
-  },
-  {
-   "id": "req_ead937406f30b03470c5e2dffd0a2fcb",
-   "name": "backup_request"
-  },
-  {
    "id": "req_f3b16ce9fc3c038c22fc0d5853c62e61",
    "name": "commit_request_after"
   },
@@ -76,6 +68,14 @@
   {
    "id": "req_291afeb2e115fb0fa980ff4d91e936a0",
    "name": "settle_request_7"
+  },
+  {
+   "id": "req_1528cbbf74d357216f29f4cbee71b292",
+   "name": "backup_request_checkpoint"
+  },
+  {
+   "id": "req_24a314c2ab2d14c84f45ab921771ac84",
+   "name": "backup_request_backup"
   }
  ],
  "joins": [
@@ -635,59 +635,59 @@
    "record": "settle_the_commit_killed_before_its_answer_result"
   },
   {
-   "minted": "head_7",
-   "pointer": "/target/base/head_digest",
-   "record": "commit_8"
-  },
-  {
-   "digest_of": "revision_8",
-   "pointer": "/payload_digest",
-   "record": "commit_8"
-  },
-  {
-   "digest_of": "commit_8",
+   "digest_of": "take_backup_checkpoint",
    "pointer": "/request_digest",
-   "record": "commit_revision_8_receipt"
+   "record": "take_backup_at_the_checkpoint_receipt"
   },
   {
-   "minted": "head_8",
+   "minted": "take_backup_at_the_checkpoint_head",
    "pointer": "/head_digest",
-   "record": "commit_revision_8_receipt"
+   "record": "take_backup_at_the_checkpoint_receipt"
   },
   {
-   "minted": "commit_revision_8_sequence",
+   "minted": "take_backup_at_the_checkpoint_sequence",
    "pointer": "/sequence",
-   "record": "commit_revision_8_receipt"
+   "record": "take_backup_at_the_checkpoint_receipt"
   },
   {
-   "minted": "commit_revision_8_committed_at",
+   "minted": "take_backup_at_the_checkpoint_committed_at",
    "pointer": "/committed_at",
-   "record": "commit_revision_8_receipt"
+   "record": "take_backup_at_the_checkpoint_receipt"
   },
   {
-   "minted": "head_7",
-   "pointer": "/target/base/head_digest",
-   "record": "commit_revision_8_receipt"
+   "minted": "backup_checkpoint_taken_at",
+   "pointer": "/taken_at",
+   "record": "backup_at_checkpoint"
   },
   {
-   "minted": "produced_at_8",
-   "pointer": "/produced_at",
-   "record": "stored_revision_8"
+   "minted": "backup_checkpoint_covered_through",
+   "pointer": "/covered_through",
+   "record": "backup_at_checkpoint"
   },
   {
-   "digest_of": "commit_revision_8_receipt",
+   "minted": "backup_checkpoint_database",
+   "pointer": "/database/digest",
+   "record": "backup_at_checkpoint"
+  },
+  {
+   "digest_of": "stored_revision_7",
+   "pointer": "/members/0/digest",
+   "record": "backup_at_checkpoint"
+  },
+  {
+   "digest_of": "take_backup_at_the_checkpoint_receipt",
    "pointer": "/outcome/receipt_digest",
-   "record": "commit_revision_8_result"
+   "record": "take_backup_at_the_checkpoint_result"
   },
   {
-   "digest_of": "commit_8",
+   "digest_of": "take_backup_checkpoint",
    "pointer": "/request_digest",
-   "record": "commit_revision_8_result"
+   "record": "take_backup_at_the_checkpoint_result"
   },
   {
-   "digest_of": "stored_revision_8",
+   "digest_of": "backup_at_checkpoint",
    "pointer": "/outputs/0/digest",
-   "record": "commit_revision_8_result"
+   "record": "take_backup_at_the_checkpoint_result"
   },
   {
    "digest_of": "take_backup",
@@ -725,7 +725,7 @@
    "record": "backup"
   },
   {
-   "digest_of": "stored_revision_8",
+   "digest_of": "stored_revision_7",
    "pointer": "/members/0/digest",
    "record": "backup"
   },
@@ -745,7 +745,7 @@
    "record": "take_backup_after_the_last_commit_result"
   },
   {
-   "minted": "head_8",
+   "minted": "head_7",
    "pointer": "/target/base/head_digest",
    "record": "commit_after"
   },
@@ -775,7 +775,7 @@
    "record": "commit_after_the_backup_receipt"
   },
   {
-   "minted": "head_8",
+   "minted": "head_7",
    "pointer": "/target/base/head_digest",
    "record": "commit_after_the_backup_receipt"
   },
@@ -1042,24 +1042,34 @@
    "step": "commit_revision_7"
   },
   {
-   "name": "commit_revision_8_committed_at",
-   "shape": "instant",
-   "step": "commit_revision_8"
-  },
-  {
-   "name": "commit_revision_8_sequence",
+   "name": "backup_checkpoint_covered_through",
    "shape": "integer",
-   "step": "commit_revision_8"
+   "step": "take_backup_at_the_checkpoint"
   },
   {
-   "name": "head_8",
+   "name": "backup_checkpoint_database",
    "shape": "digest",
-   "step": "commit_revision_8"
+   "step": "take_backup_at_the_checkpoint"
   },
   {
-   "name": "produced_at_8",
+   "name": "backup_checkpoint_taken_at",
    "shape": "instant",
-   "step": "commit_revision_8"
+   "step": "take_backup_at_the_checkpoint"
+  },
+  {
+   "name": "take_backup_at_the_checkpoint_committed_at",
+   "shape": "instant",
+   "step": "take_backup_at_the_checkpoint"
+  },
+  {
+   "name": "take_backup_at_the_checkpoint_head",
+   "shape": "digest",
+   "step": "take_backup_at_the_checkpoint"
+  },
+  {
+   "name": "take_backup_at_the_checkpoint_sequence",
+   "shape": "integer",
+   "step": "take_backup_at_the_checkpoint"
   },
   {
    "name": "backup_covered_through",
@@ -2458,32 +2468,10 @@
    }
   },
   {
-   "digest": "811b1dc3d5553a031a8d0b72118858b7eaaa8e749cb0919fa0c8cd2fe474c228",
-   "name": "revision_8",
+   "digest": "e0e1c3c54eb77ac4d7bac6923e3a8fb63f5ec4c51057e5403135ae70b89f25be",
+   "name": "take_backup_checkpoint",
    "record": {
-    "format_version": 1,
-    "kind": "source_manifest",
-    "members": [
-     {
-      "digest": "c4933a82770781b42504ac60a6252bfd06ccfce66170394620ba473ade98365d",
-      "path": "concepts.md",
-      "size": 4128
-     },
-     {
-      "digest": "2702a48949ff2ef94c13c8f8e0a45a7a481e0e19482d3ffa8f8fc2c584a1d2c2",
-      "path": "tables/rates.csv",
-      "size": 918
-     }
-    ],
-    "schema": 1,
-    "source_id": "src_54cae28da9e63471f55584d81a7934cc"
-   }
-  },
-  {
-   "digest": "7b460e994bc554d7b0eac26b21f444bf8ded1e875ff39f02d5653d9c5ede21e1",
-   "name": "commit_8",
-   "record": {
-    "action": "publish",
+    "action": "local_profile",
     "actor": {
      "device_id": "dev_3ca72398c8d8782e1b42f05c2556479c",
      "principal_id": "prn_32ddc7069605ccfbb4aa67bbf6a9972e",
@@ -2493,98 +2481,91 @@
     "effect_class": "owner_commit",
     "kind": "operation_request",
     "local_access_generation": 7,
-    "operation": "source.revision.commit",
+    "operation": "store.backup.create",
     "owner": {
      "layer": "personal",
      "principal_id": "prn_32ddc7069605ccfbb4aa67bbf6a9972e"
     },
-    "payload_digest": "811b1dc3d5553a031a8d0b72118858b7eaaa8e749cb0919fa0c8cd2fe474c228",
     "policy_digests": [],
     "proof_digests": [],
-    "request_id": "req_2051b2b3b1d328ff0cc8363d0a7f7ef9",
+    "request_id": "req_1528cbbf74d357216f29f4cbee71b292",
     "schema": 1,
     "target": {
-     "base": {
-      "expects": "head",
-      "head_digest": "7857beec5b429278074e78a5723dd7a40461cc67341b25e13008c98c982e9396"
-     },
-     "resource_id": "src_54cae28da9e63471f55584d81a7934cc"
+     "resource_id": "prf_e95426dc3dcb71f509c63fdb745a95dc"
     }
    }
   },
   {
-   "digest": "86a1cce9b77a08157e64c3819b4b7a2ebe98003f1c7dc9a268e76517a954462c",
-   "name": "commit_revision_8_receipt",
+   "digest": "f0826565f18122effbb3724a672dd3992623153da5848a218bf90aff2d02fda3",
+   "name": "take_backup_at_the_checkpoint_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "6af2a2c4bc56513cf4308fcc47a8e3f35492ff2654cb83a8efaf53668cce15bd",
+    "head_digest": "d878758fbc0f3f835087317e2ea05236aa193dfed67e43bcfa22bb0f817d375e",
     "kind": "operation_receipt",
     "owner": {
      "layer": "personal",
      "principal_id": "prn_32ddc7069605ccfbb4aa67bbf6a9972e"
     },
-    "request_digest": "7b460e994bc554d7b0eac26b21f444bf8ded1e875ff39f02d5653d9c5ede21e1",
-    "request_id": "req_2051b2b3b1d328ff0cc8363d0a7f7ef9",
+    "request_digest": "e0e1c3c54eb77ac4d7bac6923e3a8fb63f5ec4c51057e5403135ae70b89f25be",
+    "request_id": "req_1528cbbf74d357216f29f4cbee71b292",
     "schema": 1,
     "sequence": 1,
     "target": {
-     "base": {
-      "expects": "head",
-      "head_digest": "7857beec5b429278074e78a5723dd7a40461cc67341b25e13008c98c982e9396"
-     },
-     "resource_id": "src_54cae28da9e63471f55584d81a7934cc"
+     "resource_id": "prf_e95426dc3dcb71f509c63fdb745a95dc"
     }
    }
   },
   {
-   "digest": "4a40aa7e83aa2e09f6de06d1c662d435d733a31a64208b9691c1e6610ac02cb1",
-   "name": "stored_revision_8",
+   "digest": "01b9e6a1a0451e07251f5a9e087365d3c6591445478ae96cab4d5147e30420f8",
+   "name": "backup_at_checkpoint",
    "record": {
-    "format_version": 1,
-    "kind": "source_manifest",
+    "access_generation": 7,
+    "covered_through": 1,
+    "database": {
+     "digest": "843a0e91c58e9fb695363a66fd01fb737c3dcc451673b28fe943d1d0a2de2ba3",
+     "path": "state.sqlite3",
+     "size": 1048576
+    },
+    "kind": "backup_set",
     "members": [
      {
-      "digest": "c4933a82770781b42504ac60a6252bfd06ccfce66170394620ba473ade98365d",
-      "path": "concepts.md",
-      "size": 4128
-     },
-     {
-      "digest": "2702a48949ff2ef94c13c8f8e0a45a7a481e0e19482d3ffa8f8fc2c584a1d2c2",
-      "path": "tables/rates.csv",
-      "size": 918
+      "digest": "ea6c221d17c63db3ced4ade9973e1a1d52223b3c5185aa940337cab6fe4be3bb",
+      "holds": "object",
+      "path": "objects/revision.json",
+      "size": 382
      }
     ],
-    "produced_at": "2000-01-01T00:00:00Z",
+    "profile_id": "prf_e95426dc3dcb71f509c63fdb745a95dc",
     "schema": 1,
-    "source_id": "src_54cae28da9e63471f55584d81a7934cc"
+    "taken_at": "2000-01-01T00:00:00Z"
    }
   },
   {
-   "digest": "23a9cc16562d773662ef78baa17afb873b62782ec965c27cfa8ce252ed29a741",
-   "name": "commit_revision_8_result",
+   "digest": "599a452972f0095a8b3f34cc705f7c808e219fe994f2f1b85aa1d3577ffdaebc",
+   "name": "take_backup_at_the_checkpoint_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "86a1cce9b77a08157e64c3819b4b7a2ebe98003f1c7dc9a268e76517a954462c",
+     "receipt_digest": "f0826565f18122effbb3724a672dd3992623153da5848a218bf90aff2d02fda3",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "4a40aa7e83aa2e09f6de06d1c662d435d733a31a64208b9691c1e6610ac02cb1",
-      "kind": "source_manifest"
+      "digest": "01b9e6a1a0451e07251f5a9e087365d3c6591445478ae96cab4d5147e30420f8",
+      "kind": "backup_set"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "7b460e994bc554d7b0eac26b21f444bf8ded1e875ff39f02d5653d9c5ede21e1",
-    "request_id": "req_2051b2b3b1d328ff0cc8363d0a7f7ef9",
+    "request_digest": "e0e1c3c54eb77ac4d7bac6923e3a8fb63f5ec4c51057e5403135ae70b89f25be",
+    "request_id": "req_1528cbbf74d357216f29f4cbee71b292",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "25bd96ba964b8d307858c44b2bb88cf680fb77b94c7b11c0a8c39b7b60368cbd",
+   "digest": "0ad1bde986fb818f95483e0c0783d8b37a4fbb5bb615cb716cf5356509a308f8",
    "name": "take_backup",
    "record": {
     "action": "local_profile",
@@ -2604,7 +2585,7 @@
     },
     "policy_digests": [],
     "proof_digests": [],
-    "request_id": "req_ead937406f30b03470c5e2dffd0a2fcb",
+    "request_id": "req_24a314c2ab2d14c84f45ab921771ac84",
     "schema": 1,
     "target": {
      "resource_id": "prf_e95426dc3dcb71f509c63fdb745a95dc"
@@ -2612,7 +2593,7 @@
    }
   },
   {
-   "digest": "64ddf2cf95746371606f095de385f6651bbfa13a8e8a248a83e47fe4ad0f08fd",
+   "digest": "d2988ec17c37e3882b33ec719acbbd4eb42027195d53b958f35bd4e7a7d565da",
    "name": "take_backup_after_the_last_commit_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -2622,8 +2603,8 @@
      "layer": "personal",
      "principal_id": "prn_32ddc7069605ccfbb4aa67bbf6a9972e"
     },
-    "request_digest": "25bd96ba964b8d307858c44b2bb88cf680fb77b94c7b11c0a8c39b7b60368cbd",
-    "request_id": "req_ead937406f30b03470c5e2dffd0a2fcb",
+    "request_digest": "0ad1bde986fb818f95483e0c0783d8b37a4fbb5bb615cb716cf5356509a308f8",
+    "request_id": "req_24a314c2ab2d14c84f45ab921771ac84",
     "schema": 1,
     "sequence": 1,
     "target": {
@@ -2632,7 +2613,7 @@
    }
   },
   {
-   "digest": "1810dc8ed52ad87f71fc44bbe9e44deece7e4bb08f9a0d1da8704d6317a088e5",
+   "digest": "7b6dc5b65e9e3e38716a4cf7d84f68813fbcf032833cfdfca42ee05aa2d2f583",
    "name": "backup",
    "record": {
     "access_generation": 7,
@@ -2645,7 +2626,7 @@
     "kind": "backup_set",
     "members": [
      {
-      "digest": "4a40aa7e83aa2e09f6de06d1c662d435d733a31a64208b9691c1e6610ac02cb1",
+      "digest": "ea6c221d17c63db3ced4ade9973e1a1d52223b3c5185aa940337cab6fe4be3bb",
       "holds": "object",
       "path": "objects/revision.json",
       "size": 382
@@ -2657,25 +2638,25 @@
    }
   },
   {
-   "digest": "0f70c21c666b9bd11b4e89805c64512b90bd3091c76c7886d45f984e76a538c8",
+   "digest": "3d5615a4a28340cfc2b0995250158e1184b7bb6c4ac756dcc25a893f28f786b0",
    "name": "take_backup_after_the_last_commit_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "64ddf2cf95746371606f095de385f6651bbfa13a8e8a248a83e47fe4ad0f08fd",
+     "receipt_digest": "d2988ec17c37e3882b33ec719acbbd4eb42027195d53b958f35bd4e7a7d565da",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "1810dc8ed52ad87f71fc44bbe9e44deece7e4bb08f9a0d1da8704d6317a088e5",
+      "digest": "7b6dc5b65e9e3e38716a4cf7d84f68813fbcf032833cfdfca42ee05aa2d2f583",
       "kind": "backup_set"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "25bd96ba964b8d307858c44b2bb88cf680fb77b94c7b11c0a8c39b7b60368cbd",
-    "request_id": "req_ead937406f30b03470c5e2dffd0a2fcb",
+    "request_digest": "0ad1bde986fb818f95483e0c0783d8b37a4fbb5bb615cb716cf5356509a308f8",
+    "request_id": "req_24a314c2ab2d14c84f45ab921771ac84",
     "schema": 1,
     "supported_recovery": []
    }
@@ -2703,7 +2684,7 @@
    }
   },
   {
-   "digest": "98453604471066132f1e67b6d453cb06fbc9d7a03fb5a8b5bc92afee655a4e48",
+   "digest": "d93066d935d575a660ada4d98131660af1087a236b321f6844bd340aa21d129b",
    "name": "commit_after",
    "record": {
     "action": "publish",
@@ -2729,14 +2710,14 @@
     "target": {
      "base": {
       "expects": "head",
-      "head_digest": "6af2a2c4bc56513cf4308fcc47a8e3f35492ff2654cb83a8efaf53668cce15bd"
+      "head_digest": "7857beec5b429278074e78a5723dd7a40461cc67341b25e13008c98c982e9396"
      },
      "resource_id": "src_54cae28da9e63471f55584d81a7934cc"
     }
    }
   },
   {
-   "digest": "ad10927cc3ca3343e6d896a1d40d5a0f7fb42b4dc9fc80a1bb6a211d69be2aa1",
+   "digest": "ada86a982f6407fe1cfd2857ea34908691b81661eb187aa3e56ad721d36bf139",
    "name": "commit_after_the_backup_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -2746,14 +2727,14 @@
      "layer": "personal",
      "principal_id": "prn_32ddc7069605ccfbb4aa67bbf6a9972e"
     },
-    "request_digest": "98453604471066132f1e67b6d453cb06fbc9d7a03fb5a8b5bc92afee655a4e48",
+    "request_digest": "d93066d935d575a660ada4d98131660af1087a236b321f6844bd340aa21d129b",
     "request_id": "req_f3b16ce9fc3c038c22fc0d5853c62e61",
     "schema": 1,
     "sequence": 1,
     "target": {
      "base": {
       "expects": "head",
-      "head_digest": "6af2a2c4bc56513cf4308fcc47a8e3f35492ff2654cb83a8efaf53668cce15bd"
+      "head_digest": "7857beec5b429278074e78a5723dd7a40461cc67341b25e13008c98c982e9396"
      },
      "resource_id": "src_54cae28da9e63471f55584d81a7934cc"
     }
@@ -2783,14 +2764,14 @@
    }
   },
   {
-   "digest": "3c0bb9464710be046836a219296d975c87cafbfef5356c4cc99ae5e1c671191f",
+   "digest": "55b1ecec44fe097e70f0728b62f7ce0f33443ac6ae1aa6d4bd9d72ea70400240",
    "name": "commit_after_the_backup_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "ad10927cc3ca3343e6d896a1d40d5a0f7fb42b4dc9fc80a1bb6a211d69be2aa1",
+     "receipt_digest": "ada86a982f6407fe1cfd2857ea34908691b81661eb187aa3e56ad721d36bf139",
      "stage": "committed"
     },
     "outputs": [
@@ -2800,7 +2781,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "98453604471066132f1e67b6d453cb06fbc9d7a03fb5a8b5bc92afee655a4e48",
+    "request_digest": "d93066d935d575a660ada4d98131660af1087a236b321f6844bd340aa21d129b",
     "request_id": "req_f3b16ce9fc3c038c22fc0d5853c62e61",
     "schema": 1,
     "supported_recovery": []
@@ -2951,8 +2932,8 @@
    }
   }
  ],
- "says": "Alice registers a private notes source on her laptop, which makes its first head, and commits it once on that head; she then commits eight more times, the process being killed at a different B03 fault point during each commit — before staging, after the member write before sync, after staging before rename, after rename before the directory sync, after that sync before the transaction begins, inside the transaction before commit, after commit before the answer returns, and during the checkpoint that follows — and once more during the backup taken after the last commit. A kill before the transaction commits leaves the prior head and no receipt, so the same request, sent again after the restart, commits exactly once; each next commit expects exactly the head the previous one moved to and is accepted, so no staged member was counted as committed and no request moved a head twice. The kill after commit and before the answer leaves Alice without a reply: the outcome is unknown to her, and querying that request id settles it with the original result and its receipt, whose head the next commit then expects. A later query of the commit killed inside its transaction returns the one result and receipt its resubmission wrote. Submitting the settled request id again with other bytes (another revision) is refused with request_id_conflict and writes nothing. What must not happen: a head naming staged members without a receipt, a second receipt for one request, or the conflicting bytes replacing the original.",
- "spec_sha256": "8988fa08e0dbf659dc35f5238cf490742222bb490f3a4c8ccd6421061c9212c1",
+ "says": "Alice registers a private notes source on her laptop, which makes its first head, and commits it once on that head; she then commits seven more times, the process being killed at a different B03 publication fault point during each commit — before staging, after the member write before sync, after staging before rename, after rename before the directory sync, after that sync before the transaction begins, inside the transaction before commit, and after commit before the answer returns. A kill before the transaction commits leaves the prior head and no receipt, so the same request, sent again after the restart, commits exactly once; each next commit expects exactly the head the previous one moved to and is accepted, so no staged member was counted as committed and no request moved a head twice. The kill after commit and before the answer leaves Alice without a reply: the outcome is unknown to her, and querying that request id settles it with the original result and its receipt, whose head the next commit then expects. Alice then takes two backups of the profile, outside the source's head: the first killed during its checkpoint and the second killed during the backup copy itself; each is answered by the same discipline as the commits — the same request, sent again after its own restart, commits exactly once, writing one backup_set and one receipt. A later commit on the source, after both backups, still expects the head the last commit moved to. A later query of the commit killed inside its transaction returns the one result and receipt its resubmission wrote. Submitting the settled request id again with other bytes (another revision) is refused with request_id_conflict and writes nothing. What must not happen: a head naming staged members without a receipt, a second receipt for one request, or the conflicting bytes replacing the original.",
+ "spec_sha256": "bfe3f7f5d5fb193851b6ace8697a1be2e16203a788034d509c9d4b3f93283d26",
  "steps": [
   {
    "carries": [
@@ -3086,15 +3067,12 @@
    ]
   },
   {
-   "carries": [
-    "revision_8"
-   ],
-   "head": "head_8",
-   "name": "commit_revision_8",
-   "request": "commit_8",
-   "result": "commit_revision_8_result",
+   "carries": [],
+   "name": "take_backup_at_the_checkpoint",
+   "request": "take_backup_checkpoint",
+   "result": "take_backup_at_the_checkpoint_result",
    "returns": [
-    "stored_revision_8"
+    "backup_at_checkpoint"
    ]
   },
   {
@@ -3173,7 +3151,7 @@
    },
    {
     "point": "during_checkpoint",
-    "step": "commit_revision_8"
+    "step": "take_backup_at_the_checkpoint"
    },
    {
     "point": "during_backup",

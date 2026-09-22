@@ -1394,8 +1394,8 @@
    }
   }
  ],
- "says": "Alice's laptop reads its fresh profile (active, generation 1); she binds her device key and registers a private notes source, then locks the profile (generation 2). She tries to unlock while her key's private half sits beside the public key the signing call names: the unlock is refused with private_key_beside_public and the profile stays locked, because under that layout OpenSSH would prompt for the passphrase again outside the unlock. She tries again while SSH_AUTH_SOCK names a signing agent this runtime does not own: refused with agent_not_owned_here. While locked, the signed commit of her notes' first revision is not admitted, with access_locked: no signature is made. With the public half stored apart and the runtime's own agent, an unlock at a terminal succeeds with the real device key (still generation 2: an unlock moves no generation), and the same commit is admitted. What must not happen: a signature made while locked, an unlock through an agent the runtime does not own, or any passphrase prompt other than the one inside the unlock transition.",
- "spec_sha256": "b1d6f90feb7882d633b86f42f651f5c723061999f8d9501edcd1901b71f0e00b",
+ "says": "Alice's laptop reads its fresh profile (active, generation 1); she binds her device key and registers a private notes source, then locks the profile (generation 2). She tries to unlock while her key's private half sits beside the public key the signing call names: the unlock is refused with private_key_beside_public and the profile stays locked, because under that layout OpenSSH would prompt for the passphrase again outside the unlock. She tries again while SSH_AUTH_SOCK names a signing agent this runtime does not own: refused with agent_not_owned_here. While locked, the signed commit of her notes' first revision is not admitted, with access_locked: no signature is made. With the public half stored apart and the runtime's own agent, an unlock at a terminal succeeds with the real device key (still generation 2: an unlock moves no generation), and the same commit is admitted. What must not happen: a signature made while locked, or an unlock through an agent the runtime does not own.",
+ "spec_sha256": "d7643fc4173214ce6ff4235c466ffd5e56e92ec83ce88cc22b5a6b833a54b91f",
  "steps": [
   {
    "carries": [],
@@ -1507,6 +1507,12 @@
     "key": "alice_laptop_binding",
     "kind": "key_layout",
     "layout": "foreign_agent"
+   },
+   {
+    "before": "unlock_at_terminal",
+    "key": "alice_laptop_binding",
+    "kind": "key_layout",
+    "layout": "owned_agent"
    }
   ]
  }

@@ -6,8 +6,8 @@ list by defining the named `$defs` entry; its value is replaced whole.
 
   $defs/operation              every operation a contract module declares
   $defs/output_kind            every record kind some operation returns
-  $defs/object_kind            every record kind a contract module declares, and `source_member`
-                               for a source revision's member bytes
+  $defs/object_kind            every record kind a contract module declares, and C01's member kind
+                               (`source_member`) for a source revision's member bytes
   $defs/gap code               every gap a contract module's operations answer with
   $defs/disclosed_gap code     the gaps that qualify a commit rather than prevent one
 
@@ -21,7 +21,7 @@ import pathlib
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
-from workenv.contracts import errors, examples  # noqa: E402
+from workenv.contracts import c01, errors, examples  # noqa: E402
 
 
 def lists() -> dict[str, list[str]]:
@@ -30,7 +30,7 @@ def lists() -> dict[str, list[str]]:
     kinds = {kind for module in errors.OWNERS for kind in getattr(module, "RECORD_KINDS", ())}
     return {"operation": sorted(table),
             "output_kind": sorted({kind for row in table.values() for kind in row["returns"]}),
-            "object_kind": sorted(kinds | {"source_member"}),
+            "object_kind": sorted(kinds | {c01.MEMBER_KIND}),
             "gap": sorted(errors.in_results()),
             "disclosed_gap": sorted(errors.disclosed())}
 

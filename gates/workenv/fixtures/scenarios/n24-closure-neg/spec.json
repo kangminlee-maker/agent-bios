@@ -1,6 +1,6 @@
 {
  "case": "N24-CLOSURE-NEG",
- "says": "Alice binds her device key and registers package candidates built from one commit of the integrated source. The first candidate packs install.sh, which reaches compose/assemble.py and compose/instructions_catalog.py when it runs, but no member provides compose/instructions_catalog.py: the owner refuses the registration with runtime_path_missing at /members/0/reaches/1, the place naming that path. The second candidate is closed but also packs gates/check-package.sh, a path the integrated source declares author-side: refused with author_side_member at that member's copied_from. The third lists a member with neither a source path nor a pack-time origin, and is refused at admission with missing_field at /members/0/origin. Each refusal writes nothing (local effect none, no receipt): a query by the first request id returns the same refused result and no receipt, and a query by the third, which the owner never admitted, is answered request_not_held. Only a candidate whose every reached path is a member, with no author-side member and an origin for each, is registered: the owner commits it and returns it exactly as submitted, and every path its members reach is one of its members. What must not happen: a candidate registered while a reached path is missing, an author-side file shipping, a member with no origin listed, or a refused registration writing anything to the source checkout or the user's installed state.",
+ "says": "Alice binds her device key and registers package candidates built from one commit of the integrated source. The first candidate packs install.sh, which reaches compose/assemble.py and compose/instructions_catalog.py when it runs, but no member provides compose/instructions_catalog.py: the owner refuses the registration with runtime_path_missing at /members/0/reaches/1, the place naming that path. The second candidate is closed but also packs gates/check-package.sh, a path the integrated source declares author-side: refused with author_side_member at that member's copied_from. The third lists a member with neither a source path nor a pack-time origin, and is refused at admission with missing_field at /members/0/origin. Each refusal writes nothing (local effect none, no receipt): a query by the first request id returns the same refused result and no receipt, and a query by the third, which the owner never admitted, is answered request_not_held. Only a candidate whose every reached path is a member, with no author-side member and an origin for each, is registered: the harness packs the checkout once more, immediately before this closing registration, and the owner commits the closed candidate it built and returns it exactly as submitted, with every path its members reach one of its members. An inventory of the source checkout and of the user's installed state taken before the first, refused registration equals one taken after the closing registration and its query: nothing here, refused or committed, wrote to either. What must not happen: a candidate registered while a reached path is missing, an author-side file shipping, a member with no origin listed, or any registration — refused or committed — writing anything to the source checkout or the user's installed state.",
  "ids": [
   {
    "name": "alice",
@@ -549,7 +549,7 @@
    "set": [
     {
      "pointer": "/produced_at",
-     "value": "$instant:checkout_before_at"
+     "value": "2026-09-21T09:00:00Z"
     }
    ]
   },
@@ -563,7 +563,7 @@
     },
     {
      "pointer": "/produced_at",
-     "value": "$instant:installed_before_at"
+     "value": "2026-09-21T09:00:05Z"
     }
    ]
   },
@@ -785,6 +785,11 @@
     "before": "register_short_candidate",
     "root": "installed",
     "yields": "installed_before"
+   },
+   {
+    "kind": "build",
+    "before": "register_closed_candidate",
+    "yields": "closed_candidate"
    },
    {
     "kind": "inventory",

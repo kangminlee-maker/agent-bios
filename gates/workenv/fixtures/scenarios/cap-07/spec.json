@@ -1,6 +1,6 @@
 {
  "case": "CAP-07",
- "says": "A person binds this device's key and the checkout, registers the repository's memory source, publishes an environment edition for this repository whose memory policy names that source, and adopts it: the adoption names the edition as the environment's head it expects and leaves that head where it was. A preparation that names the environment without its adoption evidence is refused at admission; one resting on the adoption is composed as a private record with no receipt, reading the memory source at the head its registration committed. The owner then reads records 12 to 18 of a session transcript, a packaged local adapter captures a memory entry from them, and a candidate choice from that capture is stored. The capture and the candidate are drafts: neither names a receipt, neither moves the memory source's head, and the preparation composed again afterwards reads the same head and composes the same units. A review-only publication of the choice, a publish request stating pure_preview, is refused with effect_class_mismatch and writes nothing. Only the destination's own commit of that exact choice at the memory source, stating the candidate version it promotes, names a receipt and moves the head; it returns the committed record, the revision holding it and the candidate promoted with that receipt. Adoption stays a separate act: the commit adopts nothing, and the preparation composed after it, under the adoption made before, is the first to observe the memory source at the committed head.",
+ "says": "A person binds this device's key and the checkout, registers the repository's memory source, publishes an environment edition for this repository whose memory policy names that source, and adopts it: the adoption names the edition as the environment's head it expects and leaves that head where it was. A preparation that names the environment without its adoption evidence is refused at admission; one resting on the adoption is composed as a private record with no receipt, reading the memory source at the head its registration committed. The owner then reads records 12 to 18 of a session transcript, a packaged local adapter captures a memory entry from them, and a candidate choice from that capture is stored. The capture and the candidate are drafts: neither names a receipt, neither moves the memory source's head, and the preparation composed again afterwards reads the same head and composes the same units. The person then uploads that same candidate as a personal transfer package (transfer.stage, owner personal, target themselves): staging writes an outbox stage record with no receipt and touches neither the memory source nor the environment, so the preparation composed once more afterwards still reads the identical head and the identical units - an upload no more publishes, adopts or disturbs active preparation than the candidate save did. A review-only publication of the choice, a publish request stating pure_preview, is refused with effect_class_mismatch and writes nothing. Only the destination's own commit of that exact choice at the memory source, stating the candidate version it promotes, names a receipt and moves the head; it returns the committed record, the revision holding it and the candidate promoted with that receipt. Adoption stays a separate act: the commit adopts nothing, and the preparation composed after it, under the adoption made before, is the first to observe the memory source at the committed head.",
  "ids": [
   {
    "name": "alice",
@@ -84,6 +84,14 @@
   },
   {
    "name": "compose_after_commit_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "upload_request",
+   "prefix": "req"
+  },
+  {
+   "name": "compose_after_upload_rid",
    "prefix": "req"
   }
  ],
@@ -942,6 +950,202 @@
    ]
   },
   {
+   "name": "candidate_package",
+   "from": "c09/complete_transfer.json",
+   "drop": [
+    "/authority/team_id",
+    "/namespace/team_id",
+    "/recipient/permitted_scope/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/authority/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/authority/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/namespace/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/namespace/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/recipient/permitted_scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/recipient/permitted_scope/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/recipient/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/inventory/0/path",
+     "value": "objects/0000.json"
+    },
+    {
+     "pointer": "/inventory/0/digest",
+     "value": "#candidate_v1"
+    },
+    {
+     "pointer": "/inventory/0/size",
+     "value": 1193
+    },
+    {
+     "pointer": "/inventory/0/object_kind",
+     "value": "memory_candidate"
+    },
+    {
+     "pointer": "/continuity_evidence_digests",
+     "value": [
+      "#alice_key"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "upload_candidate_request",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@upload_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "transfer.stage"
+    },
+    {
+     "pointer": "/action",
+     "value": "transfer"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#candidate_package"
+    }
+   ]
+  },
+  {
+   "name": "candidate_package_staged",
+   "from": "c09/exported.json",
+   "drop": [
+    "/stage/route/peer_id"
+   ],
+   "set": [
+    {
+     "pointer": "/envelope_digest",
+     "value": "#candidate_package"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:uploaded_at"
+    },
+    {
+     "pointer": "/stage/route/via",
+     "value": "package"
+    }
+   ]
+  },
+  {
+   "name": "compose_after_upload_request",
+   "from": "c04/projection_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@compose_after_upload_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "preparation.compose"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#adopted_basis"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
+    }
+   ]
+  },
+  {
+   "name": "preparation_after_upload",
+   "from": "preparation_before",
+   "set": [
+    {
+     "pointer": "/preparation_id",
+     "value": "$prp:preparation_after_upload"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:preparation_after_upload_at"
+    },
+    {
+     "pointer": "/request_digest",
+     "value": "#adopted_basis"
+    }
+   ]
+  },
+  {
    "name": "choice",
    "from": "c05/choice_as_submitted.json",
    "drop": [
@@ -1115,6 +1319,10 @@
     {
      "pointer": "/produced_at",
      "value": "$instant:memory_revision_at"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 922
     }
    ]
   },
@@ -1392,6 +1600,40 @@
     "recovery": [],
     "returns": [
      "preparation_after_candidate"
+    ]
+   }
+  },
+  {
+   "name": "upload_candidate_package",
+   "request": "upload_candidate_request",
+   "carries": [
+    "candidate_package"
+   ],
+   "answer": {
+    "stage": "draft",
+    "local_effect": "objects_staged",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "candidate_package_staged"
+    ]
+   }
+  },
+  {
+   "name": "compose_after_upload",
+   "request": "compose_after_upload_request",
+   "carries": [
+    "adopted_basis"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "preparation_after_upload"
     ]
    }
   },

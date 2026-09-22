@@ -28,7 +28,8 @@ same home again. The home holds the source's conditions — applicability, discl
 so registering it again changes them and moves the head while every revision's bytes stay what
 they were; a registration that changes the home, scope, role or accepting authority instead is a
 second home (`source_home_conflict`). Unchanged bytes do not cancel a changed condition:
-`reference.resolve` answers an exact revision with the home at the head it read.
+`reference.resolve` answers an exact revision with the home at the head it read, and an exact
+member with its bytes (`source_member`).
 
 What is read comes from an explicit selection. `source_selection` names the places — transcript
 records, revision members, working-tree paths of a named checkout, a supplied file — and what
@@ -57,6 +58,7 @@ RECORD_KINDS = ("principal_binding", "repository_binding", "source_ref", "source
                 "source_manifest", "source_request", "behaviour_capture", "knowledge_capture",
                 "memory_capture", "source_provenance", "source_selection", "source_observation",
                 "extraction_run")
+MEMBER_KIND = "source_member"  # a revision member's bytes: an object a record names, not a record
 IN_RESULTS = True
 
 # The operations of this contract that travel in a C03 sealed request. `takes` is the
@@ -73,7 +75,8 @@ OPERATIONS = {
                                 "effect": "owner_commit", "action": "local_profile",
                                 "targets": ("bnd",)},
     "reference.resolve": {"takes": ("source_ref",),
-                          "returns": ("source_manifest", "source_provenance", "source_home"),
+                          "returns": ("source_manifest", "source_provenance", "source_home",
+                                      "source_member"),
                           "effect": "pure_preview", "action": "read", "targets": ("src",)},
     "source.home.register": {"takes": ("source_home",), "returns": ("source_home",),
                              "effect": "owner_commit", "action": "contribute",

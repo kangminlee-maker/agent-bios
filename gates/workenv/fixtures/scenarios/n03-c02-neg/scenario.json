@@ -92,6 +92,10 @@
   {
    "id": "req_7f36a6ff5ad423e3f1bab3746b4770f5",
    "name": "in_flight_decide_request_id"
+  },
+  {
+   "id": "req_dbdb483140a9fc4e955a262da705a549",
+   "name": "configure_connection_request_id"
   }
  ],
  "joins": [
@@ -316,6 +320,66 @@
    "record": "found_team_result"
   },
   {
+   "minted": "team_head",
+   "pointer": "/target/base/head_digest",
+   "record": "configure_connection_request"
+  },
+  {
+   "digest_of": "team_connection_submitted",
+   "pointer": "/payload_digest",
+   "record": "configure_connection_request"
+  },
+  {
+   "digest_of": "configure_connection_request",
+   "pointer": "/request_digest",
+   "record": "configure_connection_receipt"
+  },
+  {
+   "minted": "team_head_connection",
+   "pointer": "/head_digest",
+   "record": "configure_connection_receipt"
+  },
+  {
+   "minted": "configure_connection_sequence",
+   "pointer": "/sequence",
+   "record": "configure_connection_receipt"
+  },
+  {
+   "minted": "configure_connection_committed_at",
+   "pointer": "/committed_at",
+   "record": "configure_connection_receipt"
+  },
+  {
+   "minted": "team_head",
+   "pointer": "/target/base/head_digest",
+   "record": "configure_connection_receipt"
+  },
+  {
+   "minted": "team_connection",
+   "pointer": "/connection_id",
+   "record": "team_provider_connection"
+  },
+  {
+   "minted": "connection_configured_at",
+   "pointer": "/configured_at",
+   "record": "team_provider_connection"
+  },
+  {
+   "digest_of": "configure_connection_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "configure_connection_result"
+  },
+  {
+   "digest_of": "configure_connection_request",
+   "pointer": "/request_digest",
+   "record": "configure_connection_result"
+  },
+  {
+   "digest_of": "team_provider_connection",
+   "pointer": "/outputs/0/digest",
+   "record": "configure_connection_result"
+  },
+  {
    "digest_of": "team_founder_grant",
    "pointer": "/statement/attests/0",
    "record": "offline_permit"
@@ -326,7 +390,7 @@
    "record": "keep_offline_permit_request"
   },
   {
-   "minted": "team_head",
+   "minted": "team_head_connection",
    "pointer": "/target/base/head_digest",
    "record": "keep_offline_permit_request"
   },
@@ -351,7 +415,7 @@
    "record": "keep_offline_permit_receipt"
   },
   {
-   "minted": "team_head",
+   "minted": "team_head_connection",
    "pointer": "/target/base/head_digest",
    "record": "keep_offline_permit_receipt"
   },
@@ -576,8 +640,13 @@
    "record": "silent_refresh_result"
   },
   {
-   "digest_of": "lock_state",
+   "digest_of": "named_profile",
    "pointer": "/outputs/0/digest",
+   "record": "silent_refresh_result"
+  },
+  {
+   "digest_of": "lock_state",
+   "pointer": "/outputs/1/digest",
    "record": "silent_refresh_result"
   },
   {
@@ -734,16 +803,6 @@
    "digest_of": "read_after_offline_limit_admission",
    "pointer": "/outputs/0/digest",
    "record": "read_after_offline_limit_result"
-  },
-  {
-   "minted": "team_connection",
-   "pointer": "/connection_id",
-   "record": "team_provider_connection"
-  },
-  {
-   "minted": "connection_configured_at",
-   "pointer": "/configured_at",
-   "record": "team_provider_connection"
   }
  ],
  "minted": [
@@ -851,6 +910,31 @@
    "name": "team_since",
    "shape": "instant",
    "step": "found_team"
+  },
+  {
+   "name": "configure_connection_committed_at",
+   "shape": "instant",
+   "step": "configure_connection"
+  },
+  {
+   "name": "configure_connection_sequence",
+   "shape": "integer",
+   "step": "configure_connection"
+  },
+  {
+   "name": "connection_configured_at",
+   "shape": "instant",
+   "step": "configure_connection"
+  },
+  {
+   "name": "team_connection",
+   "shape": "con",
+   "step": "configure_connection"
+  },
+  {
+   "name": "team_head_connection",
+   "shape": "digest",
+   "step": "configure_connection"
   },
   {
    "name": "keep_offline_permit_committed_at",
@@ -1486,6 +1570,133 @@
    }
   },
   {
+   "digest": "6427c83cba653437e5b9f593330633b65eb182213cd80e6b9a05b6b91af7816d",
+   "name": "team_connection_submitted",
+   "record": {
+    "audience": "1234567890-abcdef.apps.googleusercontent.com",
+    "exchange": {
+     "flow": "code_with_pkce",
+     "runs": "local_public_client"
+    },
+    "expected_claims": [
+     {
+      "claim": "hd",
+      "value": "example.com"
+     }
+    ],
+    "issuer": "https://accounts.google.com",
+    "kind": "provider_connection",
+    "preset": "google",
+    "schema": 1,
+    "team_id": "tem_1dcdc3ad973b91fb3a6dc0c4d55df35d"
+   }
+  },
+  {
+   "digest": "ea9ba283b5a9e2bd4b1845fe7fb6ba574bc1d7db6bad99f83eda9cbc19a3fdf3",
+   "name": "configure_connection_request",
+   "record": {
+    "action": "policy",
+    "actor": {
+     "device_id": "dev_4dbc38b2a38272a1122c7cbc42207635",
+     "principal_id": "prn_cbf1f9524f36bc1e39a940e875c52dae",
+     "profile_id": "prf_a78d727a80aec91d98c265505876ecae"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 1,
+    "operation": "access.connection.configure",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_1dcdc3ad973b91fb3a6dc0c4d55df35d"
+    },
+    "payload_digest": "6427c83cba653437e5b9f593330633b65eb182213cd80e6b9a05b6b91af7816d",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_dbdb483140a9fc4e955a262da705a549",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "8c4997bfd5be716f9fb9d17e0535ff1dcb83d9495a3f49c75ba6d1ad44e4a526"
+     },
+     "resource_id": "tem_1dcdc3ad973b91fb3a6dc0c4d55df35d"
+    }
+   }
+  },
+  {
+   "digest": "093d85056818df6466bd2926faf54ddb092f15309036162c2dc830d120114665",
+   "name": "configure_connection_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "950a9d75e6ad4bc07d7d56f8077b0a6008603267fbe3d86abf8a15373fc752d2",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_1dcdc3ad973b91fb3a6dc0c4d55df35d"
+    },
+    "request_digest": "ea9ba283b5a9e2bd4b1845fe7fb6ba574bc1d7db6bad99f83eda9cbc19a3fdf3",
+    "request_id": "req_dbdb483140a9fc4e955a262da705a549",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "8c4997bfd5be716f9fb9d17e0535ff1dcb83d9495a3f49c75ba6d1ad44e4a526"
+     },
+     "resource_id": "tem_1dcdc3ad973b91fb3a6dc0c4d55df35d"
+    }
+   }
+  },
+  {
+   "digest": "359155bf3bb4ab304aa0972f56c7769328ef01969854edc51efd61505eb2c9f3",
+   "name": "team_provider_connection",
+   "record": {
+    "audience": "1234567890-abcdef.apps.googleusercontent.com",
+    "configured_at": "2000-01-01T00:00:00Z",
+    "connection_id": "con_4fd29fbe7ece46071e17b0363c45cf69",
+    "exchange": {
+     "flow": "code_with_pkce",
+     "runs": "local_public_client"
+    },
+    "expected_claims": [
+     {
+      "claim": "hd",
+      "value": "example.com"
+     }
+    ],
+    "issuer": "https://accounts.google.com",
+    "kind": "provider_connection",
+    "preset": "google",
+    "schema": 1,
+    "team_id": "tem_1dcdc3ad973b91fb3a6dc0c4d55df35d"
+   }
+  },
+  {
+   "digest": "eaf288f7a45fd89dec2776e459cb51a9a0ce5b05765ea52803af96ed1b9e52fc",
+   "name": "configure_connection_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "093d85056818df6466bd2926faf54ddb092f15309036162c2dc830d120114665",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "359155bf3bb4ab304aa0972f56c7769328ef01969854edc51efd61505eb2c9f3",
+      "kind": "provider_connection"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "ea9ba283b5a9e2bd4b1845fe7fb6ba574bc1d7db6bad99f83eda9cbc19a3fdf3",
+    "request_id": "req_dbdb483140a9fc4e955a262da705a549",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
    "digest": "8e45801c95f9dcee5a648ef83ede5bdc8f5f466a5152a63c5651fc2e839ad9bb",
    "name": "offline_permit",
    "record": {
@@ -1519,7 +1730,7 @@
    }
   },
   {
-   "digest": "cfd4ccb558403b27c8b00b0e49d476193294d1dcf002108d4abf372ba40a9b46",
+   "digest": "14cdc4a04f5072d2ea85c13ede166f3d76e16b6187a837b058c0e6615f2ceac8",
    "name": "keep_offline_permit_request",
    "record": {
     "action": "grant",
@@ -1545,14 +1756,14 @@
     "target": {
      "base": {
       "expects": "head",
-      "head_digest": "8c4997bfd5be716f9fb9d17e0535ff1dcb83d9495a3f49c75ba6d1ad44e4a526"
+      "head_digest": "950a9d75e6ad4bc07d7d56f8077b0a6008603267fbe3d86abf8a15373fc752d2"
      },
      "resource_id": "tem_1dcdc3ad973b91fb3a6dc0c4d55df35d"
     }
    }
   },
   {
-   "digest": "8d3fc71acef2eeafb437cbac83aa01c406ce9e8f98d077463c96db6b7f4c2f37",
+   "digest": "25b8d6ab98ec10d7f61f7b5724dca9643f5c6d9911eecca041da8b2bf03b21d5",
    "name": "keep_offline_permit_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -1562,28 +1773,28 @@
      "layer": "team",
      "team_id": "tem_1dcdc3ad973b91fb3a6dc0c4d55df35d"
     },
-    "request_digest": "cfd4ccb558403b27c8b00b0e49d476193294d1dcf002108d4abf372ba40a9b46",
+    "request_digest": "14cdc4a04f5072d2ea85c13ede166f3d76e16b6187a837b058c0e6615f2ceac8",
     "request_id": "req_742e07da741b64697e175ebc5bd944f6",
     "schema": 1,
     "sequence": 1,
     "target": {
      "base": {
       "expects": "head",
-      "head_digest": "8c4997bfd5be716f9fb9d17e0535ff1dcb83d9495a3f49c75ba6d1ad44e4a526"
+      "head_digest": "950a9d75e6ad4bc07d7d56f8077b0a6008603267fbe3d86abf8a15373fc752d2"
      },
      "resource_id": "tem_1dcdc3ad973b91fb3a6dc0c4d55df35d"
     }
    }
   },
   {
-   "digest": "6665f5747867d7fb2ec46641b1a50d81d33704d8d9bbf77fc9685743b9663ff0",
+   "digest": "1d5b738d069d60aae76c8a6b76b631c56f9787463cd2638c8398b60a1082f671",
    "name": "keep_offline_permit_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "8d3fc71acef2eeafb437cbac83aa01c406ce9e8f98d077463c96db6b7f4c2f37",
+     "receipt_digest": "25b8d6ab98ec10d7f61f7b5724dca9643f5c6d9911eecca041da8b2bf03b21d5",
      "stage": "committed"
     },
     "outputs": [
@@ -1593,7 +1804,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "cfd4ccb558403b27c8b00b0e49d476193294d1dcf002108d4abf372ba40a9b46",
+    "request_digest": "14cdc4a04f5072d2ea85c13ede166f3d76e16b6187a837b058c0e6615f2ceac8",
     "request_id": "req_742e07da741b64697e175ebc5bd944f6",
     "schema": 1,
     "supported_recovery": []
@@ -1960,7 +2171,7 @@
    }
   },
   {
-   "digest": "33a2d4682659552e7682dd5b128ab98f8109a6218704e19826bc81a724ee0991",
+   "digest": "639e6dd0f8b0e449f96294da02a431a498f96ddc6e355c880a950357640e6183",
    "name": "read_in_flight_admission",
    "record": {
     "access_generation": 2,
@@ -1977,12 +2188,12 @@
      ]
     },
     "profile_id": "prf_a78d727a80aec91d98c265505876ecae",
-    "request_id": "req_7f36a6ff5ad423e3f1bab3746b4770f5",
+    "request_id": "req_590e15a9a4ac5ff08d2f2d0427242757",
     "schema": 1
    }
   },
   {
-   "digest": "9fa0dcee5ca59ccf4e6f685387192851d3c192f7c4b85a6c00f3c6f334ae5709",
+   "digest": "df517e50d152a00378b23d62b47031b72a8f9922f09369d82fb125ce7780a115",
    "name": "read_admitted_during_lock_result",
    "record": {
     "kind": "operation_result",
@@ -1993,7 +2204,7 @@
     },
     "outputs": [
      {
-      "digest": "33a2d4682659552e7682dd5b128ab98f8109a6218704e19826bc81a724ee0991",
+      "digest": "639e6dd0f8b0e449f96294da02a431a498f96ddc6e355c880a950357640e6183",
       "kind": "access_admission"
      }
     ],
@@ -2143,7 +2354,7 @@
    }
   },
   {
-   "digest": "ad316aa2afdf9769ee656290f80971ec316185b3d218193edade7678b9c4c448",
+   "digest": "d36ad4dbd920e816984932d36c1facdbf9eedb008a9950b091116f0d97c46ada",
    "name": "silent_refresh_result",
    "record": {
     "kind": "operation_result",
@@ -2153,6 +2364,10 @@
      "stage": "previewed"
     },
     "outputs": [
+     {
+      "digest": "3ac4b08bbbfd031f08c4ba1ee95d8d040f66a575486000e649c0199230e42641",
+      "kind": "local_profile"
+     },
      {
       "digest": "9785c6d166ced30b4da59cb28220b11530c1a5cb8618e67620460c20f32c0319",
       "kind": "access_state"
@@ -2608,34 +2823,10 @@
     "schema": 1,
     "supported_recovery": []
    }
-  },
-  {
-   "digest": "359155bf3bb4ab304aa0972f56c7769328ef01969854edc51efd61505eb2c9f3",
-   "name": "team_provider_connection",
-   "record": {
-    "audience": "1234567890-abcdef.apps.googleusercontent.com",
-    "configured_at": "2000-01-01T00:00:00Z",
-    "connection_id": "con_4fd29fbe7ece46071e17b0363c45cf69",
-    "exchange": {
-     "flow": "code_with_pkce",
-     "runs": "local_public_client"
-    },
-    "expected_claims": [
-     {
-      "claim": "hd",
-      "value": "example.com"
-     }
-    ],
-    "issuer": "https://accounts.google.com",
-    "kind": "provider_connection",
-    "preset": "google",
-    "schema": 1,
-    "team_id": "tem_1dcdc3ad973b91fb3a6dc0c4d55df35d"
-   }
   }
  ],
  "says": "Alice's laptop reads its fresh profile (active, generation 1), binds her key and founds a Team; as the Team's issuing authority she records on the Team a permit that lets the laptop read the Team's state offline for a week, and the Team has a configured provider connection. The decision CLI is issued a handle at generation 1. Under generation 1 she renames her profile, which commits, and the CLI issues a Team read under its handle. She locks the profile (generation 2); a second Team read is admitted under generation 1 and held in flight while the lock runs, and the process is killed after the lock commits and restarted, with the lock still what the owner answers. The in-flight read is rechecked before its result is shown and is not admitted, with access_locked and access_generation_moved. The read issued under the old handle arrives late, after the restart: not admitted, with access_locked and access_generation_moved. The provider delivers a refreshed token with no local transition; a read of the profile's own state right after shows it is still the same locked state, so the refresh reopened nothing. After an explicit unlock at a terminal (still generation 2, real device key) the same old read is still refused with access_generation_moved; the unlock reopens nothing issued before the lock, and the CLI is issued a new handle at generation 2. A query for the rename committed before the lock answers with its original result. Eight days later the permit's offline limit has passed: a fresh read under the new handle naming the permit is not admitted, with credential_expired. What must not happen: a restart, a refresh, a late answer or the later unlock admitting the old handle; an in-flight response presented after the generation moved; expired offline evidence admitting a read; or the query answering with anything but the rename's original result.",
- "spec_sha256": "6b7d66ac8ef1a2ab9576dd63d38dc126fe87bf79f06c6ff5c1120479fe24cd4d",
+ "spec_sha256": "21763a4809f8c99cac1f5cefda600a22c91703b391b15eb892799df2c33d6102",
  "steps": [
   {
    "at": "2026-09-21T09:00:00Z",
@@ -2681,6 +2872,19 @@
    ],
    "submits": [
     "team_policy_draft"
+   ]
+  },
+  {
+   "at": "2026-09-21T09:00:00Z",
+   "carries": [
+    "team_connection_submitted"
+   ],
+   "head": "team_head_connection",
+   "name": "configure_connection",
+   "request": "configure_connection_request",
+   "result": "configure_connection_result",
+   "returns": [
+    "team_provider_connection"
    ]
   },
   {
@@ -2763,6 +2967,7 @@
    "request": "read_state_after_refresh_request",
    "result": "silent_refresh_result",
    "returns": [
+    "named_profile",
     "lock_state"
    ]
   },

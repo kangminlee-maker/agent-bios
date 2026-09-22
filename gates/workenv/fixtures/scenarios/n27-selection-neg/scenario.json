@@ -668,7 +668,7 @@
   }
  ],
  "says": "alice selects two roots of her bound checkout to read: the directory docs/adr, which is required, and README.md, which is optional; beside docs/adr the checkout also holds docs/adr-private/notes.md, which she did not select. The owner observes the selection and writes nothing: the source_observation it returns names that selection's digest and reads the three files under docs/adr (committed, modified and untracked, each with its state) and README.md, each under the root it belongs to, and nothing under docs/adr-private. After docs/adr is removed from the working tree, the same selection is observed again: the observation lists root 0 as missing, reads only README.md, and the answer carries ref_unavailable at /roots/0. Every observation the owner writes must satisfy C01/read_within_selection against the selection it observed; what it must never write is a read outside the selected roots (the sibling docs/adr-private file), a read under a root the selection does not have, transcript records beyond the selected span, or a missing optional root reported as missing (the rule fixture's breaking records).",
- "spec_sha256": "d571cbaeb209fd6f8b960b321b571a6d5887c4c16ef06f257f81e88b02b4da37",
+ "spec_sha256": "59aa6d83af0bcb002072a8ee61aa084f5bccbb464c48fbb79112a8953b0601b2",
  "steps": [
   {
    "carries": [
@@ -714,5 +714,15 @@
     "observe_after_the_directory_is_gone_observation"
    ]
   }
- ]
+ ],
+ "world": {
+  "events": [
+   {
+    "absent": true,
+    "before": "observe_after_the_directory_is_gone",
+    "kind": "file_edit",
+    "path": "docs/adr"
+   }
+  ]
+ }
 }

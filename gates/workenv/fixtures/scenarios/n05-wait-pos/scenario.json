@@ -2140,7 +2140,7 @@
    }
   },
   {
-   "digest": "7125bd57f856a02c705c2fb979686a93bc086f8b0a53726c12fdf81debd77723",
+   "digest": "37e704614a148ed73c8d8ee117a19212d2c177c48abe6d737ee2a93f311c70d7",
    "name": "decisions_1",
    "record": {
     "format_version": 1,
@@ -2149,7 +2149,7 @@
      {
       "digest": "8b5b89c4ec1bf6fd8f5e6023615d055efdf36c98c21435fb88c2f6ab5aa1421d",
       "path": "records/a.json",
-      "size": 4120
+      "size": 1113
      }
     ],
     "produced_at": "2000-01-01T00:00:00Z",
@@ -2158,7 +2158,7 @@
    }
   },
   {
-   "digest": "d7eee54f2c86523c02b55da173c80783335968d11ab4a53b363d4a4f0400e743",
+   "digest": "6805ba7cbaaec5a6aa591f4f57e174e6e84e53b32394ed7c7ce9f1d5b00657ef",
    "name": "publish_first_choice_result",
    "record": {
     "kind": "operation_result",
@@ -2174,7 +2174,7 @@
       "kind": "choice_record"
      },
      {
-      "digest": "7125bd57f856a02c705c2fb979686a93bc086f8b0a53726c12fdf81debd77723",
+      "digest": "37e704614a148ed73c8d8ee117a19212d2c177c48abe6d737ee2a93f311c70d7",
       "kind": "source_manifest"
      }
     ],
@@ -2339,7 +2339,7 @@
    }
   },
   {
-   "digest": "78ff96885715ab1fa9d4bc4b0d5c5b3eca93581363da5634a351ebcd0b68c394",
+   "digest": "99f84172111659ed8aa8990e7d55bbd12423458f825ca6c3d7635719d2b21b9f",
    "name": "decisions_2",
    "record": {
     "format_version": 1,
@@ -2348,12 +2348,12 @@
      {
       "digest": "8b5b89c4ec1bf6fd8f5e6023615d055efdf36c98c21435fb88c2f6ab5aa1421d",
       "path": "records/a.json",
-      "size": 4120
+      "size": 1113
      },
      {
       "digest": "36184f613b9ddb208bb36a6f99bbad49d2b9a14e596ed4b03d94408c16da7b0e",
       "path": "records/b.json",
-      "size": 918
+      "size": 1116
      }
     ],
     "produced_at": "2000-01-01T00:00:00Z",
@@ -2362,7 +2362,7 @@
    }
   },
   {
-   "digest": "7c4713999841d4380c71b6dfdbd899bf42f90c234011ae3fc0e15fa67b139c47",
+   "digest": "4eacc5814311a6f3e8864f08701eb98239a0e1ba50fc9e7c91d425e29a523630",
    "name": "publish_conflicting_choice_result",
    "record": {
     "kind": "operation_result",
@@ -2378,7 +2378,7 @@
       "kind": "choice_record"
      },
      {
-      "digest": "78ff96885715ab1fa9d4bc4b0d5c5b3eca93581363da5634a351ebcd0b68c394",
+      "digest": "99f84172111659ed8aa8990e7d55bbd12423458f825ca6c3d7635719d2b21b9f",
       "kind": "source_manifest"
      }
     ],
@@ -2884,7 +2884,7 @@
    }
   },
   {
-   "digest": "f36ae37b5ace9003cae5fc5597f3d97e264d62b855e3597b4ee15ebc0618c8a7",
+   "digest": "79964fa2c3cf91022caec5c6b03c2a34ab82d450467f9d826590107f947c17b0",
    "name": "journal_1",
    "record": {
     "format_version": 1,
@@ -2893,7 +2893,7 @@
      {
       "digest": "576c863669b582776d03f17329d825e5f799a410efb1912d2f58221a69a31821",
       "path": "records/c.json",
-      "size": 4120
+      "size": 1124
      }
     ],
     "produced_at": "2000-01-01T00:00:00Z",
@@ -2902,7 +2902,7 @@
    }
   },
   {
-   "digest": "8f9e24cfc4bd5a28890d82cfcc1efacac6252a38b435cb985199e1c0c3f7d1a7",
+   "digest": "4ed6d60b287bcd8a1eada559e7b9df46a84e61b6f7f64ebae4e2dacccdb05418",
    "name": "publish_elsewhere_while_waiting_result",
    "record": {
     "kind": "operation_result",
@@ -2918,7 +2918,7 @@
       "kind": "choice_record"
      },
      {
-      "digest": "f36ae37b5ace9003cae5fc5597f3d97e264d62b855e3597b4ee15ebc0618c8a7",
+      "digest": "79964fa2c3cf91022caec5c6b03c2a34ab82d450467f9d826590107f947c17b0",
       "kind": "source_manifest"
      }
     ],
@@ -3087,7 +3087,7 @@
   }
  ],
  "says": "On her laptop Alice keeps a private notes source and a private decisions source, each registered with its first head. She publishes two choices answering one question into the decisions source, then prepares a use of that concern: the two choices conflict at one layer, so the owner seals and stores a question against the comparison basis and answers pending_user, waiting on her. Before any answer arrives, an independent commit of a new notes revision and a publication of an unrelated choice into a third, separate memory source both commit on the same store with receipts — the pending question holds no lock that blocks them. The process is killed after that publication commits and before it returns, and restarted; the publication is answered with its committed result. Querying the prepare request after the restart returns its original result, naming the same waiting reader result and the same stored question; preparing that same use again finds its one pending question unchanged — same question_id, version and use_id, still pending_user — and writes nothing new. What must not happen: the independent writes waiting for the answer, the restart dropping or re-asking the question under a new id or version, or the use being admitted with a first option chosen on her behalf.",
- "spec_sha256": "9f7d578615872f24ddd3465d9f94f976f74558bbbe02dc59c561ecde9063c569",
+ "spec_sha256": "42e009c0108b8beedbbc7684029110fd8bbfcb527f12e95631e4433e97ef1b27",
  "steps": [
   {
    "carries": [

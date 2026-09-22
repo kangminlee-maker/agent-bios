@@ -7,7 +7,8 @@ Two operations share this contract because they share one rule: what reaches a r
 by the one admission owner, from exact source revisions, and nothing else is promoted into it.
 A projection carries behavioural units only — `projected_unit.source_role` is fixed, so a
 knowledge or memory source cannot enter a projection by being listed in one — and a knowledge
-view carries a body with the evidence behind it and never the authority to act.
+view carries a body with the evidence behind it and never the authority to act: the answer
+returns the bytes of each member the view names (`source_member`) beside the view.
 
 A request arrives through an entrance, and the plan carries that entrance: an entrance whose
 root the caller chose reaches protected bytes only through the admission owner, and one that
@@ -55,7 +56,8 @@ IN_RESULTS = True
 OPERATIONS = {
     "role.project": {"takes": ("projection_plan",), "returns": ("role_projection",),
                      "effect": "pure_preview", "action": "use", "targets": ("prn",)},
-    "knowledge.question.ask": {"takes": ("knowledge_question",), "returns": ("knowledge_view",),
+    "knowledge.question.ask": {"takes": ("knowledge_question",),
+                               "returns": ("knowledge_view", "source_member"),
                                "effect": "durable_candidate", "action": "read",
                                "targets": ("prn",)},
     "knowledge.view.open": {"takes": (), "returns": ("knowledge_view",),

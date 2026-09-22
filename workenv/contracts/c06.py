@@ -9,11 +9,12 @@ with nothing to say is `empty` and is a valid answer, while `denied`, `unavailab
 
 A budget bounds what may be examined as well as what may be returned, and a result states what it
 consumed of both. Each returned unit says whether it answers a required subject or is optional
-support, so required meaning is fitted first. A selected source the read did not check is named as
-not checked, remote and unknown, or missing, apart from one it checked and found empty. An envelope
-says whether it asks for history as well as what is current: with history included, a unit that
-is no longer current comes back marked `superseded` or `withdrawn`, and with it excluded none
-does.
+support, so required meaning is fitted first, and the bytes of each returned unit's body come back
+beside the result (`source_member`, the digest its `body_digest` names). A selected source the
+read did not check is named as not checked, remote and unknown, or missing, apart from one it
+checked and found empty. An envelope says whether it asks for history as well as what is
+current: with history included, a unit that is no longer current comes back marked `superseded`
+or `withdrawn`, and with it excluded none does.
 
 Access is resolved before any candidate or metadata is shown, so a reader that cannot establish
 it returns `access_not_established` rather than a list of what it would have returned. A cursor
@@ -65,7 +66,8 @@ OPERATIONS = {
                                        "comparison_basis", "application_preference"),
                            "effect": "durable_candidate", "action": "use",
                            "targets": ("cnc", "use")},
-    "reader.body.read": {"takes": ("reader_envelope",), "returns": ("reader_result",),
+    "reader.body.read": {"takes": ("reader_envelope",),
+                         "returns": ("reader_result", "source_member"),
                          "effect": "pure_preview", "action": "read",
                          "targets": ("src", "rep", "prn")},
     "reader.question.answer": {"takes": ("reader_envelope",),

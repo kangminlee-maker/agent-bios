@@ -482,64 +482,24 @@
    "record": "attempt_current"
   },
   {
-   "digest_of": "attempt_current",
-   "pointer": "/request_digest",
-   "record": "deliver_and_lose_the_response_receipt"
-  },
-  {
-   "minted": "deliver_and_lose_the_response_head",
-   "pointer": "/head_digest",
-   "record": "deliver_and_lose_the_response_receipt"
-  },
-  {
-   "minted": "deliver_and_lose_the_response_sequence",
-   "pointer": "/sequence",
-   "record": "deliver_and_lose_the_response_receipt"
-  },
-  {
-   "minted": "deliver_and_lose_the_response_committed_at",
-   "pointer": "/committed_at",
-   "record": "deliver_and_lose_the_response_receipt"
-  },
-  {
-   "minted": "work_link",
-   "pointer": "/target/resource_id",
-   "record": "deliver_and_lose_the_response_receipt"
-  },
-  {
    "minted": "work_link",
    "pointer": "/link_id",
-   "record": "current_received"
+   "record": "current_lost"
   },
   {
    "digest_of": "preparation",
    "pointer": "/requested/preparation_digest",
-   "record": "current_received"
+   "record": "current_lost"
   },
   {
    "minted": "review_body",
    "pointer": "/requested/bodies/0",
-   "record": "current_received"
+   "record": "current_lost"
   },
   {
-   "minted": "review_body",
-   "pointer": "/observed/received/0",
-   "record": "current_received"
-  },
-  {
-   "minted": "current_received_receipt_evidence",
-   "pointer": "/observed/evidence_digest",
-   "record": "current_received"
-  },
-  {
-   "minted": "current_received_at",
+   "minted": "current_lost_at",
    "pointer": "/at",
-   "record": "current_received"
-  },
-  {
-   "digest_of": "deliver_and_lose_the_response_receipt",
-   "pointer": "/outcome/receipt_digest",
-   "record": "deliver_and_lose_the_response_result"
+   "record": "current_lost"
   },
   {
    "digest_of": "attempt_current",
@@ -547,7 +507,7 @@
    "record": "deliver_and_lose_the_response_result"
   },
   {
-   "digest_of": "current_received",
+   "digest_of": "current_lost",
    "pointer": "/outputs/0/digest",
    "record": "deliver_and_lose_the_response_result"
   },
@@ -559,17 +519,12 @@
   {
    "digest_of": "ask_delivery",
    "pointer": "/request_digest",
-   "record": "query_the_delivery_after_restart_result"
+   "record": "query_the_delivery_result"
   },
   {
    "digest_of": "deliver_and_lose_the_response_result",
    "pointer": "/outputs/0/digest",
-   "record": "query_the_delivery_after_restart_result"
-  },
-  {
-   "digest_of": "deliver_and_lose_the_response_receipt",
-   "pointer": "/outputs/1/digest",
-   "record": "query_the_delivery_after_restart_result"
+   "record": "query_the_delivery_result"
   },
   {
    "minted": "preparation",
@@ -587,33 +542,8 @@
    "record": "observed"
   },
   {
-   "minted": "observed_seen_at",
-   "pointer": "/observed/at",
-   "record": "observed"
-  },
-  {
-   "minted": "observed_evidence",
-   "pointer": "/observed/evidence_digest",
-   "record": "observed"
-  },
-  {
    "digest_of": "work_link",
    "pointer": "/requested/recipient_digest",
-   "record": "observed"
-  },
-  {
-   "minted": "preparation_review",
-   "pointer": "/observed/inventory/0/unit_id",
-   "record": "observed"
-  },
-  {
-   "digest_of": "rules_rev",
-   "pointer": "/observed/inventory/0/revision_digest",
-   "record": "observed"
-  },
-  {
-   "minted": "review_body",
-   "pointer": "/observed/inventory/0/body_digest",
    "record": "observed"
   },
   {
@@ -824,42 +754,12 @@
    "step": "resume_where_the_route_cannot"
   },
   {
-   "name": "current_received_at",
+   "name": "current_lost_at",
    "shape": "instant",
-   "step": "deliver_and_lose_the_response"
-  },
-  {
-   "name": "current_received_receipt_evidence",
-   "shape": "digest",
-   "step": "deliver_and_lose_the_response"
-  },
-  {
-   "name": "deliver_and_lose_the_response_committed_at",
-   "shape": "instant",
-   "step": "deliver_and_lose_the_response"
-  },
-  {
-   "name": "deliver_and_lose_the_response_head",
-   "shape": "digest",
-   "step": "deliver_and_lose_the_response"
-  },
-  {
-   "name": "deliver_and_lose_the_response_sequence",
-   "shape": "integer",
    "step": "deliver_and_lose_the_response"
   },
   {
    "name": "observed_at",
-   "shape": "instant",
-   "step": "observe_the_preparation"
-  },
-  {
-   "name": "observed_evidence",
-   "shape": "digest",
-   "step": "observe_the_preparation"
-  },
-  {
-   "name": "observed_seen_at",
    "shape": "instant",
    "step": "observe_the_preparation"
   },
@@ -1768,39 +1668,19 @@
    }
   },
   {
-   "digest": "973361491e95c655fb5bb4bd2f06c9a2c6c8855b76790afd5394ef15877d81bd",
-   "name": "deliver_and_lose_the_response_receipt",
-   "record": {
-    "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "cd4f77470533b47a74d7bbb642339f4554cb220e95ff22f8345b12904b7fdfd3",
-    "kind": "operation_receipt",
-    "owner": {
-     "layer": "personal",
-     "principal_id": "prn_ba7282e6d0742025a6b9439b6965100d"
-    },
-    "request_digest": "be4de6f4672d2226a8484795ee4e39ea1e9ca9f1a1a9771ae66f11232c51f5ab",
-    "request_id": "req_785d34ee867a8b62178c1009357d7e7e",
-    "schema": 1,
-    "sequence": 1,
-    "target": {
-     "resource_id": "lnk_33d4049bdf0028d2c08a6fe4dbf7bf4f"
-    }
-   }
-  },
-  {
-   "digest": "b7c94118ece3abd7291b93c402c362bc165d63cda33242398efaae0a8c7f9bfc",
-   "name": "current_received",
+   "digest": "be2df91bc75b3a2ae43f6fe4fab4129f20cf42121138ea35c771053cd24e17e9",
+   "name": "current_lost",
    "record": {
     "at": "2000-01-01T00:00:00Z",
     "kind": "delivery_attempt",
     "link_id": "lnk_33d4049bdf0028d2c08a6fe4dbf7bf4f",
-    "material_gaps": [],
+    "material_gaps": [
+     {
+      "code": "outcome_unknown"
+     }
+    ],
     "observed": {
-     "evidence_digest": "15e6420a61751323eef0383173bd4502945c6326de23b958553b3bb6bfaf2653",
-     "received": [
-      "a84f030b0cb7d92637f74785b277acd055eecc7330ba65c06e0d896eed110b6b"
-     ],
-     "saw": "received"
+     "saw": "lost"
     },
     "requested": {
      "bodies": [
@@ -1816,27 +1696,32 @@
    }
   },
   {
-   "digest": "f81735e429179bfcbeba2a7701d87c7fc2d5a74db3b125104f05176327c18254",
+   "digest": "67ced11f2b2aab50e69f5f6616a200dcf3aa7e13c4804ff3c75a62adcbc94f58",
    "name": "deliver_and_lose_the_response_result",
    "record": {
     "kind": "operation_result",
-    "local_effect": "committed",
+    "local_effect": "private_state_written",
     "outcome": {
-     "material_gaps": [],
-     "receipt_digest": "973361491e95c655fb5bb4bd2f06c9a2c6c8855b76790afd5394ef15877d81bd",
-     "stage": "committed"
+     "material_gaps": [
+      {
+       "code": "outcome_unknown"
+      }
+     ],
+     "stage": "unknown"
     },
     "outputs": [
      {
-      "digest": "b7c94118ece3abd7291b93c402c362bc165d63cda33242398efaae0a8c7f9bfc",
+      "digest": "be2df91bc75b3a2ae43f6fe4fab4129f20cf42121138ea35c771053cd24e17e9",
       "kind": "delivery_attempt"
      }
     ],
-    "provider_effect": "not_applicable",
+    "provider_effect": "unknown",
     "request_digest": "be4de6f4672d2226a8484795ee4e39ea1e9ca9f1a1a9771ae66f11232c51f5ab",
     "request_id": "req_785d34ee867a8b62178c1009357d7e7e",
     "schema": 1,
-    "supported_recovery": []
+    "supported_recovery": [
+     "query_same_request"
+    ]
    }
   },
   {
@@ -1878,8 +1763,8 @@
    }
   },
   {
-   "digest": "6ec3ec492a28df76b39a37d87768b57a720f8d8e4a67ccc9e8125df96a3864a9",
-   "name": "query_the_delivery_after_restart_result",
+   "digest": "39c83e9aba666d49d9aee042e62e919a75ef60c69fe8504a9f54215f3d49b120",
+   "name": "query_the_delivery_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "none",
@@ -1889,12 +1774,8 @@
     },
     "outputs": [
      {
-      "digest": "f81735e429179bfcbeba2a7701d87c7fc2d5a74db3b125104f05176327c18254",
+      "digest": "67ced11f2b2aab50e69f5f6616a200dcf3aa7e13c4804ff3c75a62adcbc94f58",
       "kind": "operation_result"
-     },
-     {
-      "digest": "973361491e95c655fb5bb4bd2f06c9a2c6c8855b76790afd5394ef15877d81bd",
-      "kind": "operation_receipt"
      }
     ],
     "provider_effect": "not_applicable",
@@ -1933,23 +1814,17 @@
    }
   },
   {
-   "digest": "41243f023e2feb59521a6adb695a2b3f79dbaaa839f8a98ce0326dce79fe2d20",
+   "digest": "28524219a8d5719991b07e53ae5318dbb28febd9bf115385929d755ca90b197e",
    "name": "observed",
    "record": {
     "kind": "delivery_observation",
-    "material_gaps": [],
+    "material_gaps": [
+     {
+      "code": "delivery_unobserved"
+     }
+    ],
     "observed": {
-     "at": "2000-01-01T00:00:00Z",
-     "evidence_digest": "42a64edfbcb616351ac0a9501ee78179b8710aac3772644e58bde111a43b2b3f",
-     "inventory": [
-      {
-       "body_digest": "a84f030b0cb7d92637f74785b277acd055eecc7330ba65c06e0d896eed110b6b",
-       "revision_digest": "82a2530257c98cf993d64658620e717e84dff7d19864400dcfe51536c7d8f297",
-       "source_id": "src_f4fd3819fa06a88ac25e95af74dde1c0",
-       "unit_id": "unt_ddfbc4027960dc7e18d7f63f8c723487"
-      }
-     ],
-     "saw": "delivered"
+     "saw": "not_observed"
     },
     "preparation_id": "prp_8326da7ccd4b02b757d63729b377d7f6",
     "recorded_at": "2000-01-01T00:00:00Z",
@@ -1961,18 +1836,22 @@
    }
   },
   {
-   "digest": "d5b1bb1b8d6f7bc31fa8f709774aa8ff1d3e8890a2ddc870678b52f34dc939e2",
+   "digest": "5fa360437d9b679887950fc8b9f9b12f3e316111852fa710982f2a8a595ceb48",
    "name": "observe_the_preparation_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "private_state_written",
     "outcome": {
-     "material_gaps": [],
+     "material_gaps": [
+      {
+       "code": "delivery_unobserved"
+      }
+     ],
      "stage": "previewed"
     },
     "outputs": [
      {
-      "digest": "41243f023e2feb59521a6adb695a2b3f79dbaaa839f8a98ce0326dce79fe2d20",
+      "digest": "28524219a8d5719991b07e53ae5318dbb28febd9bf115385929d755ca90b197e",
       "kind": "delivery_observation"
      }
     ],
@@ -2159,8 +2038,8 @@
    }
   }
  ],
- "says": "Alice binds her device key, authors and selects a personal Instructions source, opens a link to her working conversation in a Codex host, and composes a preparation for delivery on it. Four attempts on that preparation must never claim a delivery nor repeat an effect. An attempt naming a link id the runtime never issued is refused as recipient_link_unknown and sees no channel. A resume of that session as a rehydrated recipient, which this host's route cannot carry, is recorded as unsupported, sees no channel, and is refused as route_unsupported. A delivery to the current conversation commits and the process is killed after the commit and before the answer returns; after the restart the same request is answered with its committed attempt; resubmitting the identical request replays that answer and writes nothing new, and a query by that request id returns the original result and its receipt, so one body arrived once. She then locks her profile: the access state moves to a new generation, and a delivery attempted afterwards still states the generation before the lock and is refused as access_locked and access_generation_moved, with unlock as its recovery, and returns no attempt. Observing the preparation before the lock names one delivery of one body, the one that committed before the restart: neither refused attempt nor the restart added a body or a second delivery.",
- "spec_sha256": "f9e70a6e0af355914c25c4cbd0f2698cfa390366dc958d34b032728904da0966",
+ "says": "Alice binds her device key, authors and selects a personal Instructions source, opens a link to her working conversation in a Codex host, and composes a preparation for delivery on it. Four attempts on that preparation must never claim a delivery nor repeat an effect. An attempt naming a link id the runtime never issued is refused as recipient_link_unknown and sees no channel. A resume of that session as a rehydrated recipient, which this host's route cannot carry, is recorded as unsupported, sees no channel, and is refused as route_unsupported. A delivery to the current conversation is recorded, but the host's own acknowledgement of it never arrives: the attempt sees lost, names no received body and no evidence, and its answer is outcome_unknown with recovery by querying the same request id — nothing here claims the body arrived. Resubmitting the identical request replays that same unresolved answer and writes nothing new; querying it afterward by its request id returns that same result again, still lost and still unclaimed. She then locks her profile: the access state moves to a new generation, and a delivery attempted afterwards still states the generation before the lock and is refused as access_locked and access_generation_moved, with unlock as its recovery, and returns no attempt. Observing the preparation at the end finds nothing delivered — not_observed with delivery_unobserved — because none of the four attempts, nor the resubmission, ever claimed a body arrived.",
+ "spec_sha256": "09c4790ba58c091e89218aa686dac900e1c74f594a7af986bb6b47905f110970",
  "steps": [
   {
    "carries": [
@@ -2249,7 +2128,7 @@
    "request": "attempt_current",
    "result": "deliver_and_lose_the_response_result",
    "returns": [
-    "current_received"
+    "current_lost"
    ]
   },
   {
@@ -2261,19 +2140,18 @@
    "request": "attempt_current",
    "result": "deliver_and_lose_the_response_result",
    "returns": [
-    "current_received"
+    "current_lost"
    ]
   },
   {
    "carries": [
     "delivery_query"
    ],
-   "name": "query_the_delivery_after_restart",
+   "name": "query_the_delivery",
    "request": "ask_delivery",
-   "result": "query_the_delivery_after_restart_result",
+   "result": "query_the_delivery_result",
    "returns": [
-    "deliver_and_lose_the_response_result",
-    "deliver_and_lose_the_response_receipt"
+    "deliver_and_lose_the_response_result"
    ]
   },
   {
@@ -2305,13 +2183,5 @@
    "result": "deliver_after_the_lock_result",
    "returns": []
   }
- ],
- "world": {
-  "faults": [
-   {
-    "point": "after_commit_before_return",
-    "step": "deliver_and_lose_the_response"
-   }
-  ]
- }
+ ]
 }

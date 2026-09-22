@@ -1,6 +1,6 @@
 {
  "case": "BKP-RESTORE",
- "says": "On her laptop Alice registers her private notes source and commits a revision on the head the registration made (a receipt and the head it moved), keeps a hand-written choice as a draft candidate whose id the owner assigns, and exports a package carrying the revision, trusted by the binding that enrolled the laptop, to her desktop over a peer route while the two cannot reach each other, so the export stays in her outbox with an unknown outcome. She then takes a backup, which names the database snapshot and each member beside it: the draft, the outbox package, the unknown operation and the control sequence. The laptop's live database is then lost: on a rebuilt runtime that never held it, a query for the commit's request id first answers request_not_held — nothing survived to be restarted. Restoring the backup there reports the receipt sequence and instant the backup covers, work after it not known and authority passive. Afterwards the same queries return exactly the originals: the commit's result and its receipt naming its request and head, the draft candidate's result, and the export's unknown result with its query-the-same-request recovery. Reading the draft candidate directly there returns the same stored candidate content, not only its historical result. A fresh backup taken there afterward names the same database, draft, outbox and control-sequence members by digest and size as the one restored, so the restored outbox package and control-state member are shown exactly restored, not only their result mappings. What must not count as this proof: a surviving database restarted in place, or the desktop's copy of the exported package standing in for the laptop's draft, outbox, unknown operation and control mappings; nothing here is rebuilt from a peer.",
+ "says": "On her laptop Alice registers her private notes source and commits a revision on the head the registration made (a receipt and the head it moved), keeps a hand-written choice as a draft candidate whose id the owner assigns, and exports a package carrying the revision, trusted by the binding that enrolled the laptop, to her desktop over a peer route while the two cannot reach each other, so the export stays in her outbox with an unknown outcome. She then takes a backup, which names the database snapshot and each member beside it: the draft, the outbox package, the unknown operation and the control sequence. The laptop's live database is then lost: on a rebuilt runtime that never held it, a query for the commit's request id first answers request_not_held — nothing survived to be restarted. Restoring the backup there reports the receipt sequence and instant the backup covers, work after it not known and authority passive, at a generation past the one it restored. She then unlocks the rebuilt copy at a terminal, expecting that later generation, which makes its access active there. Afterwards the same queries return exactly the originals: the commit's result and its receipt naming its request and head, the draft candidate's result, and the export's unknown result with its query-the-same-request recovery. Reading the draft candidate directly there returns the same stored candidate content, not only its historical result. A fresh backup taken there afterward, at the unlocked generation, names the same draft, outbox and control-sequence members by digest and size as the one restored, so the restored outbox package and control-state member are shown exactly restored, not only their result mappings. What must not count as this proof: a surviving database restarted in place, or the desktop's copy of the exported package standing in for the laptop's draft, outbox, unknown operation and control mappings; nothing here is rebuilt from a peer.",
  "ids": [
   {
    "name": "alice",
@@ -76,6 +76,10 @@
   },
   {
    "name": "backup_after_restore_request",
+   "prefix": "req"
+  },
+  {
+   "name": "unlock_request",
    "prefix": "req"
   }
  ],
@@ -794,7 +798,7 @@
     },
     {
      "pointer": "/members/1/size",
-     "value": 930
+     "value": 929
     },
     {
      "pointer": "/members/2/path",
@@ -981,12 +985,102 @@
    ]
   },
   {
+   "name": "unlock_change",
+   "from": "c02/unlock_at_a_terminal.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/expected_generation",
+     "value": 8
+    }
+   ]
+  },
+  {
+   "name": "unlock",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@unlock_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.transition"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#unlock_change"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 8
+    }
+   ]
+  },
+  {
+   "name": "unlocked",
+   "from": "c02/unlocked_with_the_device_key.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:unlocked_at"
+    }
+   ]
+  },
+  {
    "name": "ask_commit_2",
    "from": "ask_commit_1",
    "set": [
     {
      "pointer": "/request_id",
      "value": "@ask_commit_request_2"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 8
     }
    ]
   },
@@ -1051,6 +1145,10 @@
     {
      "pointer": "/payload_digest",
      "value": "#draft_query"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 8
     }
    ]
   },
@@ -1115,6 +1213,10 @@
     {
      "pointer": "/payload_digest",
      "value": "#export_query"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 8
     }
    ]
   },
@@ -1145,6 +1247,10 @@
     {
      "pointer": "/target/resource_id",
      "value": "$cnd:draft_candidate"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 8
     }
    ]
   },
@@ -1196,6 +1302,10 @@
     {
      "pointer": "/target/resource_id",
      "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 8
     }
    ]
   },
@@ -1206,6 +1316,14 @@
     {
      "pointer": "/taken_at",
      "value": "$instant:backup_after_restore_taken_at"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 8
+    },
+    {
+     "pointer": "/database/digest",
+     "value": "$digest:backup_after_restore_database"
     }
    ]
   }
@@ -1377,6 +1495,24 @@
     "recovery": [],
     "returns": [
      "report"
+    ]
+   },
+   "process": "rebuilt"
+  },
+  {
+   "name": "unlock_the_restored_copy",
+   "request": "unlock",
+   "carries": [
+    "unlock_change"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "unlocked"
     ]
    },
    "process": "rebuilt"

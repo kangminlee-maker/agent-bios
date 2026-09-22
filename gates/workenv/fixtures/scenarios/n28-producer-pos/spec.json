@@ -1,6 +1,6 @@
 {
  "case": "N28-PRODUCER-POS",
- "says": "A person binds this device's key and the checkout and registers two repository sources: one for decisions (memory) and one for lessons (Instructions). They select records 12 to 18 of one session transcript, stating that its text may be processed locally, with no prompt log, for this repository only; in that span two decisions were made: the journal mode, effective from 2026-01-01 under jurisdiction KR, with its measured reason stated; and the backup volume, effective from 2026-03-01 on a local SSD, with no reason given anywhere in the span. The owner reads exactly that span once (source.observe). Each producer adapter then runs on that one fixed observation through source.capture.record, at the head its destination's registration committed: the packaged distillation adapter yields a memory capture with one entry for each decision, its body the exact span text stating that decision's date, condition and (journal entry only) its reason, and the packaged learning adapter yields a behavioural capture of one lesson; each answer returns the capture with the extraction_run that names its own adapter by name and digest and the packaged files it loaded - an extraction_run's `loaded` is the adapter's own package files, never the selected evidence, which the capture's own `processing.inputs` carries instead. Every capture's input lies under the selection's one root and restates no more than that root permits (local processing, no log, this repository), the rule input_within_its_root. From the memory capture the person stores one candidate per decision (memory.candidate.store). The first keeps the date, condition and reason exactly as its entry's body states them; the second keeps its date and condition as stated and lists reason under unrecorded, since no reason appears in that body or anywhere else in the span. No adapter reads outside the observed span, and neither capture nor candidate carries a rationale the input does not contain.",
+ "says": "A person binds this device's key and the checkout and registers two repository sources: one for decisions (memory) and one for lessons (Instructions). They select records 12 to 18 of one session transcript, stating that its text may be processed locally, with no prompt log, for this repository only; in that span two decisions were made: the journal mode, effective from 2026-01-01 under jurisdiction KR, with its measured reason stated; and the backup volume, effective from 2026-03-01 on a local SSD, with no reason given anywhere in the span. The owner reads exactly that span once (source.observe). Each producer adapter then runs on that one fixed observation through source.capture.record, at the head its destination's registration committed: the packaged distillation adapter yields a memory capture with one entry for each decision, its body the exact span text stating that decision's date, condition and (journal entry only) its reason, and the packaged learning adapter yields a behavioural capture of one lesson whose body restates the journal decision's date, condition and reason too; each answer returns the capture with the extraction_run that names its own adapter by name and digest and the packaged files it loaded - an extraction_run's `loaded` is the adapter's own package files, never the selected evidence, which the capture's own `processing.inputs` carries instead. Every capture's input lies under the selection's one root and restates no more than that root permits, the rule input_within_its_root. From the memory capture the person stores one candidate per decision (memory.candidate.store). The first keeps the date, condition and reason exactly as its entry's body states them; the second keeps its date and condition as stated and lists reason under unrecorded, since no reason appears in that body or anywhere else in the span. No adapter reads outside the observed span, and neither capture nor candidate carries a rationale the input does not contain.",
  "ids": [
   {
    "name": "me",
@@ -428,6 +428,16 @@
    ]
   },
   {
+   "name": "lesson_unit_body",
+   "from": "journal_entry_body",
+   "set": [
+    {
+     "pointer": "/text",
+     "value": "Lesson: when asked which journal mode the local state database uses, the answer observed in this span was WAL, with synchronous FULL, effective from 2026-01-01 under jurisdiction KR, for the stated reason of 4.11 ms per commit against 11.76 with readers not blocked."
+    }
+   ]
+  },
+  {
    "name": "memory_capture",
    "from": "sources/capture_of_memory_material_submitted.json",
    "set": [
@@ -549,6 +559,10 @@
     {
      "pointer": "/units/0/unit_id",
      "value": "@lesson_unit"
+    },
+    {
+     "pointer": "/units/0/body_digest",
+     "value": "#lesson_unit_body"
     },
     {
      "pointer": "/processing/adapter/name",

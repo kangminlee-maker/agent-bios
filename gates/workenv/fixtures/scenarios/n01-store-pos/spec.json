@@ -1,6 +1,6 @@
 {
  "case": "N01-STORE-POS",
- "says": "On her laptop Alice submits one record of each contract through its owner in submit mode: her device key binding (C01 principal_binding), her private notes source's home (C01 source_home), its first revision on the head the registration made (C01 source_manifest), and a package envelope carrying that revision, trusted by the binding that enrolled the laptop (C09 transfer_envelope); every request is itself a sealed C03 operation_request. Each owner answers with the record it stored: the submitted fields exactly as submitted, plus only the fields the runtime owns — the binding id and time, the registration time, the revision's production time — and the package's export recorded against the envelope's digest; each commit also writes its C03 receipt. The revision is then read back twice by a reference to its member, and each read returns the same stored revision and home under the same digests; the key binding and the export are each queried twice by request id, and each query returns the same original result, naming the same request digest and the same stored record's digest, and for the binding the same receipt. What must not happen: a stored record whose submitted fields changed, a runtime-owned field taken from the submission, or a second read returning other bytes or another digest.",
+ "says": "On her laptop Alice submits one record of each contract through its owner in submit mode: her device key binding (C01 principal_binding), her private notes source's home (C01 source_home), its first revision on the head the registration made (C01 source_manifest), and, after founding a team on the same device key, its binding to a GitHub repository (C09 carrier_binding); every request is itself a sealed C03 operation_request. Each owner answers with the record it stored: the submitted fields exactly as submitted, plus only the fields the runtime owns — the binding id and time, the registration time, the revision's production time, the carrier binding id and bound time; each commit also writes its C03 receipt. The revision is then read back twice by a reference to its member, and each read returns the same stored revision and home under the same digests; the key binding is queried twice by request id, and each query returns the same original result and receipt; the carrier binding's own request is submitted again twice, and each answer returns the same stored binding and digest, unchanged. What must not happen: a stored record whose submitted fields changed, a runtime-owned field taken from the submission, or a second read returning other bytes or another digest.",
  "ids": [
   {
    "name": "alice",
@@ -39,10 +39,6 @@
    "prefix": "req"
   },
   {
-   "name": "export_request",
-   "prefix": "req"
-  },
-  {
    "name": "ask_bind_request_1",
    "prefix": "req"
   },
@@ -51,11 +47,15 @@
    "prefix": "req"
   },
   {
-   "name": "ask_export_request_1",
+   "name": "team",
+   "prefix": "tem"
+  },
+  {
+   "name": "found_request",
    "prefix": "req"
   },
   {
-   "name": "ask_export_request_2",
+   "name": "carrier_bind_request",
    "prefix": "req"
   }
  ],
@@ -435,84 +435,76 @@
    ]
   },
   {
-   "name": "package",
-   "from": "c09/complete_transfer.json",
-   "drop": [
-    "/authority/team_id",
-    "/namespace/team_id",
-    "/recipient/permitted_scope/repository_id"
-   ],
+   "name": "founding_policy",
+   "from": "c08/policy_as_submitted.json",
    "set": [
     {
-     "pointer": "/authority/layer",
-     "value": "personal"
+     "pointer": "/team_id",
+     "value": "@team"
     },
     {
-     "pointer": "/authority/principal_id",
+     "pointer": "/execution_authority/principal_id",
      "value": "@alice"
-    },
-    {
-     "pointer": "/namespace/layer",
-     "value": "personal"
-    },
-    {
-     "pointer": "/namespace/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/recipient/permitted_scope/layer",
-     "value": "personal"
-    },
-    {
-     "pointer": "/recipient/permitted_scope/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/recipient/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/inventory/0/path",
-     "value": "objects/0000.json"
-    },
-    {
-     "pointer": "/inventory/0/digest",
-     "value": "#stored_revision"
-    },
-    {
-     "pointer": "/inventory/0/size",
-     "value": 382
-    },
-    {
-     "pointer": "/inventory/0/object_kind",
-     "value": "source_manifest"
-    },
-    {
-     "pointer": "/inventory/1/path",
-     "value": "continuity/0001.json"
-    },
-    {
-     "pointer": "/inventory/1/digest",
-     "value": "#stored_key"
-    },
-    {
-     "pointer": "/inventory/1/size",
-     "value": 444
-    },
-    {
-     "pointer": "/inventory/1/object_kind",
-     "value": "principal_binding"
-    },
-    {
-     "pointer": "/continuity_evidence_digests",
-     "value": [
-      "#stored_key"
-     ]
     }
    ]
   },
   {
-   "name": "export",
+   "name": "proposal",
+   "from": "c08/proposal_as_submitted.json",
+   "drop": [
+    "/founding_mode/nominees"
+   ],
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/founder_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/founding_mode/mode",
+     "value": "self_founded"
+    },
+    {
+     "pointer": "/founding_mode/acknowledged_self_reviewed",
+     "value": true
+    },
+    {
+     "pointer": "/recovery/0/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#founding_policy"
+    },
+    {
+     "pointer": "/name",
+     "value": "Notes"
+    }
+   ]
+  },
+  {
+   "name": "sealed_proposal",
+   "from": "proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:proposal_sealed_at"
+    }
+   ]
+  },
+  {
+   "name": "found",
    "from": "bindings/storing_request.json",
    "drop": [
     "/owner/team_id",
@@ -521,19 +513,19 @@
    "set": [
     {
      "pointer": "/request_id",
-     "value": "@export_request"
+     "value": "@found_request"
     },
     {
      "pointer": "/operation",
-     "value": "transfer.stage"
+     "value": "team.found"
     },
     {
      "pointer": "/action",
-     "value": "transfer"
+     "value": "policy"
     },
     {
      "pointer": "/effect_class",
-     "value": "durable_candidate"
+     "value": "owner_commit"
     },
     {
      "pointer": "/actor/principal_id",
@@ -549,40 +541,270 @@
     },
     {
      "pointer": "/owner/layer",
-     "value": "personal"
+     "value": "team"
     },
     {
-     "pointer": "/owner/principal_id",
-     "value": "@alice"
+     "pointer": "/owner/team_id",
+     "value": "@team"
     },
     {
      "pointer": "/target/resource_id",
-     "value": "@alice"
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
     },
     {
      "pointer": "/payload_digest",
-     "value": "#package"
+     "value": "#proposal"
     }
    ]
   },
   {
-   "name": "exported",
-   "from": "c09/exported.json",
+   "name": "stored_policy",
+   "from": "founding_policy",
+   "set": [
+    {
+     "pointer": "/policy_id",
+     "value": "$pol:team_policy"
+    },
+    {
+     "pointer": "/policy_version",
+     "value": 1
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:policy_at"
+    }
+   ]
+  },
+  {
+   "name": "founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:founder_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founder_admitted_at"
+    }
+   ]
+  },
+  {
+   "name": "founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:founder_grant"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "review",
+      "grant",
+      "policy"
+     ]
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founder_granted_at"
+    }
+   ]
+  },
+  {
+   "name": "team_active",
+   "from": "c08/archived_team.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/state",
+     "value": "active"
+    },
+    {
+     "pointer": "/since",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/name",
+     "value": "Notes"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:profile_at"
+    }
+   ]
+  },
+  {
+   "name": "founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_head_0"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:founding_epoch_at"
+    }
+   ]
+  },
+  {
+   "name": "carrier",
+   "from": "c09/carrier_binding_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/credential_held_by",
+     "value": "@laptop"
+    }
+   ]
+  },
+  {
+   "name": "bind_carrier_request",
+   "from": "bindings/storing_request.json",
    "drop": [
-    "/stage/route/peer_id"
+    "/owner/team_id",
+    "/target/base"
    ],
    "set": [
     {
-     "pointer": "/envelope_digest",
-     "value": "#package"
+     "pointer": "/request_id",
+     "value": "@carrier_bind_request"
     },
     {
-     "pointer": "/at",
-     "value": "$instant:exported_at"
+     "pointer": "/operation",
+     "value": "carrier.bind"
     },
     {
-     "pointer": "/stage/route/via",
-     "value": "package"
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_0"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#carrier"
+    }
+   ]
+  },
+  {
+   "name": "stored_carrier",
+   "from": "carrier",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$car:carrier_binding"
+    },
+    {
+     "pointer": "/bound_at",
+     "value": "$instant:carrier_bound_at"
+    }
+   ]
+  },
+  {
+   "name": "carrier_state_record",
+   "from": "c09/carrier_bound_and_nothing_provisioned.json",
+   "set": [
+    {
+     "pointer": "/binding_id",
+     "value": "$car:carrier_binding"
+    },
+    {
+     "pointer": "/observed_at",
+     "value": "$instant:carrier_bound_at"
     }
    ]
   },
@@ -657,80 +879,6 @@
     {
      "pointer": "/request_id",
      "value": "@ask_bind_request_2"
-    }
-   ]
-  },
-  {
-   "name": "export_query",
-   "from": "c03/query_by_request_id.json",
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@export_request"
-    }
-   ]
-  },
-  {
-   "name": "ask_export_1",
-   "from": "bindings/storing_request.json",
-   "drop": [
-    "/owner/team_id",
-    "/target/base"
-   ],
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@ask_export_request_1"
-    },
-    {
-     "pointer": "/operation",
-     "value": "operation.query"
-    },
-    {
-     "pointer": "/action",
-     "value": "read"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "pure_preview"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@alice_profile"
-    },
-    {
-     "pointer": "/owner/layer",
-     "value": "personal"
-    },
-    {
-     "pointer": "/owner/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@export_request"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#export_query"
-    }
-   ]
-  },
-  {
-   "name": "ask_export_2",
-   "from": "ask_export_1",
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@ask_export_request_2"
     }
    ]
   }
@@ -826,23 +974,67 @@
    }
   },
   {
-   "name": "export_the_revision",
-   "request": "export",
+   "name": "found_the_team",
+   "request": "found",
    "carries": [
-    "package",
-    "stored_revision",
-    "stored_key"
+    "proposal",
+    "founding_policy"
    ],
    "answer": {
-    "stage": "draft",
-    "local_effect": "objects_staged",
+    "stage": "committed",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "exported"
-    ]
+     "sealed_proposal",
+     "stored_policy",
+     "founder_membership",
+     "founder_grant",
+     "team_active",
+     "team_profile",
+     "founding_epoch"
+    ],
+    "head": "team_head_0"
+   },
+   "submits": [
+    "founding_policy"
+   ]
+  },
+  {
+   "name": "bind_carrier",
+   "request": "bind_carrier_request",
+   "carries": [
+    "carrier"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_carrier",
+     "carrier_state_record"
+    ],
+    "head": "team_head_1"
    }
+  },
+  {
+   "name": "read_carrier_back",
+   "request": "bind_carrier_request",
+   "carries": [
+    "carrier"
+   ],
+   "replays": "bind_carrier"
+  },
+  {
+   "name": "read_carrier_back_again",
+   "request": "bind_carrier_request",
+   "carries": [
+    "carrier"
+   ],
+   "replays": "bind_carrier"
   },
   {
    "name": "query_the_binding",
@@ -877,40 +1069,6 @@
     "returns": [
      "bind_device_key_result",
      "bind_device_key_receipt"
-    ]
-   }
-  },
-  {
-   "name": "query_the_export",
-   "request": "ask_export_1",
-   "carries": [
-    "export_query"
-   ],
-   "answer": {
-    "stage": "previewed",
-    "local_effect": "none",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "export_the_revision_result"
-    ]
-   }
-  },
-  {
-   "name": "query_the_export_again",
-   "request": "ask_export_2",
-   "carries": [
-    "export_query"
-   ],
-   "answer": {
-    "stage": "previewed",
-    "local_effect": "none",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "export_the_revision_result"
     ]
    }
   }

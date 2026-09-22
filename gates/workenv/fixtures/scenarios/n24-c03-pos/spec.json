@@ -1,6 +1,6 @@
 {
  "case": "N24-C03-POS",
- "says": "Alice binds her device key and registers the package candidate the target will run: its runtime module (workenv/contracts/c03.py), an asset (the cutover plan schema) and a shipped check (compose/check-domains.py), each copied from source_commit, and provenance.json made at pack time. Before she submits the cutover, an inventory of the installed target holds nothing yet. She then submits one cutover plan to the target: one explicit transfer of the data she selected, whose quiesced capture names the source revision and outbox captured after the old writers stopped and the import validated against exactly them; all three owners sealed with nothing in flight; the entrance trace verified with no writer left unrouted; one commit; the old source kept; and candidate_digest naming the candidate just registered. The owner commits the cutover once. A later inventory of the installed target then shows exactly the four members the registered candidate named, at the same paths, digests and sizes: ownership moved only after the plan's own verify stage, and what the target runs is what the candidate named, nothing else. What must not happen: ownership moving before the verified stage, the cutover installing any package other than the registered candidate, or the old source being deleted.",
+ "says": "Alice binds her device key and registers the package candidate the target will run: its runtime module (workenv/contracts/c03.py), an asset (the cutover plan schema) and a shipped check (compose/check-domains.py), each copied from source_commit, and provenance.json made at pack time. Before she submits the cutover, an inventory of the installed target holds an unrelated earlier revision, none of the candidate's members. She then submits one cutover plan to the target: one explicit transfer of the data she selected, whose quiesced capture names the source revision and outbox captured after the old writers stopped and the import validated against exactly them; all three owners sealed with nothing in flight; the entrance trace verified with no writer left unrouted; one commit; the old source kept; and candidate_digest naming the candidate just registered. The owner commits the cutover once. A later inventory of the installed target then shows exactly the four members the registered candidate named, at the same paths, digests and sizes: ownership moved only after the plan's own verify stage, and what the target runs is what the candidate named, nothing else. What must not happen: ownership moving before the verified stage, the cutover installing any package other than the registered candidate, or the old source being deleted.",
  "ids": [
   {
    "name": "alice",
@@ -324,8 +324,12 @@
   },
   {
    "name": "installed_before",
-   "from": "sources/revision_with_no_members.json",
+   "from": "sources/revision_of_a_published_package.json",
    "set": [
+    {
+     "pointer": "/source_id",
+     "value": "src_1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a"
+    },
     {
      "pointer": "/produced_at",
      "value": "2026-09-21T10:55:00Z"

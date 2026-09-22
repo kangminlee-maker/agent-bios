@@ -169,6 +169,38 @@
   {
    "name": "change_team_know_v1_rid",
    "prefix": "req"
+  },
+  {
+   "name": "repo_dec",
+   "prefix": "src"
+  },
+  {
+   "name": "register_repo_dec_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "publish_repo_dec_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "team_dec",
+   "prefix": "src"
+  },
+  {
+   "name": "register_team_dec_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "publish_team_dec_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "decision_concern",
+   "prefix": "cnc"
+  },
+  {
+   "name": "resolve_decision_conflict_rid",
+   "prefix": "req"
   }
  ],
  "records": [
@@ -3257,6 +3289,738 @@
     {
      "pointer": "/units/4/home_digest",
      "value": "#team_rules_home_stored"
+    },
+    {
+     "pointer": "/collections/2/collection_id",
+     "value": "@my_know"
+    },
+    {
+     "pointer": "/collections/2/head_digest",
+     "value": "#my_know_v1_stored"
+    },
+    {
+     "pointer": "/collections/2/state",
+     "value": "applied"
+    },
+    {
+     "pointer": "/collections/3/collection_id",
+     "value": "@team_know"
+    },
+    {
+     "pointer": "/collections/3/head_digest",
+     "value": "#team_know_v1_stored"
+    },
+    {
+     "pointer": "/collections/3/state",
+     "value": "applied"
+    },
+    {
+     "pointer": "/units/5/unit_id",
+     "value": "$unt:b_my_glossary"
+    },
+    {
+     "pointer": "/units/5/source_id",
+     "value": "@my_glossary"
+    },
+    {
+     "pointer": "/units/5/revision_digest",
+     "value": "#my_glossary_r1_stored"
+    },
+    {
+     "pointer": "/units/5/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/units/5/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/units/5/standing",
+     "value": "winning"
+    },
+    {
+     "pointer": "/units/5/member",
+     "value": "glossary.md"
+    },
+    {
+     "pointer": "/units/5/concern",
+     "value": "glossary.terms"
+    },
+    {
+     "pointer": "/units/5/startup",
+     "value": "required"
+    },
+    {
+     "pointer": "/units/5/body_digest",
+     "value": "2bdec6222e9aea9ffa94453f57764eb5c0dcaeb8cd6ddc943cc57e7983f7761e"
+    },
+    {
+     "pointer": "/units/5/home_digest",
+     "value": "#my_glossary_home_stored"
+    },
+    {
+     "pointer": "/units/6/unit_id",
+     "value": "$unt:b_team_glossary"
+    },
+    {
+     "pointer": "/units/6/source_id",
+     "value": "@team_glossary"
+    },
+    {
+     "pointer": "/units/6/revision_digest",
+     "value": "#team_glossary_r1_stored"
+    },
+    {
+     "pointer": "/units/6/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/units/6/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/units/6/standing",
+     "value": "shadowed"
+    },
+    {
+     "pointer": "/units/6/member",
+     "value": "glossary.md"
+    },
+    {
+     "pointer": "/units/6/concern",
+     "value": "glossary.terms"
+    },
+    {
+     "pointer": "/units/6/startup",
+     "value": "required"
+    },
+    {
+     "pointer": "/units/6/shadowed_by",
+     "value": "$unt:b_my_glossary"
+    },
+    {
+     "pointer": "/units/6/home_digest",
+     "value": "#team_glossary_home_stored"
+    }
+   ]
+  },
+  {
+   "name": "repo_dec_home",
+   "from": "sources/home_of_a_repository_document.json",
+   "drop": [
+    "/registered_at"
+   ],
+   "set": [
+    {
+     "pointer": "/acceptance_authority/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/home/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/home/document_root",
+     "value": "decisions"
+    },
+    {
+     "pointer": "/home/binding_evidence_digest",
+     "value": "#repo_bound"
+    },
+    {
+     "pointer": "/scope/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@repo_dec"
+    }
+   ]
+  },
+  {
+   "name": "register_repo_dec",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_repo_dec_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_dec"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_dec_home"
+    }
+   ]
+  },
+  {
+   "name": "repo_dec_home_stored",
+   "from": "repo_dec_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:repo_dec_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_dec_choice",
+   "from": "c05/choice_as_submitted.json",
+   "drop": [
+    "/basis",
+    "/context",
+    "/expected_consequences",
+    "/revisit_condition",
+    "/applicability/period"
+   ],
+   "set": [
+    {
+     "pointer": "/home/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/workstream_ids",
+     "value": []
+    },
+    {
+     "pointer": "/question",
+     "value": "Which review gate applies to release branches?"
+    },
+    {
+     "pointer": "/choice",
+     "value": "A required single-approver review."
+    },
+    {
+     "pointer": "/alternatives/0/choice",
+     "value": "A two-approver review."
+    },
+    {
+     "pointer": "/alternatives/0/reason",
+     "value": "A second approver added a day of latency with no defect caught."
+    },
+    {
+     "pointer": "/reason",
+     "value": "One approver cleared every release in the last quarter with no regression."
+    },
+    {
+     "pointer": "/applicability/conditions/0/dimension",
+     "value": "repository"
+    },
+    {
+     "pointer": "/applicability/conditions/0/value",
+     "value": "this one"
+    }
+   ]
+  },
+  {
+   "name": "repo_dec_stored",
+   "from": "repo_dec_choice",
+   "set": [
+    {
+     "pointer": "/record_id",
+     "value": "$rec:repo_dec"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:repo_dec_recorded_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_dec_manifest_2",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@repo_dec"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "decisions/records.jsonl"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:repo_dec_bytes_2"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": "$integer:repo_dec_size_2"
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:repo_dec_produced_2"
+    }
+   ]
+  },
+  {
+   "name": "publish_repo_dec",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@publish_repo_dec_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.record.publish"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_dec"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:repo_dec_h0"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_dec_choice"
+    }
+   ]
+  },
+  {
+   "name": "team_dec_home",
+   "from": "sources/home_of_a_managed_collection.json",
+   "drop": [
+    "/registered_at",
+    "/acceptance_authority/principal_id",
+    "/applicability/conditions",
+    "/home/markdown_view/path",
+    "/retention/until",
+    "/scope/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/acceptance_authority/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/acceptance_authority/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/applicability/states",
+     "value": "unstated"
+    },
+    {
+     "pointer": "/disclosure",
+     "value": "team"
+    },
+    {
+     "pointer": "/home/markdown_view/view",
+     "value": "none"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    },
+    {
+     "pointer": "/retention/keep",
+     "value": "until_withdrawn"
+    },
+    {
+     "pointer": "/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@team_dec"
+    }
+   ]
+  },
+  {
+   "name": "register_team_dec",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/owner/repository_id",
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_team_dec_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_dec"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_dec_home"
+    }
+   ]
+  },
+  {
+   "name": "team_dec_home_stored",
+   "from": "team_dec_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:team_dec_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "team_dec_choice",
+   "from": "c05/choice_as_submitted.json",
+   "drop": [
+    "/basis",
+    "/context",
+    "/expected_consequences",
+    "/revisit_condition",
+    "/home/repository_id",
+    "/applicability/period"
+   ],
+   "set": [
+    {
+     "pointer": "/home/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/home/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/workstream_ids",
+     "value": []
+    },
+    {
+     "pointer": "/question",
+     "value": "Which review gate applies to release branches?"
+    },
+    {
+     "pointer": "/choice",
+     "value": "A two-approver review."
+    },
+    {
+     "pointer": "/alternatives/0/choice",
+     "value": "A single-approver review."
+    },
+    {
+     "pointer": "/alternatives/0/reason",
+     "value": "One approver missed a breaking change on another team's release."
+    },
+    {
+     "pointer": "/reason",
+     "value": "Two independent approvers caught a breaking change a single approver missed."
+    },
+    {
+     "pointer": "/applicability/conditions/0/dimension",
+     "value": "repository"
+    },
+    {
+     "pointer": "/applicability/conditions/0/value",
+     "value": "this one"
+    }
+   ]
+  },
+  {
+   "name": "team_dec_stored",
+   "from": "team_dec_choice",
+   "set": [
+    {
+     "pointer": "/record_id",
+     "value": "$rec:team_dec"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:team_dec_recorded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_dec_manifest_2",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@team_dec"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "decisions/records.jsonl"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:team_dec_bytes_2"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": "$integer:team_dec_size_2"
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:team_dec_produced_2"
+    }
+   ]
+  },
+  {
+   "name": "publish_team_dec",
+   "from": "bindings/storing_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@publish_team_dec_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.record.publish"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_dec"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_dec_h0"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_dec_choice"
+    }
+   ]
+  },
+  {
+   "name": "decision_state_question",
+   "from": "c05/state_question_for_one_lane.json",
+   "drop": [
+    "/workstream_ids",
+    "/scopes/1"
+   ],
+   "set": [
+    {
+     "pointer": "/scopes/0/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/scopes/1/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/concern/question",
+     "value": "Which review gate applies to release branches?"
+    }
+   ]
+  },
+  {
+   "name": "decision_conflict_state",
+   "from": "c05/state_whose_conflict_waits_for_the_person.json",
+   "set": [
+    {
+     "pointer": "/question_digest",
+     "value": "#decision_state_question"
+    },
+    {
+     "pointer": "/frontiers/0/source_id",
+     "value": "@repo_dec"
+    },
+    {
+     "pointer": "/frontiers/0/checkpoint_digest",
+     "value": "$digest:repo_dec_h1"
+    },
+    {
+     "pointer": "/frontiers/1/source_id",
+     "value": "@team_dec"
+    },
+    {
+     "pointer": "/frontiers/1/checkpoint_digest",
+     "value": "$digest:team_dec_h1"
+    },
+    {
+     "pointer": "/entries/0/record_id",
+     "value": "$rec:repo_dec"
+    },
+    {
+     "pointer": "/entries/0/source_id",
+     "value": "@repo_dec"
+    },
+    {
+     "pointer": "/entries/1/record_id",
+     "value": "$rec:team_dec"
+    },
+    {
+     "pointer": "/entries/1/source_id",
+     "value": "@team_dec"
+    },
+    {
+     "pointer": "/material_gaps/0/pointer",
+     "value": "/entries/0"
+    },
+    {
+     "pointer": "/material_gaps/1/code",
+     "value": "choice_conflict_unresolved"
+    },
+    {
+     "pointer": "/material_gaps/1/pointer",
+     "value": "/entries/1"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:decision_conflict_state_at"
+    }
+   ]
+  },
+  {
+   "name": "resolve_decision_conflict",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@resolve_decision_conflict_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.state.resolve"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@decision_concern"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#decision_state_question"
     }
    ]
   }
@@ -3711,6 +4475,97 @@
     "recovery": [],
     "returns": [
      "start_without_a_repository_prepared"
+    ]
+   }
+  },
+  {
+   "name": "register_repo_dec",
+   "request": "register_repo_dec",
+   "carries": [
+    "repo_dec_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_dec_home_stored"
+    ],
+    "head": "repo_dec_h0"
+   }
+  },
+  {
+   "name": "publish_repo_dec",
+   "request": "publish_repo_dec",
+   "carries": [
+    "repo_dec_choice"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_dec_stored",
+     "repo_dec_manifest_2"
+    ],
+    "head": "repo_dec_h1"
+   }
+  },
+  {
+   "name": "register_team_dec",
+   "request": "register_team_dec",
+   "carries": [
+    "team_dec_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_dec_home_stored"
+    ],
+    "head": "team_dec_h0"
+   }
+  },
+  {
+   "name": "publish_team_dec",
+   "request": "publish_team_dec",
+   "carries": [
+    "team_dec_choice"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_dec_stored",
+     "team_dec_manifest_2"
+    ],
+    "head": "team_dec_h1"
+   }
+  },
+  {
+   "name": "resolve_decision_conflict",
+   "request": "resolve_decision_conflict",
+   "carries": [
+    "decision_state_question"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "none",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "decision_conflict_state"
     ]
    }
   }

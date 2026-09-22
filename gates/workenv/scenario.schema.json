@@ -39,6 +39,27 @@
         "$ref": "#/$defs/record"
       }
     },
+    "members": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "Bytes of source members the scenario names: `#name` is the digest of those bytes, and a step whose operation returns `source_member` may return one.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "text"
+        ],
+        "properties": {
+          "name": {
+            "$ref": "#/$defs/name"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "steps": {
       "type": "array",
       "minItems": 1,
@@ -626,7 +647,7 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "description": "The key files and agent around record `key` are arranged as `layout` names: the private key file beside the public one, or the signing agent one the runtime does not own.",
+          "description": "The key files and agent around record `key` are arranged as `layout` names: the private key file beside the public one, the signing agent one the runtime does not own, or the arrangement the runtime expects, the public key alone with the private half held by the agent the runtime owns.",
           "required": [
             "kind",
             "before",
@@ -648,7 +669,8 @@
             "layout": {
               "enum": [
                 "private_beside_public",
-                "foreign_agent"
+                "foreign_agent",
+                "owned_agent"
               ]
             }
           }
@@ -757,13 +779,37 @@
               "$ref": "#/$defs/name"
             }
           }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The carrier provider, asked at step `before` about the binding's repository, reports `repository_id` as that repository's identity.",
+          "required": [
+            "kind",
+            "before",
+            "repository_id"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "carrier_reports"
+              ]
+            },
+            "before": {
+              "$ref": "#/$defs/name"
+            },
+            "repository_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
         }
       ]
     },
     "route": {
       "type": "object",
       "additionalProperties": false,
-      "description": "The concrete route the request is submitted through: a row of gates/workenv/entrances.jsonl, matched by path and command.",
+      "description": "The concrete route the request is submitted through: a row of gates/workenv/entrances.jsonl, matched by path and command. `root_override` names the root the caller chose instead of its own (the `--repo` argument or the `AGENT_BIOS_STATE_DIR` environment variable), on a route whose disposition takes its root from the caller.",
       "required": [
         "path"
       ],
@@ -775,6 +821,26 @@
         "command": {
           "type": "string",
           "minLength": 1
+        },
+        "root_override": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "by",
+            "root"
+          ],
+          "properties": {
+            "by": {
+              "enum": [
+                "repo_argument",
+                "state_dir_environment"
+              ]
+            },
+            "root": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
         }
       }
     }

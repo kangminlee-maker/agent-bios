@@ -1,6 +1,6 @@
 {
  "case": "N19-CRUD-POS",
- "says": "One person founds a Team alone (team.found, self-founded mode that says it reviewed itself, finalized on their laptop): the owner commits and returns the sealed proposal, the Team's policy, the founder's membership by founding and grant, an active team_state, a team_profile named Platform and the founding epoch with the laptop as finalizer, and moves the Team's head. A team.state.read at that head returns exactly the state, profile, policy, membership and grant it wrote. The founder then renames the Team to Platform standards (team.profile.set on the head the founding moved to): the stored profile keeps the same team_id and only the name and its updated_at change; a read at the new head shows the new profile beside the unchanged state, policy, membership and grant. The founder then closes the Team (team.lifecycle.apply close, whose plan names the founder as surviving owner, lists the laptop as the one holder it reached, holds no outbox entry or custody, keeps no repository and requests no purge): the owner returns a closed team_state under a third receipt, and a last read shows the closed state and the renamed profile. Each read names the head of the step it follows, so every change is seen under its own receipt; no read writes anything, and no step changes the team_id.",
+ "says": "One person founds a Team alone (team.found, self-founded mode that says it reviewed itself, finalized on their laptop): the owner commits and returns the sealed proposal, the Team's policy, the founder's membership by founding and grant, an active team_state, a team_profile named Platform and the founding epoch with the laptop as finalizer, and moves the Team's head. A team.state.read at that head returns exactly the state, profile, policy, membership and grant it wrote. The founder then renames the Team to Platform standards (team.profile.set on the head the founding moved to): the stored profile keeps the same team_id and only the name and its updated_at change; a read at the new head shows the new profile beside the unchanged state, policy, membership and grant. The founder then archives the Team (team.lifecycle.apply archive, on the head the rename moved to): the owner returns an archived team_state under a new receipt and moves the head again, establishing the no-new-work state permanent closure requires. The founder then closes the archived Team (team.lifecycle.apply close, on the head the archive moved to, whose plan names the founder as surviving owner, lists the laptop as the one holder it reached, holds no outbox entry or custody, keeps no repository and requests no purge): the owner returns a closed team_state under a further receipt, and a last read shows the closed state and the renamed profile. Each read names the head of the step it follows, so every change is seen under its own receipt; no read writes anything, and no step changes the team_id.",
  "ids": [
   {
    "name": "founder",
@@ -32,6 +32,10 @@
   },
   {
    "name": "read_after_rename_id",
+   "prefix": "req"
+  },
+  {
+   "name": "archive_request_id",
    "prefix": "req"
   },
   {
@@ -566,6 +570,90 @@
    ]
   },
   {
+   "name": "archive_action",
+   "from": "c08/archive.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    }
+   ]
+  },
+  {
+   "name": "archive_request",
+   "from": "c08/founding_cancellation_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@archive_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.lifecycle.apply"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@founder"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@founder_profile"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:renamed"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#archive_action"
+    }
+   ]
+  },
+  {
+   "name": "archived_state",
+   "from": "c08/archived_team.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/since",
+     "value": "$instant:archived_at"
+    }
+   ]
+  },
+  {
    "name": "closure",
    "from": "c08/close_naming_the_surviving_stewardship.json",
    "drop": [
@@ -650,7 +738,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:renamed"
+     "value": "$digest:archived"
     },
     {
      "pointer": "/payload_digest",
@@ -819,6 +907,24 @@
      "team_founder_membership",
      "founder_grant"
     ]
+   }
+  },
+  {
+   "name": "archive",
+   "request": "archive_request",
+   "carries": [
+    "archive_action"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "archived_state"
+    ],
+    "head": "archived"
    }
   },
   {

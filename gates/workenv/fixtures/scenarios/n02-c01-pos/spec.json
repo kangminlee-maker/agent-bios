@@ -1,6 +1,6 @@
 {
  "case": "N02-C01-POS",
- "says": "Alice starts personal work on her laptop with no Team, account, sign-up or network: her first step reads the profile the runtime wrote at first use (active, generation 1), and she binds her first device key to the principal that profile names (established by local creation). She locks the profile (generation 2) and unlocks it at a terminal with that key (still generation 2), and names the profile 'Laptop'. She then rotates her credential: a second key, signed by the first as proof of control, is bound to the same principal, and the first binding is revoked. Every answer names the same principal id and profile id: the second binding, and the profile after a second rename, carry alice's principal id and the creation time the first read returned. No step reaches a provider, a Team or the network. What must not happen: a new principal id after the rotation, a profile whose identity moves with its name, or any step that needs an account or Team.",
+ "says": "Alice starts personal work on her laptop with no Team, account, sign-up or network: her first step reads the profile the runtime wrote at first use (active, generation 1), and she binds her first device key to the principal that profile names (established by local creation). She locks the profile (generation 2) and unlocks it at a terminal with that key (still generation 2), and names the profile 'Laptop'. She then rotates her credential: a second key, signed by the first as proof of control, is bound to the same principal, and the first binding is revoked. Every answer names the same principal id and profile id: the second binding, and the profile after a second rename, carry alice's principal id and the creation time the first read returned. After the rotation and the second rename, a query for the first binding's own request still answers with its original, unchanged result, naming the same principal. No step reaches a provider, a Team or the network. What must not happen: a new principal id after the rotation, a profile whose identity moves with its name, the first binding's stored result changing after the revoke, or any step that needs an account or Team.",
  "ids": [
   {
    "name": "alice",
@@ -44,6 +44,10 @@
   },
   {
    "name": "read_profile_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "query_binding_request_id",
    "prefix": "req"
   }
  ],
@@ -718,6 +722,66 @@
      "value": "#work_label"
     }
    ]
+  },
+  {
+   "name": "first_binding_query",
+   "from": "c03/query_by_request_id.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_first_request_id"
+    }
+   ]
+  },
+  {
+   "name": "query_first_binding_request",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@query_binding_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.query"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@bind_first_request_id"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#first_binding_query"
+    }
+   ]
   }
  ],
  "steps": [
@@ -850,6 +914,23 @@
     "recovery": [],
     "returns": [
      "renamed_profile"
+    ]
+   }
+  },
+  {
+   "name": "query_first_binding_after_rotation",
+   "request": "query_first_binding_request",
+   "carries": [
+    "first_binding_query"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "bind_first_key_result"
     ]
    }
   }

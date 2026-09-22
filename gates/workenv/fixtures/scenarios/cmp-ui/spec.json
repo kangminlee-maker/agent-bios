@@ -181,6 +181,18 @@
   {
    "name": "resolved_request_id",
    "prefix": "req"
+  },
+  {
+   "name": "earlier_compose_id",
+   "prefix": "req"
+  },
+  {
+   "name": "earlier_delivery_use",
+   "prefix": "use"
+  },
+  {
+   "name": "earlier_attempt_id",
+   "prefix": "req"
   }
  ],
  "records": [
@@ -5019,6 +5031,52 @@
     {
      "pointer": "/frames/6/view/recipient_link_id",
      "value": "$lnk:work_link"
+    },
+    {
+     "pointer": "/frames/0/elements/11/element_id",
+     "value": "delivery.earlier"
+    },
+    {
+     "pointer": "/frames/0/elements/11/role",
+     "value": "detail"
+    },
+    {
+     "pointer": "/frames/0/elements/11/label",
+     "value": "\uc774\uc804 \uc804\ub2ec \u00b7 \uc644\ub8cc"
+    },
+    {
+     "pointer": "/frames/0/elements/11/marks",
+     "value": [
+      "[x]"
+     ]
+    },
+    {
+     "pointer": "/frames/0/elements/11/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/11/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/0/elements/11/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/11/state",
+     "value": "delivered"
+    },
+    {
+     "pointer": "/frames/0/elements/11/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/0/elements/11/refers_to/ref",
+     "value": "record"
+    },
+    {
+     "pointer": "/frames/0/elements/11/refers_to/digest",
+     "value": "#delivery_seen"
     }
    ]
   },
@@ -5096,6 +5154,300 @@
    ]
   },
   {
+   "name": "earlier_prep_request",
+   "from": "c07/personal_preparation_with_nothing_selected.json",
+   "set": [
+    {
+     "pointer": "/basis/scopes/0/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/basis/scopes/0/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/declared_operation/name",
+     "value": "recipient.delivery.attempt"
+    }
+   ]
+  },
+  {
+   "name": "earlier_prep_compose_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@earlier_compose_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "preparation.compose"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#earlier_prep_request"
+    },
+    {
+     "pointer": "/recipient_digest",
+     "value": "#link_stored"
+    }
+   ]
+  },
+  {
+   "name": "earlier_preparation",
+   "from": "c07/preparation_where_a_winning_unit_keeps_what_it_needs.json",
+   "drop": [
+    "/units/2",
+    "/units/1",
+    "/recipient/work_scope/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/preparation_id",
+     "value": "@earlier_prep"
+    },
+    {
+     "pointer": "/request_digest",
+     "value": "#earlier_prep_request"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:earlier_prepared_at"
+    },
+    {
+     "pointer": "/order/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/order/1/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/order/2/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/frontiers",
+     "value": []
+    },
+    {
+     "pointer": "/recipient/work_scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/recipient/work_scope/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/recipient/recipient_digest",
+     "value": "#link_stored"
+    },
+    {
+     "pointer": "/units/0/unit_id",
+     "value": "$unt:delivered_unit"
+    },
+    {
+     "pointer": "/units/0/source_id",
+     "value": "@team_instr"
+    },
+    {
+     "pointer": "/units/0/revision_digest",
+     "value": "#team_instr_revision"
+    },
+    {
+     "pointer": "/units/0/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/units/0/standing",
+     "value": "winning"
+    },
+    {
+     "pointer": "/units/0/body_digest",
+     "value": "$digest:team_instr_bytes"
+    },
+    {
+     "pointer": "/units/0/concern",
+     "value": "response.style"
+    },
+    {
+     "pointer": "/units/0/member",
+     "value": "team/platform.md"
+    }
+   ]
+  },
+  {
+   "name": "earlier_delivery_submitted",
+   "from": "c11/bodies_for_a_child_recipient_requested.json",
+   "set": [
+    {
+     "pointer": "/link_id",
+     "value": "$lnk:work_link"
+    },
+    {
+     "pointer": "/use_id",
+     "value": "@earlier_delivery_use"
+    },
+    {
+     "pointer": "/requested/recipient",
+     "value": "current"
+    },
+    {
+     "pointer": "/requested/preparation_digest",
+     "value": "#earlier_preparation"
+    },
+    {
+     "pointer": "/requested/bodies",
+     "value": [
+      "$digest:team_instr_bytes"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "earlier_delivery_attempt_request",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/rationale",
+    "/work_scope",
+    "/owner/team_id",
+    "/target/base",
+    "/recipient_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@earlier_attempt_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "recipient.delivery.attempt"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": []
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$lnk:work_link"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#earlier_delivery_submitted"
+    }
+   ]
+  },
+  {
+   "name": "earlier_delivery_received",
+   "from": "earlier_delivery_submitted",
+   "set": [
+    {
+     "pointer": "/supported",
+     "value": true
+    },
+    {
+     "pointer": "/observed/saw",
+     "value": "received"
+    },
+    {
+     "pointer": "/observed/received",
+     "value": [
+      "$digest:team_instr_bytes"
+     ]
+    },
+    {
+     "pointer": "/observed/evidence_digest",
+     "value": "$digest:earlier_delivery_evidence"
+    },
+    {
+     "pointer": "/material_gaps",
+     "value": []
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:earlier_delivery_received_at"
+    }
+   ]
+  },
+  {
    "name": "delivery_seen",
    "from": "c07/an_earlier_recipient_still_holds_what_it_received.json",
    "set": [
@@ -5121,7 +5473,7 @@
     },
     {
      "pointer": "/observed/inventory/0/body_digest",
-     "value": "$digest:delivered_body"
+     "value": "$digest:team_instr_bytes"
     },
     {
      "pointer": "/preparation_id",
@@ -5133,7 +5485,7 @@
     },
     {
      "pointer": "/requested/recipient_digest",
-     "value": "df52341b0001922b045d89c33f28412fba55ecf56259939b0b0ae8b30635f4e5"
+     "value": "#link_stored"
     }
    ]
   },
@@ -17244,6 +17596,40 @@
     "recovery": [],
     "returns": [
      "link_stored"
+    ]
+   }
+  },
+  {
+   "name": "compose_earlier_preparation",
+   "request": "earlier_prep_compose_request",
+   "carries": [
+    "earlier_prep_request"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "earlier_preparation"
+    ]
+   }
+  },
+  {
+   "name": "attempt_earlier_delivery",
+   "request": "earlier_delivery_attempt_request",
+   "carries": [
+    "earlier_delivery_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "earlier_delivery_received"
     ]
    }
   },

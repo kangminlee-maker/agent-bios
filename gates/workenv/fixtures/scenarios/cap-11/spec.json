@@ -1,6 +1,6 @@
 {
  "case": "CAP-11",
- "says": "A person binds this device's key and the checkout and registers the repository's decisions source, founds a Team alone (team.found) whose founding grants them what the Team allows, registers the Team's decision source, and selects one transcript span whose selection permits results in the repository and the Team (source.observe). Before the extraction is saved, the owner decides admission for the capture under the current session (access.admission.decide, allowed at access generation 7), and the capture is then saved as a draft for the Team decision source it named, stating its widening from the repository with the founder's grant as authority, at the head that source's registration committed (source.capture.record). Five later changes must each stop a late extraction from being saved or redirected, and none writes anything: an extraction for the repository's source still executing is cancelled by its request id (operation.cancel), and querying that id (operation.query) returns its result withdrawn with no output; the selected bytes change, a second observation of the same selection reads other bytes, and the same capture that truthfully named the first, now-superseded observation is refused with working_bytes_moved when it is sealed again; the Team's policy is moved to version 2 (team.policy.set), and the same capture sealed again still naming the version 1 policy digest is refused with policy_superseded; the Team is archived (team.lifecycle.apply on the head the policy change committed), and the same capture for that Team sealed again is refused with team_archived; and a capture admitted at generation 7 arrives after the person signs out (access.transition sign_out, generation 8): it is refused with access_signed_out and access_generation_moved and points at sign-in, and deciding its admission again now answers not_admitted with the same two gaps. No late result is attached to another request, another target, the changed bytes or the superseded policy.",
+ "says": "A person binds this device's key and the checkout and registers the repository's decisions source, founds a Team alone (team.found), registers the Team's decision source, and selects one transcript span permitting results in the repository and the Team (source.observe). The owner admits the capture at generation 7 (access.admission.decide) and saves it as a Team-source draft stating its widening from the repository with the founder's grant as authority (source.capture.record). A candidate is stored (memory.candidate.store) and presented unchanged (memory.candidate.read); while its promotion is admitted against that head, the Team resets its own rights on the source, moving the head, so promotion is refused stale_base on completion - present and promote both reevaluate the fixed target's current state, not admission-time state. Six later changes must each stop a late extraction being saved, redirected or revived, none writing anything: an executing extraction for the repository's source is cancelled by request id (operation.cancel); querying it returns withdrawn with no output, still true much later under a moved access generation; the transcript file is rewritten, a second observation reads other bytes, and the same capture naming the first, now-superseded observation is refused working_bytes_moved when resealed; the Team's policy moves to version 2, and the same capture naming the old policy digest is refused policy_superseded; the Team is archived, and the same capture for it is refused team_archived; and a capture admitted at generation 7 arrives after sign-out (generation 8): refused access_signed_out and access_generation_moved, and readmission answers not_admitted with the same two gaps. No late result attaches to another request, target, the changed bytes or the superseded policy.",
  "ids": [
   {
    "name": "me",
@@ -116,6 +116,26 @@
   },
   {
    "name": "sign_out_request",
+   "prefix": "req"
+  },
+  {
+   "name": "team_candidate_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "present_request",
+   "prefix": "req"
+  },
+  {
+   "name": "rights_request",
+   "prefix": "req"
+  },
+  {
+   "name": "promote_request",
+   "prefix": "req"
+  },
+  {
+   "name": "query_again_request",
    "prefix": "req"
   }
  ],
@@ -934,6 +954,300 @@
    ]
   },
   {
+   "name": "team_candidate",
+   "from": "c05/candidate_from_a_capture.json",
+   "drop": [
+    "/proposed/basis",
+    "/proposed/home/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/destination_source_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/origin/capture_digest",
+     "value": "#stored_capture"
+    },
+    {
+     "pointer": "/origin/evidence_digests/0",
+     "value": "$digest:span_bytes"
+    },
+    {
+     "pointer": "/proposed/home/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/proposed/home/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/proposed/workstream_ids",
+     "value": []
+    }
+   ]
+  },
+  {
+   "name": "team_candidate_submit",
+   "from": "c03/candidate_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@team_candidate_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_candidate"
+    }
+   ]
+  },
+  {
+   "name": "stored_team_candidate",
+   "from": "team_candidate",
+   "set": [
+    {
+     "pointer": "/candidate_id",
+     "value": "$cnd:team_candidate"
+    },
+    {
+     "pointer": "/version",
+     "value": 1
+    },
+    {
+     "pointer": "/standing/is",
+     "value": "candidate"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:team_candidate_at"
+    }
+   ]
+  },
+  {
+   "name": "present_submit",
+   "from": "c05/candidate_read_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@present_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$cnd:team_candidate"
+    }
+   ]
+  },
+  {
+   "name": "team_decisions_rights_submitted",
+   "from": "c08/rights_the_owner_set.json",
+   "drop": [
+    "/set_by",
+    "/set_at"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@team_decisions"
+    }
+   ]
+  },
+  {
+   "name": "rights_submit",
+   "from": "c08/rights_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@rights_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_team_decisions_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_decisions_rights_submitted"
+    }
+   ]
+  },
+  {
+   "name": "team_decisions_rights",
+   "from": "team_decisions_rights_submitted",
+   "set": [
+    {
+     "pointer": "/set_by",
+     "value": "@me"
+    },
+    {
+     "pointer": "/set_at",
+     "value": "$instant:rights_set_at"
+    }
+   ]
+  },
+  {
+   "name": "promote_choice",
+   "from": "c05/choice_as_submitted.json",
+   "drop": [
+    "/basis",
+    "/home/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/home/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/home/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/workstream_ids",
+     "value": []
+    },
+    {
+     "pointer": "/promotes/candidate_id",
+     "value": "$cnd:team_candidate"
+    },
+    {
+     "pointer": "/promotes/version",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "name": "promote_submit",
+   "from": "c03/commit_request.json",
+   "drop": [
+    "/recipient_digest",
+    "/work_scope",
+    "/rationale"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@promote_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": []
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#promote_choice"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:register_team_decisions_head"
+    }
+   ]
+  },
+  {
+   "name": "query_submit_again",
+   "from": "query_submit",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@query_again_request"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 8
+    }
+   ]
+  },
+  {
    "name": "repo_capture",
    "from": "sources/capture_of_memory_material_submitted.json",
    "set": [
@@ -1603,6 +1917,77 @@
    }
   },
   {
+   "name": "store_team_candidate",
+   "request": "team_candidate_submit",
+   "carries": [
+    "team_candidate"
+   ],
+   "answer": {
+    "stage": "draft",
+    "local_effect": "candidate_stored",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_team_candidate"
+    ]
+   }
+  },
+  {
+   "name": "present_candidate",
+   "request": "present_submit",
+   "carries": [],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_team_candidate"
+    ]
+   }
+  },
+  {
+   "name": "set_team_decisions_rights",
+   "request": "rights_submit",
+   "carries": [
+    "team_decisions_rights_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_decisions_rights"
+    ],
+    "head": "team_decisions_rights_head"
+   }
+  },
+  {
+   "name": "promote_candidate",
+   "request": "promote_submit",
+   "carries": [
+    "promote_choice"
+   ],
+   "answer": {
+    "stage": "stale",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "stale_base"
+     }
+    ],
+    "recovery": [
+     "reseal_on_current_head"
+    ],
+    "returns": []
+   }
+  },
+  {
    "name": "start_slow_extraction",
    "request": "slow_submit",
    "carries": [
@@ -1833,6 +2218,39 @@
      "not_admitted"
     ]
    }
+  },
+  {
+   "name": "query_slow_extraction_again",
+   "request": "query_submit_again",
+   "carries": [
+    "slow_query"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "slow_withdrawn"
+    ]
+   }
   }
- ]
+ ],
+ "world": {
+  "during": [
+   {
+    "step": "promote_candidate",
+    "runs": "set_team_decisions_rights"
+   }
+  ],
+  "events": [
+   {
+    "kind": "file_edit",
+    "before": "reobserve_changed_span",
+    "path": "transcripts/5f0d2c9e-7a41-4b8e-9c2d-1e6f3a8b0c47.jsonl",
+    "bytes": "{\"record\":12,\"role\":\"user\",\"text\":\"Use WAL for the local state database.\"}\n{\"record\":13,\"role\":\"assistant\",\"text\":\"Switched the connection to WAL with synchronous FULL.\"}\n{\"record\":14,\"role\":\"user\",\"text\":\"Also note the fsync cost on the network volume.\"}\n{\"record\":15,\"role\":\"assistant\",\"text\":\"Measured 11.9 ms per commit there against 4.1 ms local.\"}\n{\"record\":16,\"role\":\"user\",\"text\":\"Keep the repository on the local disk, then.\"}\n{\"record\":17,\"role\":\"assistant\",\"text\":\"Recorded: WAL, local disk only, revisit if the volume changes.\"}\n{\"record\":18,\"role\":\"assistant\",\"text\":\"Filed the decision with the measured numbers attached.\"}\n"
+   }
+  ]
+ }
 }

@@ -93,6 +93,10 @@
   {
    "name": "in_flight_decide_request_id",
    "prefix": "req"
+  },
+  {
+   "name": "configure_connection_request_id",
+   "prefix": "req"
   }
  ],
  "records": [
@@ -637,7 +641,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:team_head"
+     "value": "$digest:team_head_connection"
     }
    ],
    "drop": [
@@ -645,13 +649,19 @@
    ]
   },
   {
-   "name": "team_provider_connection",
-   "from": "c02/connection_submitted_with_what_the_runtime_writes.json",
+   "name": "team_connection_submitted",
+   "from": "c02/connection_as_submitted.json",
    "set": [
     {
      "pointer": "/team_id",
      "value": "@team"
-    },
+    }
+   ]
+  },
+  {
+   "name": "team_provider_connection",
+   "from": "team_connection_submitted",
+   "set": [
     {
      "pointer": "/connection_id",
      "value": "$con:team_connection"
@@ -659,6 +669,71 @@
     {
      "pointer": "/configured_at",
      "value": "$instant:connection_configured_at"
+    }
+   ]
+  },
+  {
+   "name": "configure_connection_request",
+   "from": "c02/lock_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@configure_connection_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.connection.configure"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_connection_submitted"
     }
    ]
   },
@@ -1118,7 +1193,7 @@
    "set": [
     {
      "pointer": "/request_id",
-     "value": "@in_flight_decide_request_id"
+     "value": "@in_flight_request_id"
     },
     {
      "pointer": "/profile_id",
@@ -1796,6 +1871,24 @@
    ]
   },
   {
+   "name": "configure_connection",
+   "request": "configure_connection_request",
+   "carries": [
+    "team_connection_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_provider_connection"
+    ],
+    "head": "team_head_connection"
+   }
+  },
+  {
    "name": "keep_offline_permit",
    "request": "keep_offline_permit_request",
    "carries": [
@@ -1910,6 +2003,7 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "named_profile",
      "lock_state"
     ]
    }

@@ -1,6 +1,6 @@
 {
  "case": "DC-CHOICE",
- "says": "Alice's repository memory records WAL for the journal mode and her own memory records a rollback journal; both apply to this repository, so they conflict. Her host is probed for native user events: the probe ran for real and worked. She opens the link of her working conversation, and a session that starts there with no task is composed for that link: both choices come back as unresolved units that do not gate the start, the session is recorded as selected only, and nothing is asked. Her first actual use of the concern waits on a sealed question naming both alternatives. A cancelled prompt and a tool-permission approval that picked the repository's option are each recorded as a non-answer, and resuming the use with either leaves it blocked with answer_not_from_a_person on the same pending question: neither becomes her choice. When she herself chooses her personal rollback journal and keep-until-change in the conversation, the runtime records a verified answer naming the probe that separated her from the automation and the host configuration it measured, the resume admits the use on that choice, and memory.preference.record, given that resume request and targeting the concern, records the preference against the whole participant set. Her next use of the same concern, with nothing changed, is admitted on the kept application without a question. No first option, repository option or unanswered prompt is ever applied as her choice. A third alternative then changes that concern's basis: the next use is blocked with preference_invalidated, the kept application is marked invalidated, and a fresh question over the three-way basis waits for her; only her explicit answer to it admits the use and records a new preference. Separately, a second concern under ask-each-use mode is asked on its first use, and asked again on its unchanged second use: the reply and answer state the same mode both times, and only the application is freshly chosen.",
+ "says": "Alice's repository memory records WAL for the journal mode and her own memory records a rollback journal; both apply to this repository, so they conflict. Her host is probed for native user events: the probe ran for real and worked. She opens the link of her working conversation, and a session that starts there with no task is composed for that link: both choices come back as unresolved units that do not gate the start, the session is recorded as selected only, and nothing is asked. Her first actual use of the concern waits on a sealed question naming both alternatives. A cancelled prompt and a tool-permission approval that picked the repository's option are each recorded as a non-answer, and resuming the use with either leaves it blocked with answer_not_from_a_person on the same pending question: neither becomes her choice. When she herself chooses her personal rollback journal and keep-until-change in the conversation, the runtime records a verified answer naming the probe that separated her from the automation and the host configuration it measured, the resume admits the use on that choice, and memory.preference.record, given that resume request and targeting the concern, records the preference against the whole participant set. Her next use of the same concern, with nothing changed, is admitted on the kept application without a question. No first option, repository option or unanswered prompt is ever applied as her choice. A third alternative then changes that concern's basis: the next use is blocked with preference_invalidated, the kept application is marked invalidated, and a fresh question over the three-way basis waits for her; only her explicit answer to it admits the use and records a new preference. Separately, a second concern (recovery replay order), with its own published choices, is asked under ask-each-use mode twice: a driven trace of the repeat prompt shows only the application on screen, so the repeated mode is kept, not re-asked.",
  "ids": [
   {
    "name": "alice",
@@ -156,6 +156,18 @@
   },
   {
    "name": "record_the_new_application_id",
+   "prefix": "req"
+  },
+  {
+   "name": "publish_replay_before_id",
+   "prefix": "req"
+  },
+  {
+   "name": "publish_replay_after_id",
+   "prefix": "req"
+  },
+  {
+   "name": "ask_repeat_drive_id",
    "prefix": "req"
   }
  ],
@@ -2479,11 +2491,11 @@
     },
     {
      "pointer": "/participants/0/record_id",
-     "value": "$rec:wal"
+     "value": "$rec:replay_before"
     },
     {
      "pointer": "/participants/0/revision_digest",
-     "value": "#wal_stored"
+     "value": "#replay_before_stored"
     },
     {
      "pointer": "/participants/1/source_id",
@@ -2491,11 +2503,11 @@
     },
     {
      "pointer": "/participants/1/record_id",
-     "value": "$rec:rollback"
+     "value": "$rec:replay_after"
     },
     {
      "pointer": "/participants/1/revision_digest",
-     "value": "#rollback_stored"
+     "value": "#replay_after_stored"
     },
     {
      "pointer": "/prepared_at",
@@ -2529,7 +2541,7 @@
     },
     {
      "pointer": "/alternatives/0/record_id",
-     "value": "$rec:wal"
+     "value": "$rec:replay_before"
     },
     {
      "pointer": "/alternatives/0/source_id",
@@ -2540,8 +2552,12 @@
      "value": "@repo"
     },
     {
+     "pointer": "/alternatives/0/summary",
+     "value": "Replay runs before rollback."
+    },
+    {
      "pointer": "/alternatives/1/record_id",
-     "value": "$rec:rollback"
+     "value": "$rec:replay_after"
     },
     {
      "pointer": "/alternatives/1/source_id",
@@ -2557,7 +2573,7 @@
     },
     {
      "pointer": "/alternatives/1/summary",
-     "value": "A rollback journal with synchronous EXTRA."
+     "value": "Replay runs after rollback."
     },
     {
      "pointer": "/basis_digest",
@@ -2583,7 +2599,7 @@
     },
     {
      "pointer": "/frontiers/0/checkpoint_digest",
-     "value": "$digest:repo_memory_head_2"
+     "value": "$digest:repo_memory_head_3"
     },
     {
      "pointer": "/frontiers/1/source_id",
@@ -2591,11 +2607,11 @@
     },
     {
      "pointer": "/frontiers/1/checkpoint_digest",
-     "value": "$digest:personal_memory_head_2"
+     "value": "$digest:personal_memory_head_4"
     },
     {
      "pointer": "/entries/0/record_id",
-     "value": "$rec:wal"
+     "value": "$rec:replay_before"
     },
     {
      "pointer": "/entries/0/source_id",
@@ -2603,7 +2619,7 @@
     },
     {
      "pointer": "/entries/1/record_id",
-     "value": "$rec:rollback"
+     "value": "$rec:replay_after"
     },
     {
      "pointer": "/entries/1/source_id",
@@ -2641,7 +2657,7 @@
     },
     {
      "pointer": "/outcome/frontiers/0/checkpoint_digest",
-     "value": "$digest:repo_memory_head_2"
+     "value": "$digest:repo_memory_head_3"
     },
     {
      "pointer": "/outcome/frontiers/1/source_id",
@@ -2649,7 +2665,7 @@
     },
     {
      "pointer": "/outcome/frontiers/1/checkpoint_digest",
-     "value": "$digest:personal_memory_head_2"
+     "value": "$digest:personal_memory_head_4"
     },
     {
      "pointer": "/outcome/use/use_id",
@@ -2737,7 +2753,7 @@
     },
     {
      "pointer": "/reply/answer/selected/record_id",
-     "value": "$rec:wal"
+     "value": "$rec:replay_before"
     },
     {
      "pointer": "/reply/answer/mode",
@@ -2785,7 +2801,7 @@
     },
     {
      "pointer": "/origin/answer/selected/record_id",
-     "value": "$rec:wal"
+     "value": "$rec:replay_before"
     },
     {
      "pointer": "/origin/answer/mode",
@@ -2860,7 +2876,7 @@
     },
     {
      "pointer": "/outcome/frontiers/0/checkpoint_digest",
-     "value": "$digest:repo_memory_head_2"
+     "value": "$digest:repo_memory_head_3"
     },
     {
      "pointer": "/outcome/frontiers/1/source_id",
@@ -2868,7 +2884,7 @@
     },
     {
      "pointer": "/outcome/frontiers/1/checkpoint_digest",
-     "value": "$digest:personal_memory_head_2"
+     "value": "$digest:personal_memory_head_4"
     },
     {
      "pointer": "/outcome/units/0/unit_id",
@@ -2880,7 +2896,7 @@
     },
     {
      "pointer": "/outcome/units/0/revision_digest",
-     "value": "#wal_stored"
+     "value": "#replay_before_stored"
     },
     {
      "pointer": "/outcome/units/0/role",
@@ -2892,7 +2908,7 @@
     },
     {
      "pointer": "/outcome/units/0/body_digest",
-     "value": "#wal_stored"
+     "value": "#replay_before_stored"
     },
     {
      "pointer": "/outcome/use/use_id",
@@ -3030,11 +3046,11 @@
     },
     {
      "pointer": "/standing/participants/0/record_id",
-     "value": "$rec:wal"
+     "value": "$rec:replay_before"
     },
     {
      "pointer": "/standing/participants/0/revision_digest",
-     "value": "#wal_stored"
+     "value": "#replay_before_stored"
     },
     {
      "pointer": "/standing/participants/1/source_id",
@@ -3042,11 +3058,11 @@
     },
     {
      "pointer": "/standing/participants/1/record_id",
-     "value": "$rec:rollback"
+     "value": "$rec:replay_after"
     },
     {
      "pointer": "/standing/participants/1/revision_digest",
-     "value": "#rollback_stored"
+     "value": "#replay_after_stored"
     },
     {
      "pointer": "/created_at",
@@ -3168,7 +3184,7 @@
     },
     {
      "pointer": "/alternatives/0/record_id",
-     "value": "$rec:wal"
+     "value": "$rec:replay_before"
     },
     {
      "pointer": "/alternatives/0/source_id",
@@ -3179,8 +3195,12 @@
      "value": "@repo"
     },
     {
+     "pointer": "/alternatives/0/summary",
+     "value": "Replay runs before rollback."
+    },
+    {
      "pointer": "/alternatives/1/record_id",
-     "value": "$rec:rollback"
+     "value": "$rec:replay_after"
     },
     {
      "pointer": "/alternatives/1/source_id",
@@ -3196,7 +3216,7 @@
     },
     {
      "pointer": "/alternatives/1/summary",
-     "value": "A rollback journal with synchronous EXTRA."
+     "value": "Replay runs after rollback."
     },
     {
      "pointer": "/basis_digest",
@@ -3222,7 +3242,7 @@
     },
     {
      "pointer": "/frontiers/0/checkpoint_digest",
-     "value": "$digest:repo_memory_head_2"
+     "value": "$digest:repo_memory_head_3"
     },
     {
      "pointer": "/frontiers/1/source_id",
@@ -3230,11 +3250,11 @@
     },
     {
      "pointer": "/frontiers/1/checkpoint_digest",
-     "value": "$digest:personal_memory_head_2"
+     "value": "$digest:personal_memory_head_4"
     },
     {
      "pointer": "/entries/0/record_id",
-     "value": "$rec:wal"
+     "value": "$rec:replay_before"
     },
     {
      "pointer": "/entries/0/source_id",
@@ -3242,7 +3262,7 @@
     },
     {
      "pointer": "/entries/1/record_id",
-     "value": "$rec:rollback"
+     "value": "$rec:replay_after"
     },
     {
      "pointer": "/entries/1/source_id",
@@ -3280,7 +3300,7 @@
     },
     {
      "pointer": "/outcome/frontiers/0/checkpoint_digest",
-     "value": "$digest:repo_memory_head_2"
+     "value": "$digest:repo_memory_head_3"
     },
     {
      "pointer": "/outcome/frontiers/1/source_id",
@@ -3288,7 +3308,7 @@
     },
     {
      "pointer": "/outcome/frontiers/1/checkpoint_digest",
-     "value": "$digest:personal_memory_head_2"
+     "value": "$digest:personal_memory_head_4"
     },
     {
      "pointer": "/outcome/use/use_id",
@@ -3330,7 +3350,7 @@
     },
     {
      "pointer": "/reply/answer/selected/record_id",
-     "value": "$rec:wal"
+     "value": "$rec:replay_before"
     },
     {
      "pointer": "/reply/answer/mode",
@@ -3378,7 +3398,7 @@
     },
     {
      "pointer": "/origin/answer/selected/record_id",
-     "value": "$rec:wal"
+     "value": "$rec:replay_before"
     },
     {
      "pointer": "/origin/answer/mode",
@@ -3453,7 +3473,7 @@
     },
     {
      "pointer": "/outcome/frontiers/0/checkpoint_digest",
-     "value": "$digest:repo_memory_head_2"
+     "value": "$digest:repo_memory_head_3"
     },
     {
      "pointer": "/outcome/frontiers/1/source_id",
@@ -3461,7 +3481,7 @@
     },
     {
      "pointer": "/outcome/frontiers/1/checkpoint_digest",
-     "value": "$digest:personal_memory_head_2"
+     "value": "$digest:personal_memory_head_4"
     },
     {
      "pointer": "/outcome/units/0/unit_id",
@@ -3473,7 +3493,7 @@
     },
     {
      "pointer": "/outcome/units/0/revision_digest",
-     "value": "#wal_stored"
+     "value": "#replay_before_stored"
     },
     {
      "pointer": "/outcome/units/0/role",
@@ -3485,7 +3505,7 @@
     },
     {
      "pointer": "/outcome/units/0/body_digest",
-     "value": "#wal_stored"
+     "value": "#replay_before_stored"
     },
     {
      "pointer": "/outcome/use/use_id",
@@ -3623,11 +3643,11 @@
     },
     {
      "pointer": "/standing/participants/0/record_id",
-     "value": "$rec:wal"
+     "value": "$rec:replay_before"
     },
     {
      "pointer": "/standing/participants/0/revision_digest",
-     "value": "#wal_stored"
+     "value": "#replay_before_stored"
     },
     {
      "pointer": "/standing/participants/1/source_id",
@@ -3635,11 +3655,11 @@
     },
     {
      "pointer": "/standing/participants/1/record_id",
-     "value": "$rec:rollback"
+     "value": "$rec:replay_after"
     },
     {
      "pointer": "/standing/participants/1/revision_digest",
-     "value": "#rollback_stored"
+     "value": "#replay_after_stored"
     },
     {
      "pointer": "/created_at",
@@ -4559,6 +4579,454 @@
      "value": "#third_alt_submitted"
     }
    ]
+  },
+  {
+   "name": "replay_before_submitted",
+   "from": "c05/choice_as_submitted.json",
+   "drop": [
+    "/basis",
+    "/context",
+    "/expected_consequences",
+    "/revisit_condition",
+    "/applicability/period"
+   ],
+   "set": [
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/workstream_ids",
+     "value": []
+    },
+    {
+     "pointer": "/question",
+     "value": "Does the recovery replay run before or after rollback?"
+    },
+    {
+     "pointer": "/choice",
+     "value": "Replay runs before rollback."
+    },
+    {
+     "pointer": "/alternatives/0/choice",
+     "value": "Replay runs after rollback."
+    },
+    {
+     "pointer": "/alternatives/0/reason",
+     "value": "The personal profile's replay runs after rollback on this machine."
+    },
+    {
+     "pointer": "/reason",
+     "value": "The repository's recovery path replays before rollback so a partial write is never read back."
+    },
+    {
+     "pointer": "/applicability/conditions/0/dimension",
+     "value": "repository"
+    },
+    {
+     "pointer": "/applicability/conditions/0/value",
+     "value": "this one"
+    }
+   ]
+  },
+  {
+   "name": "replay_before_stored",
+   "from": "replay_before_submitted",
+   "set": [
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/record_id",
+     "value": "$rec:replay_before"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:replay_before_recorded_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_memory_manifest_3",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "memory/records.jsonl"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:repo_memory_bytes_3"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": "$integer:repo_memory_size_3"
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:repo_memory_produced_3"
+    }
+   ]
+  },
+  {
+   "name": "publish_replay_before",
+   "from": "c01/link_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@publish_replay_before_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.record.publish"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:repo_memory_head_2"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#replay_before_submitted"
+    }
+   ]
+  },
+  {
+   "name": "replay_after_submitted",
+   "from": "c05/choice_as_submitted.json",
+   "drop": [
+    "/basis",
+    "/context",
+    "/expected_consequences",
+    "/revisit_condition",
+    "/home/repository_id",
+    "/applicability/period"
+   ],
+   "set": [
+    {
+     "pointer": "/home/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/home/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/workstream_ids",
+     "value": []
+    },
+    {
+     "pointer": "/question",
+     "value": "Does the recovery replay run before or after rollback?"
+    },
+    {
+     "pointer": "/choice",
+     "value": "Replay runs after rollback."
+    },
+    {
+     "pointer": "/alternatives/0/choice",
+     "value": "Replay runs before rollback."
+    },
+    {
+     "pointer": "/alternatives/0/reason",
+     "value": "The repository's recovery path replays before rollback on shared checkouts."
+    },
+    {
+     "pointer": "/reason",
+     "value": "On this laptop the replay must run after rollback so an interrupted write is discarded first."
+    },
+    {
+     "pointer": "/applicability/conditions/0/dimension",
+     "value": "repository"
+    },
+    {
+     "pointer": "/applicability/conditions/0/value",
+     "value": "this one"
+    }
+   ]
+  },
+  {
+   "name": "replay_after_stored",
+   "from": "replay_after_submitted",
+   "set": [
+    {
+     "pointer": "/home/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/record_id",
+     "value": "$rec:replay_after"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:replay_after_recorded_at"
+    }
+   ]
+  },
+  {
+   "name": "personal_memory_manifest_4",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@personal_memory"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "memory/records.jsonl"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:personal_memory_bytes_4"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": "$integer:personal_memory_size_4"
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:personal_memory_produced_4"
+    }
+   ]
+  },
+  {
+   "name": "publish_replay_after",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@publish_replay_after_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.record.publish"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@personal_memory"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:personal_memory_head_3"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#replay_after_submitted"
+    }
+   ]
+  },
+  {
+   "name": "ask_repeat_keys",
+   "from": "c12/a_launcher_driven_at_80_by_24.json"
+  },
+  {
+   "name": "ask_repeat_drive",
+   "from": "c03/history_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@ask_repeat_drive_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "surface.drive"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#ask_repeat_keys"
+    }
+   ]
+  },
+  {
+   "name": "ask_repeat_trace",
+   "from": "c12/trace_is_never_submitted.json",
+   "drop": [
+    "/candidate_digest",
+    "/frames"
+   ],
+   "set": [
+    {
+     "pointer": "/script_digest",
+     "value": "#ask_repeat_keys"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:ask_repeat_trace_at"
+    },
+    {
+     "pointer": "/frames/0/after",
+     "value": 4
+    },
+    {
+     "pointer": "/frames/0/terminal/columns",
+     "value": 80
+    },
+    {
+     "pointer": "/frames/0/terminal/rows",
+     "value": 24
+    },
+    {
+     "pointer": "/frames/0/locale",
+     "value": "en"
+    },
+    {
+     "pointer": "/frames/0/access",
+     "value": "active"
+    },
+    {
+     "pointer": "/frames/0/view/view",
+     "value": "w01"
+    },
+    {
+     "pointer": "/frames/0/view/origin/name",
+     "value": "work_link"
+    },
+    {
+     "pointer": "/frames/0/view/origin/root_origin",
+     "value": "caller"
+    },
+    {
+     "pointer": "/frames/0/view/missing_bodies",
+     "value": []
+    },
+    {
+     "pointer": "/frames/0/dispatched",
+     "value": []
+    },
+    {
+     "pointer": "/frames/0/calls",
+     "value": []
+    },
+    {
+     "pointer": "/frames/0/elements/0/element_id",
+     "value": "decision.application"
+    },
+    {
+     "pointer": "/frames/0/elements/0/role",
+     "value": "choice"
+    },
+    {
+     "pointer": "/frames/0/elements/0/label",
+     "value": "Replay runs before rollback."
+    },
+    {
+     "pointer": "/frames/0/elements/0/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/0/elements/0/focused",
+     "value": true
+    },
+    {
+     "pointer": "/frames/0/elements/0/selection",
+     "value": "selected"
+    },
+    {
+     "pointer": "/frames/0/elements/0/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/0/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/0/elements/0/refers_to/ref",
+     "value": "record"
+    },
+    {
+     "pointer": "/frames/0/elements/0/refers_to/digest",
+     "value": "#replay_before_stored"
+    }
+   ]
   }
  ],
  "steps": [
@@ -4995,6 +5463,44 @@
    }
   },
   {
+   "name": "publish_replay_before",
+   "request": "publish_replay_before",
+   "carries": [
+    "replay_before_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "replay_before_stored",
+     "repo_memory_manifest_3"
+    ],
+    "head": "repo_memory_head_3"
+   }
+  },
+  {
+   "name": "publish_replay_after",
+   "request": "publish_replay_after",
+   "carries": [
+    "replay_after_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "replay_after_stored",
+     "personal_memory_manifest_4"
+    ],
+    "head": "personal_memory_head_4"
+   }
+  },
+  {
    "name": "ask_use_a",
    "request": "ask_use_a",
    "carries": [
@@ -5090,6 +5596,23 @@
      "ask_waiting_b",
      "ask_question_b",
      "ask_state_b"
+    ]
+   }
+  },
+  {
+   "name": "ask_repeat_drive",
+   "request": "ask_repeat_drive",
+   "carries": [
+    "ask_repeat_keys"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "ask_repeat_trace"
     ]
    }
   },

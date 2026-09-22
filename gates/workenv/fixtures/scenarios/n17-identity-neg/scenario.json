@@ -1153,7 +1153,7 @@
    }
   },
   {
-   "digest": "e869f76a8b84068204c3b371a0e6a87935cc3d8d04f0c5abc269d59a85cf70b9",
+   "digest": "d096c14c17a61aa1d53a14fd8b36eac1b8c90b6abef69849da375005fd64bb75",
    "name": "carried_envelope",
    "record": {
     "authority": {
@@ -1172,13 +1172,13 @@
       "digest": "7c69c498b60d3a9d81c148690e59363ad8f7d093637e9d82e0fbaf1a3c048459",
       "object_kind": "governing_policy",
       "path": "objects/0000.json",
-      "size": 1024
+      "size": 488
      },
      {
       "digest": "31a89d30a2f418d0a50b2a161d08b970fe1709e8fe3aebcd026ea58ee53d3857",
       "object_kind": "authority_continuity",
       "path": "continuity/0001.json",
-      "size": 512
+      "size": 378
      }
     ],
     "kind": "transfer_envelope",
@@ -1204,7 +1204,7 @@
    }
   },
   {
-   "digest": "93198afe042596ad05a29fc1518d5a859c2907e04e3d08c352323c6b5f481f35",
+   "digest": "0bbf6f4ba2e975ad4d3ef0550680befb4e4b5424645bd8b6573467c1e4111ff7",
    "name": "stage_carried",
    "record": {
     "action": "transfer",
@@ -1222,7 +1222,7 @@
      "layer": "team",
      "team_id": "tem_2150577bb20a53fb6bee02e02f5291fd"
     },
-    "payload_digest": "e869f76a8b84068204c3b371a0e6a87935cc3d8d04f0c5abc269d59a85cf70b9",
+    "payload_digest": "d096c14c17a61aa1d53a14fd8b36eac1b8c90b6abef69849da375005fd64bb75",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_826d7105e25aac42022de2bb05686f27",
@@ -1237,7 +1237,7 @@
    }
   },
   {
-   "digest": "96361dfec4958dc74318949c34a452c29368f72ef10725600557265da130de2d",
+   "digest": "e6c455d11cbc098c6e615d06b1a78ba5a64cf94bce1f832eb9549419bc0d4284",
    "name": "stage_through_the_mismatched_carrier_result",
    "record": {
     "kind": "operation_result",
@@ -1252,7 +1252,7 @@
     },
     "outputs": [],
     "provider_effect": "none",
-    "request_digest": "93198afe042596ad05a29fc1518d5a859c2907e04e3d08c352323c6b5f481f35",
+    "request_digest": "0bbf6f4ba2e975ad4d3ef0550680befb4e4b5424645bd8b6573467c1e4111ff7",
     "request_id": "req_826d7105e25aac42022de2bb05686f27",
     "schema": 1,
     "supported_recovery": [
@@ -1323,7 +1323,7 @@
   }
  ],
  "says": "Alice founds the Platform Team on her laptop selecting GitHub beside local; the founding returns its policy, state and founding continuity epoch and moves the Team head. She binds the Team's carrier to repository 701234567, which moves the head again, and provisions it against that head. The provider reports repository 701239999 instead: the provisioning is refused with carrier_repository_mismatch at the binding, with no local or provider effect and a new governed request as the only recovery, and the carrier state it returns is mismatched, naming the repository the provider reported — never provisioned. A package the Team then stages while that binding is its carrier is refused with the same gap and nothing is exported, and querying the provisioning by its request id returns the same refused result with no receipt. Every carrier state the owner returns holds the rule against the binding: bound names the binding, and mismatched names a repository the binding does not. What must not happen: a carrier state recorded provisioned or partial for a repository the binding does not name, a receipt for the provisioning, or any object written through the binding.",
- "spec_sha256": "e2b7240df5603439ab7bee867791722a00dd29f97c8f4a794d3ecf59c3d29c27",
+ "spec_sha256": "f077d29b9cb4d3d8648ba571f907faf8d0a4b2c52e9864a0d3f99028df088453",
  "steps": [
   {
    "at": "2026-09-21T09:00:00Z",
@@ -1412,6 +1412,13 @@
  "world": {
   "clock": {
    "start": "2026-09-21T09:00:00Z"
-  }
+  },
+  "events": [
+   {
+    "before": "provision_against_another_repository",
+    "kind": "carrier_reports",
+    "repository_id": "701239999"
+   }
+  ]
  }
 }

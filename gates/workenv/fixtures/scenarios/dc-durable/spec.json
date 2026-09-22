@@ -1,6 +1,6 @@
 {
  "case": "DC-DURABLE",
- "says": "Alice's host is probed: native events work for real. In her private decisions source two choices conflict — A (WAL, synchronous FULL) and B (a rollback journal) — so her first use of the journal concern waits on a sealed question, version 1, over both. She is asked in her conversation and chooses A, keep until the choices change, through the probed route: a verified answer. From the resume naming that answer the application is recorded against the whole participant set at its exact revision, and the use resumes and is admitted. Recording it crashes mid-commit; restarted, a same-id query returns the committed application and receipt unchanged, never half-written. A backup is then taken. A is replaced by A2 (synchronous NORMAL): her next use is blocked with preference_invalidated, the application invalidated because a participant changed, and a new use waits on a question over A2 and B. A2 is then replaced by A3, whose words are A's again: preparing that use again seals version 2 of its question against a basis at generation 3 keeping A and A2 replaced, and the application stays invalidated — matching old words do not revive old consent. The laptop's live database is lost and the backup restored on a rebuilt runtime; its store holds the application active, as before the change. A use there, carrying the restored generation, is not admitted: access_locked and access_generation_moved. Alice reads her profile, locked because restored at generation 8, and unlocks at a terminal. Querying the answer and application by request id returns their original results and receipts. Her next use is blocked with preference_invalidated: the restored application is invalidated since its basis cannot verify past the backup, and a new question seals against a new basis. Querying the first choice's publication returns its original result. What must not happen: changed-back words, a restored stale application, invalidation loss reviving the choice, or recovery rewriting a decision record.",
+ "says": "Alice's host is probed. In her private decisions source two choices conflict — A (WAL, synchronous FULL) and B (a rollback journal) — so her first use of the journal concern waits on a sealed question, version 1, over both. She chooses A, keep until the choices change: a verified answer. From the resume naming that answer the application is recorded against the whole participant set, and the use resumes and is admitted. Recording it crashes mid-commit; restarted, a same-id query returns the committed application and receipt unchanged. A is replaced by A2 (synchronous NORMAL): her next use is blocked with preference_invalidated, the application invalidated because a participant changed, and a new use waits on a question over A2 and B. A backup is then taken, covering the invalidated application and its pending question. A2 is then replaced by A3, whose words are A's again: preparing that use again seals version 2 of its question at generation 3 keeping A and A2 replaced — matching old words do not revive old consent. The laptop's live database is lost and the backup restored on a rebuilt runtime; its store holds the application invalidated, as it stood at the backup. A use there, carrying the restored generation, is not admitted: access_locked and access_generation_moved. Alice reads her locked profile at generation 8 and unlocks at a terminal. Querying the answer and application by request id returns their original results and receipts, and querying the invalidated use's request returns its original blocked result unchanged. Preparing that same use again finds the same question still pending. A separate new use is blocked with preference_invalidated over A2 and B, its basis unable to verify past the backup. Querying the first choice's publication returns its original result. What must not happen: changed-back words, a restored stale application, invalidation loss reviving the choice, a pending question the restore drops, or recovery rewriting a decision record.",
  "ids": [
   {
    "name": "alice",
@@ -120,6 +120,14 @@
   },
   {
    "name": "ask_application_after_crash_id",
+   "prefix": "req"
+  },
+  {
+   "name": "ask_invalidation_id",
+   "prefix": "req"
+  },
+  {
+   "name": "prepare_second_restored_id",
    "prefix": "req"
   }
  ],
@@ -2237,6 +2245,16 @@
    ]
   },
   {
+   "name": "second_waiting_again",
+   "from": "second_waiting",
+   "set": [
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:second_waiting_again_at"
+    }
+   ]
+  },
+  {
    "name": "second_state",
    "from": "c05/state_whose_conflict_waits_for_the_person.json",
    "drop": [
@@ -2995,6 +3013,64 @@
    ]
   },
   {
+   "name": "prepare_second_use_restored",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@prepare_second_restored_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.use.prepare"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$use:second_use"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#envelope"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 8
+    }
+   ]
+  },
+  {
    "name": "read_profile",
    "from": "bindings/storing_request.json",
    "drop": [
@@ -3300,6 +3376,74 @@
    ]
   },
   {
+   "name": "ask_invalidation_payload",
+   "from": "c03/query_by_request_id.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@prepare_second_id"
+    }
+   ]
+  },
+  {
+   "name": "ask_invalidation",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@ask_invalidation_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.query"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@prepare_second_id"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#ask_invalidation_payload"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 8
+    }
+   ]
+  },
+  {
    "name": "application_unverifiable",
    "from": "application",
    "set": [
@@ -3397,7 +3541,7 @@
     },
     {
      "pointer": "/coverage/compared",
-     "value": 2
+     "value": 3
     },
     {
      "pointer": "/prepared_at",
@@ -3409,11 +3553,11 @@
     },
     {
      "pointer": "/participants/0/record_id",
-     "value": "$rec:choice_a"
+     "value": "$rec:choice_a2"
     },
     {
      "pointer": "/participants/0/revision_digest",
-     "value": "#decisions_2"
+     "value": "#decisions_3"
     },
     {
      "pointer": "/participants/0/lifecycle",
@@ -3433,7 +3577,7 @@
     },
     {
      "pointer": "/participants/1/revision_digest",
-     "value": "#decisions_2"
+     "value": "#decisions_3"
     },
     {
      "pointer": "/participants/1/lifecycle",
@@ -3442,6 +3586,26 @@
     {
      "pointer": "/participants/1/applicable",
      "value": true
+    },
+    {
+     "pointer": "/participants/2/source_id",
+     "value": "@decisions"
+    },
+    {
+     "pointer": "/participants/2/record_id",
+     "value": "$rec:choice_a"
+    },
+    {
+     "pointer": "/participants/2/revision_digest",
+     "value": "#decisions_3"
+    },
+    {
+     "pointer": "/participants/2/lifecycle",
+     "value": "replaced"
+    },
+    {
+     "pointer": "/participants/2/applicable",
+     "value": false
     }
    ]
   },
@@ -3487,7 +3651,7 @@
     },
     {
      "pointer": "/alternatives/0/record_id",
-     "value": "$rec:choice_a"
+     "value": "$rec:choice_a2"
     },
     {
      "pointer": "/alternatives/0/source_id",
@@ -3503,7 +3667,7 @@
     },
     {
      "pointer": "/alternatives/0/summary",
-     "value": "WAL, with synchronous FULL."
+     "value": "WAL, with synchronous NORMAL."
     },
     {
      "pointer": "/alternatives/1/record_id",
@@ -3541,7 +3705,7 @@
     },
     {
      "pointer": "/outcome/frontiers/0/checkpoint_digest",
-     "value": "$digest:decisions_head_2"
+     "value": "$digest:decisions_head_3"
     },
     {
      "pointer": "/outcome/use/question_id",
@@ -3578,11 +3742,11 @@
     },
     {
      "pointer": "/frontiers/0/checkpoint_digest",
-     "value": "$digest:decisions_head_2"
+     "value": "$digest:decisions_head_3"
     },
     {
      "pointer": "/comparison/compared",
-     "value": 2
+     "value": 3
     },
     {
      "pointer": "/prepared_at",
@@ -3590,7 +3754,7 @@
     },
     {
      "pointer": "/entries/0/record_id",
-     "value": "$rec:choice_a"
+     "value": "$rec:choice_a2"
     },
     {
      "pointer": "/entries/0/source_id",
@@ -3611,6 +3775,22 @@
     {
      "pointer": "/entries/1/standing",
      "value": "unresolved"
+    },
+    {
+     "pointer": "/entries/2/record_id",
+     "value": "$rec:choice_a"
+    },
+    {
+     "pointer": "/entries/2/source_id",
+     "value": "@decisions"
+    },
+    {
+     "pointer": "/entries/2/standing",
+     "value": "superseded"
+    },
+    {
+     "pointer": "/entries/2/superseded_by",
+     "value": "$rec:choice_a2"
     }
    ]
   },
@@ -3981,22 +4161,6 @@
    "process": "laptop"
   },
   {
-   "name": "take_the_backup",
-   "request": "take_backup",
-   "carries": [],
-   "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "backup"
-    ]
-   },
-   "process": "laptop"
-  },
-  {
    "name": "change_choice_a",
    "request": "publish_choice_a2",
    "carries": [
@@ -4040,6 +4204,22 @@
      "second_question",
      "second_basis",
      "second_state"
+    ]
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "take_the_backup",
+   "request": "take_backup",
+   "carries": [],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "backup"
     ]
    },
    "process": "laptop"
@@ -4208,6 +4388,49 @@
    "process": "rebuilt"
   },
   {
+   "name": "query_the_invalidation_after_restore",
+   "request": "ask_invalidation",
+   "carries": [
+    "ask_invalidation_payload"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "prepare_after_the_change_result"
+    ]
+   },
+   "process": "rebuilt"
+  },
+  {
+   "name": "prepare_the_second_use_after_restore",
+   "request": "prepare_second_use_restored",
+   "carries": [
+    "envelope"
+   ],
+   "answer": {
+    "stage": "blocked",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "preference_invalidated"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
+    "returns": [
+     "second_waiting_again",
+     "second_question"
+    ]
+   },
+   "process": "rebuilt"
+  },
+  {
    "name": "prepare_after_the_restore",
    "request": "prepare_after_restore",
    "carries": [
@@ -4263,8 +4486,7 @@
   "faults": [
    {
     "step": "record_the_application",
-    "point": "in_txn_before_commit",
-    "observed_by": "query_the_application_after_the_crash"
+    "point": "in_txn_before_commit"
    }
   ]
  }

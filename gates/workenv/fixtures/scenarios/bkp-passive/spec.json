@@ -1,6 +1,6 @@
 {
  "case": "BKP-PASSIVE",
- "says": "On her laptop Alice registers her private notes source, commits a revision on the head the registration made, and takes a backup under access generation 7. The laptop keeps running; the backup is restored onto a second runtime, a restored copy holding the same device's data and that old access generation. The restore reports authority passive. A commit on the restored copy, expecting the head the backup holds and carrying the restored generation 7, is blocked with access_locked and access_generation_moved and moves nothing: the restored copy did not unlock itself and is not a second finalizer. Reading the profile there shows it locked because restored, at generation 8, past the one it restored. On the laptop, meanwhile, a commit expecting that same head is accepted, so the laptop stays the one runtime that moves this head. Only an explicit unlock at a terminal on the restored copy, expecting generation 8, makes its access active, as a new access state the unlock wrote at that same generation; a query there then returns the restored commit's original result and receipt. Being active at that generation is not restored authority: a hypothetical Team read the admission decider previews there, naming a revoked control evidence record among its proofs, is still not admitted, with credential_revoked and control_evidence_insufficient — access being unlocked at the current generation answers only C02's own question, not whether any control evidence the restored copy holds is still current. What must not happen: the restored copy reading its restored generation as active access, unlocking without a person's explicit unlock, finalizing a commit beside the laptop, or an active access generation being read as current control authority.",
+ "says": "On her laptop Alice registers her private notes source, commits a revision on the head the registration made, founds a Team there and, as its issuing authority, records on the Team's head a revocation of an earlier permit — control evidence her own device holds from the issue — and then takes a backup under access generation 7. The laptop keeps running; the backup is restored onto a second runtime, a restored copy holding the same device's data and that old access generation. The restore reports authority passive. A commit on the restored copy, expecting the head the backup holds and carrying the restored generation 7, is blocked with access_locked and access_generation_moved and moves nothing: the restored copy did not unlock itself and is not a second finalizer. Reading the profile there shows it locked because restored, at generation 8, past the one it restored. On the laptop, meanwhile, a commit expecting that same head is accepted, so the laptop stays the one runtime that moves this head. Only an explicit unlock at a terminal on the restored copy, expecting generation 8, makes its access active, as a new access state the unlock wrote at that same generation; a query there then returns the restored commit's original result and receipt. Being active at that generation is not restored authority: a hypothetical Team read the admission decider previews there, naming among its proofs the revocation record the restored copy's own backup carried, is still not admitted, with credential_revoked and control_evidence_insufficient — access being unlocked at the current generation answers only C02's own question, not whether any control evidence the restored copy holds is still current. What must not happen: the restored copy reading its restored generation as active access, unlocking without a person's explicit unlock, finalizing a commit beside the laptop, or an active access generation being read as current control authority.",
  "ids": [
   {
    "name": "alice",
@@ -76,6 +76,14 @@
   },
   {
    "name": "restricted_read_request",
+   "prefix": "req"
+  },
+  {
+   "name": "found_request",
+   "prefix": "req"
+  },
+  {
+   "name": "issue_revocation_request",
    "prefix": "req"
   }
  ],
@@ -332,6 +340,338 @@
     {
      "pointer": "/target/base/head_digest",
      "value": "$digest:notes_head_0"
+    }
+   ]
+  },
+  {
+   "name": "founding_policy",
+   "from": "c08/policy_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/execution_authority/principal_id",
+     "value": "@alice"
+    }
+   ]
+  },
+  {
+   "name": "proposal",
+   "from": "c08/proposal_as_submitted.json",
+   "drop": [
+    "/founding_mode/nominees"
+   ],
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/founder_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/founding_mode/mode",
+     "value": "self_founded"
+    },
+    {
+     "pointer": "/founding_mode/acknowledged_self_reviewed",
+     "value": true
+    },
+    {
+     "pointer": "/recovery/0/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/policy_digest",
+     "value": "#founding_policy"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    }
+   ]
+  },
+  {
+   "name": "sealed_proposal",
+   "from": "proposal",
+   "set": [
+    {
+     "pointer": "/proposal_id",
+     "value": "$fnd:team_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:proposal_sealed_at"
+    }
+   ]
+  },
+  {
+   "name": "found",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@found_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.found"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#proposal"
+    }
+   ]
+  },
+  {
+   "name": "stored_policy",
+   "from": "founding_policy",
+   "set": [
+    {
+     "pointer": "/policy_id",
+     "value": "$pol:team_policy"
+    },
+    {
+     "pointer": "/policy_version",
+     "value": 1
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:policy_at"
+    }
+   ]
+  },
+  {
+   "name": "founder_membership",
+   "from": "c08/founder_admitted_by_the_founding.json",
+   "set": [
+    {
+     "pointer": "/membership_id",
+     "value": "$mbr:founder_membership"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/standing/proposal_digest",
+     "value": "#sealed_proposal"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founder_admitted_at"
+    }
+   ]
+  },
+  {
+   "name": "founder_grant",
+   "from": "c08/grant_to_a_person.json",
+   "set": [
+    {
+     "pointer": "/grant_id",
+     "value": "$gra:founder_grant"
+    },
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/issuer_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read",
+      "use",
+      "contribute",
+      "review",
+      "grant",
+      "policy"
+     ]
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:founder_granted_at"
+    }
+   ]
+  },
+  {
+   "name": "team_active",
+   "from": "c08/archived_team.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/state",
+     "value": "active"
+    },
+    {
+     "pointer": "/since",
+     "value": "$instant:founded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_profile",
+   "from": "c08/renamed_team_keeps_its_id.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/name",
+     "value": "Platform"
+    },
+    {
+     "pointer": "/updated_at",
+     "value": "$instant:profile_at"
+    }
+   ]
+  },
+  {
+   "name": "founding_epoch",
+   "from": "c09/founding_epoch_of_an_authority.json",
+   "set": [
+    {
+     "pointer": "/authority/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/finalizer/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/checkpoint_digest",
+     "value": "$digest:team_head_0"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:founding_epoch_at"
+    }
+   ]
+  },
+  {
+   "name": "issue_revocation",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@issue_revocation_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.control.record"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_0"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#revocation"
     }
    ]
   },
@@ -1144,6 +1484,54 @@
      "stored_revision_1"
     ],
     "head": "notes_head_1"
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "found_the_team",
+   "request": "found",
+   "carries": [
+    "proposal",
+    "founding_policy"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "sealed_proposal",
+     "stored_policy",
+     "founder_membership",
+     "founder_grant",
+     "team_active",
+     "team_profile",
+     "founding_epoch"
+    ],
+    "head": "team_head_0"
+   },
+   "submits": [
+    "founding_policy"
+   ],
+   "process": "laptop"
+  },
+  {
+   "name": "issue_the_revocation",
+   "request": "issue_revocation",
+   "carries": [
+    "revocation"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "revocation"
+    ],
+    "head": "team_head_1"
    },
    "process": "laptop"
   },
