@@ -41,6 +41,10 @@
   {
    "name": "closed_request",
    "prefix": "req"
+  },
+  {
+   "name": "closed_query_request",
+   "prefix": "req"
   }
  ],
  "records": [
@@ -538,6 +542,93 @@
      "value": "#closed_candidate"
     }
    ]
+  },
+  {
+   "name": "checkout_before",
+   "from": "sources/revision_submitted.json",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:checkout_before_at"
+    }
+   ]
+  },
+  {
+   "name": "installed_before",
+   "from": "sources/revision_submitted.json",
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "src_1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a"
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:installed_before_at"
+    }
+   ]
+  },
+  {
+   "name": "closed_query",
+   "from": "c03/query_by_request_id.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@closed_request"
+    }
+   ]
+  },
+  {
+   "name": "ask_closed",
+   "from": "c03/query_request.json",
+   "drop": [
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@closed_query_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.query"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@closed_request"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#closed_query"
+    }
+   ]
   }
  ],
  "steps": [
@@ -662,6 +753,51 @@
      "closed_candidate"
     ]
    }
+  },
+  {
+   "name": "query_closed_registration",
+   "request": "ask_closed",
+   "carries": [
+    "closed_query"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "register_closed_candidate_result"
+    ]
+   }
   }
- ]
+ ],
+ "world": {
+  "events": [
+   {
+    "kind": "inventory",
+    "before": "register_short_candidate",
+    "root": "checkout",
+    "yields": "checkout_before"
+   },
+   {
+    "kind": "inventory",
+    "before": "register_short_candidate",
+    "root": "installed",
+    "yields": "installed_before"
+   },
+   {
+    "kind": "inventory",
+    "before": "query_closed_registration",
+    "root": "checkout",
+    "equals": "checkout_before"
+   },
+   {
+    "kind": "inventory",
+    "before": "query_closed_registration",
+    "root": "installed",
+    "equals": "installed_before"
+   }
+  ]
+ }
 }

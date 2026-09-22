@@ -2632,7 +2632,7 @@
    }
   },
   {
-   "digest": "340d740386295538fe7f1dfc5667207eeca341d349ae7e970d7874acb510fd6a",
+   "digest": "1810dc8ed52ad87f71fc44bbe9e44deece7e4bb08f9a0d1da8704d6317a088e5",
    "name": "backup",
    "record": {
     "access_generation": 7,
@@ -2648,7 +2648,7 @@
       "digest": "4a40aa7e83aa2e09f6de06d1c662d435d733a31a64208b9691c1e6610ac02cb1",
       "holds": "object",
       "path": "objects/revision.json",
-      "size": 4128
+      "size": 382
      }
     ],
     "profile_id": "prf_e95426dc3dcb71f509c63fdb745a95dc",
@@ -2657,7 +2657,7 @@
    }
   },
   {
-   "digest": "65dce98ea64da24728f991d556388ae9d4df499ca36146e5e1e141c989a34b63",
+   "digest": "0f70c21c666b9bd11b4e89805c64512b90bd3091c76c7886d45f984e76a538c8",
    "name": "take_backup_after_the_last_commit_result",
    "record": {
     "kind": "operation_result",
@@ -2669,7 +2669,7 @@
     },
     "outputs": [
      {
-      "digest": "340d740386295538fe7f1dfc5667207eeca341d349ae7e970d7874acb510fd6a",
+      "digest": "1810dc8ed52ad87f71fc44bbe9e44deece7e4bb08f9a0d1da8704d6317a088e5",
       "kind": "backup_set"
      }
     ],
@@ -2952,7 +2952,7 @@
   }
  ],
  "says": "Alice registers a private notes source on her laptop, which makes its first head, and commits it once on that head; she then commits eight more times, the process being killed at a different B03 fault point during each commit — before staging, after the member write before sync, after staging before rename, after rename before the directory sync, after that sync before the transaction begins, inside the transaction before commit, after commit before the answer returns, and during the checkpoint that follows — and once more during the backup taken after the last commit. A kill before the transaction commits leaves the prior head and no receipt, so the same request, sent again after the restart, commits exactly once; each next commit expects exactly the head the previous one moved to and is accepted, so no staged member was counted as committed and no request moved a head twice. The kill after commit and before the answer leaves Alice without a reply: the outcome is unknown to her, and querying that request id settles it with the original result and its receipt, whose head the next commit then expects. A later query of the commit killed inside its transaction returns the one result and receipt its resubmission wrote. Submitting the settled request id again with other bytes (another revision) is refused with request_id_conflict and writes nothing. What must not happen: a head naming staged members without a receipt, a second receipt for one request, or the conflicting bytes replacing the original.",
- "spec_sha256": "600a5bd885d50ef1ac57e818fba282d15fac0ce5362c7507f83f726644b101dc",
+ "spec_sha256": "8988fa08e0dbf659dc35f5238cf490742222bb490f3a4c8ccd6421061c9212c1",
  "steps": [
   {
    "carries": [

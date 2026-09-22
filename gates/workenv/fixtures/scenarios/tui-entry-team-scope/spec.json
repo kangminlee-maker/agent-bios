@@ -1,6 +1,6 @@
 {
  "case": "TUI-ENTRY-TEAM-SCOPE",
- "says": "One person founds two Teams both named 'Platform' (team.found twice: two ids). Team A is founded on the desktop, whose device is its finalizer; its instructions source is observed in the desktop's clone and committed there, and the laptop accepts them as a Team package (transfer.stage, transfer.accept). Team B is founded on the laptop with its own source and no environment adopted. Earlier work runs in Team A on the laptop: a start composed, selected and activated in a Claude Code session (returning the instructions projection it routed), and that conversation opened as a recipient link scoped to Team A. Then the laptop is partitioned from the desktop: Team A is offline. The launcher (surface.drive) lists both Teams by name with a short id apart; Team A is selected because the recipient is bound to it and shown remote_unknown, not current or adopted because its package is held here. Down and Enter browse Team B: browse_scope becomes Team B while selected_scope stays Team A and the recipient link stays the same, and Team B's view shows its environment checked_empty. Only Space selects Team B's instructions, and then selected_scope is Team B. Tab and Enter dispatch one start whose preparation.compose basis is Team B alone; route.select records Team B's route. Negative: the two Teams are never merged, as every scope, route and request names one id; browsing Team B changes neither the selection nor the conversation, which stays linked to the offline Team A; Team B's missing environment neither blocks its selection nor borrows Team A's; the Team B start carries nothing of Team A's source or history; the repository location selects no Team; and a selection naming the Team by its shared name instead of a route id is refused at admission (pattern_mismatch /selected).",
+ "says": "One person founds two Teams both named 'Platform' (team.found twice: two ids). Team A is founded on the desktop, whose device is its finalizer; its instructions source is observed in the desktop's clone and committed there, and the laptop accepts them as a Team package (transfer.stage, transfer.accept). Team B is founded on the laptop with its own source and no environment adopted. Earlier work runs in Team A on the laptop: a start composed, selected and activated in a Claude Code session (returning the instructions projection it routed), and that conversation opened as a recipient link scoped to Team A. Team A's recent history (operation.history.read) holds one checkpoint, that activation's receipt, noting an old goal. Then the laptop is partitioned from the desktop: Team A is offline. The launcher (surface.drive) lists both Teams by name with a short id apart; Team A is selected because the recipient is bound to it and shown remote_unknown, not current or adopted because its package is held here. Down and Enter browse Team B: browse_scope becomes Team B while selected_scope stays Team A and the recipient link stays the same, and Team B's view shows its environment checked_empty. Only Space selects Team B's instructions, and then selected_scope is Team B. Tab and Enter dispatch one start whose preparation.compose basis is Team B alone; route.select records Team B's route. Negative: the two Teams are never merged, as every scope, route and request names one id; browsing Team B changes neither the selection nor the conversation, which stays linked to the offline Team A; Team B's missing environment neither blocks its selection nor borrows Team A's; the Team B start carries nothing of Team A's source or history; the repository location selects no Team; Team A's checkpoint and old goal never assign Team A or that goal to current work; and a selection naming the Team by its shared name instead of a route id is refused at admission (pattern_mismatch /selected).",
  "ids": [
   {
    "name": "me",
@@ -96,6 +96,10 @@
   },
   {
    "name": "a_link_open",
+   "prefix": "req"
+  },
+  {
+   "name": "team_a_history_rid",
    "prefix": "req"
   },
   {
@@ -1146,7 +1150,7 @@
     },
     {
      "pointer": "/inventory/0/size",
-     "value": 1536
+     "value": 707
     },
     {
      "pointer": "/inventory/0/object_kind",
@@ -1162,7 +1166,7 @@
     },
     {
      "pointer": "/inventory/1/size",
-     "value": 1024
+     "value": 488
     },
     {
      "pointer": "/inventory/1/object_kind",
@@ -1178,7 +1182,7 @@
     },
     {
      "pointer": "/inventory/2/size",
-     "value": 768
+     "value": 362
     },
     {
      "pointer": "/inventory/2/object_kind",
@@ -1194,7 +1198,7 @@
     },
     {
      "pointer": "/inventory/3/size",
-     "value": 896
+     "value": 522
     },
     {
      "pointer": "/inventory/3/object_kind",
@@ -1210,7 +1214,7 @@
     },
     {
      "pointer": "/inventory/4/size",
-     "value": 256
+     "value": 129
     },
     {
      "pointer": "/inventory/4/object_kind",
@@ -1226,7 +1230,7 @@
     },
     {
      "pointer": "/inventory/5/size",
-     "value": 256
+     "value": 184
     },
     {
      "pointer": "/inventory/5/object_kind",
@@ -1242,7 +1246,7 @@
     },
     {
      "pointer": "/inventory/6/size",
-     "value": 512
+     "value": 378
     },
     {
      "pointer": "/inventory/6/object_kind",
@@ -1258,7 +1262,7 @@
     },
     {
      "pointer": "/inventory/7/size",
-     "value": 384
+     "value": 274
     },
     {
      "pointer": "/inventory/7/object_kind",
@@ -1696,6 +1700,16 @@
     {
      "pointer": "/probe_id",
      "value": "$prb:read_probe"
+    }
+   ]
+  },
+  {
+   "name": "read_probe_host_configuration",
+   "from": "c12/host_configuration_is_never_submitted.json",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:probe_measured_at"
     }
    ]
   },
@@ -2255,6 +2269,103 @@
    ]
   },
   {
+   "name": "team_a_history_query",
+   "from": "c03/history_asked_of_one_repository.json",
+   "drop": [
+    "/scope/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team_a"
+    }
+   ]
+  },
+  {
+   "name": "team_a_history_request",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.history.read"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_a_history_query"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@team_a_history_rid"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    }
+   ]
+  },
+  {
+   "name": "team_a_recent_history",
+   "from": "c03/an_unknown_request_and_a_dated_checkpoint.json",
+   "drop": [
+    "/entries/0",
+    "/scope/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team_a"
+    },
+    {
+     "pointer": "/observed_at",
+     "value": "$instant:team_a_history_observed_at"
+    },
+    {
+     "pointer": "/checkpoints/0/digest",
+     "value": "#activate_team_a_receipt"
+    },
+    {
+     "pointer": "/checkpoints/0/recorded_at",
+     "value": "$instant:activate_team_a_committed_at"
+    },
+    {
+     "pointer": "/checkpoints/0/note",
+     "value": "Next: finish reviewing Team A's onboarding checklist."
+    }
+   ]
+  },
+  {
    "name": "script",
    "from": "c12/a_script_that_types_korean_and_pastes.json",
    "drop": [
@@ -2445,13 +2556,13 @@
     },
     {
      "pointer": "/frames/0/elements/0/label",
-     "value": "Platform · 43d5… · 이 대화의 팀 · 데스크톱 연결 안 됨"
+     "value": "Platform \u00b7 43d5\u2026 \u00b7 \uc774 \ub300\ud654\uc758 \ud300 \u00b7 \ub370\uc2a4\ud06c\ud1b1 \uc5f0\uacb0 \uc548 \ub428"
     },
     {
      "pointer": "/frames/0/elements/0/marks",
      "value": [
-      "›",
-      "(현재)"
+      "\u203a",
+      "(\ud604\uc7ac)"
      ]
     },
     {
@@ -2480,7 +2591,7 @@
     },
     {
      "pointer": "/frames/0/elements/1/label",
-     "value": "Platform · ed2c… · 환경 없음"
+     "value": "Platform \u00b7 ed2c\u2026 \u00b7 \ud658\uacbd \uc5c6\uc74c"
     },
     {
      "pointer": "/frames/0/elements/1/refers_to/ref",
@@ -2504,7 +2615,7 @@
     },
     {
      "pointer": "/frames/0/elements/2/label",
-     "value": "이어지는 대화 · Claude Code · Platform · 43d5…"
+     "value": "\uc774\uc5b4\uc9c0\ub294 \ub300\ud654 \u00b7 Claude Code \u00b7 Platform \u00b7 43d5\u2026"
     },
     {
      "pointer": "/frames/0/elements/2/marks",
@@ -2536,7 +2647,7 @@
     },
     {
      "pointer": "/frames/0/elements/3/label",
-     "value": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로"
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
     },
     {
      "pointer": "/frames/0/elements/3/marks",
@@ -2545,6 +2656,18 @@
     {
      "pointer": "/frames/0/elements/3/selection",
      "value": "none"
+    },
+    {
+     "pointer": "/frames/0/calls/0/operation",
+     "value": "operation.history.read"
+    },
+    {
+     "pointer": "/frames/0/calls/0/reads",
+     "value": "nothing"
+    },
+    {
+     "pointer": "/frames/0/calls/0/request_digest",
+     "value": "#team_a_history_request"
     },
     {
      "pointer": "/frames/1/view/view",
@@ -2572,12 +2695,12 @@
     },
     {
      "pointer": "/frames/1/elements/0/label",
-     "value": "Platform · 43d5… · 이 대화의 팀 · 데스크톱 연결 안 됨"
+     "value": "Platform \u00b7 43d5\u2026 \u00b7 \uc774 \ub300\ud654\uc758 \ud300 \u00b7 \ub370\uc2a4\ud06c\ud1b1 \uc5f0\uacb0 \uc548 \ub428"
     },
     {
      "pointer": "/frames/1/elements/0/marks",
      "value": [
-      "(현재)"
+      "(\ud604\uc7ac)"
      ]
     },
     {
@@ -2602,12 +2725,12 @@
     },
     {
      "pointer": "/frames/1/elements/1/label",
-     "value": "Platform · ed2c… · 환경 없음"
+     "value": "Platform \u00b7 ed2c\u2026 \u00b7 \ud658\uacbd \uc5c6\uc74c"
     },
     {
      "pointer": "/frames/1/elements/1/marks",
      "value": [
-      "›"
+      "\u203a"
      ]
     },
     {
@@ -2636,7 +2759,7 @@
     },
     {
      "pointer": "/frames/1/elements/2/label",
-     "value": "이어지는 대화 · Claude Code · Platform · 43d5…"
+     "value": "\uc774\uc5b4\uc9c0\ub294 \ub300\ud654 \u00b7 Claude Code \u00b7 Platform \u00b7 43d5\u2026"
     },
     {
      "pointer": "/frames/1/elements/2/marks",
@@ -2664,7 +2787,7 @@
     },
     {
      "pointer": "/frames/1/elements/3/label",
-     "value": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로"
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
     },
     {
      "pointer": "/frames/1/elements/3/marks",
@@ -2712,12 +2835,12 @@
     },
     {
      "pointer": "/frames/2/elements/0/label",
-     "value": "Platform · 43d5… · 이 대화의 팀 · 데스크톱 연결 안 됨"
+     "value": "Platform \u00b7 43d5\u2026 \u00b7 \uc774 \ub300\ud654\uc758 \ud300 \u00b7 \ub370\uc2a4\ud06c\ud1b1 \uc5f0\uacb0 \uc548 \ub428"
     },
     {
      "pointer": "/frames/2/elements/0/marks",
      "value": [
-      "(현재)"
+      "(\ud604\uc7ac)"
      ]
     },
     {
@@ -2742,7 +2865,7 @@
     },
     {
      "pointer": "/frames/2/elements/1/label",
-     "value": "Platform · ed2c… · 환경 없음"
+     "value": "Platform \u00b7 ed2c\u2026 \u00b7 \ud658\uacbd \uc5c6\uc74c"
     },
     {
      "pointer": "/frames/2/elements/1/refers_to/ref",
@@ -2762,12 +2885,12 @@
     },
     {
      "pointer": "/frames/2/elements/2/label",
-     "value": "Platform · ed2c… 지침 · team/platform-b.md"
+     "value": "Platform \u00b7 ed2c\u2026 \uc9c0\uce68 \u00b7 team/platform-b.md"
     },
     {
      "pointer": "/frames/2/elements/2/marks",
      "value": [
-      "›",
+      "\u203a",
       "[ ]"
      ]
     },
@@ -2801,7 +2924,7 @@
     },
     {
      "pointer": "/frames/2/elements/3/label",
-     "value": "이어지는 대화 · Claude Code · Platform · 43d5…"
+     "value": "\uc774\uc5b4\uc9c0\ub294 \ub300\ud654 \u00b7 Claude Code \u00b7 Platform \u00b7 43d5\u2026"
     },
     {
      "pointer": "/frames/2/elements/3/marks",
@@ -2829,7 +2952,7 @@
     },
     {
      "pointer": "/frames/2/elements/4/label",
-     "value": "새 Claude Code 세션 · Platform · ed2c…"
+     "value": "\uc0c8 Claude Code \uc138\uc158 \u00b7 Platform \u00b7 ed2c\u2026"
     },
     {
      "pointer": "/frames/2/elements/4/marks",
@@ -2860,7 +2983,7 @@
     },
     {
      "pointer": "/frames/2/elements/5/label",
-     "value": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로"
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
     },
     {
      "pointer": "/frames/2/elements/5/marks",
@@ -2900,12 +3023,12 @@
     },
     {
      "pointer": "/frames/3/elements/0/label",
-     "value": "Platform · 43d5… · 이 대화의 팀 · 데스크톱 연결 안 됨"
+     "value": "Platform \u00b7 43d5\u2026 \u00b7 \uc774 \ub300\ud654\uc758 \ud300 \u00b7 \ub370\uc2a4\ud06c\ud1b1 \uc5f0\uacb0 \uc548 \ub428"
     },
     {
      "pointer": "/frames/3/elements/0/marks",
      "value": [
-      "(현재)"
+      "(\ud604\uc7ac)"
      ]
     },
     {
@@ -2930,7 +3053,7 @@
     },
     {
      "pointer": "/frames/3/elements/1/label",
-     "value": "Platform · ed2c… · 환경 없음"
+     "value": "Platform \u00b7 ed2c\u2026 \u00b7 \ud658\uacbd \uc5c6\uc74c"
     },
     {
      "pointer": "/frames/3/elements/1/marks",
@@ -2960,12 +3083,12 @@
     },
     {
      "pointer": "/frames/3/elements/2/label",
-     "value": "Platform · ed2c… 지침 · team/platform-b.md"
+     "value": "Platform \u00b7 ed2c\u2026 \uc9c0\uce68 \u00b7 team/platform-b.md"
     },
     {
      "pointer": "/frames/3/elements/2/marks",
      "value": [
-      "›",
+      "\u203a",
       "[x]"
      ]
     },
@@ -2995,7 +3118,7 @@
     },
     {
      "pointer": "/frames/3/elements/3/label",
-     "value": "이어지는 대화 · Claude Code · Platform · 43d5…"
+     "value": "\uc774\uc5b4\uc9c0\ub294 \ub300\ud654 \u00b7 Claude Code \u00b7 Platform \u00b7 43d5\u2026"
     },
     {
      "pointer": "/frames/3/elements/3/marks",
@@ -3019,7 +3142,7 @@
     },
     {
      "pointer": "/frames/3/elements/4/label",
-     "value": "새 Claude Code 세션 · Platform · ed2c…"
+     "value": "\uc0c8 Claude Code \uc138\uc158 \u00b7 Platform \u00b7 ed2c\u2026"
     },
     {
      "pointer": "/frames/3/elements/4/marks",
@@ -3050,7 +3173,7 @@
     },
     {
      "pointer": "/frames/3/elements/5/label",
-     "value": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로"
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
     },
     {
      "pointer": "/frames/3/elements/5/marks",
@@ -3090,12 +3213,12 @@
     },
     {
      "pointer": "/frames/4/elements/0/label",
-     "value": "Platform · 43d5… · 이 대화의 팀 · 데스크톱 연결 안 됨"
+     "value": "Platform \u00b7 43d5\u2026 \u00b7 \uc774 \ub300\ud654\uc758 \ud300 \u00b7 \ub370\uc2a4\ud06c\ud1b1 \uc5f0\uacb0 \uc548 \ub428"
     },
     {
      "pointer": "/frames/4/elements/0/marks",
      "value": [
-      "(현재)"
+      "(\ud604\uc7ac)"
      ]
     },
     {
@@ -3120,7 +3243,7 @@
     },
     {
      "pointer": "/frames/4/elements/1/label",
-     "value": "Platform · ed2c… · 환경 없음"
+     "value": "Platform \u00b7 ed2c\u2026 \u00b7 \ud658\uacbd \uc5c6\uc74c"
     },
     {
      "pointer": "/frames/4/elements/1/marks",
@@ -3150,7 +3273,7 @@
     },
     {
      "pointer": "/frames/4/elements/2/label",
-     "value": "Platform · ed2c… 지침 · team/platform-b.md"
+     "value": "Platform \u00b7 ed2c\u2026 \uc9c0\uce68 \u00b7 team/platform-b.md"
     },
     {
      "pointer": "/frames/4/elements/2/state",
@@ -3174,7 +3297,7 @@
     },
     {
      "pointer": "/frames/4/elements/3/label",
-     "value": "이어지는 대화 · Claude Code · Platform · 43d5…"
+     "value": "\uc774\uc5b4\uc9c0\ub294 \ub300\ud654 \u00b7 Claude Code \u00b7 Platform \u00b7 43d5\u2026"
     },
     {
      "pointer": "/frames/4/elements/3/marks",
@@ -3198,12 +3321,12 @@
     },
     {
      "pointer": "/frames/4/elements/4/label",
-     "value": "새 Claude Code 세션 · Platform · ed2c…"
+     "value": "\uc0c8 Claude Code \uc138\uc158 \u00b7 Platform \u00b7 ed2c\u2026"
     },
     {
      "pointer": "/frames/4/elements/4/marks",
      "value": [
-      "›"
+      "\u203a"
      ]
     },
     {
@@ -3235,7 +3358,7 @@
     },
     {
      "pointer": "/frames/4/elements/5/label",
-     "value": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로"
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
     },
     {
      "pointer": "/frames/4/elements/5/marks",
@@ -3323,12 +3446,12 @@
     },
     {
      "pointer": "/frames/5/elements/0/label",
-     "value": "Platform · 43d5… · 이 대화의 팀 · 데스크톱 연결 안 됨"
+     "value": "Platform \u00b7 43d5\u2026 \u00b7 \uc774 \ub300\ud654\uc758 \ud300 \u00b7 \ub370\uc2a4\ud06c\ud1b1 \uc5f0\uacb0 \uc548 \ub428"
     },
     {
      "pointer": "/frames/5/elements/0/marks",
      "value": [
-      "(현재)"
+      "(\ud604\uc7ac)"
      ]
     },
     {
@@ -3369,7 +3492,7 @@
     },
     {
      "pointer": "/frames/5/elements/1/label",
-     "value": "Platform · ed2c… · 환경 없음"
+     "value": "Platform \u00b7 ed2c\u2026 \u00b7 \ud658\uacbd \uc5c6\uc74c"
     },
     {
      "pointer": "/frames/5/elements/1/marks",
@@ -3415,7 +3538,7 @@
     },
     {
      "pointer": "/frames/5/elements/2/label",
-     "value": "Platform · ed2c… 지침 · team/platform-b.md"
+     "value": "Platform \u00b7 ed2c\u2026 \uc9c0\uce68 \u00b7 team/platform-b.md"
     },
     {
      "pointer": "/frames/5/elements/2/marks",
@@ -3473,7 +3596,7 @@
     },
     {
      "pointer": "/frames/5/elements/3/label",
-     "value": "이어지는 대화 · Claude Code · Platform · 43d5…"
+     "value": "\uc774\uc5b4\uc9c0\ub294 \ub300\ud654 \u00b7 Claude Code \u00b7 Platform \u00b7 43d5\u2026"
     },
     {
      "pointer": "/frames/5/elements/3/marks",
@@ -3513,12 +3636,12 @@
     },
     {
      "pointer": "/frames/5/elements/4/label",
-     "value": "새 Claude Code 세션 · Platform · ed2c…"
+     "value": "\uc0c8 Claude Code \uc138\uc158 \u00b7 Platform \u00b7 ed2c\u2026"
     },
     {
      "pointer": "/frames/5/elements/4/marks",
      "value": [
-      "›"
+      "\u203a"
      ]
     },
     {
@@ -3566,7 +3689,7 @@
     },
     {
      "pointer": "/frames/5/elements/5/label",
-     "value": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로"
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
     },
     {
      "pointer": "/frames/5/elements/5/marks",
@@ -3598,7 +3721,7 @@
     },
     {
      "pointer": "/frames/5/elements/6/label",
-     "value": "시작 요청을 보냈습니다 · Platform · ed2c…"
+     "value": "\uc2dc\uc791 \uc694\uccad\uc744 \ubcf4\ub0c8\uc2b5\ub2c8\ub2e4 \u00b7 Platform \u00b7 ed2c\u2026"
     },
     {
      "pointer": "/frames/5/elements/6/marks",
@@ -3692,7 +3815,7 @@
     },
     {
      "pointer": "/frames/2/elements/6/label",
-     "value": "Platform · ed2c… 환경 · 채택한 환경 없음"
+     "value": "Platform \u00b7 ed2c\u2026 \ud658\uacbd \u00b7 \ucc44\ud0dd\ud55c \ud658\uacbd \uc5c6\uc74c"
     },
     {
      "pointer": "/frames/2/elements/6/marks",
@@ -3740,7 +3863,7 @@
     },
     {
      "pointer": "/frames/3/elements/6/label",
-     "value": "Platform · ed2c… 환경 · 채택한 환경 없음"
+     "value": "Platform \u00b7 ed2c\u2026 \ud658\uacbd \u00b7 \ucc44\ud0dd\ud55c \ud658\uacbd \uc5c6\uc74c"
     },
     {
      "pointer": "/frames/3/elements/6/marks",
@@ -3788,7 +3911,7 @@
     },
     {
      "pointer": "/frames/4/elements/6/label",
-     "value": "Platform · ed2c… 환경 · 채택한 환경 없음"
+     "value": "Platform \u00b7 ed2c\u2026 \ud658\uacbd \u00b7 \ucc44\ud0dd\ud55c \ud658\uacbd \uc5c6\uc74c"
     },
     {
      "pointer": "/frames/4/elements/6/marks",
@@ -3836,7 +3959,7 @@
     },
     {
      "pointer": "/frames/5/elements/7/label",
-     "value": "Platform · ed2c… 환경 · 채택한 환경 없음"
+     "value": "Platform \u00b7 ed2c\u2026 \ud658\uacbd \u00b7 \ucc44\ud0dd\ud55c \ud658\uacbd \uc5c6\uc74c"
     },
     {
      "pointer": "/frames/5/elements/7/marks",
@@ -4461,7 +4584,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "read_probe_stored"
+     "read_probe_stored",
+     "read_probe_host_configuration"
     ]
    },
    "process": "laptop"
@@ -4553,6 +4677,24 @@
     "recovery": [],
     "returns": [
      "a_link_stored"
+    ]
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "read_team_a_history",
+   "request": "team_a_history_request",
+   "carries": [
+    "team_a_history_query"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_a_recent_history"
     ]
    },
    "process": "laptop"

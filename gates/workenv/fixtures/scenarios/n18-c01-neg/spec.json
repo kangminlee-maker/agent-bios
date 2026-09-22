@@ -677,6 +677,24 @@
    ]
   },
   {
+   "name": "first_attempt_control_proof",
+   "from": "bindings/signature_over_a_manifest.json",
+   "set": [
+    {
+     "pointer": "/namespace",
+     "value": "agent-bios/sign_in_attempt"
+    },
+    {
+     "pointer": "/signed_digest",
+     "value": "#first_attempt_asked"
+    },
+    {
+     "pointer": "/signer_binding_id",
+     "value": "$bnd:alice_binding"
+    }
+   ]
+  },
+  {
    "name": "begin_first_link_request",
    "from": "c02/lock_request.json",
    "set": [
@@ -723,6 +741,12 @@
     {
      "pointer": "/payload_digest",
      "value": "#first_attempt_asked"
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#first_attempt_control_proof"
+     ]
     }
    ]
   },
@@ -1123,6 +1147,14 @@
     {
      "pointer": "/reply/nonce_digest",
      "value": "$digest:first_attempt_nonce"
+    },
+    {
+     "pointer": "/reply/issued_at",
+     "value": "2026-09-21T08:59:00Z"
+    },
+    {
+     "pointer": "/reply/expires_at",
+     "value": "2026-09-21T10:00:00Z"
     }
    ]
   },
@@ -1396,6 +1428,14 @@
     {
      "pointer": "/reply/subject",
      "value": "117000111222333444555"
+    },
+    {
+     "pointer": "/reply/issued_at",
+     "value": "2026-09-21T08:59:00Z"
+    },
+    {
+     "pointer": "/reply/expires_at",
+     "value": "2026-09-21T10:00:00Z"
     }
    ]
   },
@@ -2201,7 +2241,8 @@
    "name": "begin_first_link",
    "request": "begin_first_link_request",
    "carries": [
-    "first_attempt_asked"
+    "first_attempt_asked",
+    "first_attempt_control_proof"
    ],
    "answer": {
     "stage": "committed",

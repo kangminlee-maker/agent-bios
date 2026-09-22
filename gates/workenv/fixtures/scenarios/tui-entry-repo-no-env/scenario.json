@@ -258,6 +258,11 @@
    "record": "read_probe_stored"
   },
   {
+   "minted": "probe_measured_at",
+   "pointer": "/measured_at",
+   "record": "read_probe_host_configuration"
+  },
+  {
    "digest_of": "probe_host_read_receipt",
    "pointer": "/outcome/receipt_digest",
    "record": "probe_host_read_result"
@@ -270,6 +275,11 @@
   {
    "digest_of": "read_probe_stored",
    "pointer": "/outputs/0/digest",
+   "record": "probe_host_read_result"
+  },
+  {
+   "digest_of": "read_probe_host_configuration",
+   "pointer": "/outputs/1/digest",
    "record": "probe_host_read_result"
   },
   {
@@ -557,6 +567,11 @@
   {
    "name": "probe_host_read_sequence",
    "shape": "integer",
+   "step": "probe_host_read"
+  },
+  {
+   "name": "probe_measured_at",
+   "shape": "instant",
    "step": "probe_host_read"
   },
   {
@@ -1120,7 +1135,24 @@
    }
   },
   {
-   "digest": "0d65c05518fa5bd0f300ae1574351af7734e31f4b2d97691da5427e369a87f67",
+   "digest": "40782b10bc064b6e4302b3c64e5e0fb7bbae0c6d98b4921eb538454f04d2313a",
+   "name": "read_probe_host_configuration",
+   "record": {
+    "client": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "hooks": [],
+    "kind": "host_configuration",
+    "measured_at": "2000-01-01T00:00:00Z",
+    "mode": {
+     "runs": "real"
+    },
+    "schema": 1
+   }
+  },
+  {
+   "digest": "6407a558fcdfa57e4a9471e2072e7382f7c0f22292946b3388737a931657070a",
    "name": "probe_host_read_result",
    "record": {
     "kind": "operation_result",
@@ -1134,6 +1166,10 @@
      {
       "digest": "69a3e9f9ff8a970f391ce60f04c08bf2670487014d414db1a97caa1ad5fb363f",
       "kind": "capability_probe"
+     },
+     {
+      "digest": "40782b10bc064b6e4302b3c64e5e0fb7bbae0c6d98b4921eb538454f04d2313a",
+      "kind": "host_configuration"
      }
     ],
     "provider_effect": "not_applicable",
@@ -2125,7 +2161,7 @@
   }
  ],
  "says": "A person with a local principal binds an existing checkout (repository.bind: a clone, observed at main 0123456), writing a note with it. The entry browses the checkout (source.observe of README.md: previewed, nothing written) and reads the repository's recent history (operation.history.read): no request entries, and one dated checkpoint — the binding record — carrying the old note as history. The entry (surface.drive) shows the observed location and revision, the checkpoint labelled as a note from when it was written, no environment and no Team, empty repository and personal instructions, and one start action. Enter dispatches one preparation.compose request over the repository and personal scopes with no pins and no work_request; the owner stores a preparation, as the requester's own record with no receipt, that keeps the observed branch, commit and working bytes and whose task support is not requested, and route.select answers for that request with it. Negative: browsing writes nothing and nothing is uploaded; no step creates a Team, a membership or an adoption; the old note is never the start's work_request; and a start whose basis names an environment for this folder without adoption evidence is refused at admission (variant_mismatch /basis).",
- "spec_sha256": "9868d0d8ace36e60ce1c38f321a508fe4d424a6b2a94caf230747bbaf086d266",
+ "spec_sha256": "2c237df09bd6016be1f289b9cbe88417b0a44bd2002c110e349a384693da2747",
  "steps": [
   {
    "carries": [
@@ -2179,7 +2215,8 @@
    "request": "probe_request",
    "result": "probe_host_read_result",
    "returns": [
-    "read_probe_stored"
+    "read_probe_stored",
+    "read_probe_host_configuration"
    ]
   },
   {

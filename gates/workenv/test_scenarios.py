@@ -3,6 +3,7 @@
 Each rule the generator enforces is shown firing on a spec built here from a base that generates
 cleanly, so a failure is attributable to the one change made to it."""
 import copy
+import hashlib
 import json
 import pathlib
 import sys
@@ -15,6 +16,7 @@ sys.path.insert(0, str(HERE.parents[1]))
 import scenarios  # noqa: E402
 from workenv.contracts import examples  # noqa: E402
 
+MANIFEST = "sources/revision_of_a_published_package.json"
 REQUEST = {"name": "bind", "from": "c01/link_request.json",
            "set": [{"pointer": "/request_id", "value": "@bind_request"},
                    {"pointer": "/actor/principal_id", "value": "@alice"},
@@ -468,6 +470,62 @@ class World(unittest.TestCase):
         next(r for r in spec["records"] if r["name"] == "first_key")["set"].append(
             {"pointer": "/evidence_digests/-", "value": "$digest:second_evidence"})
         self.refused("which that step mints", spec)
+
+    def test_events_happen_between_steps_and_bytes_state_their_digest(self):
+        # Positive control for the events: every kind, on the one step there is.
+        events = [{"kind": "file_edit", "before": "bind_first_key", "path": "notes.md",
+                   "bytes": "changed\n"},
+                  {"kind": "file_edit", "before": "bind_first_key", "path": "old.md",
+                   "absent": True},
+                  {"kind": "received_bytes", "before": "bind_first_key", "path": "a.md",
+                   "bytes": "other", "executable": True},
+                  {"kind": "key_layout", "before": "bind_first_key", "key": "first_key",
+                   "layout": "private_beside_public"},
+                  {"kind": "configure", "before": "bind_first_key",
+                   "setting": "recovery_objective_seconds", "value": 3600},
+                  {"kind": "inventory", "before": "bind_first_key", "root": "checkout",
+                   "yields": "checkout_before"},
+                  {"kind": "inventory", "before": "bind_first_key", "root": "checkout",
+                   "equals": "checkout_before"},
+                  {"kind": "reply_lost", "step": "bind_first_key"}]
+        spec = self.spec({"events": events})
+        spec["records"].append({"name": "checkout_before", "from": MANIFEST})
+        built = self.generate(spec)
+        edit = built["world"]["events"][0]
+        self.assertEqual(edit["digest"], hashlib.sha256(b"changed\n").hexdigest())
+        self.assertEqual(edit["size"], 8)
+        self.assertNotIn("digest", built["world"]["events"][1])
+
+    def test_an_event_names_steps_and_records_that_exist(self):
+        edit = {"kind": "file_edit", "before": "later", "path": "notes.md", "bytes": "x"}
+        self.refused("which is no step", self.spec({"events": [edit]}))
+        self.refused("which is no answered step", self.spec(
+            {"events": [{"kind": "reply_lost", "step": "later"}]}))
+        self.refused("which is no record", self.spec({"events": [
+            {"kind": "provider_refresh", "before": "bind_first_key", "connection": "nobody"}]}))
+        self.refused("which is no source_manifest", self.spec({"events": [
+            {"kind": "inventory", "before": "bind_first_key", "root": "installed",
+             "yields": "stored_key"}]}))
+        self.refused("which is no process", self.spec({"events": [
+            {**edit, "before": "bind_first_key", "process": "phone"}]}))
+
+    def test_a_file_edit_states_bytes_or_absence_and_an_inventory_one_source(self):
+        self.refused("not both or neither", self.spec({"events": [
+            {"kind": "file_edit", "before": "bind_first_key", "path": "notes.md", "bytes": "x",
+             "absent": True}]}))
+        self.refused("not both or neither", self.spec({"events": [
+            {"kind": "inventory", "before": "bind_first_key", "root": "installed"}]}))
+        spec = self.spec({"events": [
+            {"kind": "inventory", "before": "bind_first_key", "root": "installed",
+             "equals": "checkout_before"}]})
+        spec["records"].append({"name": "checkout_before", "from": MANIFEST})
+        self.refused("which no earlier inventory yielded", spec)
+
+    def test_a_route_is_a_row_of_the_entrance_dispositions(self):
+        routed = self.generate(self.spec({}, route={"path": "install.sh", "command": "install"}))
+        self.assertEqual(routed["steps"][0]["route"], {"path": "install.sh", "command": "install"})
+        self.refused("which is no entrance disposition",
+                     self.spec({}, route={"path": "install.sh", "command": "teleport"}))
 
     def test_a_runner_step_names_a_situation_of_its_own_case(self):
         spec = {"case": "RUN-MODE", "says": "A runner refused unattended dispatches nothing.",

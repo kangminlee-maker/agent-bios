@@ -331,7 +331,8 @@
       "use",
       "contribute",
       "grant",
-      "policy"
+      "policy",
+      "transfer"
      ]
     },
     {
@@ -726,6 +727,24 @@
    ]
   },
   {
+   "name": "slack_attempt_control_proof",
+   "from": "bindings/signature_over_a_manifest.json",
+   "set": [
+    {
+     "pointer": "/namespace",
+     "value": "agent-bios/sign_in_attempt"
+    },
+    {
+     "pointer": "/signed_digest",
+     "value": "#slack_attempt_asked"
+    },
+    {
+     "pointer": "/signer_binding_id",
+     "value": "$bnd:alice_binding"
+    }
+   ]
+  },
+  {
    "name": "begin_link_request",
    "from": "c02/lock_request.json",
    "set": [
@@ -772,6 +791,12 @@
     {
      "pointer": "/payload_digest",
      "value": "#slack_attempt_asked"
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#slack_attempt_control_proof"
+     ]
     }
    ]
   },
@@ -910,6 +935,14 @@
     {
      "pointer": "/reply/email",
      "value": "alice@example.com"
+    },
+    {
+     "pointer": "/reply/issued_at",
+     "value": "2026-09-21T08:59:00Z"
+    },
+    {
+     "pointer": "/reply/expires_at",
+     "value": "2026-09-21T10:00:00Z"
     }
    ]
   },
@@ -1201,7 +1234,7 @@
     },
     {
      "pointer": "/inventory/0/size",
-     "value": 512
+     "value": 453
     },
     {
      "pointer": "/inventory/0/object_kind",
@@ -1217,7 +1250,7 @@
     },
     {
      "pointer": "/inventory/1/size",
-     "value": 512
+     "value": 387
     },
     {
      "pointer": "/inventory/1/object_kind",
@@ -1233,7 +1266,7 @@
     },
     {
      "pointer": "/inventory/2/size",
-     "value": 512
+     "value": 378
     },
     {
      "pointer": "/inventory/2/object_kind",
@@ -1504,7 +1537,8 @@
    "name": "begin_link",
    "request": "begin_link_request",
    "carries": [
-    "slack_attempt_asked"
+    "slack_attempt_asked",
+    "slack_attempt_control_proof"
    ],
    "answer": {
     "stage": "committed",

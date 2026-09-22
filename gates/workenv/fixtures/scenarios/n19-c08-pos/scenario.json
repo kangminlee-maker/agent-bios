@@ -84,6 +84,10 @@
   {
    "id": "req_0ee35ba196cdac7b184f73fb356f1193",
    "name": "read_closed_request_id"
+  },
+  {
+   "id": "req_80a07e665b01adb745be1aba8943bf6f",
+   "name": "open_workstream_request_id"
   }
  ],
  "joins": [
@@ -483,6 +487,56 @@
    "record": "keep_bora_note_result"
   },
   {
+   "digest_of": "bora_workstream_submitted",
+   "pointer": "/payload_digest",
+   "record": "open_workstream_request"
+  },
+  {
+   "digest_of": "open_workstream_request",
+   "pointer": "/request_digest",
+   "record": "open_workstream_receipt"
+  },
+  {
+   "minted": "open_workstream_head",
+   "pointer": "/head_digest",
+   "record": "open_workstream_receipt"
+  },
+  {
+   "minted": "open_workstream_sequence",
+   "pointer": "/sequence",
+   "record": "open_workstream_receipt"
+  },
+  {
+   "minted": "open_workstream_committed_at",
+   "pointer": "/committed_at",
+   "record": "open_workstream_receipt"
+  },
+  {
+   "minted": "bora_workstream",
+   "pointer": "/workstream_id",
+   "record": "bora_workstream"
+  },
+  {
+   "minted": "workstream_opened_at",
+   "pointer": "/created_at",
+   "record": "bora_workstream"
+  },
+  {
+   "digest_of": "open_workstream_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "open_workstream_result"
+  },
+  {
+   "digest_of": "open_workstream_request",
+   "pointer": "/request_digest",
+   "record": "open_workstream_result"
+  },
+  {
+   "digest_of": "bora_workstream",
+   "pointer": "/outputs/0/digest",
+   "record": "open_workstream_result"
+  },
+  {
    "digest_of": "team_policy",
    "pointer": "/policy_digests/0",
    "record": "archival_request"
@@ -553,7 +607,7 @@
    "record": "continuation_request"
   },
   {
-   "digest_of": "bora_draft",
+   "digest_of": "bora_workstream",
    "pointer": "/action/continues/0",
    "record": "continuation"
   },
@@ -828,6 +882,21 @@
    "record": "purge_receipt"
   },
   {
+   "digest_of": "first_profile",
+   "pointer": "/object_digest",
+   "record": "purge_outcome"
+  },
+  {
+   "minted": "purge_tombstone",
+   "pointer": "/per_copy/0/tombstone_digest",
+   "record": "purge_outcome"
+  },
+  {
+   "minted": "purged_at",
+   "pointer": "/at",
+   "record": "purge_outcome"
+  },
+  {
    "digest_of": "purge_receipt",
    "pointer": "/outcome/receipt_digest",
    "record": "purge_result"
@@ -840,6 +909,11 @@
   {
    "digest_of": "restored_state",
    "pointer": "/outputs/0/digest",
+   "record": "purge_result"
+  },
+  {
+   "digest_of": "purge_outcome",
+   "pointer": "/outputs/1/digest",
    "record": "purge_result"
   },
   {
@@ -1065,6 +1139,31 @@
    "step": "keep_bora_note"
   },
   {
+   "name": "bora_workstream",
+   "shape": "wst",
+   "step": "open_workstream"
+  },
+  {
+   "name": "open_workstream_committed_at",
+   "shape": "instant",
+   "step": "open_workstream"
+  },
+  {
+   "name": "open_workstream_head",
+   "shape": "digest",
+   "step": "open_workstream"
+  },
+  {
+   "name": "open_workstream_sequence",
+   "shape": "integer",
+   "step": "open_workstream"
+  },
+  {
+   "name": "workstream_opened_at",
+   "shape": "instant",
+   "step": "open_workstream"
+  },
+  {
    "name": "archive_committed_at",
    "shape": "instant",
    "step": "archive"
@@ -1160,8 +1259,18 @@
    "step": "purge"
   },
   {
+   "name": "purge_tombstone",
+   "shape": "digest",
+   "step": "purge"
+  },
+  {
    "name": "purged",
    "shape": "digest",
+   "step": "purge"
+  },
+  {
+   "name": "purged_at",
+   "shape": "instant",
    "step": "purge"
   },
   {
@@ -1997,6 +2106,109 @@
    }
   },
   {
+   "digest": "78c882abca05fcc666a47317eef32510335a1b55f149c9ad09b214dde9fe41cb",
+   "name": "bora_workstream_submitted",
+   "record": {
+    "home": {
+     "layer": "repository",
+     "repository_id": "rep_b5ec426fe8325bf628b4f83c6ca258d5"
+    },
+    "kind": "workstream",
+    "name": "Review process",
+    "purpose": "How reviews are shared in this repository.",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "33e7f928e54ab1ed054ba54a566528668c8d266e327c0f78b336a3c0a6d5c204",
+   "name": "open_workstream_request",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_516cda2908a76227923f4a152eb746eb",
+     "principal_id": "prn_060affa886fb208f8cd70dc26c90efc6",
+     "profile_id": "prf_a9007340bc645d3fe6b4a524d0355710"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "workstream.open",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_b5ec426fe8325bf628b4f83c6ca258d5"
+    },
+    "payload_digest": "78c882abca05fcc666a47317eef32510335a1b55f149c9ad09b214dde9fe41cb",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_80a07e665b01adb745be1aba8943bf6f",
+    "schema": 1,
+    "target": {
+     "resource_id": "rep_b5ec426fe8325bf628b4f83c6ca258d5"
+    }
+   }
+  },
+  {
+   "digest": "5cc8c0532c56a40a8cfd2aa97310748a4e6105da49dd6b0700477b33a12bb372",
+   "name": "open_workstream_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "fdf8df49c19b7e5d5553d6e66c6a7bd364bc9acb63ebec32949b12e05973b7a1",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_b5ec426fe8325bf628b4f83c6ca258d5"
+    },
+    "request_digest": "33e7f928e54ab1ed054ba54a566528668c8d266e327c0f78b336a3c0a6d5c204",
+    "request_id": "req_80a07e665b01adb745be1aba8943bf6f",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "rep_b5ec426fe8325bf628b4f83c6ca258d5"
+    }
+   }
+  },
+  {
+   "digest": "2a752ae272a1c75e460fec947ca35a94baa7c25fe0227b2ca2c27d38d31de2b2",
+   "name": "bora_workstream",
+   "record": {
+    "created_at": "2000-01-01T00:00:00Z",
+    "home": {
+     "layer": "repository",
+     "repository_id": "rep_b5ec426fe8325bf628b4f83c6ca258d5"
+    },
+    "kind": "workstream",
+    "name": "Review process",
+    "purpose": "How reviews are shared in this repository.",
+    "schema": 1,
+    "workstream_id": "wst_b5424655f51bdeef29e99aaf31c0d9e1"
+   }
+  },
+  {
+   "digest": "43d712d9fda3c34c168debc74bb45a111a35650562bcf407a5bd01d528c5bc58",
+   "name": "open_workstream_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "5cc8c0532c56a40a8cfd2aa97310748a4e6105da49dd6b0700477b33a12bb372",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "2a752ae272a1c75e460fec947ca35a94baa7c25fe0227b2ca2c27d38d31de2b2",
+      "kind": "workstream"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "33e7f928e54ab1ed054ba54a566528668c8d266e327c0f78b336a3c0a6d5c204",
+    "request_id": "req_80a07e665b01adb745be1aba8943bf6f",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
    "digest": "a5161a9aef0f55bba36de01997185102e10b7e8a2854ac1bf05668afec2427b3",
    "name": "archival",
    "record": {
@@ -2103,12 +2315,12 @@
    }
   },
   {
-   "digest": "3d21fd62c79445ad4f59e86373b6d9e8672a1fa96c418cc21dc832e9e2607fa2",
+   "digest": "fb90b93eca41b7a4559dc6f3b2c7ba4d940ad5ef0847b18c08fc2bfc427969ca",
    "name": "continuation",
    "record": {
     "action": {
      "continues": [
-      "90cab71c89c436a16285168e79cf06a2bc7aed97c831608eb39ca57280410fda"
+      "2a752ae272a1c75e460fec947ca35a94baa7c25fe0227b2ca2c27d38d31de2b2"
      ],
      "does": "continue_archived",
      "work_scope": {
@@ -2122,7 +2334,7 @@
    }
   },
   {
-   "digest": "e6c3adc0d84ff3447ea6b61275d0f2c24e6eaff26f7d7551d4312118eba3661a",
+   "digest": "4c1df07edc58790e9051dca8c561b2d42082545f4051132d9c7364c177281e94",
    "name": "continuation_request",
    "record": {
     "action": "contribute",
@@ -2140,7 +2352,7 @@
      "layer": "team",
      "team_id": "tem_d0baada85f775455d6479cbfb239ce26"
     },
-    "payload_digest": "3d21fd62c79445ad4f59e86373b6d9e8672a1fa96c418cc21dc832e9e2607fa2",
+    "payload_digest": "fb90b93eca41b7a4559dc6f3b2c7ba4d940ad5ef0847b18c08fc2bfc427969ca",
     "policy_digests": [
      "ef42f7fe1c2ef317c1553825c5a65100a63b72dff9dcc4f1e021e399b5d8b7b2"
     ],
@@ -2157,7 +2369,7 @@
    }
   },
   {
-   "digest": "002d89f037527473c51f4acd4dbdfacfc601d27cf76ce00faeda67cfe58308e7",
+   "digest": "6695344733edac0a320d6a3043192b9d6a0141b97f1e9dfffa05aff95ad2ddf9",
    "name": "continue_archived_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -2167,7 +2379,7 @@
      "layer": "team",
      "team_id": "tem_d0baada85f775455d6479cbfb239ce26"
     },
-    "request_digest": "e6c3adc0d84ff3447ea6b61275d0f2c24e6eaff26f7d7551d4312118eba3661a",
+    "request_digest": "4c1df07edc58790e9051dca8c561b2d42082545f4051132d9c7364c177281e94",
     "request_id": "req_17690737b727064de3c9b1ecdce7f94b",
     "schema": 1,
     "sequence": 1,
@@ -2181,14 +2393,14 @@
    }
   },
   {
-   "digest": "bdd30f956a783a853ebaead4fb6ee62d752005903c1faa78a5a3aa44f12a6cae",
+   "digest": "31101d88c7003595b0d68b316eae7beae25e422e58bcac9a6c259bc394d7e3a8",
    "name": "continue_archived_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "002d89f037527473c51f4acd4dbdfacfc601d27cf76ce00faeda67cfe58308e7",
+     "receipt_digest": "6695344733edac0a320d6a3043192b9d6a0141b97f1e9dfffa05aff95ad2ddf9",
      "stage": "committed"
     },
     "outputs": [
@@ -2198,7 +2410,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "e6c3adc0d84ff3447ea6b61275d0f2c24e6eaff26f7d7551d4312118eba3661a",
+    "request_digest": "4c1df07edc58790e9051dca8c561b2d42082545f4051132d9c7364c177281e94",
     "request_id": "req_17690737b727064de3c9b1ecdce7f94b",
     "schema": 1,
     "supported_recovery": []
@@ -2605,7 +2817,34 @@
    }
   },
   {
-   "digest": "d1a4f35e298f800fed4bd894a78c241a76354503447b1eee623464f04d1fb81a",
+   "digest": "045ab20834cf150d258b323ba49db12ab473f5e8f66d3f11165052f47d61f73c",
+   "name": "purge_outcome",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "derived_copies": [],
+    "for_request_id": "req_05ffaff29f3c08b35f911dfb2a0724ac",
+    "kind": "removal_outcome",
+    "material_gaps": [
+     {
+      "code": "erasure_not_promised"
+     }
+    ],
+    "object_digest": "677c545680d11b1493ccebd50e6e34fba1477ea225c596ec8e416a0336a1d2d5",
+    "per_copy": [
+     {
+      "holder": {
+       "device_id": "dev_c7f821d641737a8e37f5df89335c2f98",
+       "holds_on": "device"
+      },
+      "outcome": "confirmed",
+      "tombstone_digest": "2c1e34508fc7976a8c1af34ba796a85567e1d9d4e8dd6fc5aaab0ecf0ac01aa7"
+     }
+    ],
+    "schema": 1
+   }
+  },
+  {
+   "digest": "3c64260a18d3d02cd4801bf8552f21e6431f66da419be3d97fc1b00b98ac062b",
    "name": "purge_result",
    "record": {
     "kind": "operation_result",
@@ -2619,6 +2858,10 @@
      {
       "digest": "c48cf706a39896de8f56952201937024486120acc7db3c104f141881daa09588",
       "kind": "team_state"
+     },
+     {
+      "digest": "045ab20834cf150d258b323ba49db12ab473f5e8f66d3f11165052f47d61f73c",
+      "kind": "removal_outcome"
      }
     ],
     "provider_effect": "not_applicable",
@@ -2841,7 +3084,7 @@
   }
  ],
  "says": "The founder and Bora found a Team together: the founder submits a reviewed founding, the owner holds it in review with the sealed proposal, Bora accepts the exact founding request, and it commits admitting the founder by founding and Bora by nomination, with a grant for each and the founding epoch. The founder renames it, and Bora keeps two drafts as candidates on the desktop. Each lifecycle action then travels in the operation whose authority it needs and carries what its own effect needs. Archive (team.lifecycle.apply) writes an archived team_state. Continue_archived (team.continuation.record) names a repository work scope and the existing draft it continues, and the state stays archived. Restore (team.lifecycle.apply) writes an active team_state. Forget_here (team.device.forget, on Bora's desktop itself, not the Team) names the desktop and settles the one draft only it holds, kept by the laptop; it returns nothing, moves no Team head, and nobody leaves. Leave (team.membership.leave) names Bora and hands Bora's other draft to the founder, and returns Bora's membership, now left. Purge (team.retention.apply) names the superseded first profile version and asks for outcomes per owner, and the state stays active. Close (team.lifecycle.apply) carries its whole plan. It names the founder as surviving owner and lists the laptop as reached and the desktop as not reached, since an unreachable holder is not evidence that it holds nothing. It holds no outbox entry, keeps the continued repository independent and says the purge was governed separately. The owner writes a closed team_state. Every Team action commits under its own receipt on the head the one before it moved to. A closing read returns the closed state, the renamed profile, both memberships and the grants.",
- "spec_sha256": "32876766db7cce36c710e12a55f73f897e6ede7f543ef61196f695ba70761590",
+ "spec_sha256": "c3b8c75ede2e22550fc867b350496405dc682558328cefbe561d08dc752e27f4",
  "steps": [
   {
    "carries": [
@@ -2930,6 +3173,17 @@
   },
   {
    "carries": [
+    "bora_workstream_submitted"
+   ],
+   "name": "open_workstream",
+   "request": "open_workstream_request",
+   "result": "open_workstream_result",
+   "returns": [
+    "bora_workstream"
+   ]
+  },
+  {
+   "carries": [
     "archival"
    ],
    "head": "archived",
@@ -2994,7 +3248,8 @@
    "request": "purging_request",
    "result": "purge_result",
    "returns": [
-    "restored_state"
+    "restored_state",
+    "purge_outcome"
    ]
   },
   {

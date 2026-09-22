@@ -1,6 +1,6 @@
 {
  "case": "N24-CANDIDATE-NEG",
- "says": "Alice binds her device key and registers a package candidate. She then submits a cutover whose candidate_digest names a candidate that differs from the registered one in one member's bytes and was never registered: bytes on disk without a registration receipt are not a candidate, so the owner refuses it with candidate_not_registered at candidate_digest and writes nothing. She submits a second cutover naming the registered candidate, but the tarball present on the target no longer hashes to what was registered: the owner refuses it with object_digest_mismatch at candidate_digest. A query by that second request id returns the same refused result and no receipt. What must not happen: either cutover installing a package, switching ownership, or committing on the strength of a candidate whose bytes the owner does not hold exactly as registered.",
+ "says": "Alice binds her device key and registers a package candidate. She then submits a cutover whose candidate_digest names a candidate that differs from the registered one in one member's bytes and was never registered: bytes on disk without a registration receipt are not a candidate, so the owner refuses it with candidate_not_registered at candidate_digest and writes nothing. She submits a second cutover naming the registered candidate, but the package that reaches the target holds different bytes than the registration recorded for one of its members (workenv/contracts/c03.py): the owner refuses it with object_digest_mismatch at candidate_digest. A query by that second request id returns the same refused result and no receipt. What must not happen: either cutover installing a package, switching ownership, or committing on the strength of a candidate whose bytes the owner does not hold exactly as registered.",
  "ids": [
   {
    "name": "alice",
@@ -479,5 +479,15 @@
     ]
    }
   }
- ]
+ ],
+ "world": {
+  "events": [
+   {
+    "kind": "received_bytes",
+    "before": "refuse_altered_tarball",
+    "path": "workenv/contracts/c03.py",
+    "bytes": "# tampered bytes that do not match the registered member's digest\n"
+   }
+  ]
+ }
 }

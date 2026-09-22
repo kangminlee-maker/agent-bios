@@ -73,6 +73,10 @@
   {
    "name": "resolve_the_release_lane_again_id",
    "prefix": "req"
+  },
+  {
+   "name": "observe_the_wal_outcome_id",
+   "prefix": "req"
   }
  ],
  "records": [
@@ -1464,6 +1468,154 @@
      "value": "#release_lane_question"
     }
    ]
+  },
+  {
+   "name": "wal_observed_submitted",
+   "from": "c05/event_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/target/record_id",
+     "value": "$rec:wal_normal"
+    },
+    {
+     "pointer": "/effect/did",
+     "value": "observed"
+    },
+    {
+     "pointer": "/attributed_to",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/evidence_digests",
+     "value": [
+      "#measurement_stored"
+     ]
+    },
+    {
+     "pointer": "/note",
+     "value": "Commit cost measured after the switch matches the earlier estimate."
+    },
+    {
+     "pointer": "/workstream_ids",
+     "value": [
+      "$wst:storage"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "wal_observed_stored",
+   "from": "wal_observed_submitted",
+   "set": [
+    {
+     "pointer": "/target/record_id",
+     "value": "$rec:wal_normal"
+    },
+    {
+     "pointer": "/attributed_to",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/workstream_ids",
+     "value": [
+      "$wst:storage"
+     ]
+    },
+    {
+     "pointer": "/event_id",
+     "value": "$evt:wal_observed"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:wal_observed_recorded_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_memory_manifest_7",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "memory/records.jsonl"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:repo_memory_bytes_7"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": "$integer:repo_memory_size_7"
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:repo_memory_produced_7"
+    }
+   ]
+  },
+  {
+   "name": "observe_the_wal_outcome",
+   "from": "c01/link_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@observe_the_wal_outcome_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.lifecycle.apply"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:repo_memory_head_6"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#wal_observed_submitted"
+    }
+   ]
   }
  ],
  "steps": [
@@ -1680,6 +1832,25 @@
     "returns": [
      "release_lane_state_after"
     ]
+   }
+  },
+  {
+   "name": "observe_the_wal_outcome",
+   "request": "observe_the_wal_outcome",
+   "carries": [
+    "wal_observed_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "wal_observed_stored",
+     "repo_memory_manifest_7"
+    ],
+    "head": "repo_memory_head_7"
    }
   }
  ]

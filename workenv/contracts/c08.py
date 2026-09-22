@@ -78,7 +78,8 @@ OPERATIONS = {
                              "effect": "owner_commit", "action": "review", "targets": ("req",)},
     "team.lifecycle.apply": {"takes": ("lifecycle_action",), "returns": ("team_state",),
                              "effect": "owner_commit", "action": "policy", "targets": ("tem",)},
-    "team.retention.apply": {"takes": ("lifecycle_action",), "returns": ("team_state",),
+    "team.retention.apply": {"takes": ("lifecycle_action",),
+                             "returns": ("team_state", "removal_outcome"),
                              "effect": "owner_commit", "action": "retain_delete",
                              "targets": ("tem",)},
     "team.continuation.record": {"takes": ("lifecycle_action",), "returns": ("team_state",),
@@ -196,8 +197,9 @@ ERRORS = {
     INVITATION_NOT_OPEN: "a consent or admission naming an invitation that was cancelled, has "
                          "expired, has already admitted someone or was issued by another Team; "
                          "a late consent does not revive it",
-    TEAM_ARCHIVED: "a new mutation, adoption or piece of work on an archived Team; the "
-                   "continuation its policy names and a governed restore are what proceed",
+    TEAM_ARCHIVED: "a new mutation, adoption or piece of work on an archived Team; a "
+                   "continuation naming the existing work it continues and a governed restore "
+                   "are what proceed",
     TEAM_TERMINAL: "an operation on a Team whose closure or cancelled founding is terminal; "
                    "nothing reopens it, and the same name needs a new Team id",
     GRANT_NOT_HELD: "an action the actor holds no current grant for in that scope: never issued, "

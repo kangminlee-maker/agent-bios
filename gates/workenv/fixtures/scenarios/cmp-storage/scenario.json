@@ -1587,6 +1587,26 @@
    "record": "start_over_nine_positions_prepared"
   },
   {
+   "digest_of": "repo_rules_home_stored",
+   "pointer": "/units/0/home_digest",
+   "record": "start_over_nine_positions_prepared"
+  },
+  {
+   "digest_of": "my_rules_home_stored",
+   "pointer": "/units/1/home_digest",
+   "record": "start_over_nine_positions_prepared"
+  },
+  {
+   "digest_of": "team_rules_home_stored",
+   "pointer": "/units/2/home_digest",
+   "record": "start_over_nine_positions_prepared"
+  },
+  {
+   "digest_of": "team_tables_home_stored",
+   "pointer": "/units/3/home_digest",
+   "record": "start_over_nine_positions_prepared"
+  },
+  {
    "digest_of": "start_over_nine_positions",
    "pointer": "/request_digest",
    "record": "start_over_nine_positions_result"
@@ -5390,7 +5410,7 @@
    }
   },
   {
-   "digest": "ff553344dee5d434c78a5ae8efb3fd891623a9fbc0d2f2db51596cb6065d26b8",
+   "digest": "91a647761154c29311d377b2456a54b5dd62b0d39bd9e468500253d7cc771b76",
    "name": "start_over_nine_positions_prepared",
    "record": {
     "adapter": {
@@ -5488,6 +5508,7 @@
      {
       "body_digest": "c21a2ee216479f4b3fc78d249986a109249be2466dba34bff524f91626ed09a0",
       "concern": "review.approval",
+      "home_digest": "19974fb1af76797bdf26448f1a5340d3ec417ac4cb6c3eac31453cd97b75267b",
       "layer": "repository",
       "member": "rules/review.md",
       "revision_digest": "41939daf864bfc4d694978477b00a4c5f06cfe19a266ac13b5f9901eb4fd5953",
@@ -5500,6 +5521,7 @@
      {
       "body_digest": "a76c0c6600468bf1891da484f304a8ddd98f428d8c3acd1c2750fb30c0b0b69f",
       "concern": "commit.style",
+      "home_digest": "ca73445637c1cb2cb0d5a6aabdf3383d1cfd5167fff1c07c7f08d5052ae0a9bb",
       "layer": "personal",
       "member": "rules/style.md",
       "revision_digest": "f3893a2d1aac6d2f027ae76cd691a09ddba45031c6687608efde009aef4a77aa",
@@ -5512,6 +5534,7 @@
      {
       "body_digest": "7dff552460f591f683c7b0fe2c9ae3899de6c84839a39293b15dd67155b272a0",
       "concern": "release.checklist",
+      "home_digest": "b94ffecc928652e19703142a85e35d3162e61cdd5376d998394a9a15be3288d9",
       "layer": "team",
       "member": "rules/release.md",
       "revision_digest": "61fd2abae749d1ea91aff084bcad4e60e5a5b3edf7fd48e9276f6f5e08714c13",
@@ -5524,6 +5547,7 @@
      {
       "body_digest": "520fcfcbaded8bee7cce5d181474589128393b2a2046f3bf6e727f547c921e01",
       "concern": "tax.rate",
+      "home_digest": "c148dac73ccffee50bc347213de4c2646b6a7d06b7ada7b8da1d58753700dc35",
       "layer": "team",
       "member": "tables/rates.csv",
       "revision_digest": "ef721d70a92954d38b2e7c905bc8adf28c108ac393d6f78bfcb087000ef95a8f",
@@ -5540,7 +5564,7 @@
    }
   },
   {
-   "digest": "a6eac17d0b7a2c6e93e0c8d328fabb4b31061cef20f5e4709bff0e1d402c3582",
+   "digest": "030b64c39f000a618fec0745aa24f0ae661b8ab4a9ae76eafb8736672a74ead8",
    "name": "start_over_nine_positions_result",
    "record": {
     "kind": "operation_result",
@@ -5551,7 +5575,7 @@
     },
     "outputs": [
      {
-      "digest": "ff553344dee5d434c78a5ae8efb3fd891623a9fbc0d2f2db51596cb6065d26b8",
+      "digest": "91a647761154c29311d377b2456a54b5dd62b0d39bd9e468500253d7cc771b76",
       "kind": "preparation"
      }
     ],
@@ -5775,7 +5799,7 @@
   }
  ],
  "says": "The repository, alice and the Team platform each keep three separate positions, one for Instructions, one for knowledge and one for decision memory: nine collections, each created by its own owner's change and each with its own head. The repository selects an Instructions source and follows a memory source at the frontier each operation observes; alice selects an Instructions source; the Team selects an Instructions source and a knowledge source; the other positions are created empty. alice then stages a draft of her Instructions source in her personal Instructions position: the change carries the draft's manifest beside the position and lists it, the owner stages it without accepting it, and the source's own head does not move. A session start composed over all three scopes must name all nine positions at the heads it read, with the empty ones as empty, name every unit with its source, revision and layer (alice's unit at its committed revision, never the staged draft), and name the memory source's observed frontier rather than a pinned revision. The start is derived from those heads and writes none of them: reading the Team's Instructions position afterwards returns the same collection its change stored. Two attempts to make the applied view an original must fail: a collection whose position is the effective environment is refused at admission (variant_mismatch at /position/scope: there is no tenth position), and registering the Team's Instructions source again under alice's personal managed home is refused with source_home_conflict. What must not happen: the flattened start overwriting or re-owning any position, or being taken back in as a second authoritative source.",
- "spec_sha256": "9cf24e87d0b8fe17bcbbf6ded85c500cba8fcbc1ab6338bd124fec797f352fa7",
+ "spec_sha256": "1d8efd9f5250c75a93e950ebf26950bfff02896d9e363cbdf9fa55398e31d95b",
  "steps": [
   {
    "carries": [

@@ -1,6 +1,6 @@
 {
  "case": "BKP-PASSIVE",
- "says": "On her laptop Alice registers her private notes source, commits a revision on the head the registration made, and takes a backup under access generation 7. The laptop keeps running; the backup is restored onto a second runtime, a restored copy holding the same device's data and that old access generation. The restore reports authority passive. A commit on the restored copy, expecting the head the backup holds and carrying the restored generation 7, is blocked with access_locked and access_generation_moved and moves nothing: the restored copy did not unlock itself and is not a second finalizer. Reading the profile there shows it locked because restored, at generation 8, past the one it restored. On the laptop, meanwhile, a commit expecting that same head is accepted, so the laptop stays the one runtime that moves this head. Only an explicit unlock at a terminal on the restored copy, expecting generation 8, makes its access active, as a new access state the unlock wrote at that same generation; a query there then returns the restored commit's original result and receipt. What must not happen: the restored copy reading its restored generation as active access, unlocking without a person's explicit unlock, or finalizing a commit beside the laptop.",
+ "says": "On her laptop Alice registers her private notes source, commits a revision on the head the registration made, and takes a backup under access generation 7. The laptop keeps running; the backup is restored onto a second runtime, a restored copy holding the same device's data and that old access generation. The restore reports authority passive. A commit on the restored copy, expecting the head the backup holds and carrying the restored generation 7, is blocked with access_locked and access_generation_moved and moves nothing: the restored copy did not unlock itself and is not a second finalizer. Reading the profile there shows it locked because restored, at generation 8, past the one it restored. On the laptop, meanwhile, a commit expecting that same head is accepted, so the laptop stays the one runtime that moves this head. Only an explicit unlock at a terminal on the restored copy, expecting generation 8, makes its access active, as a new access state the unlock wrote at that same generation; a query there then returns the restored commit's original result and receipt. Being active at that generation is not restored authority: a hypothetical Team read the admission decider previews there, naming a revoked control evidence record among its proofs, is still not admitted, with credential_revoked and control_evidence_insufficient — access being unlocked at the current generation answers only C02's own question, not whether any control evidence the restored copy holds is still current. What must not happen: the restored copy reading its restored generation as active access, unlocking without a person's explicit unlock, finalizing a commit beside the laptop, or an active access generation being read as current control authority.",
  "ids": [
   {
    "name": "alice",
@@ -56,6 +56,26 @@
   },
   {
    "name": "profile_read_request",
+   "prefix": "req"
+  },
+  {
+   "name": "team",
+   "prefix": "tem"
+  },
+  {
+   "name": "revoked_control",
+   "prefix": "ctl"
+  },
+  {
+   "name": "revoked_control_target",
+   "prefix": "ctl"
+  },
+  {
+   "name": "admission_check_request",
+   "prefix": "req"
+  },
+  {
+   "name": "restricted_read_request",
    "prefix": "req"
   }
  ],
@@ -414,7 +434,7 @@
     },
     {
      "pointer": "/members/0/size",
-     "value": 4121
+     "value": 382
     },
     {
      "pointer": "/members/1/path",
@@ -894,6 +914,180 @@
      "value": 8
     }
    ]
+  },
+  {
+   "name": "revocation",
+   "from": "c02/revocation_of_an_earlier_permit.json",
+   "set": [
+    {
+     "pointer": "/evidence_id",
+     "value": "@revoked_control"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/holder/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/issuer/authority_principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/issuer/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/issued_at",
+     "value": "2026-09-21T09:00:00Z"
+    },
+    {
+     "pointer": "/statement/revoked",
+     "value": "@revoked_control_target"
+    }
+   ]
+  },
+  {
+   "name": "restricted_read",
+   "from": "c02/lock_request.json",
+   "drop": [
+    "/owner/principal_id",
+    "/payload_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@restricted_read_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.state.read"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 8
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "e2785130118e73c5cd33ed82541dc84ebcae82dca7b9a1c9e6e7ab882f8241fb"
+    },
+    {
+     "pointer": "/control_digests",
+     "value": [
+      "#revocation"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "admission_request",
+   "from": "c02/lock_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@admission_check_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.admission.decide"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 8
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#restricted_read"
+    }
+   ]
+  },
+  {
+   "name": "admission_result",
+   "from": "c02/revoked_credential_and_old_controls.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@restricted_read_request"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 8
+    }
+   ]
   }
  ],
  "steps": [
@@ -1081,6 +1275,24 @@
     "returns": [
      "commit_first_revision_result",
      "commit_first_revision_receipt"
+    ]
+   },
+   "process": "restored_copy"
+  },
+  {
+   "name": "check_admission_after_unlock",
+   "request": "admission_request",
+   "carries": [
+    "restricted_read"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "admission_result"
     ]
    },
    "process": "restored_copy"

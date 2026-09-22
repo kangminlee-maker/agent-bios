@@ -34,6 +34,14 @@
    "name": "journal_concern"
   },
   {
+   "id": "req_7e081591b3b1cc090dc318d13cb5ae99",
+   "name": "register_repo_decisions_request_id"
+  },
+  {
+   "id": "req_ccf615344120d063ac3c52a1a37d7aab",
+   "name": "register_my_decisions_request_id"
+  },
+  {
    "id": "req_127959f712a71dbd8b448576fc975754",
    "name": "publish_journal_repo_choice_id"
   },
@@ -158,6 +166,101 @@
    "record": "bind_device_key_result"
   },
   {
+   "digest_of": "repo_decisions_home",
+   "pointer": "/payload_digest",
+   "record": "register_repo_decisions_request"
+  },
+  {
+   "digest_of": "register_repo_decisions_request",
+   "pointer": "/request_digest",
+   "record": "register_repo_decisions_receipt"
+  },
+  {
+   "minted": "repo_decisions_h0",
+   "pointer": "/head_digest",
+   "record": "register_repo_decisions_receipt"
+  },
+  {
+   "minted": "register_repo_decisions_sequence",
+   "pointer": "/sequence",
+   "record": "register_repo_decisions_receipt"
+  },
+  {
+   "minted": "register_repo_decisions_committed_at",
+   "pointer": "/committed_at",
+   "record": "register_repo_decisions_receipt"
+  },
+  {
+   "minted": "repo_decisions_registered_at",
+   "pointer": "/registered_at",
+   "record": "stored_repo_decisions_home"
+  },
+  {
+   "digest_of": "register_repo_decisions_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "register_repo_decisions_result"
+  },
+  {
+   "digest_of": "register_repo_decisions_request",
+   "pointer": "/request_digest",
+   "record": "register_repo_decisions_result"
+  },
+  {
+   "digest_of": "stored_repo_decisions_home",
+   "pointer": "/outputs/0/digest",
+   "record": "register_repo_decisions_result"
+  },
+  {
+   "digest_of": "my_decisions_home",
+   "pointer": "/payload_digest",
+   "record": "register_my_decisions_request"
+  },
+  {
+   "digest_of": "register_my_decisions_request",
+   "pointer": "/request_digest",
+   "record": "register_my_decisions_receipt"
+  },
+  {
+   "minted": "my_decisions_h0",
+   "pointer": "/head_digest",
+   "record": "register_my_decisions_receipt"
+  },
+  {
+   "minted": "register_my_decisions_sequence",
+   "pointer": "/sequence",
+   "record": "register_my_decisions_receipt"
+  },
+  {
+   "minted": "register_my_decisions_committed_at",
+   "pointer": "/committed_at",
+   "record": "register_my_decisions_receipt"
+  },
+  {
+   "minted": "my_decisions_registered_at",
+   "pointer": "/registered_at",
+   "record": "stored_my_decisions_home"
+  },
+  {
+   "digest_of": "register_my_decisions_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "register_my_decisions_result"
+  },
+  {
+   "digest_of": "register_my_decisions_request",
+   "pointer": "/request_digest",
+   "record": "register_my_decisions_result"
+  },
+  {
+   "digest_of": "stored_my_decisions_home",
+   "pointer": "/outputs/0/digest",
+   "record": "register_my_decisions_result"
+  },
+  {
+   "minted": "repo_decisions_h0",
+   "pointer": "/target/base/head_digest",
+   "record": "publish_journal_repo_choice"
+  },
+  {
    "digest_of": "journal_repo_choice",
    "pointer": "/payload_digest",
    "record": "publish_journal_repo_choice"
@@ -180,6 +283,11 @@
   {
    "minted": "publish_the_repository_journal_choice_committed_at",
    "pointer": "/committed_at",
+   "record": "publish_the_repository_journal_choice_receipt"
+  },
+  {
+   "minted": "repo_decisions_h0",
+   "pointer": "/target/base/head_digest",
    "record": "publish_the_repository_journal_choice_receipt"
   },
   {
@@ -208,6 +316,11 @@
    "record": "publish_the_repository_journal_choice_result"
   },
   {
+   "minted": "my_decisions_h0",
+   "pointer": "/target/base/head_digest",
+   "record": "publish_journal_personal_choice"
+  },
+  {
    "digest_of": "journal_personal_choice",
    "pointer": "/payload_digest",
    "record": "publish_journal_personal_choice"
@@ -230,6 +343,11 @@
   {
    "minted": "publish_the_personal_journal_choice_committed_at",
    "pointer": "/committed_at",
+   "record": "publish_the_personal_journal_choice_receipt"
+  },
+  {
+   "minted": "my_decisions_h0",
+   "pointer": "/target/base/head_digest",
    "record": "publish_the_personal_journal_choice_receipt"
   },
   {
@@ -1475,6 +1593,46 @@
    "step": "bind_device_key"
   },
   {
+   "name": "register_repo_decisions_committed_at",
+   "shape": "instant",
+   "step": "register_repo_decisions"
+  },
+  {
+   "name": "register_repo_decisions_sequence",
+   "shape": "integer",
+   "step": "register_repo_decisions"
+  },
+  {
+   "name": "repo_decisions_h0",
+   "shape": "digest",
+   "step": "register_repo_decisions"
+  },
+  {
+   "name": "repo_decisions_registered_at",
+   "shape": "instant",
+   "step": "register_repo_decisions"
+  },
+  {
+   "name": "my_decisions_h0",
+   "shape": "digest",
+   "step": "register_my_decisions"
+  },
+  {
+   "name": "my_decisions_registered_at",
+   "shape": "instant",
+   "step": "register_my_decisions"
+  },
+  {
+   "name": "register_my_decisions_committed_at",
+   "shape": "instant",
+   "step": "register_my_decisions"
+  },
+  {
+   "name": "register_my_decisions_sequence",
+   "shape": "integer",
+   "step": "register_my_decisions"
+  },
+  {
    "name": "journal_repo_choice",
    "shape": "rec",
    "step": "publish_the_repository_journal_choice"
@@ -1951,6 +2109,330 @@
    }
   },
   {
+   "digest": "1220e7741fa1b6a21206e74ce16d2aabf75519204510043b014a2fd4cd483559",
+   "name": "repo_decisions_home",
+   "record": {
+    "acceptance_authority": {
+     "layer": "repository",
+     "repository_id": "rep_19ee4dfce8bf59b8a8fdeae54070133a"
+    },
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "profile",
+       "value": "this installation"
+      }
+     ],
+     "states": "stated"
+    },
+    "disclosure": "team",
+    "format_version": 1,
+    "home": {
+     "markdown_view": {
+      "path": "views/collection.md",
+      "view": "derived"
+     },
+     "mode": "managed"
+    },
+    "kind": "source_home",
+    "publication_evidence_digests": [],
+    "retention": {
+     "keep": "until",
+     "until": "2027-01-01T00:00:00Z"
+    },
+    "role": "memory",
+    "schema": 1,
+    "scope": {
+     "layer": "repository",
+     "repository_id": "rep_19ee4dfce8bf59b8a8fdeae54070133a"
+    },
+    "source_id": "src_bb15f44c12bc36cbff121b75704d3c30"
+   }
+  },
+  {
+   "digest": "456cb5717f326c9382958cdaa37697f019009819877357a4c41b520428904516",
+   "name": "register_repo_decisions_request",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_30a490a7a09e954f0c29bc3fd3fb265a",
+     "principal_id": "prn_fc4d661fba416c00f467f4e2969f188f",
+     "profile_id": "prf_af1e8d5cb00a2e546611ce763b5029c5"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "source.home.register",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_19ee4dfce8bf59b8a8fdeae54070133a"
+    },
+    "payload_digest": "1220e7741fa1b6a21206e74ce16d2aabf75519204510043b014a2fd4cd483559",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_7e081591b3b1cc090dc318d13cb5ae99",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_bb15f44c12bc36cbff121b75704d3c30"
+    }
+   }
+  },
+  {
+   "digest": "c63fb81ee3b158e0cd2876c72f8ec85b90ae38088dd95373108e4b6ce6ae5346",
+   "name": "register_repo_decisions_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "178fb5a1d3cbb132fbad1ca40f6c5c94abf266784f3e7de87e582391c95b7350",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_19ee4dfce8bf59b8a8fdeae54070133a"
+    },
+    "request_digest": "456cb5717f326c9382958cdaa37697f019009819877357a4c41b520428904516",
+    "request_id": "req_7e081591b3b1cc090dc318d13cb5ae99",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_bb15f44c12bc36cbff121b75704d3c30"
+    }
+   }
+  },
+  {
+   "digest": "4d21b5d2bcf0dc2c2042e00b520864aa5dbb945a3f768bb71e5de197614c0abb",
+   "name": "stored_repo_decisions_home",
+   "record": {
+    "acceptance_authority": {
+     "layer": "repository",
+     "repository_id": "rep_19ee4dfce8bf59b8a8fdeae54070133a"
+    },
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "profile",
+       "value": "this installation"
+      }
+     ],
+     "states": "stated"
+    },
+    "disclosure": "team",
+    "format_version": 1,
+    "home": {
+     "markdown_view": {
+      "path": "views/collection.md",
+      "view": "derived"
+     },
+     "mode": "managed"
+    },
+    "kind": "source_home",
+    "publication_evidence_digests": [],
+    "registered_at": "2000-01-01T00:00:00Z",
+    "retention": {
+     "keep": "until",
+     "until": "2027-01-01T00:00:00Z"
+    },
+    "role": "memory",
+    "schema": 1,
+    "scope": {
+     "layer": "repository",
+     "repository_id": "rep_19ee4dfce8bf59b8a8fdeae54070133a"
+    },
+    "source_id": "src_bb15f44c12bc36cbff121b75704d3c30"
+   }
+  },
+  {
+   "digest": "dfde6caa7d249171ff2b98665d70e5a7a5ded289d9c73c5a9a82e143391c73d7",
+   "name": "register_repo_decisions_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "c63fb81ee3b158e0cd2876c72f8ec85b90ae38088dd95373108e4b6ce6ae5346",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "4d21b5d2bcf0dc2c2042e00b520864aa5dbb945a3f768bb71e5de197614c0abb",
+      "kind": "source_home"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "456cb5717f326c9382958cdaa37697f019009819877357a4c41b520428904516",
+    "request_id": "req_7e081591b3b1cc090dc318d13cb5ae99",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "d159b70feb7c3b8b9c3bd95f8dd8ee52d7db4ecf01ebba119972383e8b11a0bb",
+   "name": "my_decisions_home",
+   "record": {
+    "acceptance_authority": {
+     "layer": "personal",
+     "principal_id": "prn_fc4d661fba416c00f467f4e2969f188f"
+    },
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "profile",
+       "value": "this installation"
+      }
+     ],
+     "states": "stated"
+    },
+    "disclosure": "private",
+    "format_version": 1,
+    "home": {
+     "markdown_view": {
+      "path": "views/collection.md",
+      "view": "derived"
+     },
+     "mode": "managed"
+    },
+    "kind": "source_home",
+    "publication_evidence_digests": [],
+    "retention": {
+     "keep": "until",
+     "until": "2027-01-01T00:00:00Z"
+    },
+    "role": "memory",
+    "schema": 1,
+    "scope": {
+     "layer": "personal",
+     "principal_id": "prn_fc4d661fba416c00f467f4e2969f188f"
+    },
+    "source_id": "src_58165873b09d80622c72f78e35c598ec"
+   }
+  },
+  {
+   "digest": "2a5df3088f3d63d20254cc69be70883e32cca5df2babf5084d406d397e36de61",
+   "name": "register_my_decisions_request",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_30a490a7a09e954f0c29bc3fd3fb265a",
+     "principal_id": "prn_fc4d661fba416c00f467f4e2969f188f",
+     "profile_id": "prf_af1e8d5cb00a2e546611ce763b5029c5"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "source.home.register",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_fc4d661fba416c00f467f4e2969f188f"
+    },
+    "payload_digest": "d159b70feb7c3b8b9c3bd95f8dd8ee52d7db4ecf01ebba119972383e8b11a0bb",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_ccf615344120d063ac3c52a1a37d7aab",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_58165873b09d80622c72f78e35c598ec"
+    }
+   }
+  },
+  {
+   "digest": "ed513f25e4511eb9196469e3d5a0208e0c0abd2cc4be8ff639460d513e64deed",
+   "name": "register_my_decisions_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "2930305916fa773fe2dd459b9df5e02179b6a3c4078f4107c8d5827218626c18",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_fc4d661fba416c00f467f4e2969f188f"
+    },
+    "request_digest": "2a5df3088f3d63d20254cc69be70883e32cca5df2babf5084d406d397e36de61",
+    "request_id": "req_ccf615344120d063ac3c52a1a37d7aab",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_58165873b09d80622c72f78e35c598ec"
+    }
+   }
+  },
+  {
+   "digest": "ad7901a897cb48014f1c9d3a70df1743dff418828c8710395765be384a19d4f0",
+   "name": "stored_my_decisions_home",
+   "record": {
+    "acceptance_authority": {
+     "layer": "personal",
+     "principal_id": "prn_fc4d661fba416c00f467f4e2969f188f"
+    },
+    "applicability": {
+     "conditions": [
+      {
+       "dimension": "profile",
+       "value": "this installation"
+      }
+     ],
+     "states": "stated"
+    },
+    "disclosure": "private",
+    "format_version": 1,
+    "home": {
+     "markdown_view": {
+      "path": "views/collection.md",
+      "view": "derived"
+     },
+     "mode": "managed"
+    },
+    "kind": "source_home",
+    "publication_evidence_digests": [],
+    "registered_at": "2000-01-01T00:00:00Z",
+    "retention": {
+     "keep": "until",
+     "until": "2027-01-01T00:00:00Z"
+    },
+    "role": "memory",
+    "schema": 1,
+    "scope": {
+     "layer": "personal",
+     "principal_id": "prn_fc4d661fba416c00f467f4e2969f188f"
+    },
+    "source_id": "src_58165873b09d80622c72f78e35c598ec"
+   }
+  },
+  {
+   "digest": "cf89b0aafb6f7b1cd77fad044af793d1d7627ae1562adae45278bffa1ee7eac8",
+   "name": "register_my_decisions_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "ed513f25e4511eb9196469e3d5a0208e0c0abd2cc4be8ff639460d513e64deed",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "ad7901a897cb48014f1c9d3a70df1743dff418828c8710395765be384a19d4f0",
+      "kind": "source_home"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "2a5df3088f3d63d20254cc69be70883e32cca5df2babf5084d406d397e36de61",
+    "request_id": "req_ccf615344120d063ac3c52a1a37d7aab",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
    "digest": "747e44b9cc37eff1bc00ef3fd5bce036327731213c5f767cf0529c50ec225db0",
    "name": "journal_repo_choice",
    "record": {
@@ -1988,7 +2470,7 @@
    }
   },
   {
-   "digest": "301751dd562a39393d6cee2391592f6f1da52bc80e813b841022d8df128e1db3",
+   "digest": "4546462e06c3fd050853feb869434d75435247c158bb05222ad9e6c5b71300f8",
    "name": "publish_journal_repo_choice",
    "record": {
     "action": "publish",
@@ -2013,7 +2495,8 @@
     "schema": 1,
     "target": {
      "base": {
-      "expects": "absent"
+      "expects": "head",
+      "head_digest": "178fb5a1d3cbb132fbad1ca40f6c5c94abf266784f3e7de87e582391c95b7350"
      },
      "resource_id": "src_bb15f44c12bc36cbff121b75704d3c30"
     },
@@ -2024,7 +2507,7 @@
    }
   },
   {
-   "digest": "a141e025d1a8f2674341b9dc9bbf38cde6c9784085d628a3207e3ceb9f5c2983",
+   "digest": "4789e0061d0d65edb00645c2a6f709cf832c4d2a4eeb6ea2c49115bd6641bb8e",
    "name": "publish_the_repository_journal_choice_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -2034,13 +2517,14 @@
      "layer": "repository",
      "repository_id": "rep_19ee4dfce8bf59b8a8fdeae54070133a"
     },
-    "request_digest": "301751dd562a39393d6cee2391592f6f1da52bc80e813b841022d8df128e1db3",
+    "request_digest": "4546462e06c3fd050853feb869434d75435247c158bb05222ad9e6c5b71300f8",
     "request_id": "req_127959f712a71dbd8b448576fc975754",
     "schema": 1,
     "sequence": 1,
     "target": {
      "base": {
-      "expects": "absent"
+      "expects": "head",
+      "head_digest": "178fb5a1d3cbb132fbad1ca40f6c5c94abf266784f3e7de87e582391c95b7350"
      },
      "resource_id": "src_bb15f44c12bc36cbff121b75704d3c30"
     }
@@ -2086,14 +2570,14 @@
    }
   },
   {
-   "digest": "15f15b0158b45193fc8e05632f08bc0e4cd1523cc6840248492e8cb6bdfcd089",
+   "digest": "94538f001b3c8f0c03dc5586b835a9eaeaf380eeee3c1f8050ad1b4709841d0c",
    "name": "publish_the_repository_journal_choice_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "a141e025d1a8f2674341b9dc9bbf38cde6c9784085d628a3207e3ceb9f5c2983",
+     "receipt_digest": "4789e0061d0d65edb00645c2a6f709cf832c4d2a4eeb6ea2c49115bd6641bb8e",
      "stage": "committed"
     },
     "outputs": [
@@ -2103,7 +2587,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "301751dd562a39393d6cee2391592f6f1da52bc80e813b841022d8df128e1db3",
+    "request_digest": "4546462e06c3fd050853feb869434d75435247c158bb05222ad9e6c5b71300f8",
     "request_id": "req_127959f712a71dbd8b448576fc975754",
     "schema": 1,
     "supported_recovery": []
@@ -2147,7 +2631,7 @@
    }
   },
   {
-   "digest": "a0f6f28ca54ccd9d64bbc3c32693d3b26d6cfac3c926b016ee12b3a6887525a6",
+   "digest": "667949832872ed82de9216a616d07f7fc32fc664ad47aebe0501de7fa0c22458",
    "name": "publish_journal_personal_choice",
    "record": {
     "action": "publish",
@@ -2172,14 +2656,15 @@
     "schema": 1,
     "target": {
      "base": {
-      "expects": "absent"
+      "expects": "head",
+      "head_digest": "2930305916fa773fe2dd459b9df5e02179b6a3c4078f4107c8d5827218626c18"
      },
      "resource_id": "src_58165873b09d80622c72f78e35c598ec"
     }
    }
   },
   {
-   "digest": "e97e20ab4ef334d15928db165df3f25f04105188766d5be09271b7a7dc6d2e5d",
+   "digest": "b3aee7b5eb78a0295c0cc1d41b75fdb6ba58ce0c0342e081515a30d8406c45f4",
    "name": "publish_the_personal_journal_choice_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -2189,13 +2674,14 @@
      "layer": "personal",
      "principal_id": "prn_fc4d661fba416c00f467f4e2969f188f"
     },
-    "request_digest": "a0f6f28ca54ccd9d64bbc3c32693d3b26d6cfac3c926b016ee12b3a6887525a6",
+    "request_digest": "667949832872ed82de9216a616d07f7fc32fc664ad47aebe0501de7fa0c22458",
     "request_id": "req_759f77addc152dd65ff50bbe3f065192",
     "schema": 1,
     "sequence": 1,
     "target": {
      "base": {
-      "expects": "absent"
+      "expects": "head",
+      "head_digest": "2930305916fa773fe2dd459b9df5e02179b6a3c4078f4107c8d5827218626c18"
      },
      "resource_id": "src_58165873b09d80622c72f78e35c598ec"
     }
@@ -2241,14 +2727,14 @@
    }
   },
   {
-   "digest": "65bf285f05300cb4220a45b81b3caf71491b65aaa2927b0f2aa8a5999f55947c",
+   "digest": "af61f161985adb31c767ae7b0152da1908c3cfcaf9fbf7966132cee0f8d82ee4",
    "name": "publish_the_personal_journal_choice_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "e97e20ab4ef334d15928db165df3f25f04105188766d5be09271b7a7dc6d2e5d",
+     "receipt_digest": "b3aee7b5eb78a0295c0cc1d41b75fdb6ba58ce0c0342e081515a30d8406c45f4",
      "stage": "committed"
     },
     "outputs": [
@@ -2258,7 +2744,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "a0f6f28ca54ccd9d64bbc3c32693d3b26d6cfac3c926b016ee12b3a6887525a6",
+    "request_digest": "667949832872ed82de9216a616d07f7fc32fc664ad47aebe0501de7fa0c22458",
     "request_id": "req_759f77addc152dd65ff50bbe3f065192",
     "schema": 1,
     "supported_recovery": []
@@ -4164,7 +4650,7 @@
   }
  ],
  "says": "The repository says WAL and the person's own decisions say a rollback journal, and a use in the working Claude Code 2.1.278 conversation needs their answer. A link to that conversation is opened, and so is one to a headless Codex CLI 0.155.1 run. The ordinary-message route is probed for real on Claude Code, and the probe writes the configuration it ran under, the host's one UserPromptSubmit hook disabled: only a message the person typed produced the host's user-prompt event, so the profile qualifies user_event by that probe while the form route stays offered_but_unproven. The owner seals the question and stores it pending before asking, naming the qualified conversation route. Asking through the headless Codex link is recorded unsupported with no channel and answer_origin_unverified, so the use stays pending there rather than counting anything that transport returns. Asked in the conversation, four replies arrive that are not the person's answer, and the owner, measuring the configuration as it classifies each, records the non-answer it is: the assistant quoting the person (model_quoted), a field the agent filled and submitted through a pre-approved tool call (tool_permission), a message injected while the hook was switched on (hook_generated) and a timeout (timed_out). A reply replayed from another conversation names a link this work never opened and is refused with recipient_link_unknown before any evidence is written. Resuming the use with the tool-permission evidence is blocked with answer_not_from_a_person: the same use still waits on the same question version. With the hook off again the person types their choice of WAL; the owner records a verified_native_user_event answer on the conversation route, bound to this link, use and question version, under the configuration measured then and naming the real user-event probe as its separation, and resuming with it admits the same use.",
- "spec_sha256": "7dd5e176f27ad076f9787ed129bcef8cae3e04afa3b8afe740fec3d4f3655412",
+ "spec_sha256": "bacdf0f3bf4a9ba16244ffec6c15530b86fb1b4c700a1d6b5134b4dfc023ca5a",
  "steps": [
   {
    "carries": [
@@ -4175,6 +4661,30 @@
    "result": "bind_device_key_result",
    "returns": [
     "stored_device_key"
+   ]
+  },
+  {
+   "carries": [
+    "repo_decisions_home"
+   ],
+   "head": "repo_decisions_h0",
+   "name": "register_repo_decisions",
+   "request": "register_repo_decisions_request",
+   "result": "register_repo_decisions_result",
+   "returns": [
+    "stored_repo_decisions_home"
+   ]
+  },
+  {
+   "carries": [
+    "my_decisions_home"
+   ],
+   "head": "my_decisions_h0",
+   "name": "register_my_decisions",
+   "request": "register_my_decisions_request",
+   "result": "register_my_decisions_result",
+   "returns": [
+    "stored_my_decisions_home"
    ]
   },
   {

@@ -362,6 +362,21 @@
    "record": "begin_link_request"
   },
   {
+   "digest_of": "slack_attempt_asked",
+   "pointer": "/signed_digest",
+   "record": "slack_attempt_control_proof"
+  },
+  {
+   "minted": "alice_binding",
+   "pointer": "/signer_binding_id",
+   "record": "slack_attempt_control_proof"
+  },
+  {
+   "digest_of": "slack_attempt_control_proof",
+   "pointer": "/proof_digests/0",
+   "record": "begin_link_request"
+  },
+  {
    "digest_of": "begin_link_request",
    "pointer": "/request_digest",
    "record": "begin_link_receipt"
@@ -1158,7 +1173,7 @@
    }
   },
   {
-   "digest": "29a54563293b6891b389bdf67ffe1c58ae78153e22513ca96d0b6ee234219ca1",
+   "digest": "ad5ea2a79371cea099a976f76a7dfb3b28e2a377b4dc289020cfff256fbe4dae",
    "name": "team_founder_grant",
    "record": {
     "actions": [
@@ -1166,7 +1181,8 @@
      "use",
      "contribute",
      "grant",
-     "policy"
+     "policy",
+     "transfer"
     ],
     "created_at": "2000-01-01T00:00:00Z",
     "delegation_ceiling": 1,
@@ -1233,7 +1249,7 @@
    }
   },
   {
-   "digest": "a0b65db10b93d0d1393d197424166c910cc80b36ace207bf6306911ec5a8a030",
+   "digest": "d544129c4cc9b65823843bbc89f5b7f9926b2fe5f20112877a7d0598db6c1b9f",
    "name": "found_team_result",
    "record": {
     "kind": "operation_result",
@@ -1257,7 +1273,7 @@
       "kind": "membership_record"
      },
      {
-      "digest": "29a54563293b6891b389bdf67ffe1c58ae78153e22513ca96d0b6ee234219ca1",
+      "digest": "ad5ea2a79371cea099a976f76a7dfb3b28e2a377b4dc289020cfff256fbe4dae",
       "kind": "grant_record"
      },
      {
@@ -1531,7 +1547,19 @@
    }
   },
   {
-   "digest": "b893bc4a9d16b44e43be949e4bf3d49bb37f9c9b97c1d55a568eaa35c63310f2",
+   "digest": "f329ac3c7a7d62a771040b584443675cca59183ebf2e27eda3f742abfdb62857",
+   "name": "slack_attempt_control_proof",
+   "record": {
+    "kind": "signature_envelope",
+    "namespace": "agent-bios/sign_in_attempt",
+    "schema": 1,
+    "signed_digest": "b2bc3542946bad9f75ee42fd46ac44c90d62999d4a3859c682c88e35be64d375",
+    "signer_binding_id": "bnd_d9c1a35c875b98b8578388f3a7e96e4d",
+    "sshsig": "U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+   }
+  },
+  {
+   "digest": "5d53d369b47ce058cac788dfc303da03b58bfa3fc761d7682deecfd5b6924b2d",
    "name": "begin_link_request",
    "record": {
     "action": "local_profile",
@@ -1551,7 +1579,9 @@
     },
     "payload_digest": "b2bc3542946bad9f75ee42fd46ac44c90d62999d4a3859c682c88e35be64d375",
     "policy_digests": [],
-    "proof_digests": [],
+    "proof_digests": [
+     "f329ac3c7a7d62a771040b584443675cca59183ebf2e27eda3f742abfdb62857"
+    ],
     "request_id": "req_421b875e182eb71e0dde22f0c1f466cc",
     "schema": 1,
     "target": {
@@ -1560,7 +1590,7 @@
    }
   },
   {
-   "digest": "2cb01c5ed18669b06f87f1adb0125712c2f9db473bab90f62fbb1f525a469513",
+   "digest": "8804d265d5d212b6cacd29c4fc2fc8792cf34348397ee8a59f4713195da3b05f",
    "name": "begin_link_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -1570,7 +1600,7 @@
      "layer": "personal",
      "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b"
     },
-    "request_digest": "b893bc4a9d16b44e43be949e4bf3d49bb37f9c9b97c1d55a568eaa35c63310f2",
+    "request_digest": "5d53d369b47ce058cac788dfc303da03b58bfa3fc761d7682deecfd5b6924b2d",
     "request_id": "req_421b875e182eb71e0dde22f0c1f466cc",
     "schema": 1,
     "sequence": 1,
@@ -1598,14 +1628,14 @@
    }
   },
   {
-   "digest": "effb59d9e65e2e098358a00c126c79300065dcae658830283f991daeaa2a1f76",
+   "digest": "4a7697c22eb064ad5103db8c97ec13e977ca11ceba98c5748b88d9defbc39938",
    "name": "begin_link_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "2cb01c5ed18669b06f87f1adb0125712c2f9db473bab90f62fbb1f525a469513",
+     "receipt_digest": "8804d265d5d212b6cacd29c4fc2fc8792cf34348397ee8a59f4713195da3b05f",
      "stage": "committed"
     },
     "outputs": [
@@ -1615,7 +1645,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "b893bc4a9d16b44e43be949e4bf3d49bb37f9c9b97c1d55a568eaa35c63310f2",
+    "request_digest": "5d53d369b47ce058cac788dfc303da03b58bfa3fc761d7682deecfd5b6924b2d",
     "request_id": "req_421b875e182eb71e0dde22f0c1f466cc",
     "schema": 1,
     "supported_recovery": []
@@ -1678,7 +1708,7 @@
    }
   },
   {
-   "digest": "d71759670a35168af2d7e3ed23123340c647c6ce52ec0b1feb48d085de3f8bd9",
+   "digest": "7b47c91d1df7a2282d4b04ae639535298dd74ecf4adf558cfcba9b10b34eb5e8",
    "name": "callback_with_claims",
    "record": {
     "attempt_id": "sin_0ead59b4024faca91a8a2616908af7f8",
@@ -1692,8 +1722,8 @@
       }
      ],
      "email": "alice@example.com",
-     "expires_at": "2026-09-20T10:01:00Z",
-     "issued_at": "2026-09-20T09:01:00Z",
+     "expires_at": "2026-09-21T10:00:00Z",
+     "issued_at": "2026-09-21T08:59:00Z",
      "issuer": "https://slack.com",
      "nonce_digest": "ad38dcc8aa0ec9319481a38cbb69b4f8d8842ebd9bf6684fa01b8eb9e768145c",
      "returned": "claims",
@@ -1704,7 +1734,7 @@
    }
   },
   {
-   "digest": "d15474ea6d1040c15b22e7e3abb98e707694e6ecb1658592c9347868f13b2948",
+   "digest": "38649fe7447a6a032856d70d033a7186872f4a8555abc9ae27972d7e65a79ce4",
    "name": "complete_request",
    "record": {
     "action": "local_profile",
@@ -1722,7 +1752,7 @@
      "layer": "personal",
      "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b"
     },
-    "payload_digest": "d71759670a35168af2d7e3ed23123340c647c6ce52ec0b1feb48d085de3f8bd9",
+    "payload_digest": "7b47c91d1df7a2282d4b04ae639535298dd74ecf4adf558cfcba9b10b34eb5e8",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_679a2ed541669e5c3ff66a04b8cf2484",
@@ -1733,7 +1763,7 @@
    }
   },
   {
-   "digest": "f5649cf82d910a5ca5c93e4a8017838e74a91245a7e2950531ffacb31736c677",
+   "digest": "6705d3c48da24ffcde7c999972e34b20706dc011869551af4e5bc68709c1877c",
    "name": "link_with_claims_only_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -1743,7 +1773,7 @@
      "layer": "personal",
      "principal_id": "prn_1569e54310d07c7f3e001d96e502f04b"
     },
-    "request_digest": "d15474ea6d1040c15b22e7e3abb98e707694e6ecb1658592c9347868f13b2948",
+    "request_digest": "38649fe7447a6a032856d70d033a7186872f4a8555abc9ae27972d7e65a79ce4",
     "request_id": "req_679a2ed541669e5c3ff66a04b8cf2484",
     "schema": 1,
     "sequence": 1,
@@ -1798,14 +1828,14 @@
    }
   },
   {
-   "digest": "d7ae4f28c411e5bc4668dd8dd50f825544f7b355293d5603b05a0ef694b7d934",
+   "digest": "9b07da466e98f0e69369034f0b3684e14e16a44abd653c22eca6afe0625deb00",
    "name": "link_with_claims_only_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "f5649cf82d910a5ca5c93e4a8017838e74a91245a7e2950531ffacb31736c677",
+     "receipt_digest": "6705d3c48da24ffcde7c999972e34b20706dc011869551af4e5bc68709c1877c",
      "stage": "committed"
     },
     "outputs": [
@@ -1819,14 +1849,14 @@
      }
     ],
     "provider_effect": "committed",
-    "request_digest": "d15474ea6d1040c15b22e7e3abb98e707694e6ecb1658592c9347868f13b2948",
+    "request_digest": "38649fe7447a6a032856d70d033a7186872f4a8555abc9ae27972d7e65a79ce4",
     "request_id": "req_679a2ed541669e5c3ff66a04b8cf2484",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "31da26c0c5039bcd86c35fb26f6f42a9c5ca491a11a893a7b6db857355dbe6b8",
+   "digest": "6e2d1256314ac4e15b0ecb792fbe44b6319e2b9c1133a4c86f415e002186acef",
    "name": "permit_with_a_refresh_token",
    "record": {
     "evidence_id": "ctl_a0a43ffad13fe2e2ce9bf5948e414b7c",
@@ -1848,7 +1878,7 @@
     },
     "statement": {
      "attests": [
-      "29a54563293b6891b389bdf67ffe1c58ae78153e22513ca96d0b6ee234219ca1"
+      "ad5ea2a79371cea099a976f76a7dfb3b28e2a377b4dc289020cfff256fbe4dae"
      ],
      "offline": {
       "until": "2026-09-28T09:00:00Z",
@@ -1860,7 +1890,7 @@
    }
   },
   {
-   "digest": "bcbc5b5822756195fc98db828a322cda937ccf82258f22fa3216e33cac4468ae",
+   "digest": "aca6e093ad33d25c8eb0e64d694efbd0e1ff0586e45512d5a7216d9016f30a0b",
    "name": "permit_request",
    "record": {
     "action": "grant",
@@ -1878,7 +1908,7 @@
      "layer": "team",
      "team_id": "tem_e79a190b9fde97345450731e374c8209"
     },
-    "payload_digest": "31da26c0c5039bcd86c35fb26f6f42a9c5ca491a11a893a7b6db857355dbe6b8",
+    "payload_digest": "6e2d1256314ac4e15b0ecb792fbe44b6319e2b9c1133a4c86f415e002186acef",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_190d931e95b8c2e46a5be2d9dc7d37c0",
@@ -1893,7 +1923,7 @@
    }
   },
   {
-   "digest": "847ad45a56d5eda1f1c9c2fb2ff18d19b70fb82d3639cac8fa9717dafd1a830a",
+   "digest": "d8206d027a83fbf4634268a40a9ad04fdb7186d47a2d82e32ba5f3a5b0b94847",
    "name": "connection_package",
    "record": {
     "authority": {
@@ -1912,19 +1942,19 @@
       "digest": "06e7b2de66daa418f2f287808023d6bc0aaad87008f249bd8282a9ba675a6fac",
       "object_kind": "provider_connection",
       "path": "connections/0000.json",
-      "size": 512
+      "size": 453
      },
      {
       "digest": "139e6d58d6827a1bd3329b86271dbad2dc99a57d1ced9a9426612582e295784e",
       "object_kind": "sign_in_evidence",
       "path": "evidence/0000.json",
-      "size": 512
+      "size": 387
      },
      {
       "digest": "e4c4c33b3fa64f54e641c170047b1947aedf428b53e9610819743c82a1fb1862",
       "object_kind": "authority_continuity",
       "path": "continuity/0001.json",
-      "size": 512
+      "size": 378
      }
     ],
     "kind": "transfer_envelope",
@@ -1950,7 +1980,7 @@
    }
   },
   {
-   "digest": "2a4750db4d2970403e913fdec0cc3c1b55921048f8e251b9051b38596b5e20e5",
+   "digest": "8967a3dd3768d1b02d6354b13b2e50d59a9d04fe2ad386c3d1b7e981467e3c63",
    "name": "stage_connection_package",
    "record": {
     "action": "transfer",
@@ -1968,7 +1998,7 @@
      "layer": "team",
      "team_id": "tem_e79a190b9fde97345450731e374c8209"
     },
-    "payload_digest": "847ad45a56d5eda1f1c9c2fb2ff18d19b70fb82d3639cac8fa9717dafd1a830a",
+    "payload_digest": "d8206d027a83fbf4634268a40a9ad04fdb7186d47a2d82e32ba5f3a5b0b94847",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_573fd260ba2fe6c1bace69205a0063c3",
@@ -1983,11 +2013,11 @@
    }
   },
   {
-   "digest": "d7cfef6ef081a5dcb58d5ddda1057b4031b56eee8825b8b530d7ea8633ad53ce",
+   "digest": "641e7a568f9d6c27f467bb128d439c33ae48a7fafec2da458f9668eb82ebf7ec",
    "name": "connection_package_exported",
    "record": {
     "at": "2000-01-01T00:00:00Z",
-    "envelope_digest": "847ad45a56d5eda1f1c9c2fb2ff18d19b70fb82d3639cac8fa9717dafd1a830a",
+    "envelope_digest": "d8206d027a83fbf4634268a40a9ad04fdb7186d47a2d82e32ba5f3a5b0b94847",
     "kind": "transfer_stage_record",
     "schema": 1,
     "stage": {
@@ -2001,7 +2031,7 @@
    }
   },
   {
-   "digest": "7b3a1d4b64c1ce5c98441851e901c83b12680341e0443b714b641208411de10e",
+   "digest": "0f771302c160294cb0e3a199bc95eeb968381fc57666e39cb121f9c22d54c18e",
    "name": "stage_the_connection_result",
    "record": {
     "kind": "operation_result",
@@ -2012,19 +2042,19 @@
     },
     "outputs": [
      {
-      "digest": "d7cfef6ef081a5dcb58d5ddda1057b4031b56eee8825b8b530d7ea8633ad53ce",
+      "digest": "641e7a568f9d6c27f467bb128d439c33ae48a7fafec2da458f9668eb82ebf7ec",
       "kind": "transfer_stage_record"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "2a4750db4d2970403e913fdec0cc3c1b55921048f8e251b9051b38596b5e20e5",
+    "request_digest": "8967a3dd3768d1b02d6354b13b2e50d59a9d04fe2ad386c3d1b7e981467e3c63",
     "request_id": "req_573fd260ba2fe6c1bace69205a0063c3",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "7336c51bbfcda9956b8540a5cc92b816476f250332010953ba4071fbe829bf21",
+   "digest": "9952d0ea21aefa92c3ab63cfe532c23cf46dcd8a7e0043980c1a905ef6723978",
    "name": "token_package",
    "record": {
     "authority": {
@@ -2043,19 +2073,19 @@
       "digest": "06e7b2de66daa418f2f287808023d6bc0aaad87008f249bd8282a9ba675a6fac",
       "object_kind": "provider_connection",
       "path": "connections/0000.json",
-      "size": 512
+      "size": 453
      },
      {
       "digest": "32f229a6e558f56a2c0733b9cabfd3b3208ce3a77f7827c90e89f2efad10319b",
       "object_kind": "provider_callback",
       "path": "callbacks/0000.json",
-      "size": 512
+      "size": 387
      },
      {
       "digest": "e4c4c33b3fa64f54e641c170047b1947aedf428b53e9610819743c82a1fb1862",
       "object_kind": "authority_continuity",
       "path": "continuity/0001.json",
-      "size": 512
+      "size": 378
      }
     ],
     "kind": "transfer_envelope",
@@ -2081,7 +2111,7 @@
    }
   },
   {
-   "digest": "9e3709f27d4e131f232122edb5eb068646080d80e9f396a12f584b262d1d71db",
+   "digest": "24112be0b936eb4c7ecd5e00a953938d906085a8ee2bf4c2d11af7c0ddbb6aa6",
    "name": "stage_token_package",
    "record": {
     "action": "transfer",
@@ -2099,7 +2129,7 @@
      "layer": "team",
      "team_id": "tem_e79a190b9fde97345450731e374c8209"
     },
-    "payload_digest": "7336c51bbfcda9956b8540a5cc92b816476f250332010953ba4071fbe829bf21",
+    "payload_digest": "9952d0ea21aefa92c3ab63cfe532c23cf46dcd8a7e0043980c1a905ef6723978",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_9748469838f0995b37de919d162215d3",
@@ -2115,7 +2145,7 @@
   }
  ],
  "says": "Alice founds a Team (becoming its member and issuing authority; the founding returns the Team's first continuity epoch) and configures a Slack connection whose code exchange needs a client secret; the connection declares that the exchange runs in a Team-protected process she operates, and the stored connection carries no secret. A connection submitted with its client secret, and one declaring a protected exchange without saying who operates it, are refused at admission. She begins linking her Slack identity: a callback carrying the identity token itself is refused at admission, and the callback carrying only the verified claims links her identity, returning sign-in evidence and a binding with no token or secret in either. As the Team's authority she tries to record on the Team a permit for her laptop that carries a refresh token: refused at admission. She then stages, for her desktop by peer, a package of the stored connection and her sign-in evidence that names the founding epoch as its continuity: it is staged as a draft, and none of its members has a place for a secret or token. A package whose member is the callback carrying the identity token is refused at admission, because that member cannot be a record. What must not happen: a secret or token stored in the connection, the evidence, the binding, any record kept on the client, or a staged transfer package.",
- "spec_sha256": "7580d743e270df3603f32c2195a668544d7ea2922999203e3bea13953977dbf6",
+ "spec_sha256": "c5d2ebbe04ffccf2c7bcfb3c0760ea64293c6668445635baaebaf41da1fdeef9",
  "steps": [
   {
    "at": "2026-09-21T09:00:00Z",
@@ -2198,7 +2228,8 @@
   {
    "at": "2026-09-21T09:00:00Z",
    "carries": [
-    "slack_attempt_asked"
+    "slack_attempt_asked",
+    "slack_attempt_control_proof"
    ],
    "name": "begin_link",
    "request": "begin_link_request",

@@ -526,6 +526,24 @@
    ]
   },
   {
+   "name": "link_attempt_control_proof",
+   "from": "bindings/signature_over_a_manifest.json",
+   "set": [
+    {
+     "pointer": "/namespace",
+     "value": "agent-bios/sign_in_attempt"
+    },
+    {
+     "pointer": "/signed_digest",
+     "value": "#link_attempt"
+    },
+    {
+     "pointer": "/signer_binding_id",
+     "value": "$bnd:device_key_binding"
+    }
+   ]
+  },
+  {
    "name": "link_begin",
    "from": "c05/memory_use_request.json",
    "set": [
@@ -568,6 +586,12 @@
     {
      "pointer": "/payload_digest",
      "value": "#link_attempt"
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#link_attempt_control_proof"
+     ]
     }
    ]
   },
@@ -612,6 +636,14 @@
     {
      "pointer": "/reply/nonce_digest",
      "value": "$digest:link_nonce"
+    },
+    {
+     "pointer": "/reply/issued_at",
+     "value": "2026-09-20T09:00:00Z"
+    },
+    {
+     "pointer": "/reply/expires_at",
+     "value": "2030-01-01T00:00:00Z"
     }
    ]
   },
@@ -856,7 +888,8 @@
    "name": "begin_sign_in",
    "request": "link_begin",
    "carries": [
-    "link_attempt"
+    "link_attempt",
+    "link_attempt_control_proof"
    ],
    "answer": {
     "stage": "committed",

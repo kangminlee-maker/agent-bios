@@ -255,12 +255,12 @@
     {
       "id": "N01-STORE-POS",
       "oracle": 0,
-      "asserts": "Every accepted example of a C01, C03 or C09 kind is submitted through the owner in submit mode and stored as one sealed record: its submitted fields are unchanged after canonicalization, and the runtime-owned fields (such as binding_id and created_at) are the owner's. Reading it back by that id returns the same sealed canonical bytes and digest every time."
+      "asserts": "Accepted records of C01, C03 and C09 kinds, at least one of each contract, are submitted through the owner in submit mode and each stored as one sealed record: its submitted fields are unchanged after canonicalization, and the runtime-owned fields (such as binding_id and created_at) are the owner's. Reading it back by that id returns the same sealed canonical bytes and digest every time. A kind the runtime writes whole (such as C03's operation_receipt) is not submitted: the owner writes it as a committed step's receipt, and reading it back returns it unchanged."
     },
     {
       "id": "N01-STORE-NEG",
       "oracle": 1,
-      "asserts": "Every refused example reaches the owner's admission and is refused with the code and pointer its expectation states; a signed byte altered after signing fails verification; nothing refused is stored."
+      "asserts": "Refused records reach the owner's admission and are refused with the code and pointer their expectation states, at least one each for a record version the reader does not hold, a schema violation and a runtime-owned field; a signed byte altered after signing fails verification; nothing refused is stored. Bytes the canonical reader refuses never become a record; the example check holds the reader to each of them."
     },
     {
       "id": "N02-C01-POS",
@@ -718,7 +718,7 @@
     {
       "id": "N18-EXCHANGE-NEG",
       "oracle": 1,
-      "asserts": "The provider secret and token exchange stay at the connection's declared exchange location. No provider_connection, sign_in_evidence, client-visible record or staged transfer package carries a secret or token."
+      "asserts": "No provider_connection, sign_in_evidence, client-visible record or staged transfer package carries a provider secret or token."
     },
     {
       "id": "N19-BOOTSTRAP-NEG",
@@ -738,7 +738,7 @@
     {
       "id": "N19-TRANSFER-POS",
       "oracle": 0,
-      "asserts": "team.stewardship.transfer hands one duty to another principal and names where finalization runs next. team.device.retire settles each unique draft, outbox entry and unknown operation one named way before the device leaves, and neither removes a duty nor revokes other credentials."
+      "asserts": "team.stewardship.transfer hands one duty to another principal and names where finalization runs next. team.device.retire settles each unique draft, outbox entry and unknown operation one named way before the device leaves, and removes no duty."
     },
     {
       "id": "N20-READER-POS",

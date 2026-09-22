@@ -140,6 +140,10 @@
   {
    "id": "req_9625ce60a8106580e644887971235902",
    "name": "probe_user_event_rid"
+  },
+  {
+   "id": "req_289380c206ea16347e20becf70eb9271",
+   "name": "read_team_decision_body_rid"
   }
  ],
  "joins": [
@@ -1632,6 +1636,56 @@
    "digest_of": "rate_view",
    "pointer": "/outputs/0/digest",
    "record": "reopen_the_rate_view_result"
+  },
+  {
+   "digest_of": "team_decision_reread",
+   "pointer": "/payload_digest",
+   "record": "read_team_decision_body"
+  },
+  {
+   "minted": "team_decisions_h1",
+   "pointer": "/target/base/head_digest",
+   "record": "read_team_decision_body"
+  },
+  {
+   "digest_of": "team_decision_reread",
+   "pointer": "/envelope_digest",
+   "record": "team_decision_result"
+  },
+  {
+   "minted": "team_decision_reread_at",
+   "pointer": "/prepared_at",
+   "record": "team_decision_result"
+  },
+  {
+   "minted": "team_decisions_h1",
+   "pointer": "/outcome/frontiers/0/checkpoint_digest",
+   "record": "team_decision_result"
+  },
+  {
+   "minted": "team_decision_reread_unit",
+   "pointer": "/outcome/units/0/unit_id",
+   "record": "team_decision_result"
+  },
+  {
+   "digest_of": "team_decisions_r1_stored",
+   "pointer": "/outcome/units/0/revision_digest",
+   "record": "team_decision_result"
+  },
+  {
+   "digest_of": "choice_b_stored",
+   "pointer": "/outcome/units/0/body_digest",
+   "record": "team_decision_result"
+  },
+  {
+   "digest_of": "read_team_decision_body",
+   "pointer": "/request_digest",
+   "record": "read_team_decision_body_result"
+  },
+  {
+   "digest_of": "team_decision_result",
+   "pointer": "/outputs/0/digest",
+   "record": "read_team_decision_body_result"
   }
  ],
  "minted": [
@@ -2079,6 +2133,16 @@
    "name": "resolve_after_the_answer_at",
    "shape": "instant",
    "step": "resolve_after_the_answer"
+  },
+  {
+   "name": "team_decision_reread_at",
+   "shape": "instant",
+   "step": "read_team_decision_body"
+  },
+  {
+   "name": "team_decision_reread_unit",
+   "shape": "unt",
+   "step": "read_team_decision_body"
   }
  ],
  "records": [
@@ -5377,10 +5441,140 @@
     "schema": 1,
     "supported_recovery": []
    }
+  },
+  {
+   "digest": "a7490c4ad50755ea108b7965493163d0d6122cc89b50400625673e191b0f9561",
+   "name": "team_decision_reread",
+   "record": {
+    "budget": {
+     "max_bytes": 40000,
+     "max_examined": 64,
+     "max_units": 8
+    },
+    "history": "excluded",
+    "kind": "reader_envelope",
+    "required": [
+     {
+      "role": "memory",
+      "source_id": "src_d96abfcba916c640c505a689da0b7b1f"
+     }
+    ],
+    "role_view": {
+     "role": "memory",
+     "view": "executor"
+    },
+    "schema": 1,
+    "selector": {
+     "asks": "concern",
+     "concern": {
+      "question": "What did the Team choose for the journal mode, and why?"
+     }
+    },
+    "work_scope": {
+     "layer": "team",
+     "team_id": "tem_a5ad3c1d9f8a4ba509f07b10b1bf9c27"
+    }
+   }
+  },
+  {
+   "digest": "4e34d840bc471082f17b7af60dd6a544c05549f4b5f539618458d4e22e6caca0",
+   "name": "read_team_decision_body",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_db55517427c2ac816726ddb032f5c559",
+     "principal_id": "prn_1d3953a982b9ac5f109de9487eee1800",
+     "profile_id": "prf_b0ecf29f9dea548cfff1dd09506c7d0d"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "reader.body.read",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_a5ad3c1d9f8a4ba509f07b10b1bf9c27"
+    },
+    "payload_digest": "a7490c4ad50755ea108b7965493163d0d6122cc89b50400625673e191b0f9561",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_289380c206ea16347e20becf70eb9271",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "ac3dacd8b295470dcf06205aa5b3e2c865af4ed5888a24ba9e951fcd42e24f16"
+     },
+     "resource_id": "src_d96abfcba916c640c505a689da0b7b1f"
+    }
+   }
+  },
+  {
+   "digest": "a3db8a8efd3b845b34abafaa1a1f3a86ed5877e7ec991e63e3a5bcb51d009ac3",
+   "name": "team_decision_result",
+   "record": {
+    "ended": true,
+    "envelope_digest": "a7490c4ad50755ea108b7965493163d0d6122cc89b50400625673e191b0f9561",
+    "kind": "reader_result",
+    "material_gaps": [],
+    "omissions": [],
+    "outcome": {
+     "consumed": {
+      "bytes": 4096,
+      "examined": 12,
+      "units": 2
+     },
+     "frontiers": [
+      {
+       "checkpoint_digest": "ac3dacd8b295470dcf06205aa5b3e2c865af4ed5888a24ba9e951fcd42e24f16",
+       "source_id": "src_d96abfcba916c640c505a689da0b7b1f"
+      }
+     ],
+     "standing": "delivered",
+     "units": [
+      {
+       "body_digest": "6c6edd599c15f5d4da3b882ee13e4af8b8880659f57b97a8ada2b0edaf8224df",
+       "layer": "team",
+       "need": "required",
+       "revision_digest": "e67cc3e975d304868e4d1e03dcfa672232ff0296bdc5820c8dc26a9cfa62ee50",
+       "role": "memory",
+       "source_id": "src_d96abfcba916c640c505a689da0b7b1f",
+       "standing": "winning",
+       "unit_id": "unt_fa3699ca7a8bcc6b51d93ca0dc20a2d5"
+      }
+     ]
+    },
+    "prepared_at": "2000-01-01T00:00:00Z",
+    "qualifications": [],
+    "schema": 1
+   }
+  },
+  {
+   "digest": "bbd172d7e878b36c47b8bb53fd82c7dac406d51a77e1215e115e0f106f27bc35",
+   "name": "read_team_decision_body_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "a3db8a8efd3b845b34abafaa1a1f3a86ed5877e7ec991e63e3a5bcb51d009ac3",
+      "kind": "reader_result"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "4e34d840bc471082f17b7af60dd6a544c05549f4b5f539618458d4e22e6caca0",
+    "request_id": "req_289380c206ea16347e20becf70eb9271",
+    "schema": 1,
+    "supported_recovery": []
+   }
   }
  ],
  "says": "The repository and the Team platform each keep a knowledge source of 2026 KR tax rates, and each keeps a decision-memory source. Asking the rate question under jurisdiction KR against both exact revisions must come back with a view that keeps the stated condition and cites both revisions as evidence: the repository table is preferred by the layer order and the Team table is retained beside it, not dropped and not declared false. The repository then publishes one choice for the journal mode, with its reason and the alternative it rejected, and the Team publishes a different choice for the same question with its own reason. Resolving the question over both scopes names both choices unresolved with choice_conflict_unresolved: the repository-first order selects no winner. A use that needs the answer waits on alice with a sealed question offering both choices, bound to a comparison basis of both records at their exact revisions; her verified answer, through the conversation link she opened on a host whose real user-event probe worked (the answer names that probe and the host configuration measured when it was recorded), keeps the repository choice until the choices change; the preference she now holds names that answer and both participants, each still applicable. The use resumed on that answer applies the repository choice and names the Team choice shadowed by it. Resolving the question again afterwards still names both records, unresolved, exactly as published, and reopening the knowledge view returns the same view. What must not happen: priority treated as factual truth, the Team choice withdrawn, rejected or deleted by the person's application, or either record's reason or alternatives disappearing.",
- "spec_sha256": "4d0e2f724af37bc7f77268c2e3f533f7d17dfa124f1b689bca9ef5215a9487e1",
+ "spec_sha256": "85653590f28f8297d9030099872873a24095aec61fd927fa6376e2e28d26b867",
  "steps": [
   {
    "carries": [
@@ -5658,6 +5852,17 @@
    "result": "reopen_the_rate_view_result",
    "returns": [
     "rate_view"
+   ]
+  },
+  {
+   "carries": [
+    "team_decision_reread"
+   ],
+   "name": "read_team_decision_body",
+   "request": "read_team_decision_body",
+   "result": "read_team_decision_body_result",
+   "returns": [
+    "team_decision_result"
    ]
   }
  ]

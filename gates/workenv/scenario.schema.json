@@ -226,6 +226,9 @@
           "items": {
             "$ref": "#/$defs/name"
           }
+        },
+        "route": {
+          "$ref": "#/$defs/route"
         }
       }
     },
@@ -338,6 +341,9 @@
           "items": {
             "$ref": "#/$defs/name"
           }
+        },
+        "route": {
+          "$ref": "#/$defs/route"
         }
       }
     },
@@ -348,7 +354,7 @@
     "world": {
       "type": "object",
       "additionalProperties": false,
-      "description": "The harness around the steps, not a contract record. With `processes`, every step names the process it runs on, each an isolated runtime with its own state root. With `clock`, the driver controls time: it starts at `start` and a step moves it by `advance_seconds` before it runs. With `during`, a step runs while another is in flight.",
+      "description": "The harness around the steps, not a contract record. With `processes`, every step names the process it runs on, each an isolated runtime with its own state root. With `clock`, the driver controls time: it starts at `start` and a step moves it by `advance_seconds` before it runs. With `during`, a step runs while another is in flight. With `events`, the harness makes outside changes between steps.",
       "properties": {
         "processes": {
           "type": "array",
@@ -386,6 +392,12 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/during"
+          }
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/event"
           }
         }
       }
@@ -494,6 +506,9 @@
         "advance_seconds": {
           "type": "integer",
           "minimum": 1
+        },
+        "route": {
+          "$ref": "#/$defs/route"
         }
       }
     },
@@ -511,6 +526,255 @@
         },
         "runs": {
           "$ref": "#/$defs/name"
+        }
+      }
+    },
+    "event": {
+      "description": "An outside change the harness makes, never a contract record. Every kind but `reply_lost` happens after the previous step and before the step `before` names; a record an event names is one of the spec's records.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "A file at `path` in the checkout or root the step reads now holds `bytes` (UTF-8 text), or with `absent` no longer exists. The generated event states the digest and size of `bytes`.",
+          "required": [
+            "kind",
+            "before",
+            "path"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "file_edit"
+              ]
+            },
+            "before": {
+              "$ref": "#/$defs/name"
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "bytes": {
+              "type": "string"
+            },
+            "absent": {
+              "enum": [
+                true
+              ]
+            },
+            "process": {
+              "$ref": "#/$defs/name"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The package the step `before` accepts reaches the receiver with member `path` holding `bytes` instead of what its inventory advertises; with `executable`, the member arrives marked executable. The generated event states the digest and size of `bytes`.",
+          "required": [
+            "kind",
+            "before",
+            "path",
+            "bytes"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "received_bytes"
+              ]
+            },
+            "before": {
+              "$ref": "#/$defs/name"
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "bytes": {
+              "type": "string"
+            },
+            "executable": {
+              "enum": [
+                true
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The identity provider of record `connection` delivers a refreshed token or callback to the runtime with no local access transition.",
+          "required": [
+            "kind",
+            "before",
+            "connection"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "provider_refresh"
+              ]
+            },
+            "before": {
+              "$ref": "#/$defs/name"
+            },
+            "connection": {
+              "$ref": "#/$defs/name"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The key files and agent around record `key` are arranged as `layout` names: the private key file beside the public one, or the signing agent one the runtime does not own.",
+          "required": [
+            "kind",
+            "before",
+            "key",
+            "layout"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "key_layout"
+              ]
+            },
+            "before": {
+              "$ref": "#/$defs/name"
+            },
+            "key": {
+              "$ref": "#/$defs/name"
+            },
+            "layout": {
+              "enum": [
+                "private_beside_public",
+                "foreign_agent"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The store's `setting` is configured to `value` before the step runs.",
+          "required": [
+            "kind",
+            "before",
+            "setting",
+            "value"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "configure"
+              ]
+            },
+            "before": {
+              "$ref": "#/$defs/name"
+            },
+            "setting": {
+              "enum": [
+                "recovery_objective_seconds"
+              ]
+            },
+            "value": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The harness packs the checkout as it stands; record `yields` states what that build produced, and the driver compares it with the real output.",
+          "required": [
+            "kind",
+            "before",
+            "yields"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "build"
+              ]
+            },
+            "before": {
+              "$ref": "#/$defs/name"
+            },
+            "yields": {
+              "$ref": "#/$defs/name"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The harness takes the inventory of `root`: the source checkout, the installed target, or the knowledge package the product ships, found where the product's own install route finds it. Record `yields` states it, or it must equal what an earlier inventory yielded (`equals`).",
+          "required": [
+            "kind",
+            "before",
+            "root"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "inventory"
+              ]
+            },
+            "before": {
+              "$ref": "#/$defs/name"
+            },
+            "root": {
+              "enum": [
+                "checkout",
+                "installed",
+                "shipped_knowledge"
+              ]
+            },
+            "yields": {
+              "$ref": "#/$defs/name"
+            },
+            "equals": {
+              "$ref": "#/$defs/name"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The external provider completes the effect of step `step`, and its reply never reaches the runtime; the step's answer is what the owner records without it.",
+          "required": [
+            "kind",
+            "step"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "reply_lost"
+              ]
+            },
+            "step": {
+              "$ref": "#/$defs/name"
+            }
+          }
+        }
+      ]
+    },
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The concrete route the request is submitted through: a row of gates/workenv/entrances.jsonl, matched by path and command.",
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "command": {
+          "type": "string",
+          "minLength": 1
         }
       }
     }

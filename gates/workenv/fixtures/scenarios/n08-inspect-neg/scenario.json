@@ -535,8 +535,28 @@
    "record": "use_request"
   },
   {
+   "digest_of": "inspection_offered_as_a_use",
+   "pointer": "/envelope_digest",
+   "record": "offered_as_use_result"
+  },
+  {
+   "minted": "offered_at",
+   "pointer": "/prepared_at",
+   "record": "offered_as_use_result"
+  },
+  {
+   "minted": "decisions_head2",
+   "pointer": "/outcome/frontiers/0/checkpoint_digest",
+   "record": "offered_as_use_result"
+  },
+  {
    "digest_of": "use_request",
    "pointer": "/request_digest",
+   "record": "offer_the_inspection_as_a_use_result"
+  },
+  {
+   "digest_of": "offered_as_use_result",
+   "pointer": "/outputs/0/digest",
    "record": "offer_the_inspection_as_a_use_result"
   }
  ],
@@ -700,6 +720,11 @@
    "name": "wal_unit",
    "shape": "unt",
    "step": "inspect_the_history"
+  },
+  {
+   "name": "offered_at",
+   "shape": "instant",
+   "step": "offer_the_inspection_as_a_use"
   }
  ],
  "records": [
@@ -1806,7 +1831,40 @@
    }
   },
   {
-   "digest": "aa4eaff03e60898cf703903b0093335f70485ead4c682ba800eccb7130f60909",
+   "digest": "25aed2952b083f608164d50de3351e08a1bbac376ae1678461879294ad87b8b7",
+   "name": "offered_as_use_result",
+   "record": {
+    "ended": true,
+    "envelope_digest": "f9c759334b110839f84ed7831c938605a99eb51c98af6d1d0e8641f059f2716e",
+    "kind": "reader_result",
+    "material_gaps": [
+     {
+      "code": "use_not_admitted"
+     }
+    ],
+    "omissions": [],
+    "outcome": {
+     "consumed": {
+      "bytes": 0,
+      "examined": 1,
+      "units": 0
+     },
+     "frontiers": [
+      {
+       "checkpoint_digest": "08f3faaf28ac26633c6047eea000b029fd5316bddd95876cc0cac9786a0b0724",
+       "source_id": "src_2eaa2d66dfc96eef162d390467c4074a"
+      }
+     ],
+     "standing": "delivered",
+     "units": []
+    },
+    "prepared_at": "2000-01-01T00:00:00Z",
+    "qualifications": [],
+    "schema": 1
+   }
+  },
+  {
+   "digest": "779c74d92622e79669f6d53c242b8dd64ce83b1a7bf59bc705ef254586cc12a4",
    "name": "offer_the_inspection_as_a_use_result",
    "record": {
     "kind": "operation_result",
@@ -1814,13 +1872,17 @@
     "outcome": {
      "material_gaps": [
       {
-       "code": "use_not_admitted",
-       "pointer": "/payload_digest"
+       "code": "use_not_admitted"
       }
      ],
      "stage": "refused"
     },
-    "outputs": [],
+    "outputs": [
+     {
+      "digest": "25aed2952b083f608164d50de3351e08a1bbac376ae1678461879294ad87b8b7",
+      "kind": "reader_result"
+     }
+    ],
     "provider_effect": "not_applicable",
     "request_digest": "e9b47806d2815f113caf5c9f22d7f295cd054ddd733f423b34119ecbccad9c42",
     "request_id": "req_a46d186145ad24b6803e5689dfc2198c",
@@ -1830,7 +1892,7 @@
   }
  ],
  "says": "The reader binds their device key and their checkout of the repository, opens a workstream and registers a repository memory source named by that checkout binding, and two choices on the local journal mode are published there: first a rollback journal, then WAL, which replaces the first whole. An inspection (reader.body.read, role memory, reviewer view, history included) returns the current WAL choice as the winning required unit and the replaced choice as an optional unit marked superseded, each body carrying the alternatives its choice weighed, and its result carries no use: reading it admitted nothing. The reader then offers what it inspected as a use of the journal-mode concern (memory.use.prepare targeting the concern, with an envelope declaring it retains the inspected body and that result's qualifications). The owner refuses it with use_not_admitted: no pending question, qualified state or admitted use is returned, no use is started, and nothing is written.",
- "spec_sha256": "fd491c1de965fa2c8f0b41706afb102f3efcea1d3b1b14006fffa48e34790e1b",
+ "spec_sha256": "d078765c6750a916c50e982977f3f989efef162821375fdc06f64b626d4b530c",
  "steps": [
   {
    "carries": [
@@ -1921,7 +1983,9 @@
    "name": "offer_the_inspection_as_a_use",
    "request": "use_request",
    "result": "offer_the_inspection_as_a_use_result",
-   "returns": []
+   "returns": [
+    "offered_as_use_result"
+   ]
   }
  ]
 }

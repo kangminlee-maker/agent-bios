@@ -1,6 +1,6 @@
 {
  "case": "CMP-LOCAL",
- "says": "alice founds the Team platform on her desktop, which is the Team's finalizer; its governing policy requires one independent review before a Team publish or adopt. There the Team selects a source with two required units, review.approval and security.baseline, and sets that source's own rights to read, use and derive, and not export. The desktop stages a package of that source's home, revision and rights and the Team's Instructions position, but no bodies, trusted by the Team's founding epoch; her enrolled laptop accepts it. From then on the laptop cannot reach the desktop: no Team is reachable for anything that follows. On the laptop the repository authors its own review rule and reuses the Team's security.md bytes unchanged in its own source, so it records rights for that source that carry the Team source's rights and allow no more than they do. Before changing its Instructions position, the repository asks whether it may: the assessment of that exact change says yes over the repository scope alone, with no Team grant seen. The change then commits naming no Team policy, approval or proof. A read of the security baseline delivers the repository's unit and names the Team source remote_unknown, answered carrier_unreachable with retry of the same request. The session start that follows states local reach only and names the repository units winning both concerns and both Team units shadowed by them. The Team's security unit is required, and neither Team body is held on this device; still no gap is raised and the start is not held back, because a unit that lost gates nothing. What must not happen: the local change waiting for a Team approval, adoption, waiver or connection; the unreachable Team or a mandatory, missing or denied Team unit that lost holding the start; or the reused Team bytes losing the rights their owner set.",
+ "says": "alice founds the Team platform on her desktop, which is the Team's finalizer; its governing policy requires one independent review before a Team publish or adopt. There the Team selects a source with two required units, review.approval and security.baseline, and sets that source's own rights to read, use and derive, and not export. The desktop stages a package of that source's home, revision and rights and the Team's Instructions position, but no bodies, trusted by the Team's founding epoch; her enrolled laptop accepts it. From then on the laptop cannot reach the desktop: no Team is reachable for anything that follows. On the laptop the repository authors its own review rule and reuses the Team's security.md bytes unchanged in its own source, so it records rights for that source that carry the Team source's rights and allow no more than they do. Before changing its Instructions position, the repository asks whether it may: the assessment of that exact change says yes over the repository scope alone, with no Team grant seen. The change then commits naming no Team policy, approval or proof. A read of the security baseline delivers the repository's unit and names the Team source remote_unknown, answered carrier_unreachable with retry of the same request. The session start that follows states local reach only and names the repository units winning both concerns and both Team units shadowed by them. The Team's security unit is required, and neither Team body is held on this device; still no gap is raised and the start is not held back, because a unit that lost gates nothing. What must not happen: waiting for Team approval, adoption, waiver or connection; a mandatory, missing, denied or unreachable Team unit holding the start; or the reused Team bytes losing their rights. A personal source likewise overrides a Team style rule without approval, beside a disabled Team unit gating nothing; conflicting memories on eviction wait on a sealed question, not an assumed answer.",
  "ids": [
   {
    "name": "alice",
@@ -121,6 +121,58 @@
   {
    "name": "desktop_peer",
    "prefix": "per"
+  },
+  {
+   "name": "personal_rules",
+   "prefix": "src"
+  },
+  {
+   "name": "register_personal_rules_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "commit_personal_rules_r1_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "personal_instr",
+   "prefix": "col"
+  },
+  {
+   "name": "change_personal_instr_v1_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "repo_memory",
+   "prefix": "src"
+  },
+  {
+   "name": "personal_memory",
+   "prefix": "src"
+  },
+  {
+   "name": "register_repo_memory_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "register_personal_memory_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "publish_repo_choice_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "publish_personal_choice_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "sync_concern",
+   "prefix": "cnc"
+  },
+  {
+   "name": "conflict_use_rid",
+   "prefix": "req"
   }
  ],
  "records": [
@@ -309,6 +361,10 @@
     {
      "pointer": "/team_id",
      "value": "@platform"
+    },
+    {
+     "pointer": "/threshold",
+     "value": 0
     }
    ]
   },
@@ -424,10 +480,6 @@
     {
      "pointer": "/team_id",
      "value": "@platform"
-    },
-    {
-     "pointer": "/threshold",
-     "value": 1
     },
     {
      "pointer": "/policy_id",
@@ -717,6 +769,18 @@
     {
      "pointer": "/source_id",
      "value": "@team_rules"
+    },
+    {
+     "pointer": "/members/2/digest",
+     "value": "390b650f01b749996fea6730882d793bda507f5fcdb8c289a6b5262c2cb00b93"
+    },
+    {
+     "pointer": "/members/2/path",
+     "value": "rules/style.md"
+    },
+    {
+     "pointer": "/members/2/size",
+     "value": 210
     }
    ]
   },
@@ -858,7 +922,6 @@
    "from": "c07/collection_with_one_entry_switched_off.json",
    "drop": [
     "/changed_at",
-    "/entries/1",
     "/entries/0/precedence",
     "/entries/0/units/0/needs"
    ],
@@ -890,6 +953,18 @@
     {
      "pointer": "/position/scope/team_id",
      "value": "@platform"
+    },
+    {
+     "pointer": "/entries/0/units/2/member",
+     "value": "rules/style.md"
+    },
+    {
+     "pointer": "/entries/0/units/2/startup",
+     "value": "required"
+    },
+    {
+     "pointer": "/entries/0/units/2/concern",
+     "value": "style.guide"
     }
    ]
   },
@@ -1886,6 +1961,287 @@
    ]
   },
   {
+   "name": "personal_rules_home",
+   "from": "sources/home_of_a_managed_collection.json",
+   "drop": [
+    "/registered_at",
+    "/applicability/conditions",
+    "/home/markdown_view/path",
+    "/retention/until"
+   ],
+   "set": [
+    {
+     "pointer": "/acceptance_authority/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/applicability/states",
+     "value": "unstated"
+    },
+    {
+     "pointer": "/home/markdown_view/view",
+     "value": "none"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    },
+    {
+     "pointer": "/retention/keep",
+     "value": "until_withdrawn"
+    },
+    {
+     "pointer": "/scope/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@personal_rules"
+    }
+   ]
+  },
+  {
+   "name": "register_personal_rules",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/owner/repository_id",
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_personal_rules_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@personal_rules"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#personal_rules_home"
+    }
+   ]
+  },
+  {
+   "name": "personal_rules_home_stored",
+   "from": "personal_rules_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:personal_rules_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "personal_rules_r1",
+   "from": "sources/revision_submitted.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/members/0/digest",
+     "value": "6494108b1421af5d83ba0e36cbf16a2f4499ffd92e591764e87b5fad6740186b"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "rules/style.md"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 180
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@personal_rules"
+    }
+   ]
+  },
+  {
+   "name": "commit_personal_rules_r1",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_personal_rules_r1_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@personal_rules"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:personal_rules_h0"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#personal_rules_r1"
+    }
+   ]
+  },
+  {
+   "name": "personal_rules_r1_stored",
+   "from": "personal_rules_r1",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:personal_rules_r1_at"
+    }
+   ]
+  },
+  {
+   "name": "personal_instr_v1",
+   "from": "c07/collection_with_one_entry_switched_off.json",
+   "drop": [
+    "/changed_at",
+    "/entries/1",
+    "/entries/0/precedence",
+    "/entries/0/units/0/needs",
+    "/position/scope/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/collection_id",
+     "value": "@personal_instr"
+    },
+    {
+     "pointer": "/entries/0/pin/revision_digest",
+     "value": "#personal_rules_r1_stored"
+    },
+    {
+     "pointer": "/entries/0/source_id",
+     "value": "@personal_rules"
+    },
+    {
+     "pointer": "/entries/0/units/0/member",
+     "value": "rules/style.md"
+    },
+    {
+     "pointer": "/entries/0/units/0/concern",
+     "value": "style.guide"
+    },
+    {
+     "pointer": "/position/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/position/scope/principal_id",
+     "value": "@alice"
+    }
+   ]
+  },
+  {
+   "name": "change_personal_instr_v1",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/owner/repository_id",
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@change_personal_instr_v1_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@personal_instr"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#personal_instr_v1"
+    }
+   ]
+  },
+  {
+   "name": "personal_instr_v1_stored",
+   "from": "personal_instr_v1",
+   "set": [
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:personal_instr_v1_at"
+    }
+   ]
+  },
+  {
    "name": "start_with_the_local_override_ask",
    "from": "c07/session_start_without_a_task.json",
    "drop": [
@@ -1964,9 +2320,6 @@
    "name": "start_with_the_local_override_prepared",
    "from": "c07/preparation_where_the_repository_rule_wins_and_the_team_rule_gates_nothing.json",
    "drop": [
-    "/collections/2",
-    "/order/2",
-    "/order/1/principal_id",
     "/units/1/shadowed_by",
     "/units/2/body_digest"
    ],
@@ -1998,14 +2351,6 @@
     {
      "pointer": "/order/0/repository_id",
      "value": "@work_repo"
-    },
-    {
-     "pointer": "/order/1/layer",
-     "value": "team"
-    },
-    {
-     "pointer": "/order/1/team_id",
-     "value": "@platform"
     },
     {
      "pointer": "/preparation_id",
@@ -2144,6 +2489,946 @@
      "value": [
       "local"
      ]
+    },
+    {
+     "pointer": "/units/0/home_digest",
+     "value": "#repo_rules_home_stored"
+    },
+    {
+     "pointer": "/units/1/home_digest",
+     "value": "#repo_rules_home_stored"
+    },
+    {
+     "pointer": "/units/2/home_digest",
+     "value": "#team_rules_home_stored"
+    },
+    {
+     "pointer": "/units/3/home_digest",
+     "value": "#team_rules_home_stored"
+    },
+    {
+     "pointer": "/order/1/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/order/2/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/collections/2/collection_id",
+     "value": "@personal_instr"
+    },
+    {
+     "pointer": "/collections/2/head_digest",
+     "value": "#personal_instr_v1_stored"
+    },
+    {
+     "pointer": "/collections/2/state",
+     "value": "applied"
+    },
+    {
+     "pointer": "/units/4/unit_id",
+     "value": "$unt:team_disabled_unit"
+    },
+    {
+     "pointer": "/units/4/source_id",
+     "value": "src_3cbf1095515778d37b24c1249c84b771"
+    },
+    {
+     "pointer": "/units/4/revision_digest",
+     "value": "3135249d75d4bef97ef096d81b77f6c70d7b454708c1cc810e9848b5e5e06805"
+    },
+    {
+     "pointer": "/units/4/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/units/4/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/units/4/standing",
+     "value": "disabled"
+    },
+    {
+     "pointer": "/units/5/unit_id",
+     "value": "$unt:personal_style"
+    },
+    {
+     "pointer": "/units/5/source_id",
+     "value": "@personal_rules"
+    },
+    {
+     "pointer": "/units/5/revision_digest",
+     "value": "#personal_rules_r1_stored"
+    },
+    {
+     "pointer": "/units/5/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/units/5/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/units/5/standing",
+     "value": "winning"
+    },
+    {
+     "pointer": "/units/5/member",
+     "value": "rules/style.md"
+    },
+    {
+     "pointer": "/units/5/concern",
+     "value": "style.guide"
+    },
+    {
+     "pointer": "/units/5/startup",
+     "value": "required"
+    },
+    {
+     "pointer": "/units/5/body_digest",
+     "value": "6494108b1421af5d83ba0e36cbf16a2f4499ffd92e591764e87b5fad6740186b"
+    },
+    {
+     "pointer": "/units/5/home_digest",
+     "value": "#personal_rules_home_stored"
+    },
+    {
+     "pointer": "/units/6/unit_id",
+     "value": "$unt:team_style"
+    },
+    {
+     "pointer": "/units/6/source_id",
+     "value": "@team_rules"
+    },
+    {
+     "pointer": "/units/6/revision_digest",
+     "value": "#team_rules_r1_stored"
+    },
+    {
+     "pointer": "/units/6/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/units/6/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/units/6/standing",
+     "value": "shadowed"
+    },
+    {
+     "pointer": "/units/6/member",
+     "value": "rules/style.md"
+    },
+    {
+     "pointer": "/units/6/concern",
+     "value": "style.guide"
+    },
+    {
+     "pointer": "/units/6/startup",
+     "value": "required"
+    },
+    {
+     "pointer": "/units/6/shadowed_by",
+     "value": "$unt:personal_style"
+    },
+    {
+     "pointer": "/units/6/home_digest",
+     "value": "#team_rules_home_stored"
+    }
+   ]
+  },
+  {
+   "name": "repo_memory_home",
+   "from": "sources/home_of_a_repository_document.json",
+   "drop": [
+    "/registered_at"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/scope/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/acceptance_authority/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/home/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/home/document_root",
+     "value": "memory/eviction"
+    },
+    {
+     "pointer": "/home/binding_evidence_digest",
+     "value": "#repo_bound"
+    }
+   ]
+  },
+  {
+   "name": "register_repo_memory",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_repo_memory_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_memory_home"
+    }
+   ]
+  },
+  {
+   "name": "repo_memory_home_stored",
+   "from": "repo_memory_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:repo_memory_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "personal_memory_home",
+   "from": "sources/home_of_a_managed_collection.json",
+   "drop": [
+    "/registered_at",
+    "/retention/until"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@personal_memory"
+    },
+    {
+     "pointer": "/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/scope/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/acceptance_authority/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/home/markdown_view/path",
+     "value": "views/eviction.md"
+    },
+    {
+     "pointer": "/retention/keep",
+     "value": "until_withdrawn"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    }
+   ]
+  },
+  {
+   "name": "register_personal_memory",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/owner/repository_id",
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_personal_memory_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@personal_memory"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#personal_memory_home"
+    }
+   ]
+  },
+  {
+   "name": "personal_memory_home_stored",
+   "from": "personal_memory_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:personal_memory_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_choice",
+   "from": "c05/choice_as_submitted.json",
+   "drop": [
+    "/basis",
+    "/context",
+    "/expected_consequences",
+    "/revisit_condition",
+    "/applicability/period"
+   ],
+   "set": [
+    {
+     "pointer": "/home/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/workstream_ids",
+     "value": []
+    },
+    {
+     "pointer": "/question",
+     "value": "Which cache eviction policy does this checkout use?"
+    },
+    {
+     "pointer": "/choice",
+     "value": "LRU capped at 500MB."
+    },
+    {
+     "pointer": "/reason",
+     "value": "Keeps memory bounded under CI load."
+    },
+    {
+     "pointer": "/alternatives/0/choice",
+     "value": "Alice's own TTL-based eviction, 24h."
+    },
+    {
+     "pointer": "/alternatives/0/reason",
+     "value": "Fits her long-lived working set, not CI's."
+    },
+    {
+     "pointer": "/applicability/conditions/0/dimension",
+     "value": "repository"
+    },
+    {
+     "pointer": "/applicability/conditions/0/value",
+     "value": "this one"
+    }
+   ]
+  },
+  {
+   "name": "repo_choice_stored",
+   "from": "repo_choice",
+   "set": [
+    {
+     "pointer": "/record_id",
+     "value": "$rec:conflict_repo"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:repo_choice_recorded_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_memory_manifest_2",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "memory/eviction.jsonl"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:repo_memory_bytes_2"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": "$integer:repo_memory_size_2"
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:repo_memory_produced_2"
+    }
+   ]
+  },
+  {
+   "name": "publish_repo_choice",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@publish_repo_choice_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.record.publish"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:repo_memory_head_1"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_choice"
+    }
+   ]
+  },
+  {
+   "name": "personal_choice",
+   "from": "c05/choice_as_submitted.json",
+   "drop": [
+    "/basis",
+    "/context",
+    "/expected_consequences",
+    "/revisit_condition",
+    "/home/repository_id",
+    "/applicability/period"
+   ],
+   "set": [
+    {
+     "pointer": "/home/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/home/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/workstream_ids",
+     "value": []
+    },
+    {
+     "pointer": "/question",
+     "value": "Which cache eviction policy does this checkout use?"
+    },
+    {
+     "pointer": "/choice",
+     "value": "A 24-hour TTL eviction on her own cache."
+    },
+    {
+     "pointer": "/reason",
+     "value": "Her working set outlives a session; LRU evicts what she still needs."
+    },
+    {
+     "pointer": "/alternatives/0/choice",
+     "value": "LRU capped at 500MB."
+    },
+    {
+     "pointer": "/alternatives/0/reason",
+     "value": "Fine for CI, not for a session she keeps open for days."
+    },
+    {
+     "pointer": "/applicability/conditions/0/dimension",
+     "value": "repository"
+    },
+    {
+     "pointer": "/applicability/conditions/0/value",
+     "value": "this one"
+    }
+   ]
+  },
+  {
+   "name": "personal_choice_stored",
+   "from": "personal_choice",
+   "set": [
+    {
+     "pointer": "/home/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/record_id",
+     "value": "$rec:conflict_personal"
+    },
+    {
+     "pointer": "/recorded_at",
+     "value": "$instant:personal_choice_recorded_at"
+    }
+   ]
+  },
+  {
+   "name": "personal_memory_manifest_2",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@personal_memory"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "memory/eviction.jsonl"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:personal_memory_bytes_2"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": "$integer:personal_memory_size_2"
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:personal_memory_produced_2"
+    }
+   ]
+  },
+  {
+   "name": "publish_personal_choice",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@publish_personal_choice_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.record.publish"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@personal_memory"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:personal_memory_head_1"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#personal_choice"
+    }
+   ]
+  },
+  {
+   "name": "conflict_envelope",
+   "from": "c06/envelope_asking_about_a_concern.json",
+   "set": [
+    {
+     "pointer": "/work_scope/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/required/0/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/required/0/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/required/1/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/required/1/source_id",
+     "value": "@personal_memory"
+    },
+    {
+     "pointer": "/role_view/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/selector/concern/question",
+     "value": "Which cache eviction policy does this checkout use?"
+    }
+   ]
+  },
+  {
+   "name": "conflict_basis",
+   "from": "c05/basis_of_two_applicable_choices.json",
+   "drop": [
+    "/scopes/1/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/concern/question",
+     "value": "Which cache eviction policy does this checkout use?"
+    },
+    {
+     "pointer": "/scopes/0/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/scopes/1/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/scopes/1/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/participants/0/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/participants/0/record_id",
+     "value": "$rec:conflict_repo"
+    },
+    {
+     "pointer": "/participants/0/revision_digest",
+     "value": "#repo_choice_stored"
+    },
+    {
+     "pointer": "/participants/1/source_id",
+     "value": "@personal_memory"
+    },
+    {
+     "pointer": "/participants/1/record_id",
+     "value": "$rec:conflict_personal"
+    },
+    {
+     "pointer": "/participants/1/revision_digest",
+     "value": "#personal_choice_stored"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:conflict_basis_at"
+    }
+   ]
+  },
+  {
+   "name": "conflict_question",
+   "from": "c06/question_sealed_against_its_basis.json",
+   "drop": [
+    "/asked_through",
+    "/alternatives/1/scope/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/question_id",
+     "value": "$qst:conflict_question"
+    },
+    {
+     "pointer": "/use_id",
+     "value": "$use:conflict_use"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/concern/question",
+     "value": "Which cache eviction policy does this checkout use?"
+    },
+    {
+     "pointer": "/alternatives/0/record_id",
+     "value": "$rec:conflict_repo"
+    },
+    {
+     "pointer": "/alternatives/0/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/alternatives/0/scope/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/alternatives/0/summary",
+     "value": "LRU capped at 500MB."
+    },
+    {
+     "pointer": "/alternatives/1/record_id",
+     "value": "$rec:conflict_personal"
+    },
+    {
+     "pointer": "/alternatives/1/source_id",
+     "value": "@personal_memory"
+    },
+    {
+     "pointer": "/alternatives/1/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/alternatives/1/scope/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/alternatives/1/summary",
+     "value": "Alice's own TTL-based eviction, 24h."
+    },
+    {
+     "pointer": "/basis_digest",
+     "value": "#conflict_basis"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:conflict_question_at"
+    }
+   ]
+  },
+  {
+   "name": "conflict_state",
+   "from": "c05/state_whose_conflict_waits_for_the_person.json",
+   "set": [
+    {
+     "pointer": "/question_digest",
+     "value": "#conflict_envelope"
+    },
+    {
+     "pointer": "/frontiers/0/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/frontiers/0/checkpoint_digest",
+     "value": "$digest:repo_memory_head_2"
+    },
+    {
+     "pointer": "/frontiers/1/source_id",
+     "value": "@personal_memory"
+    },
+    {
+     "pointer": "/frontiers/1/checkpoint_digest",
+     "value": "$digest:personal_memory_head_2"
+    },
+    {
+     "pointer": "/entries/0/record_id",
+     "value": "$rec:conflict_repo"
+    },
+    {
+     "pointer": "/entries/0/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/entries/1/record_id",
+     "value": "$rec:conflict_personal"
+    },
+    {
+     "pointer": "/entries/1/source_id",
+     "value": "@personal_memory"
+    },
+    {
+     "pointer": "/material_gaps/0/pointer",
+     "value": "/entries/0"
+    },
+    {
+     "pointer": "/material_gaps/1/code",
+     "value": "choice_conflict_unresolved"
+    },
+    {
+     "pointer": "/material_gaps/1/pointer",
+     "value": "/entries/1"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:conflict_state_at"
+    }
+   ]
+  },
+  {
+   "name": "conflict_waiting",
+   "from": "c06/result_waiting_on_the_person.json",
+   "set": [
+    {
+     "pointer": "/envelope_digest",
+     "value": "#conflict_envelope"
+    },
+    {
+     "pointer": "/outcome/frontiers/0/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/outcome/frontiers/0/checkpoint_digest",
+     "value": "$digest:repo_memory_head_2"
+    },
+    {
+     "pointer": "/outcome/frontiers/1/source_id",
+     "value": "@personal_memory"
+    },
+    {
+     "pointer": "/outcome/frontiers/1/checkpoint_digest",
+     "value": "$digest:personal_memory_head_2"
+    },
+    {
+     "pointer": "/outcome/use/use_id",
+     "value": "$use:conflict_use"
+    },
+    {
+     "pointer": "/outcome/use/question_id",
+     "value": "$qst:conflict_question"
+    },
+    {
+     "pointer": "/outcome/consumed/examined",
+     "value": 2
+    },
+    {
+     "pointer": "/material_gaps/0/code",
+     "value": "choice_conflict_unresolved"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:conflict_waiting_at"
+    }
+   ]
+  },
+  {
+   "name": "conflict_use",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@conflict_use_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.use.prepare"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "durable_candidate"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "use"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@sync_concern"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#conflict_envelope"
     }
    ]
   }
@@ -2471,6 +3756,62 @@
    "process": "laptop"
   },
   {
+   "name": "register_personal_rules",
+   "request": "register_personal_rules",
+   "carries": [
+    "personal_rules_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "personal_rules_home_stored"
+    ],
+    "head": "personal_rules_h0"
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "commit_personal_rules_r1",
+   "request": "commit_personal_rules_r1",
+   "carries": [
+    "personal_rules_r1"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "personal_rules_r1_stored"
+    ]
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "change_personal_instr_v1",
+   "request": "change_personal_instr_v1",
+   "carries": [
+    "personal_instr_v1"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "personal_instr_v1_stored"
+    ],
+    "head": "personal_instr_v1_stored"
+   },
+   "process": "laptop"
+  },
+  {
    "name": "start_with_the_local_override",
    "request": "start_with_the_local_override",
    "carries": [
@@ -2484,6 +3825,109 @@
     "recovery": [],
     "returns": [
      "start_with_the_local_override_prepared"
+    ]
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "register_repo_memory",
+   "request": "register_repo_memory",
+   "carries": [
+    "repo_memory_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_memory_home_stored"
+    ],
+    "head": "repo_memory_head_1"
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "register_personal_memory",
+   "request": "register_personal_memory",
+   "carries": [
+    "personal_memory_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "personal_memory_home_stored"
+    ],
+    "head": "personal_memory_head_1"
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "publish_repo_choice",
+   "request": "publish_repo_choice",
+   "carries": [
+    "repo_choice"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_choice_stored",
+     "repo_memory_manifest_2"
+    ],
+    "head": "repo_memory_head_2"
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "publish_personal_choice",
+   "request": "publish_personal_choice",
+   "carries": [
+    "personal_choice"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "personal_choice_stored",
+     "personal_memory_manifest_2"
+    ],
+    "head": "personal_memory_head_2"
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "conflict_use",
+   "request": "conflict_use",
+   "carries": [
+    "conflict_envelope"
+   ],
+   "answer": {
+    "stage": "blocked",
+    "local_effect": "private_state_written",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "choice_conflict_unresolved"
+     }
+    ],
+    "recovery": [],
+    "returns": [
+     "conflict_waiting",
+     "conflict_question",
+     "conflict_basis",
+     "conflict_state"
     ]
    },
    "process": "laptop"

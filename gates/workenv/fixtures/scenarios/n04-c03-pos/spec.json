@@ -1,6 +1,6 @@
 {
  "case": "N04-C03-POS",
- "says": "Five entrances are traced and recorded on Alice's profile with the guard each reaches kept state through: setup is a choke point of the projection owner admitting role.project and session.routing.activate; session start and a maintenance command, both with roots the caller chooses, are routed through the projection owner; the decision CLI and the studio hub are choke points of the source store admitting source and memory writes. The access owner then issues Alice a handle through each entrance she will ask through - setup, session start, maintenance and the decision CLI - and every later request names the handle of the entrance it came through among its proofs. A repository's rules revision is projected for the executor view through each entrance whose guard is the projection owner - setup, session start and maintenance - and each projection succeeds with the rules body; for setup, the access owner first answers that exact request, under the setup handle at the current generation, as allowed. The memory write the decision CLI's store admits, publishing a choice to the repository's memory under the decision CLI's handle, succeeds as well. Nothing is projected through the store's entrances, because their dispositions do not admit role.project, and no entrance is asked for an operation its disposition does not name.",
+ "says": "Four entrances are traced and recorded on Alice's profile with the guard each reaches kept state through: setup is a choke point of the projection owner admitting role.project and session.routing.activate; session start and a maintenance command, both with roots the caller chooses, are routed through the projection owner; the studio hub is a choke point of the source store admitting source and memory writes. The access owner then issues Alice a handle through each entrance she will ask through - setup, session start, maintenance and the studio hub - and every later request names the handle of the entrance it came through among its proofs. A repository's rules revision is projected for the executor view through each entrance whose guard is the projection owner - setup, session start and maintenance - and each projection succeeds with the rules body; for setup, the access owner first answers that exact request, under the setup handle at the current generation, as allowed. The memory write the studio hub's store admits, publishing a choice to the repository's memory under the studio hub's handle, succeeds as well. Nothing is projected through the store's entrances, because their dispositions do not admit role.project, and no entrance is asked for an operation its disposition does not name.",
  "ids": [
   {
    "name": "alice",
@@ -47,15 +47,11 @@
    "prefix": "req"
   },
   {
-   "name": "trace_decision_cli_request_req",
-   "prefix": "req"
-  },
-  {
    "name": "trace_studio_hub_request_req",
    "prefix": "req"
   },
   {
-   "name": "issue_decision_cli_handle_request_req",
+   "name": "issue_studio_hub_handle_request_req",
    "prefix": "req"
   },
   {
@@ -99,7 +95,7 @@
    "prefix": "req"
   },
   {
-   "name": "record_through_decision_cli_request_req",
+   "name": "record_through_studio_hub_request_req",
    "prefix": "req"
   }
  ],
@@ -414,16 +410,12 @@
      "value": "setup"
     },
     {
-     "pointer": "/route/path",
-     "value": "install.sh"
-    },
-    {
-     "pointer": "/route/command",
-     "value": "instructions"
-    },
-    {
      "pointer": "/traced_at",
      "value": "2026-09-21T14:00:00Z"
+    },
+    {
+     "pointer": "/route/path",
+     "value": "compose/instructions_install.py"
     }
    ]
   },
@@ -501,12 +493,12 @@
      "value": "session_start"
     },
     {
-     "pointer": "/route/path",
-     "value": "compose/instructions_session.py"
-    },
-    {
      "pointer": "/traced_at",
      "value": "2026-09-21T14:00:00Z"
+    },
+    {
+     "pointer": "/route/path",
+     "value": "compose/canary.sh"
     }
    ]
   },
@@ -580,16 +572,12 @@
      "value": "projection_owner"
     },
     {
-     "pointer": "/route/path",
-     "value": "install.sh"
-    },
-    {
-     "pointer": "/route/command",
-     "value": "doctor"
-    },
-    {
      "pointer": "/traced_at",
      "value": "2026-09-21T14:00:00Z"
+    },
+    {
+     "pointer": "/route/path",
+     "value": "compose/prune-backups.py"
     }
    ]
   },
@@ -655,77 +643,6 @@
    ]
   },
   {
-   "name": "decision_cli_disposition",
-   "from": "c03/the_store_admits_what_it_owns.json",
-   "set": [
-    {
-     "pointer": "/traced_at",
-     "value": "2026-09-21T14:00:00Z"
-    }
-   ]
-  },
-  {
-   "name": "trace_decision_cli_request",
-   "from": "c03/commit_request.json",
-   "drop": [
-    "/rationale",
-    "/recipient_digest",
-    "/work_scope",
-    "/owner/team_id",
-    "/target/base"
-   ],
-   "set": [
-    {
-     "pointer": "/action",
-     "value": "local_profile"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@profile"
-    },
-    {
-     "pointer": "/operation",
-     "value": "entrance.disposition.record"
-    },
-    {
-     "pointer": "/owner/layer",
-     "value": "personal"
-    },
-    {
-     "pointer": "/owner/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/policy_digests",
-     "value": []
-    },
-    {
-     "pointer": "/proof_digests",
-     "value": []
-    },
-    {
-     "pointer": "/request_id",
-     "value": "@trace_decision_cli_request_req"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@profile"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#decision_cli_disposition"
-    }
-   ]
-  },
-  {
    "name": "studio_hub_disposition",
    "from": "c03/the_store_admits_what_it_owns.json",
    "set": [
@@ -745,12 +662,12 @@
      "value": "studio_hub"
     },
     {
-     "pointer": "/route/path",
-     "value": "compose/studio_hub.py"
-    },
-    {
      "pointer": "/traced_at",
      "value": "2026-09-21T14:00:00Z"
+    },
+    {
+     "pointer": "/route/path",
+     "value": "compose/instructions_store.py"
     }
    ]
   },
@@ -816,7 +733,7 @@
    ]
   },
   {
-   "name": "decision_cli_handle_asked",
+   "name": "studio_hub_handle_asked",
    "from": "c02/handle_asked_through_the_cli.json",
    "set": [
     {
@@ -825,12 +742,12 @@
     },
     {
      "pointer": "/entrance/name",
-     "value": "decision_cli"
+     "value": "studio_hub"
     }
    ]
   },
   {
-   "name": "issue_decision_cli_handle_request",
+   "name": "issue_studio_hub_handle_request",
    "from": "c03/commit_request.json",
    "drop": [
     "/rationale",
@@ -878,7 +795,7 @@
     },
     {
      "pointer": "/request_id",
-     "value": "@issue_decision_cli_handle_request_req"
+     "value": "@issue_studio_hub_handle_request_req"
     },
     {
      "pointer": "/target/resource_id",
@@ -886,7 +803,7 @@
     },
     {
      "pointer": "/payload_digest",
-     "value": "#decision_cli_handle_asked"
+     "value": "#studio_hub_handle_asked"
     },
     {
      "pointer": "/effect_class",
@@ -895,12 +812,12 @@
    ]
   },
   {
-   "name": "decision_cli_handle",
+   "name": "studio_hub_handle",
    "from": "c02/handle_issued_through_the_cli.json",
    "set": [
     {
      "pointer": "/handle_id",
-     "value": "$hdl:decision_cli_handle_id"
+     "value": "$hdl:studio_hub_handle_id"
     },
     {
      "pointer": "/profile_id",
@@ -908,11 +825,11 @@
     },
     {
      "pointer": "/entrance/name",
-     "value": "decision_cli"
+     "value": "studio_hub"
     },
     {
      "pointer": "/issued_at",
-     "value": "$instant:decision_cli_handle_at"
+     "value": "$instant:studio_hub_handle_at"
     }
    ]
   },
@@ -1878,7 +1795,7 @@
    ]
   },
   {
-   "name": "record_through_decision_cli_choice",
+   "name": "record_through_studio_hub_choice",
    "from": "c05/choice_as_submitted.json",
    "drop": [
     "/alternatives",
@@ -1905,7 +1822,7 @@
    ]
   },
   {
-   "name": "record_through_decision_cli_request",
+   "name": "record_through_studio_hub_request",
    "from": "c03/commit_request.json",
    "drop": [
     "/rationale",
@@ -1941,12 +1858,12 @@
     {
      "pointer": "/proof_digests",
      "value": [
-      "#decision_cli_handle"
+      "#studio_hub_handle"
      ]
     },
     {
      "pointer": "/request_id",
-     "value": "@record_through_decision_cli_request_req"
+     "value": "@record_through_studio_hub_request_req"
     },
     {
      "pointer": "/target/resource_id",
@@ -1958,12 +1875,12 @@
     },
     {
      "pointer": "/payload_digest",
-     "value": "#record_through_decision_cli_choice"
+     "value": "#record_through_studio_hub_choice"
     }
    ]
   },
   {
-   "name": "record_through_decision_cli_record",
+   "name": "record_through_studio_hub_record",
    "from": "c05/choice_whose_reason_nobody_wrote_down.json",
    "drop": [
     "/basis",
@@ -1989,16 +1906,16 @@
     },
     {
      "pointer": "/record_id",
-     "value": "$rec:record_through_decision_cli_record_id"
+     "value": "$rec:record_through_studio_hub_record_id"
     },
     {
      "pointer": "/recorded_at",
-     "value": "$instant:record_through_decision_cli_at"
+     "value": "$instant:record_through_studio_hub_at"
     }
    ]
   },
   {
-   "name": "record_through_decision_cli_revision",
+   "name": "record_through_studio_hub_revision",
    "from": "sources/revision_of_a_published_package.json",
    "drop": [
     "/members/1"
@@ -2006,7 +1923,7 @@
    "set": [
     {
      "pointer": "/members/0/digest",
-     "value": "$digest:record_through_decision_cli_member"
+     "value": "$digest:record_through_studio_hub_member"
     },
     {
      "pointer": "/members/0/path",
@@ -2018,7 +1935,7 @@
     },
     {
      "pointer": "/produced_at",
-     "value": "$instant:record_through_decision_cli_at"
+     "value": "$instant:record_through_studio_hub_at"
     },
     {
      "pointer": "/source_id",
@@ -2132,23 +2049,6 @@
    }
   },
   {
-   "name": "trace_decision_cli",
-   "request": "trace_decision_cli_request",
-   "carries": [
-    "decision_cli_disposition"
-   ],
-   "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "decision_cli_disposition"
-    ]
-   }
-  },
-  {
    "name": "trace_studio_hub",
    "request": "trace_studio_hub_request",
    "carries": [
@@ -2180,6 +2080,9 @@
     "returns": [
      "setup_handle"
     ]
+   },
+   "route": {
+    "path": "compose/instructions_install.py"
    }
   },
   {
@@ -2197,6 +2100,9 @@
     "returns": [
      "session_start_handle"
     ]
+   },
+   "route": {
+    "path": "compose/canary.sh"
    }
   },
   {
@@ -2214,13 +2120,16 @@
     "returns": [
      "maintenance_handle"
     ]
+   },
+   "route": {
+    "path": "compose/prune-backups.py"
    }
   },
   {
-   "name": "issue_decision_cli_handle",
-   "request": "issue_decision_cli_handle_request",
+   "name": "issue_studio_hub_handle",
+   "request": "issue_studio_hub_handle_request",
    "carries": [
-    "decision_cli_handle_asked"
+    "studio_hub_handle_asked"
    ],
    "answer": {
     "stage": "committed",
@@ -2229,8 +2138,11 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "decision_cli_handle"
+     "studio_hub_handle"
     ]
+   },
+   "route": {
+    "path": "compose/instructions_store.py"
    }
   },
   {
@@ -2248,6 +2160,9 @@
     "returns": [
      "setup_admitted"
     ]
+   },
+   "route": {
+    "path": "compose/instructions_install.py"
    }
   },
   {
@@ -2265,6 +2180,9 @@
     "returns": [
      "setup_projection"
     ]
+   },
+   "route": {
+    "path": "compose/instructions_install.py"
    }
   },
   {
@@ -2282,6 +2200,9 @@
     "returns": [
      "session_start_projection"
     ]
+   },
+   "route": {
+    "path": "compose/canary.sh"
    }
   },
   {
@@ -2299,6 +2220,9 @@
     "returns": [
      "maintenance_projection"
     ]
+   },
+   "route": {
+    "path": "compose/prune-backups.py"
    }
   },
   {
@@ -2337,10 +2261,10 @@
    }
   },
   {
-   "name": "record_through_decision_cli",
-   "request": "record_through_decision_cli_request",
+   "name": "record_through_studio_hub",
+   "request": "record_through_studio_hub_request",
    "carries": [
-    "record_through_decision_cli_choice"
+    "record_through_studio_hub_choice"
    ],
    "answer": {
     "stage": "committed",
@@ -2349,10 +2273,13 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "record_through_decision_cli_record",
-     "record_through_decision_cli_revision"
+     "record_through_studio_hub_record",
+     "record_through_studio_hub_revision"
     ],
-    "head": "record_through_decision_cli_head"
+    "head": "record_through_studio_hub_head"
+   },
+   "route": {
+    "path": "compose/instructions_store.py"
    }
   }
  ]

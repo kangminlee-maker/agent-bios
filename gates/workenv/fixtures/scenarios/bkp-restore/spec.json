@@ -1,6 +1,6 @@
 {
  "case": "BKP-RESTORE",
- "says": "On her laptop Alice registers her private notes source and commits a revision on the head the registration made (a receipt and the head it moved), keeps a hand-written choice as a draft candidate whose id the owner assigns, and exports a package carrying the revision, trusted by the binding that enrolled the laptop, to her desktop over a peer route while the two cannot reach each other, so the export stays in her outbox with an unknown outcome. She then takes a backup, which names the database snapshot and each member beside it: the draft, the outbox package, the unknown operation and the control sequence. The laptop's live database is then lost: on a rebuilt runtime that never held it, a query for the commit's request id first answers request_not_held — nothing survived to be restarted. Restoring the backup there reports the receipt sequence and instant the backup covers, work after it not known and authority passive. Afterwards the same queries return exactly the originals: the commit's result and its receipt naming its request and head, the draft candidate's result, and the export's unknown result with its query-the-same-request recovery. What must not count as this proof: a surviving database restarted in place, or the desktop's copy of the exported package standing in for the laptop's draft, outbox, unknown operation and control mappings; nothing here is rebuilt from a peer.",
+ "says": "On her laptop Alice registers her private notes source and commits a revision on the head the registration made (a receipt and the head it moved), keeps a hand-written choice as a draft candidate whose id the owner assigns, and exports a package carrying the revision, trusted by the binding that enrolled the laptop, to her desktop over a peer route while the two cannot reach each other, so the export stays in her outbox with an unknown outcome. She then takes a backup, which names the database snapshot and each member beside it: the draft, the outbox package, the unknown operation and the control sequence. The laptop's live database is then lost: on a rebuilt runtime that never held it, a query for the commit's request id first answers request_not_held — nothing survived to be restarted. Restoring the backup there reports the receipt sequence and instant the backup covers, work after it not known and authority passive. Afterwards the same queries return exactly the originals: the commit's result and its receipt naming its request and head, the draft candidate's result, and the export's unknown result with its query-the-same-request recovery. Reading the draft candidate directly there returns the same stored candidate content, not only its historical result. A fresh backup taken there afterward names the same database, draft, outbox and control-sequence members by digest and size as the one restored, so the restored outbox package and control-state member are shown exactly restored, not only their result mappings. What must not count as this proof: a surviving database restarted in place, or the desktop's copy of the exported package standing in for the laptop's draft, outbox, unknown operation and control mappings; nothing here is rebuilt from a peer.",
  "ids": [
   {
    "name": "alice",
@@ -68,6 +68,14 @@
   },
   {
    "name": "ask_export_request",
+   "prefix": "req"
+  },
+  {
+   "name": "candidate_read_request",
+   "prefix": "req"
+  },
+  {
+   "name": "backup_after_restore_request",
    "prefix": "req"
   }
  ],
@@ -583,7 +591,7 @@
     },
     {
      "pointer": "/inventory/0/size",
-     "value": 4121
+     "value": 382
     },
     {
      "pointer": "/inventory/0/object_kind",
@@ -599,7 +607,7 @@
     },
     {
      "pointer": "/inventory/1/size",
-     "value": 412
+     "value": 444
     },
     {
      "pointer": "/inventory/1/object_kind",
@@ -770,7 +778,7 @@
     },
     {
      "pointer": "/members/0/size",
-     "value": 812
+     "value": 1227
     },
     {
      "pointer": "/members/1/path",
@@ -786,7 +794,7 @@
     },
     {
      "pointer": "/members/1/size",
-     "value": 1204
+     "value": 930
     },
     {
      "pointer": "/members/2/path",
@@ -802,7 +810,7 @@
     },
     {
      "pointer": "/members/2/size",
-     "value": 96
+     "value": 474
     },
     {
      "pointer": "/members/3/path",
@@ -1109,6 +1117,97 @@
      "value": "#export_query"
     }
    ]
+  },
+  {
+   "name": "read_draft_after_restore",
+   "from": "c05/candidate_read_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@candidate_read_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "$cnd:draft_candidate"
+    }
+   ]
+  },
+  {
+   "name": "take_backup_after_restore",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base",
+    "/payload_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@backup_after_restore_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "store.backup.create"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    }
+   ]
+  },
+  {
+   "name": "backup_after_restore",
+   "from": "backup",
+   "set": [
+    {
+     "pointer": "/taken_at",
+     "value": "$instant:backup_after_restore_taken_at"
+    }
+   ]
   }
  ],
  "steps": [
@@ -1333,6 +1432,38 @@
     "recovery": [],
     "returns": [
      "export_to_the_desktop_result"
+    ]
+   },
+   "process": "rebuilt"
+  },
+  {
+   "name": "read_the_candidate_after_restore",
+   "request": "read_draft_after_restore",
+   "carries": [],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_draft"
+    ]
+   },
+   "process": "rebuilt"
+  },
+  {
+   "name": "take_a_backup_after_restore",
+   "request": "take_backup_after_restore",
+   "carries": [],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "backup_after_restore"
     ]
    },
    "process": "rebuilt"

@@ -2804,7 +2804,7 @@
   }
  ],
  "says": "One person founds Team A 'Platform' and Team B 'Platform Ops' on the laptop; Team B is then closed for good (team.lifecycle.apply close). While the laptop cannot reach the desktop that carries Team A's peer copy, a Team A profile change (team.profile.set) is answered unknown: staged locally, provider effect unknown, recovery query or retry of the same request. Team A's recent history names that request as unknown, local only. The dashboard (surface.drive from the studio hub) shows partial coverage and a signal for that request; the person browses the closed Team B, which offers no action, while the signal still names the Team A request; back on the dashboard, Enter on the signal opens that same request in Team A's own scope with a check action, and Enter on it dispatches one operation.query for the same request id. While reach is still lost, the same profile change submitted again under a new request id is refused with resubmitted_while_unknown at /request_id and no recovery of its own. Once reach is back, the query returns the first request's actual committed result and receipt. Negative: browsing Team B moves the request nowhere; the resubmission under a new id runs nothing and the only way on is the query of the first request; and restoring closed Team B is refused (team_terminal).",
- "spec_sha256": "e5afcd52629ae4226b7a06ecf2b9b2a858695f1baf53b708330d1ab11345f656",
+ "spec_sha256": "8d6c0d318e5958b775c9f421c08a38fc37f584449e531a3e423ad9cb8e34a43a",
  "steps": [
   {
    "carries": [
@@ -2946,6 +2946,12 @@
   }
  ],
  "world": {
+  "events": [
+   {
+    "kind": "reply_lost",
+    "step": "set_team_a_profile"
+   }
+  ],
   "partitions": [
    {
     "between": [

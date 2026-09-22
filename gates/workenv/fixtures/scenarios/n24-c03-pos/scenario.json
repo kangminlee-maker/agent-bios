@@ -24,6 +24,10 @@
   {
    "id": "req_6d9b0fc38f23122d2aac114fdbcdafcb",
    "name": "cutover_request"
+  },
+  {
+   "id": "req_debd798916e70e90a7f4ac6701319902",
+   "name": "confirm_request"
   }
  ],
  "joins": [
@@ -156,6 +160,21 @@
    "digest_of": "switch",
    "pointer": "/request_digest",
    "record": "commit_cutover_result"
+  },
+  {
+   "digest_of": "confirm_query",
+   "pointer": "/payload_digest",
+   "record": "confirm"
+  },
+  {
+   "digest_of": "confirm",
+   "pointer": "/request_digest",
+   "record": "confirm_installed_result"
+  },
+  {
+   "digest_of": "commit_cutover_result",
+   "pointer": "/outputs/0/digest",
+   "record": "confirm_installed_result"
   }
  ],
  "minted": [
@@ -552,10 +571,116 @@
     "schema": 1,
     "supported_recovery": []
    }
+  },
+  {
+   "digest": "90747e10d8a5cb73361c5474dc4b4065aebf9db2c43557cf0e3e282c15ffd1ea",
+   "name": "confirm_query",
+   "record": {
+    "kind": "operation_query",
+    "request_id": "req_6d9b0fc38f23122d2aac114fdbcdafcb",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "05f6217fd1c52cf591134a48ff267a3e4e763ca8257232543bf7b083b4fc09f3",
+   "name": "confirm",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_b2d7a1ccb1c0d16b0db5262b60ccb9dd",
+     "principal_id": "prn_e67bc53286bbad1a6d7f523ab03e1ac6",
+     "profile_id": "prf_d94b05fbcccb0a571c4f9238f0f20f29"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "operation.query",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_e67bc53286bbad1a6d7f523ab03e1ac6"
+    },
+    "payload_digest": "90747e10d8a5cb73361c5474dc4b4065aebf9db2c43557cf0e3e282c15ffd1ea",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_debd798916e70e90a7f4ac6701319902",
+    "schema": 1,
+    "target": {
+     "resource_id": "req_6d9b0fc38f23122d2aac114fdbcdafcb"
+    }
+   }
+  },
+  {
+   "digest": "43a133f37dce45474c92105463d6469b7451c71e1f8ceaa5454ddd36ac10ff37",
+   "name": "confirm_installed_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "78a08f67134e8ae960165cd56c8ce8b1ec8a572cdbf404e2344efbaf54a4a399",
+      "kind": "operation_result"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "05f6217fd1c52cf591134a48ff267a3e4e763ca8257232543bf7b083b4fc09f3",
+    "request_id": "req_debd798916e70e90a7f4ac6701319902",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "d8b440220262964d85390e586239348017bb444f2063154a4452f5ec5b8dff51",
+   "name": "installed_before",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [],
+    "produced_at": "2026-09-21T10:55:00Z",
+    "schema": 1,
+    "source_id": "src_bd4584fef141edcdee56b3c41c41593a"
+   }
+  },
+  {
+   "digest": "0dc262223fd71e7635ebcaecc6c603e14ffc555ab4abf4286b3523e8a0dc95f5",
+   "name": "installed_after",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "path": "workenv/contracts/c03.py",
+      "size": 9120
+     },
+     {
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "path": "workenv/contracts/schemas/c03_cutover_plan.schema.json",
+      "size": 6211
+     },
+     {
+      "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "path": "provenance.json",
+      "size": 312
+     },
+     {
+      "digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "path": "compose/check-domains.py",
+      "size": 5120
+     }
+    ],
+    "produced_at": "2026-09-21T11:05:00Z",
+    "schema": 1,
+    "source_id": "src_bd4584fef141edcdee56b3c41c41593a"
+   }
   }
  ],
- "says": "Alice binds her device key and registers the package candidate the target will run: its runtime module (workenv/contracts/c03.py), an asset (the cutover plan schema) and a shipped check (compose/check-domains.py), each copied from source_commit, and provenance.json made at pack time. She then submits one cutover plan to the target: one explicit transfer of the data she selected, whose quiesced capture names the source revision and outbox captured after the old writers stopped and the import validated against exactly them; all three owners sealed with nothing in flight; the entrance trace verified with no writer left unrouted; one commit; the old source kept; and candidate_digest naming the candidate just registered. The owner commits the cutover once. What must not happen: ownership moving before the verified stage, the cutover installing any package other than the registered candidate, or the old source being deleted.",
- "spec_sha256": "862c4c511ff02bc33a3f09bfc8487b983a318c96cc761efe6fb215c721fe3ed1",
+ "says": "Alice binds her device key and registers the package candidate the target will run: its runtime module (workenv/contracts/c03.py), an asset (the cutover plan schema) and a shipped check (compose/check-domains.py), each copied from source_commit, and provenance.json made at pack time. Before she submits the cutover, an inventory of the installed target holds nothing yet. She then submits one cutover plan to the target: one explicit transfer of the data she selected, whose quiesced capture names the source revision and outbox captured after the old writers stopped and the import validated against exactly them; all three owners sealed with nothing in flight; the entrance trace verified with no writer left unrouted; one commit; the old source kept; and candidate_digest naming the candidate just registered. The owner commits the cutover once. A later inventory of the installed target then shows exactly the four members the registered candidate named, at the same paths, digests and sizes: ownership moved only after the plan's own verify stage, and what the target runs is what the candidate named, nothing else. What must not happen: ownership moving before the verified stage, the cutover installing any package other than the registered candidate, or the old source being deleted.",
+ "spec_sha256": "40784efdfaf1fbe8452f15681532d09f855dd811796698a331c54cc730749afb",
  "steps": [
   {
    "carries": [
@@ -587,6 +712,33 @@
    "request": "switch",
    "result": "commit_cutover_result",
    "returns": []
+  },
+  {
+   "carries": [
+    "confirm_query"
+   ],
+   "name": "confirm_installed",
+   "request": "confirm",
+   "result": "confirm_installed_result",
+   "returns": [
+    "commit_cutover_result"
+   ]
   }
- ]
+ ],
+ "world": {
+  "events": [
+   {
+    "before": "commit_cutover",
+    "kind": "inventory",
+    "root": "installed",
+    "yields": "installed_before"
+   },
+   {
+    "before": "confirm_installed",
+    "kind": "inventory",
+    "root": "installed",
+    "yields": "installed_after"
+   }
+  ]
+ }
 }

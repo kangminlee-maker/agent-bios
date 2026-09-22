@@ -1,6 +1,6 @@
 {
  "case": "N04-C03-NEG",
- "says": "Alice and Bob each have a principal; Bob keeps private rules in his personal source, and Alice's repository has its own rules. The access owner issues Alice a handle through each of ten entrances - setup, session start, maintenance, the decision CLI, the studio hub, capture intake, the host launcher, supplied requests, the studio bridge, and the old corpus-store compatibility route while it is still a route - and every later request names the handle of the entrance it came through among its proofs. The nine entrances that reach kept state are recorded with their guards, the compatibility route is recorded as retired at cutover naming the store that succeeds it, and a registered package candidate is installed by one fresh-start cutover, which retires that route. Alice then asks, through each of the nine entrances and from a root she chose (as with --repo or AGENT_BIOS_STATE_DIR pointing at another directory), for a projection of Bob's rules: every request is refused as source_not_authorized and returns nothing. Asking for her own repository's rules through capture intake and supplied requests, whose guard is the source store rather than the projection owner, is refused as protected_root_bypass. Asking under the compatibility route's handle is refused as route_retired at that proof, and asking for a new handle through that route is refused as route_retired at its entrance: the retired route names its successor and serves nothing itself. No refused request may return a projection, a handle or any body.",
+ "says": "Alice and Bob each have a principal; Bob keeps private rules in his personal source, and Alice's repository has its own rules. The access owner issues Alice a handle through each of eight entrances - setup, session start, maintenance, the studio hub, capture intake, the host launcher, supplied requests, and the old corpus-store compatibility route while it is still a route - and every later request names the handle of the entrance it came through among its proofs. The seven entrances that reach kept state are recorded with their guards, the compatibility route is recorded as retired at cutover naming the store that succeeds it, and a registered package candidate is installed by one fresh-start cutover, which retires that route. Alice then asks, through each of the seven entrances and from a root she chose (as with --repo or AGENT_BIOS_STATE_DIR pointing at another directory), for a projection of Bob's rules: every request is refused as source_not_authorized and returns nothing. Asking for her own repository's rules through capture intake and supplied requests, whose guard is the source store rather than the projection owner, is refused as protected_root_bypass. Asking under the compatibility route's handle is refused as route_retired at that proof, and asking for a new handle through that route is refused as route_retired at its entrance: the retired route names its successor and serves nothing itself. No refused request may return a projection, a handle or any body.",
  "ids": [
   {
    "name": "alice",
@@ -63,10 +63,6 @@
    "prefix": "req"
   },
   {
-   "name": "issue_studio_bridge_handle_request_req",
-   "prefix": "req"
-  },
-  {
    "name": "issue_supplied_request_handle_request_req",
    "prefix": "req"
   },
@@ -80,10 +76,6 @@
   },
   {
    "name": "issue_studio_hub_handle_request_req",
-   "prefix": "req"
-  },
-  {
-   "name": "issue_decision_cli_handle_request_req",
    "prefix": "req"
   },
   {
@@ -111,10 +103,6 @@
    "prefix": "req"
   },
   {
-   "name": "trace_decision_cli_request_req",
-   "prefix": "req"
-  },
-  {
    "name": "trace_studio_hub_request_req",
    "prefix": "req"
   },
@@ -128,10 +116,6 @@
   },
   {
    "name": "trace_supplied_request_request_req",
-   "prefix": "req"
-  },
-  {
-   "name": "trace_studio_bridge_request_req",
    "prefix": "req"
   },
   {
@@ -159,10 +143,6 @@
    "prefix": "req"
   },
   {
-   "name": "deny_via_decision_cli_request_req",
-   "prefix": "req"
-  },
-  {
    "name": "deny_via_studio_hub_request_req",
    "prefix": "req"
   },
@@ -176,10 +156,6 @@
   },
   {
    "name": "deny_via_supplied_request_request_req",
-   "prefix": "req"
-  },
-  {
-   "name": "deny_via_studio_bridge_request_req",
    "prefix": "req"
   },
   {
@@ -808,107 +784,6 @@
    ]
   },
   {
-   "name": "studio_bridge_handle_asked",
-   "from": "c02/handle_asked_through_the_cli.json",
-   "set": [
-    {
-     "pointer": "/profile_id",
-     "value": "@profile"
-    },
-    {
-     "pointer": "/entrance/name",
-     "value": "studio_bridge"
-    }
-   ]
-  },
-  {
-   "name": "issue_studio_bridge_handle_request",
-   "from": "c03/commit_request.json",
-   "drop": [
-    "/rationale",
-    "/recipient_digest",
-    "/work_scope",
-    "/owner/team_id",
-    "/target/base"
-   ],
-   "set": [
-    {
-     "pointer": "/action",
-     "value": "local_profile"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@profile"
-    },
-    {
-     "pointer": "/operation",
-     "value": "access.handle.issue"
-    },
-    {
-     "pointer": "/owner/layer",
-     "value": "personal"
-    },
-    {
-     "pointer": "/owner/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/policy_digests",
-     "value": []
-    },
-    {
-     "pointer": "/proof_digests",
-     "value": []
-    },
-    {
-     "pointer": "/request_id",
-     "value": "@issue_studio_bridge_handle_request_req"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@profile"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#studio_bridge_handle_asked"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "owner_commit"
-    }
-   ]
-  },
-  {
-   "name": "studio_bridge_handle",
-   "from": "c02/handle_issued_to_the_studio_page.json",
-   "set": [
-    {
-     "pointer": "/handle_id",
-     "value": "$hdl:studio_bridge_handle_id"
-    },
-    {
-     "pointer": "/profile_id",
-     "value": "@profile"
-    },
-    {
-     "pointer": "/client_token_digest",
-     "value": "$digest:studio_bridge_client_token"
-    },
-    {
-     "pointer": "/issued_at",
-     "value": "$instant:studio_bridge_handle_at"
-    }
-   ]
-  },
-  {
    "name": "supplied_request_handle_asked",
    "from": "c02/handle_asked_through_the_cli.json",
    "set": [
@@ -1313,107 +1188,6 @@
    ]
   },
   {
-   "name": "decision_cli_handle_asked",
-   "from": "c02/handle_asked_through_the_cli.json",
-   "set": [
-    {
-     "pointer": "/profile_id",
-     "value": "@profile"
-    },
-    {
-     "pointer": "/entrance/name",
-     "value": "decision_cli"
-    }
-   ]
-  },
-  {
-   "name": "issue_decision_cli_handle_request",
-   "from": "c03/commit_request.json",
-   "drop": [
-    "/rationale",
-    "/recipient_digest",
-    "/work_scope",
-    "/owner/team_id",
-    "/target/base"
-   ],
-   "set": [
-    {
-     "pointer": "/action",
-     "value": "local_profile"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@profile"
-    },
-    {
-     "pointer": "/operation",
-     "value": "access.handle.issue"
-    },
-    {
-     "pointer": "/owner/layer",
-     "value": "personal"
-    },
-    {
-     "pointer": "/owner/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/policy_digests",
-     "value": []
-    },
-    {
-     "pointer": "/proof_digests",
-     "value": []
-    },
-    {
-     "pointer": "/request_id",
-     "value": "@issue_decision_cli_handle_request_req"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@profile"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#decision_cli_handle_asked"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "owner_commit"
-    }
-   ]
-  },
-  {
-   "name": "decision_cli_handle",
-   "from": "c02/handle_issued_through_the_cli.json",
-   "set": [
-    {
-     "pointer": "/handle_id",
-     "value": "$hdl:decision_cli_handle_id"
-    },
-    {
-     "pointer": "/profile_id",
-     "value": "@profile"
-    },
-    {
-     "pointer": "/entrance/name",
-     "value": "decision_cli"
-    },
-    {
-     "pointer": "/issued_at",
-     "value": "$instant:decision_cli_handle_at"
-    }
-   ]
-  },
-  {
    "name": "maintenance_handle_asked",
    "from": "c02/handle_asked_through_the_cli.json",
    "set": [
@@ -1736,16 +1510,12 @@
      "value": "setup"
     },
     {
-     "pointer": "/route/path",
-     "value": "install.sh"
-    },
-    {
-     "pointer": "/route/command",
-     "value": "instructions"
-    },
-    {
      "pointer": "/traced_at",
      "value": "2026-09-21T14:00:00Z"
+    },
+    {
+     "pointer": "/route/path",
+     "value": "compose/instructions_install.py"
     }
    ]
   },
@@ -1823,12 +1593,12 @@
      "value": "session_start"
     },
     {
-     "pointer": "/route/path",
-     "value": "compose/instructions_session.py"
-    },
-    {
      "pointer": "/traced_at",
      "value": "2026-09-21T14:00:00Z"
+    },
+    {
+     "pointer": "/route/path",
+     "value": "compose/canary.sh"
     }
    ]
   },
@@ -1902,16 +1672,12 @@
      "value": "projection_owner"
     },
     {
-     "pointer": "/route/path",
-     "value": "install.sh"
-    },
-    {
-     "pointer": "/route/command",
-     "value": "doctor"
-    },
-    {
      "pointer": "/traced_at",
      "value": "2026-09-21T14:00:00Z"
+    },
+    {
+     "pointer": "/route/path",
+     "value": "compose/prune-backups.py"
     }
    ]
   },
@@ -1977,77 +1743,6 @@
    ]
   },
   {
-   "name": "decision_cli_disposition",
-   "from": "c03/the_store_admits_what_it_owns.json",
-   "set": [
-    {
-     "pointer": "/traced_at",
-     "value": "2026-09-21T14:00:00Z"
-    }
-   ]
-  },
-  {
-   "name": "trace_decision_cli_request",
-   "from": "c03/commit_request.json",
-   "drop": [
-    "/rationale",
-    "/recipient_digest",
-    "/work_scope",
-    "/owner/team_id",
-    "/target/base"
-   ],
-   "set": [
-    {
-     "pointer": "/action",
-     "value": "local_profile"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@profile"
-    },
-    {
-     "pointer": "/operation",
-     "value": "entrance.disposition.record"
-    },
-    {
-     "pointer": "/owner/layer",
-     "value": "personal"
-    },
-    {
-     "pointer": "/owner/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/policy_digests",
-     "value": []
-    },
-    {
-     "pointer": "/proof_digests",
-     "value": []
-    },
-    {
-     "pointer": "/request_id",
-     "value": "@trace_decision_cli_request_req"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@profile"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#decision_cli_disposition"
-    }
-   ]
-  },
-  {
    "name": "studio_hub_disposition",
    "from": "c03/the_store_admits_what_it_owns.json",
    "set": [
@@ -2067,12 +1762,12 @@
      "value": "studio_hub"
     },
     {
-     "pointer": "/route/path",
-     "value": "compose/studio_hub.py"
-    },
-    {
      "pointer": "/traced_at",
      "value": "2026-09-21T14:00:00Z"
+    },
+    {
+     "pointer": "/route/path",
+     "value": "compose/instructions_store.py"
     }
    ]
   },
@@ -2146,12 +1841,12 @@
      "value": "capture_intake"
     },
     {
-     "pointer": "/route/path",
-     "value": "learn/capture.py"
-    },
-    {
      "pointer": "/traced_at",
      "value": "2026-09-21T14:00:00Z"
+    },
+    {
+     "pointer": "/route/path",
+     "value": "learn/collect-learning.py"
     }
    ]
   },
@@ -2221,24 +1916,16 @@
    "from": "c03/a_caller_rooted_writer_routed_through_the_store.json",
    "set": [
     {
-     "pointer": "/disposition/choke_point",
-     "value": "publication_lock"
-    },
-    {
-     "pointer": "/disposition/root_origin",
-     "value": "owner"
-    },
-    {
      "pointer": "/entrance/name",
      "value": "host_launcher"
     },
     {
-     "pointer": "/route/path",
-     "value": "launch/agent-launch.py"
-    },
-    {
      "pointer": "/traced_at",
      "value": "2026-09-21T14:00:00Z"
+    },
+    {
+     "pointer": "/route/path",
+     "value": "launch/agent-launch.py"
     }
    ]
   },
@@ -2312,12 +1999,12 @@
      "value": "supplied_request"
     },
     {
-     "pointer": "/route/path",
-     "value": "compose/instructions_import.py"
-    },
-    {
      "pointer": "/traced_at",
      "value": "2026-09-21T14:00:00Z"
+    },
+    {
+     "pointer": "/route/path",
+     "value": "claude/guides/slide-writing/scripts/pair.py"
     }
    ]
   },
@@ -2379,89 +2066,6 @@
     {
      "pointer": "/payload_digest",
      "value": "#supplied_request_disposition"
-    }
-   ]
-  },
-  {
-   "name": "studio_bridge_disposition",
-   "from": "c03/a_caller_rooted_writer_routed_through_the_store.json",
-   "set": [
-    {
-     "pointer": "/disposition/choke_point",
-     "value": "publication_lock"
-    },
-    {
-     "pointer": "/entrance/name",
-     "value": "studio_bridge"
-    },
-    {
-     "pointer": "/route/path",
-     "value": "compose/app_bridge/scripts/bridge.py"
-    },
-    {
-     "pointer": "/traced_at",
-     "value": "2026-09-21T14:00:00Z"
-    }
-   ]
-  },
-  {
-   "name": "trace_studio_bridge_request",
-   "from": "c03/commit_request.json",
-   "drop": [
-    "/rationale",
-    "/recipient_digest",
-    "/work_scope",
-    "/owner/team_id",
-    "/target/base"
-   ],
-   "set": [
-    {
-     "pointer": "/action",
-     "value": "local_profile"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@profile"
-    },
-    {
-     "pointer": "/operation",
-     "value": "entrance.disposition.record"
-    },
-    {
-     "pointer": "/owner/layer",
-     "value": "personal"
-    },
-    {
-     "pointer": "/owner/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/policy_digests",
-     "value": []
-    },
-    {
-     "pointer": "/proof_digests",
-     "value": []
-    },
-    {
-     "pointer": "/request_id",
-     "value": "@trace_studio_bridge_request_req"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@profile"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#studio_bridge_disposition"
     }
    ]
   },
@@ -2944,95 +2548,6 @@
    ]
   },
   {
-   "name": "deny_via_decision_cli_plan",
-   "from": "c04/plan_for_one_source.json",
-   "set": [
-    {
-     "pointer": "/entrance/name",
-     "value": "decision_cli"
-    },
-    {
-     "pointer": "/entrance/root_origin",
-     "value": "caller"
-    },
-    {
-     "pointer": "/source_pins/0/revision_digest",
-     "value": "#bob_rules_rev"
-    },
-    {
-     "pointer": "/source_pins/0/source_id",
-     "value": "@bob_rules"
-    }
-   ]
-  },
-  {
-   "name": "deny_via_decision_cli_request",
-   "from": "c03/commit_request.json",
-   "drop": [
-    "/rationale",
-    "/recipient_digest",
-    "/work_scope",
-    "/owner/team_id",
-    "/target/base"
-   ],
-   "set": [
-    {
-     "pointer": "/action",
-     "value": "use"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@profile"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "pure_preview"
-    },
-    {
-     "pointer": "/operation",
-     "value": "role.project"
-    },
-    {
-     "pointer": "/owner/layer",
-     "value": "repository"
-    },
-    {
-     "pointer": "/owner/repository_id",
-     "value": "@repo"
-    },
-    {
-     "pointer": "/policy_digests",
-     "value": []
-    },
-    {
-     "pointer": "/proof_digests",
-     "value": [
-      "#decision_cli_handle"
-     ]
-    },
-    {
-     "pointer": "/request_id",
-     "value": "@deny_via_decision_cli_request_req"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#deny_via_decision_cli_plan"
-    }
-   ]
-  },
-  {
    "name": "deny_via_studio_hub_plan",
    "from": "c04/plan_for_one_source.json",
    "set": [
@@ -3385,95 +2900,6 @@
     {
      "pointer": "/payload_digest",
      "value": "#deny_via_supplied_request_plan"
-    }
-   ]
-  },
-  {
-   "name": "deny_via_studio_bridge_plan",
-   "from": "c04/plan_for_one_source.json",
-   "set": [
-    {
-     "pointer": "/entrance/name",
-     "value": "studio_bridge"
-    },
-    {
-     "pointer": "/entrance/root_origin",
-     "value": "caller"
-    },
-    {
-     "pointer": "/source_pins/0/revision_digest",
-     "value": "#bob_rules_rev"
-    },
-    {
-     "pointer": "/source_pins/0/source_id",
-     "value": "@bob_rules"
-    }
-   ]
-  },
-  {
-   "name": "deny_via_studio_bridge_request",
-   "from": "c03/commit_request.json",
-   "drop": [
-    "/rationale",
-    "/recipient_digest",
-    "/work_scope",
-    "/owner/team_id",
-    "/target/base"
-   ],
-   "set": [
-    {
-     "pointer": "/action",
-     "value": "use"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@profile"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "pure_preview"
-    },
-    {
-     "pointer": "/operation",
-     "value": "role.project"
-    },
-    {
-     "pointer": "/owner/layer",
-     "value": "repository"
-    },
-    {
-     "pointer": "/owner/repository_id",
-     "value": "@repo"
-    },
-    {
-     "pointer": "/policy_digests",
-     "value": []
-    },
-    {
-     "pointer": "/proof_digests",
-     "value": [
-      "#studio_bridge_handle"
-     ]
-    },
-    {
-     "pointer": "/request_id",
-     "value": "@deny_via_studio_bridge_request_req"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#deny_via_studio_bridge_plan"
     }
    ]
   },
@@ -3913,6 +3339,9 @@
     "returns": [
      "setup_handle"
     ]
+   },
+   "route": {
+    "path": "compose/instructions_install.py"
    }
   },
   {
@@ -3930,6 +3359,9 @@
     "returns": [
      "session_start_handle"
     ]
+   },
+   "route": {
+    "path": "compose/canary.sh"
    }
   },
   {
@@ -3947,23 +3379,9 @@
     "returns": [
      "maintenance_handle"
     ]
-   }
-  },
-  {
-   "name": "issue_decision_cli_handle",
-   "request": "issue_decision_cli_handle_request",
-   "carries": [
-    "decision_cli_handle_asked"
-   ],
-   "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "decision_cli_handle"
-    ]
+   },
+   "route": {
+    "path": "compose/prune-backups.py"
    }
   },
   {
@@ -3981,6 +3399,9 @@
     "returns": [
      "studio_hub_handle"
     ]
+   },
+   "route": {
+    "path": "compose/instructions_store.py"
    }
   },
   {
@@ -3998,6 +3419,9 @@
     "returns": [
      "capture_intake_handle"
     ]
+   },
+   "route": {
+    "path": "learn/collect-learning.py"
    }
   },
   {
@@ -4015,6 +3439,9 @@
     "returns": [
      "host_launcher_handle"
     ]
+   },
+   "route": {
+    "path": "launch/agent-launch.py"
    }
   },
   {
@@ -4032,23 +3459,9 @@
     "returns": [
      "supplied_request_handle"
     ]
-   }
-  },
-  {
-   "name": "issue_studio_bridge_handle",
-   "request": "issue_studio_bridge_handle_request",
-   "carries": [
-    "studio_bridge_handle_asked"
-   ],
-   "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "studio_bridge_handle"
-    ]
+   },
+   "route": {
+    "path": "claude/guides/slide-writing/scripts/pair.py"
    }
   },
   {
@@ -4066,6 +3479,9 @@
     "returns": [
      "compatibility_route_handle"
     ]
+   },
+   "route": {
+    "path": "compose/corpus_store.py"
    }
   },
   {
@@ -4116,23 +3532,6 @@
     "recovery": [],
     "returns": [
      "maintenance_disposition"
-    ]
-   }
-  },
-  {
-   "name": "trace_decision_cli",
-   "request": "trace_decision_cli_request",
-   "carries": [
-    "decision_cli_disposition"
-   ],
-   "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "decision_cli_disposition"
     ]
    }
   },
@@ -4205,23 +3604,6 @@
    }
   },
   {
-   "name": "trace_studio_bridge",
-   "request": "trace_studio_bridge_request",
-   "carries": [
-    "studio_bridge_disposition"
-   ],
-   "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "studio_bridge_disposition"
-    ]
-   }
-  },
-  {
    "name": "trace_compatibility_route",
    "request": "trace_compatibility_route_request",
    "carries": [
@@ -4289,6 +3671,9 @@
      "new_governed_request"
     ],
     "returns": []
+   },
+   "route": {
+    "path": "compose/instructions_install.py"
    }
   },
   {
@@ -4310,6 +3695,9 @@
      "new_governed_request"
     ],
     "returns": []
+   },
+   "route": {
+    "path": "compose/canary.sh"
    }
   },
   {
@@ -4331,27 +3719,9 @@
      "new_governed_request"
     ],
     "returns": []
-   }
-  },
-  {
-   "name": "deny_via_decision_cli",
-   "request": "deny_via_decision_cli_request",
-   "carries": [
-    "deny_via_decision_cli_plan"
-   ],
-   "answer": {
-    "stage": "refused",
-    "local_effect": "none",
-    "provider_effect": "not_applicable",
-    "gaps": [
-     {
-      "code": "source_not_authorized"
-     }
-    ],
-    "recovery": [
-     "new_governed_request"
-    ],
-    "returns": []
+   },
+   "route": {
+    "path": "compose/prune-backups.py"
    }
   },
   {
@@ -4373,6 +3743,9 @@
      "new_governed_request"
     ],
     "returns": []
+   },
+   "route": {
+    "path": "compose/instructions_store.py"
    }
   },
   {
@@ -4394,6 +3767,9 @@
      "new_governed_request"
     ],
     "returns": []
+   },
+   "route": {
+    "path": "learn/collect-learning.py"
    }
   },
   {
@@ -4415,6 +3791,9 @@
      "new_governed_request"
     ],
     "returns": []
+   },
+   "route": {
+    "path": "launch/agent-launch.py"
    }
   },
   {
@@ -4436,27 +3815,9 @@
      "new_governed_request"
     ],
     "returns": []
-   }
-  },
-  {
-   "name": "deny_via_studio_bridge",
-   "request": "deny_via_studio_bridge_request",
-   "carries": [
-    "deny_via_studio_bridge_plan"
-   ],
-   "answer": {
-    "stage": "refused",
-    "local_effect": "none",
-    "provider_effect": "not_applicable",
-    "gaps": [
-     {
-      "code": "source_not_authorized"
-     }
-    ],
-    "recovery": [
-     "new_governed_request"
-    ],
-    "returns": []
+   },
+   "route": {
+    "path": "claude/guides/slide-writing/scripts/pair.py"
    }
   },
   {
@@ -4478,6 +3839,9 @@
      "new_governed_request"
     ],
     "returns": []
+   },
+   "route": {
+    "path": "learn/collect-learning.py"
    }
   },
   {
@@ -4499,6 +3863,9 @@
      "new_governed_request"
     ],
     "returns": []
+   },
+   "route": {
+    "path": "claude/guides/slide-writing/scripts/pair.py"
    }
   },
   {
@@ -4519,6 +3886,9 @@
     ],
     "recovery": [],
     "returns": []
+   },
+   "route": {
+    "path": "compose/corpus_store.py"
    }
   },
   {
@@ -4539,6 +3909,9 @@
     ],
     "recovery": [],
     "returns": []
+   },
+   "route": {
+    "path": "compose/corpus_store.py"
    }
   }
  ]

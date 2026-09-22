@@ -98,6 +98,10 @@
    "name": "a_link_open"
   },
   {
+   "id": "req_29d8a5e967f534ef2d802f906a1f9547",
+   "name": "team_a_history_rid"
+  },
+  {
    "id": "req_00ecf75919d0680b1f2da98a5b2e56db",
    "name": "drive_request"
   },
@@ -1028,6 +1032,11 @@
    "record": "read_probe_stored"
   },
   {
+   "minted": "probe_measured_at",
+   "pointer": "/measured_at",
+   "record": "read_probe_host_configuration"
+  },
+  {
    "digest_of": "probe_host_read_receipt",
    "pointer": "/outcome/receipt_digest",
    "record": "probe_host_read_result"
@@ -1040,6 +1049,11 @@
   {
    "digest_of": "read_probe_stored",
    "pointer": "/outputs/0/digest",
+   "record": "probe_host_read_result"
+  },
+  {
+   "digest_of": "read_probe_host_configuration",
+   "pointer": "/outputs/1/digest",
    "record": "probe_host_read_result"
   },
   {
@@ -1363,6 +1377,36 @@
    "record": "bind_existing_recipient_result"
   },
   {
+   "digest_of": "team_a_history_query",
+   "pointer": "/payload_digest",
+   "record": "team_a_history_request"
+  },
+  {
+   "minted": "team_a_history_observed_at",
+   "pointer": "/observed_at",
+   "record": "team_a_recent_history"
+  },
+  {
+   "digest_of": "activate_team_a_receipt",
+   "pointer": "/checkpoints/0/digest",
+   "record": "team_a_recent_history"
+  },
+  {
+   "minted": "activate_team_a_committed_at",
+   "pointer": "/checkpoints/0/recorded_at",
+   "record": "team_a_recent_history"
+  },
+  {
+   "digest_of": "team_a_history_request",
+   "pointer": "/request_digest",
+   "record": "read_team_a_history_result"
+  },
+  {
+   "digest_of": "team_a_recent_history",
+   "pointer": "/outputs/0/digest",
+   "record": "read_team_a_history_result"
+  },
+  {
    "digest_of": "script",
    "pointer": "/payload_digest",
    "record": "script_request"
@@ -1380,6 +1424,11 @@
   {
    "minted": "existing_link",
    "pointer": "/frames/0/elements/2/refers_to/link_id",
+   "record": "script_trace"
+  },
+  {
+   "digest_of": "team_a_history_request",
+   "pointer": "/frames/0/calls/0/request_digest",
    "record": "script_trace"
   },
   {
@@ -1850,6 +1899,11 @@
    "step": "probe_host_read"
   },
   {
+   "name": "probe_measured_at",
+   "shape": "instant",
+   "step": "probe_host_read"
+  },
+  {
    "name": "probed_at",
    "shape": "instant",
    "step": "probe_host_read"
@@ -1968,6 +2022,11 @@
    "name": "existing_link",
    "shape": "lnk",
    "step": "bind_existing_recipient"
+  },
+  {
+   "name": "team_a_history_observed_at",
+   "shape": "instant",
+   "step": "read_team_a_history"
   },
   {
    "name": "script_driven_at",
@@ -2960,7 +3019,7 @@
    }
   },
   {
-   "digest": "621a440ec771bc1514ceba0d7e5931520c041e205e3858126ad4e50c4145be73",
+   "digest": "ac294c4a6517fcc48eb67bf1739a4d57a612512278ac5ba4d6824651dfd98d79",
    "name": "team_a_package",
    "record": {
     "authority": {
@@ -2979,49 +3038,49 @@
       "digest": "2d0f60a30847f72eb96408f01c08663e98b4eb4f8cd09aca4334efff5c4600ba",
       "object_kind": "founding_proposal",
       "path": "objects/0000.json",
-      "size": 1536
+      "size": 707
      },
      {
       "digest": "fa9f37b798fec906251f5b6adab41d3b093e5a5f3c5914aab9370b9987af66f7",
       "object_kind": "governing_policy",
       "path": "objects/0001.json",
-      "size": 1024
+      "size": 488
      },
      {
       "digest": "1a7cc47ed73c2fceecffa65c17c5ef0b92d7f980590df1e57c546321ecbdfdb1",
       "object_kind": "membership_record",
       "path": "objects/0002.json",
-      "size": 768
+      "size": 362
      },
      {
       "digest": "58f1c76ba015ab601e81aa7c2da1a9cb1270567c9cec270de1dc38d83ecc3243",
       "object_kind": "grant_record",
       "path": "objects/0003.json",
-      "size": 896
+      "size": 522
      },
      {
       "digest": "a10f764d389662cd89594666e74e1640efcbb94df50251eff0202deeb84e45bd",
       "object_kind": "team_state",
       "path": "objects/0004.json",
-      "size": 256
+      "size": 129
      },
      {
       "digest": "15238c607ca6e8ad89dea9d6bdbb466dfb5e323a8c90566ec4df8a70f5aa398b",
       "object_kind": "team_profile",
       "path": "objects/0005.json",
-      "size": 256
+      "size": 184
      },
      {
       "digest": "942595b8aebbe1872af0cafad37293534586b13a32ad41795c664145783ad71a",
       "object_kind": "authority_continuity",
       "path": "continuity/0006.json",
-      "size": 512
+      "size": 378
      },
      {
       "digest": "083d734d7c34627ca57b4f878cc9a8afbaa68ad7b63bed2197be319f2854f7b5",
       "object_kind": "source_manifest",
       "path": "objects/0007.json",
-      "size": 384
+      "size": 274
      }
     ],
     "kind": "transfer_envelope",
@@ -3047,7 +3106,7 @@
    }
   },
   {
-   "digest": "1d592963a21b5f4f5f50a84dd831edbb4d869fc35b30fdf3f1d155da48e01fb3",
+   "digest": "e0309efa2ce566ced1e67d3590112156fb0c04333cfde368f9437f73e1c39519",
    "name": "stage_team_a_request",
    "record": {
     "action": "transfer",
@@ -3065,7 +3124,7 @@
      "layer": "team",
      "team_id": "tem_43d5c0a98d7a739359729951693b66a6"
     },
-    "payload_digest": "621a440ec771bc1514ceba0d7e5931520c041e205e3858126ad4e50c4145be73",
+    "payload_digest": "ac294c4a6517fcc48eb67bf1739a4d57a612512278ac5ba4d6824651dfd98d79",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_6015c265c2e807c4cb61cc5445f27486",
@@ -3080,11 +3139,11 @@
    }
   },
   {
-   "digest": "4798d3d88bd7698cdb0586ca1f9f19b47e5252f12d69faf164e6b3754c3013c2",
+   "digest": "46506453f3bc0da56f9aad371d548147577f429ef67a8de48cbd9ec67ab4e0f1",
    "name": "team_a_package_exported",
    "record": {
     "at": "2000-01-01T00:00:00Z",
-    "envelope_digest": "621a440ec771bc1514ceba0d7e5931520c041e205e3858126ad4e50c4145be73",
+    "envelope_digest": "ac294c4a6517fcc48eb67bf1739a4d57a612512278ac5ba4d6824651dfd98d79",
     "kind": "transfer_stage_record",
     "schema": 1,
     "stage": {
@@ -3098,7 +3157,7 @@
    }
   },
   {
-   "digest": "d66612dd4bcf3270d81e48f6ce82a3296e4b0bb84dfc78b82ab5157af1494623",
+   "digest": "2eef81af5903b72a53fb6cf63a77d9cddb610aed6d6ee6f44e320d2ff5aa26b6",
    "name": "stage_team_a_result",
    "record": {
     "kind": "operation_result",
@@ -3109,19 +3168,19 @@
     },
     "outputs": [
      {
-      "digest": "4798d3d88bd7698cdb0586ca1f9f19b47e5252f12d69faf164e6b3754c3013c2",
+      "digest": "46506453f3bc0da56f9aad371d548147577f429ef67a8de48cbd9ec67ab4e0f1",
       "kind": "transfer_stage_record"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "1d592963a21b5f4f5f50a84dd831edbb4d869fc35b30fdf3f1d155da48e01fb3",
+    "request_digest": "e0309efa2ce566ced1e67d3590112156fb0c04333cfde368f9437f73e1c39519",
     "request_id": "req_6015c265c2e807c4cb61cc5445f27486",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "37f9aa7dcb9d0a9483c199097aa553a007f587202d9bdb23fa75daae7fd2750b",
+   "digest": "37799769199bf8333a4aacb8547c47721bfd895cfeddf8fd803d4fd420386580",
    "name": "accept_team_a_request",
    "record": {
     "action": "transfer",
@@ -3139,7 +3198,7 @@
      "layer": "team",
      "team_id": "tem_43d5c0a98d7a739359729951693b66a6"
     },
-    "payload_digest": "621a440ec771bc1514ceba0d7e5931520c041e205e3858126ad4e50c4145be73",
+    "payload_digest": "ac294c4a6517fcc48eb67bf1739a4d57a612512278ac5ba4d6824651dfd98d79",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_8b96a72160a27a379c2ed45cb8310021",
@@ -3153,7 +3212,7 @@
    }
   },
   {
-   "digest": "0924684420ba35778268f4f347bab63fc311bfc644239feac39d6be647afa927",
+   "digest": "f9f9838096d2e2ad8f21412a9ef4839c5987f4d5e4f97aae01b9732f525cff4f",
    "name": "accept_team_a_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -3163,7 +3222,7 @@
      "layer": "team",
      "team_id": "tem_43d5c0a98d7a739359729951693b66a6"
     },
-    "request_digest": "37f9aa7dcb9d0a9483c199097aa553a007f587202d9bdb23fa75daae7fd2750b",
+    "request_digest": "37799769199bf8333a4aacb8547c47721bfd895cfeddf8fd803d4fd420386580",
     "request_id": "req_8b96a72160a27a379c2ed45cb8310021",
     "schema": 1,
     "sequence": 1,
@@ -3176,11 +3235,11 @@
    }
   },
   {
-   "digest": "7a96b42a8a8ae47c4518e8e4913d6d8921b27e79462f91c0f7f5a772d8b43f3d",
+   "digest": "c937516f8b642124bdca6c48ace0fbf1476e7eb4674200c6e7456b52413e8e1f",
    "name": "team_a_package_received",
    "record": {
     "at": "2000-01-01T00:00:00Z",
-    "envelope_digest": "621a440ec771bc1514ceba0d7e5931520c041e205e3858126ad4e50c4145be73",
+    "envelope_digest": "ac294c4a6517fcc48eb67bf1739a4d57a612512278ac5ba4d6824651dfd98d79",
     "kind": "transfer_stage_record",
     "schema": 1,
     "stage": {
@@ -3194,11 +3253,11 @@
    }
   },
   {
-   "digest": "ddf68588a81697213e6d9a3e1c6efd4fcdee36f730cb182fd3be2dd22d60a129",
+   "digest": "751cfdc4baedac8013595034b93dc0416077234e97b0f57444f9f8a6cf36520d",
    "name": "team_a_package_controls",
    "record": {
     "at": "2000-01-01T00:00:00Z",
-    "envelope_digest": "621a440ec771bc1514ceba0d7e5931520c041e205e3858126ad4e50c4145be73",
+    "envelope_digest": "ac294c4a6517fcc48eb67bf1739a4d57a612512278ac5ba4d6824651dfd98d79",
     "kind": "transfer_stage_record",
     "schema": 1,
     "stage": {
@@ -3211,27 +3270,27 @@
    }
   },
   {
-   "digest": "5f39a20b04683a05e35debb420839089a611562b45c87b673be27102d6b54e47",
+   "digest": "c688b5c8bbdb72ca3630b1d9c9cc1650f552f9e8a916e181d6806a64afb2f0a0",
    "name": "team_a_package_verified",
    "record": {
     "at": "2000-01-01T00:00:00Z",
-    "envelope_digest": "621a440ec771bc1514ceba0d7e5931520c041e205e3858126ad4e50c4145be73",
+    "envelope_digest": "ac294c4a6517fcc48eb67bf1739a4d57a612512278ac5ba4d6824651dfd98d79",
     "kind": "transfer_stage_record",
     "schema": 1,
     "stage": {
-     "controls_record_digest": "ddf68588a81697213e6d9a3e1c6efd4fcdee36f730cb182fd3be2dd22d60a129",
+     "controls_record_digest": "751cfdc4baedac8013595034b93dc0416077234e97b0f57444f9f8a6cf36520d",
      "is": "verified"
     }
    }
   },
   {
-   "digest": "0c8835452c942326491e4599d0b531dee783e29b509f24ac3a02b441f29a0ee4",
+   "digest": "d13045d06bd7dabec76561590f491cbebf470eaf377d5220194329483f888838",
    "name": "team_a_package_committed",
    "record": {
     "at": "2000-01-01T00:00:00Z",
-    "envelope_digest": "621a440ec771bc1514ceba0d7e5931520c041e205e3858126ad4e50c4145be73",
+    "envelope_digest": "ac294c4a6517fcc48eb67bf1739a4d57a612512278ac5ba4d6824651dfd98d79",
     "kind": "transfer_stage_record",
-    "receipt_digest": "0924684420ba35778268f4f347bab63fc311bfc644239feac39d6be647afa927",
+    "receipt_digest": "f9f9838096d2e2ad8f21412a9ef4839c5987f4d5e4f97aae01b9732f525cff4f",
     "schema": 1,
     "stage": {
      "is": "committed"
@@ -3239,36 +3298,36 @@
    }
   },
   {
-   "digest": "eb799b1c9b24e1d46cfc7b518726cbb71fad197b717c4516817f7712acd623fe",
+   "digest": "f2ba328caa04ab4b0be5bb434fa13c89ff8bdc8bd349d266dfdb929afa9de3d2",
    "name": "accept_team_a_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "0924684420ba35778268f4f347bab63fc311bfc644239feac39d6be647afa927",
+     "receipt_digest": "f9f9838096d2e2ad8f21412a9ef4839c5987f4d5e4f97aae01b9732f525cff4f",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "7a96b42a8a8ae47c4518e8e4913d6d8921b27e79462f91c0f7f5a772d8b43f3d",
+      "digest": "c937516f8b642124bdca6c48ace0fbf1476e7eb4674200c6e7456b52413e8e1f",
       "kind": "transfer_stage_record"
      },
      {
-      "digest": "ddf68588a81697213e6d9a3e1c6efd4fcdee36f730cb182fd3be2dd22d60a129",
+      "digest": "751cfdc4baedac8013595034b93dc0416077234e97b0f57444f9f8a6cf36520d",
       "kind": "transfer_stage_record"
      },
      {
-      "digest": "5f39a20b04683a05e35debb420839089a611562b45c87b673be27102d6b54e47",
+      "digest": "c688b5c8bbdb72ca3630b1d9c9cc1650f552f9e8a916e181d6806a64afb2f0a0",
       "kind": "transfer_stage_record"
      },
      {
-      "digest": "0c8835452c942326491e4599d0b531dee783e29b509f24ac3a02b441f29a0ee4",
+      "digest": "d13045d06bd7dabec76561590f491cbebf470eaf377d5220194329483f888838",
       "kind": "transfer_stage_record"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "37f9aa7dcb9d0a9483c199097aa553a007f587202d9bdb23fa75daae7fd2750b",
+    "request_digest": "37799769199bf8333a4aacb8547c47721bfd895cfeddf8fd803d4fd420386580",
     "request_id": "req_8b96a72160a27a379c2ed45cb8310021",
     "schema": 1,
     "supported_recovery": []
@@ -3902,7 +3961,24 @@
    }
   },
   {
-   "digest": "b4f386a4ecf2b53c8bf47b20ea7200897f4c60ad6cc785b2b511f8247f6ca5ea",
+   "digest": "40782b10bc064b6e4302b3c64e5e0fb7bbae0c6d98b4921eb538454f04d2313a",
+   "name": "read_probe_host_configuration",
+   "record": {
+    "client": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "hooks": [],
+    "kind": "host_configuration",
+    "measured_at": "2000-01-01T00:00:00Z",
+    "mode": {
+     "runs": "real"
+    },
+    "schema": 1
+   }
+  },
+  {
+   "digest": "b8f79b2353280a885937790935046c1f551583d0095d48e7d26e7d921045aae0",
    "name": "probe_host_read_result",
    "record": {
     "kind": "operation_result",
@@ -3916,6 +3992,10 @@
      {
       "digest": "a8f36b80ea67124c42e075706f86661da58f3a556c870638df121ee06ca2b0e8",
       "kind": "capability_probe"
+     },
+     {
+      "digest": "40782b10bc064b6e4302b3c64e5e0fb7bbae0c6d98b4921eb538454f04d2313a",
+      "kind": "host_configuration"
      }
     ],
     "provider_effect": "not_applicable",
@@ -4617,6 +4697,93 @@
    }
   },
   {
+   "digest": "267e07274b8eda924e009e8c99f3b00c92dd0e13d309491567ad3210d40ebf09",
+   "name": "team_a_history_query",
+   "record": {
+    "kind": "history_query",
+    "limit": 10,
+    "schema": 1,
+    "scope": {
+     "layer": "team",
+     "team_id": "tem_43d5c0a98d7a739359729951693b66a6"
+    }
+   }
+  },
+  {
+   "digest": "ce9bbccf2458b998ebfb23a83827293c4dc42c8064b4a3609db47b20531de0fd",
+   "name": "team_a_history_request",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_93f9f6d8e18c4a1812ec8540a701e3b7",
+     "principal_id": "prn_99341f6d407ddaf9f9b6ed999d80edb8",
+     "profile_id": "prf_295fff0ba888010a888eb87b8c8790b2"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "operation.history.read",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_99341f6d407ddaf9f9b6ed999d80edb8"
+    },
+    "payload_digest": "267e07274b8eda924e009e8c99f3b00c92dd0e13d309491567ad3210d40ebf09",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_29d8a5e967f534ef2d802f906a1f9547",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_295fff0ba888010a888eb87b8c8790b2"
+    }
+   }
+  },
+  {
+   "digest": "6cef4c09ef7e3dade9e006f00cf2efffcc02a5e9327fbdac8ad77c38d35d9e4c",
+   "name": "team_a_recent_history",
+   "record": {
+    "checkpoints": [
+     {
+      "digest": "635f7b44f5499f56dd5baee2b563a4cf0cf4ab0e93f32f3ab224927aed1ca811",
+      "kind": "operation_receipt",
+      "note": "Next: finish reviewing Team A's onboarding checklist.",
+      "recorded_at": "2000-01-01T00:00:00Z"
+     }
+    ],
+    "entries": [],
+    "kind": "recent_history",
+    "observed_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "scope": {
+     "layer": "team",
+     "team_id": "tem_43d5c0a98d7a739359729951693b66a6"
+    }
+   }
+  },
+  {
+   "digest": "7e7996179e9bf54da186c79b8171bd1fe63b08559061faae3056bf3c4771185f",
+   "name": "read_team_a_history_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "6cef4c09ef7e3dade9e006f00cf2efffcc02a5e9327fbdac8ad77c38d35d9e4c",
+      "kind": "recent_history"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "ce9bbccf2458b998ebfb23a83827293c4dc42c8064b4a3609db47b20531de0fd",
+    "request_id": "req_29d8a5e967f534ef2d802f906a1f9547",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
    "digest": "1bc8e2c92797c365ffe1f4432dec0ebc23659bf0b6c014c5d0a4bef6df23cf94",
    "name": "script",
    "record": {
@@ -4745,7 +4912,7 @@
    }
   },
   {
-   "digest": "87da2d99572faa37e3d3979cf101009feec0e1fae1017f97a7ab55b1daef59e4",
+   "digest": "3837435b42b5b0017e8c9705d393c32fad013a856e61b469671acf0f943dc53e",
    "name": "script_trace",
    "record": {
     "at": "2000-01-01T00:00:00Z",
@@ -4757,7 +4924,13 @@
      {
       "access": "active",
       "after": 0,
-      "calls": [],
+      "calls": [
+       {
+        "operation": "operation.history.read",
+        "reads": "nothing",
+        "request_digest": "ce9bbccf2458b998ebfb23a83827293c4dc42c8064b4a3609db47b20531de0fd"
+       }
+      ],
       "dispatched": [],
       "elements": [
        {
@@ -5582,7 +5755,7 @@
    }
   },
   {
-   "digest": "352c3953e6eefa6be3c2b746ca8b59547aaadec4af4513bcf574c899c8c2c051",
+   "digest": "5c249687fb90e1a44faa52587d351569f0f00ce50bcb459306f394d52cf3a3cf",
    "name": "drive_entry_result",
    "record": {
     "kind": "operation_result",
@@ -5593,7 +5766,7 @@
     },
     "outputs": [
      {
-      "digest": "87da2d99572faa37e3d3979cf101009feec0e1fae1017f97a7ab55b1daef59e4",
+      "digest": "3837435b42b5b0017e8c9705d393c32fad013a856e61b469671acf0f943dc53e",
       "kind": "surface_trace"
      }
     ],
@@ -5848,8 +6021,8 @@
    }
   }
  ],
- "says": "One person founds two Teams both named 'Platform' (team.found twice: two ids). Team A is founded on the desktop, whose device is its finalizer; its instructions source is observed in the desktop's clone and committed there, and the laptop accepts them as a Team package (transfer.stage, transfer.accept). Team B is founded on the laptop with its own source and no environment adopted. Earlier work runs in Team A on the laptop: a start composed, selected and activated in a Claude Code session (returning the instructions projection it routed), and that conversation opened as a recipient link scoped to Team A. Then the laptop is partitioned from the desktop: Team A is offline. The launcher (surface.drive) lists both Teams by name with a short id apart; Team A is selected because the recipient is bound to it and shown remote_unknown, not current or adopted because its package is held here. Down and Enter browse Team B: browse_scope becomes Team B while selected_scope stays Team A and the recipient link stays the same, and Team B's view shows its environment checked_empty. Only Space selects Team B's instructions, and then selected_scope is Team B. Tab and Enter dispatch one start whose preparation.compose basis is Team B alone; route.select records Team B's route. Negative: the two Teams are never merged, as every scope, route and request names one id; browsing Team B changes neither the selection nor the conversation, which stays linked to the offline Team A; Team B's missing environment neither blocks its selection nor borrows Team A's; the Team B start carries nothing of Team A's source or history; the repository location selects no Team; and a selection naming the Team by its shared name instead of a route id is refused at admission (pattern_mismatch /selected).",
- "spec_sha256": "7a1f7b3d28214c290200fe90696eab913ad6b8f56aa5f9ee2b4aed498b290496",
+ "says": "One person founds two Teams both named 'Platform' (team.found twice: two ids). Team A is founded on the desktop, whose device is its finalizer; its instructions source is observed in the desktop's clone and committed there, and the laptop accepts them as a Team package (transfer.stage, transfer.accept). Team B is founded on the laptop with its own source and no environment adopted. Earlier work runs in Team A on the laptop: a start composed, selected and activated in a Claude Code session (returning the instructions projection it routed), and that conversation opened as a recipient link scoped to Team A. Team A's recent history (operation.history.read) holds one checkpoint, that activation's receipt, noting an old goal. Then the laptop is partitioned from the desktop: Team A is offline. The launcher (surface.drive) lists both Teams by name with a short id apart; Team A is selected because the recipient is bound to it and shown remote_unknown, not current or adopted because its package is held here. Down and Enter browse Team B: browse_scope becomes Team B while selected_scope stays Team A and the recipient link stays the same, and Team B's view shows its environment checked_empty. Only Space selects Team B's instructions, and then selected_scope is Team B. Tab and Enter dispatch one start whose preparation.compose basis is Team B alone; route.select records Team B's route. Negative: the two Teams are never merged, as every scope, route and request names one id; browsing Team B changes neither the selection nor the conversation, which stays linked to the offline Team A; Team B's missing environment neither blocks its selection nor borrows Team A's; the Team B start carries nothing of Team A's source or history; the repository location selects no Team; Team A's checkpoint and old goal never assign Team A or that goal to current work; and a selection naming the Team by its shared name instead of a route id is refused at admission (pattern_mismatch /selected).",
+ "spec_sha256": "11227c5ccc967d9e51fcf29c2c8a67d752d6942be149a2b18b6a75f7107a10fb",
  "steps": [
   {
    "carries": [
@@ -6040,7 +6213,8 @@
    "request": "probe_request",
    "result": "probe_host_read_result",
    "returns": [
-    "read_probe_stored"
+    "read_probe_stored",
+    "read_probe_host_configuration"
    ]
   },
   {
@@ -6102,6 +6276,18 @@
    "result": "bind_existing_recipient_result",
    "returns": [
     "a_link_stored"
+   ]
+  },
+  {
+   "carries": [
+    "team_a_history_query"
+   ],
+   "name": "read_team_a_history",
+   "process": "laptop",
+   "request": "team_a_history_request",
+   "result": "read_team_a_history_result",
+   "returns": [
+    "team_a_recent_history"
    ]
   },
   {

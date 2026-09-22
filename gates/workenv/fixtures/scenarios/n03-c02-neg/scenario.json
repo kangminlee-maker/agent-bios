@@ -84,6 +84,14 @@
   {
    "id": "req_d68c07fa617596ed27d004f1ddf61758",
    "name": "issue_new_cli_handle_request_id"
+  },
+  {
+   "id": "req_590e15a9a4ac5ff08d2f2d0427242757",
+   "name": "in_flight_request_id"
+  },
+  {
+   "id": "req_7f36a6ff5ad423e3f1bab3746b4770f5",
+   "name": "in_flight_decide_request_id"
   }
  ],
  "joins": [
@@ -505,6 +513,36 @@
   {
    "minted": "team_head_permit",
    "pointer": "/target/base/head_digest",
+   "record": "read_admitted_before_lock"
+  },
+  {
+   "digest_of": "offline_permit",
+   "pointer": "/control_digests/0",
+   "record": "read_admitted_before_lock"
+  },
+  {
+   "digest_of": "cli_handle",
+   "pointer": "/proof_digests/0",
+   "record": "read_admitted_before_lock"
+  },
+  {
+   "digest_of": "read_admitted_before_lock",
+   "pointer": "/payload_digest",
+   "record": "read_in_flight_admission_request"
+  },
+  {
+   "digest_of": "read_in_flight_admission_request",
+   "pointer": "/request_digest",
+   "record": "read_admitted_during_lock_result"
+  },
+  {
+   "digest_of": "read_in_flight_admission",
+   "pointer": "/outputs/0/digest",
+   "record": "read_admitted_during_lock_result"
+  },
+  {
+   "minted": "team_head_permit",
+   "pointer": "/target/base/head_digest",
    "record": "read_under_generation_one"
   },
   {
@@ -533,9 +571,14 @@
    "record": "late_read_after_restart_result"
   },
   {
-   "digest_of": "refresh_change",
-   "pointer": "/payload_digest",
-   "record": "refresh_request"
+   "digest_of": "read_state_after_refresh_request",
+   "pointer": "/request_digest",
+   "record": "silent_refresh_result"
+  },
+  {
+   "digest_of": "lock_state",
+   "pointer": "/outputs/0/digest",
+   "record": "silent_refresh_result"
   },
   {
    "digest_of": "unlock_at_terminal_change",
@@ -691,6 +734,16 @@
    "digest_of": "read_after_offline_limit_admission",
    "pointer": "/outputs/0/digest",
    "record": "read_after_offline_limit_result"
+  },
+  {
+   "minted": "team_connection",
+   "pointer": "/connection_id",
+   "record": "team_provider_connection"
+  },
+  {
+   "minted": "connection_configured_at",
+   "pointer": "/configured_at",
+   "record": "team_provider_connection"
   }
  ],
  "minted": [
@@ -1842,6 +1895,116 @@
    }
   },
   {
+   "digest": "d5fb9c849f711b611851f4abdb4ec38bf0ac1d76e29dd57f63940a828630b0e4",
+   "name": "read_admitted_before_lock",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_4dbc38b2a38272a1122c7cbc42207635",
+     "principal_id": "prn_cbf1f9524f36bc1e39a940e875c52dae",
+     "profile_id": "prf_a78d727a80aec91d98c265505876ecae"
+    },
+    "control_digests": [
+     "8e45801c95f9dcee5a648ef83ede5bdc8f5f466a5152a63c5651fc2e839ad9bb"
+    ],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 1,
+    "operation": "team.state.read",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_1dcdc3ad973b91fb3a6dc0c4d55df35d"
+    },
+    "policy_digests": [],
+    "proof_digests": [
+     "e58a8d49462294bb7318a918e51a02c84be5d70a67608e02c82e2993d62fbcb9"
+    ],
+    "request_id": "req_590e15a9a4ac5ff08d2f2d0427242757",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "f208885be3fadb45a6ea04cb05b0854d32ea1fbfdab5759546b38e2ddcf2a90b"
+     },
+     "resource_id": "tem_1dcdc3ad973b91fb3a6dc0c4d55df35d"
+    }
+   }
+  },
+  {
+   "digest": "f0986a00850d9fba3425d9651d57da6b8cf915e47d2881dd31f565cfe661b016",
+   "name": "read_in_flight_admission_request",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_4dbc38b2a38272a1122c7cbc42207635",
+     "principal_id": "prn_cbf1f9524f36bc1e39a940e875c52dae",
+     "profile_id": "prf_a78d727a80aec91d98c265505876ecae"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 1,
+    "operation": "access.admission.decide",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_cbf1f9524f36bc1e39a940e875c52dae"
+    },
+    "payload_digest": "d5fb9c849f711b611851f4abdb4ec38bf0ac1d76e29dd57f63940a828630b0e4",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_7f36a6ff5ad423e3f1bab3746b4770f5",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_a78d727a80aec91d98c265505876ecae"
+    }
+   }
+  },
+  {
+   "digest": "33a2d4682659552e7682dd5b128ab98f8109a6218704e19826bc81a724ee0991",
+   "name": "read_in_flight_admission",
+   "record": {
+    "access_generation": 2,
+    "kind": "access_admission",
+    "outcome": {
+     "admission": "not_admitted",
+     "material_gaps": [
+      {
+       "code": "access_locked"
+      },
+      {
+       "code": "access_generation_moved"
+      }
+     ]
+    },
+    "profile_id": "prf_a78d727a80aec91d98c265505876ecae",
+    "request_id": "req_7f36a6ff5ad423e3f1bab3746b4770f5",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "9fa0dcee5ca59ccf4e6f685387192851d3c192f7c4b85a6c00f3c6f334ae5709",
+   "name": "read_admitted_during_lock_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "33a2d4682659552e7682dd5b128ab98f8109a6218704e19826bc81a724ee0991",
+      "kind": "access_admission"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "f0986a00850d9fba3425d9651d57da6b8cf915e47d2881dd31f565cfe661b016",
+    "request_id": "req_7f36a6ff5ad423e3f1bab3746b4770f5",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
    "digest": "d457adb2e06156f70c03f964567a679fccb20c5ff911335aabadf9d61faa05f3",
    "name": "read_under_generation_one",
    "record": {
@@ -1952,21 +2115,8 @@
    }
   },
   {
-   "digest": "a30b7ef078b0efcb16152798d128ee62b54504c7555e6b5d1a8ac84d73bc96a9",
-   "name": "refresh_change",
-   "record": {
-    "change": {
-     "transition": "refresh"
-    },
-    "expected_generation": 2,
-    "kind": "access_transition",
-    "profile_id": "prf_a78d727a80aec91d98c265505876ecae",
-    "schema": 1
-   }
-  },
-  {
-   "digest": "1d8ee55fdf6878d0182ae0a087ffc2278c7a7a48d8c1e6d887acb6fd709a2fc4",
-   "name": "refresh_request",
+   "digest": "b9226b644e2aee9c1fc746c950a91b7bfc9079c92fd510b67b50af3df502391f",
+   "name": "read_state_after_refresh_request",
    "record": {
     "action": "local_profile",
     "actor": {
@@ -1975,15 +2125,14 @@
      "profile_id": "prf_a78d727a80aec91d98c265505876ecae"
     },
     "control_digests": [],
-    "effect_class": "owner_commit",
+    "effect_class": "pure_preview",
     "kind": "operation_request",
     "local_access_generation": 2,
-    "operation": "access.transition",
+    "operation": "access.profile.read",
     "owner": {
      "layer": "personal",
      "principal_id": "prn_cbf1f9524f36bc1e39a940e875c52dae"
     },
-    "payload_digest": "a30b7ef078b0efcb16152798d128ee62b54504c7555e6b5d1a8ac84d73bc96a9",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_04cb20d96f5cb21927784b096163660e",
@@ -1991,6 +2140,29 @@
     "target": {
      "resource_id": "prf_a78d727a80aec91d98c265505876ecae"
     }
+   }
+  },
+  {
+   "digest": "ad316aa2afdf9769ee656290f80971ec316185b3d218193edade7678b9c4c448",
+   "name": "silent_refresh_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "9785c6d166ced30b4da59cb28220b11530c1a5cb8618e67620460c20f32c0319",
+      "kind": "access_state"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "b9226b644e2aee9c1fc746c950a91b7bfc9079c92fd510b67b50af3df502391f",
+    "request_id": "req_04cb20d96f5cb21927784b096163660e",
+    "schema": 1,
+    "supported_recovery": []
    }
   },
   {
@@ -2057,7 +2229,7 @@
    }
   },
   {
-   "digest": "64bf204587d11109e787157f3ea763c160cc8d6e7407cfb940c064f7fe46c435",
+   "digest": "e03bbceef3103cb7e834c77483313f5c7906a57f63c9c2de034a942ea814ffee",
    "name": "unlock_at_terminal_state",
    "record": {
     "access_generation": 2,
@@ -2067,12 +2239,15 @@
     "schema": 1,
     "state": {
      "because": "unlock",
-     "is": "active"
+     "is": "active",
+     "key_mode": {
+      "runs": "real"
+     }
     }
    }
   },
   {
-   "digest": "4a5529f90153a5ce05ec7e323e9384e77a0b202a7a968cfbd5aa53b1693ffd8a",
+   "digest": "4575e8c7f2b95f6abe4c6343c4fa9e03684c46f2dff5f0db44ccfeeb4e71e2bb",
    "name": "unlock_at_terminal_result",
    "record": {
     "kind": "operation_result",
@@ -2084,7 +2259,7 @@
     },
     "outputs": [
      {
-      "digest": "64bf204587d11109e787157f3ea763c160cc8d6e7407cfb940c064f7fe46c435",
+      "digest": "e03bbceef3103cb7e834c77483313f5c7906a57f63c9c2de034a942ea814ffee",
       "kind": "access_state"
      }
     ],
@@ -2393,7 +2568,7 @@
    }
   },
   {
-   "digest": "a321d904cb3bceda668b7022591d20c55eba3b2b8df18a88edc171c55bb52d2f",
+   "digest": "e390a7ee8d6130e8f0fc43add06ea3748a25446a1bfcf4a21ce7b1d6b4358ff1",
    "name": "read_after_offline_limit_admission",
    "record": {
     "access_generation": 2,
@@ -2403,9 +2578,6 @@
      "material_gaps": [
       {
        "code": "credential_expired"
-      },
-      {
-       "code": "fresh_auth_required"
       }
      ]
     },
@@ -2415,7 +2587,7 @@
    }
   },
   {
-   "digest": "2cf12eb571462a444df9de95edea545c317cdd3dfe38c936f56ff0d2d46a9a06",
+   "digest": "2625f21c205229cba52b58842b03d070d29e21035576bdbf1e38a0ea7ab0031d",
    "name": "read_after_offline_limit_result",
    "record": {
     "kind": "operation_result",
@@ -2426,7 +2598,7 @@
     },
     "outputs": [
      {
-      "digest": "a321d904cb3bceda668b7022591d20c55eba3b2b8df18a88edc171c55bb52d2f",
+      "digest": "e390a7ee8d6130e8f0fc43add06ea3748a25446a1bfcf4a21ce7b1d6b4358ff1",
       "kind": "access_admission"
      }
     ],
@@ -2436,10 +2608,34 @@
     "schema": 1,
     "supported_recovery": []
    }
+  },
+  {
+   "digest": "359155bf3bb4ab304aa0972f56c7769328ef01969854edc51efd61505eb2c9f3",
+   "name": "team_provider_connection",
+   "record": {
+    "audience": "1234567890-abcdef.apps.googleusercontent.com",
+    "configured_at": "2000-01-01T00:00:00Z",
+    "connection_id": "con_4fd29fbe7ece46071e17b0363c45cf69",
+    "exchange": {
+     "flow": "code_with_pkce",
+     "runs": "local_public_client"
+    },
+    "expected_claims": [
+     {
+      "claim": "hd",
+      "value": "example.com"
+     }
+    ],
+    "issuer": "https://accounts.google.com",
+    "kind": "provider_connection",
+    "preset": "google",
+    "schema": 1,
+    "team_id": "tem_1dcdc3ad973b91fb3a6dc0c4d55df35d"
+   }
   }
  ],
- "says": "Alice's laptop reads its fresh profile (active, generation 1), binds her key and founds a Team; as the Team's issuing authority she records on the Team a permit that lets the laptop read the Team's state offline for a week. The decision CLI is issued a handle at generation 1. Under generation 1 she renames her profile, which commits, and the CLI issues a Team read under its handle. She locks the profile (generation 2); the process is killed after the lock commits and restarted, and the lock is still what the owner answers. The read issued under the old handle arrives late, after the restart: it is not admitted, with access_locked and access_generation_moved. A silent token refresh offered as a transition is refused at admission, and nothing changes. After an explicit unlock at a terminal (still generation 2) the same old read is still refused with access_generation_moved; the unlock reopens nothing issued before the lock, and the CLI is issued a new handle at generation 2. A query for the rename that was committed before the lock answers with its original result. Eight days later the permit's offline limit has passed: a fresh read under the new handle naming the permit is not admitted, with credential_expired and fresh_auth_required. What must not happen: a restart, a refresh, a late answer or the later unlock admitting the old handle; expired offline evidence admitting a read; or the query answering with anything but the rename's original result.",
- "spec_sha256": "461379af264e977b0b9112fac29dfd5512715c5249977f3f494397f98a4e855a",
+ "says": "Alice's laptop reads its fresh profile (active, generation 1), binds her key and founds a Team; as the Team's issuing authority she records on the Team a permit that lets the laptop read the Team's state offline for a week, and the Team has a configured provider connection. The decision CLI is issued a handle at generation 1. Under generation 1 she renames her profile, which commits, and the CLI issues a Team read under its handle. She locks the profile (generation 2); a second Team read is admitted under generation 1 and held in flight while the lock runs, and the process is killed after the lock commits and restarted, with the lock still what the owner answers. The in-flight read is rechecked before its result is shown and is not admitted, with access_locked and access_generation_moved. The read issued under the old handle arrives late, after the restart: not admitted, with access_locked and access_generation_moved. The provider delivers a refreshed token with no local transition; a read of the profile's own state right after shows it is still the same locked state, so the refresh reopened nothing. After an explicit unlock at a terminal (still generation 2, real device key) the same old read is still refused with access_generation_moved; the unlock reopens nothing issued before the lock, and the CLI is issued a new handle at generation 2. A query for the rename committed before the lock answers with its original result. Eight days later the permit's offline limit has passed: a fresh read under the new handle naming the permit is not admitted, with credential_expired. What must not happen: a restart, a refresh, a late answer or the later unlock admitting the old handle; an in-flight response presented after the generation moved; expired offline evidence admitting a read; or the query answering with anything but the rename's original result.",
+ "spec_sha256": "6b7d66ac8ef1a2ab9576dd63d38dc126fe87bf79f06c6ff5c1120479fe24cd4d",
  "steps": [
   {
    "at": "2026-09-21T09:00:00Z",
@@ -2539,6 +2735,18 @@
   {
    "at": "2026-09-21T09:10:00Z",
    "carries": [
+    "read_admitted_before_lock"
+   ],
+   "name": "read_admitted_during_lock",
+   "request": "read_in_flight_admission_request",
+   "result": "read_admitted_during_lock_result",
+   "returns": [
+    "read_in_flight_admission"
+   ]
+  },
+  {
+   "at": "2026-09-21T09:10:00Z",
+   "carries": [
     "read_under_generation_one"
    ],
    "name": "late_read_after_restart",
@@ -2550,18 +2758,13 @@
   },
   {
    "at": "2026-09-21T09:10:00Z",
-   "carries": [
-    "refresh_change"
-   ],
+   "carries": [],
    "name": "silent_refresh",
-   "refused": [
-    {
-     "code": "variant_mismatch",
-     "pointer": "/change",
-     "record": "refresh_change"
-    }
-   ],
-   "request": "refresh_request"
+   "request": "read_state_after_refresh_request",
+   "result": "silent_refresh_result",
+   "returns": [
+    "lock_state"
+   ]
   },
   {
    "at": "2026-09-21T09:10:00Z",
@@ -2628,6 +2831,19 @@
   "clock": {
    "start": "2026-09-21T09:00:00Z"
   },
+  "during": [
+   {
+    "runs": "lock",
+    "step": "read_admitted_during_lock"
+   }
+  ],
+  "events": [
+   {
+    "before": "silent_refresh",
+    "connection": "team_provider_connection",
+    "kind": "provider_refresh"
+   }
+  ],
   "faults": [
    {
     "point": "after_commit_before_return",

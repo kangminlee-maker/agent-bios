@@ -25,7 +25,9 @@ fixture standing in for a real result cannot be written down; an unsupported rou
 its reason instead of returning an empty success.
 
 The client is driven the way a person drives it. A `surface_script` is keys, typed text,
-paste, resize and locale changes from one entrance; a `surface_trace` is what each input
+paste, resize and locale changes from one entrance, and an entrance reached from an exact link
+or an explicit host route states what it opens: the element, the draft it resumes and the view
+Back returns to. A `surface_trace` is what each input
 left on the screen — every element by role, label, marks, focus, selection and state,
 where navigation stood, what it dispatched, and which owner operations it called and
 what each read, so a task-specific query during entry is seen. Focus,

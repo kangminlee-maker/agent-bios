@@ -403,6 +403,21 @@
    "record": "begin_first_link_request"
   },
   {
+   "digest_of": "first_attempt_asked",
+   "pointer": "/signed_digest",
+   "record": "first_attempt_control_proof"
+  },
+  {
+   "minted": "alice_binding",
+   "pointer": "/signer_binding_id",
+   "record": "first_attempt_control_proof"
+  },
+  {
+   "digest_of": "first_attempt_control_proof",
+   "pointer": "/proof_digests/0",
+   "record": "begin_first_link_request"
+  },
+  {
    "digest_of": "begin_first_link_request",
    "pointer": "/request_digest",
    "record": "begin_first_link_receipt"
@@ -2318,7 +2333,19 @@
    }
   },
   {
-   "digest": "fbba959460b5c4a3359298176a930a57c6fe25b39e9ed7276b4a939e50770921",
+   "digest": "849dc53689c4103901416553140a36faea41f1d73e84de0c2ddd56e8813afdea",
+   "name": "first_attempt_control_proof",
+   "record": {
+    "kind": "signature_envelope",
+    "namespace": "agent-bios/sign_in_attempt",
+    "schema": 1,
+    "signed_digest": "b5fd35a824287020c0424837805b1d86ecc1a42f62e61e35867b887d13e1c172",
+    "signer_binding_id": "bnd_1d1cded9ea93f20a853fb0a2ff7afec0",
+    "sshsig": "U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+   }
+  },
+  {
+   "digest": "babe24560714c709d155319ceec53a365a704ccf6d9f35ca53bf97e0cf277b7b",
    "name": "begin_first_link_request",
    "record": {
     "action": "local_profile",
@@ -2338,7 +2365,9 @@
     },
     "payload_digest": "b5fd35a824287020c0424837805b1d86ecc1a42f62e61e35867b887d13e1c172",
     "policy_digests": [],
-    "proof_digests": [],
+    "proof_digests": [
+     "849dc53689c4103901416553140a36faea41f1d73e84de0c2ddd56e8813afdea"
+    ],
     "request_id": "req_91770d15fd03a2c346a03f3372cdd3fd",
     "schema": 1,
     "target": {
@@ -2347,7 +2376,7 @@
    }
   },
   {
-   "digest": "4a10da3b2f41c5ed30bf1cbefd375229fe64c4f07a06608210fd1800d5af4fce",
+   "digest": "6a77a074c80fc2e1c9d891d28b1231f8919a0deaf773b50890da95cddda05f28",
    "name": "begin_first_link_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -2357,7 +2386,7 @@
      "layer": "personal",
      "principal_id": "prn_d618bb2c604452cf6176a8b25d4b4070"
     },
-    "request_digest": "fbba959460b5c4a3359298176a930a57c6fe25b39e9ed7276b4a939e50770921",
+    "request_digest": "babe24560714c709d155319ceec53a365a704ccf6d9f35ca53bf97e0cf277b7b",
     "request_id": "req_91770d15fd03a2c346a03f3372cdd3fd",
     "schema": 1,
     "sequence": 1,
@@ -2385,14 +2414,14 @@
    }
   },
   {
-   "digest": "d24438c15fa3aa352794bd32cb5a24df4bd277976f8e660ebf57a3250d619a87",
+   "digest": "08fc4972612713192da4c8ab4470c9238859561fdbf98033e95d1e4f60bb3410",
    "name": "begin_first_link_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "4a10da3b2f41c5ed30bf1cbefd375229fe64c4f07a06608210fd1800d5af4fce",
+     "receipt_digest": "6a77a074c80fc2e1c9d891d28b1231f8919a0deaf773b50890da95cddda05f28",
      "stage": "committed"
     },
     "outputs": [
@@ -2402,7 +2431,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "fbba959460b5c4a3359298176a930a57c6fe25b39e9ed7276b4a939e50770921",
+    "request_digest": "babe24560714c709d155319ceec53a365a704ccf6d9f35ca53bf97e0cf277b7b",
     "request_id": "req_91770d15fd03a2c346a03f3372cdd3fd",
     "schema": 1,
     "supported_recovery": []
@@ -2833,7 +2862,7 @@
    }
   },
   {
-   "digest": "939c10298fc91e08f11926609e497cdf4f113525f24ce31aea9e9936e77702d3",
+   "digest": "86daae67da3bdb276fc0ffe81b99797a7ec51151f1cb7147b6021d308c5e1197",
    "name": "genuine_callback",
    "record": {
     "attempt_id": "sin_3bc55cf408e2af521714934b31e41c78",
@@ -2847,8 +2876,8 @@
       }
      ],
      "email": "person@example.com",
-     "expires_at": "2026-09-20T10:01:00Z",
-     "issued_at": "2026-09-20T09:01:00Z",
+     "expires_at": "2026-09-21T10:00:00Z",
+     "issued_at": "2026-09-21T08:59:00Z",
      "issuer": "https://accounts.google.com",
      "nonce_digest": "f4ed08681ca447f9940f7e693554f509ad5b1f3f6880633c95d5ae0fe39267fd",
      "returned": "claims",
@@ -2859,7 +2888,7 @@
    }
   },
   {
-   "digest": "c6b27a6a93429d1abbc319aacf9b92cbe1ed371986ef5ed4a4032e46a9b1fd19",
+   "digest": "ca1a993d81484176b7478add2976ca81ad322902d7c8d8432a57f5072a438646",
    "name": "genuine_link_request",
    "record": {
     "action": "local_profile",
@@ -2877,7 +2906,7 @@
      "layer": "personal",
      "principal_id": "prn_d618bb2c604452cf6176a8b25d4b4070"
     },
-    "payload_digest": "939c10298fc91e08f11926609e497cdf4f113525f24ce31aea9e9936e77702d3",
+    "payload_digest": "86daae67da3bdb276fc0ffe81b99797a7ec51151f1cb7147b6021d308c5e1197",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_03201625adf178dac5b63b06ffccd128",
@@ -2888,7 +2917,7 @@
    }
   },
   {
-   "digest": "76c999e57282490edc5ef9b4a4050b9fc76c1321b2441c1d048230b53a3264b9",
+   "digest": "ea0a34b54b4ea73f2025f305d38933dfcd50b33489e9d925cb6562027496f2b3",
    "name": "genuine_link_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -2898,7 +2927,7 @@
      "layer": "personal",
      "principal_id": "prn_d618bb2c604452cf6176a8b25d4b4070"
     },
-    "request_digest": "c6b27a6a93429d1abbc319aacf9b92cbe1ed371986ef5ed4a4032e46a9b1fd19",
+    "request_digest": "ca1a993d81484176b7478add2976ca81ad322902d7c8d8432a57f5072a438646",
     "request_id": "req_03201625adf178dac5b63b06ffccd128",
     "schema": 1,
     "sequence": 1,
@@ -2953,14 +2982,14 @@
    }
   },
   {
-   "digest": "dd87b3865cb132fc29debf40a824d4215261511855299b2dfd6c0fb65891eadb",
+   "digest": "531f7cbaae1d210129dac2dc1ca032970e6d08222ba85aec1051bd921fc4fab8",
    "name": "genuine_link_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "76c999e57282490edc5ef9b4a4050b9fc76c1321b2441c1d048230b53a3264b9",
+     "receipt_digest": "ea0a34b54b4ea73f2025f305d38933dfcd50b33489e9d925cb6562027496f2b3",
      "stage": "committed"
     },
     "outputs": [
@@ -2974,14 +3003,14 @@
      }
     ],
     "provider_effect": "committed",
-    "request_digest": "c6b27a6a93429d1abbc319aacf9b92cbe1ed371986ef5ed4a4032e46a9b1fd19",
+    "request_digest": "ca1a993d81484176b7478add2976ca81ad322902d7c8d8432a57f5072a438646",
     "request_id": "req_03201625adf178dac5b63b06ffccd128",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "c8e013424e2c619651bbe396d21a6f73c739e88f45fdb318aacb5d2f03af25b1",
+   "digest": "a09c7c9f8a8d6fdda57564493998a4c847b029c98ae03018d8ea9b01cf91ec1d",
    "name": "replayed_callback_request",
    "record": {
     "action": "local_profile",
@@ -2999,7 +3028,7 @@
      "layer": "personal",
      "principal_id": "prn_d618bb2c604452cf6176a8b25d4b4070"
     },
-    "payload_digest": "939c10298fc91e08f11926609e497cdf4f113525f24ce31aea9e9936e77702d3",
+    "payload_digest": "86daae67da3bdb276fc0ffe81b99797a7ec51151f1cb7147b6021d308c5e1197",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_ddff3884f3e0722acac894ea65897ace",
@@ -3010,7 +3039,7 @@
    }
   },
   {
-   "digest": "c4e1b0bd261041d28a6672e7508c56f83d773813c875be3958a74b989e06e106",
+   "digest": "024032c86d0092c309cd91e231a2ec7e243c833b569d399c4712ab6eaa1e5147",
    "name": "replayed_callback_result",
    "record": {
     "kind": "operation_result",
@@ -3026,7 +3055,7 @@
     },
     "outputs": [],
     "provider_effect": "not_applicable",
-    "request_digest": "c8e013424e2c619651bbe396d21a6f73c739e88f45fdb318aacb5d2f03af25b1",
+    "request_digest": "a09c7c9f8a8d6fdda57564493998a4c847b029c98ae03018d8ea9b01cf91ec1d",
     "request_id": "req_ddff3884f3e0722acac894ea65897ace",
     "schema": 1,
     "supported_recovery": [
@@ -3137,7 +3166,7 @@
    }
   },
   {
-   "digest": "934234083e2a0a00d172094f0f92b6ea3b9dc861036c89230ce612277c9dfc7b",
+   "digest": "9ca69abc57c0f6fb0edf6542d3fac5985937dc652e4a93f9cdd83ca327d396a0",
    "name": "lookalike_callback",
    "record": {
     "attempt_id": "sin_219ac48f0b6fb131a81b1f03cb9bede4",
@@ -3151,8 +3180,8 @@
       }
      ],
      "email": "person@example.com",
-     "expires_at": "2026-09-20T10:01:00Z",
-     "issued_at": "2026-09-20T09:01:00Z",
+     "expires_at": "2026-09-21T10:00:00Z",
+     "issued_at": "2026-09-21T08:59:00Z",
      "issuer": "https://accounts.google.com",
      "nonce_digest": "a09a12e44dc679c5cb76b5fc1b9e18c1b4ff8990ec8a1bcf6f39e90871a8d2d0",
      "returned": "claims",
@@ -3163,7 +3192,7 @@
    }
   },
   {
-   "digest": "1208659cb84960f7484fb68746a64524f4accebefa8a2c027bdb6caf2e700ba0",
+   "digest": "161ca6ba66c08cc9a8005b7484b4d559a873d812a93d35ba07398eb6c5a20129",
    "name": "same_email_other_subject_request",
    "record": {
     "action": "local_profile",
@@ -3181,7 +3210,7 @@
      "layer": "personal",
      "principal_id": "prn_d618bb2c604452cf6176a8b25d4b4070"
     },
-    "payload_digest": "934234083e2a0a00d172094f0f92b6ea3b9dc861036c89230ce612277c9dfc7b",
+    "payload_digest": "9ca69abc57c0f6fb0edf6542d3fac5985937dc652e4a93f9cdd83ca327d396a0",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_4c1818e7d3a7ee6b7f18db1c5d977292",
@@ -3192,7 +3221,7 @@
    }
   },
   {
-   "digest": "84798dbad3c56db3b3d767db2b65e26a91377db09a0f617eb5c65db1e30b6d47",
+   "digest": "ba58b9a5d69c16544cd4c0da2204afc833d6e398bd4cb1ff73dd81273fcfef99",
    "name": "same_email_other_subject_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -3202,7 +3231,7 @@
      "layer": "personal",
      "principal_id": "prn_d618bb2c604452cf6176a8b25d4b4070"
     },
-    "request_digest": "1208659cb84960f7484fb68746a64524f4accebefa8a2c027bdb6caf2e700ba0",
+    "request_digest": "161ca6ba66c08cc9a8005b7484b4d559a873d812a93d35ba07398eb6c5a20129",
     "request_id": "req_4c1818e7d3a7ee6b7f18db1c5d977292",
     "schema": 1,
     "sequence": 1,
@@ -3234,14 +3263,14 @@
    }
   },
   {
-   "digest": "cee705451c9620a789326018834aa4dd86cc6f5f9cc88ab765ee0b52d78e61d7",
+   "digest": "345510f0cd76957c3c3959ea7ae8bcf49429f59a548fa568c59bfdbddeafc27d",
    "name": "same_email_other_subject_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "84798dbad3c56db3b3d767db2b65e26a91377db09a0f617eb5c65db1e30b6d47",
+     "receipt_digest": "ba58b9a5d69c16544cd4c0da2204afc833d6e398bd4cb1ff73dd81273fcfef99",
      "stage": "committed"
     },
     "outputs": [
@@ -3251,7 +3280,7 @@
      }
     ],
     "provider_effect": "committed",
-    "request_digest": "1208659cb84960f7484fb68746a64524f4accebefa8a2c027bdb6caf2e700ba0",
+    "request_digest": "161ca6ba66c08cc9a8005b7484b4d559a873d812a93d35ba07398eb6c5a20129",
     "request_id": "req_4c1818e7d3a7ee6b7f18db1c5d977292",
     "schema": 1,
     "supported_recovery": []
@@ -3871,7 +3900,7 @@
   }
  ],
  "says": "Alice's laptop first reads its fresh profile (active at generation 1). She has founded a Team, becoming its member, and configured a Google connection trusting one hosted domain, and begins two attempts to link her Google identity. Callbacks for the first attempt from another issuer, for another audience, for another hosted domain, and carrying the second attempt's nonce are each refused (claim_not_expected, or callback_not_bound for the nonce) and verify and link nothing. The genuine callback then links her identity, and replaying it is refused with callback_not_bound. An admission sign-in whose identity shares Alice's e-mail address but not her subject returns only its evidence: no binding, and nothing merged into Alice. A membership through a provider claim that names no policy admitting it is refused at admission. A fresh check whose provider never answered is blocked with provider_unreachable. Finally she begins another link and signs out (generation 2); its callback, issued under generation 1, is refused with access_signed_out and access_generation_moved; a read under the old generation stays refused. What must not happen: any of these writing a binding, a membership or a grant, merging identities by e-mail, or a callback overriding the sign-out.",
- "spec_sha256": "014373c791edc45ee6885de99185449a7426caf1c967197bd697c014bdc184ca",
+ "spec_sha256": "a2d6c1118f8e46dca73578c5801e67acd15a69c7033cc844df2b304ecb963146",
  "steps": [
   {
    "at": "2026-09-21T09:00:00Z",
@@ -3935,7 +3964,8 @@
   {
    "at": "2026-09-21T09:00:00Z",
    "carries": [
-    "first_attempt_asked"
+    "first_attempt_asked",
+    "first_attempt_control_proof"
    ],
    "name": "begin_first_link",
    "request": "begin_first_link_request",

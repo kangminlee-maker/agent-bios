@@ -528,9 +528,14 @@
    "record": "callback_while_locked_result"
   },
   {
-   "digest_of": "refresh_change",
-   "pointer": "/payload_digest",
-   "record": "refresh_request"
+   "digest_of": "read_state_after_refresh_request",
+   "pointer": "/request_digest",
+   "record": "refresh_while_locked_result"
+  },
+  {
+   "digest_of": "lock_state",
+   "pointer": "/outputs/0/digest",
+   "record": "refresh_while_locked_result"
   },
   {
    "digest_of": "unlock_at_terminal_change",
@@ -2037,21 +2042,8 @@
    }
   },
   {
-   "digest": "6096a373ad9643a45da9d0a386788b5568509b241d361e32e006be6d4ec9076f",
-   "name": "refresh_change",
-   "record": {
-    "change": {
-     "transition": "refresh"
-    },
-    "expected_generation": 2,
-    "kind": "access_transition",
-    "profile_id": "prf_c5fe39201b6b5bd0b85264a39c712818",
-    "schema": 1
-   }
-  },
-  {
-   "digest": "ccf2cd2f0c6c2e01c255e01471482b4e9f13b4795a153fd6b884b3209db62e80",
-   "name": "refresh_request",
+   "digest": "7ea514e146714a10e94450934b8d81172723bb069fdc88bc28bf11b5a8b988e6",
+   "name": "read_state_after_refresh_request",
    "record": {
     "action": "local_profile",
     "actor": {
@@ -2060,15 +2052,14 @@
      "profile_id": "prf_c5fe39201b6b5bd0b85264a39c712818"
     },
     "control_digests": [],
-    "effect_class": "owner_commit",
+    "effect_class": "pure_preview",
     "kind": "operation_request",
     "local_access_generation": 2,
-    "operation": "access.transition",
+    "operation": "access.profile.read",
     "owner": {
      "layer": "personal",
      "principal_id": "prn_897af7818f797f477fcde60856c9ad37"
     },
-    "payload_digest": "6096a373ad9643a45da9d0a386788b5568509b241d361e32e006be6d4ec9076f",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_9622c068705e4b67a6d49e7e03717e46",
@@ -2076,6 +2067,29 @@
     "target": {
      "resource_id": "prf_c5fe39201b6b5bd0b85264a39c712818"
     }
+   }
+  },
+  {
+   "digest": "d7bb7dc85011225b7062f59727d99755eeff45b4a057b66c679f0e88b966ffdc",
+   "name": "refresh_while_locked_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "26188dc26eceb468f4267dbc959d32ebe603f94e72d22642adb3da7953b5afbc",
+      "kind": "access_state"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "7ea514e146714a10e94450934b8d81172723bb069fdc88bc28bf11b5a8b988e6",
+    "request_id": "req_9622c068705e4b67a6d49e7e03717e46",
+    "schema": 1,
+    "supported_recovery": []
    }
   },
   {
@@ -2775,7 +2789,7 @@
   }
  ],
  "says": "Alice's laptop first reads its fresh profile (active at generation 1). She has bound her key, founded a Team and configured a Google connection for it. She begins linking her Google identity, then locks the profile (generation 2). The provider's callback for that attempt arrives while the profile is locked: it was issued under generation 1 and is refused with access_locked and access_generation_moved, nothing is verified or linked, and the profile stays locked. A token refresh offered as a transition is refused at admission. She unlocks at a terminal (still generation 2: an unlock moves no generation), begins a second link attempt, and signs out (generation 3). The second callback arrives while she is signed out: refused with access_signed_out and access_generation_moved, and a read issued under generation 2 is still not admitted. Only her explicit sign-in at a terminal with her local key makes the profile active again at generation 3, after which a read issued under generation 3 is admitted. What must not happen: a callback, a refresh or a provider login reopening access, verifying an identity or writing a binding while the profile is locked or signed out.",
- "spec_sha256": "3d139840d2fcaa9a0de408f80005e6bf1443703dc52e9075f054d27b0c5ce7bd",
+ "spec_sha256": "6d20131c18aa6bd6ba307644592d6f385338eaa56602056e462ffefc85d01ada",
  "steps": [
   {
    "carries": [],
@@ -2864,18 +2878,13 @@
    "returns": []
   },
   {
-   "carries": [
-    "refresh_change"
-   ],
+   "carries": [],
    "name": "refresh_while_locked",
-   "refused": [
-    {
-     "code": "variant_mismatch",
-     "pointer": "/change",
-     "record": "refresh_change"
-    }
-   ],
-   "request": "refresh_request"
+   "request": "read_state_after_refresh_request",
+   "result": "refresh_while_locked_result",
+   "returns": [
+    "lock_state"
+   ]
   },
   {
    "carries": [
@@ -2952,5 +2961,14 @@
     "admitted_after_sign_in_admission"
    ]
   }
- ]
+ ],
+ "world": {
+  "events": [
+   {
+    "before": "refresh_while_locked",
+    "connection": "google_stored",
+    "kind": "provider_refresh"
+   }
+  ]
+ }
 }

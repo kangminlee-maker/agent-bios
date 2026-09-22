@@ -1,6 +1,6 @@
 {
  "case": "N22-E2E-POS",
- "says": "Three isolated processes, Alice's laptop, desktop and home server, each with its own store, run a week under the harness's clock (from Monday 09:00 UTC) and network policy; the user's clock is never set. On Monday the laptop founds the Team, which returns the Team's founding continuity epoch, commits a first revision of its knowledge source and stages it by peer for the desktop and the home server — each staging a draft in its outbox with no receipt, the package carrying the founding epoch as a member because neither recipient holds it yet; both verify and commit it, each committed stage naming its accept's receipt, and the home server undertakes custody of it at storage generation 1 and acknowledges it. From Tuesday to Sunday the three cannot reach each other: the laptop commits two more revisions, the desktop is locked overnight and unlocked at its terminal the next morning, moving its access generation from 7 to 9, and the home server re-acknowledges what it keeps. On Sunday the network returns: the laptop stages one incremental package naming its Monday baseline and the home server's Monday acknowledgment, the last one it could receive; the desktop (at its new access generation) and the home server, which now hold the epoch, both verify and commit it, and the home server acknowledges again. Every committed step leaves its receipt and every staging none. What must not happen: any exchange while partitioned, the desktop acting on its old generation after the unlock, an increment without its baseline or acknowledgment, or the harness clock reaching the user's clock.",
+ "says": "Three isolated processes, Alice's laptop, desktop and home server, each with its own store, run a week under the harness's clock (from Monday 09:00 UTC) and network policy; the user's clock is never set. On Monday the laptop founds the Team, which returns the Team's founding continuity epoch, commits a first revision of its knowledge source and stages it by peer for the desktop and the home server — each staging a draft in its outbox with no receipt, the package carrying the founding epoch as a member because neither recipient holds it yet; both verify and commit it, each committed stage naming its accept's receipt, and the home server undertakes custody of it at storage generation 1 and acknowledges it. From Tuesday to Sunday the three cannot reach each other: the laptop commits two more revisions, the desktop is locked overnight, moving its access generation from 7 to 8, and unlocked at its terminal the next morning with the generation unchanged and the key run for real, and the home server re-acknowledges what it keeps. On Sunday the network returns: the laptop stages one incremental package naming its Monday baseline and the home server's Monday acknowledgment, the last one it could receive; the desktop (at its new access generation) and the home server, which now hold the epoch, both verify and commit it, and the home server acknowledges again. Every committed step leaves its receipt and every staging none. What must not happen: any exchange while partitioned, the desktop acting on its old generation after the unlock, an increment without its baseline or acknowledgment, or the harness clock reaching the user's clock.",
  "ids": [
   {
    "name": "desktop_peer",
@@ -1828,7 +1828,7 @@
    "set": [
     {
      "pointer": "/access_generation",
-     "value": 9
+     "value": 8
     },
     {
      "pointer": "/state/is",
@@ -1841,6 +1841,10 @@
     {
      "pointer": "/changed_at",
      "value": "$instant:unlocked_at"
+    },
+    {
+     "pointer": "/state/key_mode/runs",
+     "value": "real"
     }
    ]
   },
@@ -2241,7 +2245,7 @@
     },
     {
      "pointer": "/local_access_generation",
-     "value": 9
+     "value": 8
     }
    ]
   },

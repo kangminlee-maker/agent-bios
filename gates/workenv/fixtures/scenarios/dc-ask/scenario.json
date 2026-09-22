@@ -228,6 +228,11 @@
    "record": "probe_the_host_result"
   },
   {
+   "digest_of": "probe_the_host_configuration",
+   "pointer": "/outputs/2/digest",
+   "record": "probe_the_host_result"
+  },
+  {
    "digest_of": "alice_checkout",
    "pointer": "/payload_digest",
    "record": "bind_alice_checkout"
@@ -2064,7 +2069,24 @@
    }
   },
   {
-   "digest": "85c997667b0f61fe9bb9c8c9f528c6597c767c9b4473f38c0efbdbaab3422ad2",
+   "digest": "b166e3d3e6277aebd5dd65c7aa27d015a69aceed954fc4ef3a56ba930e507521",
+   "name": "probe_the_host_configuration",
+   "record": {
+    "client": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "hooks": [],
+    "kind": "host_configuration",
+    "measured_at": "2026-09-20T09:00:00Z",
+    "mode": {
+     "runs": "real"
+    },
+    "schema": 1
+   }
+  },
+  {
+   "digest": "e9544794482ed7f84b0dff3819b45aba17150d24487e979d7557b5e0e7b61520",
    "name": "probe_the_host_result",
    "record": {
     "kind": "operation_result",
@@ -2082,6 +2104,10 @@
      {
       "digest": "baf4d3d0a42d66dd1082049959ba4a054b816f74deefb696c6e029b0d7b231ed",
       "kind": "capability_profile"
+     },
+     {
+      "digest": "b166e3d3e6277aebd5dd65c7aa27d015a69aceed954fc4ef3a56ba930e507521",
+      "kind": "host_configuration"
      }
     ],
     "provider_effect": "not_applicable",
@@ -4311,7 +4337,7 @@
   }
  ],
  "says": "Alice's host is probed for native user events: the probe ran for real and worked. Her first use of the conflicting journal-mode concern targets the concern, so the owner starts a new use and waits on one sealed question. The runtime is killed after it commits that question and restarted, and the same request returns the same question and use rather than a second prompt; resubmitting the identical request bytes replays that answer, and a page reload that prepares the same use again under a new request, targeting the use, finds its one pending question and writes nothing. The question is delivered to her host, and a reconnect that resubmits the same delivery request gets the same attempt back; a host retry that minted a question id of its own is refused with retry_under_a_new_id_refused and asks nothing. Alice answers WAL with ask-each-use; the verified answer names the probe and the host configuration measured when the reply was classified, and the resume admits that use. Preparing the same use again then finds its admitted result. Her next logical use of the same unchanged concern targets the concern again and is not admitted on that answer: it is a new use waiting on a new question of its own, which she answers with the rollback journal, and only that use is admitted on it.",
- "spec_sha256": "5166753d8ff61519bea9db03fc029fc53d4f5152f42c5b4799df6c0d5e05d6dd",
+ "spec_sha256": "b01f34698bcb8c1e688b65c51111535131b0129c7829fa1504b5dfc77843658c",
  "steps": [
   {
    "carries": [
@@ -4333,7 +4359,8 @@
    "result": "probe_the_host_result",
    "returns": [
     "probe_that_worked",
-    "host_profile"
+    "host_profile",
+    "probe_the_host_configuration"
    ]
   },
   {

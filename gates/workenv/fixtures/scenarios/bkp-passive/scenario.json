@@ -56,6 +56,26 @@
   {
    "id": "req_68852b830e69f377d18f74157beb6768",
    "name": "profile_read_request"
+  },
+  {
+   "id": "tem_23b98bd2ad6ed1aef812f25fba06fc76",
+   "name": "team"
+  },
+  {
+   "id": "ctl_255f7556d1440794db5602da9f5a947c",
+   "name": "revoked_control"
+  },
+  {
+   "id": "ctl_49ac7210bef5531dab30e23785dc1425",
+   "name": "revoked_control_target"
+  },
+  {
+   "id": "req_645e4e04a524a3700cfc9af0f225753e",
+   "name": "admission_check_request"
+  },
+  {
+   "id": "req_c47e8f4081d13c338ed7652f99436332",
+   "name": "restricted_read_request"
   }
  ],
  "joins": [
@@ -488,6 +508,26 @@
    "digest_of": "commit_first_revision_receipt",
    "pointer": "/outputs/1/digest",
    "record": "query_on_the_restored_copy_result"
+  },
+  {
+   "digest_of": "revocation",
+   "pointer": "/control_digests/0",
+   "record": "restricted_read"
+  },
+  {
+   "digest_of": "restricted_read",
+   "pointer": "/payload_digest",
+   "record": "admission_request"
+  },
+  {
+   "digest_of": "admission_request",
+   "pointer": "/request_digest",
+   "record": "check_admission_after_unlock_result"
+  },
+  {
+   "digest_of": "admission_result",
+   "pointer": "/outputs/0/digest",
+   "record": "check_admission_after_unlock_result"
   }
  ],
  "minted": [
@@ -1109,7 +1149,7 @@
    }
   },
   {
-   "digest": "836dd2b083111bde0ba80ef1f03ea54fd1ee40a6ea51b09629f377be91548859",
+   "digest": "c8259a45cc345f7a7e612549192308dc5fe63e4bf5777b26457d497dfeb81964",
    "name": "backup",
    "record": {
     "access_generation": 7,
@@ -1125,7 +1165,7 @@
       "digest": "e7cd1fd9190cf56842417df844625b9d9d85c6c955ba7c2f53a3bb2d4c05a017",
       "holds": "object",
       "path": "objects/0001.json",
-      "size": 4121
+      "size": 382
      },
      {
       "digest": "0a5c6b2592459288142ec71642df39b736c17f65646b286882fc79824590f29c",
@@ -1140,7 +1180,7 @@
    }
   },
   {
-   "digest": "a9b63bde78e44caeafecf09e431b96d884561ed2c942f58f71a7c907465866f4",
+   "digest": "6537cceefb6672824416230557fd2a9317ba67870a73cf5387a0c0b4b24cd06c",
    "name": "take_the_backup_result",
    "record": {
     "kind": "operation_result",
@@ -1152,7 +1192,7 @@
     },
     "outputs": [
      {
-      "digest": "836dd2b083111bde0ba80ef1f03ea54fd1ee40a6ea51b09629f377be91548859",
+      "digest": "c8259a45cc345f7a7e612549192308dc5fe63e4bf5777b26457d497dfeb81964",
       "kind": "backup_set"
      }
     ],
@@ -1164,7 +1204,7 @@
    }
   },
   {
-   "digest": "3127a5672e36777307ff8e6223761c62a0e85501a9ed67b188cbda5ee6f337c4",
+   "digest": "d06004b3b83a1492910879d047aa5a074a2b321be8d968e56f71d74f1ca63991",
    "name": "restore",
    "record": {
     "action": "local_profile",
@@ -1182,7 +1222,7 @@
      "layer": "personal",
      "principal_id": "prn_556c103fe2743fe06720acd93e461186"
     },
-    "payload_digest": "836dd2b083111bde0ba80ef1f03ea54fd1ee40a6ea51b09629f377be91548859",
+    "payload_digest": "c8259a45cc345f7a7e612549192308dc5fe63e4bf5777b26457d497dfeb81964",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_2b8da3a2b30e7ec9581776de68bb7cba",
@@ -1193,7 +1233,7 @@
    }
   },
   {
-   "digest": "ebb655fae60c003ec05d244c552ec2ef33d2a89950275e66b8af04c2b4d9c5cd",
+   "digest": "5a2eb5b627b9eb664ef095d540428dd1bf1b5bf2108ba8f8557f415b00fc8298",
    "name": "restore_onto_a_copy_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -1203,7 +1243,7 @@
      "layer": "personal",
      "principal_id": "prn_556c103fe2743fe06720acd93e461186"
     },
-    "request_digest": "3127a5672e36777307ff8e6223761c62a0e85501a9ed67b188cbda5ee6f337c4",
+    "request_digest": "d06004b3b83a1492910879d047aa5a074a2b321be8d968e56f71d74f1ca63991",
     "request_id": "req_2b8da3a2b30e7ec9581776de68bb7cba",
     "schema": 1,
     "sequence": 1,
@@ -1213,12 +1253,12 @@
    }
   },
   {
-   "digest": "7f2e9e5fefcb4c7330f92dc8bf15bf6c089a5de5655c7b804cccb432d8b607aa",
+   "digest": "fdf6b3d4b499075b851bc1e495c275397d8379ae51b6dfebbf19a777f5d95c33",
    "name": "report",
    "record": {
     "after_backup": "not_known",
     "authority": "passive",
-    "backup_digest": "836dd2b083111bde0ba80ef1f03ea54fd1ee40a6ea51b09629f377be91548859",
+    "backup_digest": "c8259a45cc345f7a7e612549192308dc5fe63e4bf5777b26457d497dfeb81964",
     "covered_through": 1,
     "kind": "restore_report",
     "recovery_objective_seconds": 3600,
@@ -1228,24 +1268,24 @@
    }
   },
   {
-   "digest": "20b0f8a21be9b2e491a1fbe9597569b8281861c5dbde8b74660502c1f93933da",
+   "digest": "f0acae1c429b872e91f0d5eafa37aa7e00009c9f9823b9cbe90cb6e2e03f6a9c",
    "name": "restore_onto_a_copy_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "ebb655fae60c003ec05d244c552ec2ef33d2a89950275e66b8af04c2b4d9c5cd",
+     "receipt_digest": "5a2eb5b627b9eb664ef095d540428dd1bf1b5bf2108ba8f8557f415b00fc8298",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "7f2e9e5fefcb4c7330f92dc8bf15bf6c089a5de5655c7b804cccb432d8b607aa",
+      "digest": "fdf6b3d4b499075b851bc1e495c275397d8379ae51b6dfebbf19a777f5d95c33",
       "kind": "restore_report"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "3127a5672e36777307ff8e6223761c62a0e85501a9ed67b188cbda5ee6f337c4",
+    "request_digest": "d06004b3b83a1492910879d047aa5a074a2b321be8d968e56f71d74f1ca63991",
     "request_id": "req_2b8da3a2b30e7ec9581776de68bb7cba",
     "schema": 1,
     "supported_recovery": []
@@ -1687,10 +1727,144 @@
     "schema": 1,
     "supported_recovery": []
    }
+  },
+  {
+   "digest": "e1359a054616398a1550d514868c4dd0aefd169bcf4e39a9e580da8954cc2bcf",
+   "name": "revocation",
+   "record": {
+    "evidence_id": "ctl_255f7556d1440794db5602da9f5a947c",
+    "holder": {
+     "device_id": "dev_5e753088f772954a9ec6203ca7c09b83",
+     "principal_id": "prn_556c103fe2743fe06720acd93e461186"
+    },
+    "issued_at": "2026-09-21T09:00:00Z",
+    "issuer": {
+     "authority_principal_id": "prn_556c103fe2743fe06720acd93e461186",
+     "team_id": "tem_23b98bd2ad6ed1aef812f25fba06fc76"
+    },
+    "kind": "control_evidence",
+    "schema": 1,
+    "scope": {
+     "layer": "team",
+     "team_id": "tem_23b98bd2ad6ed1aef812f25fba06fc76"
+    },
+    "statement": {
+     "revoked": "ctl_49ac7210bef5531dab30e23785dc1425",
+     "states": "revokes"
+    }
+   }
+  },
+  {
+   "digest": "951087428745714ec277d328d2e48b5717cb3c2ff41901809bc21cb39093618c",
+   "name": "restricted_read",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_5e753088f772954a9ec6203ca7c09b83",
+     "principal_id": "prn_556c103fe2743fe06720acd93e461186",
+     "profile_id": "prf_08c7d858703c1de8c05785970e996e3e"
+    },
+    "control_digests": [
+     "e1359a054616398a1550d514868c4dd0aefd169bcf4e39a9e580da8954cc2bcf"
+    ],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 8,
+    "operation": "team.state.read",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_23b98bd2ad6ed1aef812f25fba06fc76"
+    },
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_c47e8f4081d13c338ed7652f99436332",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "e2785130118e73c5cd33ed82541dc84ebcae82dca7b9a1c9e6e7ab882f8241fb"
+     },
+     "resource_id": "tem_23b98bd2ad6ed1aef812f25fba06fc76"
+    }
+   }
+  },
+  {
+   "digest": "fde91711479fb2ad90626705913e63752137acec5c169dc119a1b21b65028e7b",
+   "name": "admission_request",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_5e753088f772954a9ec6203ca7c09b83",
+     "principal_id": "prn_556c103fe2743fe06720acd93e461186",
+     "profile_id": "prf_08c7d858703c1de8c05785970e996e3e"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 8,
+    "operation": "access.admission.decide",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_556c103fe2743fe06720acd93e461186"
+    },
+    "payload_digest": "951087428745714ec277d328d2e48b5717cb3c2ff41901809bc21cb39093618c",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_645e4e04a524a3700cfc9af0f225753e",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_08c7d858703c1de8c05785970e996e3e"
+    }
+   }
+  },
+  {
+   "digest": "465edc666ac286b4e8559b83e9e8bf066a924065e299579c2941c4dd840ea9b2",
+   "name": "admission_result",
+   "record": {
+    "access_generation": 8,
+    "kind": "access_admission",
+    "outcome": {
+     "admission": "not_admitted",
+     "material_gaps": [
+      {
+       "code": "credential_revoked"
+      },
+      {
+       "code": "control_evidence_insufficient"
+      }
+     ]
+    },
+    "profile_id": "prf_08c7d858703c1de8c05785970e996e3e",
+    "request_id": "req_c47e8f4081d13c338ed7652f99436332",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "6bd16bdeffad246d10bc15ec8970e0e1bffda06c112eba0e6d410486ae577569",
+   "name": "check_admission_after_unlock_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "465edc666ac286b4e8559b83e9e8bf066a924065e299579c2941c4dd840ea9b2",
+      "kind": "access_admission"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "fde91711479fb2ad90626705913e63752137acec5c169dc119a1b21b65028e7b",
+    "request_id": "req_645e4e04a524a3700cfc9af0f225753e",
+    "schema": 1,
+    "supported_recovery": []
+   }
   }
  ],
- "says": "On her laptop Alice registers her private notes source, commits a revision on the head the registration made, and takes a backup under access generation 7. The laptop keeps running; the backup is restored onto a second runtime, a restored copy holding the same device's data and that old access generation. The restore reports authority passive. A commit on the restored copy, expecting the head the backup holds and carrying the restored generation 7, is blocked with access_locked and access_generation_moved and moves nothing: the restored copy did not unlock itself and is not a second finalizer. Reading the profile there shows it locked because restored, at generation 8, past the one it restored. On the laptop, meanwhile, a commit expecting that same head is accepted, so the laptop stays the one runtime that moves this head. Only an explicit unlock at a terminal on the restored copy, expecting generation 8, makes its access active, as a new access state the unlock wrote at that same generation; a query there then returns the restored commit's original result and receipt. What must not happen: the restored copy reading its restored generation as active access, unlocking without a person's explicit unlock, or finalizing a commit beside the laptop.",
- "spec_sha256": "c5f4a87ea379f03986eb9e17385806f7fb05f082b3273a30634780e3d050b0fd",
+ "says": "On her laptop Alice registers her private notes source, commits a revision on the head the registration made, and takes a backup under access generation 7. The laptop keeps running; the backup is restored onto a second runtime, a restored copy holding the same device's data and that old access generation. The restore reports authority passive. A commit on the restored copy, expecting the head the backup holds and carrying the restored generation 7, is blocked with access_locked and access_generation_moved and moves nothing: the restored copy did not unlock itself and is not a second finalizer. Reading the profile there shows it locked because restored, at generation 8, past the one it restored. On the laptop, meanwhile, a commit expecting that same head is accepted, so the laptop stays the one runtime that moves this head. Only an explicit unlock at a terminal on the restored copy, expecting generation 8, makes its access active, as a new access state the unlock wrote at that same generation; a query there then returns the restored commit's original result and receipt. Being active at that generation is not restored authority: a hypothetical Team read the admission decider previews there, naming a revoked control evidence record among its proofs, is still not admitted, with credential_revoked and control_evidence_insufficient — access being unlocked at the current generation answers only C02's own question, not whether any control evidence the restored copy holds is still current. What must not happen: the restored copy reading its restored generation as active access, unlocking without a person's explicit unlock, finalizing a commit beside the laptop, or an active access generation being read as current control authority.",
+ "spec_sha256": "0fd4bf6f201634f79b9f5978f9bbb03050726a2c2eb1a9dad71391ecd99a001a",
  "steps": [
   {
    "carries": [
@@ -1809,6 +1983,18 @@
    "returns": [
     "commit_first_revision_result",
     "commit_first_revision_receipt"
+   ]
+  },
+  {
+   "carries": [
+    "restricted_read"
+   ],
+   "name": "check_admission_after_unlock",
+   "process": "restored_copy",
+   "request": "admission_request",
+   "result": "check_admission_after_unlock_result",
+   "returns": [
+    "admission_result"
    ]
   }
  ],

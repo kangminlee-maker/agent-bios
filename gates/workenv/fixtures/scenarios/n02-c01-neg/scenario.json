@@ -916,7 +916,7 @@
    }
   },
   {
-   "digest": "760f58bb3addc8bc051511a7413247fde521402205dedf5effa4f2aaaa8d2db7",
+   "digest": "1ea59df26c9bd3593e5ba384638fb5855da6f5f66b68bc574d0cddb5d9b3d3ce",
    "name": "emailed_key",
    "record": {
     "credential": {
@@ -925,16 +925,15 @@
      "key_generation": 1,
      "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
     },
-    "email": "alice@example.com",
     "established_by": "local_creation",
     "evidence_digests": [],
     "kind": "principal_binding",
-    "principal_id": "prn_64b44fd13e4986e8f9d403efca189678",
+    "principal_id": "alice@example.com",
     "schema": 1
    }
   },
   {
-   "digest": "28df435f8088aa4096c0cb0171b7de0e72dbe64c264cd581d92181d51daed3dc",
+   "digest": "802d39161036c37624ad7b05c0ecfc980917fa4de2f9728450c7b66dab5a127b",
    "name": "email_beside_the_key_request",
    "record": {
     "action": "local_profile",
@@ -952,7 +951,7 @@
      "layer": "personal",
      "principal_id": "prn_64b44fd13e4986e8f9d403efca189678"
     },
-    "payload_digest": "760f58bb3addc8bc051511a7413247fde521402205dedf5effa4f2aaaa8d2db7",
+    "payload_digest": "1ea59df26c9bd3593e5ba384638fb5855da6f5f66b68bc574d0cddb5d9b3d3ce",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_60036087e0e2d8818680c776e5f94097",
@@ -1826,7 +1825,7 @@
   }
  ],
  "says": "Alice binds her laptop key, and Bob, sharing the machine under his own profile, binds his. Then things that are not principal ids are offered where one is required, and each is refused at admission with nothing written: a typed name in a binding's principal_id, a binding carrying an e-mail address, the laptop's device id and a task id in place of a principal id, and a request whose actor names a person by name. Alice offers a second key for her desktop with no proof of control: binding_unverified, nothing bound. She offers Bob's public key, signed by her own enrolled key: binding_conflict, the key stays Bob's and nothing is merged. With proof of control her desktop key is bound to her principal. She founds a Team whose policy governs grants and requires one independent review, and from her laptop asks to grant Bob read and use, against the Team's current head; the change is stored as a candidate and waits in review. Approving it from her desktop, under her second key, is refused with approver_not_independent: a second key of one principal is not a second person. What must not happen: any of these binding anything, merging a credential into another principal, or the desktop approval counting toward the review threshold.",
- "spec_sha256": "fc1ef36fc9e8272e6877544eb84975dbbce14bdffe299aa7cff54ca1dfaedb00",
+ "spec_sha256": "e5b542be4faee818487353c56782ce4c5d059077da4c5b36e00488c11bc9eb23",
  "steps": [
   {
    "carries": [
@@ -1871,8 +1870,8 @@
    "name": "email_beside_the_key",
    "refused": [
     {
-     "code": "unknown_field",
-     "pointer": "/email",
+     "code": "pattern_mismatch",
+     "pointer": "/principal_id",
      "record": "emailed_key"
     }
    ],

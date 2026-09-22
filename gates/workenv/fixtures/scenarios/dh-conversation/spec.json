@@ -35,6 +35,14 @@
    "prefix": "cnc"
   },
   {
+   "name": "register_repo_decisions_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "register_my_decisions_request_id",
+   "prefix": "req"
+  },
+  {
    "name": "publish_journal_repo_choice_id",
    "prefix": "req"
   },
@@ -183,6 +191,205 @@
    ]
   },
   {
+   "name": "repo_decisions_home",
+   "from": "sources/home_of_a_managed_collection.json",
+   "drop": [
+    "/registered_at",
+    "/scope/principal_id",
+    "/acceptance_authority/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@repo_decisions"
+    },
+    {
+     "pointer": "/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/acceptance_authority/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/acceptance_authority/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/disclosure",
+     "value": "team"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    }
+   ]
+  },
+  {
+   "name": "stored_repo_decisions_home",
+   "from": "repo_decisions_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:repo_decisions_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "register_repo_decisions_request",
+   "from": "c05/memory_use_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_repo_decisions_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_decisions"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_decisions_home"
+    }
+   ]
+  },
+  {
+   "name": "my_decisions_home",
+   "from": "sources/home_of_a_managed_collection.json",
+   "drop": [
+    "/registered_at"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@my_decisions"
+    },
+    {
+     "pointer": "/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/scope/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/acceptance_authority/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    }
+   ]
+  },
+  {
+   "name": "stored_my_decisions_home",
+   "from": "my_decisions_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:my_decisions_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "register_my_decisions_request",
+   "from": "c05/memory_use_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_my_decisions_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@my_decisions"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#my_decisions_home"
+    }
+   ]
+  },
+  {
    "name": "journal_repo_choice",
    "from": "c05/choice_as_submitted.json",
    "drop": [
@@ -256,7 +463,11 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:repo_decisions_h0"
     },
     {
      "pointer": "/payload_digest",
@@ -373,7 +584,11 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:my_decisions_h0"
     },
     {
      "pointer": "/payload_digest",
@@ -2384,6 +2599,42 @@
     "returns": [
      "stored_device_key"
     ]
+   }
+  },
+  {
+   "name": "register_repo_decisions",
+   "request": "register_repo_decisions_request",
+   "carries": [
+    "repo_decisions_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_repo_decisions_home"
+    ],
+    "head": "repo_decisions_h0"
+   }
+  },
+  {
+   "name": "register_my_decisions",
+   "request": "register_my_decisions_request",
+   "carries": [
+    "my_decisions_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_my_decisions_home"
+    ],
+    "head": "my_decisions_h0"
    }
   },
   {

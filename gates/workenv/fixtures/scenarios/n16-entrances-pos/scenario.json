@@ -485,6 +485,11 @@
    "record": "hub_trace"
   },
   {
+   "digest_of": "hub_keys",
+   "pointer": "/script_digest",
+   "record": "hub_trace"
+  },
+  {
    "digest_of": "hub_offer_stored",
    "pointer": "/offer_digest",
    "record": "hub_selection"
@@ -496,12 +501,7 @@
   },
   {
    "digest_of": "select_hub",
-   "pointer": "/frames/6/calls/0/request_digest",
-   "record": "hub_trace"
-  },
-  {
-   "digest_of": "hub_keys",
-   "pointer": "/script_digest",
+   "pointer": "/frames/7/calls/0/request_digest",
    "record": "hub_trace"
   },
   {
@@ -1940,7 +1940,7 @@
    }
   },
   {
-   "digest": "b290801160617b42b3e6a7be87937a445c66a31f4a2b2e098025ebcccf844f45",
+   "digest": "7089a8f2fa36b58d4a36fadc104bc291cb3c6746361ba03b5f718ff294cb6aab",
    "name": "hub_keys",
    "record": {
     "entrance": {
@@ -1950,7 +1950,7 @@
     "inputs": [
      {
       "input": "key",
-      "key": "down"
+      "key": "enter"
      },
      {
       "input": "key",
@@ -1959,6 +1959,10 @@
      {
       "input": "key",
       "key": "tab"
+     },
+     {
+      "input": "key",
+      "key": "enter"
      },
      {
       "input": "key",
@@ -1983,7 +1987,7 @@
    }
   },
   {
-   "digest": "2f9e50840c176200adffa0318218a886de27348e9c8c25d370deeeccb6dbbf7e",
+   "digest": "b9b3ef6bdfb4eb61ea5bb364f1467ccb1ca2d69467aca6b51dafc2655e02b94b",
    "name": "drive_hub",
    "record": {
     "action": "read",
@@ -2001,7 +2005,7 @@
      "layer": "team",
      "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
     },
-    "payload_digest": "b290801160617b42b3e6a7be87937a445c66a31f4a2b2e098025ebcccf844f45",
+    "payload_digest": "7089a8f2fa36b58d4a36fadc104bc291cb3c6746361ba03b5f718ff294cb6aab",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_18e40670453f2ac2bf5e0d286284b56d",
@@ -2060,7 +2064,7 @@
    }
   },
   {
-   "digest": "846d296ad72b6ca0f83c617f1cc5385e52b7d48f08159d7b8b08604030c0c8c6",
+   "digest": "29f54f749dda1a6494038ef4891204f24420c6cbbead9d0a7ffc6693075fdf6f",
    "name": "hub_trace",
    "record": {
     "at": "2000-01-01T00:00:00Z",
@@ -2081,76 +2085,27 @@
         "focused": false,
         "label": "팀 · Platform",
         "marks": [],
-        "refers_to": {
-         "ref": "scope",
-         "scope": {
-          "layer": "team",
-          "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
-         }
-        },
         "role": "context",
         "selection": "none",
         "shown": "whole"
        },
        {
-        "element_id": "choice.environment",
+        "element_id": "job.compose_environment",
         "executing": false,
-        "focused": false,
-        "label": "환경  Platform 팀 환경",
-        "marks": [
-         "[ ]"
-        ],
-        "refers_to": {
-         "ref": "scope",
-         "scope": {
-          "layer": "team",
-          "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
-         }
-        },
-        "role": "choice",
-        "selection": "suggested",
-        "shown": "whole",
-        "value": "Platform 팀 환경"
-       },
-       {
-        "effects": [
-         "model_calls"
-        ],
-        "element_id": "execution.tool",
-        "executing": false,
-        "focused": false,
-        "label": "도구  Codex CLI · 새 세션",
+        "focused": true,
+        "label": "환경 구성 시작 · 무엇이 열리는지 보기",
         "marks": [
          "(제안)"
         ],
-        "role": "setting",
-        "selection": "suggested",
-        "shown": "whole",
-        "value": "Codex CLI"
-       },
-       {
-        "effects": [
-         "file_changes",
-         "model_calls"
-        ],
-        "element_id": "action.start",
-        "executing": false,
-        "focused": false,
-        "label": "새 세션 시작",
-        "marks": [],
-        "refers_to": {
-         "ref": "route",
-         "route_id": "rte_d12b14e0954daafdc367149093e99c8b"
-        },
         "role": "action",
-        "selection": "none",
+        "selection": "suggested",
         "shown": "whole"
        },
        {
         "element_id": "help.keys",
         "executing": false,
         "focused": false,
-        "label": "Tab 이동 · Space 선택 · ←→ 바꾸기 · Enter 시작",
+        "label": "Enter 열기",
         "marks": [],
         "role": "help",
         "selection": "none",
@@ -2176,7 +2131,7 @@
         "layer": "team",
         "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
        },
-       "view": "entry"
+       "view": "hub"
       }
      },
      {
@@ -2205,10 +2160,9 @@
        {
         "element_id": "choice.environment",
         "executing": false,
-        "focused": true,
+        "focused": false,
         "label": "환경  Platform 팀 환경",
         "marks": [
-         "›",
          "[ ]"
         ],
         "refers_to": {
@@ -2246,7 +2200,7 @@
         ],
         "element_id": "action.start",
         "executing": false,
-        "focused": false,
+        "focused": true,
         "label": "새 세션 시작",
         "marks": [],
         "refers_to": {
@@ -2320,7 +2274,7 @@
         "label": "환경  Platform 팀 환경",
         "marks": [
          "›",
-         "[x]"
+         "[ ]"
         ],
         "refers_to": {
          "ref": "scope",
@@ -2330,7 +2284,7 @@
          }
         },
         "role": "choice",
-        "selection": "selected",
+        "selection": "suggested",
         "shown": "whole",
         "value": "Platform 팀 환경"
        },
@@ -2427,9 +2381,10 @@
        {
         "element_id": "choice.environment",
         "executing": false,
-        "focused": false,
+        "focused": true,
         "label": "환경  Platform 팀 환경",
         "marks": [
+         "›",
          "[x]"
         ],
         "refers_to": {
@@ -2450,10 +2405,9 @@
         ],
         "element_id": "execution.tool",
         "executing": false,
-        "focused": true,
+        "focused": false,
         "label": "도구  Codex CLI · 새 세션",
         "marks": [
-         "›",
          "(제안)"
         ],
         "role": "setting",
@@ -2515,7 +2469,13 @@
      {
       "access": "active",
       "after": 4,
-      "calls": [],
+      "calls": [
+       {
+        "operation": "preparation.compose",
+        "reads": "bodies",
+        "request_digest": "b62e5e2c42ef1c1ddadf13480d39c755e23e9c0c8d3b5bbcb3d699037ec4c8b6"
+       }
+      ],
       "dispatched": [],
       "elements": [
        {
@@ -2562,14 +2522,15 @@
         "element_id": "execution.tool",
         "executing": false,
         "focused": true,
-        "label": "도구  Claude Code · 새 세션",
+        "label": "도구  Codex CLI · 새 세션",
         "marks": [
-         "›"
+         "›",
+         "(제안)"
         ],
         "role": "setting",
-        "selection": "selected",
+        "selection": "suggested",
         "shown": "whole",
-        "value": "Claude Code"
+        "value": "Codex CLI"
        },
        {
         "effects": [
@@ -2671,6 +2632,116 @@
         ],
         "element_id": "execution.tool",
         "executing": false,
+        "focused": true,
+        "label": "도구  Claude Code · 새 세션",
+        "marks": [
+         "›"
+        ],
+        "role": "setting",
+        "selection": "selected",
+        "shown": "whole",
+        "value": "Claude Code"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": false,
+        "focused": false,
+        "label": "새 세션 시작",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_d12b14e0954daafdc367149093e99c8b"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Space 선택 · ←→ 바꾸기 · Enter 시작",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "browse_scope": {
+        "layer": "team",
+        "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+       },
+       "missing_bodies": [],
+       "origin": {
+        "name": "studio_hub",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "team",
+        "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+       },
+       "view": "entry"
+      }
+     },
+     {
+      "access": "active",
+      "after": 6,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.scope",
+        "executing": false,
+        "focused": false,
+        "label": "팀 · Platform",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "team",
+          "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "choice.environment",
+        "executing": false,
+        "focused": false,
+        "label": "환경  Platform 팀 환경",
+        "marks": [
+         "[x]"
+        ],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "team",
+          "team_id": "tem_90645e8713a41fcdd3e2504a8fe11e66"
+         }
+        },
+        "role": "choice",
+        "selection": "selected",
+        "shown": "whole",
+        "value": "Platform 팀 환경"
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
         "focused": false,
         "label": "도구  Claude Code · 새 세션",
         "marks": [],
@@ -2734,7 +2805,7 @@
      },
      {
       "access": "active",
-      "after": 6,
+      "after": 7,
       "calls": [
        {
         "operation": "route.select",
@@ -2872,11 +2943,11 @@
      "runs": "real"
     },
     "schema": 1,
-    "script_digest": "b290801160617b42b3e6a7be87937a445c66a31f4a2b2e098025ebcccf844f45"
+    "script_digest": "7089a8f2fa36b58d4a36fadc104bc291cb3c6746361ba03b5f718ff294cb6aab"
    }
   },
   {
-   "digest": "a7428517250c2a404894b38530fac5289f13c4043d069f0a494e4ab430e2a8d9",
+   "digest": "45bb34c3ade9f53ab0174e73c53b571ad8718dbec9c263b8f6f939c8a6dc1586",
    "name": "drive_from_hub_result",
    "record": {
     "kind": "operation_result",
@@ -2887,12 +2958,12 @@
     },
     "outputs": [
      {
-      "digest": "846d296ad72b6ca0f83c617f1cc5385e52b7d48f08159d7b8b08604030c0c8c6",
+      "digest": "29f54f749dda1a6494038ef4891204f24420c6cbbead9d0a7ffc6693075fdf6f",
       "kind": "surface_trace"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "2f9e50840c176200adffa0318218a886de27348e9c8c25d370deeeccb6dbbf7e",
+    "request_digest": "b9b3ef6bdfb4eb61ea5bb364f1467ccb1ca2d69467aca6b51dafc2655e02b94b",
     "request_id": "req_18e40670453f2ac2bf5e0d286284b56d",
     "schema": 1,
     "supported_recovery": []
@@ -5287,7 +5358,7 @@
   }
  ],
  "says": "alice binds her laptop key, founds the Team Platform, binds the payments repository she works in, and a probe qualifies the installed client's read capability. The entry flow is then driven from three entrances with the same keys: from studio_hub (the Team's scope), from host_launcher (the repository's scope) and from setup (her personal scope). Each entrance's route.offer offers one start route in that entrance's own scope, qualified by the probe. In each drive the environment choice and the tool choice are two separate elements: selecting the environment with Space leaves the tool's value Codex CLI, and changing the tool to Claude Code leaves the environment selected with its value unchanged. Enter on the one start action dispatches one route.select, whose selection names that entrance's start route (and so its scope) and the start request it produces, expecting it prepared; the owner answers with a real run. No entrance starts in another entrance's scope, and no frame shows one choice changing the other's value.",
- "spec_sha256": "f56c83574715b7fd9d81e65e4c3d4d8dcb3ffa40711d90e86a1637e24ee347a3",
+ "spec_sha256": "1e095d7d9a2dbbbd6e4909e86add47f984739cb12aabe6bb8269e4be32f7cb99",
  "steps": [
   {
    "carries": [

@@ -1,6 +1,6 @@
 {
  "case": "N24-CANDIDATE-POS",
- "says": "Alice binds her device key, then registers the package candidate built from one commit of the integrated source through package.candidate.register. The candidate states the tarball's digest and size and one member per packed file: two members name the source path they were copied from at source_commit, and provenance.json says it was made at pack time. The owner commits and returns the candidate exactly as submitted. The same commit is then built again and the rebuilt candidate registered under a new request: its bytes, tarball digest and every member are identical, so the same operation, target and payload are already committed: the owner settles it as a duplicate, writes nothing, and answers with the first registration's receipt and a record with the same digest as the first. What must not happen: a member listed without a source path or pack-time origin, or a rebuild of one commit giving another tarball digest.",
+ "says": "Alice binds her device key. The harness packs the checkout at one commit, and she registers the resulting package candidate through package.candidate.register: it states the tarball's digest and size and one member per packed file, two members naming the source path they were copied from at source_commit and provenance.json saying it was made at pack time. The owner commits and returns the candidate exactly as submitted. The harness then packs the same commit again, independently, and Alice registers the rebuilt candidate under a new request: its bytes, tarball digest and every member are identical to the first build, so the same operation, target and payload are already committed: the owner settles it as a duplicate, writes nothing, and answers with the first registration's receipt and a record with the same digest as the first. What must not happen: a member listed without a source path or pack-time origin, or a rebuild of one commit giving another tarball digest.",
  "ids": [
   {
    "name": "alice",
@@ -176,7 +176,13 @@
   },
   {
    "name": "rebuilt",
-   "from": "candidate"
+   "from": "c03/package_candidate_built_from_one_commit.json",
+   "set": [
+    {
+     "pointer": "/source_commit",
+     "value": "a184c3b26df4d7ca57c74806fd4c32273835ae3c"
+    }
+   ]
   },
   {
    "name": "register_rebuilt",
@@ -246,5 +252,19 @@
     "receipt_of": "register_candidate"
    }
   }
- ]
+ ],
+ "world": {
+  "events": [
+   {
+    "kind": "build",
+    "before": "register_candidate",
+    "yields": "candidate"
+   },
+   {
+    "kind": "build",
+    "before": "register_rebuilt_candidate",
+    "yields": "rebuilt"
+   }
+  ]
+ }
 }

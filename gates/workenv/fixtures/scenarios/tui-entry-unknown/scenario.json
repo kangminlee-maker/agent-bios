@@ -84,6 +84,10 @@
   {
    "id": "req_8071ce41ffe1052e26cb50d14871e002",
    "name": "again_request"
+  },
+  {
+   "id": "req_f870d5568aebb98a36e964f2e7ddad69",
+   "name": "register_instr_rid"
   }
  ],
  "joins": [
@@ -213,6 +217,61 @@
    "record": "observe_instr_result"
   },
   {
+   "digest_of": "repo_bound",
+   "pointer": "/home/binding_evidence_digest",
+   "record": "instr_home"
+  },
+  {
+   "digest_of": "instr_home",
+   "pointer": "/payload_digest",
+   "record": "register_instr_request"
+  },
+  {
+   "digest_of": "register_instr_request",
+   "pointer": "/request_digest",
+   "record": "register_instr_receipt"
+  },
+  {
+   "minted": "instr_h0",
+   "pointer": "/head_digest",
+   "record": "register_instr_receipt"
+  },
+  {
+   "minted": "register_instr_sequence",
+   "pointer": "/sequence",
+   "record": "register_instr_receipt"
+  },
+  {
+   "minted": "register_instr_committed_at",
+   "pointer": "/committed_at",
+   "record": "register_instr_receipt"
+  },
+  {
+   "digest_of": "repo_bound",
+   "pointer": "/home/binding_evidence_digest",
+   "record": "instr_home_stored"
+  },
+  {
+   "minted": "instr_registered_at",
+   "pointer": "/registered_at",
+   "record": "instr_home_stored"
+  },
+  {
+   "digest_of": "register_instr_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "register_instr_result"
+  },
+  {
+   "digest_of": "register_instr_request",
+   "pointer": "/request_digest",
+   "record": "register_instr_result"
+  },
+  {
+   "digest_of": "instr_home_stored",
+   "pointer": "/outputs/0/digest",
+   "record": "register_instr_result"
+  },
+  {
    "minted": "instr_bytes",
    "pointer": "/members/0/digest",
    "record": "instr_manifest"
@@ -220,6 +279,11 @@
   {
    "digest_of": "instr_manifest",
    "pointer": "/payload_digest",
+   "record": "instr_commit_request"
+  },
+  {
+   "minted": "instr_h0",
+   "pointer": "/target/base/head_digest",
    "record": "instr_commit_request"
   },
   {
@@ -240,6 +304,11 @@
   {
    "minted": "commit_instr_committed_at",
    "pointer": "/committed_at",
+   "record": "commit_instr_receipt"
+  },
+  {
+   "minted": "instr_h0",
+   "pointer": "/target/base/head_digest",
    "record": "commit_instr_receipt"
   },
   {
@@ -303,6 +372,11 @@
    "record": "read_probe_stored"
   },
   {
+   "minted": "probe_measured_at",
+   "pointer": "/measured_at",
+   "record": "read_probe_host_configuration"
+  },
+  {
    "digest_of": "probe_host_read_receipt",
    "pointer": "/outcome/receipt_digest",
    "record": "probe_host_read_result"
@@ -315,6 +389,11 @@
   {
    "digest_of": "read_probe_stored",
    "pointer": "/outputs/0/digest",
+   "record": "probe_host_read_result"
+  },
+  {
+   "digest_of": "read_probe_host_configuration",
+   "pointer": "/outputs/1/digest",
    "record": "probe_host_read_result"
   },
   {
@@ -628,6 +707,16 @@
    "record": "reopen_script_trace"
   },
   {
+   "digest_of": "recent",
+   "pointer": "/frames/4/elements/4/refers_to/digest",
+   "record": "reopen_script_trace"
+  },
+  {
+   "digest_of": "recent",
+   "pointer": "/frames/5/elements/4/refers_to/digest",
+   "record": "reopen_script_trace"
+  },
+  {
    "digest_of": "reopen_script_request",
    "pointer": "/request_digest",
    "record": "reopen_entry_result"
@@ -715,6 +804,26 @@
    "step": "observe_instr"
   },
   {
+   "name": "instr_h0",
+   "shape": "digest",
+   "step": "register_instr"
+  },
+  {
+   "name": "instr_registered_at",
+   "shape": "instant",
+   "step": "register_instr"
+  },
+  {
+   "name": "register_instr_committed_at",
+   "shape": "instant",
+   "step": "register_instr"
+  },
+  {
+   "name": "register_instr_sequence",
+   "shape": "integer",
+   "step": "register_instr"
+  },
+  {
    "name": "commit_instr_committed_at",
    "shape": "instant",
    "step": "commit_instr"
@@ -747,6 +856,11 @@
   {
    "name": "probe_host_read_sequence",
    "shape": "integer",
+   "step": "probe_host_read"
+  },
+  {
+   "name": "probe_measured_at",
+   "shape": "instant",
    "step": "probe_host_read"
   },
   {
@@ -1151,6 +1265,152 @@
    }
   },
   {
+   "digest": "9446ebb5f3e8520c2d59935076619c2a5e0ee7dd1dae477a4462818083d3a8d9",
+   "name": "instr_home",
+   "record": {
+    "acceptance_authority": {
+     "layer": "repository",
+     "repository_id": "rep_b4997a15848fb3478d3bbcb3dd356d6b"
+    },
+    "applicability": {
+     "states": "unstated"
+    },
+    "disclosure": "private",
+    "format_version": 1,
+    "home": {
+     "binding_evidence_digest": "6c5376f04abcf7ec03355d039abfb14021552e9f2fd487e9b1e4779dcbe87f73",
+     "document_root": "AGENTS.md",
+     "mode": "repository_authored",
+     "repository_id": "rep_b4997a15848fb3478d3bbcb3dd356d6b"
+    },
+    "kind": "source_home",
+    "publication_evidence_digests": [],
+    "retention": {
+     "keep": "until_withdrawn"
+    },
+    "role": "instructions",
+    "schema": 1,
+    "scope": {
+     "layer": "repository",
+     "repository_id": "rep_b4997a15848fb3478d3bbcb3dd356d6b"
+    },
+    "source_id": "src_6a45ffaf2240ffeceec0cc7a4c2617f5"
+   }
+  },
+  {
+   "digest": "4e54b18aac86041e3924807ed3a21b012b97105a2fcaf81b5d3c8dbb5ef89494",
+   "name": "register_instr_request",
+   "record": {
+    "action": "contribute",
+    "actor": {
+     "device_id": "dev_ad8a96cfdc9b0daee0fbe3e193d9b34f",
+     "principal_id": "prn_9903948c27303c6d16d6449f18b2af63",
+     "profile_id": "prf_c2363ad96688417b64b3a59afb434ee1"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "source.home.register",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_b4997a15848fb3478d3bbcb3dd356d6b"
+    },
+    "payload_digest": "9446ebb5f3e8520c2d59935076619c2a5e0ee7dd1dae477a4462818083d3a8d9",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_f870d5568aebb98a36e964f2e7ddad69",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_6a45ffaf2240ffeceec0cc7a4c2617f5"
+    }
+   }
+  },
+  {
+   "digest": "4cd0b294b79bb0b5e7dc5b9304fb019627a39648f8a20a523774beba300379bf",
+   "name": "register_instr_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "70175668db45f030a9d189c17560c54766424a17e1de0f19f47e41d9ad3992a9",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_b4997a15848fb3478d3bbcb3dd356d6b"
+    },
+    "request_digest": "4e54b18aac86041e3924807ed3a21b012b97105a2fcaf81b5d3c8dbb5ef89494",
+    "request_id": "req_f870d5568aebb98a36e964f2e7ddad69",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "absent"
+     },
+     "resource_id": "src_6a45ffaf2240ffeceec0cc7a4c2617f5"
+    }
+   }
+  },
+  {
+   "digest": "b4d9930f4c70f4515ff5b58615cdfe31b435627077c602ad24f9c660f03f7c46",
+   "name": "instr_home_stored",
+   "record": {
+    "acceptance_authority": {
+     "layer": "repository",
+     "repository_id": "rep_b4997a15848fb3478d3bbcb3dd356d6b"
+    },
+    "applicability": {
+     "states": "unstated"
+    },
+    "disclosure": "private",
+    "format_version": 1,
+    "home": {
+     "binding_evidence_digest": "6c5376f04abcf7ec03355d039abfb14021552e9f2fd487e9b1e4779dcbe87f73",
+     "document_root": "AGENTS.md",
+     "mode": "repository_authored",
+     "repository_id": "rep_b4997a15848fb3478d3bbcb3dd356d6b"
+    },
+    "kind": "source_home",
+    "publication_evidence_digests": [],
+    "registered_at": "2000-01-01T00:00:00Z",
+    "retention": {
+     "keep": "until_withdrawn"
+    },
+    "role": "instructions",
+    "schema": 1,
+    "scope": {
+     "layer": "repository",
+     "repository_id": "rep_b4997a15848fb3478d3bbcb3dd356d6b"
+    },
+    "source_id": "src_6a45ffaf2240ffeceec0cc7a4c2617f5"
+   }
+  },
+  {
+   "digest": "be01290eb20a3bacc2ee1f968862fe0add50a6e403dc66842d986baf3c9e6338",
+   "name": "register_instr_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "4cd0b294b79bb0b5e7dc5b9304fb019627a39648f8a20a523774beba300379bf",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "b4d9930f4c70f4515ff5b58615cdfe31b435627077c602ad24f9c660f03f7c46",
+      "kind": "source_home"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "4e54b18aac86041e3924807ed3a21b012b97105a2fcaf81b5d3c8dbb5ef89494",
+    "request_id": "req_f870d5568aebb98a36e964f2e7ddad69",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
    "digest": "01ba9158430cfe82d40fd711eb51fa9b4e3133ce359c7763f4657ddccd106655",
    "name": "instr_manifest",
    "record": {
@@ -1168,7 +1428,7 @@
    }
   },
   {
-   "digest": "d2cb451cd2206dfc7f931992029a5e00ef804e0986f4629e88c38f45668b1f55",
+   "digest": "eb423d0fddb89092e9469eaf8a0a106ea4a3ccb6adf12eb5fc2344a4ce41dee4",
    "name": "instr_commit_request",
    "record": {
     "action": "publish",
@@ -1193,14 +1453,15 @@
     "schema": 1,
     "target": {
      "base": {
-      "expects": "absent"
+      "expects": "head",
+      "head_digest": "70175668db45f030a9d189c17560c54766424a17e1de0f19f47e41d9ad3992a9"
      },
      "resource_id": "src_6a45ffaf2240ffeceec0cc7a4c2617f5"
     }
    }
   },
   {
-   "digest": "3a06033030d279bf72d4f5c85c09af23e5a392cfe24bb3e1f17eaaa971e7a220",
+   "digest": "5614ed894f906619f2f23c5e2c0e2cf090a84efdad4e5a35ddd7da14b972bfcd",
    "name": "commit_instr_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -1210,13 +1471,14 @@
      "layer": "repository",
      "repository_id": "rep_b4997a15848fb3478d3bbcb3dd356d6b"
     },
-    "request_digest": "d2cb451cd2206dfc7f931992029a5e00ef804e0986f4629e88c38f45668b1f55",
+    "request_digest": "eb423d0fddb89092e9469eaf8a0a106ea4a3ccb6adf12eb5fc2344a4ce41dee4",
     "request_id": "req_9686161bfde03036e0bc4a5c968a84ab",
     "schema": 1,
     "sequence": 1,
     "target": {
      "base": {
-      "expects": "absent"
+      "expects": "head",
+      "head_digest": "70175668db45f030a9d189c17560c54766424a17e1de0f19f47e41d9ad3992a9"
      },
      "resource_id": "src_6a45ffaf2240ffeceec0cc7a4c2617f5"
     }
@@ -1241,14 +1503,14 @@
    }
   },
   {
-   "digest": "ec87c9c33b2adb868d38fcf61b38fabb08a2649e94fb2b29486250022f968281",
+   "digest": "85ce463ebf1262645cd5cd08fad02ddbb76ddd6373c505c664237da83a09ca82",
    "name": "commit_instr_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "3a06033030d279bf72d4f5c85c09af23e5a392cfe24bb3e1f17eaaa971e7a220",
+     "receipt_digest": "5614ed894f906619f2f23c5e2c0e2cf090a84efdad4e5a35ddd7da14b972bfcd",
      "stage": "committed"
     },
     "outputs": [
@@ -1258,7 +1520,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "d2cb451cd2206dfc7f931992029a5e00ef804e0986f4629e88c38f45668b1f55",
+    "request_digest": "eb423d0fddb89092e9469eaf8a0a106ea4a3ccb6adf12eb5fc2344a4ce41dee4",
     "request_id": "req_9686161bfde03036e0bc4a5c968a84ab",
     "schema": 1,
     "supported_recovery": []
@@ -1356,7 +1618,24 @@
    }
   },
   {
-   "digest": "887d20bc378db33de0242420aa9f757d82a04cd18eaa5148220e513cdd906537",
+   "digest": "40782b10bc064b6e4302b3c64e5e0fb7bbae0c6d98b4921eb538454f04d2313a",
+   "name": "read_probe_host_configuration",
+   "record": {
+    "client": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "hooks": [],
+    "kind": "host_configuration",
+    "measured_at": "2000-01-01T00:00:00Z",
+    "mode": {
+     "runs": "real"
+    },
+    "schema": 1
+   }
+  },
+  {
+   "digest": "87ceb89d46a8ae14524b5f2c2b33cdb58f1635a2b7f42dfb3e9a9ea00daaf671",
    "name": "probe_host_read_result",
    "record": {
     "kind": "operation_result",
@@ -1370,6 +1649,10 @@
      {
       "digest": "6f7af4d0f84764f3a32f1b3330680bb23d2c5415059239295af5b871307415ab",
       "kind": "capability_probe"
+     },
+     {
+      "digest": "40782b10bc064b6e4302b3c64e5e0fb7bbae0c6d98b4921eb538454f04d2313a",
+      "kind": "host_configuration"
      }
     ],
     "provider_effect": "not_applicable",
@@ -2388,7 +2671,7 @@
    }
   },
   {
-   "digest": "139c3f0c48c3cadc79a1ac77bacdfe23194dc9d54ab663392b6093366864fa2f",
+   "digest": "0df658b76e325a73a67bd35c7ff1f3438d9f8de397bb5d874e607bec649e4d92",
    "name": "reopen_script",
    "record": {
     "entrance": {
@@ -2407,6 +2690,14 @@
      {
       "input": "key",
       "key": "enter"
+     },
+     {
+      "input": "key",
+      "key": "tab"
+     },
+     {
+      "input": "key",
+      "key": "enter"
      }
     ],
     "kind": "surface_script",
@@ -2419,7 +2710,7 @@
    }
   },
   {
-   "digest": "c3f43f6ac8376bf875ced0cd44a434fff78aab53d64dcf66e685e18ccb9e6c34",
+   "digest": "7202fa71cb7954cabab88a0e79a533a7da5abc9887f93d7cde9d52077e44a057",
    "name": "reopen_script_request",
    "record": {
     "action": "read",
@@ -2437,7 +2728,7 @@
      "layer": "personal",
      "principal_id": "prn_9903948c27303c6d16d6449f18b2af63"
     },
-    "payload_digest": "139c3f0c48c3cadc79a1ac77bacdfe23194dc9d54ab663392b6093366864fa2f",
+    "payload_digest": "0df658b76e325a73a67bd35c7ff1f3438d9f8de397bb5d874e607bec649e4d92",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_5605cb0014a8dcd1a5fd715de6a59650",
@@ -2486,7 +2777,7 @@
    }
   },
   {
-   "digest": "58451acc6a7eccbf88cfa0d941c7a438e98dcd17e6bc7194bb7bdd26fcbc7b46",
+   "digest": "7ac01183dbdfe6168d4600ab46969366cf59516ba8d8cb9d6e30b04bdfa0c762",
    "name": "reopen_script_trace",
    "record": {
     "at": "2000-01-01T00:00:00Z",
@@ -2979,6 +3270,287 @@
        },
        "view": "w01"
       }
+     },
+     {
+      "access": "active",
+      "after": 4,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.location",
+        "executing": false,
+        "focused": false,
+        "label": "payments · 로컬 레포 · main",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "repository",
+          "repository_id": "rep_b4997a15848fb3478d3bbcb3dd356d6b"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "positions.repository.instructions",
+        "executing": false,
+        "focused": false,
+        "label": "지침 · AGENTS.md",
+        "marks": [
+         "[x]"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "instructions",
+          "scope": {
+           "layer": "repository",
+           "repository_id": "rep_b4997a15848fb3478d3bbcb3dd356d6b"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "selected",
+        "shown": "whole",
+        "state": "installed"
+       },
+       {
+        "element_id": "result.activation",
+        "executing": false,
+        "focused": false,
+        "label": "확인함: 아직 결과 모름 · 같은 요청으로 다시 확인 가능",
+        "marks": [],
+        "refers_to": {
+         "ref": "request",
+         "request_id": "req_f5012b9014f228eb7cc571107533d838"
+        },
+        "role": "result",
+        "selection": "none",
+        "shown": "whole",
+        "state": "unknown"
+       },
+       {
+        "element_id": "action.check",
+        "executing": false,
+        "focused": false,
+        "label": "이 요청 결과 확인",
+        "marks": [],
+        "refers_to": {
+         "ref": "request",
+         "request_id": "req_f5012b9014f228eb7cc571107533d838"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "context.checkpoint",
+        "executing": false,
+        "focused": false,
+        "label": "이전 메모 · 다음: 결제 재시도 테스트 실행 (기록 당시)",
+        "marks": [],
+        "refers_to": {
+         "digest": "3a66d19934e7359ab05f6bb8284484f7cf51a6ec98816f54be0b9f252b967388",
+         "ref": "record"
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": false,
+        "focused": true,
+        "label": "Claude Code 새 세션 시작",
+        "marks": [
+         "›"
+        ],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_25d82238a66bd3a5c4cc7e2a1cd887f9"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "draft_request_id": "req_f5012b9014f228eb7cc571107533d838",
+       "missing_bodies": [],
+       "origin": {
+        "name": "host_launcher",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "repository",
+        "repository_id": "rep_b4997a15848fb3478d3bbcb3dd356d6b"
+       },
+       "view": "w01"
+      }
+     },
+     {
+      "access": "active",
+      "after": 5,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.location",
+        "executing": false,
+        "focused": false,
+        "label": "payments · 로컬 레포 · main",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "repository",
+          "repository_id": "rep_b4997a15848fb3478d3bbcb3dd356d6b"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "positions.repository.instructions",
+        "executing": false,
+        "focused": false,
+        "label": "지침 · AGENTS.md",
+        "marks": [
+         "[x]"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "instructions",
+          "scope": {
+           "layer": "repository",
+           "repository_id": "rep_b4997a15848fb3478d3bbcb3dd356d6b"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "selected",
+        "shown": "whole",
+        "state": "installed"
+       },
+       {
+        "element_id": "result.activation",
+        "executing": false,
+        "focused": false,
+        "label": "확인함: 아직 결과 모름 · 같은 요청으로 다시 확인 가능",
+        "marks": [],
+        "refers_to": {
+         "ref": "request",
+         "request_id": "req_f5012b9014f228eb7cc571107533d838"
+        },
+        "role": "result",
+        "selection": "none",
+        "shown": "whole",
+        "state": "unknown"
+       },
+       {
+        "element_id": "action.check",
+        "executing": false,
+        "focused": true,
+        "label": "이 요청 결과 확인",
+        "marks": [
+         "›"
+        ],
+        "refers_to": {
+         "ref": "request",
+         "request_id": "req_f5012b9014f228eb7cc571107533d838"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "context.checkpoint",
+        "executing": false,
+        "focused": false,
+        "label": "이전 메모 · 다음: 결제 재시도 테스트 실행 (기록 당시)",
+        "marks": [],
+        "refers_to": {
+         "digest": "3a66d19934e7359ab05f6bb8284484f7cf51a6ec98816f54be0b9f252b967388",
+         "ref": "record"
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": false,
+        "focused": false,
+        "label": "Claude Code 새 세션 시작",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_25d82238a66bd3a5c4cc7e2a1cd887f9"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole",
+        "state": "blocked"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "draft_request_id": "req_f5012b9014f228eb7cc571107533d838",
+       "missing_bodies": [],
+       "origin": {
+        "name": "host_launcher",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "repository",
+        "repository_id": "rep_b4997a15848fb3478d3bbcb3dd356d6b"
+       },
+       "view": "w01"
+      }
      }
     ],
     "kind": "surface_trace",
@@ -2986,11 +3558,11 @@
      "runs": "real"
     },
     "schema": 1,
-    "script_digest": "139c3f0c48c3cadc79a1ac77bacdfe23194dc9d54ab663392b6093366864fa2f"
+    "script_digest": "0df658b76e325a73a67bd35c7ff1f3438d9f8de397bb5d874e607bec649e4d92"
    }
   },
   {
-   "digest": "824db98488229b6927f34d3a19d31fdcf650a9911e1716a016658d40edce301e",
+   "digest": "ac99cc7c595b3d9400246e6eab92c70efe5c2d3d195e6f5b6c240d21978e55a6",
    "name": "reopen_entry_result",
    "record": {
     "kind": "operation_result",
@@ -3001,12 +3573,12 @@
     },
     "outputs": [
      {
-      "digest": "58451acc6a7eccbf88cfa0d941c7a438e98dcd17e6bc7194bb7bdd26fcbc7b46",
+      "digest": "7ac01183dbdfe6168d4600ab46969366cf59516ba8d8cb9d6e30b04bdfa0c762",
       "kind": "surface_trace"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "c3f43f6ac8376bf875ced0cd44a434fff78aab53d64dcf66e685e18ccb9e6c34",
+    "request_digest": "7202fa71cb7954cabab88a0e79a533a7da5abc9887f93d7cde9d52077e44a057",
     "request_id": "req_5605cb0014a8dcd1a5fd715de6a59650",
     "schema": 1,
     "supported_recovery": []
@@ -3088,8 +3660,8 @@
    }
   }
  ],
- "says": "A start from the launcher composes a preparation (stored as the requester's own record, with no receipt) and session.routing.activate hands it to a new Claude Code session, but the host never confirms: the owner answers unknown (outcome_unknown, provider effect unknown) with query and retry of the same request as recovery. Reopening the entry reads recent history (operation.history.read): the compose request confirmed previewed, the activation confirmed only as unknown, each with its time and local_only coverage, and a dated checkpoint whose note is the one written with the start. The reopened entry (surface.drive) keeps the activation as its draft request, shows it as unknown with its last confirmed stage and coverage, and focuses a check action on that same request; Esc goes to the hub, whose signal refers to the same request, and Enter returns to it unchanged; Enter on check dispatches one operation.query for that request id, which returns the same stored unknown result. Negative: back, return and reopening dispatch nothing, the start action is never pressed, no frame claims success or failure, reading history resumes nothing and the old note never becomes a work_request; a second activation of the same preparation under a new request id while the first is unknown is refused with resubmitted_while_unknown at /request_id and no recovery of its own: the way on is to query the first request, never to run it again.",
- "spec_sha256": "7cf5af78ffad9558887f28e130e355792e5df99bc71f85eb423d2cd9071281fc",
+ "says": "A start from the launcher composes a preparation (stored as the requester's own record, with no receipt) and session.routing.activate hands it to a new Claude Code session, but the host never confirms: the owner answers unknown (outcome_unknown, provider effect unknown) with query and retry of the same request as recovery. Reopening the entry reads recent history (operation.history.read): the compose request confirmed previewed, the activation confirmed only as unknown, each with its time and local_only coverage, and a dated checkpoint whose note is the one written with the start. The reopened entry (surface.drive) keeps the activation as its draft request, shows it as unknown with its last confirmed stage and coverage, and focuses a check action on that same request; Esc goes to the hub, whose signal refers to the same request, and Enter returns to it unchanged; Enter on check dispatches one operation.query for that request id, which returns the same stored unknown result; Tab moves focus to action.start, and Enter there dispatches nothing while the draft is unknown, showing it blocked and routing focus back to check. Negative: back, return and reopening dispatch nothing, pressing default start while unknown dispatches no new request and keeps the draft, routing to check instead of running it again, no frame claims success or failure, reading history resumes nothing and the old note never becomes a work_request; a second activation of the same preparation under a new request id while the first is unknown is refused with resubmitted_while_unknown at /request_id and no recovery of its own: the way on is to query the first request, never to run it again.",
+ "spec_sha256": "d0a993d77d3a9231059b1d461c28427bc7ca1bb6ffd4447a88b46738d7b2c459",
  "steps": [
   {
    "carries": [
@@ -3126,6 +3698,18 @@
   },
   {
    "carries": [
+    "instr_home"
+   ],
+   "head": "instr_h0",
+   "name": "register_instr",
+   "request": "register_instr_request",
+   "result": "register_instr_result",
+   "returns": [
+    "instr_home_stored"
+   ]
+  },
+  {
+   "carries": [
     "instr_manifest"
    ],
    "head": "instr_head",
@@ -3144,7 +3728,8 @@
    "request": "probe_request",
    "result": "probe_host_read_result",
    "returns": [
-    "read_probe_stored"
+    "read_probe_stored",
+    "read_probe_host_configuration"
    ]
   },
   {

@@ -316,6 +316,16 @@
    "record": "memory_capture"
   },
   {
+   "digest_of": "journal_entry_body",
+   "pointer": "/entries/0/body_digest",
+   "record": "memory_capture"
+  },
+  {
+   "digest_of": "backup_entry_body",
+   "pointer": "/entries/1/body_digest",
+   "record": "memory_capture"
+  },
+  {
    "minted": "span_bytes",
    "pointer": "/processing/inputs/0/evidence_digest",
    "record": "memory_capture"
@@ -333,6 +343,16 @@
   {
    "digest_of": "observation",
    "pointer": "/observation_digest",
+   "record": "stored_memory_capture"
+  },
+  {
+   "digest_of": "journal_entry_body",
+   "pointer": "/entries/0/body_digest",
+   "record": "stored_memory_capture"
+  },
+  {
+   "digest_of": "backup_entry_body",
+   "pointer": "/entries/1/body_digest",
    "record": "stored_memory_capture"
   },
   {
@@ -1282,17 +1302,31 @@
    }
   },
   {
-   "digest": "803ed886968a89ea22b20537af86b8bba18b366b60f260589a0282739149e361",
+   "digest": "77c10b9c15c276308528e3814d738842388c95941cb385ed125de88ffd7a219a",
+   "name": "journal_entry_body",
+   "record": {
+    "text": "Which journal mode does the local state database use? WAL, with synchronous FULL. Effective from 2026-01-01 under jurisdiction KR. Reason: 4.11 ms per commit against 11.76, and readers are not blocked."
+   }
+  },
+  {
+   "digest": "684005cedae28521544a38f2112bce9e8e01e268e66d146530ed32e6957420ea",
+   "name": "backup_entry_body",
+   "record": {
+    "text": "Where are the local state backups written? To a second local SSD, not to the network volume. Effective from 2026-03-01 for storage: a local SSD."
+   }
+  },
+  {
+   "digest": "b042efc97507cea322d700a367f30fe9a0e8048be6e1aea8cb1a1d5c7f789fdc",
    "name": "memory_capture",
    "record": {
     "destination_source_id": "src_d4246e183ea36d419f7acb3e39f21dc6",
     "entries": [
      {
-      "body_digest": "33eff2c748192ebe99c9e960d63ed1b7d0cce0d556f1b39028440ecfafb2da4f",
+      "body_digest": "77c10b9c15c276308528e3814d738842388c95941cb385ed125de88ffd7a219a",
       "entry_id": "ent_38ab81e8f6fc4a44aac4bce32c137b01"
      },
      {
-      "body_digest": "5a0b6f0d86f1c1b33f0e7e2f9d3c0c1a4d1b8e6f7a2c9d0e1f2a3b4c5d6e7f80",
+      "body_digest": "684005cedae28521544a38f2112bce9e8e01e268e66d146530ed32e6957420ea",
       "entry_id": "ent_0e3e33963860083c2c2cae22f7656651"
      }
     ],
@@ -1338,7 +1372,7 @@
    }
   },
   {
-   "digest": "783d8a558f30d496791076bef5a77bf01ee0ffd425ea24fb446ebad40ebf683a",
+   "digest": "6882a2eadc398e2a370bdb82421270f9a8b3074913d672719ab0bc60fd0669cf",
    "name": "distill_submit",
    "record": {
     "action": "contribute",
@@ -1356,7 +1390,7 @@
      "layer": "repository",
      "repository_id": "rep_aa88b275b0ed33e384ac1398bef752e8"
     },
-    "payload_digest": "803ed886968a89ea22b20537af86b8bba18b366b60f260589a0282739149e361",
+    "payload_digest": "b042efc97507cea322d700a367f30fe9a0e8048be6e1aea8cb1a1d5c7f789fdc",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_8047e76ea2e3b19a1b35490e4cc6b4bb",
@@ -1371,18 +1405,18 @@
    }
   },
   {
-   "digest": "c0bd613b2765524028ea0e55398edf754b555e07a5c485605ef78a90c9f019ed",
+   "digest": "7977a46fde2bdf0e243fd69f3287959ff2eb8a8fc40df45754de70606905924f",
    "name": "stored_memory_capture",
    "record": {
     "captured_at": "2000-01-01T00:00:00Z",
     "destination_source_id": "src_d4246e183ea36d419f7acb3e39f21dc6",
     "entries": [
      {
-      "body_digest": "33eff2c748192ebe99c9e960d63ed1b7d0cce0d556f1b39028440ecfafb2da4f",
+      "body_digest": "77c10b9c15c276308528e3814d738842388c95941cb385ed125de88ffd7a219a",
       "entry_id": "ent_38ab81e8f6fc4a44aac4bce32c137b01"
      },
      {
-      "body_digest": "5a0b6f0d86f1c1b33f0e7e2f9d3c0c1a4d1b8e6f7a2c9d0e1f2a3b4c5d6e7f80",
+      "body_digest": "684005cedae28521544a38f2112bce9e8e01e268e66d146530ed32e6957420ea",
       "entry_id": "ent_0e3e33963860083c2c2cae22f7656651"
      }
     ],
@@ -1458,7 +1492,7 @@
    }
   },
   {
-   "digest": "ec899a96cab753f81be6f85a9dd10fca037ff2c0845befc3a2294327698d8b25",
+   "digest": "9b075aa4e9a2296b506c7e69728339e6cebc91e98f9991ed2c4343a5d3230f93",
    "name": "run_distillation_result",
    "record": {
     "kind": "operation_result",
@@ -1469,7 +1503,7 @@
     },
     "outputs": [
      {
-      "digest": "c0bd613b2765524028ea0e55398edf754b555e07a5c485605ef78a90c9f019ed",
+      "digest": "7977a46fde2bdf0e243fd69f3287959ff2eb8a8fc40df45754de70606905924f",
       "kind": "memory_capture"
      },
      {
@@ -1478,7 +1512,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "783d8a558f30d496791076bef5a77bf01ee0ffd425ea24fb446ebad40ebf683a",
+    "request_digest": "6882a2eadc398e2a370bdb82421270f9a8b3074913d672719ab0bc60fd0669cf",
     "request_id": "req_8047e76ea2e3b19a1b35490e4cc6b4bb",
     "schema": 1,
     "supported_recovery": []
@@ -1680,13 +1714,13 @@
    }
   },
   {
-   "digest": "510e21cf98632b527bd3bf4b425dc58fa76cd632c3a82611e0d781cf94dbcf3f",
+   "digest": "f58080ae0a539ed3629d1336c3892bcaea27835cdcf63fa0d469f82048e1ffc3",
    "name": "journal_candidate",
    "record": {
     "destination_source_id": "src_d4246e183ea36d419f7acb3e39f21dc6",
     "kind": "memory_candidate",
     "origin": {
-     "capture_digest": "c0bd613b2765524028ea0e55398edf754b555e07a5c485605ef78a90c9f019ed",
+     "capture_digest": "7977a46fde2bdf0e243fd69f3287959ff2eb8a8fc40df45754de70606905924f",
      "evidence_digests": [
       "8308ea96f532d7e0e72c84cb9c9fed61754ece109ced4b42276cdb498f53c6e1"
      ],
@@ -1728,7 +1762,7 @@
    }
   },
   {
-   "digest": "47b96daab6c0e4318944dd13b8d7f2d5787e6ef5fff30e4dd32f864c4d6c67a2",
+   "digest": "83be524a2e5568bccfcf3f1eb6933ab4a4d259e4bd228973092fb9c993f6772b",
    "name": "journal_submit",
    "record": {
     "action": "contribute",
@@ -1746,7 +1780,7 @@
      "layer": "personal",
      "principal_id": "prn_e2d32b1d1776ae57f80b01923b19e835"
     },
-    "payload_digest": "510e21cf98632b527bd3bf4b425dc58fa76cd632c3a82611e0d781cf94dbcf3f",
+    "payload_digest": "f58080ae0a539ed3629d1336c3892bcaea27835cdcf63fa0d469f82048e1ffc3",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_b1be345e2119758c7ccd5f3ac909a59b",
@@ -1757,7 +1791,7 @@
    }
   },
   {
-   "digest": "e1db32ed5f28c95bad125749f17718dc1e0fdb237343b270737ee096c04746dc",
+   "digest": "c44a6b68fe6ecb0d7eb65bf508e6c3601c7ee6f49d06d48701e76d16174667ac",
    "name": "stored_journal_candidate",
    "record": {
     "candidate_id": "cnd_8e7fc44f86f732ee8e169f2dbb1b0315",
@@ -1765,7 +1799,7 @@
     "destination_source_id": "src_d4246e183ea36d419f7acb3e39f21dc6",
     "kind": "memory_candidate",
     "origin": {
-     "capture_digest": "c0bd613b2765524028ea0e55398edf754b555e07a5c485605ef78a90c9f019ed",
+     "capture_digest": "7977a46fde2bdf0e243fd69f3287959ff2eb8a8fc40df45754de70606905924f",
      "evidence_digests": [
       "8308ea96f532d7e0e72c84cb9c9fed61754ece109ced4b42276cdb498f53c6e1"
      ],
@@ -1811,7 +1845,7 @@
    }
   },
   {
-   "digest": "d8e7942545d58064ec31b5a6254b2766474bcf002abdc9aace699d2f0fac86bf",
+   "digest": "7a17698e59731ebc33c8d5722fcd8b3724658b4694dc7ff2d59014b19d6fb911",
    "name": "store_journal_decision_result",
    "record": {
     "kind": "operation_result",
@@ -1822,25 +1856,25 @@
     },
     "outputs": [
      {
-      "digest": "e1db32ed5f28c95bad125749f17718dc1e0fdb237343b270737ee096c04746dc",
+      "digest": "c44a6b68fe6ecb0d7eb65bf508e6c3601c7ee6f49d06d48701e76d16174667ac",
       "kind": "memory_candidate"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "47b96daab6c0e4318944dd13b8d7f2d5787e6ef5fff30e4dd32f864c4d6c67a2",
+    "request_digest": "83be524a2e5568bccfcf3f1eb6933ab4a4d259e4bd228973092fb9c993f6772b",
     "request_id": "req_b1be345e2119758c7ccd5f3ac909a59b",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "d610e8d974b61fa4a328c5578cc086fffcc4589518ff867b631d96646496b082",
+   "digest": "76e24051f1d04b5e0326dd7326fe983f2fa8e8fa8df097208a09b7ae3fb0ec9a",
    "name": "backup_candidate",
    "record": {
     "destination_source_id": "src_d4246e183ea36d419f7acb3e39f21dc6",
     "kind": "memory_candidate",
     "origin": {
-     "capture_digest": "c0bd613b2765524028ea0e55398edf754b555e07a5c485605ef78a90c9f019ed",
+     "capture_digest": "7977a46fde2bdf0e243fd69f3287959ff2eb8a8fc40df45754de70606905924f",
      "evidence_digests": [
       "8308ea96f532d7e0e72c84cb9c9fed61754ece109ced4b42276cdb498f53c6e1"
      ],
@@ -1880,7 +1914,7 @@
    }
   },
   {
-   "digest": "612b03a2fd68540bc81157efdab9e6ec49e547feee2cda3651c8c0f862e367b8",
+   "digest": "632fb831117d0358493ca7141cbc3c0638bc524784860019d838eca199d69844",
    "name": "backup_submit",
    "record": {
     "action": "contribute",
@@ -1898,7 +1932,7 @@
      "layer": "personal",
      "principal_id": "prn_e2d32b1d1776ae57f80b01923b19e835"
     },
-    "payload_digest": "d610e8d974b61fa4a328c5578cc086fffcc4589518ff867b631d96646496b082",
+    "payload_digest": "76e24051f1d04b5e0326dd7326fe983f2fa8e8fa8df097208a09b7ae3fb0ec9a",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_a55c18202bd4e84ecf41070d22d3cdc0",
@@ -1909,7 +1943,7 @@
    }
   },
   {
-   "digest": "000361440322ba52e3da2c1991070eab9e9b08b601fa9f19101265fb7b39d341",
+   "digest": "f3ae6f88bd12a90baccbb4f282829f233ee5fc7a105221a3a5787ccded40b52a",
    "name": "stored_backup_candidate",
    "record": {
     "candidate_id": "cnd_6db800a73079c850bb33c13a05f16990",
@@ -1917,7 +1951,7 @@
     "destination_source_id": "src_d4246e183ea36d419f7acb3e39f21dc6",
     "kind": "memory_candidate",
     "origin": {
-     "capture_digest": "c0bd613b2765524028ea0e55398edf754b555e07a5c485605ef78a90c9f019ed",
+     "capture_digest": "7977a46fde2bdf0e243fd69f3287959ff2eb8a8fc40df45754de70606905924f",
      "evidence_digests": [
       "8308ea96f532d7e0e72c84cb9c9fed61754ece109ced4b42276cdb498f53c6e1"
      ],
@@ -1961,7 +1995,7 @@
    }
   },
   {
-   "digest": "9cacfd056532698b4378023153da9d50f15dba29573d8b4f7641284e408933cc",
+   "digest": "9816df066b7abeb69372b60f350d490f2b798daadde507a899c4f4995704a35e",
    "name": "store_backup_decision_result",
    "record": {
     "kind": "operation_result",
@@ -1972,20 +2006,20 @@
     },
     "outputs": [
      {
-      "digest": "000361440322ba52e3da2c1991070eab9e9b08b601fa9f19101265fb7b39d341",
+      "digest": "f3ae6f88bd12a90baccbb4f282829f233ee5fc7a105221a3a5787ccded40b52a",
       "kind": "memory_candidate"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "612b03a2fd68540bc81157efdab9e6ec49e547feee2cda3651c8c0f862e367b8",
+    "request_digest": "632fb831117d0358493ca7141cbc3c0638bc524784860019d838eca199d69844",
     "request_id": "req_a55c18202bd4e84ecf41070d22d3cdc0",
     "schema": 1,
     "supported_recovery": []
    }
   }
  ],
- "says": "A person binds this device's key and the checkout and registers two repository sources: one for decisions (memory) and one for lessons (Instructions). They select records 12 to 18 of one session transcript, stating that its text may be processed locally, with no prompt log, for this repository only; in that span two decisions were made: the journal mode, effective from 2026-01-01 under jurisdiction KR, with its measured reason stated; and the backup volume, effective from 2026-03-01 on a local SSD, with no reason given anywhere in the span. The owner reads exactly that span once (source.observe). Each producer adapter then runs on that one fixed observation through source.capture.record, at the head its destination's registration committed: the packaged distillation adapter yields a memory capture with one entry for each decision, and the packaged learning adapter yields a behavioural capture of one lesson; each answer returns the capture with the extraction_run that names its own adapter by name and digest and the packaged files it loaded. Every capture's input lies under the selection's one root and restates no more than that root permits (local processing, no log, this repository), which is the rule input_within_its_root. From the memory capture the person stores one candidate per decision (memory.candidate.store). The first keeps the date, condition and stated reason as the span states them; the second keeps its date and condition and lists reason under unrecorded, with no reason written for it. No adapter reads outside the observed span, and neither capture nor candidate carries a rationale the input does not contain.",
- "spec_sha256": "787a26f7360e71588cd3abce44a1eda6057c4745182386ba09c5deeeb723b5de",
+ "says": "A person binds this device's key and the checkout and registers two repository sources: one for decisions (memory) and one for lessons (Instructions). They select records 12 to 18 of one session transcript, stating that its text may be processed locally, with no prompt log, for this repository only; in that span two decisions were made: the journal mode, effective from 2026-01-01 under jurisdiction KR, with its measured reason stated; and the backup volume, effective from 2026-03-01 on a local SSD, with no reason given anywhere in the span. The owner reads exactly that span once (source.observe). Each producer adapter then runs on that one fixed observation through source.capture.record, at the head its destination's registration committed: the packaged distillation adapter yields a memory capture with one entry for each decision, its body the exact span text stating that decision's date, condition and (journal entry only) its reason, and the packaged learning adapter yields a behavioural capture of one lesson; each answer returns the capture with the extraction_run that names its own adapter by name and digest and the packaged files it loaded - an extraction_run's `loaded` is the adapter's own package files, never the selected evidence, which the capture's own `processing.inputs` carries instead. Every capture's input lies under the selection's one root and restates no more than that root permits (local processing, no log, this repository), the rule input_within_its_root. From the memory capture the person stores one candidate per decision (memory.candidate.store). The first keeps the date, condition and reason exactly as its entry's body states them; the second keeps its date and condition as stated and lists reason under unrecorded, since no reason appears in that body or anywhere else in the span. No adapter reads outside the observed span, and neither capture nor candidate carries a rationale the input does not contain.",
+ "spec_sha256": "b6bb7ac8a305185c2bf45e2ef98a7652a819b13d383c37b18299517416aa05b2",
  "steps": [
   {
    "carries": [

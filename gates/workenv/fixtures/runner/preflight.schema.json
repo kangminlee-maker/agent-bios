@@ -595,6 +595,9 @@
           "$ref": "#/$defs/no_terminal_claim"
         },
         {
+          "$ref": "#/$defs/terminal_claim"
+        },
+        {
           "$ref": "#/$defs/qualification_referenced"
         },
         {
@@ -614,6 +617,9 @@
         },
         {
           "$ref": "#/$defs/not_recorded_passed"
+        },
+        {
+          "$ref": "#/$defs/one_recorded_passed"
         },
         {
           "$ref": "#/$defs/applied_once"
@@ -725,6 +731,19 @@
       "properties": {
         "check": {
           "const": "no_terminal_claim"
+        }
+      }
+    },
+    "terminal_claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The last round's report claims terminal acceptance (`terminal_claimed` is true); `terminal_claim_matches_evaluator` then holds only when the evaluator gives it.",
+      "required": [
+        "check"
+      ],
+      "properties": {
+        "check": {
+          "const": "terminal_claim"
         }
       }
     },
@@ -852,6 +871,23 @@
         },
         "node_id": {
           "$ref": "#/$defs/node_id"
+        }
+      }
+    },
+    "one_recorded_passed": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Exactly one of the named nodes ends with a record of outcome `passed` under the attempt id it was dispatched with; no record the runner writes for a dispatched attempt of any other named node has outcome `passed`, and the report claims none. Which one is the runner's to decide.",
+      "required": [
+        "check",
+        "node_ids"
+      ],
+      "properties": {
+        "check": {
+          "const": "one_recorded_passed"
+        },
+        "node_ids": {
+          "$ref": "#/$defs/node_ids"
         }
       }
     },

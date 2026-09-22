@@ -72,6 +72,10 @@
   {
    "id": "req_5800b8431f736e5294d3a6499f14f267",
    "name": "resolve_the_release_lane_again_id"
+  },
+  {
+   "id": "req_bf2d25628e4ab83aa850150848e1b03d",
+   "name": "observe_the_wal_outcome_id"
   }
  ],
  "joins": [
@@ -909,6 +913,116 @@
    "digest_of": "release_lane_state_after",
    "pointer": "/outputs/0/digest",
    "record": "resolve_the_release_lane_again_result"
+  },
+  {
+   "minted": "repo_memory_head_6",
+   "pointer": "/target/base/head_digest",
+   "record": "observe_the_wal_outcome"
+  },
+  {
+   "minted": "wal_normal",
+   "pointer": "/target/record_id",
+   "record": "wal_observed_submitted"
+  },
+  {
+   "digest_of": "measurement_stored",
+   "pointer": "/evidence_digests/0",
+   "record": "wal_observed_submitted"
+  },
+  {
+   "minted": "storage",
+   "pointer": "/workstream_ids/0",
+   "record": "wal_observed_submitted"
+  },
+  {
+   "digest_of": "wal_observed_submitted",
+   "pointer": "/payload_digest",
+   "record": "observe_the_wal_outcome"
+  },
+  {
+   "digest_of": "observe_the_wal_outcome",
+   "pointer": "/request_digest",
+   "record": "observe_the_wal_outcome_receipt"
+  },
+  {
+   "minted": "repo_memory_head_7",
+   "pointer": "/head_digest",
+   "record": "observe_the_wal_outcome_receipt"
+  },
+  {
+   "minted": "observe_the_wal_outcome_sequence",
+   "pointer": "/sequence",
+   "record": "observe_the_wal_outcome_receipt"
+  },
+  {
+   "minted": "observe_the_wal_outcome_committed_at",
+   "pointer": "/committed_at",
+   "record": "observe_the_wal_outcome_receipt"
+  },
+  {
+   "minted": "repo_memory_head_6",
+   "pointer": "/target/base/head_digest",
+   "record": "observe_the_wal_outcome_receipt"
+  },
+  {
+   "digest_of": "measurement_stored",
+   "pointer": "/evidence_digests/0",
+   "record": "wal_observed_stored"
+  },
+  {
+   "minted": "wal_normal",
+   "pointer": "/target/record_id",
+   "record": "wal_observed_stored"
+  },
+  {
+   "minted": "storage",
+   "pointer": "/workstream_ids/0",
+   "record": "wal_observed_stored"
+  },
+  {
+   "minted": "wal_observed",
+   "pointer": "/event_id",
+   "record": "wal_observed_stored"
+  },
+  {
+   "minted": "wal_observed_recorded_at",
+   "pointer": "/recorded_at",
+   "record": "wal_observed_stored"
+  },
+  {
+   "minted": "repo_memory_bytes_7",
+   "pointer": "/members/0/digest",
+   "record": "repo_memory_manifest_7"
+  },
+  {
+   "minted": "repo_memory_size_7",
+   "pointer": "/members/0/size",
+   "record": "repo_memory_manifest_7"
+  },
+  {
+   "minted": "repo_memory_produced_7",
+   "pointer": "/produced_at",
+   "record": "repo_memory_manifest_7"
+  },
+  {
+   "digest_of": "observe_the_wal_outcome_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "observe_the_wal_outcome_result"
+  },
+  {
+   "digest_of": "observe_the_wal_outcome",
+   "pointer": "/request_digest",
+   "record": "observe_the_wal_outcome_result"
+  },
+  {
+   "digest_of": "wal_observed_stored",
+   "pointer": "/outputs/0/digest",
+   "record": "observe_the_wal_outcome_result"
+  },
+  {
+   "digest_of": "repo_memory_manifest_7",
+   "pointer": "/outputs/1/digest",
+   "record": "observe_the_wal_outcome_result"
   }
  ],
  "minted": [
@@ -1231,6 +1345,46 @@
    "name": "release_lane_state_after_at",
    "shape": "instant",
    "step": "resolve_the_release_lane_again"
+  },
+  {
+   "name": "observe_the_wal_outcome_committed_at",
+   "shape": "instant",
+   "step": "observe_the_wal_outcome"
+  },
+  {
+   "name": "observe_the_wal_outcome_sequence",
+   "shape": "integer",
+   "step": "observe_the_wal_outcome"
+  },
+  {
+   "name": "repo_memory_bytes_7",
+   "shape": "digest",
+   "step": "observe_the_wal_outcome"
+  },
+  {
+   "name": "repo_memory_head_7",
+   "shape": "digest",
+   "step": "observe_the_wal_outcome"
+  },
+  {
+   "name": "repo_memory_produced_7",
+   "shape": "instant",
+   "step": "observe_the_wal_outcome"
+  },
+  {
+   "name": "repo_memory_size_7",
+   "shape": "integer",
+   "step": "observe_the_wal_outcome"
+  },
+  {
+   "name": "wal_observed",
+   "shape": "evt",
+   "step": "observe_the_wal_outcome"
+  },
+  {
+   "name": "wal_observed_recorded_at",
+   "shape": "instant",
+   "step": "observe_the_wal_outcome"
   }
  ],
  "records": [
@@ -2813,10 +2967,161 @@
     "schema": 1,
     "supported_recovery": []
    }
+  },
+  {
+   "digest": "4a06754f0dd5f11771a9a2cca44516d1ed04300bcf2c2b9120dcd75f1db63d93",
+   "name": "wal_observed_submitted",
+   "record": {
+    "attributed_to": "prn_c57b85853b1ba858977e48575af8105d",
+    "effect": {
+     "did": "observed"
+    },
+    "evidence_digests": [
+     "09f3416ed2f1ea16358bc2bd92996f4b41aa6bb73c5ce19bc6de50e89709365a"
+    ],
+    "kind": "lifecycle_event",
+    "note": "Commit cost measured after the switch matches the earlier estimate.",
+    "schema": 1,
+    "target": {
+     "record_id": "rec_6cd21424ab1239c8cb79a257c1a46ec6",
+     "targets": "record"
+    },
+    "workstream_ids": [
+     "wst_e017e704bd9aa165f406193f4b501f89"
+    ]
+   }
+  },
+  {
+   "digest": "179336af29dd638aed7b5423fa5944811923ccb334936f225a6e733ad7cde6a8",
+   "name": "observe_the_wal_outcome",
+   "record": {
+    "action": "publish",
+    "actor": {
+     "device_id": "dev_f58b6d46f6d4776e1b4aec69382f2dcc",
+     "principal_id": "prn_c57b85853b1ba858977e48575af8105d",
+     "profile_id": "prf_96dfc6e9f0188f45d2bd3de1da65586c"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "memory.lifecycle.apply",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_197334ff9909ec63a901a1b1f5c4a731"
+    },
+    "payload_digest": "4a06754f0dd5f11771a9a2cca44516d1ed04300bcf2c2b9120dcd75f1db63d93",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_bf2d25628e4ab83aa850150848e1b03d",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "6f1afb189ee0ca58ddc93d2595bbac20f1b13010c6cba48ac05c3a862acc599a"
+     },
+     "resource_id": "src_9ab90cd003411b87da6cc2904e56e2e1"
+    }
+   }
+  },
+  {
+   "digest": "842ec501e7b9ba28629ebc867018ad9ba3822058e17989f45379d3f9abf787ba",
+   "name": "observe_the_wal_outcome_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "2c537f37b60815bc95706ff9da29d4b4fb380b98a55528577d740761bcbfb10f",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "repository",
+     "repository_id": "rep_197334ff9909ec63a901a1b1f5c4a731"
+    },
+    "request_digest": "179336af29dd638aed7b5423fa5944811923ccb334936f225a6e733ad7cde6a8",
+    "request_id": "req_bf2d25628e4ab83aa850150848e1b03d",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "6f1afb189ee0ca58ddc93d2595bbac20f1b13010c6cba48ac05c3a862acc599a"
+     },
+     "resource_id": "src_9ab90cd003411b87da6cc2904e56e2e1"
+    }
+   }
+  },
+  {
+   "digest": "7ad2a23ef51e75fd17fff6718eadb7c2563d77852707a20904736f32a68f7989",
+   "name": "wal_observed_stored",
+   "record": {
+    "attributed_to": "prn_c57b85853b1ba858977e48575af8105d",
+    "effect": {
+     "did": "observed"
+    },
+    "event_id": "evt_d2450923d7655772e36a8d30ceec45df",
+    "evidence_digests": [
+     "09f3416ed2f1ea16358bc2bd92996f4b41aa6bb73c5ce19bc6de50e89709365a"
+    ],
+    "kind": "lifecycle_event",
+    "note": "Commit cost measured after the switch matches the earlier estimate.",
+    "recorded_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "target": {
+     "record_id": "rec_6cd21424ab1239c8cb79a257c1a46ec6",
+     "targets": "record"
+    },
+    "workstream_ids": [
+     "wst_e017e704bd9aa165f406193f4b501f89"
+    ]
+   }
+  },
+  {
+   "digest": "7218d69b6a146e89ef8f99cb00cb75f51e313602e645fac24dfc2ca548b80ffe",
+   "name": "repo_memory_manifest_7",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "fe909fc89e92eac33368e61c7376d632903180d0c3710cb43fc639c7c6e3c183",
+      "path": "memory/records.jsonl",
+      "size": 1
+     }
+    ],
+    "produced_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "source_id": "src_9ab90cd003411b87da6cc2904e56e2e1"
+   }
+  },
+  {
+   "digest": "f1d61a1d85b05e1a03799d1439049dfaa75394bfaa1bb6155c60f2b342c718b5",
+   "name": "observe_the_wal_outcome_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "842ec501e7b9ba28629ebc867018ad9ba3822058e17989f45379d3f9abf787ba",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "7ad2a23ef51e75fd17fff6718eadb7c2563d77852707a20904736f32a68f7989",
+      "kind": "lifecycle_event"
+     },
+     {
+      "digest": "7218d69b6a146e89ef8f99cb00cb75f51e313602e645fac24dfc2ca548b80ffe",
+      "kind": "source_manifest"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "179336af29dd638aed7b5423fa5944811923ccb334936f225a6e733ad7cde6a8",
+    "request_id": "req_bf2d25628e4ab83aa850150848e1b03d",
+    "schema": 1,
+    "supported_recovery": []
+   }
   }
  ],
  "says": "Two workstreams are opened in the repository: storage and release. A measurement is recorded in the storage lane, and the WAL choice is recorded in both lanes with its rejected alternative, its reason and a stated reliance on the measurement record; an adoption of WAL is applied in the storage lane. Asked about the release lane, memory.state.resolve reports WAL current. Then, in the storage lane only, a choice of WAL with synchronous NORMAL that replaces WAL whole is published and a replaced event naming it as successor is applied. Asked about the release lane again, the state reports WAL superseded by that successor: a correction recorded in one lane changes the current state another lane reads, and the WAL record keeps its stated basis and alternatives.",
- "spec_sha256": "a56281e9d18f07157f848c6a2605f8bb0bcf318ea37cc9a6631483c5a797eb0e",
+ "spec_sha256": "f420c067fb790e6cd5b11f70e25ebbe07156cd6cd14edb01190ba13d6989f8d8",
  "steps": [
   {
    "carries": [
@@ -2959,6 +3264,19 @@
    "result": "resolve_the_release_lane_again_result",
    "returns": [
     "release_lane_state_after"
+   ]
+  },
+  {
+   "carries": [
+    "wal_observed_submitted"
+   ],
+   "head": "repo_memory_head_7",
+   "name": "observe_the_wal_outcome",
+   "request": "observe_the_wal_outcome",
+   "result": "observe_the_wal_outcome_result",
+   "returns": [
+    "wal_observed_stored",
+    "repo_memory_manifest_7"
    ]
   }
  ]

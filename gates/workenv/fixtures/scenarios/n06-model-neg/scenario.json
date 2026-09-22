@@ -255,7 +255,7 @@
   },
   {
    "digest_of": "rates_rev1",
-   "pointer": "/nodes/1/evidence_digests/0",
+   "pointer": "/nodes/0/evidence_digests/0",
    "record": "model_without_taxable_income"
   },
   {
@@ -751,7 +751,7 @@
    }
   },
   {
-   "digest": "f9bc9e5c359f1d424941f91a154da3161805f7ba937750d8a180067e046bc82a",
+   "digest": "d4da6e3b808122ac384fdba09622c14332f7f8bc18cdb961f22c0aa6d050dec0",
    "name": "rates_rev2_submitted",
    "record": {
     "format_version": 1,
@@ -765,7 +765,7 @@
      {
       "digest": "6b9e1de4f26c748960bbb638656e153aecb18da6c8e1b4f06c0a1d8579285cfa",
       "path": "models/tax.json",
-      "size": 612
+      "size": 642
      }
     ],
     "schema": 1,
@@ -773,7 +773,7 @@
    }
   },
   {
-   "digest": "0d08e04251230ddea55d14df88e18b926da5a23c55704ce0a77adaafd44e6a80",
+   "digest": "4fb60f69bd42465923c7c61dbd078f3ab555509840dcc1f6dd05a09ef4cf690a",
    "name": "commit_rates_rev2",
    "record": {
     "action": "publish",
@@ -791,7 +791,7 @@
      "layer": "repository",
      "repository_id": "rep_8711923bc8e19eb68f08576f916f349d"
     },
-    "payload_digest": "f9bc9e5c359f1d424941f91a154da3161805f7ba937750d8a180067e046bc82a",
+    "payload_digest": "d4da6e3b808122ac384fdba09622c14332f7f8bc18cdb961f22c0aa6d050dec0",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_75721a16629c4f5bcbebaf47c021d8e0",
@@ -806,7 +806,7 @@
    }
   },
   {
-   "digest": "6b6b4d2840f42e5ea9aff544d16c498dab57ac767e4930e0871caa0762c69579",
+   "digest": "a5e1bd98e28f6943f06a0a590ce0df1d920ec72f0670bcb7f04a04201e4e62de",
    "name": "commit_rates_revision_2_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -816,7 +816,7 @@
      "layer": "repository",
      "repository_id": "rep_8711923bc8e19eb68f08576f916f349d"
     },
-    "request_digest": "0d08e04251230ddea55d14df88e18b926da5a23c55704ce0a77adaafd44e6a80",
+    "request_digest": "4fb60f69bd42465923c7c61dbd078f3ab555509840dcc1f6dd05a09ef4cf690a",
     "request_id": "req_75721a16629c4f5bcbebaf47c021d8e0",
     "schema": 1,
     "sequence": 1,
@@ -830,7 +830,7 @@
    }
   },
   {
-   "digest": "7558bc6c98f4d125655a067bc6b65d481bdb013d782c1fa5f56dd4880472dfa2",
+   "digest": "1ee32cebe288ccb278bce50a29786401af30e8b9291bdd2284d280a7225b88cb",
    "name": "rates_rev2",
    "record": {
     "format_version": 1,
@@ -844,7 +844,7 @@
      {
       "digest": "6b9e1de4f26c748960bbb638656e153aecb18da6c8e1b4f06c0a1d8579285cfa",
       "path": "models/tax.json",
-      "size": 612
+      "size": 642
      }
     ],
     "produced_at": "2000-01-01T00:00:00Z",
@@ -853,24 +853,24 @@
    }
   },
   {
-   "digest": "ffceda4ec02f5364d5ad891af319a6010d852b4e6297e9420ed33539b12221f3",
+   "digest": "b35a2c7089caf36d9a99fc314733caf8dd00abc1cc5e6f98232bfcb561eb5d0c",
    "name": "commit_rates_revision_2_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "6b6b4d2840f42e5ea9aff544d16c498dab57ac767e4930e0871caa0762c69579",
+     "receipt_digest": "a5e1bd98e28f6943f06a0a590ce0df1d920ec72f0670bcb7f04a04201e4e62de",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "7558bc6c98f4d125655a067bc6b65d481bdb013d782c1fa5f56dd4880472dfa2",
+      "digest": "1ee32cebe288ccb278bce50a29786401af30e8b9291bdd2284d280a7225b88cb",
       "kind": "source_manifest"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "0d08e04251230ddea55d14df88e18b926da5a23c55704ce0a77adaafd44e6a80",
+    "request_digest": "4fb60f69bd42465923c7c61dbd078f3ab555509840dcc1f6dd05a09ef4cf690a",
     "request_id": "req_75721a16629c4f5bcbebaf47c021d8e0",
     "schema": 1,
     "supported_recovery": []
@@ -969,7 +969,7 @@
   }
  ],
  "says": "A repository knowledge source is registered and its first revision (a rate table) is committed on the head the registration moved to. The author checks a domain model for it with knowledge.member.prepare: two nodes, taxable_income and income_tax, and a relation computed_from between them. The owner returns the model exactly as it will be committed, both ends of its one relation naming nodes of that model, and a second revision holding the table and that model is committed on the first head. The author then edits the model to delete the taxable_income node while computed_from still points at it, and checks it against the second head: the owner refuses it with model_reference_dangling and returns no model, so no knowledge_model whose relation names a node it lacks is ever written or committed. The relation-endpoint rule (C04/relation_endpoints_are_nodes) is held by every model the owner returns here; its breaking records stay in the rule fixture.",
- "spec_sha256": "8ba965692fd775bdcdd918cfd601e5fe5de524c7e28a4090d61e6e77bb0147cd",
+ "spec_sha256": "d1ded9ca90f0b6fe1c4755eeff4118c432d8511e5aeea5db3bf39734619db5a1",
  "steps": [
   {
    "carries": [

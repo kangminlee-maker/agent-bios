@@ -469,11 +469,6 @@
    "record": "second_observation"
   },
   {
-   "minted": "adr2_edited_bytes",
-   "pointer": "/read/1/digest",
-   "record": "second_observation"
-  },
-  {
    "minted": "observed_again_at",
    "pointer": "/observed_at",
    "record": "second_observation"
@@ -649,11 +644,6 @@
    "name": "first_prepared_at",
    "shape": "instant",
    "step": "compose_on_observed_bytes"
-  },
-  {
-   "name": "adr2_edited_bytes",
-   "shape": "digest",
-   "step": "observe_after_the_edit"
   },
   {
    "name": "observed_again_at",
@@ -1596,7 +1586,7 @@
    }
   },
   {
-   "digest": "cb28720ab6dd9a828b79bbf0343044ed213dc1c3747aa6c4eff973b7bc869b46",
+   "digest": "a52b0d7fcbeb54cbad107292f7bfb47e9247c06c1be0ae0de099dde32ecf885c",
    "name": "second_observation",
    "record": {
     "kind": "source_observation",
@@ -1612,11 +1602,11 @@
       "state": "committed"
      },
      {
-      "digest": "772defe125782daa0bce3db7305b56cabe39f737db53ae4feb7fac169a5a2de4",
+      "digest": "0f478c81cff32526a0e34a9f8e89cc17edf409fc99f5db5a030e54d086520e22",
       "path": "docs/adr/0002-backups.md",
       "read": "tree",
       "root": 0,
-      "size": 2398,
+      "size": 897,
       "state": "modified"
      },
      {
@@ -1641,7 +1631,7 @@
    }
   },
   {
-   "digest": "a8ba15e51e4d71056dc5b97ee0878de1ec1629a66070dd7c5a78202f55ab09f2",
+   "digest": "d62f845990bbb097c0dcfe935ae7ac70ccc2b69121dcd8a9ae4065f4cf3962eb",
    "name": "observe_after_the_edit_result",
    "record": {
     "kind": "operation_result",
@@ -1652,7 +1642,7 @@
     },
     "outputs": [
      {
-      "digest": "cb28720ab6dd9a828b79bbf0343044ed213dc1c3747aa6c4eff973b7bc869b46",
+      "digest": "a52b0d7fcbeb54cbad107292f7bfb47e9247c06c1be0ae0de099dde32ecf885c",
       "kind": "source_observation"
      }
     ],
@@ -1693,7 +1683,7 @@
    }
   },
   {
-   "digest": "a3c0bd0749803d81f93ec9e7bc3fabb50fc1e3e73f3ddfff7531bea4f860e99c",
+   "digest": "c3214aaa97d1e646b426274fd13d8e2c1724949ed05712795af4266ab8c7ec16",
    "name": "second_preparation",
    "record": {
     "adapter": {
@@ -1717,7 +1707,7 @@
      "branch": "main",
      "commit": "0123456789abcdef0123456789abcdef01234567",
      "locator": "git@github.com:example/work.git",
-     "working_bytes_digest": "cb28720ab6dd9a828b79bbf0343044ed213dc1c3747aa6c4eff973b7bc869b46"
+     "working_bytes_digest": "a52b0d7fcbeb54cbad107292f7bfb47e9247c06c1be0ae0de099dde32ecf885c"
     },
     "omissions": [],
     "order": [
@@ -1748,7 +1738,7 @@
    }
   },
   {
-   "digest": "221b871e1d956dbcb286026be261f0c5da146772b8e5ef7b05d78225cdd9ea88",
+   "digest": "edde9cc380e17f1d838e7157a6f9a6bb985ce0d89b383a8be07bcbeea71608dc",
    "name": "compose_after_the_edit_result",
    "record": {
     "kind": "operation_result",
@@ -1763,7 +1753,7 @@
     },
     "outputs": [
      {
-      "digest": "a3c0bd0749803d81f93ec9e7bc3fabb50fc1e3e73f3ddfff7531bea4f860e99c",
+      "digest": "c3214aaa97d1e646b426274fd13d8e2c1724949ed05712795af4266ab8c7ec16",
       "kind": "preparation"
      }
     ],
@@ -1776,7 +1766,7 @@
   }
  ],
  "says": "A person works in a checkout of repository W whose docs/adr directory holds one committed ADR, one ADR modified since the last commit and one untracked draft. They select docs/adr (required) and README.md (optional); source.observe reads the working tree, not HEAD, and returns one observation that lists all four files with their state and the digest of the bytes actually on disk, writing nothing. repository.bind records the checkout under W with that observation's digest as its working_bytes_digest; the decisions source is registered with that binding as its evidence and committed with the observed digests; a capture of the modified ADR names that same observation; and preparation.compose records the same working_bytes_digest. Then the modified ADR is edited again while HEAD stays at the same commit. Observing the same selection returns another observation with a new digest for that file, and composing the same preparation request again returns a preparation that records the new bytes and states working_bytes_moved: the unchanged commit does not certify the earlier observation, and nothing resting on it is reported as still holding.",
- "spec_sha256": "e930cc31bf984f4776db599160832fe56835ff4d9ed0156fa746b81ee0c32879",
+ "spec_sha256": "4eb62398a031b5f6d858f624cbb512d182dffa9b73e2b9b7e9ef65907096f721",
  "steps": [
   {
    "at": "2026-09-21T09:00:00Z",
@@ -1892,6 +1882,16 @@
  "world": {
   "clock": {
    "start": "2026-09-21T09:00:00Z"
-  }
+  },
+  "events": [
+   {
+    "before": "observe_after_the_edit",
+    "bytes": "# ADR 0002: Backups\n\n## Status\nAccepted, revised\n\n## Context\nThe original backup cadence assumed a single nightly snapshot was enough to\nrecover from an operator mistake. A second incident showed the gap between\nsnapshots let a bad write propagate before anyone noticed.\n\n## Decision\nTake an incremental snapshot every hour in addition to the nightly full\nsnapshot, and retain the last 72 hourly snapshots alongside 30 nightly ones.\nVerify each snapshot's manifest digest against the source tree before it is\nconsidered durable, and alert on a manifest digest that does not match.\n\n## Consequences\nStorage cost roughly doubles for the retention window, but the recovery\nobjective drops from 24 hours of possible loss to at most 1 hour. Restores\nnow select a snapshot by its verified digest rather than by timestamp alone,\nwhich removes the class of restore that silently replays a corrupted hour.\n",
+    "digest": "0f478c81cff32526a0e34a9f8e89cc17edf409fc99f5db5a030e54d086520e22",
+    "kind": "file_edit",
+    "path": "docs/adr/0002-backups.md",
+    "size": 897
+   }
+  ]
  }
 }

@@ -129,6 +129,30 @@
   {
    "name": "start_with_an_explicit_precedence_rid",
    "prefix": "req"
+  },
+  {
+   "name": "repo_secret",
+   "prefix": "src"
+  },
+  {
+   "name": "register_repo_secret_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "commit_repo_secret_r1_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "repo_broken",
+   "prefix": "src"
+  },
+  {
+   "name": "register_repo_broken_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "commit_repo_broken_r1_rid",
+   "prefix": "req"
   }
  ],
  "records": [
@@ -1329,6 +1353,430 @@
     {
      "pointer": "/position/scope/repository_id",
      "value": "@work_repo"
+    },
+    {
+     "pointer": "/entries/1/pin/pinned",
+     "value": "revision"
+    },
+    {
+     "pointer": "/entries/1/pin/revision_digest",
+     "value": "#repo_secret_r1_stored"
+    },
+    {
+     "pointer": "/entries/1/precedence",
+     "value": 1
+    },
+    {
+     "pointer": "/entries/1/source_id",
+     "value": "@repo_secret"
+    },
+    {
+     "pointer": "/entries/1/switch",
+     "value": "on"
+    },
+    {
+     "pointer": "/entries/1/units/0/concern",
+     "value": "setup.guide"
+    },
+    {
+     "pointer": "/entries/1/units/0/member",
+     "value": "rules/setup.md"
+    },
+    {
+     "pointer": "/entries/1/units/0/startup",
+     "value": "required"
+    },
+    {
+     "pointer": "/entries/2/pin/pinned",
+     "value": "revision"
+    },
+    {
+     "pointer": "/entries/2/pin/revision_digest",
+     "value": "#repo_broken_r1_stored"
+    },
+    {
+     "pointer": "/entries/2/precedence",
+     "value": 1
+    },
+    {
+     "pointer": "/entries/2/source_id",
+     "value": "@repo_broken"
+    },
+    {
+     "pointer": "/entries/2/switch",
+     "value": "on"
+    },
+    {
+     "pointer": "/entries/2/units/0/concern",
+     "value": "deploy.checklist"
+    },
+    {
+     "pointer": "/entries/2/units/0/member",
+     "value": "rules/deploy.md"
+    },
+    {
+     "pointer": "/entries/2/units/0/startup",
+     "value": "required"
+    }
+   ]
+  },
+  {
+   "name": "repo_secret_home",
+   "from": "sources/home_of_a_repository_document.json",
+   "drop": [
+    "/registered_at"
+   ],
+   "set": [
+    {
+     "pointer": "/acceptance_authority/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/home/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/home/document_root",
+     "value": "rules"
+    },
+    {
+     "pointer": "/home/binding_evidence_digest",
+     "value": "#repo_bound"
+    },
+    {
+     "pointer": "/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/scope/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@repo_secret"
+    }
+   ]
+  },
+  {
+   "name": "register_repo_secret",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_repo_secret_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_secret"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_secret_home"
+    }
+   ]
+  },
+  {
+   "name": "repo_secret_home_stored",
+   "from": "repo_secret_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:repo_secret_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_secret_r1",
+   "from": "sources/revision_submitted.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/members/0/digest",
+     "value": "2e41666a4ea899a2fe6c2de577c5c0ac0a4804f845b65e0f67ff14e898bb3e7a"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "rules/setup.md"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 400
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@repo_secret"
+    }
+   ]
+  },
+  {
+   "name": "commit_repo_secret_r1",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_repo_secret_r1_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_secret"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:repo_secret_h0"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_secret_r1"
+    }
+   ]
+  },
+  {
+   "name": "repo_secret_r1_stored",
+   "from": "repo_secret_r1",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:repo_secret_r1_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_broken_home",
+   "from": "sources/home_of_a_repository_document.json",
+   "drop": [
+    "/registered_at"
+   ],
+   "set": [
+    {
+     "pointer": "/acceptance_authority/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/home/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/home/document_root",
+     "value": "rules"
+    },
+    {
+     "pointer": "/home/binding_evidence_digest",
+     "value": "#repo_bound"
+    },
+    {
+     "pointer": "/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/scope/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@repo_broken"
+    }
+   ]
+  },
+  {
+   "name": "register_repo_broken",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_repo_broken_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_broken"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_broken_home"
+    }
+   ]
+  },
+  {
+   "name": "repo_broken_home_stored",
+   "from": "repo_broken_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:repo_broken_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_broken_r1",
+   "from": "sources/revision_submitted.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/members/0/digest",
+     "value": "92c73c754e38a9c68692ba0862fdae05c8cbd5fd825caa283dd4b79f4d66cdc7"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "rules/deploy.md"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 400
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@repo_broken"
+    }
+   ]
+  },
+  {
+   "name": "commit_repo_broken_r1",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_repo_broken_r1_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "publish"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_broken"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:repo_broken_h0"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_broken_r1"
+    }
+   ]
+  },
+  {
+   "name": "repo_broken_r1_stored",
+   "from": "repo_broken_r1",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:repo_broken_r1_at"
     }
    ]
   },
@@ -1870,6 +2318,94 @@
     {
      "pointer": "/units/3/body_digest",
      "value": "51eb95baab6ebe010b82568bfe7db9e2c0a537321b9af09dbc5474bd1be4400f"
+    },
+    {
+     "pointer": "/units/0/home_digest",
+     "value": "#repo_rules_home_stored"
+    },
+    {
+     "pointer": "/units/1/home_digest",
+     "value": "#team_rules_home_stored"
+    },
+    {
+     "pointer": "/units/2/home_digest",
+     "value": "#rates_a_home_stored"
+    },
+    {
+     "pointer": "/units/3/home_digest",
+     "value": "#rates_b_home_stored"
+    },
+    {
+     "pointer": "/units/4/unit_id",
+     "value": "$unt:a_repo_secret"
+    },
+    {
+     "pointer": "/units/4/source_id",
+     "value": "@repo_secret"
+    },
+    {
+     "pointer": "/units/4/revision_digest",
+     "value": "#repo_secret_r1_stored"
+    },
+    {
+     "pointer": "/units/4/home_digest",
+     "value": "#repo_secret_home_stored"
+    },
+    {
+     "pointer": "/units/5/unit_id",
+     "value": "$unt:a_repo_broken"
+    },
+    {
+     "pointer": "/units/5/source_id",
+     "value": "@repo_broken"
+    },
+    {
+     "pointer": "/units/5/revision_digest",
+     "value": "#repo_broken_r1_stored"
+    },
+    {
+     "pointer": "/units/5/home_digest",
+     "value": "#repo_broken_home_stored"
+    },
+    {
+     "pointer": "/material_gaps/3/code",
+     "value": "source_not_authorized"
+    },
+    {
+     "pointer": "/material_gaps/3/pointer",
+     "value": "/units/4"
+    },
+    {
+     "pointer": "/material_gaps/4/code",
+     "value": "object_digest_mismatch"
+    },
+    {
+     "pointer": "/material_gaps/4/pointer",
+     "value": "/units/5"
+    },
+    {
+     "pointer": "/units/4/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/units/4/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/units/4/standing",
+     "value": "winning"
+    },
+    {
+     "pointer": "/units/5/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/units/5/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/units/5/standing",
+     "value": "winning"
     }
    ]
   },
@@ -2230,6 +2766,22 @@
     {
      "pointer": "/units/3/body_digest",
      "value": "51eb95baab6ebe010b82568bfe7db9e2c0a537321b9af09dbc5474bd1be4400f"
+    },
+    {
+     "pointer": "/units/0/home_digest",
+     "value": "#repo_rules_home_stored"
+    },
+    {
+     "pointer": "/units/1/home_digest",
+     "value": "#team_rules_home_stored"
+    },
+    {
+     "pointer": "/units/2/home_digest",
+     "value": "#rates_a_home_stored"
+    },
+    {
+     "pointer": "/units/3/home_digest",
+     "value": "#rates_b_home_stored"
     }
    ]
   },
@@ -2774,6 +3326,22 @@
     {
      "pointer": "/units/3/shadowed_by",
      "value": "$unt:c_rates_a"
+    },
+    {
+     "pointer": "/units/0/home_digest",
+     "value": "#repo_rules_home_stored"
+    },
+    {
+     "pointer": "/units/1/home_digest",
+     "value": "#team_rules_home_stored"
+    },
+    {
+     "pointer": "/units/2/home_digest",
+     "value": "#rates_a_home_stored"
+    },
+    {
+     "pointer": "/units/3/home_digest",
+     "value": "#rates_b_home_stored"
     }
    ]
   }
@@ -2986,6 +3554,78 @@
    }
   },
   {
+   "name": "register_repo_secret",
+   "request": "register_repo_secret",
+   "carries": [
+    "repo_secret_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_secret_home_stored"
+    ],
+    "head": "repo_secret_h0"
+   }
+  },
+  {
+   "name": "commit_repo_secret_r1",
+   "request": "commit_repo_secret_r1",
+   "carries": [
+    "repo_secret_r1"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_secret_r1_stored"
+    ],
+    "head": "repo_secret_h1"
+   }
+  },
+  {
+   "name": "register_repo_broken",
+   "request": "register_repo_broken",
+   "carries": [
+    "repo_broken_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_broken_home_stored"
+    ],
+    "head": "repo_broken_h0"
+   }
+  },
+  {
+   "name": "commit_repo_broken_r1",
+   "request": "commit_repo_broken_r1",
+   "carries": [
+    "repo_broken_r1"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_broken_r1_stored"
+    ],
+    "head": "repo_broken_h1"
+   }
+  },
+  {
    "name": "change_repo_instr_v1",
    "request": "change_repo_instr_v1",
    "carries": [
@@ -3061,6 +3701,14 @@
      {
       "code": "same_layer_unordered",
       "pointer": "/units/3"
+     },
+     {
+      "code": "source_not_authorized",
+      "pointer": "/units/4"
+     },
+     {
+      "code": "object_digest_mismatch",
+      "pointer": "/units/5"
      }
     ],
     "recovery": [],

@@ -1,6 +1,6 @@
 {
  "case": "CAP-04",
- "says": "A person binds this device's key and the checkout, registers the repository's memory source, has the owner read records 12 to 18 of one session transcript, and stores the memory capture a packaged local adapter made from those bytes. A candidate choice extracted from that capture is stored as version 1, naming the capture and the exact span bytes as its origin. The person then edits the proposed choice: the owner stores version 2 under the same candidate id, and version 2 names the same capture and the same evidence as version 1. Editing changes only the candidate. Reading the same selection again afterwards returns the same span bytes, so the transcript was not changed by the edit, and the stored capture is not re-written by it. An edit that tries to write what the runtime owns - the candidate id, the version it replaces, its standing and a creation time dated before the capture - is refused at admission and nothing is stored, so an edit cannot rewrite an earlier version or date itself into the past. An edit that relabels the candidate as written by hand, dropping the capture and the span bytes it came from, is refused by the owner with candidate_origin_changed at /origin and nothing is stored, so no edit changes where the candidate came from.",
+ "says": "A person binds this device's key and the checkout, registers the repository's memory source, has the owner read records 12 to 18 of one session transcript, one working-tree file (the repository original), one member of an earlier source's already-published revision (a past event), and one file the person supplied (a package), and stores the memory capture a packaged local adapter made from all four reads. A candidate choice extracted from that capture is stored as version 1, naming the capture and the four exact evidence spans - the transcript, the working-tree file, the past revision's member and the supplied file - as its origin. The person then edits the proposed choice: the owner stores version 2 under the same candidate id, and version 2 names the same capture and the same evidence as version 1. Editing changes only the candidate. Reading the same selection again afterwards returns the same four reads, so the transcript, the repository original, the supplied package and the past event were none of them changed by the edit, and the stored capture is not re-written by it. An edit that tries to write what the runtime owns - the candidate id, the version it replaces, its standing and a creation time dated before the capture - is refused at admission and nothing is stored, so an edit cannot rewrite an earlier version or date itself into the past. An edit that relabels the candidate as written by hand, dropping the capture and the evidence it came from, is refused by the owner with candidate_origin_changed at /origin and nothing is stored, so no edit changes where the candidate came from.",
  "ids": [
   {
    "name": "alice",
@@ -28,6 +28,10 @@
   },
   {
    "name": "memory_source",
+   "prefix": "src"
+  },
+  {
+   "name": "earlier_source",
    "prefix": "src"
   },
   {
@@ -299,6 +303,106 @@
     {
      "pointer": "/roots/0/permits/processing",
      "value": "local_processing"
+    },
+    {
+     "pointer": "/roots/1/need",
+     "value": "required"
+    },
+    {
+     "pointer": "/roots/1/place/from",
+     "value": "working_tree"
+    },
+    {
+     "pointer": "/roots/1/place/checkout",
+     "value": "/home/alice/work"
+    },
+    {
+     "pointer": "/roots/1/place/path",
+     "value": "docs/notes.md"
+    },
+    {
+     "pointer": "/roots/1/place/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/roots/1/permits/destinations/0/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/roots/1/permits/destinations/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/roots/1/permits/processing",
+     "value": "local_processing"
+    },
+    {
+     "pointer": "/roots/1/permits/prompt_log",
+     "value": "not_kept"
+    },
+    {
+     "pointer": "/roots/2/need",
+     "value": "required"
+    },
+    {
+     "pointer": "/roots/2/place/from",
+     "value": "source_revision"
+    },
+    {
+     "pointer": "/roots/2/place/member",
+     "value": "decisions/0000.json"
+    },
+    {
+     "pointer": "/roots/2/place/source_id",
+     "value": "@earlier_source"
+    },
+    {
+     "pointer": "/roots/2/place/revision_digest",
+     "value": "5849e84e1113751affa9028fbf6809a5509434f521a8adb2939a138a765fad1c"
+    },
+    {
+     "pointer": "/roots/2/permits/destinations/0/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/roots/2/permits/destinations/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/roots/2/permits/processing",
+     "value": "local_processing"
+    },
+    {
+     "pointer": "/roots/2/permits/prompt_log",
+     "value": "not_kept"
+    },
+    {
+     "pointer": "/roots/3/need",
+     "value": "required"
+    },
+    {
+     "pointer": "/roots/3/place/from",
+     "value": "exported_file"
+    },
+    {
+     "pointer": "/roots/3/place/file_digest",
+     "value": "3302ef72316dedc6fc12294108f8398ed61fb705042008ce096648431e747ec1"
+    },
+    {
+     "pointer": "/roots/3/permits/destinations/0/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/roots/3/permits/destinations/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/roots/3/permits/processing",
+     "value": "local_processing"
+    },
+    {
+     "pointer": "/roots/3/permits/prompt_log",
+     "value": "not_kept"
     }
    ]
   },
@@ -349,6 +453,66 @@
      "value": "$digest:span_bytes"
     },
     {
+     "pointer": "/read/1/read",
+     "value": "tree"
+    },
+    {
+     "pointer": "/read/1/root",
+     "value": 1
+    },
+    {
+     "pointer": "/read/1/path",
+     "value": "docs/notes.md"
+    },
+    {
+     "pointer": "/read/1/state",
+     "value": "committed"
+    },
+    {
+     "pointer": "/read/1/size",
+     "value": 2048
+    },
+    {
+     "pointer": "/read/1/digest",
+     "value": "$digest:tree_bytes"
+    },
+    {
+     "pointer": "/read/2/read",
+     "value": "member"
+    },
+    {
+     "pointer": "/read/2/root",
+     "value": 2
+    },
+    {
+     "pointer": "/read/2/member",
+     "value": "decisions/0000.json"
+    },
+    {
+     "pointer": "/read/2/size",
+     "value": 900
+    },
+    {
+     "pointer": "/read/2/digest",
+     "value": "$digest:past_bytes"
+    },
+    {
+     "pointer": "/read/3/read",
+     "value": "file"
+    },
+    {
+     "pointer": "/read/3/root",
+     "value": 3
+    },
+    {
+     "pointer": "/read/3/size",
+     "value": 1500
+    },
+    {
+     "pointer": "/read/3/digest",
+     "value": "3302ef72316dedc6fc12294108f8398ed61fb705042008ce096648431e747ec1"
+    },
+    {
      "pointer": "/observed_at",
      "value": "$instant:observe_span_at"
     }
@@ -373,6 +537,106 @@
     {
      "pointer": "/processing/inputs/0/permits/destinations/0/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/processing/inputs/1/evidence_digest",
+     "value": "$digest:tree_bytes"
+    },
+    {
+     "pointer": "/processing/inputs/1/from/from",
+     "value": "working_tree"
+    },
+    {
+     "pointer": "/processing/inputs/1/from/checkout",
+     "value": "/home/alice/work"
+    },
+    {
+     "pointer": "/processing/inputs/1/from/path",
+     "value": "docs/notes.md"
+    },
+    {
+     "pointer": "/processing/inputs/1/from/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/processing/inputs/1/permits/destinations/0/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/processing/inputs/1/permits/destinations/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/processing/inputs/1/permits/processing",
+     "value": "local_processing"
+    },
+    {
+     "pointer": "/processing/inputs/1/permits/prompt_log",
+     "value": "not_kept"
+    },
+    {
+     "pointer": "/processing/inputs/2/evidence_digest",
+     "value": "$digest:past_bytes"
+    },
+    {
+     "pointer": "/processing/inputs/2/from/from",
+     "value": "source_revision"
+    },
+    {
+     "pointer": "/processing/inputs/2/from/member",
+     "value": "decisions/0000.json"
+    },
+    {
+     "pointer": "/processing/inputs/2/from/source_id",
+     "value": "@earlier_source"
+    },
+    {
+     "pointer": "/processing/inputs/2/from/revision_digest",
+     "value": "5849e84e1113751affa9028fbf6809a5509434f521a8adb2939a138a765fad1c"
+    },
+    {
+     "pointer": "/processing/inputs/2/permits/destinations/0/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/processing/inputs/2/permits/destinations/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/processing/inputs/2/permits/processing",
+     "value": "local_processing"
+    },
+    {
+     "pointer": "/processing/inputs/2/permits/prompt_log",
+     "value": "not_kept"
+    },
+    {
+     "pointer": "/processing/inputs/3/evidence_digest",
+     "value": "3302ef72316dedc6fc12294108f8398ed61fb705042008ce096648431e747ec1"
+    },
+    {
+     "pointer": "/processing/inputs/3/from/from",
+     "value": "exported_file"
+    },
+    {
+     "pointer": "/processing/inputs/3/from/file_digest",
+     "value": "3302ef72316dedc6fc12294108f8398ed61fb705042008ce096648431e747ec1"
+    },
+    {
+     "pointer": "/processing/inputs/3/permits/destinations/0/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/processing/inputs/3/permits/destinations/0/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/processing/inputs/3/permits/processing",
+     "value": "local_processing"
+    },
+    {
+     "pointer": "/processing/inputs/3/permits/prompt_log",
+     "value": "not_kept"
     },
     {
      "pointer": "/entries/0/entry_id",
@@ -467,6 +731,18 @@
     {
      "pointer": "/origin/evidence_digests/0",
      "value": "$digest:span_bytes"
+    },
+    {
+     "pointer": "/origin/evidence_digests/-",
+     "value": "$digest:tree_bytes"
+    },
+    {
+     "pointer": "/origin/evidence_digests/-",
+     "value": "$digest:past_bytes"
+    },
+    {
+     "pointer": "/origin/evidence_digests/-",
+     "value": "3302ef72316dedc6fc12294108f8398ed61fb705042008ce096648431e747ec1"
     },
     {
      "pointer": "/proposed/workstream_ids",

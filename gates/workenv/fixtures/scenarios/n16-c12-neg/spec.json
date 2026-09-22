@@ -115,6 +115,14 @@
    "prefix": "req"
   },
   {
+   "name": "selected_save_select_request",
+   "prefix": "req"
+  },
+  {
+   "name": "selected_save_request",
+   "prefix": "req"
+  },
+  {
    "name": "back_select_request",
    "prefix": "req"
   },
@@ -1445,6 +1453,10 @@
     {
      "pointer": "/units/0/body_digest",
      "value": "$digest:rules_body"
+    },
+    {
+     "pointer": "/units/0/home_digest",
+     "value": "#stored_home"
     },
     {
      "pointer": "/units/0/layer",
@@ -3296,6 +3308,93 @@
    ]
   },
   {
+   "name": "selected_save",
+   "from": "routes/selection_submitted.json",
+   "set": [
+    {
+     "pointer": "/expected/material_gaps",
+     "value": []
+    },
+    {
+     "pointer": "/expected/recovery",
+     "value": []
+    },
+    {
+     "pointer": "/expected/stage",
+     "value": "draft_saved"
+    },
+    {
+     "pointer": "/focused",
+     "value": "@route_save"
+    },
+    {
+     "pointer": "/offer_digest",
+     "value": "#stored_offer"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@selected_save_request"
+    },
+    {
+     "pointer": "/selected",
+     "value": "@route_save"
+    }
+   ]
+  },
+  {
+   "name": "selected_save_select",
+   "from": "c03/history_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/operation",
+     "value": "route.select"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@selected_save_select_request"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#selected_save"
+    }
+   ]
+  },
+  {
    "name": "back_clearing_bodies",
    "from": "routes/selection_submitted.json",
    "set": [
@@ -5002,6 +5101,25 @@
      "pointer": "/selected"
     }
    ]
+  },
+  {
+   "name": "submit_selected_save",
+   "request": "selected_save_select",
+   "carries": [
+    "selected_save"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "route_unsupported"
+     }
+    ],
+    "recovery": [],
+    "returns": []
+   }
   },
   {
    "name": "submit_navigation_clearing_bodies",

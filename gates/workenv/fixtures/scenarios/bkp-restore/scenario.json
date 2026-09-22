@@ -68,6 +68,14 @@
   {
    "id": "req_36b506583a0db9d6021907baf5a22d32",
    "name": "ask_export_request"
+  },
+  {
+   "id": "req_5d592b3f2e07815c917e39b1f010f839",
+   "name": "candidate_read_request"
+  },
+  {
+   "id": "req_f09b1babae251a020c2e1ade876d061b",
+   "name": "backup_after_restore_request"
   }
  ],
  "joins": [
@@ -550,6 +558,91 @@
    "digest_of": "export_to_the_desktop_result",
    "pointer": "/outputs/0/digest",
    "record": "query_the_export_result"
+  },
+  {
+   "minted": "draft_candidate",
+   "pointer": "/target/resource_id",
+   "record": "read_draft_after_restore"
+  },
+  {
+   "digest_of": "read_draft_after_restore",
+   "pointer": "/request_digest",
+   "record": "read_the_candidate_after_restore_result"
+  },
+  {
+   "digest_of": "stored_draft",
+   "pointer": "/outputs/0/digest",
+   "record": "read_the_candidate_after_restore_result"
+  },
+  {
+   "digest_of": "take_backup_after_restore",
+   "pointer": "/request_digest",
+   "record": "take_a_backup_after_restore_receipt"
+  },
+  {
+   "minted": "take_a_backup_after_restore_head",
+   "pointer": "/head_digest",
+   "record": "take_a_backup_after_restore_receipt"
+  },
+  {
+   "minted": "take_a_backup_after_restore_sequence",
+   "pointer": "/sequence",
+   "record": "take_a_backup_after_restore_receipt"
+  },
+  {
+   "minted": "take_a_backup_after_restore_committed_at",
+   "pointer": "/committed_at",
+   "record": "take_a_backup_after_restore_receipt"
+  },
+  {
+   "minted": "backup_covered_through",
+   "pointer": "/covered_through",
+   "record": "backup_after_restore"
+  },
+  {
+   "minted": "backup_database",
+   "pointer": "/database/digest",
+   "record": "backup_after_restore"
+  },
+  {
+   "digest_of": "stored_draft",
+   "pointer": "/members/0/digest",
+   "record": "backup_after_restore"
+  },
+  {
+   "digest_of": "package",
+   "pointer": "/members/1/digest",
+   "record": "backup_after_restore"
+  },
+  {
+   "digest_of": "export_to_the_desktop_result",
+   "pointer": "/members/2/digest",
+   "record": "backup_after_restore"
+  },
+  {
+   "minted": "control_sequence",
+   "pointer": "/members/3/digest",
+   "record": "backup_after_restore"
+  },
+  {
+   "minted": "backup_after_restore_taken_at",
+   "pointer": "/taken_at",
+   "record": "backup_after_restore"
+  },
+  {
+   "digest_of": "take_a_backup_after_restore_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "take_a_backup_after_restore_result"
+  },
+  {
+   "digest_of": "take_backup_after_restore",
+   "pointer": "/request_digest",
+   "record": "take_a_backup_after_restore_result"
+  },
+  {
+   "digest_of": "backup_after_restore",
+   "pointer": "/outputs/0/digest",
+   "record": "take_a_backup_after_restore_result"
   }
  ],
  "minted": [
@@ -712,6 +805,26 @@
    "name": "restored_at",
    "shape": "instant",
    "step": "restore_the_backup"
+  },
+  {
+   "name": "backup_after_restore_taken_at",
+   "shape": "instant",
+   "step": "take_a_backup_after_restore"
+  },
+  {
+   "name": "take_a_backup_after_restore_committed_at",
+   "shape": "instant",
+   "step": "take_a_backup_after_restore"
+  },
+  {
+   "name": "take_a_backup_after_restore_head",
+   "shape": "digest",
+   "step": "take_a_backup_after_restore"
+  },
+  {
+   "name": "take_a_backup_after_restore_sequence",
+   "shape": "integer",
+   "step": "take_a_backup_after_restore"
   }
  ],
  "records": [
@@ -1380,7 +1493,7 @@
    }
   },
   {
-   "digest": "3101dcab33387d04303dd6cd63c2b0250594b968b803f46622c3c02f9ffbb240",
+   "digest": "6ccc2eec958ce538bf1bf2ecd96669ee2a95a7f85ac74cbe7d5e6ef1872d42ea",
    "name": "package",
    "record": {
     "authority": {
@@ -1399,13 +1512,13 @@
       "digest": "3aebb956473d62a0b37ee6e66965c0ea92c74d4b215bfb736f0e808f0cdf3a7e",
       "object_kind": "source_manifest",
       "path": "objects/0000.json",
-      "size": 4121
+      "size": 382
      },
      {
       "digest": "1e4f249dd9bcd106896aea3e90ae7b0ef42eabc5faf94ae7e238fbae0f3bde82",
       "object_kind": "principal_binding",
       "path": "continuity/0001.json",
-      "size": 412
+      "size": 444
      }
     ],
     "kind": "transfer_envelope",
@@ -1431,7 +1544,7 @@
    }
   },
   {
-   "digest": "c8637a0ab1194aa6536f5a7fe5ff693a37894de6aee13c9add8d5c970f75e969",
+   "digest": "8cddb324cd6daf12ec9c89a520f0f889d11723f1f797787210ffabb78d0cd105",
    "name": "export",
    "record": {
     "action": "transfer",
@@ -1449,7 +1562,7 @@
      "layer": "personal",
      "principal_id": "prn_49ee05d353821d093974dc26cd895ae5"
     },
-    "payload_digest": "3101dcab33387d04303dd6cd63c2b0250594b968b803f46622c3c02f9ffbb240",
+    "payload_digest": "6ccc2eec958ce538bf1bf2ecd96669ee2a95a7f85ac74cbe7d5e6ef1872d42ea",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_562a3c5b1f10ce870b3516a47dfef319",
@@ -1460,11 +1573,11 @@
    }
   },
   {
-   "digest": "7dbe8fa2352739e73a0862afc2a84631c9b3ca89969eb69b691d664937ee397e",
+   "digest": "21ef2cab1f96a67642fb4ad0185c358bb700ebab90ac0e1147dd6eb06b0acaf2",
    "name": "exported",
    "record": {
     "at": "2000-01-01T00:00:00Z",
-    "envelope_digest": "3101dcab33387d04303dd6cd63c2b0250594b968b803f46622c3c02f9ffbb240",
+    "envelope_digest": "6ccc2eec958ce538bf1bf2ecd96669ee2a95a7f85ac74cbe7d5e6ef1872d42ea",
     "kind": "transfer_stage_record",
     "schema": 1,
     "stage": {
@@ -1478,7 +1591,7 @@
    }
   },
   {
-   "digest": "3f6e1dc401252c926e606698eb20796f2e06c67241349f1b1631431f1c3cf8f3",
+   "digest": "9d9e53f69e46d52d038cf1bd616004a25d26fdd8ec799eafc1ab441b5c1aa22a",
    "name": "export_to_the_desktop_result",
    "record": {
     "kind": "operation_result",
@@ -1493,12 +1606,12 @@
     },
     "outputs": [
      {
-      "digest": "7dbe8fa2352739e73a0862afc2a84631c9b3ca89969eb69b691d664937ee397e",
+      "digest": "21ef2cab1f96a67642fb4ad0185c358bb700ebab90ac0e1147dd6eb06b0acaf2",
       "kind": "transfer_stage_record"
      }
     ],
     "provider_effect": "unknown",
-    "request_digest": "c8637a0ab1194aa6536f5a7fe5ff693a37894de6aee13c9add8d5c970f75e969",
+    "request_digest": "8cddb324cd6daf12ec9c89a520f0f889d11723f1f797787210ffabb78d0cd105",
     "request_id": "req_562a3c5b1f10ce870b3516a47dfef319",
     "schema": 1,
     "supported_recovery": [
@@ -1555,7 +1668,7 @@
    }
   },
   {
-   "digest": "f2c5e8188d445127228bc730f1d3a2cd80dcc4c14ac284cf1a9ac9dc196ea586",
+   "digest": "6dddb169e370603746da882317c54f5287183a69ef381b623b1f3ac51e0fc2ed",
    "name": "backup",
    "record": {
     "access_generation": 7,
@@ -1571,19 +1684,19 @@
       "digest": "401a5d051a894d91e88cf61e9df5dcc02b67c3998f648a49cb4ee2658322becc",
       "holds": "draft",
       "path": "drafts/0001.json",
-      "size": 812
+      "size": 1227
      },
      {
-      "digest": "3101dcab33387d04303dd6cd63c2b0250594b968b803f46622c3c02f9ffbb240",
+      "digest": "6ccc2eec958ce538bf1bf2ecd96669ee2a95a7f85ac74cbe7d5e6ef1872d42ea",
       "holds": "outbox",
       "path": "outbox/0001.json",
-      "size": 1204
+      "size": 930
      },
      {
-      "digest": "3f6e1dc401252c926e606698eb20796f2e06c67241349f1b1631431f1c3cf8f3",
+      "digest": "9d9e53f69e46d52d038cf1bd616004a25d26fdd8ec799eafc1ab441b5c1aa22a",
       "holds": "unknown_operation",
       "path": "operations/unknown.json",
-      "size": 96
+      "size": 474
      },
      {
       "digest": "c6ecc23bff2d9a6534a66ba253d40f65d879f43ccb1973af11953f131b484dc1",
@@ -1598,7 +1711,7 @@
    }
   },
   {
-   "digest": "21b9b713d40bd2fe09d38a520c4a9ba95f748aafac4d129a58e617b5b6e203db",
+   "digest": "afd8653729aecfc8efc5932bb20b7b76abbf0410c5b51447ab29875d1e458f75",
    "name": "take_a_backup_result",
    "record": {
     "kind": "operation_result",
@@ -1610,7 +1723,7 @@
     },
     "outputs": [
      {
-      "digest": "f2c5e8188d445127228bc730f1d3a2cd80dcc4c14ac284cf1a9ac9dc196ea586",
+      "digest": "6dddb169e370603746da882317c54f5287183a69ef381b623b1f3ac51e0fc2ed",
       "kind": "backup_set"
      }
     ],
@@ -1692,7 +1805,7 @@
    }
   },
   {
-   "digest": "843bd08bb781b39b65a1c59564457f1f05fcbe2175182dfc95611b96e64bf7f3",
+   "digest": "3bd0a0c59a2f1b0c043bfcb950807bbbcce1f14e9034673ae034a7a8bab4f6f7",
    "name": "restore",
    "record": {
     "action": "local_profile",
@@ -1710,7 +1823,7 @@
      "layer": "personal",
      "principal_id": "prn_49ee05d353821d093974dc26cd895ae5"
     },
-    "payload_digest": "f2c5e8188d445127228bc730f1d3a2cd80dcc4c14ac284cf1a9ac9dc196ea586",
+    "payload_digest": "6dddb169e370603746da882317c54f5287183a69ef381b623b1f3ac51e0fc2ed",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_4ed5b2483e652edf2fc78dd19068a993",
@@ -1721,7 +1834,7 @@
    }
   },
   {
-   "digest": "bff2851bf91054fc7c1e013164ce5f2b0326aea1f85c66a3b7419536fb24b097",
+   "digest": "c52a9fc94f54529259c8e9b7301b922c519f86daa8a2d5549118ea06769b23bf",
    "name": "restore_the_backup_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -1731,7 +1844,7 @@
      "layer": "personal",
      "principal_id": "prn_49ee05d353821d093974dc26cd895ae5"
     },
-    "request_digest": "843bd08bb781b39b65a1c59564457f1f05fcbe2175182dfc95611b96e64bf7f3",
+    "request_digest": "3bd0a0c59a2f1b0c043bfcb950807bbbcce1f14e9034673ae034a7a8bab4f6f7",
     "request_id": "req_4ed5b2483e652edf2fc78dd19068a993",
     "schema": 1,
     "sequence": 1,
@@ -1741,12 +1854,12 @@
    }
   },
   {
-   "digest": "e94c5eaf2c0c42b73e30a0e01fc42f48f7605661c179ef9b6ad9dda39ac49bec",
+   "digest": "12d3e695bfbe89c9da75c35066e4109ab2258f0a170c1beda33d84a70e0517bb",
    "name": "report",
    "record": {
     "after_backup": "not_known",
     "authority": "passive",
-    "backup_digest": "f2c5e8188d445127228bc730f1d3a2cd80dcc4c14ac284cf1a9ac9dc196ea586",
+    "backup_digest": "6dddb169e370603746da882317c54f5287183a69ef381b623b1f3ac51e0fc2ed",
     "covered_through": 1,
     "kind": "restore_report",
     "recovery_objective_seconds": 3600,
@@ -1756,24 +1869,24 @@
    }
   },
   {
-   "digest": "d674cca1fbc49a5d961023191ab22ac97656352b995c939fa58be1d606e7a15f",
+   "digest": "e546ae364a95e49efd9e4fd3646831d690b054382a2940bb8cf4a18ebd7694a1",
    "name": "restore_the_backup_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "bff2851bf91054fc7c1e013164ce5f2b0326aea1f85c66a3b7419536fb24b097",
+     "receipt_digest": "c52a9fc94f54529259c8e9b7301b922c519f86daa8a2d5549118ea06769b23bf",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "e94c5eaf2c0c42b73e30a0e01fc42f48f7605661c179ef9b6ad9dda39ac49bec",
+      "digest": "12d3e695bfbe89c9da75c35066e4109ab2258f0a170c1beda33d84a70e0517bb",
       "kind": "restore_report"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "843bd08bb781b39b65a1c59564457f1f05fcbe2175182dfc95611b96e64bf7f3",
+    "request_digest": "3bd0a0c59a2f1b0c043bfcb950807bbbcce1f14e9034673ae034a7a8bab4f6f7",
     "request_id": "req_4ed5b2483e652edf2fc78dd19068a993",
     "schema": 1,
     "supported_recovery": []
@@ -1935,7 +2048,7 @@
    }
   },
   {
-   "digest": "f25cd6ca440927e90fefbe72dea339ee59b698cb4aff1c763a0c1f250b779b85",
+   "digest": "30e492ba644ff4d93a0ee18f54884e6c9564df5ad954f461764afab58ebb21db",
    "name": "query_the_export_result",
    "record": {
     "kind": "operation_result",
@@ -1946,7 +2059,7 @@
     },
     "outputs": [
      {
-      "digest": "3f6e1dc401252c926e606698eb20796f2e06c67241349f1b1631431f1c3cf8f3",
+      "digest": "9d9e53f69e46d52d038cf1bd616004a25d26fdd8ec799eafc1ab441b5c1aa22a",
       "kind": "operation_result"
      }
     ],
@@ -1956,10 +2069,176 @@
     "schema": 1,
     "supported_recovery": []
    }
+  },
+  {
+   "digest": "82f280068714a0ac203f93146fe22ff5a1e67c38214450cbd98f0438c12c0e22",
+   "name": "read_draft_after_restore",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_fc66a533553a2eda9b41eee45f351283",
+     "principal_id": "prn_49ee05d353821d093974dc26cd895ae5",
+     "profile_id": "prf_669c57c911d98ac1751fb1cf67087405"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "memory.candidate.read",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_49ee05d353821d093974dc26cd895ae5"
+    },
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_5d592b3f2e07815c917e39b1f010f839",
+    "schema": 1,
+    "target": {
+     "resource_id": "cnd_de6e09837a2a683c456af83354c31e20"
+    }
+   }
+  },
+  {
+   "digest": "2b5233df2fe996e0e7fd75a45fbe2219ef3e9f1c64061116bfccdf385186e2dc",
+   "name": "read_the_candidate_after_restore_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "401a5d051a894d91e88cf61e9df5dcc02b67c3998f648a49cb4ee2658322becc",
+      "kind": "memory_candidate"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "82f280068714a0ac203f93146fe22ff5a1e67c38214450cbd98f0438c12c0e22",
+    "request_id": "req_5d592b3f2e07815c917e39b1f010f839",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "3710bcf283d3d52931a7ad99a28fe225ac5031ec0edf371647b4edc9a2e61f2c",
+   "name": "take_backup_after_restore",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_fc66a533553a2eda9b41eee45f351283",
+     "principal_id": "prn_49ee05d353821d093974dc26cd895ae5",
+     "profile_id": "prf_669c57c911d98ac1751fb1cf67087405"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "store.backup.create",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_49ee05d353821d093974dc26cd895ae5"
+    },
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_f09b1babae251a020c2e1ade876d061b",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_669c57c911d98ac1751fb1cf67087405"
+    }
+   }
+  },
+  {
+   "digest": "9a2c70f3e315ee40bc2e3cef8c2f6d9225fd638be524e3acf6f033285286e44c",
+   "name": "take_a_backup_after_restore_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "4dc24ce7b828c04962ae91260da05d7d1ca205066f22a7589c18a5dd4e426b16",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_49ee05d353821d093974dc26cd895ae5"
+    },
+    "request_digest": "3710bcf283d3d52931a7ad99a28fe225ac5031ec0edf371647b4edc9a2e61f2c",
+    "request_id": "req_f09b1babae251a020c2e1ade876d061b",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_669c57c911d98ac1751fb1cf67087405"
+    }
+   }
+  },
+  {
+   "digest": "6dddb169e370603746da882317c54f5287183a69ef381b623b1f3ac51e0fc2ed",
+   "name": "backup_after_restore",
+   "record": {
+    "access_generation": 7,
+    "covered_through": 1,
+    "database": {
+     "digest": "0ab0d7a7e721b8de3597c0d0d162317106890174251e0e5764c66cb2c367c75e",
+     "path": "state.sqlite3",
+     "size": 1048576
+    },
+    "kind": "backup_set",
+    "members": [
+     {
+      "digest": "401a5d051a894d91e88cf61e9df5dcc02b67c3998f648a49cb4ee2658322becc",
+      "holds": "draft",
+      "path": "drafts/0001.json",
+      "size": 1227
+     },
+     {
+      "digest": "6ccc2eec958ce538bf1bf2ecd96669ee2a95a7f85ac74cbe7d5e6ef1872d42ea",
+      "holds": "outbox",
+      "path": "outbox/0001.json",
+      "size": 930
+     },
+     {
+      "digest": "9d9e53f69e46d52d038cf1bd616004a25d26fdd8ec799eafc1ab441b5c1aa22a",
+      "holds": "unknown_operation",
+      "path": "operations/unknown.json",
+      "size": 474
+     },
+     {
+      "digest": "c6ecc23bff2d9a6534a66ba253d40f65d879f43ccb1973af11953f131b484dc1",
+      "holds": "control_state",
+      "path": "control/sequence.json",
+      "size": 64
+     }
+    ],
+    "profile_id": "prf_669c57c911d98ac1751fb1cf67087405",
+    "schema": 1,
+    "taken_at": "2000-01-01T00:00:00Z"
+   }
+  },
+  {
+   "digest": "1b573448cf507854d455c88a4fd7587adb9ebedf91fc0358056a48665ddea5a7",
+   "name": "take_a_backup_after_restore_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "9a2c70f3e315ee40bc2e3cef8c2f6d9225fd638be524e3acf6f033285286e44c",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "6dddb169e370603746da882317c54f5287183a69ef381b623b1f3ac51e0fc2ed",
+      "kind": "backup_set"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "3710bcf283d3d52931a7ad99a28fe225ac5031ec0edf371647b4edc9a2e61f2c",
+    "request_id": "req_f09b1babae251a020c2e1ade876d061b",
+    "schema": 1,
+    "supported_recovery": []
+   }
   }
  ],
- "says": "On her laptop Alice registers her private notes source and commits a revision on the head the registration made (a receipt and the head it moved), keeps a hand-written choice as a draft candidate whose id the owner assigns, and exports a package carrying the revision, trusted by the binding that enrolled the laptop, to her desktop over a peer route while the two cannot reach each other, so the export stays in her outbox with an unknown outcome. She then takes a backup, which names the database snapshot and each member beside it: the draft, the outbox package, the unknown operation and the control sequence. The laptop's live database is then lost: on a rebuilt runtime that never held it, a query for the commit's request id first answers request_not_held — nothing survived to be restarted. Restoring the backup there reports the receipt sequence and instant the backup covers, work after it not known and authority passive. Afterwards the same queries return exactly the originals: the commit's result and its receipt naming its request and head, the draft candidate's result, and the export's unknown result with its query-the-same-request recovery. What must not count as this proof: a surviving database restarted in place, or the desktop's copy of the exported package standing in for the laptop's draft, outbox, unknown operation and control mappings; nothing here is rebuilt from a peer.",
- "spec_sha256": "7c20d8b5328fd7f204d1c97805f676a1dce55d6c02e4cc4bb23a6517c4868ecb",
+ "says": "On her laptop Alice registers her private notes source and commits a revision on the head the registration made (a receipt and the head it moved), keeps a hand-written choice as a draft candidate whose id the owner assigns, and exports a package carrying the revision, trusted by the binding that enrolled the laptop, to her desktop over a peer route while the two cannot reach each other, so the export stays in her outbox with an unknown outcome. She then takes a backup, which names the database snapshot and each member beside it: the draft, the outbox package, the unknown operation and the control sequence. The laptop's live database is then lost: on a rebuilt runtime that never held it, a query for the commit's request id first answers request_not_held — nothing survived to be restarted. Restoring the backup there reports the receipt sequence and instant the backup covers, work after it not known and authority passive. Afterwards the same queries return exactly the originals: the commit's result and its receipt naming its request and head, the draft candidate's result, and the export's unknown result with its query-the-same-request recovery. Reading the draft candidate directly there returns the same stored candidate content, not only its historical result. A fresh backup taken there afterward names the same database, draft, outbox and control-sequence members by digest and size as the one restored, so the restored outbox package and control-state member are shown exactly restored, not only their result mappings. What must not count as this proof: a surviving database restarted in place, or the desktop's copy of the exported package standing in for the laptop's draft, outbox, unknown operation and control mappings; nothing here is rebuilt from a peer.",
+ "spec_sha256": "dc21902617e0b60f8911110f7233a4cad975644cd4e90b975714a7c60866c9cf",
  "steps": [
   {
    "carries": [
@@ -2106,6 +2385,26 @@
    "result": "query_the_export_result",
    "returns": [
     "export_to_the_desktop_result"
+   ]
+  },
+  {
+   "carries": [],
+   "name": "read_the_candidate_after_restore",
+   "process": "rebuilt",
+   "request": "read_draft_after_restore",
+   "result": "read_the_candidate_after_restore_result",
+   "returns": [
+    "stored_draft"
+   ]
+  },
+  {
+   "carries": [],
+   "name": "take_a_backup_after_restore",
+   "process": "rebuilt",
+   "request": "take_backup_after_restore",
+   "result": "take_a_backup_after_restore_result",
+   "returns": [
+    "backup_after_restore"
    ]
   }
  ],

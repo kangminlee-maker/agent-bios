@@ -1,6 +1,6 @@
 {
  "case": "TUI-ENTRY-LOCKED",
- "says": "Reading the profile first (access.profile.read) shows it active at access generation 7, opened by the device key. A person with a bound repository and a committed instructions source has a read of that source sealed at that generation when they lock the profile (access.transition lock: locked, generation 8). The locked entry (surface.drive from the locked scope entrance) shows only that the profile is locked, how to unlock at a terminal, and an unlock action; Down, Tab and Enter move nothing and unlock nothing, and every frame stays access locked with nothing dispatched or called. The read arriving late is not admitted (access.admission.decide: access_locked). An unlock naming no explicit method is refused at admission (variant_mismatch /change). The person unlocks explicitly with the device key at a terminal (active again, still generation 8: only a restriction moves the generation); the late read, still sealed at generation 7, is again not admitted (access_generation_moved) rather than delivered into the reopened session, while the same read sealed afresh at generation 8 for the same actor and repository is allowed. Negative: no frame shows the source's path, title, counts or repository name while locked; navigation never changes access; and the late read never becomes admitted under the new generation.",
+ "says": "Reading the profile first (access.profile.read) shows it active at access generation 1, its first use, opened by the device key. A person with a bound repository and a committed instructions source has a read of that source sealed at generation 1, admitted and held in flight while they lock the profile (access.transition lock: locked, generation 2); the in-flight read is rechecked before its result is shown and is not admitted, with access_locked and access_generation_moved, so no stale body reaches the now-locked scope. The locked entry (surface.drive from the locked scope entrance) shows only that the profile is locked, how to unlock at a terminal, and an unlock action; Down, Tab and Enter move nothing and unlock nothing, and every frame stays access locked with nothing dispatched or called. An unlock naming no explicit method is refused at admission (variant_mismatch /change). The person unlocks explicitly with the device key at a terminal (active again, still generation 2: only a restriction moves the generation); the same old read, still sealed at generation 1, is again not admitted (access_generation_moved) rather than delivered into the reopened session, while the same read sealed afresh at generation 2 for the same actor and repository is allowed. The person then signs out (access.transition sign_out: signed out, generation 3); the signed-out entry (surface.drive from the locked scope entrance) shows only that the profile is signed out and how to sign back in at a terminal, and a Down key moves and signs nothing back in: the frame stays access signed_out with nothing dispatched or called. Negative: no frame shows the source's path, title, counts or repository name while locked or signed out; navigation never changes access or signs back in; and the late read never becomes admitted under the new generation.",
  "ids": [
   {
    "name": "me",
@@ -77,6 +77,18 @@
   {
    "name": "profile_read_rid",
    "prefix": "req"
+  },
+  {
+   "name": "register_instr_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "sign_out_transition",
+   "prefix": "req"
+  },
+  {
+   "name": "signed_out_drive_request",
+   "prefix": "req"
   }
  ],
  "records": [
@@ -102,7 +114,7 @@
     },
     {
      "pointer": "/local_access_generation",
-     "value": 7
+     "value": 1
     },
     {
      "pointer": "/request_id",
@@ -138,7 +150,7 @@
    "set": [
     {
      "pointer": "/access_generation",
-     "value": 7
+     "value": 1
     },
     {
      "pointer": "/changed_at",
@@ -195,6 +207,10 @@
     {
      "pointer": "/target/resource_id",
      "value": "@me"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
     }
    ]
   },
@@ -257,6 +273,10 @@
     {
      "pointer": "/target/resource_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
     }
    ]
   },
@@ -345,6 +365,10 @@
     {
      "pointer": "/target/resource_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
     }
    ]
   },
@@ -405,6 +429,110 @@
    ]
   },
   {
+   "name": "instr_home",
+   "from": "sources/home_of_a_repository_document.json",
+   "drop": [
+    "/registered_at"
+   ],
+   "set": [
+    {
+     "pointer": "/acceptance_authority/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/document_root",
+     "value": "AGENTS.md"
+    },
+    {
+     "pointer": "/home/binding_evidence_digest",
+     "value": "#repo_bound"
+    },
+    {
+     "pointer": "/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@instr"
+    }
+   ]
+  },
+  {
+   "name": "register_instr_request",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#instr_home"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@register_instr_rid"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@instr"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    }
+   ],
+   "drop": [
+    "/owner/principal_id"
+   ]
+  },
+  {
+   "name": "instr_home_stored",
+   "from": "instr_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:instr_registered_at"
+    }
+   ]
+  },
+  {
    "name": "instr_commit_request",
    "from": "c01/link_request.json",
    "drop": [
@@ -453,7 +581,15 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:instr_h0"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
     }
    ]
   },
@@ -539,6 +675,10 @@
     {
      "pointer": "/target/base/head_digest",
      "value": "$digest:instr_head"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
     }
    ]
   },
@@ -549,6 +689,10 @@
     {
      "pointer": "/profile_id",
      "value": "@profile"
+    },
+    {
+     "pointer": "/expected_generation",
+     "value": 1
     }
    ]
   },
@@ -587,6 +731,10 @@
     {
      "pointer": "/target/resource_id",
      "value": "@profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
     }
    ]
   },
@@ -601,6 +749,10 @@
     {
      "pointer": "/profile_id",
      "value": "@profile"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 2
     }
    ]
   },
@@ -668,6 +820,10 @@
     {
      "pointer": "/target/resource_id",
      "value": "@profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 2
     }
    ]
   },
@@ -734,7 +890,7 @@
     },
     {
      "pointer": "/frames/0/elements/0/label",
-     "value": "로컬 프로필 · 잠김"
+     "value": "\ub85c\uceec \ud504\ub85c\ud544 \u00b7 \uc7a0\uae40"
     },
     {
      "pointer": "/frames/0/elements/1/element_id",
@@ -746,7 +902,7 @@
     },
     {
      "pointer": "/frames/0/elements/1/label",
-     "value": "잠겨 있음 · 잠금 해제하려면 터미널에서 agent-bios unlock"
+     "value": "\uc7a0\uaca8 \uc788\uc74c \u00b7 \uc7a0\uae08 \ud574\uc81c\ud558\ub824\uba74 \ud130\ubbf8\ub110\uc5d0\uc11c agent-bios unlock"
     },
     {
      "pointer": "/frames/0/elements/1/state",
@@ -762,12 +918,12 @@
     },
     {
      "pointer": "/frames/0/elements/2/label",
-     "value": "잠금 해제"
+     "value": "\uc7a0\uae08 \ud574\uc81c"
     },
     {
      "pointer": "/frames/0/elements/2/marks",
      "value": [
-      "›"
+      "\u203a"
      ]
     },
     {
@@ -792,7 +948,7 @@
     },
     {
      "pointer": "/frames/1/elements/0/label",
-     "value": "로컬 프로필 · 잠김"
+     "value": "\ub85c\uceec \ud504\ub85c\ud544 \u00b7 \uc7a0\uae40"
     },
     {
      "pointer": "/frames/1/elements/1/element_id",
@@ -804,7 +960,7 @@
     },
     {
      "pointer": "/frames/1/elements/1/label",
-     "value": "잠겨 있음 · 잠금 해제하려면 터미널에서 agent-bios unlock"
+     "value": "\uc7a0\uaca8 \uc788\uc74c \u00b7 \uc7a0\uae08 \ud574\uc81c\ud558\ub824\uba74 \ud130\ubbf8\ub110\uc5d0\uc11c agent-bios unlock"
     },
     {
      "pointer": "/frames/1/elements/1/state",
@@ -820,12 +976,12 @@
     },
     {
      "pointer": "/frames/1/elements/2/label",
-     "value": "잠금 해제"
+     "value": "\uc7a0\uae08 \ud574\uc81c"
     },
     {
      "pointer": "/frames/1/elements/2/marks",
      "value": [
-      "›"
+      "\u203a"
      ]
     },
     {
@@ -854,7 +1010,7 @@
     },
     {
      "pointer": "/frames/2/elements/0/label",
-     "value": "로컬 프로필 · 잠김"
+     "value": "\ub85c\uceec \ud504\ub85c\ud544 \u00b7 \uc7a0\uae40"
     },
     {
      "pointer": "/frames/2/elements/1/element_id",
@@ -866,7 +1022,7 @@
     },
     {
      "pointer": "/frames/2/elements/1/label",
-     "value": "잠겨 있음 · 잠금 해제하려면 터미널에서 agent-bios unlock"
+     "value": "\uc7a0\uaca8 \uc788\uc74c \u00b7 \uc7a0\uae08 \ud574\uc81c\ud558\ub824\uba74 \ud130\ubbf8\ub110\uc5d0\uc11c agent-bios unlock"
     },
     {
      "pointer": "/frames/2/elements/1/state",
@@ -882,12 +1038,12 @@
     },
     {
      "pointer": "/frames/2/elements/2/label",
-     "value": "잠금 해제"
+     "value": "\uc7a0\uae08 \ud574\uc81c"
     },
     {
      "pointer": "/frames/2/elements/2/marks",
      "value": [
-      "›"
+      "\u203a"
      ]
     },
     {
@@ -916,7 +1072,7 @@
     },
     {
      "pointer": "/frames/3/elements/0/label",
-     "value": "로컬 프로필 · 잠김"
+     "value": "\ub85c\uceec \ud504\ub85c\ud544 \u00b7 \uc7a0\uae40"
     },
     {
      "pointer": "/frames/3/elements/1/element_id",
@@ -928,7 +1084,7 @@
     },
     {
      "pointer": "/frames/3/elements/1/label",
-     "value": "잠겨 있음 · 잠금 해제하려면 터미널에서 agent-bios unlock"
+     "value": "\uc7a0\uaca8 \uc788\uc74c \u00b7 \uc7a0\uae08 \ud574\uc81c\ud558\ub824\uba74 \ud130\ubbf8\ub110\uc5d0\uc11c agent-bios unlock"
     },
     {
      "pointer": "/frames/3/elements/1/state",
@@ -944,12 +1100,12 @@
     },
     {
      "pointer": "/frames/3/elements/2/label",
-     "value": "잠금 해제"
+     "value": "\uc7a0\uae08 \ud574\uc81c"
     },
     {
      "pointer": "/frames/3/elements/2/marks",
      "value": [
-      "›"
+      "\u203a"
      ]
     },
     {
@@ -970,7 +1126,7 @@
     },
     {
      "pointer": "/frames/3/elements/3/label",
-     "value": "이 화면에서는 풀 수 없음 · 터미널에서 agent-bios unlock 실행"
+     "value": "\uc774 \ud654\uba74\uc5d0\uc11c\ub294 \ud480 \uc218 \uc5c6\uc74c \u00b7 \ud130\ubbf8\ub110\uc5d0\uc11c agent-bios unlock \uc2e4\ud589"
     },
     {
      "pointer": "/frames/3/elements/3/marks",
@@ -1008,7 +1164,7 @@
     },
     {
      "pointer": "/local_access_generation",
-     "value": 8
+     "value": 1
     },
     {
      "pointer": "/operation",
@@ -1043,6 +1199,14 @@
     {
      "pointer": "/request_id",
      "value": "@late_read_request"
+    },
+    {
+     "pointer": "/outcome/material_gaps/1/code",
+     "value": "access_generation_moved"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 2
     }
    ]
   },
@@ -1053,6 +1217,10 @@
     {
      "pointer": "/profile_id",
      "value": "@profile"
+    },
+    {
+     "pointer": "/expected_generation",
+     "value": 2
     }
    ]
   },
@@ -1074,7 +1242,7 @@
     },
     {
      "pointer": "/local_access_generation",
-     "value": 8
+     "value": 2
     },
     {
      "pointer": "/operation",
@@ -1112,7 +1280,7 @@
     },
     {
      "pointer": "/expected_generation",
-     "value": 8
+     "value": 2
     },
     {
      "pointer": "/profile_id",
@@ -1138,7 +1306,7 @@
     },
     {
      "pointer": "/local_access_generation",
-     "value": 8
+     "value": 2
     },
     {
      "pointer": "/operation",
@@ -1173,6 +1341,10 @@
     {
      "pointer": "/profile_id",
      "value": "@profile"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 2
     }
    ]
   },
@@ -1202,7 +1374,7 @@
     },
     {
      "pointer": "/local_access_generation",
-     "value": 8
+     "value": 2
     },
     {
      "pointer": "/operation",
@@ -1232,7 +1404,7 @@
    "set": [
     {
      "pointer": "/access_generation",
-     "value": 8
+     "value": 2
     },
     {
      "pointer": "/outcome/material_gaps/0/code",
@@ -1254,7 +1426,7 @@
    "set": [
     {
      "pointer": "/local_access_generation",
-     "value": 8
+     "value": 2
     },
     {
      "pointer": "/request_id",
@@ -1288,7 +1460,7 @@
     },
     {
      "pointer": "/local_access_generation",
-     "value": 8
+     "value": 2
     },
     {
      "pointer": "/operation",
@@ -1321,7 +1493,7 @@
    "set": [
     {
      "pointer": "/access_generation",
-     "value": 8
+     "value": 2
     },
     {
      "pointer": "/outcome/admission",
@@ -1334,6 +1506,352 @@
     {
      "pointer": "/request_id",
      "value": "@fresh_read_request"
+    }
+   ]
+  },
+  {
+   "name": "sign_out_change",
+   "from": "c02/lock.json",
+   "set": [
+    {
+     "pointer": "/change/transition",
+     "value": "sign_out"
+    },
+    {
+     "pointer": "/expected_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    }
+   ]
+  },
+  {
+   "name": "sign_out_request",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/operation",
+     "value": "access.transition"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#sign_out_change"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@sign_out_transition"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    }
+   ]
+  },
+  {
+   "name": "sign_out_state",
+   "from": "c02/locked_state.json",
+   "set": [
+    {
+     "pointer": "/access_generation",
+     "value": 3
+    },
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:sign_out_at"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/state/because",
+     "value": "sign_out"
+    },
+    {
+     "pointer": "/state/is",
+     "value": "signed_out"
+    }
+   ]
+  },
+  {
+   "name": "signed_out_script",
+   "from": "c12/a_launcher_driven_at_80_by_24.json",
+   "drop": [
+    "/inputs/3",
+    "/inputs/2",
+    "/inputs/1"
+   ],
+   "set": [
+    {
+     "pointer": "/entrance/name",
+     "value": "locked_scope"
+    }
+   ]
+  },
+  {
+   "name": "signed_out_script_request",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/operation",
+     "value": "surface.drive"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#signed_out_script"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@signed_out_drive_request"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 3
+    }
+   ]
+  },
+  {
+   "name": "signed_out_trace",
+   "from": "c12/a_locked_entry_that_shows_no_private_titles.json",
+   "drop": [
+    "/candidate_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/script_digest",
+     "value": "#signed_out_script"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:signed_out_driven_at"
+    },
+    {
+     "pointer": "/frames/0/access",
+     "value": "signed_out"
+    },
+    {
+     "pointer": "/frames/0/view/origin/name",
+     "value": "locked_scope"
+    },
+    {
+     "pointer": "/frames/0/view/selected_scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/0/elements/0/label",
+     "value": "\ub85c\uceec \ud504\ub85c\ud544 \u00b7 \ub85c\uadf8\uc544\uc6c3"
+    },
+    {
+     "pointer": "/frames/0/elements/1/element_id",
+     "value": "blocker.signed_out"
+    },
+    {
+     "pointer": "/frames/0/elements/1/label",
+     "value": "\ub85c\uadf8\uc544\uc6c3\ub428 \u00b7 \ub2e4\uc2dc \ub85c\uadf8\uc778\ud558\ub824\uba74 \ud130\ubbf8\ub110\uc5d0\uc11c agent-bios sign-in"
+    },
+    {
+     "pointer": "/frames/0/elements/2/element_id",
+     "value": "action.sign_in"
+    },
+    {
+     "pointer": "/frames/0/elements/2/label",
+     "value": "\ub2e4\uc2dc \ub85c\uadf8\uc778"
+    },
+    {
+     "pointer": "/frames/1/after",
+     "value": 1
+    },
+    {
+     "pointer": "/frames/1/terminal/columns",
+     "value": 80
+    },
+    {
+     "pointer": "/frames/1/terminal/rows",
+     "value": 24
+    },
+    {
+     "pointer": "/frames/1/locale",
+     "value": "ko"
+    },
+    {
+     "pointer": "/frames/1/access",
+     "value": "signed_out"
+    },
+    {
+     "pointer": "/frames/1/view/view",
+     "value": "locked"
+    },
+    {
+     "pointer": "/frames/1/view/origin/name",
+     "value": "locked_scope"
+    },
+    {
+     "pointer": "/frames/1/view/origin/root_origin",
+     "value": "owner"
+    },
+    {
+     "pointer": "/frames/1/view/missing_bodies",
+     "value": []
+    },
+    {
+     "pointer": "/frames/1/dispatched",
+     "value": []
+    },
+    {
+     "pointer": "/frames/1/calls",
+     "value": []
+    },
+    {
+     "pointer": "/frames/1/elements/0/element_id",
+     "value": "context.location"
+    },
+    {
+     "pointer": "/frames/1/elements/0/role",
+     "value": "context"
+    },
+    {
+     "pointer": "/frames/1/elements/0/label",
+     "value": "\ub85c\uceec \ud504\ub85c\ud544 \u00b7 \ub85c\uadf8\uc544\uc6c3"
+    },
+    {
+     "pointer": "/frames/1/elements/0/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/1/elements/0/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/0/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/1/elements/0/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/0/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/1/elements/1/element_id",
+     "value": "blocker.signed_out"
+    },
+    {
+     "pointer": "/frames/1/elements/1/role",
+     "value": "blocker"
+    },
+    {
+     "pointer": "/frames/1/elements/1/label",
+     "value": "\ub85c\uadf8\uc544\uc6c3\ub428 \u00b7 \ub2e4\uc2dc \ub85c\uadf8\uc778\ud558\ub824\uba74 \ud130\ubbf8\ub110\uc5d0\uc11c agent-bios sign-in"
+    },
+    {
+     "pointer": "/frames/1/elements/1/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/1/elements/1/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/1/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/1/elements/1/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/1/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/1/elements/1/state",
+     "value": "blocked"
+    },
+    {
+     "pointer": "/frames/1/elements/2/element_id",
+     "value": "action.sign_in"
+    },
+    {
+     "pointer": "/frames/1/elements/2/role",
+     "value": "action"
+    },
+    {
+     "pointer": "/frames/1/elements/2/label",
+     "value": "\ub2e4\uc2dc \ub85c\uadf8\uc778"
+    },
+    {
+     "pointer": "/frames/1/elements/2/marks",
+     "value": [
+      "\u203a"
+     ]
+    },
+    {
+     "pointer": "/frames/1/elements/2/focused",
+     "value": true
+    },
+    {
+     "pointer": "/frames/1/elements/2/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/1/elements/2/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/2/shown",
+     "value": "whole"
     }
    ]
   }
@@ -1407,6 +1925,24 @@
    }
   },
   {
+   "name": "register_instr",
+   "request": "register_instr_request",
+   "carries": [
+    "instr_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "instr_home_stored"
+    ],
+    "head": "instr_h0"
+   }
+  },
+  {
    "name": "commit_instr",
    "request": "instr_commit_request",
    "carries": [
@@ -1442,23 +1978,6 @@
    }
   },
   {
-   "name": "drive_entry",
-   "request": "script_request",
-   "carries": [
-    "script"
-   ],
-   "answer": {
-    "stage": "previewed",
-    "local_effect": "none",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "script_trace"
-    ]
-   }
-  },
-  {
    "name": "late_read_while_locked",
    "request": "while_locked_request",
    "carries": [
@@ -1473,6 +1992,23 @@
     "recovery": [],
     "returns": [
      "while_locked_decision"
+    ]
+   }
+  },
+  {
+   "name": "drive_entry",
+   "request": "script_request",
+   "carries": [
+    "script"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "script_trace"
     ]
    }
   },
@@ -1542,6 +2078,48 @@
      "fresh_decision"
     ]
    }
+  },
+  {
+   "name": "sign_out_profile",
+   "request": "sign_out_request",
+   "carries": [
+    "sign_out_change"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "sign_out_state"
+    ]
+   }
+  },
+  {
+   "name": "drive_signed_out_entry",
+   "request": "signed_out_script_request",
+   "carries": [
+    "signed_out_script"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "signed_out_trace"
+    ]
+   }
   }
- ]
+ ],
+ "world": {
+  "during": [
+   {
+    "step": "late_read_while_locked",
+    "runs": "lock_profile"
+   }
+  ]
+ }
 }

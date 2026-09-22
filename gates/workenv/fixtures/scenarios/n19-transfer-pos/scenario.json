@@ -64,6 +64,10 @@
   {
    "id": "req_d45b70ab78ce93d24a058db19935fda5",
    "name": "read_after_retirement_id"
+  },
+  {
+   "id": "req_8c4f3262dfa4047cfbfba6c697339f4a",
+   "name": "handover_acceptance_request_id"
   }
  ],
  "joins": [
@@ -356,6 +360,76 @@
    "digest_of": "handover",
    "pointer": "/payload_digest",
    "record": "handover_request"
+  },
+  {
+   "digest_of": "handover_request",
+   "pointer": "/request_digest",
+   "record": "handover_acceptance_payload"
+  },
+  {
+   "digest_of": "team_policy",
+   "pointer": "/policy_digest",
+   "record": "handover_acceptance_payload"
+  },
+  {
+   "digest_of": "handover_acceptance_payload",
+   "pointer": "/payload_digest",
+   "record": "handover_acceptance_request"
+  },
+  {
+   "digest_of": "handover_acceptance_request",
+   "pointer": "/request_digest",
+   "record": "bora_accepts_handover_receipt"
+  },
+  {
+   "minted": "bora_accepts_handover_head",
+   "pointer": "/head_digest",
+   "record": "bora_accepts_handover_receipt"
+  },
+  {
+   "minted": "bora_accepts_handover_sequence",
+   "pointer": "/sequence",
+   "record": "bora_accepts_handover_receipt"
+  },
+  {
+   "minted": "bora_accepts_handover_committed_at",
+   "pointer": "/committed_at",
+   "record": "bora_accepts_handover_receipt"
+  },
+  {
+   "minted": "handover_acceptance",
+   "pointer": "/approval_id",
+   "record": "handover_acceptance_stored"
+  },
+  {
+   "digest_of": "handover_request",
+   "pointer": "/request_digest",
+   "record": "handover_acceptance_stored"
+  },
+  {
+   "digest_of": "team_policy",
+   "pointer": "/policy_digest",
+   "record": "handover_acceptance_stored"
+  },
+  {
+   "minted": "handover_acceptance_at",
+   "pointer": "/at",
+   "record": "handover_acceptance_stored"
+  },
+  {
+   "digest_of": "bora_accepts_handover_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "bora_accepts_handover_result"
+  },
+  {
+   "digest_of": "handover_acceptance_request",
+   "pointer": "/request_digest",
+   "record": "bora_accepts_handover_result"
+  },
+  {
+   "digest_of": "handover_acceptance_stored",
+   "pointer": "/outputs/0/digest",
+   "record": "bora_accepts_handover_result"
   },
   {
    "digest_of": "handover_request",
@@ -818,6 +892,31 @@
    "name": "team_policy",
    "shape": "pol",
    "step": "found"
+  },
+  {
+   "name": "bora_accepts_handover_committed_at",
+   "shape": "instant",
+   "step": "bora_accepts_handover"
+  },
+  {
+   "name": "bora_accepts_handover_head",
+   "shape": "digest",
+   "step": "bora_accepts_handover"
+  },
+  {
+   "name": "bora_accepts_handover_sequence",
+   "shape": "integer",
+   "step": "bora_accepts_handover"
+  },
+  {
+   "name": "handover_acceptance",
+   "shape": "apr",
+   "step": "bora_accepts_handover"
+  },
+  {
+   "name": "handover_acceptance_at",
+   "shape": "instant",
+   "step": "bora_accepts_handover"
   },
   {
    "name": "hand_finalizer_committed_at",
@@ -1479,6 +1578,107 @@
      },
      "resource_id": "tem_08c85cccee925874fce2a29e5a0354f2"
     }
+   }
+  },
+  {
+   "digest": "75c38e24f341112b8336fcfb5db36ae2fc5343a4c1889e6b0f544c31eaad4d62",
+   "name": "handover_acceptance_payload",
+   "record": {
+    "kind": "approval",
+    "policy_digest": "681a8906091b7f75d3af695ca6dfb40f1703892b3924f04ecfe881cde265f966",
+    "request_digest": "eda3925de9a104b26386e651ab888efd13c63ac35382fbd23986369a8150c9c7",
+    "schema": 1,
+    "verdict": "approved"
+   }
+  },
+  {
+   "digest": "dc3a9c99fe58793cda788687ca4a32d7cd192d57b600523b96f08e59a5726bf4",
+   "name": "handover_acceptance_request",
+   "record": {
+    "action": "review",
+    "actor": {
+     "device_id": "dev_ae4457b3a971a50e9cefffe88caa29a5",
+     "principal_id": "prn_9257c5b7d4f886c28f52400cc15fd9ed",
+     "profile_id": "prf_d03f304817c8426ea7176b11da7bb47d"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "team.approval.record",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_08c85cccee925874fce2a29e5a0354f2"
+    },
+    "payload_digest": "75c38e24f341112b8336fcfb5db36ae2fc5343a4c1889e6b0f544c31eaad4d62",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_8c4f3262dfa4047cfbfba6c697339f4a",
+    "schema": 1,
+    "target": {
+     "resource_id": "req_7a04c52ae344a5a09df662bcc713f414"
+    }
+   }
+  },
+  {
+   "digest": "c7c6f968f68354facbd2a98e40fcd71692d5556903d0dc025eccf2196fee796b",
+   "name": "bora_accepts_handover_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "3c3c61f676f1a5731efdc25db5b2d6d36287494c9c25aad62c5453e804ca3a1b",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_08c85cccee925874fce2a29e5a0354f2"
+    },
+    "request_digest": "dc3a9c99fe58793cda788687ca4a32d7cd192d57b600523b96f08e59a5726bf4",
+    "request_id": "req_8c4f3262dfa4047cfbfba6c697339f4a",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "req_7a04c52ae344a5a09df662bcc713f414"
+    }
+   }
+  },
+  {
+   "digest": "fb85f217fdf207b7e23851910ccdf15fe44d5b2df269b6f4b2b2cb6d59a5d63e",
+   "name": "handover_acceptance_stored",
+   "record": {
+    "approval_id": "apr_ed4820e3387a521e498212fcb55f2437",
+    "approver_kind": {
+     "kind": "human"
+    },
+    "approver_principal_id": "prn_9257c5b7d4f886c28f52400cc15fd9ed",
+    "at": "2000-01-01T00:00:00Z",
+    "kind": "approval",
+    "policy_digest": "681a8906091b7f75d3af695ca6dfb40f1703892b3924f04ecfe881cde265f966",
+    "request_digest": "eda3925de9a104b26386e651ab888efd13c63ac35382fbd23986369a8150c9c7",
+    "schema": 1,
+    "verdict": "approved"
+   }
+  },
+  {
+   "digest": "9055812abb656ac263e4b878be1d2a65c20636ae97a0edf36ba7516cb3a105bb",
+   "name": "bora_accepts_handover_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "c7c6f968f68354facbd2a98e40fcd71692d5556903d0dc025eccf2196fee796b",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "fb85f217fdf207b7e23851910ccdf15fe44d5b2df269b6f4b2b2cb6d59a5d63e",
+      "kind": "approval"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "dc3a9c99fe58793cda788687ca4a32d7cd192d57b600523b96f08e59a5726bf4",
+    "request_id": "req_8c4f3262dfa4047cfbfba6c697339f4a",
+    "schema": 1,
+    "supported_recovery": []
    }
   },
   {
@@ -2185,8 +2385,8 @@
    }
   }
  ],
- "says": "Two people on two isolated devices: the founder on a laptop and Bora on a desktop. The founder proposes a reviewed Team finalized on the laptop, with Bora nominated as reviewer and recovery; the owner holds it in review with the sealed proposal, Bora accepts the exact founding request (team.approval.record) and the same request then commits, returning the policy, the founder's membership by founding and Bora's by nomination, a grant each, an active state and the founding epoch with the laptop as finalizer. The founder hands the finalizer duty to Bora (team.stewardship.transfer), naming Bora's desktop as the member device where finalization runs next; the owner stores the handover and the successor epoch, which names the founding epoch as its predecessor and fences the laptop, and a read from the desktop shows both memberships, both grants and the state unchanged. The laptop then holds three pieces of unique work: a draft purpose kept as a candidate, a rename sent just as the link to the desktop drops (its outcome unknown), and a purpose change made while the desktop is out of reach (blocked on the finalizer, kept in the laptop's outbox). When reach returns the laptop asks the rename again with the same request and learns it committed. The founder then retires the laptop from the Team (team.device.retire, on the Team at its current head) with each item settled one named way: the draft transferred to Bora, the outbox entry kept by the desktop, the unknown operation reconciled by naming the result that settled it. The owner stores the retirement. A last read from the desktop shows the founder's and Bora's memberships and grants still current and the policy unchanged: the handover moved one duty and the retirement removed only the laptop, neither removing a duty nor revoking another credential.",
- "spec_sha256": "9c392c394c5a53635276d19f6ace765bd4998e6a3f8d41286a1cebf7dacff7da",
+ "says": "Two people on two isolated devices: the founder on a laptop and Bora on a desktop. The founder proposes a reviewed Team finalized on the laptop, with Bora nominated as reviewer and recovery; the owner holds it in review with the sealed proposal, Bora accepts the exact founding request (team.approval.record) and the same request then commits, returning the policy, the founder's membership by founding and Bora's by nomination, a grant each, an active state and the founding epoch with the laptop as finalizer. Bora accepts the exact handover request the founder is about to seal (team.approval.record), recorded before it commits. The founder then hands the finalizer duty to Bora (team.stewardship.transfer), naming Bora's desktop as the device where finalization runs next; the owner stores the handover and the successor epoch, which names the founding epoch as its predecessor and fences the laptop, and a read from the desktop shows both memberships, both grants and the state unchanged. The laptop then holds three pieces of unique work: a draft purpose kept as a candidate, a rename sent just as the link to the desktop drops (its outcome unknown), and a purpose change made while the desktop is out of reach (blocked on the finalizer, kept in the laptop's outbox). When reach returns the laptop asks the rename again with the same request and learns it committed. The founder then retires the laptop from the Team (team.device.retire, on the Team at its current head) with each item settled one named way: the draft transferred to Bora, the outbox entry kept by the desktop, the unknown operation reconciled by naming the result that settled it. The owner stores the retirement. A last read from the desktop shows the founder's and Bora's memberships and grants still current and the policy unchanged: the handover moved one duty and the retirement removed only the laptop, neither removing a duty nor revoking another credential.",
+ "spec_sha256": "03ee2be4c3308f9ed53f6629f53837c146aa5ecbb21c8cba6f4dd3d51ab1763e",
  "steps": [
   {
    "carries": [
@@ -2240,6 +2440,22 @@
    ],
    "submits": [
     "proposed_policy"
+   ]
+  },
+  {
+   "carries": [
+    "handover_acceptance_payload",
+    "handover_request"
+   ],
+   "name": "bora_accepts_handover",
+   "process": "desktop",
+   "request": "handover_acceptance_request",
+   "result": "bora_accepts_handover_result",
+   "returns": [
+    "handover_acceptance_stored"
+   ],
+   "submits": [
+    "handover_request"
    ]
   },
   {

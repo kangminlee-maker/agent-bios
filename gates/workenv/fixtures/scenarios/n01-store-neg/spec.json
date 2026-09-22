@@ -1,6 +1,6 @@
 {
  "case": "N01-STORE-NEG",
- "says": "Alice binds her laptop key and registers a private notes source, then submits records the owner must refuse at admission, each refused with exactly the code and pointer its contract states and nothing written: a key binding that names its own binding_id (runtime_owned_field /binding_id, a C01 kind), a revision that dates itself (runtime_owned_field /produced_at, C01), a package envelope that names Alice's enrolment binding as its trust yet carries the key it asks to be trusted by (unknown_field /package_public_key, C09), a commit request carrying an access token (unknown_field /access_token, C03), and a backup set naming one member twice (duplicate_item /members/4, C03). Then a revision signed with her key is altered after signing and committed with that signature among its proofs: the owner verifies the signature against the altered bytes and refuses with signature_invalid at /proof_digests/0. Querying two of the admission-refused request ids returns request_not_held, and committing the revision exactly as signed, still expecting the head the registration made, is accepted — so no refused submission stored a record or moved the head. What must not happen: a refused record stored, a refusal with another code or pointer, or the altered bytes accepted under the original signature.",
+ "says": "Alice binds her laptop key and registers a private notes source, then submits records the owner must refuse at admission, each refused with exactly the code and pointer its contract states and nothing written: a key binding that names its own binding_id (runtime_owned_field /binding_id, a C01 kind), a revision that dates itself (runtime_owned_field /produced_at, C01), a package envelope that names Alice's enrolment binding as its trust yet carries the key it asks to be trusted by (unknown_field /package_public_key, C09), a commit request carrying an access token (unknown_field /access_token, C03), and a backup set naming one member twice (duplicate_item /members/4, C03). Also submitted: an operation query naming a schema version this reader does not hold, refused with unsupported_schema_version at /schema. Then a revision signed with her key is altered after signing and committed with that signature among its proofs: the owner verifies the signature against the altered bytes and refuses with signature_invalid at /proof_digests/0. Querying two of the admission-refused request ids returns request_not_held, and committing the revision exactly as signed, still expecting the head the registration made, is accepted — so no refused submission stored a record or moved the head. What must not happen: a refused record stored, a refusal with another code or pointer, or the altered bytes accepted under the original signature.",
  "ids": [
   {
    "name": "alice",
@@ -60,6 +60,10 @@
   },
   {
    "name": "ask_bind_request",
+   "prefix": "req"
+  },
+  {
+   "name": "bad_version_request",
    "prefix": "req"
   }
  ],
@@ -899,6 +903,70 @@
      "value": "@bind_again_request"
     }
    ]
+  },
+  {
+   "name": "bad_version_query",
+   "from": "dispatch/version_this_reader_does_not_hold.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@dated_request"
+    }
+   ]
+  },
+  {
+   "name": "ask_with_bad_version",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bad_version_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.query"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@dated_request"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#bad_version_query"
+    }
+   ]
   }
  ],
  "steps": [
@@ -1005,6 +1073,20 @@
      "record": "backup_twice",
      "code": "duplicate_item",
      "pointer": "/members/4"
+    }
+   ]
+  },
+  {
+   "name": "query_with_an_unsupported_schema_version",
+   "request": "ask_with_bad_version",
+   "carries": [
+    "bad_version_query"
+   ],
+   "refused": [
+    {
+     "record": "bad_version_query",
+     "code": "unsupported_schema_version",
+     "pointer": "/schema"
     }
    ]
   },

@@ -32,6 +32,25 @@
       "items": {
         "$ref": "#/$defs/surface_input"
       }
+    },
+    "link": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "What the entrance opens when it is an exact link or an explicit host route: the element it points at, the draft request it resumes, and the view Back returns to.",
+      "required": [
+        "target"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/element_ref"
+        },
+        "draft_request_id": {
+          "$ref": "#/$defs/request_id"
+        },
+        "return_view": {
+          "$ref": "#/$defs/surface_view_name"
+        }
+      }
     }
   },
   "$defs": {
@@ -213,6 +232,311 @@
         },
         "locale": {
           "$ref": "#/$defs/locale"
+        }
+      }
+    },
+    "surface_view_name": {
+      "enum": [
+        "hub",
+        "entry",
+        "setup",
+        "locked",
+        "dashboard",
+        "w01",
+        "w02",
+        "w03",
+        "w04",
+        "w05",
+        "w06",
+        "w07",
+        "w08",
+        "w09",
+        "w10"
+      ]
+    },
+    "request_id": {
+      "type": "string",
+      "pattern": "^req_[0-9a-f]{32}$"
+    },
+    "element_ref": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/request_ref"
+        },
+        {
+          "$ref": "#/$defs/record_ref"
+        },
+        {
+          "$ref": "#/$defs/part_ref"
+        },
+        {
+          "$ref": "#/$defs/source_ref"
+        },
+        {
+          "$ref": "#/$defs/route_ref"
+        },
+        {
+          "$ref": "#/$defs/position_ref"
+        },
+        {
+          "$ref": "#/$defs/scope_ref"
+        },
+        {
+          "$ref": "#/$defs/link_ref"
+        }
+      ]
+    },
+    "link_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "link_id"
+      ],
+      "properties": {
+        "ref": {
+          "const": "link"
+        },
+        "link_id": {
+          "type": "string",
+          "pattern": "^lnk_[0-9a-f]{32}$"
+        }
+      }
+    },
+    "scope_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "scope"
+      ],
+      "properties": {
+        "ref": {
+          "const": "scope"
+        },
+        "scope": {
+          "$ref": "#/$defs/scope"
+        }
+      }
+    },
+    "scope": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/repository_scope"
+        },
+        {
+          "$ref": "#/$defs/personal_scope"
+        },
+        {
+          "$ref": "#/$defs/team_scope"
+        }
+      ]
+    },
+    "team_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "team_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "team"
+        },
+        "team_id": {
+          "$ref": "#/$defs/team_id"
+        }
+      }
+    },
+    "team_id": {
+      "type": "string",
+      "pattern": "^tem_[0-9a-f]{32}$"
+    },
+    "personal_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "principal_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "personal"
+        },
+        "principal_id": {
+          "$ref": "#/$defs/principal_id"
+        }
+      }
+    },
+    "principal_id": {
+      "type": "string",
+      "pattern": "^prn_[0-9a-f]{32}$"
+    },
+    "repository_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "repository_id"
+      ],
+      "properties": {
+        "layer": {
+          "const": "repository"
+        },
+        "repository_id": {
+          "$ref": "#/$defs/repository_id"
+        }
+      }
+    },
+    "repository_id": {
+      "type": "string",
+      "pattern": "^rep_[0-9a-f]{32}$"
+    },
+    "position_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "position",
+        "view"
+      ],
+      "properties": {
+        "ref": {
+          "const": "position"
+        },
+        "position": {
+          "$ref": "#/$defs/collection_position"
+        },
+        "view": {
+          "enum": [
+            "original",
+            "effective"
+          ]
+        }
+      }
+    },
+    "collection_position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "role"
+      ],
+      "properties": {
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "role": {
+          "$ref": "#/$defs/role"
+        }
+      }
+    },
+    "role": {
+      "enum": [
+        "instructions",
+        "knowledge",
+        "memory"
+      ]
+    },
+    "route_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "route_id"
+      ],
+      "properties": {
+        "ref": {
+          "const": "route"
+        },
+        "route_id": {
+          "$ref": "#/$defs/route_id"
+        }
+      }
+    },
+    "route_id": {
+      "type": "string",
+      "pattern": "^rte_[0-9a-f]{32}$"
+    },
+    "source_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A source by its id, apart from any revision or view of it the screen shows.",
+      "required": [
+        "ref",
+        "source_id"
+      ],
+      "properties": {
+        "ref": {
+          "const": "source"
+        },
+        "source_id": {
+          "$ref": "#/$defs/source_id"
+        }
+      }
+    },
+    "source_id": {
+      "type": "string",
+      "pattern": "^src_[0-9a-f]{32}$"
+    },
+    "part_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One part of a record: the record by digest and the part by the id the record gives it, such as a node or relation of a knowledge model or a field of a form profile.",
+      "required": [
+        "ref",
+        "digest",
+        "part_id"
+      ],
+      "properties": {
+        "ref": {
+          "const": "part"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "part_id": {
+          "$ref": "#/$defs/model_id"
+        }
+      }
+    },
+    "model_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "record_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "digest"
+      ],
+      "properties": {
+        "ref": {
+          "const": "record"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "request_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "request_id"
+      ],
+      "properties": {
+        "ref": {
+          "const": "request"
+        },
+        "request_id": {
+          "$ref": "#/$defs/request_id"
         }
       }
     }

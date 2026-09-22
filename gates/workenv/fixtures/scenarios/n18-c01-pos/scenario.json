@@ -479,6 +479,21 @@
    "record": "begin_bob_link_request"
   },
   {
+   "digest_of": "bob_attempt_asked",
+   "pointer": "/signed_digest",
+   "record": "bob_attempt_control_proof"
+  },
+  {
+   "minted": "bob_binding",
+   "pointer": "/signer_binding_id",
+   "record": "bob_attempt_control_proof"
+  },
+  {
+   "digest_of": "bob_attempt_control_proof",
+   "pointer": "/proof_digests/0",
+   "record": "begin_bob_link_request"
+  },
+  {
    "digest_of": "begin_bob_link_request",
    "pointer": "/request_digest",
    "record": "begin_bob_link_receipt"
@@ -921,6 +936,11 @@
   {
    "digest_of": "recovery_evidence",
    "pointer": "/proof_digests/0",
+   "record": "recover_key_request"
+  },
+  {
+   "digest_of": "admitting_policy",
+   "pointer": "/policy_digests/0",
    "record": "recover_key_request"
   },
   {
@@ -2155,7 +2175,19 @@
    }
   },
   {
-   "digest": "55f8039118e98a69f02ec814f0fc45986a62b9c6a8d4dc4c3364c15fd1c5246b",
+   "digest": "dde93b34ccaf56fbf3d5fbb069b6c5644d0b952973c01163a834929a665ec869",
+   "name": "bob_attempt_control_proof",
+   "record": {
+    "kind": "signature_envelope",
+    "namespace": "agent-bios/sign_in_attempt",
+    "schema": 1,
+    "signed_digest": "4f2fadf275f0893f4b335f729966c4f455440cdaddf6001920fe74df9233346c",
+    "signer_binding_id": "bnd_5bd0a4a93bf766197f509231090df040",
+    "sshsig": "U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+   }
+  },
+  {
+   "digest": "1ee9b50bcc2b6c131aaf4f806b618c4e37866b80ddaaaa291d54886b889eedf1",
    "name": "begin_bob_link_request",
    "record": {
     "action": "local_profile",
@@ -2175,7 +2207,9 @@
     },
     "payload_digest": "4f2fadf275f0893f4b335f729966c4f455440cdaddf6001920fe74df9233346c",
     "policy_digests": [],
-    "proof_digests": [],
+    "proof_digests": [
+     "dde93b34ccaf56fbf3d5fbb069b6c5644d0b952973c01163a834929a665ec869"
+    ],
     "request_id": "req_7705732ce2d32afbeaaf8bfe212bf173",
     "schema": 1,
     "target": {
@@ -2184,7 +2218,7 @@
    }
   },
   {
-   "digest": "556692a819a1a4453b62d46481b67df060df2996e13d46a8de3e0fef39c81174",
+   "digest": "989ce7e99cfc7be446ae5d21107a4f6aa5a1a72065c238e6b0c9c895015efa74",
    "name": "begin_bob_link_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -2194,7 +2228,7 @@
      "layer": "personal",
      "principal_id": "prn_960ca86b49bc7972d1660f701dc9150f"
     },
-    "request_digest": "55f8039118e98a69f02ec814f0fc45986a62b9c6a8d4dc4c3364c15fd1c5246b",
+    "request_digest": "1ee9b50bcc2b6c131aaf4f806b618c4e37866b80ddaaaa291d54886b889eedf1",
     "request_id": "req_7705732ce2d32afbeaaf8bfe212bf173",
     "schema": 1,
     "sequence": 1,
@@ -2222,14 +2256,14 @@
    }
   },
   {
-   "digest": "82211f4d57b1bc4281196b39bd3ef5ea32456dd1c3fd0020c7f5026bd8edede0",
+   "digest": "38bc2bf7af7d838d481a7fae9ee82be640c0ecc242951b60cd49ce8e8c8ab5ac",
    "name": "begin_bob_link_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "556692a819a1a4453b62d46481b67df060df2996e13d46a8de3e0fef39c81174",
+     "receipt_digest": "989ce7e99cfc7be446ae5d21107a4f6aa5a1a72065c238e6b0c9c895015efa74",
      "stage": "committed"
     },
     "outputs": [
@@ -2239,7 +2273,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "55f8039118e98a69f02ec814f0fc45986a62b9c6a8d4dc4c3364c15fd1c5246b",
+    "request_digest": "1ee9b50bcc2b6c131aaf4f806b618c4e37866b80ddaaaa291d54886b889eedf1",
     "request_id": "req_7705732ce2d32afbeaaf8bfe212bf173",
     "schema": 1,
     "supported_recovery": []
@@ -2758,7 +2792,7 @@
    }
   },
   {
-   "digest": "9275eafdcee2bd2df3db8540b5528fbfdcd35532c78a467d5ec25b4b3bc4f3c0",
+   "digest": "4fa9846fa3a8ae4d090f73240d2aacc04b0b688cf935a62ccd8d155f2aec2d87",
    "name": "recover_key_request",
    "record": {
     "action": "local_profile",
@@ -2777,7 +2811,9 @@
      "principal_id": "prn_960ca86b49bc7972d1660f701dc9150f"
     },
     "payload_digest": "8f7d26c670ebae96b0eb7ca00619d6cb0b7199c51f13d8eb9465e761380e5696",
-    "policy_digests": [],
+    "policy_digests": [
+     "7d148e63fefaca3774c6d20c5e200974aa699b4cdc1039473ffb3dca42716093"
+    ],
     "proof_digests": [
      "fe9c6050f1211d20600f9bc1b6767b5941d70a01871b6f3def2f7b419c0cc3db"
     ],
@@ -2789,7 +2825,7 @@
    }
   },
   {
-   "digest": "1c2428e122a1c54ed2e4379524cfd56e8219f8a096b736f069c153d9a3c0ca55",
+   "digest": "918b044a9f789ebf66aa149a817ec7d96ffb5b69faf1f931c104269cb8cde837",
    "name": "bind_recovered_key_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -2799,7 +2835,7 @@
      "layer": "personal",
      "principal_id": "prn_960ca86b49bc7972d1660f701dc9150f"
     },
-    "request_digest": "9275eafdcee2bd2df3db8540b5528fbfdcd35532c78a467d5ec25b4b3bc4f3c0",
+    "request_digest": "4fa9846fa3a8ae4d090f73240d2aacc04b0b688cf935a62ccd8d155f2aec2d87",
     "request_id": "req_0753684af8b3cb1ee1236828c35fe231",
     "schema": 1,
     "sequence": 1,
@@ -2830,14 +2866,14 @@
    }
   },
   {
-   "digest": "1356fe1b750068560aecc693abbddc9e01c1e89a6f8c677560a2b76234b40197",
+   "digest": "760f4aa96ad4d02aedfb1d4eb4fc02a587e7a264e6ccb7b3abc0a20045168a07",
    "name": "bind_recovered_key_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "1c2428e122a1c54ed2e4379524cfd56e8219f8a096b736f069c153d9a3c0ca55",
+     "receipt_digest": "918b044a9f789ebf66aa149a817ec7d96ffb5b69faf1f931c104269cb8cde837",
      "stage": "committed"
     },
     "outputs": [
@@ -2847,7 +2883,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "9275eafdcee2bd2df3db8540b5528fbfdcd35532c78a467d5ec25b4b3bc4f3c0",
+    "request_digest": "4fa9846fa3a8ae4d090f73240d2aacc04b0b688cf935a62ccd8d155f2aec2d87",
     "request_id": "req_0753684af8b3cb1ee1236828c35fe231",
     "schema": 1,
     "supported_recovery": []
@@ -2855,7 +2891,7 @@
   }
  ],
  "says": "Three isolated runtimes: Alice's laptop, Bob's laptop and, later, a new desktop of Bob's. Alice founds a Team (becoming its member and issuing authority) and configures a Google connection for it that trusts one hosted domain, then sets the Team's policy so that a verified Google identity in that domain is admitted to read and use. Bob, on his own laptop with his own device key and no account, begins linking his Google identity to his principal. The callback matches the attempt's state and nonce and the connection's issuer, audience and domain: the answer is the sign-in evidence and an external-identity binding for Bob's principal, established by governed link. Alice, as the Team's authority on its finalizer laptop, admits Bob as a member through his provider claim, naming his sign-in evidence, under the policy that admits it. Later Bob loses his laptop. On a new desktop he explicitly begins a recovery sign-in for his principal; the verified evidence is what a new device key is then bound on, established by governed recovery, to the same principal id. What must not happen: the link or the membership landing on any principal but Bob's, a membership without the policy that admits the claim, or the recovery minting a new principal.",
- "spec_sha256": "ca47132b93f46315d0753d8429cdc0a11d143a866ae0f04c6e1e8aacfc841ce6",
+ "spec_sha256": "9230eca512db6492cb781f971ba6b433a67d4fc776296b159a1577dc80d63747",
  "steps": [
   {
    "at": "2026-09-21T09:00:00Z",
@@ -2938,7 +2974,8 @@
   {
    "at": "2026-09-21T09:00:00Z",
    "carries": [
-    "bob_attempt_asked"
+    "bob_attempt_asked",
+    "bob_attempt_control_proof"
    ],
    "name": "begin_bob_link",
    "process": "bob_laptop",

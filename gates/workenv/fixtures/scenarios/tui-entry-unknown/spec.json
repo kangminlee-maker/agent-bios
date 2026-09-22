@@ -1,6 +1,6 @@
 {
  "case": "TUI-ENTRY-UNKNOWN",
- "says": "A start from the launcher composes a preparation (stored as the requester's own record, with no receipt) and session.routing.activate hands it to a new Claude Code session, but the host never confirms: the owner answers unknown (outcome_unknown, provider effect unknown) with query and retry of the same request as recovery. Reopening the entry reads recent history (operation.history.read): the compose request confirmed previewed, the activation confirmed only as unknown, each with its time and local_only coverage, and a dated checkpoint whose note is the one written with the start. The reopened entry (surface.drive) keeps the activation as its draft request, shows it as unknown with its last confirmed stage and coverage, and focuses a check action on that same request; Esc goes to the hub, whose signal refers to the same request, and Enter returns to it unchanged; Enter on check dispatches one operation.query for that request id, which returns the same stored unknown result. Negative: back, return and reopening dispatch nothing, the start action is never pressed, no frame claims success or failure, reading history resumes nothing and the old note never becomes a work_request; a second activation of the same preparation under a new request id while the first is unknown is refused with resubmitted_while_unknown at /request_id and no recovery of its own: the way on is to query the first request, never to run it again.",
+ "says": "A start from the launcher composes a preparation (stored as the requester's own record, with no receipt) and session.routing.activate hands it to a new Claude Code session, but the host never confirms: the owner answers unknown (outcome_unknown, provider effect unknown) with query and retry of the same request as recovery. Reopening the entry reads recent history (operation.history.read): the compose request confirmed previewed, the activation confirmed only as unknown, each with its time and local_only coverage, and a dated checkpoint whose note is the one written with the start. The reopened entry (surface.drive) keeps the activation as its draft request, shows it as unknown with its last confirmed stage and coverage, and focuses a check action on that same request; Esc goes to the hub, whose signal refers to the same request, and Enter returns to it unchanged; Enter on check dispatches one operation.query for that request id, which returns the same stored unknown result; Tab moves focus to action.start, and Enter there dispatches nothing while the draft is unknown, showing it blocked and routing focus back to check. Negative: back, return and reopening dispatch nothing, pressing default start while unknown dispatches no new request and keeps the draft, routing to check instead of running it again, no frame claims success or failure, reading history resumes nothing and the old note never becomes a work_request; a second activation of the same preparation under a new request id while the first is unknown is refused with resubmitted_while_unknown at /request_id and no recovery of its own: the way on is to query the first request, never to run it again.",
  "ids": [
   {
    "name": "me",
@@ -84,6 +84,10 @@
   },
   {
    "name": "again_request",
+   "prefix": "req"
+  },
+  {
+   "name": "register_instr_rid",
    "prefix": "req"
   }
  ],
@@ -343,6 +347,106 @@
    ]
   },
   {
+   "name": "instr_home",
+   "from": "sources/home_of_a_repository_document.json",
+   "drop": [
+    "/registered_at"
+   ],
+   "set": [
+    {
+     "pointer": "/acceptance_authority/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/document_root",
+     "value": "AGENTS.md"
+    },
+    {
+     "pointer": "/home/binding_evidence_digest",
+     "value": "#repo_bound"
+    },
+    {
+     "pointer": "/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@instr"
+    }
+   ]
+  },
+  {
+   "name": "register_instr_request",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#instr_home"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@register_instr_rid"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@instr"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    }
+   ],
+   "drop": [
+    "/owner/principal_id"
+   ]
+  },
+  {
+   "name": "instr_home_stored",
+   "from": "instr_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:instr_registered_at"
+    }
+   ]
+  },
+  {
    "name": "instr_commit_request",
    "from": "c01/link_request.json",
    "drop": [
@@ -391,7 +495,11 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:instr_h0"
     }
    ]
   },
@@ -472,6 +580,16 @@
     {
      "pointer": "/probe_id",
      "value": "$prb:read_probe"
+    }
+   ]
+  },
+  {
+   "name": "read_probe_host_configuration",
+   "from": "c12/host_configuration_is_never_submitted.json",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:probe_measured_at"
     }
    ]
   },
@@ -687,7 +805,7 @@
     },
     {
      "pointer": "/frames/0/elements/1/label",
-     "value": "지침 · AGENTS.md"
+     "value": "\uc9c0\uce68 \u00b7 AGENTS.md"
     },
     {
      "pointer": "/frames/0/elements/1/marks",
@@ -733,7 +851,7 @@
     },
     {
      "pointer": "/frames/0/elements/2/label",
-     "value": "Claude Code 새 세션 시작"
+     "value": "Claude Code \uc0c8 \uc138\uc158 \uc2dc\uc791"
     },
     {
      "pointer": "/frames/0/elements/2/marks",
@@ -772,7 +890,7 @@
     },
     {
      "pointer": "/frames/0/elements/3/label",
-     "value": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로"
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
     },
     {
      "pointer": "/frames/0/elements/3/marks",
@@ -800,7 +918,7 @@
     },
     {
      "pointer": "/frames/1/elements/1/label",
-     "value": "지침 · AGENTS.md"
+     "value": "\uc9c0\uce68 \u00b7 AGENTS.md"
     },
     {
      "pointer": "/frames/1/elements/1/marks",
@@ -846,12 +964,12 @@
     },
     {
      "pointer": "/frames/1/elements/2/label",
-     "value": "Claude Code 새 세션 시작"
+     "value": "Claude Code \uc0c8 \uc138\uc158 \uc2dc\uc791"
     },
     {
      "pointer": "/frames/1/elements/2/marks",
      "value": [
-      "›"
+      "\u203a"
      ]
     },
     {
@@ -887,7 +1005,7 @@
     },
     {
      "pointer": "/frames/1/elements/3/label",
-     "value": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로"
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
     },
     {
      "pointer": "/frames/1/elements/3/marks",
@@ -919,7 +1037,7 @@
     },
     {
      "pointer": "/frames/2/elements/1/label",
-     "value": "지침 · AGENTS.md"
+     "value": "\uc9c0\uce68 \u00b7 AGENTS.md"
     },
     {
      "pointer": "/frames/2/elements/1/marks",
@@ -965,12 +1083,12 @@
     },
     {
      "pointer": "/frames/2/elements/2/label",
-     "value": "Claude Code 새 세션 시작"
+     "value": "Claude Code \uc0c8 \uc138\uc158 \uc2dc\uc791"
     },
     {
      "pointer": "/frames/2/elements/2/marks",
      "value": [
-      "›"
+      "\u203a"
      ]
     },
     {
@@ -1014,7 +1132,7 @@
     },
     {
      "pointer": "/frames/2/elements/3/label",
-     "value": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로"
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
     },
     {
      "pointer": "/frames/2/elements/3/marks",
@@ -1034,7 +1152,7 @@
     },
     {
      "pointer": "/frames/2/elements/4/label",
-     "value": "시작 요청을 보냈습니다 · 결과 확인 중"
+     "value": "\uc2dc\uc791 \uc694\uccad\uc744 \ubcf4\ub0c8\uc2b5\ub2c8\ub2e4 \u00b7 \uacb0\uacfc \ud655\uc778 \uc911"
     },
     {
      "pointer": "/frames/2/elements/4/marks",
@@ -1143,7 +1261,7 @@
     },
     {
      "pointer": "/rationale",
-     "value": "다음: 결제 재시도 테스트 실행"
+     "value": "\ub2e4\uc74c: \uacb0\uc81c \uc7ac\uc2dc\ub3c4 \ud14c\uc2a4\ud2b8 \uc2e4\ud589"
     },
     {
      "pointer": "/effect_class",
@@ -1444,7 +1562,7 @@
     },
     {
      "pointer": "/checkpoints/0/note",
-     "value": "다음: 결제 재시도 테스트 실행"
+     "value": "\ub2e4\uc74c: \uacb0\uc81c \uc7ac\uc2dc\ub3c4 \ud14c\uc2a4\ud2b8 \uc2e4\ud589"
     },
     {
      "pointer": "/entries/0/request_id",
@@ -1513,9 +1631,6 @@
   {
    "name": "reopen_script",
    "from": "c12/a_launcher_driven_at_80_by_24.json",
-   "drop": [
-    "/inputs/3"
-   ],
    "set": [
     {
      "pointer": "/inputs/0/key",
@@ -1527,6 +1642,18 @@
     },
     {
      "pointer": "/inputs/2/key",
+     "value": "enter"
+    },
+    {
+     "pointer": "/inputs/3/key",
+     "value": "tab"
+    },
+    {
+     "pointer": "/inputs/4/input",
+     "value": "key"
+    },
+    {
+     "pointer": "/inputs/4/key",
      "value": "enter"
     }
    ]
@@ -1649,7 +1776,7 @@
     },
     {
      "pointer": "/frames/0/elements/1/label",
-     "value": "지침 · AGENTS.md"
+     "value": "\uc9c0\uce68 \u00b7 AGENTS.md"
     },
     {
      "pointer": "/frames/0/elements/1/marks",
@@ -1695,7 +1822,7 @@
     },
     {
      "pointer": "/frames/0/elements/2/label",
-     "value": "세션 시작 결과 모름 · 마지막 확인: 준비 완료 · 이 기기만 확인함"
+     "value": "\uc138\uc158 \uc2dc\uc791 \uacb0\uacfc \ubaa8\ub984 \u00b7 \ub9c8\uc9c0\ub9c9 \ud655\uc778: \uc900\ube44 \uc644\ub8cc \u00b7 \uc774 \uae30\uae30\ub9cc \ud655\uc778\ud568"
     },
     {
      "pointer": "/frames/0/elements/2/marks",
@@ -1731,12 +1858,12 @@
     },
     {
      "pointer": "/frames/0/elements/3/label",
-     "value": "이 요청 결과 확인"
+     "value": "\uc774 \uc694\uccad \uacb0\uacfc \ud655\uc778"
     },
     {
      "pointer": "/frames/0/elements/3/marks",
      "value": [
-      "›"
+      "\u203a"
      ]
     },
     {
@@ -1765,7 +1892,7 @@
     },
     {
      "pointer": "/frames/0/elements/4/label",
-     "value": "이전 메모 · 다음: 결제 재시도 테스트 실행 (기록 당시)"
+     "value": "\uc774\uc804 \uba54\ubaa8 \u00b7 \ub2e4\uc74c: \uacb0\uc81c \uc7ac\uc2dc\ub3c4 \ud14c\uc2a4\ud2b8 \uc2e4\ud589 (\uae30\ub85d \ub2f9\uc2dc)"
     },
     {
      "pointer": "/frames/0/elements/4/marks",
@@ -1789,7 +1916,7 @@
     },
     {
      "pointer": "/frames/0/elements/5/label",
-     "value": "Claude Code 새 세션 시작"
+     "value": "Claude Code \uc0c8 \uc138\uc158 \uc2dc\uc791"
     },
     {
      "pointer": "/frames/0/elements/5/marks",
@@ -1824,7 +1951,7 @@
     },
     {
      "pointer": "/frames/0/elements/6/label",
-     "value": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로"
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
     },
     {
      "pointer": "/frames/0/elements/6/marks",
@@ -1864,12 +1991,12 @@
     },
     {
      "pointer": "/frames/1/elements/0/label",
-     "value": "결과 모름 · 세션 시작 · payments"
+     "value": "\uacb0\uacfc \ubaa8\ub984 \u00b7 \uc138\uc158 \uc2dc\uc791 \u00b7 payments"
     },
     {
      "pointer": "/frames/1/elements/0/marks",
      "value": [
-      "›",
+      "\u203a",
       "?"
      ]
     },
@@ -1899,7 +2026,7 @@
     },
     {
      "pointer": "/frames/1/elements/1/label",
-     "value": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로"
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
     },
     {
      "pointer": "/frames/2/view/selected_scope/repository_id",
@@ -1923,7 +2050,7 @@
     },
     {
      "pointer": "/frames/2/elements/1/label",
-     "value": "지침 · AGENTS.md"
+     "value": "\uc9c0\uce68 \u00b7 AGENTS.md"
     },
     {
      "pointer": "/frames/2/elements/1/marks",
@@ -1969,7 +2096,7 @@
     },
     {
      "pointer": "/frames/2/elements/2/label",
-     "value": "세션 시작 결과 모름 · 마지막 확인: 준비 완료 · 이 기기만 확인함"
+     "value": "\uc138\uc158 \uc2dc\uc791 \uacb0\uacfc \ubaa8\ub984 \u00b7 \ub9c8\uc9c0\ub9c9 \ud655\uc778: \uc900\ube44 \uc644\ub8cc \u00b7 \uc774 \uae30\uae30\ub9cc \ud655\uc778\ud568"
     },
     {
      "pointer": "/frames/2/elements/2/marks",
@@ -2001,12 +2128,12 @@
     },
     {
      "pointer": "/frames/2/elements/3/label",
-     "value": "이 요청 결과 확인"
+     "value": "\uc774 \uc694\uccad \uacb0\uacfc \ud655\uc778"
     },
     {
      "pointer": "/frames/2/elements/3/marks",
      "value": [
-      "›"
+      "\u203a"
      ]
     },
     {
@@ -2027,7 +2154,7 @@
     },
     {
      "pointer": "/frames/2/elements/4/label",
-     "value": "이전 메모 · 다음: 결제 재시도 테스트 실행 (기록 당시)"
+     "value": "\uc774\uc804 \uba54\ubaa8 \u00b7 \ub2e4\uc74c: \uacb0\uc81c \uc7ac\uc2dc\ub3c4 \ud14c\uc2a4\ud2b8 \uc2e4\ud589 (\uae30\ub85d \ub2f9\uc2dc)"
     },
     {
      "pointer": "/frames/2/elements/4/marks",
@@ -2051,7 +2178,7 @@
     },
     {
      "pointer": "/frames/2/elements/5/label",
-     "value": "Claude Code 새 세션 시작"
+     "value": "Claude Code \uc0c8 \uc138\uc158 \uc2dc\uc791"
     },
     {
      "pointer": "/frames/2/elements/5/marks",
@@ -2086,7 +2213,7 @@
     },
     {
      "pointer": "/frames/2/elements/6/label",
-     "value": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로"
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
     },
     {
      "pointer": "/frames/2/elements/6/marks",
@@ -2114,7 +2241,7 @@
     },
     {
      "pointer": "/frames/3/elements/1/label",
-     "value": "지침 · AGENTS.md"
+     "value": "\uc9c0\uce68 \u00b7 AGENTS.md"
     },
     {
      "pointer": "/frames/3/elements/1/marks",
@@ -2160,7 +2287,7 @@
     },
     {
      "pointer": "/frames/3/elements/2/label",
-     "value": "확인함: 아직 결과 모름 · 같은 요청으로 다시 확인 가능"
+     "value": "\ud655\uc778\ud568: \uc544\uc9c1 \uacb0\uacfc \ubaa8\ub984 \u00b7 \uac19\uc740 \uc694\uccad\uc73c\ub85c \ub2e4\uc2dc \ud655\uc778 \uac00\ub2a5"
     },
     {
      "pointer": "/frames/3/elements/2/marks",
@@ -2192,12 +2319,12 @@
     },
     {
      "pointer": "/frames/3/elements/3/label",
-     "value": "이 요청 결과 확인"
+     "value": "\uc774 \uc694\uccad \uacb0\uacfc \ud655\uc778"
     },
     {
      "pointer": "/frames/3/elements/3/marks",
      "value": [
-      "›"
+      "\u203a"
      ]
     },
     {
@@ -2222,7 +2349,7 @@
     },
     {
      "pointer": "/frames/3/elements/4/label",
-     "value": "이전 메모 · 다음: 결제 재시도 테스트 실행 (기록 당시)"
+     "value": "\uc774\uc804 \uba54\ubaa8 \u00b7 \ub2e4\uc74c: \uacb0\uc81c \uc7ac\uc2dc\ub3c4 \ud14c\uc2a4\ud2b8 \uc2e4\ud589 (\uae30\ub85d \ub2f9\uc2dc)"
     },
     {
      "pointer": "/frames/3/elements/4/marks",
@@ -2246,7 +2373,7 @@
     },
     {
      "pointer": "/frames/3/elements/5/label",
-     "value": "Claude Code 새 세션 시작"
+     "value": "Claude Code \uc0c8 \uc138\uc158 \uc2dc\uc791"
     },
     {
      "pointer": "/frames/3/elements/5/marks",
@@ -2281,7 +2408,7 @@
     },
     {
      "pointer": "/frames/3/elements/6/label",
-     "value": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로"
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
     },
     {
      "pointer": "/frames/3/elements/6/marks",
@@ -2312,6 +2439,736 @@
     {
      "pointer": "/script_digest",
      "value": "#reopen_script"
+    },
+    {
+     "pointer": "/frames/4/after",
+     "value": 4
+    },
+    {
+     "pointer": "/frames/4/terminal/columns",
+     "value": 80
+    },
+    {
+     "pointer": "/frames/4/terminal/rows",
+     "value": 24
+    },
+    {
+     "pointer": "/frames/4/locale",
+     "value": "ko"
+    },
+    {
+     "pointer": "/frames/4/access",
+     "value": "active"
+    },
+    {
+     "pointer": "/frames/4/view/origin/name",
+     "value": "host_launcher"
+    },
+    {
+     "pointer": "/frames/4/view/origin/root_origin",
+     "value": "owner"
+    },
+    {
+     "pointer": "/frames/4/view/missing_bodies",
+     "value": []
+    },
+    {
+     "pointer": "/frames/4/view/view",
+     "value": "w01"
+    },
+    {
+     "pointer": "/frames/4/view/selected_scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/frames/4/view/selected_scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/4/view/draft_request_id",
+     "value": "@activate_request"
+    },
+    {
+     "pointer": "/frames/4/elements/0/element_id",
+     "value": "context.location"
+    },
+    {
+     "pointer": "/frames/4/elements/0/role",
+     "value": "context"
+    },
+    {
+     "pointer": "/frames/4/elements/0/label",
+     "value": "payments \u00b7 \ub85c\uceec \ub808\ud3ec \u00b7 main"
+    },
+    {
+     "pointer": "/frames/4/elements/0/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/4/elements/0/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/0/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/4/elements/0/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/0/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/4/elements/0/refers_to/ref",
+     "value": "scope"
+    },
+    {
+     "pointer": "/frames/4/elements/0/refers_to/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/frames/4/elements/0/refers_to/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/4/elements/1/element_id",
+     "value": "positions.repository.instructions"
+    },
+    {
+     "pointer": "/frames/4/elements/1/role",
+     "value": "selection"
+    },
+    {
+     "pointer": "/frames/4/elements/1/label",
+     "value": "\uc9c0\uce68 \u00b7 AGENTS.md"
+    },
+    {
+     "pointer": "/frames/4/elements/1/marks",
+     "value": [
+      "[x]"
+     ]
+    },
+    {
+     "pointer": "/frames/4/elements/1/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/1/selection",
+     "value": "selected"
+    },
+    {
+     "pointer": "/frames/4/elements/1/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/1/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/4/elements/1/state",
+     "value": "installed"
+    },
+    {
+     "pointer": "/frames/4/elements/1/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/4/elements/1/refers_to/position/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/frames/4/elements/1/refers_to/position/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/4/elements/1/refers_to/position/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/frames/4/elements/1/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/4/elements/2/element_id",
+     "value": "result.activation"
+    },
+    {
+     "pointer": "/frames/4/elements/2/role",
+     "value": "result"
+    },
+    {
+     "pointer": "/frames/4/elements/2/label",
+     "value": "\ud655\uc778\ud568: \uc544\uc9c1 \uacb0\uacfc \ubaa8\ub984 \u00b7 \uac19\uc740 \uc694\uccad\uc73c\ub85c \ub2e4\uc2dc \ud655\uc778 \uac00\ub2a5"
+    },
+    {
+     "pointer": "/frames/4/elements/2/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/4/elements/2/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/2/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/4/elements/2/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/2/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/4/elements/2/state",
+     "value": "unknown"
+    },
+    {
+     "pointer": "/frames/4/elements/2/refers_to/ref",
+     "value": "request"
+    },
+    {
+     "pointer": "/frames/4/elements/2/refers_to/request_id",
+     "value": "@activate_request"
+    },
+    {
+     "pointer": "/frames/4/elements/3/element_id",
+     "value": "action.check"
+    },
+    {
+     "pointer": "/frames/4/elements/3/role",
+     "value": "action"
+    },
+    {
+     "pointer": "/frames/4/elements/3/label",
+     "value": "\uc774 \uc694\uccad \uacb0\uacfc \ud655\uc778"
+    },
+    {
+     "pointer": "/frames/4/elements/3/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/4/elements/3/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/3/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/4/elements/3/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/3/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/4/elements/3/refers_to/ref",
+     "value": "request"
+    },
+    {
+     "pointer": "/frames/4/elements/3/refers_to/request_id",
+     "value": "@activate_request"
+    },
+    {
+     "pointer": "/frames/4/elements/4/element_id",
+     "value": "context.checkpoint"
+    },
+    {
+     "pointer": "/frames/4/elements/4/role",
+     "value": "context"
+    },
+    {
+     "pointer": "/frames/4/elements/4/label",
+     "value": "\uc774\uc804 \uba54\ubaa8 \u00b7 \ub2e4\uc74c: \uacb0\uc81c \uc7ac\uc2dc\ub3c4 \ud14c\uc2a4\ud2b8 \uc2e4\ud589 (\uae30\ub85d \ub2f9\uc2dc)"
+    },
+    {
+     "pointer": "/frames/4/elements/4/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/4/elements/4/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/4/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/4/elements/4/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/4/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/4/elements/4/refers_to/ref",
+     "value": "record"
+    },
+    {
+     "pointer": "/frames/4/elements/4/refers_to/digest",
+     "value": "#recent"
+    },
+    {
+     "pointer": "/frames/4/elements/5/element_id",
+     "value": "action.start"
+    },
+    {
+     "pointer": "/frames/4/elements/5/role",
+     "value": "action"
+    },
+    {
+     "pointer": "/frames/4/elements/5/label",
+     "value": "Claude Code \uc0c8 \uc138\uc158 \uc2dc\uc791"
+    },
+    {
+     "pointer": "/frames/4/elements/5/marks",
+     "value": [
+      "\u203a"
+     ]
+    },
+    {
+     "pointer": "/frames/4/elements/5/focused",
+     "value": true
+    },
+    {
+     "pointer": "/frames/4/elements/5/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/4/elements/5/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/5/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/4/elements/5/refers_to/ref",
+     "value": "route"
+    },
+    {
+     "pointer": "/frames/4/elements/5/refers_to/route_id",
+     "value": "@route_start"
+    },
+    {
+     "pointer": "/frames/4/elements/5/effects",
+     "value": [
+      "file_changes",
+      "model_calls"
+     ]
+    },
+    {
+     "pointer": "/frames/4/elements/6/element_id",
+     "value": "help.keys"
+    },
+    {
+     "pointer": "/frames/4/elements/6/role",
+     "value": "help"
+    },
+    {
+     "pointer": "/frames/4/elements/6/label",
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
+    },
+    {
+     "pointer": "/frames/4/elements/6/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/4/elements/6/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/6/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/4/elements/6/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/6/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/4/dispatched",
+     "value": []
+    },
+    {
+     "pointer": "/frames/4/calls",
+     "value": []
+    },
+    {
+     "pointer": "/frames/5/after",
+     "value": 5
+    },
+    {
+     "pointer": "/frames/5/terminal/columns",
+     "value": 80
+    },
+    {
+     "pointer": "/frames/5/terminal/rows",
+     "value": 24
+    },
+    {
+     "pointer": "/frames/5/locale",
+     "value": "ko"
+    },
+    {
+     "pointer": "/frames/5/access",
+     "value": "active"
+    },
+    {
+     "pointer": "/frames/5/view/origin/name",
+     "value": "host_launcher"
+    },
+    {
+     "pointer": "/frames/5/view/origin/root_origin",
+     "value": "owner"
+    },
+    {
+     "pointer": "/frames/5/view/missing_bodies",
+     "value": []
+    },
+    {
+     "pointer": "/frames/5/view/view",
+     "value": "w01"
+    },
+    {
+     "pointer": "/frames/5/view/selected_scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/frames/5/view/selected_scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/5/view/draft_request_id",
+     "value": "@activate_request"
+    },
+    {
+     "pointer": "/frames/5/elements/0/element_id",
+     "value": "context.location"
+    },
+    {
+     "pointer": "/frames/5/elements/0/role",
+     "value": "context"
+    },
+    {
+     "pointer": "/frames/5/elements/0/label",
+     "value": "payments \u00b7 \ub85c\uceec \ub808\ud3ec \u00b7 main"
+    },
+    {
+     "pointer": "/frames/5/elements/0/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/5/elements/0/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/5/elements/0/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/5/elements/0/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/5/elements/0/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/5/elements/0/refers_to/ref",
+     "value": "scope"
+    },
+    {
+     "pointer": "/frames/5/elements/0/refers_to/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/frames/5/elements/0/refers_to/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/5/elements/1/element_id",
+     "value": "positions.repository.instructions"
+    },
+    {
+     "pointer": "/frames/5/elements/1/role",
+     "value": "selection"
+    },
+    {
+     "pointer": "/frames/5/elements/1/label",
+     "value": "\uc9c0\uce68 \u00b7 AGENTS.md"
+    },
+    {
+     "pointer": "/frames/5/elements/1/marks",
+     "value": [
+      "[x]"
+     ]
+    },
+    {
+     "pointer": "/frames/5/elements/1/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/5/elements/1/selection",
+     "value": "selected"
+    },
+    {
+     "pointer": "/frames/5/elements/1/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/5/elements/1/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/5/elements/1/state",
+     "value": "installed"
+    },
+    {
+     "pointer": "/frames/5/elements/1/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/5/elements/1/refers_to/position/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/frames/5/elements/1/refers_to/position/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/5/elements/1/refers_to/position/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/frames/5/elements/1/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/5/elements/2/element_id",
+     "value": "result.activation"
+    },
+    {
+     "pointer": "/frames/5/elements/2/role",
+     "value": "result"
+    },
+    {
+     "pointer": "/frames/5/elements/2/label",
+     "value": "\ud655\uc778\ud568: \uc544\uc9c1 \uacb0\uacfc \ubaa8\ub984 \u00b7 \uac19\uc740 \uc694\uccad\uc73c\ub85c \ub2e4\uc2dc \ud655\uc778 \uac00\ub2a5"
+    },
+    {
+     "pointer": "/frames/5/elements/2/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/5/elements/2/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/5/elements/2/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/5/elements/2/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/5/elements/2/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/5/elements/2/state",
+     "value": "unknown"
+    },
+    {
+     "pointer": "/frames/5/elements/2/refers_to/ref",
+     "value": "request"
+    },
+    {
+     "pointer": "/frames/5/elements/2/refers_to/request_id",
+     "value": "@activate_request"
+    },
+    {
+     "pointer": "/frames/5/elements/3/element_id",
+     "value": "action.check"
+    },
+    {
+     "pointer": "/frames/5/elements/3/role",
+     "value": "action"
+    },
+    {
+     "pointer": "/frames/5/elements/3/label",
+     "value": "\uc774 \uc694\uccad \uacb0\uacfc \ud655\uc778"
+    },
+    {
+     "pointer": "/frames/5/elements/3/marks",
+     "value": [
+      "\u203a"
+     ]
+    },
+    {
+     "pointer": "/frames/5/elements/3/focused",
+     "value": true
+    },
+    {
+     "pointer": "/frames/5/elements/3/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/5/elements/3/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/5/elements/3/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/5/elements/3/refers_to/ref",
+     "value": "request"
+    },
+    {
+     "pointer": "/frames/5/elements/3/refers_to/request_id",
+     "value": "@activate_request"
+    },
+    {
+     "pointer": "/frames/5/elements/4/element_id",
+     "value": "context.checkpoint"
+    },
+    {
+     "pointer": "/frames/5/elements/4/role",
+     "value": "context"
+    },
+    {
+     "pointer": "/frames/5/elements/4/label",
+     "value": "\uc774\uc804 \uba54\ubaa8 \u00b7 \ub2e4\uc74c: \uacb0\uc81c \uc7ac\uc2dc\ub3c4 \ud14c\uc2a4\ud2b8 \uc2e4\ud589 (\uae30\ub85d \ub2f9\uc2dc)"
+    },
+    {
+     "pointer": "/frames/5/elements/4/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/5/elements/4/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/5/elements/4/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/5/elements/4/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/5/elements/4/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/5/elements/4/refers_to/ref",
+     "value": "record"
+    },
+    {
+     "pointer": "/frames/5/elements/4/refers_to/digest",
+     "value": "#recent"
+    },
+    {
+     "pointer": "/frames/5/elements/5/element_id",
+     "value": "action.start"
+    },
+    {
+     "pointer": "/frames/5/elements/5/role",
+     "value": "action"
+    },
+    {
+     "pointer": "/frames/5/elements/5/label",
+     "value": "Claude Code \uc0c8 \uc138\uc158 \uc2dc\uc791"
+    },
+    {
+     "pointer": "/frames/5/elements/5/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/5/elements/5/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/5/elements/5/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/5/elements/5/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/5/elements/5/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/5/elements/5/refers_to/ref",
+     "value": "route"
+    },
+    {
+     "pointer": "/frames/5/elements/5/refers_to/route_id",
+     "value": "@route_start"
+    },
+    {
+     "pointer": "/frames/5/elements/5/effects",
+     "value": [
+      "file_changes",
+      "model_calls"
+     ]
+    },
+    {
+     "pointer": "/frames/5/elements/5/state",
+     "value": "blocked"
+    },
+    {
+     "pointer": "/frames/5/elements/6/element_id",
+     "value": "help.keys"
+    },
+    {
+     "pointer": "/frames/5/elements/6/role",
+     "value": "help"
+    },
+    {
+     "pointer": "/frames/5/elements/6/label",
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
+    },
+    {
+     "pointer": "/frames/5/elements/6/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/5/elements/6/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/5/elements/6/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/5/elements/6/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/5/elements/6/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/5/dispatched",
+     "value": []
+    },
+    {
+     "pointer": "/frames/5/calls",
+     "value": []
     }
    ]
   },
@@ -2435,6 +3292,24 @@
    }
   },
   {
+   "name": "register_instr",
+   "request": "register_instr_request",
+   "carries": [
+    "instr_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "instr_home_stored"
+    ],
+    "head": "instr_h0"
+   }
+  },
+  {
    "name": "commit_instr",
    "request": "instr_commit_request",
    "carries": [
@@ -2465,7 +3340,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "read_probe_stored"
+     "read_probe_stored",
+     "read_probe_host_configuration"
     ]
    }
   },

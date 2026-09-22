@@ -852,8 +852,8 @@
    }
   }
  ],
- "says": "Alice binds her device key, registers the package candidate, and submits a cutover of one selected transfer whose quiesced capture names the source revision and outbox she captured. A source edit landed after that capture, so the owner holds the switch: stage stale, cutover_source_moved at the capture's revision_digest, nothing written, recovery reseal_on_current_head. A query by that request id returns that same held result, with no receipt, so the source still owns the state. She captures again and resubmits under a new request; this time a new outbox item arrived after the capture, and the owner holds again at outbox_digest. Only after the writers are shut down and the final quiesced revision and outbox are captured and the import validated against them does a third request commit the cutover. What must not happen: a switch while the source or outbox differs from the capture the import was validated against, or an unfinished transfer releasing or deleting the source.",
- "spec_sha256": "f8776e3aa61f87d7e17c28e5fda51105e7b0c8a452b19d5f87b9a4fd5216c46f",
+ "says": "Alice binds her device key, registers the package candidate, and submits a cutover of one selected transfer whose quiesced capture names the source revision and outbox she captured. A source edit lands in the checkout before the writers are shut down, so her capture is already stale by the time the request runs: the owner holds the switch, stage stale, cutover_source_moved at the capture's revision_digest, nothing written, recovery reseal_on_current_head. A query by that request id returns that same held result, with no receipt, so the source still owns the state. She captures again and resubmits under a new request; a new outbox item arrives before the writers are shut down, and the owner holds again at outbox_digest. Only after the writers are shut down, with no further source edit or outbox arrival, are the final quiesced revision and outbox captured and the import validated against them, and a third request commits the cutover. What must not happen: a switch while the source or outbox differs from the capture the import was validated against, or an unfinished transfer releasing or deleting the source.",
+ "spec_sha256": "e27e83ef8fdcfc237c948663f299a40aeccd35e18feb8235ee657a4d783c2164",
  "steps": [
   {
    "carries": [
@@ -915,5 +915,25 @@
    "result": "commit_final_capture_result",
    "returns": []
   }
- ]
+ ],
+ "world": {
+  "events": [
+   {
+    "before": "hold_on_source_edit",
+    "bytes": "a further change to the migrating source landed before the writers were shut down\n",
+    "digest": "4155ea443fe4c767a652ee470c279c6aa456b6a1ee88da21bff9f942749ec851",
+    "kind": "file_edit",
+    "path": "source/revision.jsonl",
+    "size": 82
+   },
+   {
+    "before": "hold_on_new_outbox_item",
+    "bytes": "{\"queued_at\": \"2026-09-21T11:25:00Z\", \"note\": \"queued before the writers were shut down\"}",
+    "digest": "ec9217f085df8e5da18ab83d7187f7a7d3d6561d2036ef6663c9be6a452fedcc",
+    "kind": "file_edit",
+    "path": "outbox/0007.json",
+    "size": 89
+   }
+  ]
+ }
 }

@@ -2331,11 +2331,11 @@
    }
   },
   {
-   "digest": "204f3be25858429769dddd0c2b5ab6b4a6cbddf39cbe5b4de5162bcb07acaa38",
+   "digest": "de14bc6ff08efe2f4ad6489cc5c02fab98ae43e0a7ddd2ddf993e7af88a662b4",
    "name": "provision_a_settled",
    "record": {
     "kind": "operation_result",
-    "local_effect": "committed",
+    "local_effect": "none",
     "outcome": {
      "material_gaps": [
       {
@@ -2360,7 +2360,7 @@
    }
   },
   {
-   "digest": "fc95d10162575333b77ed6b99e4478e299791a9e2b68ec002de2f68bcf4c7e90",
+   "digest": "00d44eeea1d7a580ad639c628c3a3b30c1d37b92182b6adb9ca9f7903298e7ad",
    "name": "query_platform_provisioning_result",
    "record": {
     "kind": "operation_result",
@@ -2371,7 +2371,7 @@
     },
     "outputs": [
      {
-      "digest": "204f3be25858429769dddd0c2b5ab6b4a6cbddf39cbe5b4de5162bcb07acaa38",
+      "digest": "de14bc6ff08efe2f4ad6489cc5c02fab98ae43e0a7ddd2ddf993e7af88a662b4",
       "kind": "operation_result"
      }
     ],
@@ -2544,7 +2544,7 @@
    }
   },
   {
-   "digest": "04fe8200ed7fffe06ef034a15a41660869374867c3cd3c49a4a9393160edae56",
+   "digest": "b2c8a3447c376fd86c36713601ab80b810af9283fad84190593b4b49b2fa77d7",
    "name": "research_envelope",
    "record": {
     "authority": {
@@ -2563,13 +2563,13 @@
       "digest": "d70a7add635d42f076767a666a91b2b99e567f1caf385c97587d9a37b3697e80",
       "object_kind": "governing_policy",
       "path": "objects/0000.json",
-      "size": 1024
+      "size": 488
      },
      {
       "digest": "f28056afbfe234ba79716d5efc51c0a227aedf2db4b512026280e2315d4f3851",
       "object_kind": "authority_continuity",
       "path": "continuity/0001.json",
-      "size": 512
+      "size": 378
      }
     ],
     "kind": "transfer_envelope",
@@ -2595,7 +2595,7 @@
    }
   },
   {
-   "digest": "64e87429b7b42224bb183505fc4ad2a416a927a1354ad9c0404cb0783f44c468",
+   "digest": "aa704db670f38e918125a7e03b12c89025bf57a6a8688ec0ed3b1df7a383ffff",
    "name": "stage_research",
    "record": {
     "action": "transfer",
@@ -2613,7 +2613,7 @@
      "layer": "team",
      "team_id": "tem_944d91d420c2cebdd261691149cc1a40"
     },
-    "payload_digest": "04fe8200ed7fffe06ef034a15a41660869374867c3cd3c49a4a9393160edae56",
+    "payload_digest": "b2c8a3447c376fd86c36713601ab80b810af9283fad84190593b4b49b2fa77d7",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_98b77227408c3a204e40227e4d25f031",
@@ -2628,11 +2628,11 @@
    }
   },
   {
-   "digest": "c619e8c03c934b3caee18309198b51946357614f7fbf72a7de087cfa234caa02",
+   "digest": "3bc899a1fb019c707eacedd7e4b7465064fec35b590ae11218640ca729f9fc06",
    "name": "research_exported",
    "record": {
     "at": "2000-01-01T00:00:00Z",
-    "envelope_digest": "04fe8200ed7fffe06ef034a15a41660869374867c3cd3c49a4a9393160edae56",
+    "envelope_digest": "b2c8a3447c376fd86c36713601ab80b810af9283fad84190593b4b49b2fa77d7",
     "kind": "transfer_stage_record",
     "schema": 1,
     "stage": {
@@ -2646,7 +2646,7 @@
    }
   },
   {
-   "digest": "8a1419c321b6afda2cbd09961b09d82bd5107d583b3ba9bb04aac66a9a115762",
+   "digest": "32d92c141c6ad4c0abcb38cf83aeb154cdc64bb49908460ede7b825b89e1c1e3",
    "name": "stage_research_through_its_repository_result",
    "record": {
     "kind": "operation_result",
@@ -2657,12 +2657,12 @@
     },
     "outputs": [
      {
-      "digest": "c619e8c03c934b3caee18309198b51946357614f7fbf72a7de087cfa234caa02",
+      "digest": "3bc899a1fb019c707eacedd7e4b7465064fec35b590ae11218640ca729f9fc06",
       "kind": "transfer_stage_record"
      }
     ],
     "provider_effect": "committed",
-    "request_digest": "64e87429b7b42224bb183505fc4ad2a416a927a1354ad9c0404cb0783f44c468",
+    "request_digest": "aa704db670f38e918125a7e03b12c89025bf57a6a8688ec0ed3b1df7a383ffff",
     "request_id": "req_98b77227408c3a204e40227e4d25f031",
     "schema": 1,
     "supported_recovery": []
@@ -2670,7 +2670,7 @@
   }
  ],
  "says": "Alice founds two Teams on her laptop, Platform and Research, each founding returning its founding continuity epoch, and each Team binds its own GitHub repository; Research's provisioning completes. Platform's provisioning is killed inside its transaction, before its result is durable; after the restart the same request is answered unknown with the binding in doubt, and querying it by its id settles it as partial: the repository was created and write access is missing, both named. Platform's disconnect is then killed after it committed and before it answered, so no reply reaches Alice; after the restart she queries the request by its id and learns its committed result — the binding disconnected with the repository and the credential kept — and its receipt. Research then still stages a package through its own binding, a draft with no receipt carrying Research's founding epoch as a member. What must not happen: a binding left half-written between two states, the partial provisioning reported as provisioned or its created repository forgotten, the disconnect run twice, the repository deleted or the credential revoked, or Research's binding changed.",
- "spec_sha256": "906bb6b4f653a58eb13d06cd642af3c022a55bebd94f0e2a0c1b4e5d1539ff1c",
+ "spec_sha256": "ce08552c940e31815c64d4203d25a16477aad372ea01ba1085d6f68f7a5eebd0",
  "steps": [
   {
    "at": "2026-09-21T09:00:00Z",

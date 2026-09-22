@@ -141,6 +141,10 @@
   {
    "name": "probe_user_event_rid",
    "prefix": "req"
+  },
+  {
+   "name": "read_team_decision_body_rid",
+   "prefix": "req"
   }
  ],
  "records": [
@@ -2888,6 +2892,157 @@
      "value": "$viw:rate_view"
     }
    ]
+  },
+  {
+   "name": "team_decision_reread",
+   "from": "c06/envelope_asking_about_a_concern.json",
+   "drop": [
+    "/work_scope/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/required/0/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/required/0/source_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/role_view/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/selector/concern/question",
+     "value": "What did the Team choose for the journal mode, and why?"
+    },
+    {
+     "pointer": "/work_scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/work_scope/team_id",
+     "value": "@platform"
+    }
+   ]
+  },
+  {
+   "name": "read_team_decision_body",
+   "from": "c01/link_request.json",
+   "drop": [
+    "/owner/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/operation",
+     "value": "reader.body.read"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_decision_reread"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@read_team_decision_body_rid"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_decisions_h1"
+    }
+   ]
+  },
+  {
+   "name": "team_decision_result",
+   "from": "c06/body_delivered_with_the_shadowed_unit_named.json",
+   "drop": [
+    "/outcome/units/1"
+   ],
+   "set": [
+    {
+     "pointer": "/envelope_digest",
+     "value": "#team_decision_reread"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:team_decision_reread_at"
+    },
+    {
+     "pointer": "/outcome/frontiers/0/source_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/outcome/frontiers/0/checkpoint_digest",
+     "value": "$digest:team_decisions_h1"
+    },
+    {
+     "pointer": "/outcome/units/0/unit_id",
+     "value": "$unt:team_decision_reread_unit"
+    },
+    {
+     "pointer": "/outcome/units/0/source_id",
+     "value": "@team_decisions"
+    },
+    {
+     "pointer": "/outcome/units/0/revision_digest",
+     "value": "#team_decisions_r1_stored"
+    },
+    {
+     "pointer": "/outcome/units/0/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/outcome/units/0/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/outcome/units/0/need",
+     "value": "required"
+    },
+    {
+     "pointer": "/outcome/units/0/standing",
+     "value": "winning"
+    },
+    {
+     "pointer": "/outcome/units/0/body_digest",
+     "value": "#choice_b_stored"
+    }
+   ]
   }
  ],
  "steps": [
@@ -3312,6 +3467,23 @@
     "recovery": [],
     "returns": [
      "rate_view"
+    ]
+   }
+  },
+  {
+   "name": "read_team_decision_body",
+   "request": "read_team_decision_body",
+   "carries": [
+    "team_decision_reread"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_decision_result"
     ]
    }
   }

@@ -1,6 +1,6 @@
 {
  "case": "CMP-ORDER",
- "says": "A repository checkout, the person alice and the Team platform each keep an Instructions collection naming one source at an exact revision. All three declare a unit for the concern review.approval; the Team's source also declares release.checklist, which no other layer answers. Composing a session start over all three scopes must come back with the order repository, personal, Team: the repository unit wins review.approval, the personal and Team units for it are named shadowed by that winner (not dropped), and the Team's release.checklist unit still wins because nothing higher answers it. When the Team then submits a collection that tries to outrank the repository with a field of its own, admission refuses it (unknown_field): a lower collection's content has no spelling that rewrites the layer order. alice then adds an unkeyed style note to her personal collection and starts a session in her personal scope with no repository: the order is personal then Team, her review unit wins, the Team's is shadowed by it, the unkeyed note is delivered as layered prose in its labelled personal layer, and the Team release unit still wins. What must not happen: a whole higher collection hiding the unrelated Team unit, the default order changing silently, or a lower collection reordering the layers.",
+ "says": "A repository checkout, the person alice and the Team platform each keep an Instructions collection naming one source at an exact revision. All three declare a unit for the concern review.approval; the Team's source also declares release.checklist, which no other layer answers. Composing a session start over all three scopes must come back with the order repository, personal, Team: the repository unit wins review.approval, the personal and Team units for it are named shadowed by that winner (not dropped), and the Team's release.checklist unit still wins because nothing higher answers it. When the Team then submits a collection that tries to outrank the repository with a field of its own, admission refuses it (unknown_field): a lower collection's content has no spelling that rewrites the layer order. alice then adds an unkeyed style note to her personal collection and starts a session in her personal scope with no repository: the order is personal then Team, her review unit wins, the Team's is shadowed by it, the unkeyed note is delivered as layered prose in its labelled personal layer, and the Team release unit still wins.  Each of the three also keeps a knowledge collection naming one glossary.terms unit: composing the repository session likewise resolves repository first, then alice's, then the Team's, both losers shadowed rather than dropped. The Team's own collection also carries a second unkeyed note, so the personal-scope session keeps two layers of unkeyed prose, personal then Team, each separately labelled. What must not happen: a whole higher collection hiding the unrelated Team unit, the default order changing silently, or a lower collection reordering the layers.",
  "ids": [
   {
    "name": "alice",
@@ -108,6 +108,66 @@
   },
   {
    "name": "start_without_a_repository_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "repo_glossary",
+   "prefix": "src"
+  },
+  {
+   "name": "register_repo_glossary_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "commit_repo_glossary_r1_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "my_glossary",
+   "prefix": "src"
+  },
+  {
+   "name": "register_my_glossary_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "commit_my_glossary_r1_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "team_glossary",
+   "prefix": "src"
+  },
+  {
+   "name": "register_team_glossary_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "commit_team_glossary_r1_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "repo_know",
+   "prefix": "col"
+  },
+  {
+   "name": "change_repo_know_v1_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "my_know",
+   "prefix": "col"
+  },
+  {
+   "name": "change_my_know_v1_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "team_know",
+   "prefix": "col"
+  },
+  {
+   "name": "change_team_know_v1_rid",
    "prefix": "req"
   }
  ],
@@ -1028,6 +1088,18 @@
     {
      "pointer": "/source_id",
      "value": "@team_rules"
+    },
+    {
+     "pointer": "/members/2/digest",
+     "value": "2fc4146e6118489672994c20e5e7683a63d14c2520c6b6aca98b3747ebe2f7a6"
+    },
+    {
+     "pointer": "/members/2/path",
+     "value": "notes/history.md"
+    },
+    {
+     "pointer": "/members/2/size",
+     "value": 190
     }
    ]
   },
@@ -1297,6 +1369,14 @@
     {
      "pointer": "/position/scope/team_id",
      "value": "@platform"
+    },
+    {
+     "pointer": "/entries/0/units/2/member",
+     "value": "notes/history.md"
+    },
+    {
+     "pointer": "/entries/0/units/2/startup",
+     "value": "not_required"
     }
    ]
   },
@@ -1353,6 +1433,858 @@
     {
      "pointer": "/changed_at",
      "value": "$instant:team_instr_v1_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_glossary_home",
+   "from": "sources/home_of_a_repository_document.json",
+   "drop": [
+    "/registered_at"
+   ],
+   "set": [
+    {
+     "pointer": "/acceptance_authority/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/home/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/home/document_root",
+     "value": "glossary"
+    },
+    {
+     "pointer": "/home/binding_evidence_digest",
+     "value": "#repo_bound"
+    },
+    {
+     "pointer": "/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/scope/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@repo_glossary"
+    }
+   ]
+  },
+  {
+   "name": "register_repo_glossary",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_repo_glossary_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_glossary"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_glossary_home"
+    }
+   ]
+  },
+  {
+   "name": "repo_glossary_home_stored",
+   "from": "repo_glossary_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:repo_glossary_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_glossary_r1",
+   "from": "sources/revision_submitted.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/members/0/digest",
+     "value": "88973738518c53011fab4eea87afde1e0ee14af6e8ca467ea63f0802b7d41948"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "glossary.md"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 260
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@repo_glossary"
+    }
+   ]
+  },
+  {
+   "name": "commit_repo_glossary_r1",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_repo_glossary_r1_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_glossary"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:repo_glossary_h0"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_glossary_r1"
+    }
+   ]
+  },
+  {
+   "name": "repo_glossary_r1_stored",
+   "from": "repo_glossary_r1",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:repo_glossary_r1_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_know_v1",
+   "from": "c07/collection_with_one_entry_switched_off.json",
+   "drop": [
+    "/changed_at",
+    "/entries/1",
+    "/entries/0/precedence",
+    "/entries/0/units/0/needs",
+    "/position/scope/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/collection_id",
+     "value": "@repo_know"
+    },
+    {
+     "pointer": "/position/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/entries/0/pin/revision_digest",
+     "value": "#repo_glossary_r1_stored"
+    },
+    {
+     "pointer": "/entries/0/source_id",
+     "value": "@repo_glossary"
+    },
+    {
+     "pointer": "/entries/0/units/0/member",
+     "value": "glossary.md"
+    },
+    {
+     "pointer": "/entries/0/units/0/concern",
+     "value": "glossary.terms"
+    },
+    {
+     "pointer": "/position/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/position/scope/repository_id",
+     "value": "@work_repo"
+    }
+   ]
+  },
+  {
+   "name": "change_repo_know_v1",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@change_repo_know_v1_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@repo_know"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#repo_know_v1"
+    }
+   ]
+  },
+  {
+   "name": "repo_know_v1_stored",
+   "from": "repo_know_v1",
+   "set": [
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:repo_know_v1_at"
+    }
+   ]
+  },
+  {
+   "name": "my_glossary_home",
+   "from": "sources/home_of_a_managed_collection.json",
+   "drop": [
+    "/registered_at",
+    "/applicability/conditions",
+    "/home/markdown_view/path",
+    "/retention/until"
+   ],
+   "set": [
+    {
+     "pointer": "/acceptance_authority/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/applicability/states",
+     "value": "unstated"
+    },
+    {
+     "pointer": "/home/markdown_view/view",
+     "value": "none"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    },
+    {
+     "pointer": "/retention/keep",
+     "value": "until_withdrawn"
+    },
+    {
+     "pointer": "/scope/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@my_glossary"
+    },
+    {
+     "pointer": "/role",
+     "value": "knowledge"
+    }
+   ]
+  },
+  {
+   "name": "register_my_glossary",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/owner/repository_id",
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_my_glossary_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@my_glossary"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#my_glossary_home"
+    }
+   ]
+  },
+  {
+   "name": "my_glossary_home_stored",
+   "from": "my_glossary_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:my_glossary_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "my_glossary_r1",
+   "from": "sources/revision_submitted.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/members/0/digest",
+     "value": "2bdec6222e9aea9ffa94453f57764eb5c0dcaeb8cd6ddc943cc57e7983f7761e"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "glossary.md"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 240
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@my_glossary"
+    }
+   ]
+  },
+  {
+   "name": "commit_my_glossary_r1",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_my_glossary_r1_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@my_glossary"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:my_glossary_h0"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#my_glossary_r1"
+    }
+   ]
+  },
+  {
+   "name": "my_glossary_r1_stored",
+   "from": "my_glossary_r1",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:my_glossary_r1_at"
+    }
+   ]
+  },
+  {
+   "name": "my_know_v1",
+   "from": "c07/collection_with_one_entry_switched_off.json",
+   "drop": [
+    "/changed_at",
+    "/entries/1",
+    "/entries/0/precedence",
+    "/entries/0/units/0/needs",
+    "/position/scope/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/collection_id",
+     "value": "@my_know"
+    },
+    {
+     "pointer": "/position/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/entries/0/pin/revision_digest",
+     "value": "#my_glossary_r1_stored"
+    },
+    {
+     "pointer": "/entries/0/source_id",
+     "value": "@my_glossary"
+    },
+    {
+     "pointer": "/entries/0/units/0/member",
+     "value": "glossary.md"
+    },
+    {
+     "pointer": "/entries/0/units/0/concern",
+     "value": "glossary.terms"
+    },
+    {
+     "pointer": "/position/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/position/scope/principal_id",
+     "value": "@alice"
+    }
+   ]
+  },
+  {
+   "name": "change_my_know_v1",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/owner/repository_id",
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@change_my_know_v1_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@my_know"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#my_know_v1"
+    }
+   ]
+  },
+  {
+   "name": "my_know_v1_stored",
+   "from": "my_know_v1",
+   "set": [
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:my_know_v1_at"
+    }
+   ]
+  },
+  {
+   "name": "team_glossary_home",
+   "from": "sources/home_of_a_managed_collection.json",
+   "drop": [
+    "/registered_at",
+    "/acceptance_authority/principal_id",
+    "/applicability/conditions",
+    "/home/markdown_view/path",
+    "/retention/until",
+    "/scope/principal_id"
+   ],
+   "set": [
+    {
+     "pointer": "/acceptance_authority/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/acceptance_authority/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/applicability/states",
+     "value": "unstated"
+    },
+    {
+     "pointer": "/disclosure",
+     "value": "team"
+    },
+    {
+     "pointer": "/home/markdown_view/view",
+     "value": "none"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    },
+    {
+     "pointer": "/retention/keep",
+     "value": "until_withdrawn"
+    },
+    {
+     "pointer": "/scope/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@team_glossary"
+    },
+    {
+     "pointer": "/role",
+     "value": "knowledge"
+    }
+   ]
+  },
+  {
+   "name": "register_team_glossary",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/owner/repository_id",
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_team_glossary_rid"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_glossary"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_glossary_home"
+    }
+   ]
+  },
+  {
+   "name": "team_glossary_home_stored",
+   "from": "team_glossary_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:team_glossary_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "team_glossary_r1",
+   "from": "sources/revision_submitted.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/members/0/digest",
+     "value": "5c4c0dee0c33ed6e2851ceaf60a34e704949ba66c52364bfb4f0dad91ea28023"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "glossary.md"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 300
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@team_glossary"
+    }
+   ]
+  },
+  {
+   "name": "commit_team_glossary_r1",
+   "from": "bindings/storing_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@commit_team_glossary_r1_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_glossary"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_glossary_h0"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_glossary_r1"
+    }
+   ]
+  },
+  {
+   "name": "team_glossary_r1_stored",
+   "from": "team_glossary_r1",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:team_glossary_r1_at"
+    }
+   ]
+  },
+  {
+   "name": "team_know_v1",
+   "from": "c07/collection_with_one_entry_switched_off.json",
+   "drop": [
+    "/changed_at",
+    "/entries/1",
+    "/entries/0/precedence",
+    "/entries/0/units/0/needs"
+   ],
+   "set": [
+    {
+     "pointer": "/collection_id",
+     "value": "@team_know"
+    },
+    {
+     "pointer": "/position/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/entries/0/pin/revision_digest",
+     "value": "#team_glossary_r1_stored"
+    },
+    {
+     "pointer": "/entries/0/source_id",
+     "value": "@team_glossary"
+    },
+    {
+     "pointer": "/entries/0/units/0/member",
+     "value": "glossary.md"
+    },
+    {
+     "pointer": "/entries/0/units/0/concern",
+     "value": "glossary.terms"
+    },
+    {
+     "pointer": "/position/scope/team_id",
+     "value": "@platform"
+    }
+   ]
+  },
+  {
+   "name": "change_team_know_v1",
+   "from": "c07/collection_change_request.json",
+   "drop": [
+    "/owner/repository_id",
+    "/target/base/head_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@change_team_know_v1_rid"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@platform"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team_know"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#team_know_v1"
+    }
+   ]
+  },
+  {
+   "name": "team_know_v1_stored",
+   "from": "team_know_v1",
+   "set": [
+    {
+     "pointer": "/changed_at",
+     "value": "$instant:team_know_v1_at"
     }
    ]
   },
@@ -1606,6 +2538,234 @@
     {
      "pointer": "/units/3/body_digest",
      "value": "7dff552460f591f683c7b0fe2c9ae3899de6c84839a39293b15dd67155b272a0"
+    },
+    {
+     "pointer": "/units/0/home_digest",
+     "value": "#repo_rules_home_stored"
+    },
+    {
+     "pointer": "/units/1/home_digest",
+     "value": "#my_rules_home_stored"
+    },
+    {
+     "pointer": "/units/2/home_digest",
+     "value": "#team_rules_home_stored"
+    },
+    {
+     "pointer": "/units/3/home_digest",
+     "value": "#team_rules_home_stored"
+    },
+    {
+     "pointer": "/collections/3/collection_id",
+     "value": "@repo_know"
+    },
+    {
+     "pointer": "/collections/3/head_digest",
+     "value": "#repo_know_v1_stored"
+    },
+    {
+     "pointer": "/collections/3/state",
+     "value": "applied"
+    },
+    {
+     "pointer": "/collections/4/collection_id",
+     "value": "@my_know"
+    },
+    {
+     "pointer": "/collections/4/head_digest",
+     "value": "#my_know_v1_stored"
+    },
+    {
+     "pointer": "/collections/4/state",
+     "value": "applied"
+    },
+    {
+     "pointer": "/collections/5/collection_id",
+     "value": "@team_know"
+    },
+    {
+     "pointer": "/collections/5/head_digest",
+     "value": "#team_know_v1_stored"
+    },
+    {
+     "pointer": "/collections/5/state",
+     "value": "applied"
+    },
+    {
+     "pointer": "/units/4/unit_id",
+     "value": "$unt:a_repo_glossary"
+    },
+    {
+     "pointer": "/units/4/source_id",
+     "value": "@repo_glossary"
+    },
+    {
+     "pointer": "/units/4/revision_digest",
+     "value": "#repo_glossary_r1_stored"
+    },
+    {
+     "pointer": "/units/4/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/units/4/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/units/4/standing",
+     "value": "winning"
+    },
+    {
+     "pointer": "/units/4/member",
+     "value": "glossary.md"
+    },
+    {
+     "pointer": "/units/4/concern",
+     "value": "glossary.terms"
+    },
+    {
+     "pointer": "/units/4/startup",
+     "value": "required"
+    },
+    {
+     "pointer": "/units/4/body_digest",
+     "value": "88973738518c53011fab4eea87afde1e0ee14af6e8ca467ea63f0802b7d41948"
+    },
+    {
+     "pointer": "/units/4/home_digest",
+     "value": "#repo_glossary_home_stored"
+    },
+    {
+     "pointer": "/units/5/unit_id",
+     "value": "$unt:a_my_glossary"
+    },
+    {
+     "pointer": "/units/5/source_id",
+     "value": "@my_glossary"
+    },
+    {
+     "pointer": "/units/5/revision_digest",
+     "value": "#my_glossary_r1_stored"
+    },
+    {
+     "pointer": "/units/5/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/units/5/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/units/5/standing",
+     "value": "shadowed"
+    },
+    {
+     "pointer": "/units/5/member",
+     "value": "glossary.md"
+    },
+    {
+     "pointer": "/units/5/concern",
+     "value": "glossary.terms"
+    },
+    {
+     "pointer": "/units/5/startup",
+     "value": "required"
+    },
+    {
+     "pointer": "/units/5/body_digest",
+     "value": "2bdec6222e9aea9ffa94453f57764eb5c0dcaeb8cd6ddc943cc57e7983f7761e"
+    },
+    {
+     "pointer": "/units/5/shadowed_by",
+     "value": "$unt:a_repo_glossary"
+    },
+    {
+     "pointer": "/units/5/home_digest",
+     "value": "#my_glossary_home_stored"
+    },
+    {
+     "pointer": "/units/6/unit_id",
+     "value": "$unt:a_team_glossary"
+    },
+    {
+     "pointer": "/units/6/source_id",
+     "value": "@team_glossary"
+    },
+    {
+     "pointer": "/units/6/revision_digest",
+     "value": "#team_glossary_r1_stored"
+    },
+    {
+     "pointer": "/units/6/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/units/6/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/units/6/standing",
+     "value": "shadowed"
+    },
+    {
+     "pointer": "/units/6/member",
+     "value": "glossary.md"
+    },
+    {
+     "pointer": "/units/6/concern",
+     "value": "glossary.terms"
+    },
+    {
+     "pointer": "/units/6/startup",
+     "value": "required"
+    },
+    {
+     "pointer": "/units/6/shadowed_by",
+     "value": "$unt:a_repo_glossary"
+    },
+    {
+     "pointer": "/units/6/home_digest",
+     "value": "#team_glossary_home_stored"
+    },
+    {
+     "pointer": "/units/7/unit_id",
+     "value": "$unt:a_team_note"
+    },
+    {
+     "pointer": "/units/7/source_id",
+     "value": "@team_rules"
+    },
+    {
+     "pointer": "/units/7/revision_digest",
+     "value": "#team_rules_r1_stored"
+    },
+    {
+     "pointer": "/units/7/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/units/7/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/units/7/standing",
+     "value": "layered"
+    },
+    {
+     "pointer": "/units/7/member",
+     "value": "notes/history.md"
+    },
+    {
+     "pointer": "/units/7/startup",
+     "value": "not_required"
+    },
+    {
+     "pointer": "/units/7/body_digest",
+     "value": "2fc4146e6118489672994c20e5e7683a63d14c2520c6b6aca98b3747ebe2f7a6"
+    },
+    {
+     "pointer": "/units/7/home_digest",
+     "value": "#team_rules_home_stored"
     }
    ]
   },
@@ -2041,6 +3201,62 @@
     {
      "pointer": "/units/3/body_digest",
      "value": "7dff552460f591f683c7b0fe2c9ae3899de6c84839a39293b15dd67155b272a0"
+    },
+    {
+     "pointer": "/units/0/home_digest",
+     "value": "#my_rules_home_stored"
+    },
+    {
+     "pointer": "/units/1/home_digest",
+     "value": "#my_rules_home_stored"
+    },
+    {
+     "pointer": "/units/2/home_digest",
+     "value": "#team_rules_home_stored"
+    },
+    {
+     "pointer": "/units/3/home_digest",
+     "value": "#team_rules_home_stored"
+    },
+    {
+     "pointer": "/units/4/unit_id",
+     "value": "$unt:b_team_note"
+    },
+    {
+     "pointer": "/units/4/source_id",
+     "value": "@team_rules"
+    },
+    {
+     "pointer": "/units/4/revision_digest",
+     "value": "#team_rules_r1_stored"
+    },
+    {
+     "pointer": "/units/4/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/units/4/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/units/4/standing",
+     "value": "layered"
+    },
+    {
+     "pointer": "/units/4/member",
+     "value": "notes/history.md"
+    },
+    {
+     "pointer": "/units/4/startup",
+     "value": "not_required"
+    },
+    {
+     "pointer": "/units/4/body_digest",
+     "value": "2fc4146e6118489672994c20e5e7683a63d14c2520c6b6aca98b3747ebe2f7a6"
+    },
+    {
+     "pointer": "/units/4/home_digest",
+     "value": "#team_rules_home_stored"
     }
    ]
   }
@@ -2268,6 +3484,168 @@
      "team_instr_v1_stored"
     ],
     "head": "team_instr_v1_stored"
+   }
+  },
+  {
+   "name": "register_repo_glossary",
+   "request": "register_repo_glossary",
+   "carries": [
+    "repo_glossary_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_glossary_home_stored"
+    ],
+    "head": "repo_glossary_h0"
+   }
+  },
+  {
+   "name": "commit_repo_glossary_r1",
+   "request": "commit_repo_glossary_r1",
+   "carries": [
+    "repo_glossary_r1"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_glossary_r1_stored"
+    ],
+    "head": "repo_glossary_h1"
+   }
+  },
+  {
+   "name": "change_repo_know_v1",
+   "request": "change_repo_know_v1",
+   "carries": [
+    "repo_know_v1"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "repo_know_v1_stored"
+    ],
+    "head": "repo_know_v1_stored"
+   }
+  },
+  {
+   "name": "register_my_glossary",
+   "request": "register_my_glossary",
+   "carries": [
+    "my_glossary_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "my_glossary_home_stored"
+    ],
+    "head": "my_glossary_h0"
+   }
+  },
+  {
+   "name": "commit_my_glossary_r1",
+   "request": "commit_my_glossary_r1",
+   "carries": [
+    "my_glossary_r1"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "my_glossary_r1_stored"
+    ],
+    "head": "my_glossary_h1"
+   }
+  },
+  {
+   "name": "change_my_know_v1",
+   "request": "change_my_know_v1",
+   "carries": [
+    "my_know_v1"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "my_know_v1_stored"
+    ],
+    "head": "my_know_v1_stored"
+   }
+  },
+  {
+   "name": "register_team_glossary",
+   "request": "register_team_glossary",
+   "carries": [
+    "team_glossary_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_glossary_home_stored"
+    ],
+    "head": "team_glossary_h0"
+   }
+  },
+  {
+   "name": "commit_team_glossary_r1",
+   "request": "commit_team_glossary_r1",
+   "carries": [
+    "team_glossary_r1"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_glossary_r1_stored"
+    ],
+    "head": "team_glossary_h1"
+   }
+  },
+  {
+   "name": "change_team_know_v1",
+   "request": "change_team_know_v1",
+   "carries": [
+    "team_know_v1"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_know_v1_stored"
+    ],
+    "head": "team_know_v1_stored"
    }
   },
   {

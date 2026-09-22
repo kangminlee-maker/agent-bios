@@ -1,6 +1,6 @@
 {
  "case": "N11-C08-POS",
- "says": "Ana owns a personal instructions source, commits its first revision and sets its rights to read and use only, each commit on the source expecting the head the previous one moved to. She founds a Team whose policy requires one independent review for publication, and Ben and Cho join it by invitation, their own key binding, Ana's in-person verification of that key recorded on the Team, and consent. Ana issues Ben a scoped grant (read, use, contribute, publish, adopt) that names her founder grant as its parent, and issues Cho her own grant for review, naming the same parent. Ben contributes the Team's instructions collection pinning Ana's source at that exact revision, then seals a publication of an edition that pins the same revision; the owner assesses that request and finds Ben may publish on his current grant. Cho, who is neither the requester nor an author, approves that exact request; Ben's publication then commits and the edition's environment head moves, and Ben adopts that exact edition into the Team. What must come back: the collection, an eligible assessment, Cho's approval, the published edition and the Team's adoption of it. Nothing is derived from or exported out of the source, whose own rights allow neither.",
+ "says": "Ana owns a personal instructions source, commits its first revision and sets its rights to read and use only, each commit on the source expecting the head the previous one moved to. She founds a Team whose policy requires one independent review for publication, and Ben and Cho join it by invitation, their own key binding, Ana's in-person verification of that key recorded on the Team, and consent. Ana issues Ben a scoped grant (read, use, contribute, publish, adopt) that names her founder grant as its parent, and issues Cho her own grant for review, naming the same parent. Ben contributes the Team's instructions collection pinning Ana's source at that exact revision, then seals a publication of an edition that pins the same revision. Cho, who is neither the requester nor an author, approves that exact request, carrying it so the owner can check independence against its own actor and authors; only then does the owner assess that request and find Ben eligible to publish, with the policy's one independent review already recorded. Ben's publication then commits and the edition's environment head moves, and Ben adopts that exact edition into the Team. What must come back: the collection, an eligible assessment, Cho's approval, the published edition and the Team's adoption of it. Nothing is derived from or exported out of the source, whose own rights allow neither.",
  "ids": [
   {
    "name": "ana",
@@ -2901,6 +2901,28 @@
    "process": "desktop"
   },
   {
+   "name": "record_cho_approves_publication",
+   "request": "record_cho_approves_publication",
+   "carries": [
+    "cho_approves_publication_submitted",
+    "publish_edition"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "cho_approves_publication"
+    ]
+   },
+   "process": "tablet",
+   "submits": [
+    "publish_edition"
+   ]
+  },
+  {
    "name": "assess_publication",
    "request": "assess_publication",
    "carries": [
@@ -2918,24 +2940,6 @@
     ]
    },
    "process": "desktop"
-  },
-  {
-   "name": "record_cho_approves_publication",
-   "request": "record_cho_approves_publication",
-   "carries": [
-    "cho_approves_publication_submitted"
-   ],
-   "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "cho_approves_publication"
-    ]
-   },
-   "process": "tablet"
   },
   {
    "name": "publish_edition",

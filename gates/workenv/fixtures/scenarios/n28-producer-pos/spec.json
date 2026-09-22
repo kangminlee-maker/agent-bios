@@ -1,6 +1,6 @@
 {
  "case": "N28-PRODUCER-POS",
- "says": "A person binds this device's key and the checkout and registers two repository sources: one for decisions (memory) and one for lessons (Instructions). They select records 12 to 18 of one session transcript, stating that its text may be processed locally, with no prompt log, for this repository only; in that span two decisions were made: the journal mode, effective from 2026-01-01 under jurisdiction KR, with its measured reason stated; and the backup volume, effective from 2026-03-01 on a local SSD, with no reason given anywhere in the span. The owner reads exactly that span once (source.observe). Each producer adapter then runs on that one fixed observation through source.capture.record, at the head its destination's registration committed: the packaged distillation adapter yields a memory capture with one entry for each decision, and the packaged learning adapter yields a behavioural capture of one lesson; each answer returns the capture with the extraction_run that names its own adapter by name and digest and the packaged files it loaded. Every capture's input lies under the selection's one root and restates no more than that root permits (local processing, no log, this repository), which is the rule input_within_its_root. From the memory capture the person stores one candidate per decision (memory.candidate.store). The first keeps the date, condition and stated reason as the span states them; the second keeps its date and condition and lists reason under unrecorded, with no reason written for it. No adapter reads outside the observed span, and neither capture nor candidate carries a rationale the input does not contain.",
+ "says": "A person binds this device's key and the checkout and registers two repository sources: one for decisions (memory) and one for lessons (Instructions). They select records 12 to 18 of one session transcript, stating that its text may be processed locally, with no prompt log, for this repository only; in that span two decisions were made: the journal mode, effective from 2026-01-01 under jurisdiction KR, with its measured reason stated; and the backup volume, effective from 2026-03-01 on a local SSD, with no reason given anywhere in the span. The owner reads exactly that span once (source.observe). Each producer adapter then runs on that one fixed observation through source.capture.record, at the head its destination's registration committed: the packaged distillation adapter yields a memory capture with one entry for each decision, its body the exact span text stating that decision's date, condition and (journal entry only) its reason, and the packaged learning adapter yields a behavioural capture of one lesson; each answer returns the capture with the extraction_run that names its own adapter by name and digest and the packaged files it loaded - an extraction_run's `loaded` is the adapter's own package files, never the selected evidence, which the capture's own `processing.inputs` carries instead. Every capture's input lies under the selection's one root and restates no more than that root permits (local processing, no log, this repository), the rule input_within_its_root. From the memory capture the person stores one candidate per decision (memory.candidate.store). The first keeps the date, condition and reason exactly as its entry's body states them; the second keeps its date and condition as stated and lists reason under unrecorded, since no reason appears in that body or anywhere else in the span. No adapter reads outside the observed span, and neither capture nor candidate carries a rationale the input does not contain.",
  "ids": [
   {
    "name": "me",
@@ -400,6 +400,34 @@
    ]
   },
   {
+   "name": "journal_entry_body",
+   "from": "c01/observation_of_a_selected_transcript_span.json",
+   "drop": [
+    "/kind",
+    "/schema",
+    "/read",
+    "/missing",
+    "/observed_at",
+    "/selection_digest"
+   ],
+   "set": [
+    {
+     "pointer": "/text",
+     "value": "Which journal mode does the local state database use? WAL, with synchronous FULL. Effective from 2026-01-01 under jurisdiction KR. Reason: 4.11 ms per commit against 11.76, and readers are not blocked."
+    }
+   ]
+  },
+  {
+   "name": "backup_entry_body",
+   "from": "journal_entry_body",
+   "set": [
+    {
+     "pointer": "/text",
+     "value": "Where are the local state backups written? To a second local SSD, not to the network volume. Effective from 2026-03-01 for storage: a local SSD."
+    }
+   ]
+  },
+  {
    "name": "memory_capture",
    "from": "sources/capture_of_memory_material_submitted.json",
    "set": [
@@ -416,12 +444,16 @@
      "value": "@journal_entry"
     },
     {
+     "pointer": "/entries/0/body_digest",
+     "value": "#journal_entry_body"
+    },
+    {
      "pointer": "/entries/1/entry_id",
      "value": "@backup_entry"
     },
     {
      "pointer": "/entries/1/body_digest",
-     "value": "5a0b6f0d86f1c1b33f0e7e2f9d3c0c1a4d1b8e6f7a2c9d0e1f2a3b4c5d6e7f80"
+     "value": "#backup_entry_body"
     },
     {
      "pointer": "/processing/inputs/0/evidence_digest",

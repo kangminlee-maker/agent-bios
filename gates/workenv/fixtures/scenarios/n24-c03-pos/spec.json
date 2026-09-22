@@ -1,6 +1,6 @@
 {
  "case": "N24-C03-POS",
- "says": "Alice binds her device key and registers the package candidate the target will run: its runtime module (workenv/contracts/c03.py), an asset (the cutover plan schema) and a shipped check (compose/check-domains.py), each copied from source_commit, and provenance.json made at pack time. She then submits one cutover plan to the target: one explicit transfer of the data she selected, whose quiesced capture names the source revision and outbox captured after the old writers stopped and the import validated against exactly them; all three owners sealed with nothing in flight; the entrance trace verified with no writer left unrouted; one commit; the old source kept; and candidate_digest naming the candidate just registered. The owner commits the cutover once. What must not happen: ownership moving before the verified stage, the cutover installing any package other than the registered candidate, or the old source being deleted.",
+ "says": "Alice binds her device key and registers the package candidate the target will run: its runtime module (workenv/contracts/c03.py), an asset (the cutover plan schema) and a shipped check (compose/check-domains.py), each copied from source_commit, and provenance.json made at pack time. Before she submits the cutover, an inventory of the installed target holds nothing yet. She then submits one cutover plan to the target: one explicit transfer of the data she selected, whose quiesced capture names the source revision and outbox captured after the old writers stopped and the import validated against exactly them; all three owners sealed with nothing in flight; the entrance trace verified with no writer left unrouted; one commit; the old source kept; and candidate_digest naming the candidate just registered. The owner commits the cutover once. A later inventory of the installed target then shows exactly the four members the registered candidate named, at the same paths, digests and sizes: ownership moved only after the plan's own verify stage, and what the target runs is what the candidate named, nothing else. What must not happen: ownership moving before the verified stage, the cutover installing any package other than the registered candidate, or the old source being deleted.",
  "ids": [
   {
    "name": "alice",
@@ -24,6 +24,10 @@
   },
   {
    "name": "cutover_request",
+   "prefix": "req"
+  },
+  {
+   "name": "confirm_request",
    "prefix": "req"
   }
  ],
@@ -253,6 +257,138 @@
      "value": "#transfer_plan"
     }
    ]
+  },
+  {
+   "name": "confirm_query",
+   "from": "c03/query_by_request_id.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@cutover_request"
+    }
+   ]
+  },
+  {
+   "name": "confirm",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@confirm_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.query"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@cutover_request"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#confirm_query"
+    }
+   ]
+  },
+  {
+   "name": "installed_before",
+   "from": "sources/revision_with_no_members.json",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "2026-09-21T10:55:00Z"
+    }
+   ]
+  },
+  {
+   "name": "installed_after",
+   "from": "sources/revision_with_no_members.json",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "2026-09-21T11:05:00Z"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "workenv/contracts/c03.py"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 9120
+    },
+    {
+     "pointer": "/members/1/path",
+     "value": "workenv/contracts/schemas/c03_cutover_plan.schema.json"
+    },
+    {
+     "pointer": "/members/1/digest",
+     "value": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+     "pointer": "/members/1/size",
+     "value": 6211
+    },
+    {
+     "pointer": "/members/2/path",
+     "value": "provenance.json"
+    },
+    {
+     "pointer": "/members/2/digest",
+     "value": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    {
+     "pointer": "/members/2/size",
+     "value": 312
+    },
+    {
+     "pointer": "/members/3/path",
+     "value": "compose/check-domains.py"
+    },
+    {
+     "pointer": "/members/3/digest",
+     "value": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    },
+    {
+     "pointer": "/members/3/size",
+     "value": 5120
+    }
+   ]
   }
  ],
  "steps": [
@@ -304,6 +440,39 @@
     "recovery": [],
     "returns": []
    }
+  },
+  {
+   "name": "confirm_installed",
+   "request": "confirm",
+   "carries": [
+    "confirm_query"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "commit_cutover_result"
+    ]
+   }
   }
- ]
+ ],
+ "world": {
+  "events": [
+   {
+    "kind": "inventory",
+    "before": "commit_cutover",
+    "root": "installed",
+    "yields": "installed_before"
+   },
+   {
+    "kind": "inventory",
+    "before": "confirm_installed",
+    "root": "installed",
+    "yields": "installed_after"
+   }
+  ]
+ }
 }

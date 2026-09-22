@@ -22,6 +22,17 @@ with a new id and payload. A string value may name instead of state:
 `joins` in the generated file lists every place a name was resolved, so a driver can put the
 owner's real value in each minted place, and recompute every digest over it, before submitting.
 A digest of a record a step returns is likewise the digest of what the owner actually returned.
+Signing is the person's side, and the driver acts for the person: a key binding's public key and
+a signature envelope's `sshsig` stand for what the driver's own key for that binding makes. The
+driver holds one key per bound key and signs each envelope's `signed_digest` with it at run time,
+so a signature verifies exactly when the bytes it names are the bytes it was made over.
+A profile runs a case against the real files of its node and of the nodes its node depends on. A
+step whose operation belongs to any other node (team.found in a case M1 runs, when M1 depends on
+no Team node) is given: the driver answers it with the step's stated answer and places the
+records it returns as given state, and a given step is never evidence about its own owner. The
+profile a scenario runs on starts at the access generation its first request states: before the
+first step the driver brings a new profile there through restrictions and re-entries of its own,
+which are given. From there the generation moves only as the scenario's own steps move it.
 A committed step's receipt is generated too, as the record `<step>_receipt` its result names:
 the owner mints its sequence and time. Its head is the digest of the record the step stored
 when the answer's `head` names one it returns (a collection's head is the collection record its
@@ -39,8 +50,16 @@ each killing the process of one answered step at a fault point B03 names and res
 that step's answer is what the owner returns for the same request after the restart — or, when
 the fault names the step that `observed_by` it, what the owner committed, which the caller first
 learns from that later query because no reply reached it. `during` runs one step while another is
-in flight: after the owner admitted the other's request and before it answers. A runner step names
-a situation of the same case in the runner's preflight cases instead of a request.
+in flight: after the owner admitted the other's request and before it answers. `events` are the
+outside changes the harness makes between steps, each of a kind the spec's schema closes: a file
+edited in the checkout a step reads, received package bytes that differ from what the inventory
+advertises, a provider's token refresh arriving with no local transition, the key files arranged
+beside or away from the agent, a store setting, a build of the checkout, an inventory of the
+checkout, the installed target or the knowledge package the product ships, and a provider's
+reply to a step that never arrives. A step may name the concrete `route` its request is
+submitted through, a row of the entrance dispositions.
+A runner step names a situation of the same case in the runner's preflight cases instead of a
+request.
 
 What can be decided from the spec alone is checked here and fails by name:
   - every record resolves, and every name it uses is defined;
@@ -62,6 +81,9 @@ What can be decided from the spec alone is checked here and fails by name:
     names a B03 fault point and an answered step, and a runner step a situation of its case;
   - a fault's observer is a later step that returns the faulted step's result; a step that runs
     during another is listed immediately before it, and the other's request uses nothing it mints;
+  - an event names a step and records that exist, a file edit states bytes or absence and not
+    both, an inventory yields a record or equals one an earlier inventory yielded, a lost reply
+    names an answered step, and a route is a row of the entrance dispositions;
   - an answer's `receipt_of` names an earlier committed step, and such an answer states no head;
   - a committed answer states the local effect `committed` (C03's meaning of the value).
 
@@ -89,6 +111,12 @@ SCENARIOS = HERE / "fixtures" / "scenarios"
 SCHEMA = HERE / "scenario.schema.json"
 SPEC, GENERATED = "spec.json", "scenario.json"
 PREFLIGHT = HERE / "fixtures" / "runner" / "preflight.json"
+ENTRANCES = HERE / "entrances.jsonl"
+# The event fields that name one of the spec's records, and the kind that record must be.
+EVENT_RECORDS = {"provider_refresh": {"connection": "provider_connection"},
+                 "key_layout": {"key": "principal_binding"},
+                 "build": {"yields": "package_candidate"},
+                 "inventory": {"yields": "source_manifest", "equals": "source_manifest"}}
 STAND_IN_INSTANT = "2000-01-01T00:00:00Z"
 INSTANT = "%Y-%m-%dT%H:%M:%SZ"
 NAMED = re.compile(r"([@#])([a-z][a-z0-9]*(?:_[a-z0-9]+)*)\Z")
@@ -331,7 +359,7 @@ class _Scenario:
 
     def placed(self, row: dict) -> dict:
         """The step's name, and where and when it runs when the world says."""
-        return {key: row[key] for key in ("name", "process", "at") if key in row}
+        return {key: row[key] for key in ("name", "process", "at", "route") if key in row}
 
     def step(self, row: dict, table: dict, defined: set[str], result_schema) -> tuple[dict, list]:
         name = row["name"]
@@ -506,10 +534,20 @@ def generate(spec_bytes: bytes, schemas: dict | None = None) -> dict:
         definitions.extend({"name": m, "shape": built.minted[m], "step": row["name"]}
                            for m in minted if m not in defined)
         defined.update(minted)
+    for event in world.get("events", []):
+        for field, kind in EVENT_RECORDS.get(event["kind"], {}).items():
+            if field in event:
+                if event[field] not in built.specs:
+                    built.fail("world", f"a {event['kind']} event names {event[field]}, which is "
+                                        "no record")
+                if built.record(event[field]).get("kind") != kind:
+                    built.fail("world", f"a {event['kind']} event names {event[field]}, which is "
+                                        f"no {kind}")
     unused = sorted(set(built.specs) - set(built.built))
     if unused:
         built.fail("records", f"{unused} are named by no step")
-    return {"case": spec["case"], "says": spec["says"], **({"world": world} if world else {}),
+    return {"case": spec["case"], "says": spec["says"],
+            **({"world": stated(world)} if world else {}),
             "spec_sha256": hashlib.sha256(spec_bytes).hexdigest(),
             "ids": [{"name": n, "id": i} for n, i in built.ids.items()],
             "records": [{"name": n, "record": built.built[n], "digest": built.digests[n]}
@@ -571,6 +609,46 @@ def placed(built: _Scenario, world: dict, steps: list[dict], names: list[str]) -
     if len(set(inner)) != len(inner) or set(inner) & {p["step"] for p in world.get("during", [])}:
         built.fail("world", "a step runs during two steps, or both runs during one and has one "
                             "run during it")
+    inventoried: set[str] = set()
+    for event in sorted(world.get("events", []),
+                        key=lambda e: names.index(e["before"]) if e.get("before") in names else -1):
+        kind = event["kind"]
+        if kind == "reply_lost":
+            if event["step"] not in answered:
+                built.fail("world", f"a reply is lost from {event['step']}, which is no answered "
+                                    "step")
+            continue
+        if event["before"] not in names:
+            built.fail("world", f"a {kind} event comes before {event['before']}, which is no step")
+        if "process" in event and event["process"] not in processes:
+            built.fail("world", f"a {kind} event runs on {event['process']}, which is no process")
+        if kind == "file_edit" and ("bytes" in event) == ("absent" in event):
+            built.fail("world", f"the file edit of {event['path']} states bytes or absence, not "
+                                "both or neither")
+        if kind == "inventory":
+            if ("yields" in event) == ("equals" in event):
+                built.fail("world", "an inventory yields a record or equals an earlier one, not "
+                                    "both or neither")
+            if "equals" in event and event["equals"] not in inventoried:
+                built.fail("world", f"an inventory equals {event['equals']}, which no earlier "
+                                    "inventory yielded")
+            inventoried.update([event["yields"]] if "yields" in event else [])
+    routes = {(row["route"]["path"], row["route"].get("command"))
+              for row in map(json.loads, ENTRANCES.read_text(encoding="utf-8").splitlines())}
+    for row in steps:
+        if "route" in row and (row["route"]["path"], row["route"].get("command")) not in routes:
+            built.fail(row["name"], f"is submitted through {row['route']}, which is no entrance "
+                                    "disposition")
+
+
+def stated(world: dict) -> dict:
+    """The world as generated: each event that writes bytes states their digest and size."""
+    world = json.loads(json.dumps(world))
+    for event in world.get("events", []):
+        if "bytes" in event:
+            data = event["bytes"].encode("utf-8")
+            event.update(digest=hashlib.sha256(data).hexdigest(), size=len(data))
+    return world
 
 
 def render(scenario: dict) -> bytes:

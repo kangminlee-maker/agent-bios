@@ -5743,7 +5743,7 @@
   }
  ],
  "says": "Ana owns a personal instructions source, registers it, commits its first revision and sets its rights to read and use only. She founds a Team whose policy needs one independent review to publish; Ben and Cho join by invitation, their own key binding, Ana's in-person verification of that key recorded on the Team, and consent. Ana grants Ben read, use, contribute and publish, and grants Cho her own grant for review. Each of the following is refused by the owner's operation result and commits nothing: Ben revising his own grant to add himself review (grant_not_held); Ben approving his own sealed publication request (approver_not_independent); Ben publishing a changed edition while offering Cho's approval of the first request (request_mismatch); Ben approving a publication Ana seals that names him among its accountable_authors (approver_not_independent); Cho approving after Ana revoked her grant by its next revision (grant_not_held); after Ana moves the policy to version 2, a grant for Cho sealed on the current head but still naming version 1 (policy_superseded), and a grant for Ben sealed naming version 2 on the head that the resealed grant for Cho has since moved (stale_base, reseal on the current head). Cho's approval of the first request, recorded while she held the grant, is the one approval that stands, and the revocation keeps Cho's grant's id, Team and holder as its next revision. Finally Ana's grant request for Ben is sent again under the same request id with other bytes and refused with request_id_conflict, and sent again with its identical bytes, which returns the original committed result and receipt and commits nothing new.",
- "spec_sha256": "dc9567d8a8eb0c6104d02cb046cdd44653d339067337402a3d77903635b02dbb",
+ "spec_sha256": "9adb63a8309e28cd7e1a74a869c57005d0bbd386705ddfd0e8a123ffd87131a8",
  "steps": [
   {
    "carries": [
@@ -5973,17 +5973,22 @@
   },
   {
    "carries": [
-    "ben_approves_his_own_submitted"
+    "ben_approves_his_own_submitted",
+    "publish_edition"
    ],
    "name": "record_ben_approves_his_own",
    "process": "desktop",
    "request": "record_ben_approves_his_own",
    "result": "record_ben_approves_his_own_result",
-   "returns": []
+   "returns": [],
+   "submits": [
+    "publish_edition"
+   ]
   },
   {
    "carries": [
-    "cho_approves_publication_submitted"
+    "cho_approves_publication_submitted",
+    "publish_edition"
    ],
    "name": "record_cho_approves_publication",
    "process": "tablet",
@@ -5991,6 +5996,9 @@
    "result": "record_cho_approves_publication_result",
    "returns": [
     "cho_approves_publication"
+   ],
+   "submits": [
+    "publish_edition"
    ]
   },
   {
@@ -6005,13 +6013,17 @@
   },
   {
    "carries": [
-    "ben_approves_what_he_wrote_submitted"
+    "ben_approves_what_he_wrote_submitted",
+    "publish_bens_edition"
    ],
    "name": "record_ben_approves_what_he_wrote",
    "process": "desktop",
    "request": "record_ben_approves_what_he_wrote",
    "result": "record_ben_approves_what_he_wrote_result",
-   "returns": []
+   "returns": [],
+   "submits": [
+    "publish_bens_edition"
+   ]
   },
   {
    "carries": [
@@ -6028,13 +6040,17 @@
   },
   {
    "carries": [
-    "revoked_cho_approves_submitted"
+    "revoked_cho_approves_submitted",
+    "publish_bens_edition"
    ],
    "name": "record_revoked_cho_approves",
    "process": "tablet",
    "request": "record_revoked_cho_approves",
    "result": "record_revoked_cho_approves_result",
-   "returns": []
+   "returns": [],
+   "submits": [
+    "publish_bens_edition"
+   ]
   },
   {
    "carries": [

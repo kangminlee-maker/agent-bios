@@ -56,6 +56,10 @@
   {
    "id": "req_3ff7f0998b4f835e3cf40363bb3ba44b",
    "name": "read_profile_request_id"
+  },
+  {
+   "id": "req_f13f52b311f72dc82fd7254094d1c061",
+   "name": "commit_after_unlock_request_id"
   }
  ],
  "joins": [
@@ -255,18 +259,23 @@
    "record": "signed_commit"
   },
   {
+   "digest_of": "first_revision",
+   "pointer": "/signed_digest",
+   "record": "commit_proof"
+  },
+  {
+   "minted": "alice_binding",
+   "pointer": "/signer_binding_id",
+   "record": "commit_proof"
+  },
+  {
+   "digest_of": "commit_proof",
+   "pointer": "/proof_digests/0",
+   "record": "signed_commit"
+  },
+  {
    "digest_of": "signed_commit",
-   "pointer": "/payload_digest",
-   "record": "sign_while_locked_request"
-  },
-  {
-   "digest_of": "sign_while_locked_request",
    "pointer": "/request_digest",
-   "record": "sign_while_locked_result"
-  },
-  {
-   "digest_of": "sign_while_locked_admission",
-   "pointer": "/outputs/0/digest",
    "record": "sign_while_locked_result"
   },
   {
@@ -315,17 +324,62 @@
    "record": "unlock_at_terminal_result"
   },
   {
-   "digest_of": "signed_commit",
+   "digest_of": "first_revision",
    "pointer": "/payload_digest",
-   "record": "sign_after_unlock_request"
+   "record": "signed_commit_after_unlock"
   },
   {
-   "digest_of": "sign_after_unlock_request",
+   "minted": "notes_h0",
+   "pointer": "/target/base/head_digest",
+   "record": "signed_commit_after_unlock"
+  },
+  {
+   "digest_of": "commit_proof",
+   "pointer": "/proof_digests/0",
+   "record": "signed_commit_after_unlock"
+  },
+  {
+   "digest_of": "signed_commit_after_unlock",
+   "pointer": "/request_digest",
+   "record": "sign_after_unlock_receipt"
+  },
+  {
+   "minted": "notes_h1",
+   "pointer": "/head_digest",
+   "record": "sign_after_unlock_receipt"
+  },
+  {
+   "minted": "sign_after_unlock_sequence",
+   "pointer": "/sequence",
+   "record": "sign_after_unlock_receipt"
+  },
+  {
+   "minted": "sign_after_unlock_committed_at",
+   "pointer": "/committed_at",
+   "record": "sign_after_unlock_receipt"
+  },
+  {
+   "minted": "notes_h0",
+   "pointer": "/target/base/head_digest",
+   "record": "sign_after_unlock_receipt"
+  },
+  {
+   "minted": "notes_committed_at",
+   "pointer": "/produced_at",
+   "record": "committed_notes_revision"
+  },
+  {
+   "digest_of": "sign_after_unlock_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "sign_after_unlock_result"
+  },
+  {
+   "digest_of": "signed_commit_after_unlock",
    "pointer": "/request_digest",
    "record": "sign_after_unlock_result"
   },
   {
-   "digest_of": "sign_after_unlock_admission",
+   "digest_of": "committed_notes_revision",
    "pointer": "/outputs/0/digest",
    "record": "sign_after_unlock_result"
   }
@@ -425,6 +479,26 @@
    "name": "unlock_at_terminal_sequence",
    "shape": "integer",
    "step": "unlock_at_terminal"
+  },
+  {
+   "name": "notes_committed_at",
+   "shape": "instant",
+   "step": "sign_after_unlock"
+  },
+  {
+   "name": "notes_h1",
+   "shape": "digest",
+   "step": "sign_after_unlock"
+  },
+  {
+   "name": "sign_after_unlock_committed_at",
+   "shape": "instant",
+   "step": "sign_after_unlock"
+  },
+  {
+   "name": "sign_after_unlock_sequence",
+   "shape": "integer",
+   "step": "sign_after_unlock"
   }
  ],
  "records": [
@@ -1038,7 +1112,19 @@
    }
   },
   {
-   "digest": "4b91bfdbfa4ff120d50d41bde53fe613200027f97c31b685dc0fad2115bb8ff1",
+   "digest": "684f72acd03719008e4756e42c65081d7fd0294573f5f222344a6db97fe2c0ef",
+   "name": "commit_proof",
+   "record": {
+    "kind": "signature_envelope",
+    "namespace": "agent-bios/source_manifest",
+    "schema": 1,
+    "signed_digest": "35ebd37eb23204596fa9c93c6b1ae93761f433fa328a758eb14fb0d4dd36089d",
+    "signer_binding_id": "bnd_8958799ca54644bf7eb89de1379938f1",
+    "sshsig": "U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+   }
+  },
+  {
+   "digest": "22ec66cd37694712fa307bfc9e8811c9c4f619077e37a7c2d6031be204dd05be",
    "name": "signed_commit",
    "record": {
     "action": "publish",
@@ -1058,7 +1144,9 @@
     },
     "payload_digest": "35ebd37eb23204596fa9c93c6b1ae93761f433fa328a758eb14fb0d4dd36089d",
     "policy_digests": [],
-    "proof_digests": [],
+    "proof_digests": [
+     "684f72acd03719008e4756e42c65081d7fd0294573f5f222344a6db97fe2c0ef"
+    ],
     "request_id": "req_33605bf5292ad0402592933306d5b9fa",
     "schema": 1,
     "target": {
@@ -1071,74 +1159,27 @@
    }
   },
   {
-   "digest": "1ad9ce432618f252a0fbf9f413f166e29924af0eea52d6d0374821c4b8ca9404",
-   "name": "sign_while_locked_request",
-   "record": {
-    "action": "local_profile",
-    "actor": {
-     "device_id": "dev_da39f8cdfe2696b1e1195f592967c39b",
-     "principal_id": "prn_bf6bfe1fd2042b1f30d5c089d0825f22",
-     "profile_id": "prf_9466de8e5d9832318058b6bf59a2c3e9"
-    },
-    "control_digests": [],
-    "effect_class": "pure_preview",
-    "kind": "operation_request",
-    "local_access_generation": 2,
-    "operation": "access.admission.decide",
-    "owner": {
-     "layer": "personal",
-     "principal_id": "prn_bf6bfe1fd2042b1f30d5c089d0825f22"
-    },
-    "payload_digest": "4b91bfdbfa4ff120d50d41bde53fe613200027f97c31b685dc0fad2115bb8ff1",
-    "policy_digests": [],
-    "proof_digests": [],
-    "request_id": "req_02f904fd68fa9ce8f21e2bbb82f4e38b",
-    "schema": 1,
-    "target": {
-     "resource_id": "prf_9466de8e5d9832318058b6bf59a2c3e9"
-    }
-   }
-  },
-  {
-   "digest": "107c02e9e843254f3831f7489dde87a6761b8148b0800915e71fd735f9253a10",
-   "name": "sign_while_locked_admission",
-   "record": {
-    "access_generation": 2,
-    "kind": "access_admission",
-    "outcome": {
-     "admission": "not_admitted",
-     "material_gaps": [
-      {
-       "code": "access_locked"
-      }
-     ]
-    },
-    "profile_id": "prf_9466de8e5d9832318058b6bf59a2c3e9",
-    "request_id": "req_33605bf5292ad0402592933306d5b9fa",
-    "schema": 1
-   }
-  },
-  {
-   "digest": "3a6c9384f33e5509bc42f36b1692277bdaa1004de68d272bcd7944bbc8168f9e",
+   "digest": "347feb98699fb6aa9f8bc017d4eed72119c0798b132355256311eb08139326ce",
    "name": "sign_while_locked_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "none",
     "outcome": {
-     "material_gaps": [],
-     "stage": "previewed"
+     "material_gaps": [
+      {
+       "code": "access_locked"
+      }
+     ],
+     "stage": "refused"
     },
-    "outputs": [
-     {
-      "digest": "107c02e9e843254f3831f7489dde87a6761b8148b0800915e71fd735f9253a10",
-      "kind": "access_admission"
-     }
-    ],
+    "outputs": [],
     "provider_effect": "not_applicable",
-    "request_digest": "1ad9ce432618f252a0fbf9f413f166e29924af0eea52d6d0374821c4b8ca9404",
-    "request_id": "req_02f904fd68fa9ce8f21e2bbb82f4e38b",
+    "request_digest": "22ec66cd37694712fa307bfc9e8811c9c4f619077e37a7c2d6031be204dd05be",
+    "request_id": "req_33605bf5292ad0402592933306d5b9fa",
     "schema": 1,
-    "supported_recovery": []
+    "supported_recovery": [
+     "unlock"
+    ]
    }
   },
   {
@@ -1247,74 +1288,114 @@
    }
   },
   {
-   "digest": "44a181d35828be381d7de98e7ad7630b97b965010bb6160c78fd7ecb0eed39da",
-   "name": "sign_after_unlock_request",
+   "digest": "f865f79111b3ce995f05b71d9ea613df6169a1a7cb328710ee62be23620e0e3b",
+   "name": "signed_commit_after_unlock",
    "record": {
-    "action": "local_profile",
+    "action": "publish",
     "actor": {
      "device_id": "dev_da39f8cdfe2696b1e1195f592967c39b",
      "principal_id": "prn_bf6bfe1fd2042b1f30d5c089d0825f22",
      "profile_id": "prf_9466de8e5d9832318058b6bf59a2c3e9"
     },
     "control_digests": [],
-    "effect_class": "pure_preview",
+    "effect_class": "owner_commit",
     "kind": "operation_request",
     "local_access_generation": 2,
-    "operation": "access.admission.decide",
+    "operation": "source.revision.commit",
     "owner": {
      "layer": "personal",
      "principal_id": "prn_bf6bfe1fd2042b1f30d5c089d0825f22"
     },
-    "payload_digest": "4b91bfdbfa4ff120d50d41bde53fe613200027f97c31b685dc0fad2115bb8ff1",
+    "payload_digest": "35ebd37eb23204596fa9c93c6b1ae93761f433fa328a758eb14fb0d4dd36089d",
     "policy_digests": [],
-    "proof_digests": [],
-    "request_id": "req_6e67dab73903b7c4cfe07ba357967e42",
+    "proof_digests": [
+     "684f72acd03719008e4756e42c65081d7fd0294573f5f222344a6db97fe2c0ef"
+    ],
+    "request_id": "req_f13f52b311f72dc82fd7254094d1c061",
     "schema": 1,
     "target": {
-     "resource_id": "prf_9466de8e5d9832318058b6bf59a2c3e9"
+     "base": {
+      "expects": "head",
+      "head_digest": "3d5f5bb66c3985a3d08ad8fe7d64663f8ca0db222b219070f84ef8000a8e3f7f"
+     },
+     "resource_id": "src_7da92b74a084458b49420b8a25b22e53"
     }
    }
   },
   {
-   "digest": "45e25d0928bc355c3f8c537161fb659ef2a226b07ee678d575c695fc10fd6eb4",
-   "name": "sign_after_unlock_admission",
+   "digest": "3b54901d247eb2d0fdb1f6bb0f09e5aef201f5d0cba08e0864b619a3a59571fc",
+   "name": "sign_after_unlock_receipt",
    "record": {
-    "access_generation": 2,
-    "kind": "access_admission",
-    "outcome": {
-     "admission": "allowed"
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "6d848f6a0163a2e5222dce70d132c78d91e3085358ce644e16b36d3f77831ed9",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_bf6bfe1fd2042b1f30d5c089d0825f22"
     },
-    "profile_id": "prf_9466de8e5d9832318058b6bf59a2c3e9",
-    "request_id": "req_33605bf5292ad0402592933306d5b9fa",
-    "schema": 1
+    "request_digest": "f865f79111b3ce995f05b71d9ea613df6169a1a7cb328710ee62be23620e0e3b",
+    "request_id": "req_f13f52b311f72dc82fd7254094d1c061",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "3d5f5bb66c3985a3d08ad8fe7d64663f8ca0db222b219070f84ef8000a8e3f7f"
+     },
+     "resource_id": "src_7da92b74a084458b49420b8a25b22e53"
+    }
    }
   },
   {
-   "digest": "a4e5291c0223dc5774ef464f8a9b2ff43f24bc6556ef7c6f28304cb5223a4b23",
+   "digest": "a4113ad42ae060cf8528b89ec489443c6204bb39d2b16351bf750937c8979fca",
+   "name": "committed_notes_revision",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "c4933a82770781b42504ac60a6252bfd06ccfce66170394620ba473ade98365d",
+      "path": "concepts.md",
+      "size": 4120
+     },
+     {
+      "digest": "2702a48949ff2ef94c13c8f8e0a45a7a481e0e19482d3ffa8f8fc2c584a1d2c2",
+      "path": "tables/rates.csv",
+      "size": 918
+     }
+    ],
+    "produced_at": "2000-01-01T00:00:00Z",
+    "schema": 1,
+    "source_id": "src_7da92b74a084458b49420b8a25b22e53"
+   }
+  },
+  {
+   "digest": "0305e2d9b0bc2534ed540c1bfe7b9b367f5664e80709ba7cb2da5838ec152e9e",
    "name": "sign_after_unlock_result",
    "record": {
     "kind": "operation_result",
-    "local_effect": "none",
+    "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "stage": "previewed"
+     "receipt_digest": "3b54901d247eb2d0fdb1f6bb0f09e5aef201f5d0cba08e0864b619a3a59571fc",
+     "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "45e25d0928bc355c3f8c537161fb659ef2a226b07ee678d575c695fc10fd6eb4",
-      "kind": "access_admission"
+      "digest": "a4113ad42ae060cf8528b89ec489443c6204bb39d2b16351bf750937c8979fca",
+      "kind": "source_manifest"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "44a181d35828be381d7de98e7ad7630b97b965010bb6160c78fd7ecb0eed39da",
-    "request_id": "req_6e67dab73903b7c4cfe07ba357967e42",
+    "request_digest": "f865f79111b3ce995f05b71d9ea613df6169a1a7cb328710ee62be23620e0e3b",
+    "request_id": "req_f13f52b311f72dc82fd7254094d1c061",
     "schema": 1,
     "supported_recovery": []
    }
   }
  ],
  "says": "Alice's laptop reads its fresh profile (active, generation 1); she binds her device key and registers a private notes source, then locks the profile (generation 2). She tries to unlock while her key's private half sits beside the public key the signing call names: the unlock is refused with private_key_beside_public and the profile stays locked, because under that layout OpenSSH would prompt for the passphrase again outside the unlock. She tries again while SSH_AUTH_SOCK names a signing agent this runtime does not own: refused with agent_not_owned_here. While locked, the signed commit of her notes' first revision is not admitted, with access_locked: no signature is made. With the public half stored apart and the runtime's own agent, an unlock at a terminal succeeds with the real device key (still generation 2: an unlock moves no generation), and the same commit is admitted. What must not happen: a signature made while locked, an unlock through an agent the runtime does not own, or any passphrase prompt other than the one inside the unlock transition.",
- "spec_sha256": "4d6e090807ab625018eda1831cd9f130bb819d2c0fb777a8a33ee2287c3a5f78",
+ "spec_sha256": "b1d6f90feb7882d633b86f42f651f5c723061999f8d9501edcd1901b71f0e00b",
  "steps": [
   {
    "carries": [],
@@ -1380,14 +1461,13 @@
   },
   {
    "carries": [
-    "signed_commit"
+    "first_revision",
+    "commit_proof"
    ],
    "name": "sign_while_locked",
-   "request": "sign_while_locked_request",
+   "request": "signed_commit",
    "result": "sign_while_locked_result",
-   "returns": [
-    "sign_while_locked_admission"
-   ]
+   "returns": []
   },
   {
    "carries": [
@@ -1402,14 +1482,32 @@
   },
   {
    "carries": [
-    "signed_commit"
+    "first_revision",
+    "commit_proof"
    ],
+   "head": "notes_h1",
    "name": "sign_after_unlock",
-   "request": "sign_after_unlock_request",
+   "request": "signed_commit_after_unlock",
    "result": "sign_after_unlock_result",
    "returns": [
-    "sign_after_unlock_admission"
+    "committed_notes_revision"
    ]
   }
- ]
+ ],
+ "world": {
+  "events": [
+   {
+    "before": "unlock_with_private_key_beside",
+    "key": "alice_laptop_binding",
+    "kind": "key_layout",
+    "layout": "private_beside_public"
+   },
+   {
+    "before": "unlock_through_a_foreign_agent",
+    "key": "alice_laptop_binding",
+    "kind": "key_layout",
+    "layout": "foreign_agent"
+   }
+  ]
+ }
 }

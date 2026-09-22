@@ -158,6 +158,11 @@
    "record": "read_probe_stored"
   },
   {
+   "minted": "probe_measured_at",
+   "pointer": "/measured_at",
+   "record": "read_probe_host_configuration"
+  },
+  {
    "digest_of": "probe_host_read_receipt",
    "pointer": "/outcome/receipt_digest",
    "record": "probe_host_read_result"
@@ -170,6 +175,11 @@
   {
    "digest_of": "read_probe_stored",
    "pointer": "/outputs/0/digest",
+   "record": "probe_host_read_result"
+  },
+  {
+   "digest_of": "read_probe_host_configuration",
+   "pointer": "/outputs/1/digest",
    "record": "probe_host_read_result"
   },
   {
@@ -387,6 +397,11 @@
   {
    "name": "probe_host_read_sequence",
    "shape": "integer",
+   "step": "probe_host_read"
+  },
+  {
+   "name": "probe_measured_at",
+   "shape": "instant",
    "step": "probe_host_read"
   },
   {
@@ -738,7 +753,24 @@
    }
   },
   {
-   "digest": "7c13f39c1c3b9c6f3fdde9b6e08c0bf47eb17440d03e2cb0f5db8218c46dbd9a",
+   "digest": "40782b10bc064b6e4302b3c64e5e0fb7bbae0c6d98b4921eb538454f04d2313a",
+   "name": "read_probe_host_configuration",
+   "record": {
+    "client": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "hooks": [],
+    "kind": "host_configuration",
+    "measured_at": "2000-01-01T00:00:00Z",
+    "mode": {
+     "runs": "real"
+    },
+    "schema": 1
+   }
+  },
+  {
+   "digest": "36b265f53f0596083dbd38f8ba3da6e7bf1f43f6900f54a7cbd1f9c893bfc10a",
    "name": "probe_host_read_result",
    "record": {
     "kind": "operation_result",
@@ -752,6 +784,10 @@
      {
       "digest": "6535723a2e8aa40bb5716c6b1313b1044ea058255ab240680fd5894a42cf250b",
       "kind": "capability_probe"
+     },
+     {
+      "digest": "40782b10bc064b6e4302b3c64e5e0fb7bbae0c6d98b4921eb538454f04d2313a",
+      "kind": "host_configuration"
      }
     ],
     "provider_effect": "not_applicable",
@@ -1721,7 +1757,7 @@
   }
  ],
  "says": "A first user with no Team, no account, no provider connection and no repository opens the launcher on a fresh installation: reading the local profile (access.profile.read) returns the profile the runtime wrote at this first use, active at generation 1 because of first use and naming nothing but the local principal, and every later request runs at that generation. The user then creates a local principal from a device key on this laptop (identity.binding.add, established by local creation, no evidence from any provider), and the host is probed for reading what a start hands it. The launcher offers one qualified personal start route. The entry (surface.drive) shows the three personal positions checked and empty, the tool as a suggestion marked '(제안)', and one start action; there is no goal or task field. Tab and Enter dispatch one preparation.compose request whose basis is the personal scope alone with no source pins and no work_request; the owner stores a preparation, as the requester's own record with no receipt, of nothing selected whose task support is not requested, observed at a plain local folder, and route.select answers for that request with it. Negative: no step signs in, founds or selects a Team, binds a repository or reaches a provider; no answer carries a gap or recovery that asks for sign-in, a Team or a repository; and the missing intent is neither an error nor a guessed work_request.",
- "spec_sha256": "88a1dfe3644bf4c2a405fffbf60dabbf832039ccb38f9541bf6cc600ab7bd445",
+ "spec_sha256": "b56bbd72105d420289f32e290daf4f8bf543b52acabfaef4f89242f34efcd9de",
  "steps": [
   {
    "carries": [],
@@ -1752,7 +1788,8 @@
    "request": "probe_request",
    "result": "probe_host_read_result",
    "returns": [
-    "read_probe_stored"
+    "read_probe_stored",
+    "read_probe_host_configuration"
    ]
   },
   {

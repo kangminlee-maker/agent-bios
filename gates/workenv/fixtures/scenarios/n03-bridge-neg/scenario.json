@@ -1661,7 +1661,7 @@
    }
   },
   {
-   "digest": "82e789916907b9595d7ac1cd21bd2ed90afa6872bfaad896e5826bd75058337b",
+   "digest": "9ae38f7fb0db7f8e2d490d8e3d2c9c588385256e3afcb9fa3a703432e57c5dec",
    "name": "unlock_at_terminal_state",
    "record": {
     "access_generation": 2,
@@ -1671,12 +1671,15 @@
     "schema": 1,
     "state": {
      "because": "unlock",
-     "is": "active"
+     "is": "active",
+     "key_mode": {
+      "runs": "real"
+     }
     }
    }
   },
   {
-   "digest": "a10afdcd855f28ea9ae13043ff8d1f1e743881e52e7229f6eb26d840b046ac8b",
+   "digest": "40689829bbf79eb40fc7804158fa7de4f88d59a6a747de5505f5459b5a131590",
    "name": "unlock_at_terminal_result",
    "record": {
     "kind": "operation_result",
@@ -1688,7 +1691,7 @@
     },
     "outputs": [
      {
-      "digest": "82e789916907b9595d7ac1cd21bd2ed90afa6872bfaad896e5826bd75058337b",
+      "digest": "9ae38f7fb0db7f8e2d490d8e3d2c9c588385256e3afcb9fa3a703432e57c5dec",
       "kind": "access_state"
      }
     ],
@@ -2164,7 +2167,7 @@
   }
  ],
  "says": "Alice's laptop reads its fresh profile (active, generation 1) and binds her key. The launch opens the Studio page through the loopback bridge with a per-launch client token, and the access owner issues the page a handle through studio_bridge at generation 1 that names the token's digest; the TUI is issued its own handle through studio_hub. Under generation 1 the page asks for her recent history under its handle, and the bridge writes the body at generation 1. She locks the profile (generation 2). The page resends its request, still issued under generation 1: the bridge withholds the body, reading generation 2 on arrival, and the result names access_locked and access_generation_moved. A TUI request under its generation-1 handle is likewise not admitted. After she unlocks at a terminal (still generation 2) the page's old request is still withheld with access_generation_moved. The page is issued a new handle at generation 2 naming the same launch token. A request under generation 2 carrying a client token this launch never issued is refused with client_token_unknown and gets no body. Finally the page's request under its new handle arrives, and while the bridge serves it — after admitting it, before writing its body — Alice locks the profile again at a terminal: the bridge rereads the generation before writing, finds 3, and withholds the body. What must not happen: any body written for a request issued under an earlier generation, or for a token the launch did not issue, or a body written after a lock landed.",
- "spec_sha256": "19eeb8d9572f25ac3ddd426ada9900686bc1ddd82f09b27f3a8d764994d5e5c7",
+ "spec_sha256": "a779df178377f1fba43cfbe64087648240dc5c77096764313cf9e1c942685646",
  "steps": [
   {
    "carries": [],

@@ -1,6 +1,6 @@
 {
  "case": "N24-RECOVERY-POS",
- "says": "On her laptop Alice binds her device key and, while the compatibility route still forwards, is issued an access handle through the compatibility_route entrance at access generation 7. She registers the package candidate, records that route (compose/corpus_store.py, successor compose/instructions_store.py) as retired_at_cutover — the only route this target records for that entrance, so the entrance is retired with it — and commits the cutover naming the candidate. After the switch she founds a Team, grants Bob, then revokes Bob's grant by its next revision; each Team commit moves the Team head and the next expects it. The target then takes a backup, which covers the receipts through the revocation's. The laptop is lost and rebuilt, and the backup restored: the report is passive, and the profile reads locked because restored at generation 8 until Alice unlocks at the terminal. Each request id the backup covers — the cutover, the founding, the grant and the revocation — answers its original result and receipt; the backup's own request id, which the backup cannot cover, answers request_not_covered naming the report. The Team's state shows Bob's grant revoked, so the control change stays in force. A disposition recording the retired route as a writer through the source store is refused with route_retired at /disposition, and a grant change re-granting Bob proved by the handle issued through the retired entrance is refused with route_retired at /proof_digests/0 (that handle is also from before the restore's generation, access_generation_moved). What must not happen: the restore bringing back Bob's grant, a covered request id answered request_not_held or with a new result or receipt, or the retired route or a handle issued through it writing again.",
+ "says": "On her laptop Alice binds her device key and, while the compatibility route still forwards, is issued an access handle through the compatibility_route entrance at access generation 7. She registers the package candidate, records that route (compose/corpus_store.py, successor compose/instructions_store.py) as retired_at_cutover — the only route this target records for that entrance, so the entrance is retired with it — and commits the cutover naming the candidate. After the switch she founds a Team, grants Bob, then revokes Bob's grant by its next revision; each Team commit moves the Team head and the next expects it. The target then takes a backup, which covers the receipts through the revocation's. The laptop is lost and rebuilt, and the backup restored: the report is passive, and the profile reads locked because restored at generation 8 until Alice unlocks at the terminal. Each request id the backup covers — binding the device key, issuing the compatibility handle, registering the candidate, retiring the compatibility route, the cutover, the founding, the grant and the revocation — answers its original result and receipt; the backup's own request id, which the backup cannot cover, answers request_not_covered naming the report. The Team's state shows Bob's grant revoked, so the control change stays in force. A disposition recording the retired route as a writer through the source store is refused with route_retired at /disposition, and a grant change re-granting Bob proved by the handle issued through the retired entrance is refused with route_retired at /proof_digests/0 (that handle is also from before the restore's generation, access_generation_moved). What must not happen: the restore bringing back Bob's grant, a covered request id answered request_not_held or with a new result or receipt, or the retired route or a handle issued through it writing again.",
  "world": {
   "processes": [
    "laptop",
@@ -106,6 +106,22 @@
   },
   {
    "name": "regrant_request",
+   "prefix": "req"
+  },
+  {
+   "name": "bind_query_request",
+   "prefix": "req"
+  },
+  {
+   "name": "handle_query_request",
+   "prefix": "req"
+  },
+  {
+   "name": "register_query_request",
+   "prefix": "req"
+  },
+  {
+   "name": "retire_query_request",
    "prefix": "req"
   }
  ],
@@ -1150,6 +1166,24 @@
    ]
   },
   {
+   "name": "restored_profile",
+   "from": "c02/profile_written_at_first_use.json",
+   "set": [
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:restored_profile_created_at"
+    }
+   ]
+  },
+  {
    "name": "restored_access",
    "from": "c02/locked_after_a_restore.json",
    "set": [
@@ -1242,6 +1276,274 @@
     {
      "pointer": "/changed_at",
      "value": "$instant:unlocked_at"
+    }
+   ]
+  },
+  {
+   "name": "bind_query",
+   "from": "c03/query_by_request_id.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_request"
+    }
+   ]
+  },
+  {
+   "name": "ask_bind",
+   "from": "c03/query_request.json",
+   "drop": [
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@bind_query_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.query"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@bind_request"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#bind_query"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 8
+    }
+   ]
+  },
+  {
+   "name": "handle_query",
+   "from": "c03/query_by_request_id.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@handle_request"
+    }
+   ]
+  },
+  {
+   "name": "ask_handle",
+   "from": "c03/query_request.json",
+   "drop": [
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@handle_query_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.query"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@handle_request"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#handle_query"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 8
+    }
+   ]
+  },
+  {
+   "name": "register_query",
+   "from": "c03/query_by_request_id.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_request"
+    }
+   ]
+  },
+  {
+   "name": "ask_register",
+   "from": "c03/query_request.json",
+   "drop": [
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_query_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.query"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@register_request"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#register_query"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 8
+    }
+   ]
+  },
+  {
+   "name": "retire_query",
+   "from": "c03/query_by_request_id.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@retire_request"
+    }
+   ]
+  },
+  {
+   "name": "ask_retire",
+   "from": "c03/query_request.json",
+   "drop": [
+    "/owner/team_id"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@retire_query_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "operation.query"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@retire_request"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#retire_query"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 8
     }
    ]
   },
@@ -1999,6 +2301,7 @@
     "gaps": [],
     "recovery": [],
     "returns": [
+     "restored_profile",
      "restored_access"
     ]
    }
@@ -2018,6 +2321,82 @@
     "recovery": [],
     "returns": [
      "unlocked"
+    ]
+   }
+  },
+  {
+   "name": "query_bind",
+   "process": "rebuilt",
+   "request": "ask_bind",
+   "carries": [
+    "bind_query"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "bind_device_key_result",
+     "bind_device_key_receipt"
+    ]
+   }
+  },
+  {
+   "name": "query_handle",
+   "process": "rebuilt",
+   "request": "ask_handle",
+   "carries": [
+    "handle_query"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "issue_compatibility_handle_result",
+     "issue_compatibility_handle_receipt"
+    ]
+   }
+  },
+  {
+   "name": "query_register",
+   "process": "rebuilt",
+   "request": "ask_register",
+   "carries": [
+    "register_query"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "register_candidate_result",
+     "register_candidate_receipt"
+    ]
+   }
+  },
+  {
+   "name": "query_retire",
+   "process": "rebuilt",
+   "request": "ask_retire",
+   "carries": [
+    "retire_query"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "retire_the_compatibility_route_result",
+     "retire_the_compatibility_route_receipt"
     ]
    }
   },

@@ -554,6 +554,11 @@
    "record": "accept_full"
   },
   {
+   "minted": "team_head",
+   "pointer": "/target/base/head_digest",
+   "record": "accept_full"
+  },
+  {
    "digest_of": "accept_full",
    "pointer": "/request_digest",
    "record": "accept_full_package_receipt"
@@ -571,6 +576,11 @@
   {
    "minted": "accept_full_package_committed_at",
    "pointer": "/committed_at",
+   "record": "accept_full_package_receipt"
+  },
+  {
+   "minted": "team_head",
+   "pointer": "/target/base/head_digest",
    "record": "accept_full_package_receipt"
   },
   {
@@ -1089,17 +1099,7 @@
    "record": "copied_key_envelope"
   },
   {
-   "minted": "source_head_2",
-   "pointer": "/checkpoint_digest",
-   "record": "copied_successor"
-  },
-  {
-   "digest_of": "founding_epoch",
-   "pointer": "/succession/predecessor_digest",
-   "record": "copied_successor"
-  },
-  {
-   "digest_of": "copied_successor",
+   "digest_of": "copied_key_binding",
    "pointer": "/continuity_evidence_digests/1",
    "record": "copied_key_envelope"
   },
@@ -1109,7 +1109,7 @@
    "record": "copied_key_envelope"
   },
   {
-   "digest_of": "copied_successor",
+   "digest_of": "copied_key_binding",
    "pointer": "/inventory/1/digest",
    "record": "copied_key_envelope"
   },
@@ -1117,6 +1117,26 @@
    "digest_of": "copied_key_envelope",
    "pointer": "/payload_digest",
    "record": "accept_copied"
+  },
+  {
+   "digest_of": "copied_key_envelope",
+   "pointer": "/envelope_digest",
+   "record": "copied_key_received"
+  },
+  {
+   "minted": "copied_key_received_at",
+   "pointer": "/at",
+   "record": "copied_key_received"
+  },
+  {
+   "digest_of": "accept_copied",
+   "pointer": "/request_digest",
+   "record": "accept_package_with_a_copied_key_result"
+  },
+  {
+   "digest_of": "copied_key_received",
+   "pointer": "/outputs/0/digest",
+   "record": "accept_package_with_a_copied_key_result"
   },
   {
    "digest_of": "desktop_backup",
@@ -1469,6 +1489,11 @@
    "name": "fork_at",
    "shape": "instant",
    "step": "accept_package_with_two_successors"
+  },
+  {
+   "name": "copied_key_received_at",
+   "shape": "instant",
+   "step": "accept_package_with_a_copied_key"
   },
   {
    "name": "restore_the_old_disk_committed_at",
@@ -2438,7 +2463,7 @@
    }
   },
   {
-   "digest": "47f5091fc512745af433c9dcaad462f4b118c569bf7a0a29eb9a83911dc6088c",
+   "digest": "68ff19d1ab960229e39e3a3512082a7bde14bf822f1b49f3bdcc85a4b2c326e8",
    "name": "full_envelope",
    "record": {
     "authority": {
@@ -2457,13 +2482,13 @@
       "digest": "7a7de8b38fc61ed68873ac8a2bce8b20f6b0d373376e6536dd69eaa56e66d444",
       "object_kind": "source_manifest",
       "path": "objects/0000.json",
-      "size": 4096
+      "size": 382
      },
      {
       "digest": "63c8b1a941af63e41d903acac3217331ac2f142b304c16722a3c363ccdc9927d",
       "object_kind": "authority_continuity",
       "path": "continuity/0001.json",
-      "size": 512
+      "size": 378
      }
     ],
     "kind": "transfer_envelope",
@@ -2489,7 +2514,7 @@
    }
   },
   {
-   "digest": "db6004839230b5b9a58819fb7caa6667e93b272a35297430f3ffdbafe6ae4210",
+   "digest": "b24f0e1e473b0d3341a5ac419101eced040d582e70a91a5375ec9b8b1a8936f7",
    "name": "stage_full",
    "record": {
     "action": "transfer",
@@ -2507,7 +2532,7 @@
      "layer": "team",
      "team_id": "tem_4890dbaad8d756e9cb995a8b7dcc8b46"
     },
-    "payload_digest": "47f5091fc512745af433c9dcaad462f4b118c569bf7a0a29eb9a83911dc6088c",
+    "payload_digest": "68ff19d1ab960229e39e3a3512082a7bde14bf822f1b49f3bdcc85a4b2c326e8",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_20b0ed77a2d2a6224efdde6e851e16e2",
@@ -2522,11 +2547,11 @@
    }
   },
   {
-   "digest": "0286b5a5c1bc1ce26f33c20ddb1fbd84953bc2dfbd47de236339770edc01b3fc",
+   "digest": "98eee6da635efe62479676c7f4a98f00d0f21e8a0abb10a5e348f526781a0187",
    "name": "full_exported",
    "record": {
     "at": "2000-01-01T00:00:00Z",
-    "envelope_digest": "47f5091fc512745af433c9dcaad462f4b118c569bf7a0a29eb9a83911dc6088c",
+    "envelope_digest": "68ff19d1ab960229e39e3a3512082a7bde14bf822f1b49f3bdcc85a4b2c326e8",
     "kind": "transfer_stage_record",
     "schema": 1,
     "stage": {
@@ -2540,7 +2565,7 @@
    }
   },
   {
-   "digest": "42ddfbd1cfbe1f83894d1e1ad763cd3c0d595231b4f32e63c3711df5e9aac334",
+   "digest": "23b8d8e36768dffa196784e7527a683b667e04193365d22f95c000f764a7e746",
    "name": "stage_full_package_result",
    "record": {
     "kind": "operation_result",
@@ -2551,19 +2576,19 @@
     },
     "outputs": [
      {
-      "digest": "0286b5a5c1bc1ce26f33c20ddb1fbd84953bc2dfbd47de236339770edc01b3fc",
+      "digest": "98eee6da635efe62479676c7f4a98f00d0f21e8a0abb10a5e348f526781a0187",
       "kind": "transfer_stage_record"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "db6004839230b5b9a58819fb7caa6667e93b272a35297430f3ffdbafe6ae4210",
+    "request_digest": "b24f0e1e473b0d3341a5ac419101eced040d582e70a91a5375ec9b8b1a8936f7",
     "request_id": "req_20b0ed77a2d2a6224efdde6e851e16e2",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "f88f155a98e3b67c82a74e80759e6aa6fdbc6062fc5adeabfc459365d8074bc2",
+   "digest": "909a1c28896e38e1c6ee68d98833dfe492eda80fc3e95c75e6f2c99a682ec58a",
    "name": "accept_full",
    "record": {
     "action": "transfer",
@@ -2581,21 +2606,22 @@
      "layer": "team",
      "team_id": "tem_4890dbaad8d756e9cb995a8b7dcc8b46"
     },
-    "payload_digest": "47f5091fc512745af433c9dcaad462f4b118c569bf7a0a29eb9a83911dc6088c",
+    "payload_digest": "68ff19d1ab960229e39e3a3512082a7bde14bf822f1b49f3bdcc85a4b2c326e8",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_5d20870ec5a02d18ca184c905f515544",
     "schema": 1,
     "target": {
      "base": {
-      "expects": "absent"
+      "expects": "head",
+      "head_digest": "f23e0a7d95b4415ee84e37a6e578e84c958c20d46594979352ef9fde47e38907"
      },
      "resource_id": "tem_4890dbaad8d756e9cb995a8b7dcc8b46"
     }
    }
   },
   {
-   "digest": "7809fecd646f1c890e1c51cad4c17fce1d683583fc5918c4cfee5c252bae8716",
+   "digest": "c0cdd04fdc07f0165e1e8fa0ec942a5eaab6b0b97030ffb27989a0b07ac1162e",
    "name": "accept_full_package_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -2605,24 +2631,25 @@
      "layer": "team",
      "team_id": "tem_4890dbaad8d756e9cb995a8b7dcc8b46"
     },
-    "request_digest": "f88f155a98e3b67c82a74e80759e6aa6fdbc6062fc5adeabfc459365d8074bc2",
+    "request_digest": "909a1c28896e38e1c6ee68d98833dfe492eda80fc3e95c75e6f2c99a682ec58a",
     "request_id": "req_5d20870ec5a02d18ca184c905f515544",
     "schema": 1,
     "sequence": 1,
     "target": {
      "base": {
-      "expects": "absent"
+      "expects": "head",
+      "head_digest": "f23e0a7d95b4415ee84e37a6e578e84c958c20d46594979352ef9fde47e38907"
      },
      "resource_id": "tem_4890dbaad8d756e9cb995a8b7dcc8b46"
     }
    }
   },
   {
-   "digest": "adf75b0273547c6aa3f25a80d7e05508233d0681f5f09a23fd195614fda1f92e",
+   "digest": "d44497fb8aa8c932a8a686fedba806943f277fa24d69a5dd8efc2d3b6105fc11",
    "name": "full_received",
    "record": {
     "at": "2000-01-01T00:00:00Z",
-    "envelope_digest": "47f5091fc512745af433c9dcaad462f4b118c569bf7a0a29eb9a83911dc6088c",
+    "envelope_digest": "68ff19d1ab960229e39e3a3512082a7bde14bf822f1b49f3bdcc85a4b2c326e8",
     "kind": "transfer_stage_record",
     "schema": 1,
     "stage": {
@@ -2636,11 +2663,11 @@
    }
   },
   {
-   "digest": "ba9b5188cd9a28f1a11ac32784331766d4f62738d1640094d81b17e1c628ce92",
+   "digest": "58a4b38f5cc41f33b3a0a5d4e29d8a16267e1f8cdfaa8c2b192fd3f16faddbd1",
    "name": "full_controls",
    "record": {
     "at": "2000-01-01T00:00:00Z",
-    "envelope_digest": "47f5091fc512745af433c9dcaad462f4b118c569bf7a0a29eb9a83911dc6088c",
+    "envelope_digest": "68ff19d1ab960229e39e3a3512082a7bde14bf822f1b49f3bdcc85a4b2c326e8",
     "kind": "transfer_stage_record",
     "schema": 1,
     "stage": {
@@ -2653,27 +2680,27 @@
    }
   },
   {
-   "digest": "69a13cc1f28880bf621e14faadea46967f096561ec6baa27f5f03ab814c05fd6",
+   "digest": "d2122e0370e5460d1b3451dd8db1c62827c3b5e5621d9d2c302be716534c6d7f",
    "name": "full_verified",
    "record": {
     "at": "2000-01-01T00:00:00Z",
-    "envelope_digest": "47f5091fc512745af433c9dcaad462f4b118c569bf7a0a29eb9a83911dc6088c",
+    "envelope_digest": "68ff19d1ab960229e39e3a3512082a7bde14bf822f1b49f3bdcc85a4b2c326e8",
     "kind": "transfer_stage_record",
     "schema": 1,
     "stage": {
-     "controls_record_digest": "ba9b5188cd9a28f1a11ac32784331766d4f62738d1640094d81b17e1c628ce92",
+     "controls_record_digest": "58a4b38f5cc41f33b3a0a5d4e29d8a16267e1f8cdfaa8c2b192fd3f16faddbd1",
      "is": "verified"
     }
    }
   },
   {
-   "digest": "455348aa3493a8d868f45f340ccbc7e4096d4cb57c0441e70a41b0a3b7f94f22",
+   "digest": "12da473b0668f02758193529a95ea488bafba6c7e3b2824881972d11e2175116",
    "name": "full_committed",
    "record": {
     "at": "2000-01-01T00:00:00Z",
-    "envelope_digest": "47f5091fc512745af433c9dcaad462f4b118c569bf7a0a29eb9a83911dc6088c",
+    "envelope_digest": "68ff19d1ab960229e39e3a3512082a7bde14bf822f1b49f3bdcc85a4b2c326e8",
     "kind": "transfer_stage_record",
-    "receipt_digest": "7809fecd646f1c890e1c51cad4c17fce1d683583fc5918c4cfee5c252bae8716",
+    "receipt_digest": "c0cdd04fdc07f0165e1e8fa0ec942a5eaab6b0b97030ffb27989a0b07ac1162e",
     "schema": 1,
     "stage": {
      "is": "committed"
@@ -2681,43 +2708,43 @@
    }
   },
   {
-   "digest": "34b3c8c3d510e7bebe0251adf90e19cd7a7688d714faeeda1f3d613f1e86e883",
+   "digest": "2b631f4a2f3fb86678f220eb4fea95d29cf3fc4d3571bc715c6a4293b3aae50a",
    "name": "accept_full_package_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "7809fecd646f1c890e1c51cad4c17fce1d683583fc5918c4cfee5c252bae8716",
+     "receipt_digest": "c0cdd04fdc07f0165e1e8fa0ec942a5eaab6b0b97030ffb27989a0b07ac1162e",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "adf75b0273547c6aa3f25a80d7e05508233d0681f5f09a23fd195614fda1f92e",
+      "digest": "d44497fb8aa8c932a8a686fedba806943f277fa24d69a5dd8efc2d3b6105fc11",
       "kind": "transfer_stage_record"
      },
      {
-      "digest": "ba9b5188cd9a28f1a11ac32784331766d4f62738d1640094d81b17e1c628ce92",
+      "digest": "58a4b38f5cc41f33b3a0a5d4e29d8a16267e1f8cdfaa8c2b192fd3f16faddbd1",
       "kind": "transfer_stage_record"
      },
      {
-      "digest": "69a13cc1f28880bf621e14faadea46967f096561ec6baa27f5f03ab814c05fd6",
+      "digest": "d2122e0370e5460d1b3451dd8db1c62827c3b5e5621d9d2c302be716534c6d7f",
       "kind": "transfer_stage_record"
      },
      {
-      "digest": "455348aa3493a8d868f45f340ccbc7e4096d4cb57c0441e70a41b0a3b7f94f22",
+      "digest": "12da473b0668f02758193529a95ea488bafba6c7e3b2824881972d11e2175116",
       "kind": "transfer_stage_record"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "f88f155a98e3b67c82a74e80759e6aa6fdbc6062fc5adeabfc459365d8074bc2",
+    "request_digest": "909a1c28896e38e1c6ee68d98833dfe492eda80fc3e95c75e6f2c99a682ec58a",
     "request_id": "req_5d20870ec5a02d18ca184c905f515544",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "079b31e4c58b1c12af0c9d050185cfe4b4f635d87ea9536a32dda8668e9b3914",
+   "digest": "147a07b49bd1f51406443395354f7d3da945e21b834cfb9b49d0e8733c24ab82",
    "name": "desktop_commitment",
    "record": {
     "holder": {
@@ -2733,12 +2760,12 @@
      {
       "digest": "7a7de8b38fc61ed68873ac8a2bce8b20f6b0d373376e6536dd69eaa56e66d444",
       "object_kind": "source_manifest",
-      "size": 4096
+      "size": 382
      },
      {
       "digest": "63c8b1a941af63e41d903acac3217331ac2f142b304c16722a3c363ccdc9927d",
       "object_kind": "authority_continuity",
-      "size": 512
+      "size": 378
      }
     ],
     "schema": 1,
@@ -2750,7 +2777,7 @@
    }
   },
   {
-   "digest": "43cae29041308e1c456775dcd89abc4dd40d964dae24855e99a4a027ba74470f",
+   "digest": "9c289dd1d7cf11caf3cc42c0825300ce165ab2bf87f33a9e161028ff3b751c6b",
    "name": "commit_custody",
    "record": {
     "action": "retain_delete",
@@ -2768,7 +2795,7 @@
      "layer": "team",
      "team_id": "tem_4890dbaad8d756e9cb995a8b7dcc8b46"
     },
-    "payload_digest": "079b31e4c58b1c12af0c9d050185cfe4b4f635d87ea9536a32dda8668e9b3914",
+    "payload_digest": "147a07b49bd1f51406443395354f7d3da945e21b834cfb9b49d0e8733c24ab82",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_e6d5626661761b9d4eb7bc3283fe83e4",
@@ -2779,7 +2806,7 @@
    }
   },
   {
-   "digest": "718f4880e921fed2ea8676c8b5a44f48eca79ce997d2b5c36465cf3def26d76e",
+   "digest": "7881cddbaab327e9fba9d0a59bf5f7f4674f1032c94583c9582f43ab5cd7ff53",
    "name": "desktop_undertakes_custody_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -2789,7 +2816,7 @@
      "layer": "team",
      "team_id": "tem_4890dbaad8d756e9cb995a8b7dcc8b46"
     },
-    "request_digest": "43cae29041308e1c456775dcd89abc4dd40d964dae24855e99a4a027ba74470f",
+    "request_digest": "9c289dd1d7cf11caf3cc42c0825300ce165ab2bf87f33a9e161028ff3b751c6b",
     "request_id": "req_e6d5626661761b9d4eb7bc3283fe83e4",
     "schema": 1,
     "sequence": 1,
@@ -2799,7 +2826,7 @@
    }
   },
   {
-   "digest": "521b294a3a8f59807946a3037b47d4739a08cceb2061e4263027c17a46805fc2",
+   "digest": "0005016500170f9e9998e7e26c834ee71a0c1bb19bf87a931453d7bf63775e06",
    "name": "stored_commitment",
    "record": {
     "commitment_id": "cus_530ef67ff137850d483ae7d1cc700ebe",
@@ -2817,12 +2844,12 @@
      {
       "digest": "7a7de8b38fc61ed68873ac8a2bce8b20f6b0d373376e6536dd69eaa56e66d444",
       "object_kind": "source_manifest",
-      "size": 4096
+      "size": 382
      },
      {
       "digest": "63c8b1a941af63e41d903acac3217331ac2f142b304c16722a3c363ccdc9927d",
       "object_kind": "authority_continuity",
-      "size": 512
+      "size": 378
      }
     ],
     "schema": 1,
@@ -2834,24 +2861,24 @@
    }
   },
   {
-   "digest": "a14c08601ead2fbab39136017371fa4955bbf3f5c01307a84028b3e34bc4336f",
+   "digest": "8dc892c60c8306b75c50d89a618a8d9b94812bbb6b981400d65cbd85b716683f",
    "name": "desktop_undertakes_custody_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "718f4880e921fed2ea8676c8b5a44f48eca79ce997d2b5c36465cf3def26d76e",
+     "receipt_digest": "7881cddbaab327e9fba9d0a59bf5f7f4674f1032c94583c9582f43ab5cd7ff53",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "521b294a3a8f59807946a3037b47d4739a08cceb2061e4263027c17a46805fc2",
+      "digest": "0005016500170f9e9998e7e26c834ee71a0c1bb19bf87a931453d7bf63775e06",
       "kind": "custody_commitment"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "43cae29041308e1c456775dcd89abc4dd40d964dae24855e99a4a027ba74470f",
+    "request_digest": "9c289dd1d7cf11caf3cc42c0825300ce165ab2bf87f33a9e161028ff3b751c6b",
     "request_id": "req_e6d5626661761b9d4eb7bc3283fe83e4",
     "schema": 1,
     "supported_recovery": []
@@ -2981,14 +3008,14 @@
    }
   },
   {
-   "digest": "00d5e58e4fe80a3786940445032852d447b1ed7fd723b88abe7f4ce92acbd2dd",
+   "digest": "6533df992129d4c4ce28af9e18e1ea84ecbc29c5edcf99aaaa8204c831f04982",
    "name": "desktop_revision",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "c4933a82770781b42504ac60a6252bfd06ccfce66170394620ba473ade98365d",
+      "digest": "a33f2106b2fa059cebb18cfe40956538d44a6882dee7e367b2b8e47f47aa90cf",
       "path": "concepts.md",
       "size": 5000
      },
@@ -3003,7 +3030,7 @@
    }
   },
   {
-   "digest": "e9941a5a8de7ab975e48390959636102aec1fd37da2b41b0a911a638889041f6",
+   "digest": "2cc94ca96a3be35355cdc1124fe89fa224da96a998c794e0f789631fb19d7c60",
    "name": "desktop_commit",
    "record": {
     "action": "publish",
@@ -3021,7 +3048,7 @@
      "layer": "team",
      "team_id": "tem_4890dbaad8d756e9cb995a8b7dcc8b46"
     },
-    "payload_digest": "00d5e58e4fe80a3786940445032852d447b1ed7fd723b88abe7f4ce92acbd2dd",
+    "payload_digest": "6533df992129d4c4ce28af9e18e1ea84ecbc29c5edcf99aaaa8204c831f04982",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_7986dea926a8758bc2689fd312e59b2f",
@@ -3036,7 +3063,7 @@
    }
   },
   {
-   "digest": "8c6ea802fe5656384d59977cbb432dc362e1ad7400f8664b90e6c5bf201a4065",
+   "digest": "e19624a60f865a90198f432121e4b4cbbff7fd3c20e492a0a39a7a8d829c2ef0",
    "name": "desktop_commit_while_cut_off_result",
    "record": {
     "kind": "operation_result",
@@ -3051,7 +3078,7 @@
     },
     "outputs": [],
     "provider_effect": "not_applicable",
-    "request_digest": "e9941a5a8de7ab975e48390959636102aec1fd37da2b41b0a911a638889041f6",
+    "request_digest": "2cc94ca96a3be35355cdc1124fe89fa224da96a998c794e0f789631fb19d7c60",
     "request_id": "req_7986dea926a8758bc2689fd312e59b2f",
     "schema": 1,
     "supported_recovery": [
@@ -3061,7 +3088,7 @@
    }
   },
   {
-   "digest": "9fedb4746591bc3ca03c3d20de147d6ec19dc69d745ebe1d6f4c552219f0579d",
+   "digest": "1f4397cf96c3446ab657223d656cfb514d05e059d4e463b767f3f5c3ad765c89",
    "name": "desktop_commit_retried_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -3071,7 +3098,7 @@
      "layer": "team",
      "team_id": "tem_4890dbaad8d756e9cb995a8b7dcc8b46"
     },
-    "request_digest": "e9941a5a8de7ab975e48390959636102aec1fd37da2b41b0a911a638889041f6",
+    "request_digest": "2cc94ca96a3be35355cdc1124fe89fa224da96a998c794e0f789631fb19d7c60",
     "request_id": "req_7986dea926a8758bc2689fd312e59b2f",
     "schema": 1,
     "sequence": 1,
@@ -3085,14 +3112,14 @@
    }
   },
   {
-   "digest": "0e7b48fad5cef40ec19f45fae961bb4a2144d60f1b67de5f3595465b9f22380d",
+   "digest": "c2a51d5c339b2b984e01a800ab939e7f8623ef67d0eaafffdfa3c4f653c3e7b9",
    "name": "stored_desktop_revision",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "c4933a82770781b42504ac60a6252bfd06ccfce66170394620ba473ade98365d",
+      "digest": "a33f2106b2fa059cebb18cfe40956538d44a6882dee7e367b2b8e47f47aa90cf",
       "path": "concepts.md",
       "size": 5000
      },
@@ -3108,24 +3135,24 @@
    }
   },
   {
-   "digest": "e79450f773aadade09022d05f1d6135d5d94aae378f2293181468f30f77c4621",
+   "digest": "ecc562ead158be3bbe2551a80038fff02afd450f00c1b5faf9276e973bffeae2",
    "name": "desktop_commit_retried_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "9fedb4746591bc3ca03c3d20de147d6ec19dc69d745ebe1d6f4c552219f0579d",
+     "receipt_digest": "1f4397cf96c3446ab657223d656cfb514d05e059d4e463b767f3f5c3ad765c89",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "0e7b48fad5cef40ec19f45fae961bb4a2144d60f1b67de5f3595465b9f22380d",
+      "digest": "c2a51d5c339b2b984e01a800ab939e7f8623ef67d0eaafffdfa3c4f653c3e7b9",
       "kind": "source_manifest"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "e9941a5a8de7ab975e48390959636102aec1fd37da2b41b0a911a638889041f6",
+    "request_digest": "2cc94ca96a3be35355cdc1124fe89fa224da96a998c794e0f789631fb19d7c60",
     "request_id": "req_7986dea926a8758bc2689fd312e59b2f",
     "schema": 1,
     "supported_recovery": []
@@ -3259,7 +3286,7 @@
    }
   },
   {
-   "digest": "1d409b803964f2eeb2d39f13174a5b4dda9dc46f97a951a061252b90656598e7",
+   "digest": "7172ff0374d9f3a5a3c254a40a92f23ee651d36c3919bf1fe34eae1459c436eb",
    "name": "second_full_envelope",
    "record": {
     "authority": {
@@ -3275,10 +3302,10 @@
     ],
     "inventory": [
      {
-      "digest": "0e7b48fad5cef40ec19f45fae961bb4a2144d60f1b67de5f3595465b9f22380d",
+      "digest": "c2a51d5c339b2b984e01a800ab939e7f8623ef67d0eaafffdfa3c4f653c3e7b9",
       "object_kind": "source_manifest",
       "path": "objects/0000.json",
-      "size": 5000
+      "size": 382
      }
     ],
     "kind": "transfer_envelope",
@@ -3304,7 +3331,7 @@
    }
   },
   {
-   "digest": "a4bcdbc6fcae97065deee5f633156809fb9bfb14f88672290dc2482632dd8b12",
+   "digest": "338ff9822166f129d2641dff28f78e5538555c0326e026bfe3795b29852a0c6e",
    "name": "accept_missing",
    "record": {
     "action": "transfer",
@@ -3322,7 +3349,7 @@
      "layer": "team",
      "team_id": "tem_4890dbaad8d756e9cb995a8b7dcc8b46"
     },
-    "payload_digest": "1d409b803964f2eeb2d39f13174a5b4dda9dc46f97a951a061252b90656598e7",
+    "payload_digest": "7172ff0374d9f3a5a3c254a40a92f23ee651d36c3919bf1fe34eae1459c436eb",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_79a0a8409981158e74c3592aa692d1c5",
@@ -3337,11 +3364,11 @@
    }
   },
   {
-   "digest": "73707eb9d33eaa0c92876b72764491a64bf2bb39887f1340cccce53fa57bd845",
+   "digest": "4b1ea184c9c0e9be88a8657844014f2b043509a7c4cf1a26db3d36cc6efcb6d3",
    "name": "missing_received",
    "record": {
     "at": "2000-01-01T00:00:00Z",
-    "envelope_digest": "1d409b803964f2eeb2d39f13174a5b4dda9dc46f97a951a061252b90656598e7",
+    "envelope_digest": "7172ff0374d9f3a5a3c254a40a92f23ee651d36c3919bf1fe34eae1459c436eb",
     "kind": "transfer_stage_record",
     "schema": 1,
     "stage": {
@@ -3359,7 +3386,7 @@
    }
   },
   {
-   "digest": "2bab6118d005f4e54aacb8723921558661f618e53fb698c5a2e558e7cecacf5c",
+   "digest": "260040da589f79a82d35d93eb8cdfc7f30d0e15f98790299cc3dea78651ccfa0",
    "name": "accept_package_missing_its_body_result",
    "record": {
     "kind": "operation_result",
@@ -3374,12 +3401,12 @@
     },
     "outputs": [
      {
-      "digest": "73707eb9d33eaa0c92876b72764491a64bf2bb39887f1340cccce53fa57bd845",
+      "digest": "4b1ea184c9c0e9be88a8657844014f2b043509a7c4cf1a26db3d36cc6efcb6d3",
       "kind": "transfer_stage_record"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "a4bcdbc6fcae97065deee5f633156809fb9bfb14f88672290dc2482632dd8b12",
+    "request_digest": "338ff9822166f129d2641dff28f78e5538555c0326e026bfe3795b29852a0c6e",
     "request_id": "req_79a0a8409981158e74c3592aa692d1c5",
     "schema": 1,
     "supported_recovery": [
@@ -3441,7 +3468,7 @@
    }
   },
   {
-   "digest": "1cc1be13897762af7a47ce7cd18f3bc54974784fe8bb239fdaa7a0ebcc8a68dd",
+   "digest": "a32346cc0a68b9ed2eb59c42ba8ee04a0378da9573cbae6a362beab67a1452e8",
    "name": "forked_envelope",
    "record": {
     "authority": {
@@ -3462,19 +3489,19 @@
       "digest": "7a7de8b38fc61ed68873ac8a2bce8b20f6b0d373376e6536dd69eaa56e66d444",
       "object_kind": "source_manifest",
       "path": "objects/0000.json",
-      "size": 4096
+      "size": 382
      },
      {
       "digest": "ad6d738e767253dc02152ff3d735ae36b959472872c4e98fe67a173f3aaa2cd2",
       "object_kind": "authority_continuity",
       "path": "continuity/0002.json",
-      "size": 512
+      "size": 508
      },
      {
       "digest": "c130f544987b4ea845f24753fd13cf46cfa83502e3b220e769d78b54c43652ae",
       "object_kind": "authority_continuity",
       "path": "continuity/0002_b.json",
-      "size": 512
+      "size": 556
      }
     ],
     "kind": "transfer_envelope",
@@ -3500,7 +3527,7 @@
    }
   },
   {
-   "digest": "974cc6e232d620222b982566b47da4c487216b35a68e113ae662e64d2de60344",
+   "digest": "e8be602e5e6f6019ddf3396532498181bf30caaebcc5ddabaa96e48631d192df",
    "name": "accept_forked",
    "record": {
     "action": "transfer",
@@ -3518,7 +3545,7 @@
      "layer": "team",
      "team_id": "tem_4890dbaad8d756e9cb995a8b7dcc8b46"
     },
-    "payload_digest": "1cc1be13897762af7a47ce7cd18f3bc54974784fe8bb239fdaa7a0ebcc8a68dd",
+    "payload_digest": "a32346cc0a68b9ed2eb59c42ba8ee04a0378da9573cbae6a362beab67a1452e8",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_065adde4a43377f4c0bfa7d9cc6e8fbd",
@@ -3533,11 +3560,11 @@
    }
   },
   {
-   "digest": "f8dd4dcde021ce8c1e49f2cf015b4502a37c440a9be217e3f5bd3df034e1bcbd",
+   "digest": "744e2566eecf17901d73f95ccf54858ebeb7cc579a9af384221edfd90efdc55a",
    "name": "fork_received",
    "record": {
     "at": "2000-01-01T00:00:00Z",
-    "envelope_digest": "1cc1be13897762af7a47ce7cd18f3bc54974784fe8bb239fdaa7a0ebcc8a68dd",
+    "envelope_digest": "a32346cc0a68b9ed2eb59c42ba8ee04a0378da9573cbae6a362beab67a1452e8",
     "kind": "transfer_stage_record",
     "schema": 1,
     "stage": {
@@ -3554,7 +3581,7 @@
    }
   },
   {
-   "digest": "a5ebae6646a49fc45c2c0dd0c3f28fbd2554a557b30817a8516338909ca14093",
+   "digest": "bc0e5437b2163b3b89f1cfe1cc5a756cec09cf83f6872d1a71ae1b14029e7dcd",
    "name": "accept_package_with_two_successors_result",
    "record": {
     "kind": "operation_result",
@@ -3569,46 +3596,38 @@
     },
     "outputs": [
      {
-      "digest": "f8dd4dcde021ce8c1e49f2cf015b4502a37c440a9be217e3f5bd3df034e1bcbd",
+      "digest": "744e2566eecf17901d73f95ccf54858ebeb7cc579a9af384221edfd90efdc55a",
       "kind": "transfer_stage_record"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "974cc6e232d620222b982566b47da4c487216b35a68e113ae662e64d2de60344",
+    "request_digest": "e8be602e5e6f6019ddf3396532498181bf30caaebcc5ddabaa96e48631d192df",
     "request_id": "req_065adde4a43377f4c0bfa7d9cc6e8fbd",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "0ea34e64d6a30f60101fc947ac4106c1950816ec7a92984bdd6215f125b2d626",
-   "name": "copied_successor",
+   "digest": "9a70232bba3ac918ea7ba2a62746b7f145f9ce98178e61f846cfd6a6e174f20e",
+   "name": "copied_key_binding",
    "record": {
-    "authority": {
-     "layer": "team",
-     "team_id": "tem_4890dbaad8d756e9cb995a8b7dcc8b46"
+    "binding_id": "bnd_66ce91656ac6f6f87ed916531073a945",
+    "created_at": "2026-09-20T09:00:00Z",
+    "credential": {
+     "credential": "device_key",
+     "device_id": "dev_ce4f2d1704f8f4c21b0a341a81d9881f",
+     "key_generation": 1,
+     "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB2arLArWGr5oLUIyKHj0OuJHlAn/Zqlv7rJ1bKL+7Cj"
     },
-    "checkpoint_digest": "833dad26e977810c2bc12a973b3b76a50b53efb0104331d5d7c7ed92c454ba4b",
-    "epoch": 2,
-    "finalizer": {
-     "runs_on": "internal_service"
-    },
-    "kind": "authority_continuity",
-    "private_key": "copied",
-    "recorded_at": "2026-09-21T09:00:00Z",
-    "schema": 1,
-    "succession": {
-     "fences": {
-      "device_id": "dev_ce4f2d1704f8f4c21b0a341a81d9881f",
-      "runs_on": "member_device"
-     },
-     "from": "succession",
-     "predecessor_digest": "63c8b1a941af63e41d903acac3217331ac2f142b304c16722a3c363ccdc9927d"
-    }
+    "established_by": "enrollment",
+    "evidence_digests": [],
+    "kind": "principal_binding",
+    "principal_id": "prn_896f42ec8f47efec2999527149439b6a",
+    "schema": 1
    }
   },
   {
-   "digest": "541b7e475df27ef95afa7dba124da51639d9206d7ed4e1e2cdfdd5d296a5d267",
+   "digest": "68f33f1e0ad7c54764a5d8b22c0961722bf8d99b70bb48844721bcf3084aae71",
    "name": "copied_key_envelope",
    "record": {
     "authority": {
@@ -3621,20 +3640,20 @@
     "confidentiality": "at_rest",
     "continuity_evidence_digests": [
      "63c8b1a941af63e41d903acac3217331ac2f142b304c16722a3c363ccdc9927d",
-     "0ea34e64d6a30f60101fc947ac4106c1950816ec7a92984bdd6215f125b2d626"
+     "9a70232bba3ac918ea7ba2a62746b7f145f9ce98178e61f846cfd6a6e174f20e"
     ],
     "inventory": [
      {
       "digest": "7a7de8b38fc61ed68873ac8a2bce8b20f6b0d373376e6536dd69eaa56e66d444",
       "object_kind": "source_manifest",
       "path": "objects/0000.json",
-      "size": 4096
+      "size": 382
      },
      {
-      "digest": "0ea34e64d6a30f60101fc947ac4106c1950816ec7a92984bdd6215f125b2d626",
-      "object_kind": "authority_continuity",
+      "digest": "9a70232bba3ac918ea7ba2a62746b7f145f9ce98178e61f846cfd6a6e174f20e",
+      "object_kind": "principal_binding",
       "path": "continuity/0002.json",
-      "size": 512
+      "size": 440
      }
     ],
     "kind": "transfer_envelope",
@@ -3660,7 +3679,7 @@
    }
   },
   {
-   "digest": "3a4ec0845f4b7207a60a6f5c9977b75afa6784f8c00048dee4bb2445ac578a69",
+   "digest": "7fdfe6d2da9a26f89bf255bc535a3a981e2a891ab7432e43d4b7f141c2f21a77",
    "name": "accept_copied",
    "record": {
     "action": "transfer",
@@ -3678,7 +3697,7 @@
      "layer": "team",
      "team_id": "tem_4890dbaad8d756e9cb995a8b7dcc8b46"
     },
-    "payload_digest": "541b7e475df27ef95afa7dba124da51639d9206d7ed4e1e2cdfdd5d296a5d267",
+    "payload_digest": "68f33f1e0ad7c54764a5d8b22c0961722bf8d99b70bb48844721bcf3084aae71",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_315d68fd321c68b19fa32e96b6c79b86",
@@ -3690,6 +3709,54 @@
      },
      "resource_id": "tem_4890dbaad8d756e9cb995a8b7dcc8b46"
     }
+   }
+  },
+  {
+   "digest": "a3f2ca1d24e7f2944c7b5974faccc17e7102ee587ad8cd9dc669937ce804efbb",
+   "name": "copied_key_received",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "envelope_digest": "68f33f1e0ad7c54764a5d8b22c0961722bf8d99b70bb48844721bcf3084aae71",
+    "kind": "transfer_stage_record",
+    "schema": 1,
+    "stage": {
+     "is": "received",
+     "material_gaps": [
+      {
+       "code": "trust_continuity_unverified"
+      }
+     ],
+     "route": {
+      "via": "package"
+     }
+    }
+   }
+  },
+  {
+   "digest": "0d3c49dece8f09bdbf4590f2085b60d379cf159923ff9e60876f5eb13269a3ae",
+   "name": "accept_package_with_a_copied_key_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [
+      {
+       "code": "trust_continuity_unverified"
+      }
+     ],
+     "stage": "refused"
+    },
+    "outputs": [
+     {
+      "digest": "a3f2ca1d24e7f2944c7b5974faccc17e7102ee587ad8cd9dc669937ce804efbb",
+      "kind": "transfer_stage_record"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "7fdfe6d2da9a26f89bf255bc535a3a981e2a891ab7432e43d4b7f141c2f21a77",
+    "request_id": "req_315d68fd321c68b19fa32e96b6c79b86",
+    "schema": 1,
+    "supported_recovery": []
    }
   },
   {
@@ -3782,7 +3849,7 @@
   }
  ],
  "says": "Alice's Team is founded on her laptop, which is also its finalizer, and the founding returns the Team's founding continuity epoch; her enrolled desktop takes a backup of its own store, then imports and keeps a complete package — staged by the laptop as a draft with no receipt, carrying the founding epoch as a member — and acknowledges custody of it at storage generation 1. While the two cannot reach each other, the desktop's commit to the Team's source is blocked with finalizer_unavailable and is not finalized on the desktop; retried by the same request once the laptop is reachable, the laptop finalizes it once. The desktop's storage is then reset: its acknowledgment at generation 2 states storage_generation_reset. A second complete package whose body never arrived stops at received with body_missing. A package whose continuity runs from the founding epoch to two successors of it, both carried as members, stops at received with fork_evidence. A package whose successor epoch carries the key it copied is refused at admission. Restoring the desktop's old backup reports passive authority and names nothing after the backup as known. What must not happen: a shared commit finalized anywhere but the finalizer, the reset holder counted as still keeping its promise, an incomplete package or two successors producing a complete copy or authority, a copied key accepted as continuity, or the rolled-back disk becoming active authority.",
- "spec_sha256": "4e0c2b14677f4bd49cbc7db20a8c4c05f4a8abcd3475d7b1c2ed4a694d6a64b1",
+ "spec_sha256": "8d9f244d49017ba223d65d67ab2dffcf36bd67e47e60fe578ac84d4e9c42de32",
  "steps": [
   {
    "at": "2026-09-21T09:00:00Z",
@@ -4000,18 +4067,15 @@
    "at": "2026-09-22T10:09:00Z",
    "carries": [
     "copied_key_envelope",
-    "copied_successor"
+    "copied_key_binding"
    ],
    "name": "accept_package_with_a_copied_key",
    "process": "desktop",
-   "refused": [
-    {
-     "code": "unknown_field",
-     "pointer": "/private_key",
-     "record": "copied_successor"
-    }
-   ],
-   "request": "accept_copied"
+   "request": "accept_copied",
+   "result": "accept_package_with_a_copied_key_result",
+   "returns": [
+    "copied_key_received"
+   ]
   },
   {
    "at": "2026-09-22T10:10:00Z",

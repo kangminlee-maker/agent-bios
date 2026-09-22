@@ -1703,7 +1703,7 @@
    }
   },
   {
-   "digest": "9e7ca057bcf97a70b5da7c3b9dd0286286e1f1471348e167b1e2cef1f66e2190",
+   "digest": "80f8d15bfe5127d6cda343ac335d69a520562e6dbf313b9d485b32f7c4e6505c",
    "name": "unlock_at_terminal_state",
    "record": {
     "access_generation": 2,
@@ -1713,12 +1713,15 @@
     "schema": 1,
     "state": {
      "because": "unlock",
-     "is": "active"
+     "is": "active",
+     "key_mode": {
+      "runs": "real"
+     }
     }
    }
   },
   {
-   "digest": "90b17ee6616fc4920021828849332d4c86acd64de304a9861a9b4c0c7385228a",
+   "digest": "7af205d956aea06e1dd69017118faa7ff29d668fdd6a627a08f2109d2df9e0e7",
    "name": "unlock_at_terminal_result",
    "record": {
     "kind": "operation_result",
@@ -1730,7 +1733,7 @@
     },
     "outputs": [
      {
-      "digest": "9e7ca057bcf97a70b5da7c3b9dd0286286e1f1471348e167b1e2cef1f66e2190",
+      "digest": "80f8d15bfe5127d6cda343ac335d69a520562e6dbf313b9d485b32f7c4e6505c",
       "kind": "access_state"
      }
     ],
@@ -2006,7 +2009,7 @@
    }
   },
   {
-   "digest": "0370d48adfe7d45940b26c4fb891cdc459d186bd2238ab8b3c921018cabd05fd",
+   "digest": "cd29ab03411b3683bf32b302ef648ab338a607960cd92f8a3ae271e93a43a74d",
    "name": "sign_in_at_terminal_state",
    "record": {
     "access_generation": 3,
@@ -2016,12 +2019,15 @@
     "schema": 1,
     "state": {
      "because": "sign_in",
-     "is": "active"
+     "is": "active",
+     "key_mode": {
+      "runs": "real"
+     }
     }
    }
   },
   {
-   "digest": "fea257112dfe66bc00e19a3f953c9ab64a761e530b8a83b50626595a8b1a5ddc",
+   "digest": "b3303812dd20657018cb3eb2d08df8ea27b8ee914ba935a4b01fd4a772536ac8",
    "name": "sign_in_at_terminal_result",
    "record": {
     "kind": "operation_result",
@@ -2033,7 +2039,7 @@
     },
     "outputs": [
      {
-      "digest": "0370d48adfe7d45940b26c4fb891cdc459d186bd2238ab8b3c921018cabd05fd",
+      "digest": "cd29ab03411b3683bf32b302ef648ab338a607960cd92f8a3ae271e93a43a74d",
       "kind": "access_state"
      }
     ],
@@ -2146,7 +2152,7 @@
   }
  ],
  "says": "Alice's laptop first reads its fresh profile: active at generation 1. She binds her device key and founds a Team, whose founding makes her its member and its issuing authority. As that authority, on the laptop that finalizes the Team, she records a permit on the Team (against its current head) that lets the laptop read the Team's state offline for a week; she holds it from the issue. She is offline for the whole scenario: no step reaches a provider. She locks the profile, which moves the access generation from 1 to 2, and while it is locked a Team read is not admitted. She unlocks at a terminal with her local key: the profile is active again at generation 2 (an unlock moves no generation), and a Team read issued under generation 2 and naming her permit is admitted at generation 2. She then signs out (generation 3) and signs back in at a terminal with the same local key: a read issued under generation 3 is admitted at generation 3. What must not happen: an admission at the old generation, a re-entry that needs a provider, or a re-entry without an explicit transition at a terminal.",
- "spec_sha256": "29f12cafc4e0c839a548a9f7b4b3167db6cc7c7dd66563994118c405c670f50e",
+ "spec_sha256": "37c815d9e926537974ccf3fe68ffd4c2108c41147a52522fb3ac3b94f2d3ea51",
  "steps": [
   {
    "at": "2026-09-21T09:00:00Z",

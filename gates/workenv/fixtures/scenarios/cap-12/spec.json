@@ -66,6 +66,10 @@
    "prefix": "req"
   },
   {
+   "name": "release_request",
+   "prefix": "req"
+  },
+  {
    "name": "removal_request",
    "prefix": "req"
   },
@@ -835,6 +839,10 @@
      "value": "memory_capture"
     },
     {
+     "pointer": "/promised/0/size",
+     "value": 1377
+    },
+    {
      "pointer": "/evictable/0/digest",
      "value": "$digest:capture_index"
     },
@@ -950,6 +958,42 @@
    ]
   },
   {
+   "name": "release_plan",
+   "from": "plan",
+   "set": [
+    {
+     "pointer": "/promised/0/digest",
+     "value": "#team_policy"
+    },
+    {
+     "pointer": "/promised/0/object_kind",
+     "value": "governing_policy"
+    },
+    {
+     "pointer": "/promised/0/size",
+     "value": 488
+    }
+   ]
+  },
+  {
+   "name": "release_submit",
+   "from": "plan_submit",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@release_request"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:plan_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#release_plan"
+    }
+   ]
+  },
+  {
    "name": "removal",
    "from": "c10/removal_of_one_object.json",
    "set": [
@@ -1001,7 +1045,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:plan_head"
+     "value": "$digest:release_head"
     },
     {
      "pointer": "/policy_digests",
@@ -1277,6 +1321,24 @@
    }
   },
   {
+   "name": "release_the_promise",
+   "request": "release_submit",
+   "carries": [
+    "release_plan"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "release_plan"
+    ],
+    "head": "release_head"
+   }
+  },
+  {
    "name": "remove_the_evidence",
    "request": "removal_submit",
    "carries": [
@@ -1312,5 +1374,5 @@
    }
   }
  ],
- "says": "A person founds a Team alone (team.found, whose founding grants them what the Team allows) and registers the Team's decision source (source.home.register), selects one transcript span whose selection permits results in the repository and the Team (source.observe), captures a memory entry from it for that Team decision source, at the head its registration committed, with the widening and its authority stated (source.capture.record), and stores a candidate from that capture (memory.candidate.store). Reading what the store derived from the capture (retention.derivations.read) returns its derivation map: an excerpt, an index and the candidate, each by digest. The person sets the Team's retention plan (retention.plan.set): the capture is promised, only the rebuildable index is evictable, and cleanup of candidates, prompts and excerpts is governed by the Team's committed policy. Two plans are refused at admission and write nothing: one whose cleanup names no governing policy (missing_field at /cleanup/governed_by) and one offering the candidate for eviction (value_not_allowed at /evictable/0/object_kind). The person then removes the capture (removal.execute). The removal outcome names the laptop's copy as confirmed with its tombstone and, under derived_copies, every object the derivation map named, each confirmed with its own tombstone, and states erasure_not_promised; nothing names a replacement proof. Reading the derivations of the removed capture afterwards returns an empty map, so no excerpt, index or candidate is silently kept."
+ "says": "A person founds a Team alone (team.found, whose founding grants them what the Team allows) and registers the Team's decision source (source.home.register), selects one transcript span whose selection permits results in the repository and the Team (source.observe), captures a memory entry from it for that Team decision source, at the head its registration committed, with the widening and its authority stated (source.capture.record), and stores a candidate from that capture (memory.candidate.store). Reading what the store derived from the capture (retention.derivations.read) returns its derivation map: an excerpt, an index and the candidate, each by digest. The person sets the Team's retention plan (retention.plan.set): the capture is promised, only the rebuildable index is evictable, and cleanup of candidates, prompts and excerpts is governed by the Team's committed policy. Two plans are refused at admission and write nothing: one whose cleanup names no governing policy (missing_field at /cleanup/governed_by) and one offering the candidate for eviction (value_not_allowed at /evictable/0/object_kind). The person then sets a second retention plan that promises the Team's policy instead of the capture, releasing the capture from custody (retention.plan.set), and only then removes the capture (removal.execute) — removal while the first plan still promised it would be removal_held, not confirmed. The removal outcome names the laptop's copy as confirmed with its tombstone and, under derived_copies, every object the derivation map named, each confirmed with its own tombstone, and states erasure_not_promised; nothing names a replacement proof. Reading the derivations of the removed capture afterwards returns an empty map, so no excerpt, index or candidate is silently kept."
 }

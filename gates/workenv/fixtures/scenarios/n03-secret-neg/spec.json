@@ -57,6 +57,10 @@
   {
    "name": "read_profile_request_id",
    "prefix": "req"
+  },
+  {
+   "name": "commit_after_unlock_request_id",
+   "prefix": "req"
   }
  ],
  "records": [
@@ -616,78 +620,26 @@
     {
      "pointer": "/target/base/head_digest",
      "value": "$digest:notes_h0"
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#commit_proof"
+     ]
     }
    ]
   },
   {
-   "name": "sign_while_locked_admission",
-   "from": "c02/sign_after_lock.json",
+   "name": "commit_proof",
+   "from": "bindings/signature_over_a_manifest.json",
    "set": [
     {
-     "pointer": "/request_id",
-     "value": "@commit_request_id"
+     "pointer": "/signed_digest",
+     "value": "#first_revision"
     },
     {
-     "pointer": "/profile_id",
-     "value": "@alice_profile"
-    },
-    {
-     "pointer": "/access_generation",
-     "value": 2
-    },
-    {
-     "pointer": "/outcome/material_gaps/0/code",
-     "value": "access_locked"
-    }
-   ]
-  },
-  {
-   "name": "sign_while_locked_request",
-   "from": "c02/lock_request.json",
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@locked_decide_request_id"
-    },
-    {
-     "pointer": "/operation",
-     "value": "access.admission.decide"
-    },
-    {
-     "pointer": "/action",
-     "value": "local_profile"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "pure_preview"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@alice_profile"
-    },
-    {
-     "pointer": "/local_access_generation",
-     "value": 2
-    },
-    {
-     "pointer": "/owner/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@alice_profile"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#signed_commit"
+     "pointer": "/signer_binding_id",
+     "value": "$bnd:alice_binding"
     }
    ]
   },
@@ -794,70 +746,22 @@
    ]
   },
   {
-   "name": "sign_after_unlock_admission",
-   "from": "c02/allowed.json",
+   "name": "signed_commit_after_unlock",
+   "from": "signed_commit",
    "set": [
     {
      "pointer": "/request_id",
-     "value": "@commit_request_id"
-    },
-    {
-     "pointer": "/profile_id",
-     "value": "@alice_profile"
-    },
-    {
-     "pointer": "/access_generation",
-     "value": 2
+     "value": "@commit_after_unlock_request_id"
     }
    ]
   },
   {
-   "name": "sign_after_unlock_request",
-   "from": "c02/lock_request.json",
+   "name": "committed_notes_revision",
+   "from": "first_revision",
    "set": [
     {
-     "pointer": "/request_id",
-     "value": "@unlocked_decide_request_id"
-    },
-    {
-     "pointer": "/operation",
-     "value": "access.admission.decide"
-    },
-    {
-     "pointer": "/action",
-     "value": "local_profile"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "pure_preview"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@alice_profile"
-    },
-    {
-     "pointer": "/local_access_generation",
-     "value": 2
-    },
-    {
-     "pointer": "/owner/principal_id",
-     "value": "@alice"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@alice_profile"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#signed_commit"
+     "pointer": "/produced_at",
+     "value": "$instant:notes_committed_at"
     }
    ]
   }
@@ -975,19 +879,24 @@
   },
   {
    "name": "sign_while_locked",
-   "request": "sign_while_locked_request",
+   "request": "signed_commit",
    "carries": [
-    "signed_commit"
+    "first_revision",
+    "commit_proof"
    ],
    "answer": {
-    "stage": "previewed",
+    "stage": "refused",
     "local_effect": "none",
     "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "sign_while_locked_admission"
-    ]
+    "gaps": [
+     {
+      "code": "access_locked"
+     }
+    ],
+    "recovery": [
+     "unlock"
+    ],
+    "returns": []
    }
   },
   {
@@ -1009,20 +918,38 @@
   },
   {
    "name": "sign_after_unlock",
-   "request": "sign_after_unlock_request",
+   "request": "signed_commit_after_unlock",
    "carries": [
-    "signed_commit"
+    "first_revision",
+    "commit_proof"
    ],
    "answer": {
-    "stage": "previewed",
-    "local_effect": "none",
+    "stage": "committed",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "sign_after_unlock_admission"
-    ]
+     "committed_notes_revision"
+    ],
+    "head": "notes_h1"
    }
   }
- ]
+ ],
+ "world": {
+  "events": [
+   {
+    "kind": "key_layout",
+    "before": "unlock_with_private_key_beside",
+    "key": "alice_laptop_binding",
+    "layout": "private_beside_public"
+   },
+   {
+    "kind": "key_layout",
+    "before": "unlock_through_a_foreign_agent",
+    "key": "alice_laptop_binding",
+    "layout": "foreign_agent"
+   }
+  ]
+ }
 }

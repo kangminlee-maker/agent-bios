@@ -1,885 +1,899 @@
 {
- "case": "N27-IMPORT-POS",
- "says": "A person whose bound repository already holds a committed knowledge source (repository.bind, source.home.register, source.revision.commit) imports an external package of tax guidance into their own scope through the import_external_package route (source.revision.admit), stating its declared origin, its license conditions and the digest of the package's manifest. The owner commits it as a new knowledge source with its own id and returns that exact manifest and a provenance whose origin is added_external_package naming the same origin and conditions, acquired now and not_accepted. The person registers the imported source's own package_published home, apart from the repository source's home. A question over both revisions in the default order (knowledge.question.ask) prefers the repository member and keeps the imported member retained beside it with its own evidence. Nothing is adopted or accepted for any Team, and the import ranks above no existing layer: its provenance has no priority field and the view places it below the repository layer.",
- "ids": [
-  {
-   "name": "me",
-   "prefix": "prn"
-  },
-  {
-   "name": "laptop",
-   "prefix": "dev"
-  },
-  {
-   "name": "profile",
-   "prefix": "prf"
-  },
-  {
-   "name": "bind_request",
-   "prefix": "req"
-  },
-  {
-   "name": "repo",
-   "prefix": "rep"
-  },
-  {
-   "name": "repo_source",
-   "prefix": "src"
-  },
-  {
-   "name": "imported_source",
-   "prefix": "src"
-  },
-  {
-   "name": "external_package",
-   "prefix": "pkg"
-  },
-  {
-   "name": "repo_bind_request",
-   "prefix": "req"
-  },
-  {
-   "name": "repo_home_request",
-   "prefix": "req"
-  },
-  {
-   "name": "repo_commit_request",
-   "prefix": "req"
-  },
-  {
-   "name": "import_request",
-   "prefix": "req"
-  },
-  {
-   "name": "import_home_request",
-   "prefix": "req"
-  },
-  {
-   "name": "question_request",
-   "prefix": "req"
-  }
- ],
- "records": [
-  {
-   "name": "first_key",
-   "from": "c01/binding_as_submitted.json",
-   "set": [
+  "case": "N27-IMPORT-POS",
+  "says": "A person whose bound repository already holds a committed knowledge source (repository.bind, source.home.register, source.revision.commit) imports an external package of tax guidance into their own scope through the import_external_package route (source.revision.admit), stating its declared origin, its license conditions and the digest of the package's manifest. The owner commits it as a new knowledge source with its own id and returns that exact manifest and a provenance whose origin is added_external_package naming the same origin and conditions, acquired now and not_accepted. The person registers the imported source's own package_published home, apart from the repository source's home. A question over both revisions in the default order (knowledge.question.ask) prefers the repository member and keeps the imported member retained beside it with its own evidence. Nothing is adopted or accepted for any Team, and the import ranks above no existing layer: its provenance has no priority field and the view places it below the repository layer.",
+  "ids": [
     {
-     "pointer": "/principal_id",
-     "value": "@me"
+      "name": "me",
+      "prefix": "prn"
     },
     {
-     "pointer": "/credential/device_id",
-     "value": "@laptop"
+      "name": "laptop",
+      "prefix": "dev"
+    },
+    {
+      "name": "profile",
+      "prefix": "prf"
+    },
+    {
+      "name": "bind_request",
+      "prefix": "req"
+    },
+    {
+      "name": "repo",
+      "prefix": "rep"
+    },
+    {
+      "name": "repo_source",
+      "prefix": "src"
+    },
+    {
+      "name": "imported_source",
+      "prefix": "src"
+    },
+    {
+      "name": "external_package",
+      "prefix": "pkg"
+    },
+    {
+      "name": "repo_bind_request",
+      "prefix": "req"
+    },
+    {
+      "name": "repo_home_request",
+      "prefix": "req"
+    },
+    {
+      "name": "repo_commit_request",
+      "prefix": "req"
+    },
+    {
+      "name": "import_request",
+      "prefix": "req"
+    },
+    {
+      "name": "import_home_request",
+      "prefix": "req"
+    },
+    {
+      "name": "question_request",
+      "prefix": "req"
     }
-   ]
-  },
-  {
-   "name": "bind",
-   "from": "c01/link_request.json",
-   "set": [
+  ],
+  "records": [
     {
-     "pointer": "/request_id",
-     "value": "@bind_request"
+      "name": "first_key",
+      "from": "c01/binding_as_submitted.json",
+      "set": [
+        {
+          "pointer": "/principal_id",
+          "value": "@me"
+        },
+        {
+          "pointer": "/credential/device_id",
+          "value": "@laptop"
+        }
+      ]
     },
     {
-     "pointer": "/actor/principal_id",
-     "value": "@me"
+      "name": "bind",
+      "from": "c01/link_request.json",
+      "set": [
+        {
+          "pointer": "/request_id",
+          "value": "@bind_request"
+        },
+        {
+          "pointer": "/actor/principal_id",
+          "value": "@me"
+        },
+        {
+          "pointer": "/actor/device_id",
+          "value": "@laptop"
+        },
+        {
+          "pointer": "/actor/profile_id",
+          "value": "@profile"
+        },
+        {
+          "pointer": "/operation",
+          "value": "identity.binding.add"
+        },
+        {
+          "pointer": "/effect_class",
+          "value": "owner_commit"
+        },
+        {
+          "pointer": "/action",
+          "value": "local_profile"
+        },
+        {
+          "pointer": "/owner/principal_id",
+          "value": "@me"
+        },
+        {
+          "pointer": "/target/resource_id",
+          "value": "@me"
+        },
+        {
+          "pointer": "/payload_digest",
+          "value": "#first_key"
+        }
+      ]
     },
     {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
+      "name": "stored_key",
+      "from": "c01/device_key_binding.json",
+      "set": [
+        {
+          "pointer": "/principal_id",
+          "value": "@me"
+        },
+        {
+          "pointer": "/credential/device_id",
+          "value": "@laptop"
+        },
+        {
+          "pointer": "/binding_id",
+          "value": "$bnd:first_binding"
+        },
+        {
+          "pointer": "/created_at",
+          "value": "$instant:bound_at"
+        }
+      ]
     },
     {
-     "pointer": "/actor/profile_id",
-     "value": "@profile"
+      "name": "binding_payload",
+      "from": "c01/repository_binding_as_submitted.json",
+      "set": [
+        {
+          "pointer": "/repository_id",
+          "value": "@repo"
+        }
+      ]
     },
     {
-     "pointer": "/operation",
-     "value": "identity.binding.add"
+      "name": "bind_repo",
+      "from": "c01/repository_bind_request.json",
+      "set": [
+        {
+          "pointer": "/request_id",
+          "value": "@repo_bind_request"
+        },
+        {
+          "pointer": "/actor/principal_id",
+          "value": "@me"
+        },
+        {
+          "pointer": "/actor/device_id",
+          "value": "@laptop"
+        },
+        {
+          "pointer": "/actor/profile_id",
+          "value": "@profile"
+        },
+        {
+          "pointer": "/owner/principal_id",
+          "value": "@me"
+        },
+        {
+          "pointer": "/target/resource_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/payload_digest",
+          "value": "#binding_payload"
+        }
+      ]
     },
     {
-     "pointer": "/effect_class",
-     "value": "owner_commit"
+      "name": "stored_binding",
+      "from": "binding_payload",
+      "set": [
+        {
+          "pointer": "/observed/locator",
+          "value": "git@github.com:example/work.git"
+        }
+      ]
     },
     {
-     "pointer": "/action",
-     "value": "local_profile"
+      "name": "repo_home",
+      "from": "sources/home_of_a_repository_document.json",
+      "drop": [
+        "/registered_at"
+      ],
+      "set": [
+        {
+          "pointer": "/source_id",
+          "value": "@repo_source"
+        },
+        {
+          "pointer": "/role",
+          "value": "knowledge"
+        },
+        {
+          "pointer": "/scope/repository_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/acceptance_authority/repository_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/home/repository_id",
+          "value": "@repo"
+        },
+        {
+          "pointer": "/home/document_root",
+          "value": "docs/knowledge"
+        },
+        {
+          "pointer": "/home/binding_evidence_digest",
+          "value": "#stored_binding"
+        }
+      ]
     },
     {
-     "pointer": "/owner/principal_id",
-     "value": "@me"
+      "name": "register_repo_home",
+      "from": "c01/link_request.json",
+      "set": [
+        {
+          "pointer": "/request_id",
+          "value": "@repo_home_request"
+        },
+        {
+          "pointer": "/actor/principal_id",
+          "value": "@me"
+        },
+        {
+          "pointer": "/actor/device_id",
+          "value": "@laptop"
+        },
+        {
+          "pointer": "/actor/profile_id",
+          "value": "@profile"
+        },
+        {
+          "pointer": "/operation",
+          "value": "source.home.register"
+        },
+        {
+          "pointer": "/effect_class",
+          "value": "owner_commit"
+        },
+        {
+          "pointer": "/action",
+          "value": "contribute"
+        },
+        {
+          "pointer": "/target/resource_id",
+          "value": "@repo_source"
+        },
+        {
+          "pointer": "/target/base/expects",
+          "value": "absent"
+        },
+        {
+          "pointer": "/payload_digest",
+          "value": "#repo_home"
+        },
+        {
+          "pointer": "/owner/layer",
+          "value": "repository"
+        },
+        {
+          "pointer": "/owner/repository_id",
+          "value": "@repo"
+        }
+      ],
+      "drop": [
+        "/owner/principal_id"
+      ]
     },
     {
-     "pointer": "/target/resource_id",
-     "value": "@me"
+      "name": "stored_repo_home",
+      "from": "repo_home",
+      "set": [
+        {
+          "pointer": "/registered_at",
+          "value": "$instant:repo_home_registered_at"
+        }
+      ]
     },
     {
-     "pointer": "/payload_digest",
-     "value": "#first_key"
+      "name": "repo_manifest",
+      "from": "sources/revision_submitted.json",
+      "set": [
+        {
+          "pointer": "/source_id",
+          "value": "@repo_source"
+        },
+        {
+          "pointer": "/members/1/digest",
+          "value": "82f5aa8d50cf761e7731a8ccd43c6ea17c06504385f4f8dac62f74851f3790cb"
+        },
+        {
+          "pointer": "/members/1/size",
+          "value": 2048
+        }
+      ]
+    },
+    {
+      "name": "commit_repo",
+      "from": "c01/link_request.json",
+      "set": [
+        {
+          "pointer": "/request_id",
+          "value": "@repo_commit_request"
+        },
+        {
+          "pointer": "/actor/principal_id",
+          "value": "@me"
+        },
+        {
+          "pointer": "/actor/device_id",
+          "value": "@laptop"
+        },
+        {
+          "pointer": "/actor/profile_id",
+          "value": "@profile"
+        },
+        {
+          "pointer": "/operation",
+          "value": "source.revision.commit"
+        },
+        {
+          "pointer": "/effect_class",
+          "value": "owner_commit"
+        },
+        {
+          "pointer": "/action",
+          "value": "publish"
+        },
+        {
+          "pointer": "/target/resource_id",
+          "value": "@repo_source"
+        },
+        {
+          "pointer": "/target/base/expects",
+          "value": "head"
+        },
+        {
+          "pointer": "/target/base/head_digest",
+          "value": "$digest:repo_source_registered"
+        },
+        {
+          "pointer": "/payload_digest",
+          "value": "#repo_manifest"
+        },
+        {
+          "pointer": "/owner/layer",
+          "value": "repository"
+        },
+        {
+          "pointer": "/owner/repository_id",
+          "value": "@repo"
+        }
+      ],
+      "drop": [
+        "/owner/principal_id"
+      ]
+    },
+    {
+      "name": "stored_repo_manifest",
+      "from": "repo_manifest",
+      "set": [
+        {
+          "pointer": "/produced_at",
+          "value": "$instant:repo_revision_at"
+        }
+      ]
+    },
+    {
+      "name": "external_manifest",
+      "from": "sources/revision_of_a_published_package.json",
+      "set": [
+        {
+          "pointer": "/source_id",
+          "value": "@imported_source"
+        }
+      ]
+    },
+    {
+      "name": "import_payload",
+      "from": "sources/request_to_import_without_its_conditions.json",
+      "drop": [
+        "/destination/scope/team_id"
+      ],
+      "set": [
+        {
+          "pointer": "/role",
+          "value": "knowledge"
+        },
+        {
+          "pointer": "/destination/scope/layer",
+          "value": "personal"
+        },
+        {
+          "pointer": "/destination/scope/principal_id",
+          "value": "@me"
+        },
+        {
+          "pointer": "/route/license_conditions",
+          "value": "attribution required, redistribution permitted"
+        },
+        {
+          "pointer": "/route/revision_digest",
+          "value": "#external_manifest"
+        }
+      ]
+    },
+    {
+      "name": "import",
+      "from": "c01/link_request.json",
+      "set": [
+        {
+          "pointer": "/request_id",
+          "value": "@import_request"
+        },
+        {
+          "pointer": "/actor/principal_id",
+          "value": "@me"
+        },
+        {
+          "pointer": "/actor/device_id",
+          "value": "@laptop"
+        },
+        {
+          "pointer": "/actor/profile_id",
+          "value": "@profile"
+        },
+        {
+          "pointer": "/operation",
+          "value": "source.revision.admit"
+        },
+        {
+          "pointer": "/effect_class",
+          "value": "owner_commit"
+        },
+        {
+          "pointer": "/action",
+          "value": "contribute"
+        },
+        {
+          "pointer": "/owner/principal_id",
+          "value": "@me"
+        },
+        {
+          "pointer": "/target/resource_id",
+          "value": "@imported_source"
+        },
+        {
+          "pointer": "/target/base/expects",
+          "value": "absent"
+        },
+        {
+          "pointer": "/payload_digest",
+          "value": "#import_payload"
+        }
+      ]
+    },
+    {
+      "name": "import_provenance",
+      "from": "sources/provenance_of_an_imported_package.json",
+      "set": [
+        {
+          "pointer": "/source_id",
+          "value": "@imported_source"
+        },
+        {
+          "pointer": "/acquisition/acquired_at",
+          "value": "$instant:imported_at"
+        },
+        {
+          "pointer": "/acquisition/availability_evidence_digest",
+          "value": "$digest:acquired_package"
+        }
+      ]
+    },
+    {
+      "name": "import_home",
+      "from": "sources/home_submitted.json",
+      "drop": [
+        "/scope/team_id",
+        "/acceptance_authority/team_id"
+      ],
+      "set": [
+        {
+          "pointer": "/source_id",
+          "value": "@imported_source"
+        },
+        {
+          "pointer": "/scope/layer",
+          "value": "personal"
+        },
+        {
+          "pointer": "/scope/principal_id",
+          "value": "@me"
+        },
+        {
+          "pointer": "/acceptance_authority/layer",
+          "value": "personal"
+        },
+        {
+          "pointer": "/acceptance_authority/principal_id",
+          "value": "@me"
+        },
+        {
+          "pointer": "/disclosure",
+          "value": "private"
+        },
+        {
+          "pointer": "/home/package_id",
+          "value": "@external_package"
+        },
+        {
+          "pointer": "/home/publisher_evidence_digest",
+          "value": "$digest:acquired_package"
+        },
+        {
+          "pointer": "/home/license_conditions",
+          "value": "attribution required, redistribution permitted"
+        },
+        {
+          "pointer": "/publication_evidence_digests",
+          "value": []
+        }
+      ]
+    },
+    {
+      "name": "register_import_home",
+      "from": "c01/link_request.json",
+      "set": [
+        {
+          "pointer": "/request_id",
+          "value": "@import_home_request"
+        },
+        {
+          "pointer": "/actor/principal_id",
+          "value": "@me"
+        },
+        {
+          "pointer": "/actor/device_id",
+          "value": "@laptop"
+        },
+        {
+          "pointer": "/actor/profile_id",
+          "value": "@profile"
+        },
+        {
+          "pointer": "/operation",
+          "value": "source.home.register"
+        },
+        {
+          "pointer": "/effect_class",
+          "value": "owner_commit"
+        },
+        {
+          "pointer": "/action",
+          "value": "contribute"
+        },
+        {
+          "pointer": "/owner/principal_id",
+          "value": "@me"
+        },
+        {
+          "pointer": "/target/resource_id",
+          "value": "@imported_source"
+        },
+        {
+          "pointer": "/target/base/expects",
+          "value": "head"
+        },
+        {
+          "pointer": "/target/base/head_digest",
+          "value": "$digest:import_head"
+        },
+        {
+          "pointer": "/payload_digest",
+          "value": "#import_home"
+        }
+      ]
+    },
+    {
+      "name": "stored_import_home",
+      "from": "import_home",
+      "set": [
+        {
+          "pointer": "/registered_at",
+          "value": "$instant:import_home_registered_at"
+        }
+      ]
+    },
+    {
+      "name": "question",
+      "from": "c04/question_with_the_conditions_that_change_its_answer.json",
+      "drop": [
+        "/concern/conditions/1"
+      ],
+      "set": [
+        {
+          "pointer": "/concern/question",
+          "value": "Which relief rates apply in 2026?"
+        },
+        {
+          "pointer": "/companions",
+          "value": "optional"
+        },
+        {
+          "pointer": "/source_pins/0/source_id",
+          "value": "@repo_source"
+        },
+        {
+          "pointer": "/source_pins/0/revision_digest",
+          "value": "#stored_repo_manifest"
+        },
+        {
+          "pointer": "/source_pins/1/source_id",
+          "value": "@imported_source"
+        },
+        {
+          "pointer": "/source_pins/1/revision_digest",
+          "value": "#external_manifest"
+        }
+      ]
+    },
+    {
+      "name": "ask",
+      "from": "c01/link_request.json",
+      "set": [
+        {
+          "pointer": "/request_id",
+          "value": "@question_request"
+        },
+        {
+          "pointer": "/actor/principal_id",
+          "value": "@me"
+        },
+        {
+          "pointer": "/actor/device_id",
+          "value": "@laptop"
+        },
+        {
+          "pointer": "/actor/profile_id",
+          "value": "@profile"
+        },
+        {
+          "pointer": "/operation",
+          "value": "knowledge.question.ask"
+        },
+        {
+          "pointer": "/effect_class",
+          "value": "durable_candidate"
+        },
+        {
+          "pointer": "/action",
+          "value": "read"
+        },
+        {
+          "pointer": "/owner/principal_id",
+          "value": "@me"
+        },
+        {
+          "pointer": "/target/resource_id",
+          "value": "@me"
+        },
+        {
+          "pointer": "/payload_digest",
+          "value": "#question"
+        }
+      ]
+    },
+    {
+      "name": "view",
+      "from": "c04/view_preferring_one_layer_and_keeping_the_other.json",
+      "drop": [
+        "/companions/0",
+        "/members/1",
+        "/applicability/conditions",
+        "/applicability/period"
+      ],
+      "set": [
+        {
+          "pointer": "/view_id",
+          "value": "$viw:rates_view"
+        },
+        {
+          "pointer": "/question_digest",
+          "value": "#question"
+        },
+        {
+          "pointer": "/prepared_at",
+          "value": "$instant:view_prepared_at"
+        },
+        {
+          "pointer": "/members/0/source_id",
+          "value": "@repo_source"
+        },
+        {
+          "pointer": "/members/0/digest",
+          "value": "82f5aa8d50cf761e7731a8ccd43c6ea17c06504385f4f8dac62f74851f3790cb"
+        },
+        {
+          "pointer": "/members/1/source_id",
+          "value": "@imported_source"
+        },
+        {
+          "pointer": "/members/1/layer",
+          "value": "personal"
+        },
+        {
+          "pointer": "/members/1/digest",
+          "value": "2702a48949ff2ef94c13c8f8e0a45a7a481e0e19482d3ffa8f8fc2c584a1d2c2"
+        },
+        {
+          "pointer": "/evidence/0/source_id",
+          "value": "@repo_source"
+        },
+        {
+          "pointer": "/evidence/0/revision_digest",
+          "value": "#stored_repo_manifest"
+        },
+        {
+          "pointer": "/evidence/0/cited_edition",
+          "value": "repository revision"
+        },
+        {
+          "pointer": "/evidence/1/source_id",
+          "value": "@imported_source"
+        },
+        {
+          "pointer": "/evidence/1/revision_digest",
+          "value": "#external_manifest"
+        },
+        {
+          "pointer": "/evidence/1/cited_edition",
+          "value": "archive edition as imported"
+        },
+        {
+          "pointer": "/applicability/states",
+          "value": "unstated"
+        },
+        {
+          "pointer": "/material_gaps/0/code",
+          "value": "applicability_unstated"
+        }
+      ]
     }
-   ]
-  },
-  {
-   "name": "stored_key",
-   "from": "c01/device_key_binding.json",
-   "set": [
+  ],
+  "steps": [
     {
-     "pointer": "/principal_id",
-     "value": "@me"
+      "name": "bind_device_key",
+      "request": "bind",
+      "carries": [
+        "first_key"
+      ],
+      "answer": {
+        "stage": "committed",
+        "local_effect": "committed",
+        "provider_effect": "not_applicable",
+        "gaps": [],
+        "recovery": [],
+        "returns": [
+          "stored_key"
+        ]
+      }
     },
     {
-     "pointer": "/credential/device_id",
-     "value": "@laptop"
+      "name": "bind_checkout",
+      "request": "bind_repo",
+      "carries": [
+        "binding_payload"
+      ],
+      "answer": {
+        "stage": "committed",
+        "local_effect": "committed",
+        "provider_effect": "not_applicable",
+        "gaps": [],
+        "recovery": [],
+        "returns": [
+          "stored_binding"
+        ]
+      }
     },
     {
-     "pointer": "/binding_id",
-     "value": "$bnd:first_binding"
+      "name": "register_repository_knowledge",
+      "request": "register_repo_home",
+      "carries": [
+        "repo_home"
+      ],
+      "answer": {
+        "stage": "committed",
+        "local_effect": "committed",
+        "provider_effect": "not_applicable",
+        "gaps": [],
+        "recovery": [],
+        "returns": [
+          "stored_repo_home"
+        ],
+        "head": "repo_source_registered"
+      }
     },
     {
-     "pointer": "/created_at",
-     "value": "$instant:bound_at"
+      "name": "commit_repository_knowledge",
+      "request": "commit_repo",
+      "carries": [
+        "repo_manifest"
+      ],
+      "answer": {
+        "stage": "committed",
+        "local_effect": "committed",
+        "provider_effect": "not_applicable",
+        "gaps": [],
+        "recovery": [],
+        "returns": [
+          "stored_repo_manifest"
+        ],
+        "head": "repo_head"
+      }
+    },
+    {
+      "name": "import_external_package",
+      "request": "import",
+      "carries": [
+        "import_payload"
+      ],
+      "answer": {
+        "stage": "committed",
+        "local_effect": "committed",
+        "provider_effect": "not_applicable",
+        "gaps": [],
+        "recovery": [],
+        "returns": [
+          "external_manifest",
+          "import_provenance"
+        ],
+        "head": "import_head"
+      }
+    },
+    {
+      "name": "register_imported_home",
+      "request": "register_import_home",
+      "carries": [
+        "import_home"
+      ],
+      "answer": {
+        "stage": "committed",
+        "local_effect": "committed",
+        "provider_effect": "not_applicable",
+        "gaps": [],
+        "recovery": [],
+        "returns": [
+          "stored_import_home"
+        ],
+        "head": "imported_source_registered"
+      }
+    },
+    {
+      "name": "ask_both_layers",
+      "request": "ask",
+      "carries": [
+        "question"
+      ],
+      "answer": {
+        "stage": "previewed",
+        "local_effect": "private_state_written",
+        "provider_effect": "not_applicable",
+        "gaps": [
+          {
+            "code": "applicability_unstated"
+          }
+        ],
+        "recovery": [],
+        "returns": [
+          "view"
+        ]
+      }
     }
-   ]
-  },
-  {
-   "name": "binding_payload",
-   "from": "c01/repository_binding_as_submitted.json",
-   "set": [
-    {
-     "pointer": "/repository_id",
-     "value": "@repo"
-    }
-   ]
-  },
-  {
-   "name": "bind_repo",
-   "from": "c01/repository_bind_request.json",
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@repo_bind_request"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@me"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@profile"
-    },
-    {
-     "pointer": "/owner/principal_id",
-     "value": "@me"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@repo"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#binding_payload"
-    }
-   ]
-  },
-  {
-   "name": "stored_binding",
-   "from": "binding_payload",
-   "set": [
-    {
-     "pointer": "/observed/locator",
-     "value": "git@github.com:example/work.git"
-    }
-   ]
-  },
-  {
-   "name": "repo_home",
-   "from": "sources/home_of_a_repository_document.json",
-   "drop": [
-    "/registered_at"
-   ],
-   "set": [
-    {
-     "pointer": "/source_id",
-     "value": "@repo_source"
-    },
-    {
-     "pointer": "/role",
-     "value": "knowledge"
-    },
-    {
-     "pointer": "/scope/repository_id",
-     "value": "@repo"
-    },
-    {
-     "pointer": "/acceptance_authority/repository_id",
-     "value": "@repo"
-    },
-    {
-     "pointer": "/home/repository_id",
-     "value": "@repo"
-    },
-    {
-     "pointer": "/home/document_root",
-     "value": "docs/knowledge"
-    },
-    {
-     "pointer": "/home/binding_evidence_digest",
-     "value": "#stored_binding"
-    }
-   ]
-  },
-  {
-   "name": "register_repo_home",
-   "from": "c01/link_request.json",
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@repo_home_request"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@me"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@profile"
-    },
-    {
-     "pointer": "/operation",
-     "value": "source.home.register"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "owner_commit"
-    },
-    {
-     "pointer": "/action",
-     "value": "contribute"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@repo_source"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "absent"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#repo_home"
-    },
-    {
-     "pointer": "/owner/layer",
-     "value": "repository"
-    },
-    {
-     "pointer": "/owner/repository_id",
-     "value": "@repo"
-    }
-   ],
-   "drop": [
-    "/owner/principal_id"
-   ]
-  },
-  {
-   "name": "stored_repo_home",
-   "from": "repo_home",
-   "set": [
-    {
-     "pointer": "/registered_at",
-     "value": "$instant:repo_home_registered_at"
-    }
-   ]
-  },
-  {
-   "name": "repo_manifest",
-   "from": "sources/revision_submitted.json",
-   "set": [
-    {
-     "pointer": "/source_id",
-     "value": "@repo_source"
-    },
-    {
-     "pointer": "/members/1/digest",
-     "value": "82f5aa8d50cf761e7731a8ccd43c6ea17c06504385f4f8dac62f74851f3790cb"
-    },
-    {
-     "pointer": "/members/1/size",
-     "value": 2048
-    }
-   ]
-  },
-  {
-   "name": "commit_repo",
-   "from": "c01/link_request.json",
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@repo_commit_request"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@me"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@profile"
-    },
-    {
-     "pointer": "/operation",
-     "value": "source.revision.commit"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "owner_commit"
-    },
-    {
-     "pointer": "/action",
-     "value": "publish"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@repo_source"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "head"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:repo_source_registered"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#repo_manifest"
-    },
-    {
-     "pointer": "/owner/layer",
-     "value": "repository"
-    },
-    {
-     "pointer": "/owner/repository_id",
-     "value": "@repo"
-    }
-   ],
-   "drop": [
-    "/owner/principal_id"
-   ]
-  },
-  {
-   "name": "stored_repo_manifest",
-   "from": "repo_manifest",
-   "set": [
-    {
-     "pointer": "/produced_at",
-     "value": "$instant:repo_revision_at"
-    }
-   ]
-  },
-  {
-   "name": "external_manifest",
-   "from": "sources/revision_of_a_published_package.json",
-   "set": [
-    {
-     "pointer": "/source_id",
-     "value": "@imported_source"
-    }
-   ]
-  },
-  {
-   "name": "import_payload",
-   "from": "sources/request_to_import_without_its_conditions.json",
-   "drop": [
-    "/destination/scope/team_id"
-   ],
-   "set": [
-    {
-     "pointer": "/role",
-     "value": "knowledge"
-    },
-    {
-     "pointer": "/destination/scope/layer",
-     "value": "personal"
-    },
-    {
-     "pointer": "/destination/scope/principal_id",
-     "value": "@me"
-    },
-    {
-     "pointer": "/route/license_conditions",
-     "value": "attribution required, redistribution permitted"
-    },
-    {
-     "pointer": "/route/revision_digest",
-     "value": "#external_manifest"
-    }
-   ]
-  },
-  {
-   "name": "import",
-   "from": "c01/link_request.json",
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@import_request"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@me"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@profile"
-    },
-    {
-     "pointer": "/operation",
-     "value": "source.revision.admit"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "owner_commit"
-    },
-    {
-     "pointer": "/action",
-     "value": "contribute"
-    },
-    {
-     "pointer": "/owner/principal_id",
-     "value": "@me"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@imported_source"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "absent"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#import_payload"
-    }
-   ]
-  },
-  {
-   "name": "import_provenance",
-   "from": "sources/provenance_of_an_imported_package.json",
-   "set": [
-    {
-     "pointer": "/source_id",
-     "value": "@imported_source"
-    },
-    {
-     "pointer": "/acquisition/acquired_at",
-     "value": "$instant:imported_at"
-    },
-    {
-     "pointer": "/acquisition/availability_evidence_digest",
-     "value": "$digest:acquired_package"
-    }
-   ]
-  },
-  {
-   "name": "import_home",
-   "from": "sources/home_submitted.json",
-   "drop": [
-    "/scope/team_id",
-    "/acceptance_authority/team_id"
-   ],
-   "set": [
-    {
-     "pointer": "/source_id",
-     "value": "@imported_source"
-    },
-    {
-     "pointer": "/scope/layer",
-     "value": "personal"
-    },
-    {
-     "pointer": "/scope/principal_id",
-     "value": "@me"
-    },
-    {
-     "pointer": "/acceptance_authority/layer",
-     "value": "personal"
-    },
-    {
-     "pointer": "/acceptance_authority/principal_id",
-     "value": "@me"
-    },
-    {
-     "pointer": "/disclosure",
-     "value": "private"
-    },
-    {
-     "pointer": "/home/package_id",
-     "value": "@external_package"
-    },
-    {
-     "pointer": "/home/publisher_evidence_digest",
-     "value": "$digest:acquired_package"
-    },
-    {
-     "pointer": "/home/license_conditions",
-     "value": "attribution required, redistribution permitted"
-    },
-    {
-     "pointer": "/publication_evidence_digests",
-     "value": []
-    }
-   ]
-  },
-  {
-   "name": "register_import_home",
-   "from": "c01/link_request.json",
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@import_home_request"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@me"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@profile"
-    },
-    {
-     "pointer": "/operation",
-     "value": "source.home.register"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "owner_commit"
-    },
-    {
-     "pointer": "/action",
-     "value": "contribute"
-    },
-    {
-     "pointer": "/owner/principal_id",
-     "value": "@me"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@imported_source"
-    },
-    {
-     "pointer": "/target/base/expects",
-     "value": "head"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:import_head"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#import_home"
-    }
-   ]
-  },
-  {
-   "name": "stored_import_home",
-   "from": "import_home",
-   "set": [
-    {
-     "pointer": "/registered_at",
-     "value": "$instant:import_home_registered_at"
-    }
-   ]
-  },
-  {
-   "name": "question",
-   "from": "c04/question_with_the_conditions_that_change_its_answer.json",
-   "drop": [
-    "/concern/conditions/1"
-   ],
-   "set": [
-    {
-     "pointer": "/concern/question",
-     "value": "Which relief rates apply in 2026?"
-    },
-    {
-     "pointer": "/companions",
-     "value": "optional"
-    },
-    {
-     "pointer": "/source_pins/0/source_id",
-     "value": "@repo_source"
-    },
-    {
-     "pointer": "/source_pins/0/revision_digest",
-     "value": "#stored_repo_manifest"
-    },
-    {
-     "pointer": "/source_pins/1/source_id",
-     "value": "@imported_source"
-    },
-    {
-     "pointer": "/source_pins/1/revision_digest",
-     "value": "#external_manifest"
-    }
-   ]
-  },
-  {
-   "name": "ask",
-   "from": "c01/link_request.json",
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@question_request"
-    },
-    {
-     "pointer": "/actor/principal_id",
-     "value": "@me"
-    },
-    {
-     "pointer": "/actor/device_id",
-     "value": "@laptop"
-    },
-    {
-     "pointer": "/actor/profile_id",
-     "value": "@profile"
-    },
-    {
-     "pointer": "/operation",
-     "value": "knowledge.question.ask"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "durable_candidate"
-    },
-    {
-     "pointer": "/action",
-     "value": "read"
-    },
-    {
-     "pointer": "/owner/principal_id",
-     "value": "@me"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@me"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#question"
-    }
-   ]
-  },
-  {
-   "name": "view",
-   "from": "c04/view_preferring_one_layer_and_keeping_the_other.json",
-   "drop": [
-    "/companions/0",
-    "/members/1"
-   ],
-   "set": [
-    {
-     "pointer": "/view_id",
-     "value": "$viw:rates_view"
-    },
-    {
-     "pointer": "/question_digest",
-     "value": "#question"
-    },
-    {
-     "pointer": "/prepared_at",
-     "value": "$instant:view_prepared_at"
-    },
-    {
-     "pointer": "/members/0/source_id",
-     "value": "@repo_source"
-    },
-    {
-     "pointer": "/members/0/digest",
-     "value": "82f5aa8d50cf761e7731a8ccd43c6ea17c06504385f4f8dac62f74851f3790cb"
-    },
-    {
-     "pointer": "/members/1/source_id",
-     "value": "@imported_source"
-    },
-    {
-     "pointer": "/members/1/layer",
-     "value": "personal"
-    },
-    {
-     "pointer": "/members/1/digest",
-     "value": "2702a48949ff2ef94c13c8f8e0a45a7a481e0e19482d3ffa8f8fc2c584a1d2c2"
-    },
-    {
-     "pointer": "/evidence/0/source_id",
-     "value": "@repo_source"
-    },
-    {
-     "pointer": "/evidence/0/revision_digest",
-     "value": "#stored_repo_manifest"
-    },
-    {
-     "pointer": "/evidence/0/cited_edition",
-     "value": "repository revision"
-    },
-    {
-     "pointer": "/evidence/1/source_id",
-     "value": "@imported_source"
-    },
-    {
-     "pointer": "/evidence/1/revision_digest",
-     "value": "#external_manifest"
-    },
-    {
-     "pointer": "/evidence/1/cited_edition",
-     "value": "archive edition as imported"
-    }
-   ]
-  }
- ],
- "steps": [
-  {
-   "name": "bind_device_key",
-   "request": "bind",
-   "carries": [
-    "first_key"
-   ],
-   "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "stored_key"
-    ]
-   }
-  },
-  {
-   "name": "bind_checkout",
-   "request": "bind_repo",
-   "carries": [
-    "binding_payload"
-   ],
-   "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "stored_binding"
-    ]
-   }
-  },
-  {
-   "name": "register_repository_knowledge",
-   "request": "register_repo_home",
-   "carries": [
-    "repo_home"
-   ],
-   "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "stored_repo_home"
-    ],
-    "head": "repo_source_registered"
-   }
-  },
-  {
-   "name": "commit_repository_knowledge",
-   "request": "commit_repo",
-   "carries": [
-    "repo_manifest"
-   ],
-   "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "stored_repo_manifest"
-    ],
-    "head": "repo_head"
-   }
-  },
-  {
-   "name": "import_external_package",
-   "request": "import",
-   "carries": [
-    "import_payload"
-   ],
-   "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "external_manifest",
-     "import_provenance"
-    ],
-    "head": "import_head"
-   }
-  },
-  {
-   "name": "register_imported_home",
-   "request": "register_import_home",
-   "carries": [
-    "import_home"
-   ],
-   "answer": {
-    "stage": "committed",
-    "local_effect": "committed",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "stored_import_home"
-    ],
-    "head": "imported_source_registered"
-   }
-  },
-  {
-   "name": "ask_both_layers",
-   "request": "ask",
-   "carries": [
-    "question"
-   ],
-   "answer": {
-    "stage": "previewed",
-    "local_effect": "private_state_written",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "view"
-    ]
-   }
-  }
- ]
+  ]
 }

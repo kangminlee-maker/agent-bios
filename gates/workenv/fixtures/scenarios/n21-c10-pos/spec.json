@@ -93,6 +93,26 @@
   {
    "name": "remove_revision_request",
    "prefix": "req"
+  },
+  {
+   "name": "excerpt_source",
+   "prefix": "src"
+  },
+  {
+   "name": "set_knowledge_rights_request",
+   "prefix": "req"
+  },
+  {
+   "name": "register_excerpt_request",
+   "prefix": "req"
+  },
+  {
+   "name": "admit_excerpt_request",
+   "prefix": "req"
+  },
+  {
+   "name": "set_excerpt_rights_request",
+   "prefix": "req"
   }
  ],
  "records": [
@@ -536,6 +556,431 @@
    ]
   },
   {
+   "name": "knowledge_rights_submitted",
+   "from": "c08/rights_the_owner_set.json",
+   "drop": [
+    "/set_by",
+    "/set_at"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@knowledge_source"
+    },
+    {
+     "pointer": "/allows",
+     "value": [
+      "read",
+      "use",
+      "derive"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "stored_knowledge_rights",
+   "from": "knowledge_rights_submitted",
+   "set": [
+    {
+     "pointer": "/set_by",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/set_at",
+     "value": "$instant:knowledge_rights_set_at"
+    }
+   ]
+  },
+  {
+   "name": "set_knowledge_rights",
+   "from": "bindings/storing_request.json",
+   "drop": [
+    "/owner/team_id",
+    "/target/base"
+   ],
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@set_knowledge_rights_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.rights.set"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_laptop"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@knowledge_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:source_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#knowledge_rights_submitted"
+    }
+   ]
+  },
+  {
+   "name": "excerpt_home",
+   "from": "sources/home_of_a_managed_collection.json",
+   "drop": [
+    "/registered_at"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@excerpt_source"
+    },
+    {
+     "pointer": "/scope/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/acceptance_authority/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/publication_evidence_digests",
+     "value": []
+    }
+   ]
+  },
+  {
+   "name": "stored_excerpt_home",
+   "from": "excerpt_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:excerpt_home_registered_at"
+    }
+   ]
+  },
+  {
+   "name": "register_excerpt_home",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@register_excerpt_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_laptop"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@excerpt_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#excerpt_home"
+    }
+   ]
+  },
+  {
+   "name": "excerpt_request_payload",
+   "from": "sources/request_to_author_here.json",
+   "drop": [
+    "/destination/scope/repository_id"
+   ],
+   "set": [
+    {
+     "pointer": "/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/destination/home_mode",
+     "value": "managed"
+    },
+    {
+     "pointer": "/destination/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/destination/scope/principal_id",
+     "value": "@alice"
+    }
+   ]
+  },
+  {
+   "name": "admit_excerpt",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@admit_excerpt_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.revision.admit"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_laptop"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@excerpt_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:excerpt_home_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#excerpt_request_payload"
+    }
+   ]
+  },
+  {
+   "name": "excerpt_manifest",
+   "from": "sources/revision_submitted.json",
+   "drop": [
+    "/members/0"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@excerpt_source"
+    }
+   ]
+  },
+  {
+   "name": "stored_excerpt_manifest",
+   "from": "excerpt_manifest",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:excerpt_produced_at"
+    }
+   ]
+  },
+  {
+   "name": "excerpt_provenance",
+   "from": "sources/provenance_of_a_record_set_captured_from_a_session.json",
+   "drop": [
+    "/acceptance/accepted_by",
+    "/acceptance/receipt_digest",
+    "/origin/evidence_digests"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@excerpt_source"
+    },
+    {
+     "pointer": "/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/origin/origin",
+     "value": "authored_here"
+    },
+    {
+     "pointer": "/origin/author_scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/origin/author_scope/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/acceptance/state",
+     "value": "not_accepted"
+    },
+    {
+     "pointer": "/acquisition/acquired_at",
+     "value": "$instant:excerpt_acquired_at"
+    }
+   ]
+  },
+  {
+   "name": "excerpt_rights_submitted",
+   "from": "c08/derivative_rights_within_its_base.json",
+   "drop": [
+    "/set_by",
+    "/set_at"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@excerpt_source"
+    },
+    {
+     "pointer": "/allows",
+     "value": [
+      "read",
+      "use"
+     ]
+    },
+    {
+     "pointer": "/carries/0/source_id",
+     "value": "@knowledge_source"
+    },
+    {
+     "pointer": "/carries/0/rights_digest",
+     "value": "#stored_knowledge_rights"
+    }
+   ]
+  },
+  {
+   "name": "stored_excerpt_rights",
+   "from": "excerpt_rights_submitted",
+   "set": [
+    {
+     "pointer": "/set_by",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/set_at",
+     "value": "$instant:excerpt_rights_set_at"
+    }
+   ]
+  },
+  {
+   "name": "set_excerpt_rights",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@set_excerpt_rights_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.rights.set"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_laptop"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@excerpt_source"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:excerpt_admitted_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#excerpt_rights_submitted"
+    }
+   ]
+  },
+  {
    "name": "desktop_key",
    "from": "c01/binding_as_submitted.json",
    "set": [
@@ -956,7 +1401,11 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head"
     },
     {
      "pointer": "/payload_digest",
@@ -1103,7 +1552,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:source_head"
+     "value": "$digest:source_head_2"
     },
     {
      "pointer": "/payload_digest",
@@ -1224,7 +1673,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:team_head"
+     "value": "$digest:team_head_2"
     },
     {
      "pointer": "/payload_digest",
@@ -1338,7 +1787,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:team_head"
+     "value": "$digest:team_head_2"
     },
     {
      "pointer": "/payload_digest",
@@ -1712,7 +2161,7 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:team_head_2"
+     "value": "$digest:team_head_3"
     },
     {
      "pointer": "/payload_digest",
@@ -1874,6 +2323,83 @@
    "process": "laptop"
   },
   {
+   "name": "set_knowledge_derivation_rights",
+   "request": "set_knowledge_rights",
+   "carries": [
+    "knowledge_rights_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_knowledge_rights"
+    ],
+    "head": "source_head_2"
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "register_the_excerpt_home",
+   "request": "register_excerpt_home",
+   "carries": [
+    "excerpt_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_excerpt_home"
+    ],
+    "head": "excerpt_home_head"
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "admit_the_excerpt_derivative",
+   "request": "admit_excerpt",
+   "carries": [
+    "excerpt_request_payload"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_excerpt_manifest",
+     "excerpt_provenance"
+    ],
+    "head": "excerpt_admitted_head"
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "set_the_excerpt_rights",
+   "request": "set_excerpt_rights",
+   "carries": [
+    "excerpt_rights_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "stored_excerpt_rights"
+    ],
+    "head": "excerpt_rights_head"
+   },
+   "process": "laptop"
+  },
+  {
    "name": "enroll_desktop_key",
    "request": "bind_desktop",
    "carries": [
@@ -1928,7 +2454,7 @@
      "full_verified",
      "full_committed"
     ],
-    "head": "desktop_team_head"
+    "head": "team_head_2"
    },
    "process": "desktop",
    "advance_seconds": 60
@@ -1986,7 +2512,7 @@
     "returns": [
      "retention"
     ],
-    "head": "team_head_2"
+    "head": "team_head_3"
    },
    "process": "laptop",
    "advance_seconds": 60
@@ -2027,7 +2553,7 @@
     "returns": [
      "revision_removed"
     ],
-    "head": "team_head_3"
+    "head": "team_head_4"
    },
    "process": "laptop",
    "advance_seconds": 60

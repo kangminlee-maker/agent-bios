@@ -256,6 +256,11 @@
    "record": "probe_the_host_result"
   },
   {
+   "digest_of": "probe_the_host_configuration",
+   "pointer": "/outputs/2/digest",
+   "record": "probe_the_host_result"
+  },
+  {
    "digest_of": "alice_checkout",
    "pointer": "/payload_digest",
    "record": "bind_alice_checkout"
@@ -2987,7 +2992,24 @@
    }
   },
   {
-   "digest": "50fec5d9fe30a3975a747117599eb650c51283f5d7127be6330dedb4e5c2cd42",
+   "digest": "b166e3d3e6277aebd5dd65c7aa27d015a69aceed954fc4ef3a56ba930e507521",
+   "name": "probe_the_host_configuration",
+   "record": {
+    "client": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "hooks": [],
+    "kind": "host_configuration",
+    "measured_at": "2026-09-20T09:00:00Z",
+    "mode": {
+     "runs": "real"
+    },
+    "schema": 1
+   }
+  },
+  {
+   "digest": "989459ee01242dbd9f303dbce7f2c20ba678654a0789adf159827dbf8e66677e",
    "name": "probe_the_host_result",
    "record": {
     "kind": "operation_result",
@@ -3005,6 +3027,10 @@
      {
       "digest": "ca7a08bccb2f896f6e8d675670af03643a6b296620e57032502f6c951d58aa7f",
       "kind": "capability_profile"
+     },
+     {
+      "digest": "b166e3d3e6277aebd5dd65c7aa27d015a69aceed954fc4ef3a56ba930e507521",
+      "kind": "host_configuration"
      }
     ],
     "provider_effect": "not_applicable",
@@ -6585,7 +6611,7 @@
   }
  ],
  "says": "Alice's host is probed for native user events: the probe ran for real and worked. Her first use of the conflicting journal-mode concern waits on question version 1, sealed against comparison basis generation 1. Before she answers, the rollback alternative is corrected by a lifecycle event, so the basis moves. Her answer to the version still on her screen is recorded as verified evidence for version 1, naming the probe and the host configuration measured when it was classified, but resuming the use with it is answered stale with resume_stale and nothing is applied. Preparing the same use again, a request that targets the use, refreshes the prompt: the same question at version 2, sealed against generation 2 where the rollback participant is corrected, and version 1 is returned as superseded. She answers version 2. A resume that reuses the request id of the stale resume with the new payload is refused with request_id_conflict, so one outer request id cannot carry a new decision; the resume under its own request id admits the use on her version 2 answer. On her desktop Alice then founds a Team, with the desktop as its finalizer, and publishes to the Team's decisions source a third journal-mode choice that applies to this repository. Her next use on the laptop requires that source beside the other two. While the laptop and the desktop are partitioned, the prepare cannot reach the Team source: it is blocked with comparison_incomplete and returns a result that names the Team source as unread (remote_unknown), with no question sealed over the other two and no use admitted, so the unreachable participant is read neither as empty nor as approved. Once the partition ends, the same request proceeds and the use waits on a question over all three. Alice answers it; the partition returns before the resume, whose recheck before admission cannot reach the Team source and is blocked the same way; once reached, the same resume admits the use on her answer.",
- "spec_sha256": "1b10b7935803d0d577053ddb2250f3332bcea95312849f7be14ac1fe782c8d06",
+ "spec_sha256": "31a81e7c5a5983c7c75fa03891c8b12cf02900ae2e5dde29cc18929e1bfb9f29",
  "steps": [
   {
    "carries": [
@@ -6609,7 +6635,8 @@
    "result": "probe_the_host_result",
    "returns": [
     "probe_that_worked",
-    "host_profile"
+    "host_profile",
+    "probe_the_host_configuration"
    ]
   },
   {

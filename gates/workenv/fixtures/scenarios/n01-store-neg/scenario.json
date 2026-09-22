@@ -60,6 +60,10 @@
   {
    "id": "req_f6b78c9be46e29d60e947e60801cb2b3",
    "name": "ask_bind_request"
+  },
+  {
+   "id": "req_32dddb0a97172c20d79d00272a78dc34",
+   "name": "bad_version_request"
   }
  ],
  "joins": [
@@ -232,6 +236,11 @@
    "digest_of": "backup_twice",
    "pointer": "/payload_digest",
    "record": "restore_twice"
+  },
+  {
+   "digest_of": "bad_version_query",
+   "pointer": "/payload_digest",
+   "record": "ask_with_bad_version"
   },
   {
    "digest_of": "altered_revision",
@@ -1030,6 +1039,44 @@
    }
   },
   {
+   "digest": "e0ac59ca5ce490b02a45f501fb4d1bf4e9b6a2a5e47d1995a04f5f9bf200f30d",
+   "name": "bad_version_query",
+   "record": {
+    "kind": "operation_query",
+    "request_id": "req_10535040cf598418d9345aafaddc447b",
+    "schema": 2
+   }
+  },
+  {
+   "digest": "c598bd4de04e5327d813388c8af78276e391c076bccc8b89098fde1ed1045692",
+   "name": "ask_with_bad_version",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_539e467db3d9e45d74f4326e1437e5af",
+     "principal_id": "prn_94afb8c6afb957798da20c7e36ba3250",
+     "profile_id": "prf_c8a418e8152e5e3b1840b9685796c393"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "operation.query",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_94afb8c6afb957798da20c7e36ba3250"
+    },
+    "payload_digest": "e0ac59ca5ce490b02a45f501fb4d1bf4e9b6a2a5e47d1995a04f5f9bf200f30d",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_32dddb0a97172c20d79d00272a78dc34",
+    "schema": 1,
+    "target": {
+     "resource_id": "req_10535040cf598418d9345aafaddc447b"
+    }
+   }
+  },
+  {
    "digest": "cc1e035ae506ca2941ae8e2966fd1470a610f731165460ccb5562b7c9f08268d",
    "name": "altered_revision",
    "record": {
@@ -1323,8 +1370,8 @@
    }
   }
  ],
- "says": "Alice binds her laptop key and registers a private notes source, then submits records the owner must refuse at admission, each refused with exactly the code and pointer its contract states and nothing written: a key binding that names its own binding_id (runtime_owned_field /binding_id, a C01 kind), a revision that dates itself (runtime_owned_field /produced_at, C01), a package envelope that names Alice's enrolment binding as its trust yet carries the key it asks to be trusted by (unknown_field /package_public_key, C09), a commit request carrying an access token (unknown_field /access_token, C03), and a backup set naming one member twice (duplicate_item /members/4, C03). Then a revision signed with her key is altered after signing and committed with that signature among its proofs: the owner verifies the signature against the altered bytes and refuses with signature_invalid at /proof_digests/0. Querying two of the admission-refused request ids returns request_not_held, and committing the revision exactly as signed, still expecting the head the registration made, is accepted — so no refused submission stored a record or moved the head. What must not happen: a refused record stored, a refusal with another code or pointer, or the altered bytes accepted under the original signature.",
- "spec_sha256": "36d4f71e2e5940d3a9cf7c54c9ee1dbdac51ff1ee302cbff39c6d2352d5bdd42",
+ "says": "Alice binds her laptop key and registers a private notes source, then submits records the owner must refuse at admission, each refused with exactly the code and pointer its contract states and nothing written: a key binding that names its own binding_id (runtime_owned_field /binding_id, a C01 kind), a revision that dates itself (runtime_owned_field /produced_at, C01), a package envelope that names Alice's enrolment binding as its trust yet carries the key it asks to be trusted by (unknown_field /package_public_key, C09), a commit request carrying an access token (unknown_field /access_token, C03), and a backup set naming one member twice (duplicate_item /members/4, C03). Also submitted: an operation query naming a schema version this reader does not hold, refused with unsupported_schema_version at /schema. Then a revision signed with her key is altered after signing and committed with that signature among its proofs: the owner verifies the signature against the altered bytes and refuses with signature_invalid at /proof_digests/0. Querying two of the admission-refused request ids returns request_not_held, and committing the revision exactly as signed, still expecting the head the registration made, is accepted — so no refused submission stored a record or moved the head. What must not happen: a refused record stored, a refusal with another code or pointer, or the altered bytes accepted under the original signature.",
+ "spec_sha256": "79e0ffd2ae6ca9b31574d3a1638b05ad0a9bb972a1323cf81dcb356477a43a5c",
  "steps": [
   {
    "carries": [
@@ -1419,6 +1466,20 @@
     }
    ],
    "request": "restore_twice"
+  },
+  {
+   "carries": [
+    "bad_version_query"
+   ],
+   "name": "query_with_an_unsupported_schema_version",
+   "refused": [
+    {
+     "code": "unsupported_schema_version",
+     "pointer": "/schema",
+     "record": "bad_version_query"
+    }
+   ],
+   "request": "ask_with_bad_version"
   },
   {
    "carries": [

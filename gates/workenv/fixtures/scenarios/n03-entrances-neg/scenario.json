@@ -1765,7 +1765,7 @@
    }
   },
   {
-   "digest": "a99369a419157ffea0eeac212b48c9653ed7f9ae24809bff38e565db32304793",
+   "digest": "c0e5be387c949205839de7c1c4a4621d1d088a61beacb8b8f2d322393fceec85",
    "name": "unlock_state",
    "record": {
     "access_generation": 2,
@@ -1775,12 +1775,15 @@
     "schema": 1,
     "state": {
      "because": "unlock",
-     "is": "active"
+     "is": "active",
+     "key_mode": {
+      "runs": "real"
+     }
     }
    }
   },
   {
-   "digest": "5ae90467507b7b4af9de841c28b8f027bdd6a41dabb5cb18307a54e446450414",
+   "digest": "8874a258caf65f39d301c7be28327ef17c2c63770cf52d8fa5ef834fb5e583de",
    "name": "unlock_result",
    "record": {
     "kind": "operation_result",
@@ -1792,7 +1795,7 @@
     },
     "outputs": [
      {
-      "digest": "a99369a419157ffea0eeac212b48c9653ed7f9ae24809bff38e565db32304793",
+      "digest": "c0e5be387c949205839de7c1c4a4621d1d088a61beacb8b8f2d322393fceec85",
       "kind": "access_state"
      }
     ],
@@ -2346,7 +2349,7 @@
   }
  ],
  "says": "Alice's laptop reads its fresh profile (active, generation 1) and binds her device key. The access owner issues three handles at generation 1, each through the entrance its client calls from: one to the decision CLI, one to the decision MCP server, and one to a child reader the MCP server starts under its own handle, which names the MCP handle it derives from and carries that handle's generation. Alice locks the profile: generation 1 becomes 2. A history read under each old handle (the request names its handle among its proofs and still states generation 1) is refused with access_locked and access_generation_moved and returns nothing; the owner's admission of the CLI request says not admitted with both gaps. Alice unlocks at a terminal with her device key: the profile is active at generation 2, which an unlock does not move. The three old handles stay dead: each request is refused with access_generation_moved alone and returns nothing, and a new child reader asked for under the old MCP handle gets no handle. A handle the CLI asks for now carries generation 2, and a history read under it is admitted and answered. What must not happen: an unlock, or a child derived from an old handle, bringing a handle issued before the generation moved back to life, or any body or result returned under one.",
- "spec_sha256": "5ff42e56f77ad6f3a4715c68221825a8627740965023b72fd294d848900a5a98",
+ "spec_sha256": "3c7a4cf846daa7a146fe1081695780169deeb0a2f10ee0912ded455c59eeac92",
  "steps": [
   {
    "carries": [],

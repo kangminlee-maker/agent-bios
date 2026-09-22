@@ -1422,6 +1422,11 @@
   {
    "digest_of": "team_policy",
    "pointer": "/policy_digests/0",
+   "record": "record_cho_approves_publication"
+  },
+  {
+   "digest_of": "team_policy",
+   "pointer": "/policy_digests/0",
    "record": "publish_edition"
   },
   {
@@ -1443,36 +1448,6 @@
    "digest_of": "platform_edition",
    "pointer": "/payload_digest",
    "record": "publish_edition"
-  },
-  {
-   "digest_of": "publish_edition",
-   "pointer": "/payload_digest",
-   "record": "assess_publication"
-  },
-  {
-   "digest_of": "publish_edition",
-   "pointer": "/request_digest",
-   "record": "ben_may_publish"
-  },
-  {
-   "minted": "assessed_at",
-   "pointer": "/assessed_at",
-   "record": "ben_may_publish"
-  },
-  {
-   "digest_of": "assess_publication",
-   "pointer": "/request_digest",
-   "record": "assess_publication_result"
-  },
-  {
-   "digest_of": "ben_may_publish",
-   "pointer": "/outputs/0/digest",
-   "record": "assess_publication_result"
-  },
-  {
-   "digest_of": "team_policy",
-   "pointer": "/policy_digests/0",
-   "record": "record_cho_approves_publication"
   },
   {
    "digest_of": "publish_edition",
@@ -1543,6 +1518,31 @@
    "digest_of": "cho_approves_publication",
    "pointer": "/outputs/0/digest",
    "record": "record_cho_approves_publication_result"
+  },
+  {
+   "digest_of": "publish_edition",
+   "pointer": "/payload_digest",
+   "record": "assess_publication"
+  },
+  {
+   "digest_of": "publish_edition",
+   "pointer": "/request_digest",
+   "record": "ben_may_publish"
+  },
+  {
+   "minted": "assessed_at",
+   "pointer": "/assessed_at",
+   "record": "ben_may_publish"
+  },
+  {
+   "digest_of": "assess_publication",
+   "pointer": "/request_digest",
+   "record": "assess_publication_result"
+  },
+  {
+   "digest_of": "ben_may_publish",
+   "pointer": "/outputs/0/digest",
+   "record": "assess_publication_result"
   },
   {
    "digest_of": "publish_edition",
@@ -2042,11 +2042,6 @@
    "step": "contribute_team_instructions"
   },
   {
-   "name": "assessed_at",
-   "shape": "instant",
-   "step": "assess_publication"
-  },
-  {
    "name": "cho_approves_publication_at",
    "shape": "instant",
    "step": "record_cho_approves_publication"
@@ -2070,6 +2065,11 @@
    "name": "record_cho_approves_publication_sequence",
    "shape": "integer",
    "step": "record_cho_approves_publication"
+  },
+  {
+   "name": "assessed_at",
+   "shape": "instant",
+   "step": "assess_publication"
   },
   {
    "name": "publish_edition_committed_at",
@@ -4443,93 +4443,6 @@
    }
   },
   {
-   "digest": "49d60638ca17efd84556cc964c14978c0545b10ecd4c01b7176c564abaabae97",
-   "name": "assess_publication",
-   "record": {
-    "action": "read",
-    "actor": {
-     "device_id": "dev_597b10c3151f9ec40331362046564f90",
-     "principal_id": "prn_4845fb772d7c56b839dfa87f28c5b038",
-     "profile_id": "prf_9f849d6302afb15198b584c51f817222"
-    },
-    "control_digests": [],
-    "effect_class": "pure_preview",
-    "kind": "operation_request",
-    "local_access_generation": 7,
-    "operation": "preparation.assess",
-    "owner": {
-     "layer": "team",
-     "team_id": "tem_48cceab329db26d5928501ef91c64881"
-    },
-    "payload_digest": "d4ceb01eea8038f04e6ef1025dc49f1893e16d3247efd74fb69cceb6ab65eef9",
-    "policy_digests": [],
-    "proof_digests": [],
-    "request_id": "req_e2a0471c6bcc921a3fdf6f0ccc638de5",
-    "schema": 1,
-    "target": {
-     "resource_id": "prn_4845fb772d7c56b839dfa87f28c5b038"
-    }
-   }
-  },
-  {
-   "digest": "2fe3d88b60156b2f3604002fbcb70d4f16428d54cbef338e34e2c2fbe22aacdd",
-   "name": "ben_may_publish",
-   "record": {
-    "actor": {
-     "device_id": "dev_597b10c3151f9ec40331362046564f90",
-     "principal_id": "prn_4845fb772d7c56b839dfa87f28c5b038",
-     "profile_id": "prf_9f849d6302afb15198b584c51f817222"
-    },
-    "assessed_at": "2000-01-01T00:00:00Z",
-    "eligibility": {
-     "may": "yes"
-    },
-    "grants_seen": [
-     {
-      "action": "publish",
-      "scope": {
-       "layer": "team",
-       "team_id": "tem_48cceab329db26d5928501ef91c64881"
-      },
-      "standing": "current"
-     }
-    ],
-    "kind": "action_assessment",
-    "operation": "environment.publish",
-    "request_digest": "d4ceb01eea8038f04e6ef1025dc49f1893e16d3247efd74fb69cceb6ab65eef9",
-    "schema": 1,
-    "scopes": [
-     {
-      "layer": "team",
-      "team_id": "tem_48cceab329db26d5928501ef91c64881"
-     }
-    ]
-   }
-  },
-  {
-   "digest": "36d7f1a940347ce606f0b480376c68593fb8c6143870ac04061577d27b27e363",
-   "name": "assess_publication_result",
-   "record": {
-    "kind": "operation_result",
-    "local_effect": "none",
-    "outcome": {
-     "material_gaps": [],
-     "stage": "previewed"
-    },
-    "outputs": [
-     {
-      "digest": "2fe3d88b60156b2f3604002fbcb70d4f16428d54cbef338e34e2c2fbe22aacdd",
-      "kind": "action_assessment"
-     }
-    ],
-    "provider_effect": "not_applicable",
-    "request_digest": "49d60638ca17efd84556cc964c14978c0545b10ecd4c01b7176c564abaabae97",
-    "request_id": "req_e2a0471c6bcc921a3fdf6f0ccc638de5",
-    "schema": 1,
-    "supported_recovery": []
-   }
-  },
-  {
    "digest": "d7bca6cfe719470ad5ab18faf0220b590a28e032c0e943fe8253c085748e0d5d",
    "name": "cho_approves_publication_submitted",
    "record": {
@@ -4628,6 +4541,93 @@
     "provider_effect": "not_applicable",
     "request_digest": "aa2aae7c508aaf81e00da8793a304264883c45975cdee8cfe45d0f3499dd5a2f",
     "request_id": "req_e0bd0348829ec9a0bb7f2a44e7adb14e",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "49d60638ca17efd84556cc964c14978c0545b10ecd4c01b7176c564abaabae97",
+   "name": "assess_publication",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_597b10c3151f9ec40331362046564f90",
+     "principal_id": "prn_4845fb772d7c56b839dfa87f28c5b038",
+     "profile_id": "prf_9f849d6302afb15198b584c51f817222"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "preparation.assess",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_48cceab329db26d5928501ef91c64881"
+    },
+    "payload_digest": "d4ceb01eea8038f04e6ef1025dc49f1893e16d3247efd74fb69cceb6ab65eef9",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_e2a0471c6bcc921a3fdf6f0ccc638de5",
+    "schema": 1,
+    "target": {
+     "resource_id": "prn_4845fb772d7c56b839dfa87f28c5b038"
+    }
+   }
+  },
+  {
+   "digest": "2fe3d88b60156b2f3604002fbcb70d4f16428d54cbef338e34e2c2fbe22aacdd",
+   "name": "ben_may_publish",
+   "record": {
+    "actor": {
+     "device_id": "dev_597b10c3151f9ec40331362046564f90",
+     "principal_id": "prn_4845fb772d7c56b839dfa87f28c5b038",
+     "profile_id": "prf_9f849d6302afb15198b584c51f817222"
+    },
+    "assessed_at": "2000-01-01T00:00:00Z",
+    "eligibility": {
+     "may": "yes"
+    },
+    "grants_seen": [
+     {
+      "action": "publish",
+      "scope": {
+       "layer": "team",
+       "team_id": "tem_48cceab329db26d5928501ef91c64881"
+      },
+      "standing": "current"
+     }
+    ],
+    "kind": "action_assessment",
+    "operation": "environment.publish",
+    "request_digest": "d4ceb01eea8038f04e6ef1025dc49f1893e16d3247efd74fb69cceb6ab65eef9",
+    "schema": 1,
+    "scopes": [
+     {
+      "layer": "team",
+      "team_id": "tem_48cceab329db26d5928501ef91c64881"
+     }
+    ]
+   }
+  },
+  {
+   "digest": "36d7f1a940347ce606f0b480376c68593fb8c6143870ac04061577d27b27e363",
+   "name": "assess_publication_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "2fe3d88b60156b2f3604002fbcb70d4f16428d54cbef338e34e2c2fbe22aacdd",
+      "kind": "action_assessment"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "49d60638ca17efd84556cc964c14978c0545b10ecd4c01b7176c564abaabae97",
+    "request_id": "req_e2a0471c6bcc921a3fdf6f0ccc638de5",
     "schema": 1,
     "supported_recovery": []
    }
@@ -4779,8 +4779,8 @@
    }
   }
  ],
- "says": "Ana owns a personal instructions source, commits its first revision and sets its rights to read and use only, each commit on the source expecting the head the previous one moved to. She founds a Team whose policy requires one independent review for publication, and Ben and Cho join it by invitation, their own key binding, Ana's in-person verification of that key recorded on the Team, and consent. Ana issues Ben a scoped grant (read, use, contribute, publish, adopt) that names her founder grant as its parent, and issues Cho her own grant for review, naming the same parent. Ben contributes the Team's instructions collection pinning Ana's source at that exact revision, then seals a publication of an edition that pins the same revision; the owner assesses that request and finds Ben may publish on his current grant. Cho, who is neither the requester nor an author, approves that exact request; Ben's publication then commits and the edition's environment head moves, and Ben adopts that exact edition into the Team. What must come back: the collection, an eligible assessment, Cho's approval, the published edition and the Team's adoption of it. Nothing is derived from or exported out of the source, whose own rights allow neither.",
- "spec_sha256": "e208da3bb592cff4c22f4568246ab87ff5aa3d58606afd50b642a753f43d154e",
+ "says": "Ana owns a personal instructions source, commits its first revision and sets its rights to read and use only, each commit on the source expecting the head the previous one moved to. She founds a Team whose policy requires one independent review for publication, and Ben and Cho join it by invitation, their own key binding, Ana's in-person verification of that key recorded on the Team, and consent. Ana issues Ben a scoped grant (read, use, contribute, publish, adopt) that names her founder grant as its parent, and issues Cho her own grant for review, naming the same parent. Ben contributes the Team's instructions collection pinning Ana's source at that exact revision, then seals a publication of an edition that pins the same revision. Cho, who is neither the requester nor an author, approves that exact request, carrying it so the owner can check independence against its own actor and authors; only then does the owner assess that request and find Ben eligible to publish, with the policy's one independent review already recorded. Ben's publication then commits and the edition's environment head moves, and Ben adopts that exact edition into the Team. What must come back: the collection, an eligible assessment, Cho's approval, the published edition and the Team's adoption of it. Nothing is derived from or exported out of the source, whose own rights allow neither.",
+ "spec_sha256": "02469a2f5fb5b3055122f60d9a5b3bdb4d6c49f968aa0d3a5f9de462f6618c6d",
  "steps": [
   {
    "carries": [
@@ -5013,6 +5013,22 @@
   },
   {
    "carries": [
+    "cho_approves_publication_submitted",
+    "publish_edition"
+   ],
+   "name": "record_cho_approves_publication",
+   "process": "tablet",
+   "request": "record_cho_approves_publication",
+   "result": "record_cho_approves_publication_result",
+   "returns": [
+    "cho_approves_publication"
+   ],
+   "submits": [
+    "publish_edition"
+   ]
+  },
+  {
+   "carries": [
     "publish_edition",
     "platform_edition"
    ],
@@ -5022,18 +5038,6 @@
    "result": "assess_publication_result",
    "returns": [
     "ben_may_publish"
-   ]
-  },
-  {
-   "carries": [
-    "cho_approves_publication_submitted"
-   ],
-   "name": "record_cho_approves_publication",
-   "process": "tablet",
-   "request": "record_cho_approves_publication",
-   "result": "record_cho_approves_publication_result",
-   "returns": [
-    "cho_approves_publication"
    ]
   },
   {

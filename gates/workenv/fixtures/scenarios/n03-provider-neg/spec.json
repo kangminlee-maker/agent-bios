@@ -869,38 +869,12 @@
    ]
   },
   {
-   "name": "refresh_change",
-   "from": "c02/silent_refresh_is_not_a_transition.json",
-   "set": [
-    {
-     "pointer": "/profile_id",
-     "value": "@alice_profile"
-    },
-    {
-     "pointer": "/expected_generation",
-     "value": 2
-    }
-   ]
-  },
-  {
-   "name": "refresh_request",
-   "from": "c02/lock_request.json",
+   "name": "read_state_after_refresh_request",
+   "from": "c02/profile_read_request.json",
    "set": [
     {
      "pointer": "/request_id",
      "value": "@refresh_request_id"
-    },
-    {
-     "pointer": "/operation",
-     "value": "access.transition"
-    },
-    {
-     "pointer": "/action",
-     "value": "local_profile"
-    },
-    {
-     "pointer": "/effect_class",
-     "value": "owner_commit"
     },
     {
      "pointer": "/actor/principal_id",
@@ -925,10 +899,6 @@
     {
      "pointer": "/target/resource_id",
      "value": "@alice_profile"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#refresh_change"
     }
    ]
   },
@@ -1793,17 +1763,18 @@
   },
   {
    "name": "refresh_while_locked",
-   "request": "refresh_request",
-   "carries": [
-    "refresh_change"
-   ],
-   "refused": [
-    {
-     "record": "refresh_change",
-     "code": "variant_mismatch",
-     "pointer": "/change"
-    }
-   ]
+   "request": "read_state_after_refresh_request",
+   "carries": [],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "lock_state"
+    ]
+   }
   },
   {
    "name": "unlock_at_terminal",
@@ -1931,5 +1902,14 @@
     ]
    }
   }
- ]
+ ],
+ "world": {
+  "events": [
+   {
+    "kind": "provider_refresh",
+    "before": "refresh_while_locked",
+    "connection": "google_stored"
+   }
+  ]
+ }
 }

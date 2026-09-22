@@ -100,6 +100,22 @@
   {
    "id": "req_b6a8ef46eedafa095251b9e456db797d",
    "name": "regrant_request"
+  },
+  {
+   "id": "req_116c34157e27f01752a2dd926f09f7ca",
+   "name": "bind_query_request"
+  },
+  {
+   "id": "req_f72794741ff9d665af3a41e27245efcf",
+   "name": "handle_query_request"
+  },
+  {
+   "id": "req_3b1ab8d6167ff152bd7ba5bba424bf23",
+   "name": "register_query_request"
+  },
+  {
+   "id": "req_e515084c9857ffc281b0dbcc53169a65",
+   "name": "retire_query_request"
   }
  ],
  "joins": [
@@ -724,6 +740,11 @@
    "record": "restore_on_the_rebuilt_laptop_result"
   },
   {
+   "minted": "restored_profile_created_at",
+   "pointer": "/created_at",
+   "record": "restored_profile"
+  },
+  {
    "minted": "restored_locked_at",
    "pointer": "/changed_at",
    "record": "restored_access"
@@ -734,8 +755,13 @@
    "record": "read_the_restored_access_result"
   },
   {
-   "digest_of": "restored_access",
+   "digest_of": "restored_profile",
    "pointer": "/outputs/0/digest",
+   "record": "read_the_restored_access_result"
+  },
+  {
+   "digest_of": "restored_access",
+   "pointer": "/outputs/1/digest",
    "record": "read_the_restored_access_result"
   },
   {
@@ -782,6 +808,86 @@
    "digest_of": "unlocked",
    "pointer": "/outputs/0/digest",
    "record": "unlock_at_the_terminal_result"
+  },
+  {
+   "digest_of": "bind_query",
+   "pointer": "/payload_digest",
+   "record": "ask_bind"
+  },
+  {
+   "digest_of": "ask_bind",
+   "pointer": "/request_digest",
+   "record": "query_bind_result"
+  },
+  {
+   "digest_of": "bind_device_key_result",
+   "pointer": "/outputs/0/digest",
+   "record": "query_bind_result"
+  },
+  {
+   "digest_of": "bind_device_key_receipt",
+   "pointer": "/outputs/1/digest",
+   "record": "query_bind_result"
+  },
+  {
+   "digest_of": "handle_query",
+   "pointer": "/payload_digest",
+   "record": "ask_handle"
+  },
+  {
+   "digest_of": "ask_handle",
+   "pointer": "/request_digest",
+   "record": "query_handle_result"
+  },
+  {
+   "digest_of": "issue_compatibility_handle_result",
+   "pointer": "/outputs/0/digest",
+   "record": "query_handle_result"
+  },
+  {
+   "digest_of": "issue_compatibility_handle_receipt",
+   "pointer": "/outputs/1/digest",
+   "record": "query_handle_result"
+  },
+  {
+   "digest_of": "register_query",
+   "pointer": "/payload_digest",
+   "record": "ask_register"
+  },
+  {
+   "digest_of": "ask_register",
+   "pointer": "/request_digest",
+   "record": "query_register_result"
+  },
+  {
+   "digest_of": "register_candidate_result",
+   "pointer": "/outputs/0/digest",
+   "record": "query_register_result"
+  },
+  {
+   "digest_of": "register_candidate_receipt",
+   "pointer": "/outputs/1/digest",
+   "record": "query_register_result"
+  },
+  {
+   "digest_of": "retire_query",
+   "pointer": "/payload_digest",
+   "record": "ask_retire"
+  },
+  {
+   "digest_of": "ask_retire",
+   "pointer": "/request_digest",
+   "record": "query_retire_result"
+  },
+  {
+   "digest_of": "retire_the_compatibility_route_result",
+   "pointer": "/outputs/0/digest",
+   "record": "query_retire_result"
+  },
+  {
+   "digest_of": "retire_the_compatibility_route_receipt",
+   "pointer": "/outputs/1/digest",
+   "record": "query_retire_result"
   },
   {
    "digest_of": "cutover_query",
@@ -1177,6 +1283,11 @@
   },
   {
    "name": "restored_locked_at",
+   "shape": "instant",
+   "step": "read_the_restored_access"
+  },
+  {
+   "name": "restored_profile_created_at",
    "shape": "instant",
    "step": "read_the_restored_access"
   },
@@ -2521,6 +2632,17 @@
    }
   },
   {
+   "digest": "bdf6a3d2dd5c074556e2d6e9fecf33e0ce51f4254249086c4789d3791ab6cb3a",
+   "name": "restored_profile",
+   "record": {
+    "created_at": "2000-01-01T00:00:00Z",
+    "kind": "local_profile",
+    "principal_id": "prn_4c3b56c8e6fedb2ef8137cc1f757bcfb",
+    "profile_id": "prf_da5235e615337647d27eb13a4d032764",
+    "schema": 1
+   }
+  },
+  {
    "digest": "7bdef36ac6ebcf3facb645dd5f07164e2b3e46b634bd5372ed4f8ea2988c8143",
    "name": "restored_access",
    "record": {
@@ -2536,7 +2658,7 @@
    }
   },
   {
-   "digest": "3c1365a34ee6a5788d5da8557f2f5789543b7f54353aa8fd2218f70df8986379",
+   "digest": "d18ce74c1531b5e924f2ea0e2fc706bb2f342b2e6b9ec7fd983d84c358edff28",
    "name": "read_the_restored_access_result",
    "record": {
     "kind": "operation_result",
@@ -2546,6 +2668,10 @@
      "stage": "previewed"
     },
     "outputs": [
+     {
+      "digest": "bdf6a3d2dd5c074556e2d6e9fecf33e0ce51f4254249086c4789d3791ab6cb3a",
+      "kind": "local_profile"
+     },
      {
       "digest": "7bdef36ac6ebcf3facb645dd5f07164e2b3e46b634bd5372ed4f8ea2988c8143",
       "kind": "access_state"
@@ -2659,6 +2785,266 @@
     "provider_effect": "not_applicable",
     "request_digest": "637df44f2ef51ad0124ab31504cf94bb171b58857519c3b06e2c95afebd8cce0",
     "request_id": "req_7ea8e344ab07ab8d48620272b87f94ff",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "a323d6fb8e30d387e2433e0b926cda2efd6730404a8586260a169024ee3351de",
+   "name": "bind_query",
+   "record": {
+    "kind": "operation_query",
+    "request_id": "req_d295e26abcb7a4c6d1ace130fca84c8a",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "1951ff25522f91f2383ded803721f98f75c1328b0965a30d5ce116c913de18c1",
+   "name": "ask_bind",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_0646cbca86cfb4c2efc622c593aa7ba9",
+     "principal_id": "prn_4c3b56c8e6fedb2ef8137cc1f757bcfb",
+     "profile_id": "prf_da5235e615337647d27eb13a4d032764"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 8,
+    "operation": "operation.query",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_4c3b56c8e6fedb2ef8137cc1f757bcfb"
+    },
+    "payload_digest": "a323d6fb8e30d387e2433e0b926cda2efd6730404a8586260a169024ee3351de",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_116c34157e27f01752a2dd926f09f7ca",
+    "schema": 1,
+    "target": {
+     "resource_id": "req_d295e26abcb7a4c6d1ace130fca84c8a"
+    }
+   }
+  },
+  {
+   "digest": "26abc39ec4f04520ff4b186323147ca54c2bb77873448fa7a90f784dc65be6d7",
+   "name": "query_bind_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "bf41c2a37c55eeee7cd458ac55ab43109cbd90cf0f30395f251f62e1ff4e40a8",
+      "kind": "operation_result"
+     },
+     {
+      "digest": "d512b9db11553ac95c7114914b4182143fcfb8996fdd5682bfb21cf30a8df1e8",
+      "kind": "operation_receipt"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "1951ff25522f91f2383ded803721f98f75c1328b0965a30d5ce116c913de18c1",
+    "request_id": "req_116c34157e27f01752a2dd926f09f7ca",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "36f6b0fd12e86c0b2fd0729425fb68904d4dbedf8cb526610e77a389b4e69b61",
+   "name": "handle_query",
+   "record": {
+    "kind": "operation_query",
+    "request_id": "req_b9ae79c75f6e2a1609ae037030c6eeaa",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "e387ebd35779a6879cb7500404a3382c3a32d57b6ae7f7557316b6a11fe2bdd2",
+   "name": "ask_handle",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_0646cbca86cfb4c2efc622c593aa7ba9",
+     "principal_id": "prn_4c3b56c8e6fedb2ef8137cc1f757bcfb",
+     "profile_id": "prf_da5235e615337647d27eb13a4d032764"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 8,
+    "operation": "operation.query",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_4c3b56c8e6fedb2ef8137cc1f757bcfb"
+    },
+    "payload_digest": "36f6b0fd12e86c0b2fd0729425fb68904d4dbedf8cb526610e77a389b4e69b61",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_f72794741ff9d665af3a41e27245efcf",
+    "schema": 1,
+    "target": {
+     "resource_id": "req_b9ae79c75f6e2a1609ae037030c6eeaa"
+    }
+   }
+  },
+  {
+   "digest": "fa802ac7f1a8ad876119e684e20edcc8ec4aa187f072078ea9b33995f7b2fa41",
+   "name": "query_handle_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "a32b645ac455b02931330eb00ff4ccf76beb96bbdf0f3b2493b453b1c5fa6d64",
+      "kind": "operation_result"
+     },
+     {
+      "digest": "cffc911d759f6d0b745f8540599381643c9a6ce29b9c424c569b9e91651d32e9",
+      "kind": "operation_receipt"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "e387ebd35779a6879cb7500404a3382c3a32d57b6ae7f7557316b6a11fe2bdd2",
+    "request_id": "req_f72794741ff9d665af3a41e27245efcf",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "a163ca3ccd0a7262b4054e980ff91cb73dbbfb2869feaad364aad505cca3bb74",
+   "name": "register_query",
+   "record": {
+    "kind": "operation_query",
+    "request_id": "req_9dafc03a15f2a6e92422e0d289e5ddf5",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "7dd2beb19d634762aaa679ab8fabf7ef3ca124bddd13b4c24a41051ca2e0958c",
+   "name": "ask_register",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_0646cbca86cfb4c2efc622c593aa7ba9",
+     "principal_id": "prn_4c3b56c8e6fedb2ef8137cc1f757bcfb",
+     "profile_id": "prf_da5235e615337647d27eb13a4d032764"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 8,
+    "operation": "operation.query",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_4c3b56c8e6fedb2ef8137cc1f757bcfb"
+    },
+    "payload_digest": "a163ca3ccd0a7262b4054e980ff91cb73dbbfb2869feaad364aad505cca3bb74",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_3b1ab8d6167ff152bd7ba5bba424bf23",
+    "schema": 1,
+    "target": {
+     "resource_id": "req_9dafc03a15f2a6e92422e0d289e5ddf5"
+    }
+   }
+  },
+  {
+   "digest": "c8561a30625d2f9dcc8c07345ef20a17fb49ab5272a811bbeb253831e79dffc3",
+   "name": "query_register_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "e72a4c0b486d674c72cac32b50170d4b8fcbc3e68d35e05063f3056349eaf370",
+      "kind": "operation_result"
+     },
+     {
+      "digest": "c31fec9530c0378501fe39db42615ada4c1ed9f1bd0f1493d1c2a329c9d5c7c0",
+      "kind": "operation_receipt"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "7dd2beb19d634762aaa679ab8fabf7ef3ca124bddd13b4c24a41051ca2e0958c",
+    "request_id": "req_3b1ab8d6167ff152bd7ba5bba424bf23",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "01f1a0dcea329d10a684258e150f6bc6ba8a2705644b53d219a616d1aa22c516",
+   "name": "retire_query",
+   "record": {
+    "kind": "operation_query",
+    "request_id": "req_c5566d04c57c2fd16878c3ecc2841aec",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "d0b4997dc699136318e2d2e833d6ac3f0dd4b5a6442a402405329512cf1c8b16",
+   "name": "ask_retire",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_0646cbca86cfb4c2efc622c593aa7ba9",
+     "principal_id": "prn_4c3b56c8e6fedb2ef8137cc1f757bcfb",
+     "profile_id": "prf_da5235e615337647d27eb13a4d032764"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 8,
+    "operation": "operation.query",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_4c3b56c8e6fedb2ef8137cc1f757bcfb"
+    },
+    "payload_digest": "01f1a0dcea329d10a684258e150f6bc6ba8a2705644b53d219a616d1aa22c516",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_e515084c9857ffc281b0dbcc53169a65",
+    "schema": 1,
+    "target": {
+     "resource_id": "req_c5566d04c57c2fd16878c3ecc2841aec"
+    }
+   }
+  },
+  {
+   "digest": "7a5e0ce05e6d98b55b42466a716b8ccd1e06607ce826d872106be08b8a7eff4c",
+   "name": "query_retire_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "6364edd29642bfcb870985747a4051b2c45fb98c3f55a5c5c2cae1f680bb0462",
+      "kind": "operation_result"
+     },
+     {
+      "digest": "cbe7d0ddc6ba680f287f99d47b0993e8661147f7c108c8101e203e2fd1489c01",
+      "kind": "operation_receipt"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "d0b4997dc699136318e2d2e833d6ac3f0dd4b5a6442a402405329512cf1c8b16",
+    "request_id": "req_e515084c9857ffc281b0dbcc53169a65",
     "schema": 1,
     "supported_recovery": []
    }
@@ -3214,8 +3600,8 @@
    }
   }
  ],
- "says": "On her laptop Alice binds her device key and, while the compatibility route still forwards, is issued an access handle through the compatibility_route entrance at access generation 7. She registers the package candidate, records that route (compose/corpus_store.py, successor compose/instructions_store.py) as retired_at_cutover — the only route this target records for that entrance, so the entrance is retired with it — and commits the cutover naming the candidate. After the switch she founds a Team, grants Bob, then revokes Bob's grant by its next revision; each Team commit moves the Team head and the next expects it. The target then takes a backup, which covers the receipts through the revocation's. The laptop is lost and rebuilt, and the backup restored: the report is passive, and the profile reads locked because restored at generation 8 until Alice unlocks at the terminal. Each request id the backup covers — the cutover, the founding, the grant and the revocation — answers its original result and receipt; the backup's own request id, which the backup cannot cover, answers request_not_covered naming the report. The Team's state shows Bob's grant revoked, so the control change stays in force. A disposition recording the retired route as a writer through the source store is refused with route_retired at /disposition, and a grant change re-granting Bob proved by the handle issued through the retired entrance is refused with route_retired at /proof_digests/0 (that handle is also from before the restore's generation, access_generation_moved). What must not happen: the restore bringing back Bob's grant, a covered request id answered request_not_held or with a new result or receipt, or the retired route or a handle issued through it writing again.",
- "spec_sha256": "45333df59e5c435878ddd2e6aa01248834da2f1856bf7f74bd3413970666a023",
+ "says": "On her laptop Alice binds her device key and, while the compatibility route still forwards, is issued an access handle through the compatibility_route entrance at access generation 7. She registers the package candidate, records that route (compose/corpus_store.py, successor compose/instructions_store.py) as retired_at_cutover — the only route this target records for that entrance, so the entrance is retired with it — and commits the cutover naming the candidate. After the switch she founds a Team, grants Bob, then revokes Bob's grant by its next revision; each Team commit moves the Team head and the next expects it. The target then takes a backup, which covers the receipts through the revocation's. The laptop is lost and rebuilt, and the backup restored: the report is passive, and the profile reads locked because restored at generation 8 until Alice unlocks at the terminal. Each request id the backup covers — binding the device key, issuing the compatibility handle, registering the candidate, retiring the compatibility route, the cutover, the founding, the grant and the revocation — answers its original result and receipt; the backup's own request id, which the backup cannot cover, answers request_not_covered naming the report. The Team's state shows Bob's grant revoked, so the control change stays in force. A disposition recording the retired route as a writer through the source store is refused with route_retired at /disposition, and a grant change re-granting Bob proved by the handle issued through the retired entrance is refused with route_retired at /proof_digests/0 (that handle is also from before the restore's generation, access_generation_moved). What must not happen: the restore bringing back Bob's grant, a covered request id answered request_not_held or with a new result or receipt, or the retired route or a handle issued through it writing again.",
+ "spec_sha256": "2051a5ce4966972ff6edd960aecd2d8319258143a9e287ab8b0b3c481eefed43",
  "steps": [
   {
    "carries": [
@@ -3353,6 +3739,7 @@
    "request": "read_profile",
    "result": "read_the_restored_access_result",
    "returns": [
+    "restored_profile",
     "restored_access"
    ]
   },
@@ -3366,6 +3753,58 @@
    "result": "unlock_at_the_terminal_result",
    "returns": [
     "unlocked"
+   ]
+  },
+  {
+   "carries": [
+    "bind_query"
+   ],
+   "name": "query_bind",
+   "process": "rebuilt",
+   "request": "ask_bind",
+   "result": "query_bind_result",
+   "returns": [
+    "bind_device_key_result",
+    "bind_device_key_receipt"
+   ]
+  },
+  {
+   "carries": [
+    "handle_query"
+   ],
+   "name": "query_handle",
+   "process": "rebuilt",
+   "request": "ask_handle",
+   "result": "query_handle_result",
+   "returns": [
+    "issue_compatibility_handle_result",
+    "issue_compatibility_handle_receipt"
+   ]
+  },
+  {
+   "carries": [
+    "register_query"
+   ],
+   "name": "query_register",
+   "process": "rebuilt",
+   "request": "ask_register",
+   "result": "query_register_result",
+   "returns": [
+    "register_candidate_result",
+    "register_candidate_receipt"
+   ]
+  },
+  {
+   "carries": [
+    "retire_query"
+   ],
+   "name": "query_retire",
+   "process": "rebuilt",
+   "request": "ask_retire",
+   "result": "query_retire_result",
+   "returns": [
+    "retire_the_compatibility_route_result",
+    "retire_the_compatibility_route_receipt"
    ]
   },
   {

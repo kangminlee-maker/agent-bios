@@ -769,7 +769,7 @@
   }
  ],
  "says": "A person with no Team installs the knowledge package shipped in the product through the add_published_package route (source.revision.admit), naming the exact revision by the digest of the shipped manifest. The owner commits it and returns that same manifest and a provenance whose origin is the product-supplied package, whose acceptance is not_accepted and whose content-review statement is kept as an approval claim with stated_only support, never as an acceptance. Resolving an exact member (reference.resolve) returns the same manifest, whose member digest is the member the reference names, and the same provenance. Asking a question against that exact revision (knowledge.question.ask) returns a view whose members are the package's bytes in the person's own layer, cited to that revision. Nothing here adopts the package for a Team, records a Team acceptance, or gives it a priority: the provenance has no priority field and the view places it only in the layer it was installed into.",
- "spec_sha256": "9605b53521d6f4cdc1f5baf84717a25a515f91a7b46ba43bf6cbacda0bda54e2",
+ "spec_sha256": "0b9248ab3918e67dc5921c1891b16bfe2c283b756ca10bb5f9432d86de822681",
  "steps": [
   {
    "carries": [
@@ -818,5 +818,15 @@
     "view"
    ]
   }
- ]
+ ],
+ "world": {
+  "events": [
+   {
+    "before": "install_package",
+    "kind": "inventory",
+    "root": "shipped_knowledge",
+    "yields": "pkg_manifest"
+   }
+  ]
+ }
 }

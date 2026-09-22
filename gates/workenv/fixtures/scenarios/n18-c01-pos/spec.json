@@ -795,6 +795,24 @@
    ]
   },
   {
+   "name": "bob_attempt_control_proof",
+   "from": "bindings/signature_over_a_manifest.json",
+   "set": [
+    {
+     "pointer": "/namespace",
+     "value": "agent-bios/sign_in_attempt"
+    },
+    {
+     "pointer": "/signed_digest",
+     "value": "#bob_attempt_asked"
+    },
+    {
+     "pointer": "/signer_binding_id",
+     "value": "$bnd:bob_binding"
+    }
+   ]
+  },
+  {
    "name": "begin_bob_link_request",
    "from": "c02/lock_request.json",
    "set": [
@@ -841,6 +859,12 @@
     {
      "pointer": "/payload_digest",
      "value": "#bob_attempt_asked"
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#bob_attempt_control_proof"
+     ]
     }
    ]
   },
@@ -1414,6 +1438,12 @@
      "value": [
       "#recovery_evidence"
      ]
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#admitting_policy"
+     ]
     }
    ]
   }
@@ -1526,7 +1556,8 @@
    "name": "begin_bob_link",
    "request": "begin_bob_link_request",
    "carries": [
-    "bob_attempt_asked"
+    "bob_attempt_asked",
+    "bob_attempt_control_proof"
    ],
    "answer": {
     "stage": "committed",

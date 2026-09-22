@@ -394,6 +394,21 @@
    "record": "link_begin"
   },
   {
+   "digest_of": "link_attempt",
+   "pointer": "/signed_digest",
+   "record": "link_attempt_control_proof"
+  },
+  {
+   "minted": "device_key_binding",
+   "pointer": "/signer_binding_id",
+   "record": "link_attempt_control_proof"
+  },
+  {
+   "digest_of": "link_attempt_control_proof",
+   "pointer": "/proof_digests/0",
+   "record": "link_begin"
+  },
+  {
    "digest_of": "link_begin",
    "pointer": "/request_digest",
    "record": "begin_sign_in_receipt"
@@ -1494,7 +1509,19 @@
    }
   },
   {
-   "digest": "381148834dffdff74c31033a577ec8a64e2d6000b8239b2ea1472d25b4a428ba",
+   "digest": "cd02593857e871e5b5ca30696e6b5cc806164d9aeab4732aa6d1b0a3cddeb44e",
+   "name": "link_attempt_control_proof",
+   "record": {
+    "kind": "signature_envelope",
+    "namespace": "agent-bios/sign_in_attempt",
+    "schema": 1,
+    "signed_digest": "4459dede57eb0057d7d4f26e175776448cb376f29062a4abcbeec3949122ddf3",
+    "signer_binding_id": "bnd_4a6b265c3244643b0d0e27190446c249",
+    "sshsig": "U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+   }
+  },
+  {
+   "digest": "a16f1bc5293caaf43ea032ae7ebab6135d740a0a6742c16742852c41c5976785",
    "name": "link_begin",
    "record": {
     "action": "local_profile",
@@ -1514,7 +1541,9 @@
     },
     "payload_digest": "4459dede57eb0057d7d4f26e175776448cb376f29062a4abcbeec3949122ddf3",
     "policy_digests": [],
-    "proof_digests": [],
+    "proof_digests": [
+     "cd02593857e871e5b5ca30696e6b5cc806164d9aeab4732aa6d1b0a3cddeb44e"
+    ],
     "request_id": "req_ee837347b79342f8a4cf22c468dad972",
     "schema": 1,
     "target": {
@@ -1523,7 +1552,7 @@
    }
   },
   {
-   "digest": "4eec70a71974ae3214b0a002d5ad04c2f21ce99b5cb3260d77fb60e7554078df",
+   "digest": "4151c69543871768c8664509c9dd776a804cc573de315d2c46c54d2dc7efc2cc",
    "name": "begin_sign_in_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -1533,7 +1562,7 @@
      "layer": "personal",
      "principal_id": "prn_a3425eec065e6ecec084e4f02d203d7e"
     },
-    "request_digest": "381148834dffdff74c31033a577ec8a64e2d6000b8239b2ea1472d25b4a428ba",
+    "request_digest": "a16f1bc5293caaf43ea032ae7ebab6135d740a0a6742c16742852c41c5976785",
     "request_id": "req_ee837347b79342f8a4cf22c468dad972",
     "schema": 1,
     "sequence": 1,
@@ -1561,14 +1590,14 @@
    }
   },
   {
-   "digest": "0b06ded03f4759004692760f8a4250312f6fdc45347b51b300934044b454cf61",
+   "digest": "d8e87908f86208ac5f4d1b53481aaa43bfd94a7aaf5a73f9762a40943feba5e4",
    "name": "begin_sign_in_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "4eec70a71974ae3214b0a002d5ad04c2f21ce99b5cb3260d77fb60e7554078df",
+     "receipt_digest": "4151c69543871768c8664509c9dd776a804cc573de315d2c46c54d2dc7efc2cc",
      "stage": "committed"
     },
     "outputs": [
@@ -1578,14 +1607,14 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "381148834dffdff74c31033a577ec8a64e2d6000b8239b2ea1472d25b4a428ba",
+    "request_digest": "a16f1bc5293caaf43ea032ae7ebab6135d740a0a6742c16742852c41c5976785",
     "request_id": "req_ee837347b79342f8a4cf22c468dad972",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "4af95246c4770b8a23ea86a386eac585ab6167e471ca281e0ade938a52df1734",
+   "digest": "676d297e52632aaf623f9a6a9f4f06755fc354100a43f59ab2753d58704706b4",
    "name": "link_callback",
    "record": {
     "attempt_id": "sin_64cc8692d284ca7b6013e21cb44656ae",
@@ -1599,8 +1628,8 @@
       }
      ],
      "email": "person@example.com",
-     "expires_at": "2026-09-20T10:01:00Z",
-     "issued_at": "2026-09-20T09:01:00Z",
+     "expires_at": "2030-01-01T00:00:00Z",
+     "issued_at": "2026-09-20T09:00:00Z",
      "issuer": "https://accounts.google.com",
      "nonce_digest": "9b049e42bc165616a61f6dd25e6f34a048efdb42ba0ba9b3dbe09d5f0d107823",
      "returned": "claims",
@@ -1611,7 +1640,7 @@
    }
   },
   {
-   "digest": "ed34256c086a75a739f65c7a25ac242f7a472bbe7d8e94a243f7ae2a2f00a1bd",
+   "digest": "bf10fed79dc059d54d390de3242830e52851aebadb017bafcd695d16fd0ca99d",
    "name": "link_complete",
    "record": {
     "action": "local_profile",
@@ -1629,7 +1658,7 @@
      "layer": "personal",
      "principal_id": "prn_a3425eec065e6ecec084e4f02d203d7e"
     },
-    "payload_digest": "4af95246c4770b8a23ea86a386eac585ab6167e471ca281e0ade938a52df1734",
+    "payload_digest": "676d297e52632aaf623f9a6a9f4f06755fc354100a43f59ab2753d58704706b4",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_cea376a16fe41ae9b852266841563fc8",
@@ -1640,7 +1669,7 @@
    }
   },
   {
-   "digest": "b9686eac9968184ce6459b70bf6564e714fccadcb5ec224ace3e851b958fab44",
+   "digest": "350984bd5871b1592010f3abf297b0a7f71b86c3e02136487810c410a10d0cee",
    "name": "complete_sign_in_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -1650,7 +1679,7 @@
      "layer": "personal",
      "principal_id": "prn_a3425eec065e6ecec084e4f02d203d7e"
     },
-    "request_digest": "ed34256c086a75a739f65c7a25ac242f7a472bbe7d8e94a243f7ae2a2f00a1bd",
+    "request_digest": "bf10fed79dc059d54d390de3242830e52851aebadb017bafcd695d16fd0ca99d",
     "request_id": "req_cea376a16fe41ae9b852266841563fc8",
     "schema": 1,
     "sequence": 1,
@@ -1705,14 +1734,14 @@
    }
   },
   {
-   "digest": "4562e5ce404dffa24772575ce60d3ab0d0bf40f68a3882b5e6b796864c968955",
+   "digest": "b8012585c735024a0e9d6a71cffaf4b49ae62e8743ee64f26911b2eedc51b676",
    "name": "complete_sign_in_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "b9686eac9968184ce6459b70bf6564e714fccadcb5ec224ace3e851b958fab44",
+     "receipt_digest": "350984bd5871b1592010f3abf297b0a7f71b86c3e02136487810c410a10d0cee",
      "stage": "committed"
     },
     "outputs": [
@@ -1726,7 +1755,7 @@
      }
     ],
     "provider_effect": "committed",
-    "request_digest": "ed34256c086a75a739f65c7a25ac242f7a472bbe7d8e94a243f7ae2a2f00a1bd",
+    "request_digest": "bf10fed79dc059d54d390de3242830e52851aebadb017bafcd695d16fd0ca99d",
     "request_id": "req_cea376a16fe41ae9b852266841563fc8",
     "schema": 1,
     "supported_recovery": []
@@ -1734,7 +1763,7 @@
   }
  ],
  "says": "A person founds a Team on this installed candidate (agent-bios 0.20.0) and configures its Google workspace connection as a public client with PKCE. The candidate then probes the provider callback for real through that configured connection: the owner stores a probe that ran against the configured provider (mode real, outcome worked) and a capability profile that qualifies provider_callback by naming exactly that probe's digest. The same callback is then exercised end to end: a sign-in begun on the connection returns an attempt with the state and nonce the owner minted, and the provider's callback carrying that state, nonce and the expected hd claim is verified and linked, committing the sign-in evidence and an external-identity binding for the same principal on the same connection. The evidence level claimed is the one observed: a real run on the installed candidate, nothing inferred from the specification or a fixture.",
- "spec_sha256": "246671c9d1ae52118b769acc093ffc59af9f9680f73e98897287f66b074dad07",
+ "spec_sha256": "fc3396ac56f96ac5647a4f82492793646650c8471b5d2a07b07d3d3ab3a7b395",
  "steps": [
   {
    "carries": [
@@ -1795,7 +1824,8 @@
   },
   {
    "carries": [
-    "link_attempt"
+    "link_attempt",
+    "link_attempt_control_proof"
    ],
    "name": "begin_sign_in",
    "request": "link_begin",

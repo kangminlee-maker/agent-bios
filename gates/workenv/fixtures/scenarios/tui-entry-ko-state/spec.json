@@ -1,6 +1,6 @@
 {
  "case": "TUI-ENTRY-KO-STATE",
- "says": "The launcher entry opens in Korean at 100x30 over a bound repository with a selected instructions source and an unselected knowledge source. The person tabs into the note field and, from gates/workenv/fixtures/text/korean.json, types 'q 종료 s 시작', pastes a two-line string and a string holding a terminal escape sequence, and types '작업 환경 선택' as conjoining jamo; then resizes to 80x24, switches the locale to English, tabs to the start action and presses Enter (surface.drive). Each frame must keep the field's value as exactly the code points entered so far, with the pasted newline and escape kept as data; the two positions keep their ids, selection and state when their labels change language; at 80 columns the over-wide location label is marked clipped while the positions, the field and the start action stay whole. Only the final Enter dispatches, and the preparation.compose request it names carries the field value, byte for byte, as its rationale; route.select answers for that request. Negative: neither 'q' nor 's' typed in the field, nor the pasted newline, starts or quits anything; translated labels change no id; a script that presses a start shortcut is refused at admission (variant_mismatch /inputs/0); and the trace records typed and pasted text only — it is no evidence of input-method composition, which TUI-OBS-KOREAN-TERMINAL observes.",
+ "says": "The launcher entry opens in Korean at 100x30 over a bound repository with a selected instructions source and an unselected knowledge source. The person tabs into the note field and, from gates/workenv/fixtures/text/korean.json, types 'q \uc885\ub8cc s \uc2dc\uc791', pastes a two-line string and a string holding a terminal escape sequence, and types '\uc791\uc5c5 \ud658\uacbd \uc120\ud0dd' as conjoining jamo; then resizes to 80x24, switches the locale to English, tabs to the start action and presses Enter (surface.drive). Each frame must keep the field's value as exactly the code points entered so far, with the pasted newline and escape kept as data; the two positions keep their ids, selection and state when their labels change language; at 80 columns the over-wide location label is marked clipped while the positions, the field and the start action stay whole. Only the final Enter dispatches, and the preparation.compose request it names carries the field value, byte for byte, as its rationale; route.select answers for that request. Negative: neither 'q' nor 's' typed in the field, nor the pasted newline, starts or quits anything; translated labels change no id; a script that presses a start shortcut is refused at admission (variant_mismatch /inputs/0); and the trace records typed and pasted text only \u2014 it is no evidence of input-method composition, which TUI-OBS-KOREAN-TERMINAL observes.",
  "ids": [
   {
    "name": "me",
@@ -80,6 +80,14 @@
   },
   {
    "name": "shortcut_drive",
+   "prefix": "req"
+  },
+  {
+   "name": "register_instr_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "register_know_rid",
    "prefix": "req"
   }
  ],
@@ -339,6 +347,106 @@
    ]
   },
   {
+   "name": "instr_home",
+   "from": "sources/home_of_a_repository_document.json",
+   "drop": [
+    "/registered_at"
+   ],
+   "set": [
+    {
+     "pointer": "/acceptance_authority/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/document_root",
+     "value": "AGENTS.md"
+    },
+    {
+     "pointer": "/home/binding_evidence_digest",
+     "value": "#repo_bound"
+    },
+    {
+     "pointer": "/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@instr"
+    }
+   ]
+  },
+  {
+   "name": "register_instr_request",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#instr_home"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@register_instr_rid"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@instr"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    }
+   ],
+   "drop": [
+    "/owner/principal_id"
+   ]
+  },
+  {
+   "name": "instr_home_stored",
+   "from": "instr_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:instr_registered_at"
+    }
+   ]
+  },
+  {
    "name": "instr_commit_request",
    "from": "c01/link_request.json",
    "drop": [
@@ -387,7 +495,11 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:instr_h0"
     }
    ]
   },
@@ -532,6 +644,106 @@
    ]
   },
   {
+   "name": "know_home",
+   "from": "sources/home_of_a_repository_document.json",
+   "drop": [
+    "/registered_at"
+   ],
+   "set": [
+    {
+     "pointer": "/acceptance_authority/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/document_root",
+     "value": "docs"
+    },
+    {
+     "pointer": "/home/binding_evidence_digest",
+     "value": "#repo_bound"
+    },
+    {
+     "pointer": "/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@know"
+    }
+   ]
+  },
+  {
+   "name": "register_know_request",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#know_home"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@register_know_rid"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@know"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    }
+   ],
+   "drop": [
+    "/owner/principal_id"
+   ]
+  },
+  {
+   "name": "know_home_stored",
+   "from": "know_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:know_registered_at"
+    }
+   ]
+  },
+  {
    "name": "know_commit_request",
    "from": "c01/link_request.json",
    "drop": [
@@ -580,7 +792,11 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:know_h0"
     }
    ]
   },
@@ -661,6 +877,16 @@
     {
      "pointer": "/probe_id",
      "value": "$prb:read_probe"
+    }
+   ]
+  },
+  {
+   "name": "read_probe_host_configuration",
+   "from": "c12/host_configuration_is_never_submitted.json",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:probe_measured_at"
     }
    ]
   },
@@ -765,11 +991,11 @@
    "set": [
     {
      "pointer": "/inputs/1/text",
-     "value": "q 종료 s 시작"
+     "value": "q \uc885\ub8cc s \uc2dc\uc791"
     },
     {
      "pointer": "/inputs/2/text",
-     "value": "첫 줄\n둘째 줄"
+     "value": "\uccab \uc904\n\ub458\uc9f8 \uc904"
     },
     {
      "pointer": "/inputs/3/input",
@@ -777,7 +1003,7 @@
     },
     {
      "pointer": "/inputs/3/text",
-     "value": "\u001b[31m빨강\u001b[0m"
+     "value": "\u001b[31m\ube68\uac15\u001b[0m"
     },
     {
      "pointer": "/inputs/4/input",
@@ -785,7 +1011,7 @@
     },
     {
      "pointer": "/inputs/4/text",
-     "value": "작업 환경 선택"
+     "value": "\u110c\u1161\u11a8\u110b\u1165\u11b8 \u1112\u116a\u11ab\u1100\u1167\u11bc \u1109\u1165\u11ab\u1110\u1162\u11a8"
     },
     {
      "pointer": "/inputs/5/input",
@@ -945,7 +1171,7 @@
     },
     {
      "pointer": "/frames/0/elements/0/label",
-     "value": "저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 "
+     "value": "\uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 "
     },
     {
      "pointer": "/frames/0/elements/0/refers_to/scope/repository_id",
@@ -961,7 +1187,7 @@
     },
     {
      "pointer": "/frames/0/elements/1/label",
-     "value": "지침 · AGENTS.md"
+     "value": "\uc9c0\uce68 \u00b7 AGENTS.md"
     },
     {
      "pointer": "/frames/0/elements/1/marks",
@@ -1003,7 +1229,7 @@
     },
     {
      "pointer": "/frames/0/elements/2/label",
-     "value": "지식 · docs/retry.md"
+     "value": "\uc9c0\uc2dd \u00b7 docs/retry.md"
     },
     {
      "pointer": "/frames/0/elements/2/marks",
@@ -1041,7 +1267,7 @@
     },
     {
      "pointer": "/frames/0/elements/3/label",
-     "value": "메모 · 시작 요청에 함께 기록"
+     "value": "\uba54\ubaa8 \u00b7 \uc2dc\uc791 \uc694\uccad\uc5d0 \ud568\uaed8 \uae30\ub85d"
     },
     {
      "pointer": "/frames/0/elements/3/marks",
@@ -1065,7 +1291,7 @@
     },
     {
      "pointer": "/frames/0/elements/4/label",
-     "value": "Claude Code 새 세션 시작"
+     "value": "Claude Code \uc0c8 \uc138\uc158 \uc2dc\uc791"
     },
     {
      "pointer": "/frames/0/elements/4/marks",
@@ -1096,7 +1322,7 @@
     },
     {
      "pointer": "/frames/0/elements/5/label",
-     "value": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로"
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
     },
     {
      "pointer": "/frames/0/elements/5/marks",
@@ -1120,7 +1346,7 @@
     },
     {
      "pointer": "/frames/1/elements/0/label",
-     "value": "저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 "
+     "value": "\uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 "
     },
     {
      "pointer": "/frames/1/elements/0/refers_to/scope/repository_id",
@@ -1136,7 +1362,7 @@
     },
     {
      "pointer": "/frames/1/elements/1/label",
-     "value": "지침 · AGENTS.md"
+     "value": "\uc9c0\uce68 \u00b7 AGENTS.md"
     },
     {
      "pointer": "/frames/1/elements/1/marks",
@@ -1178,7 +1404,7 @@
     },
     {
      "pointer": "/frames/1/elements/2/label",
-     "value": "지식 · docs/retry.md"
+     "value": "\uc9c0\uc2dd \u00b7 docs/retry.md"
     },
     {
      "pointer": "/frames/1/elements/2/marks",
@@ -1212,12 +1438,12 @@
     },
     {
      "pointer": "/frames/1/elements/3/label",
-     "value": "메모 · 시작 요청에 함께 기록"
+     "value": "\uba54\ubaa8 \u00b7 \uc2dc\uc791 \uc694\uccad\uc5d0 \ud568\uaed8 \uae30\ub85d"
     },
     {
      "pointer": "/frames/1/elements/3/marks",
      "value": [
-      "›"
+      "\u203a"
      ]
     },
     {
@@ -1238,7 +1464,7 @@
     },
     {
      "pointer": "/frames/1/elements/4/label",
-     "value": "Claude Code 새 세션 시작"
+     "value": "Claude Code \uc0c8 \uc138\uc158 \uc2dc\uc791"
     },
     {
      "pointer": "/frames/1/elements/4/marks",
@@ -1269,7 +1495,7 @@
     },
     {
      "pointer": "/frames/1/elements/5/label",
-     "value": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로"
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
     },
     {
      "pointer": "/frames/1/elements/5/marks",
@@ -1293,7 +1519,7 @@
     },
     {
      "pointer": "/frames/2/elements/0/label",
-     "value": "저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 "
+     "value": "\uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 "
     },
     {
      "pointer": "/frames/2/elements/0/refers_to/scope/repository_id",
@@ -1309,7 +1535,7 @@
     },
     {
      "pointer": "/frames/2/elements/1/label",
-     "value": "지침 · AGENTS.md"
+     "value": "\uc9c0\uce68 \u00b7 AGENTS.md"
     },
     {
      "pointer": "/frames/2/elements/1/marks",
@@ -1351,7 +1577,7 @@
     },
     {
      "pointer": "/frames/2/elements/2/label",
-     "value": "지식 · docs/retry.md"
+     "value": "\uc9c0\uc2dd \u00b7 docs/retry.md"
     },
     {
      "pointer": "/frames/2/elements/2/marks",
@@ -1385,17 +1611,17 @@
     },
     {
      "pointer": "/frames/2/elements/3/label",
-     "value": "메모 · 시작 요청에 함께 기록"
+     "value": "\uba54\ubaa8 \u00b7 \uc2dc\uc791 \uc694\uccad\uc5d0 \ud568\uaed8 \uae30\ub85d"
     },
     {
      "pointer": "/frames/2/elements/3/marks",
      "value": [
-      "›"
+      "\u203a"
      ]
     },
     {
      "pointer": "/frames/2/elements/3/value",
-     "value": "q 종료 s 시작"
+     "value": "q \uc885\ub8cc s \uc2dc\uc791"
     },
     {
      "pointer": "/frames/2/elements/4/element_id",
@@ -1407,7 +1633,7 @@
     },
     {
      "pointer": "/frames/2/elements/4/label",
-     "value": "Claude Code 새 세션 시작"
+     "value": "Claude Code \uc0c8 \uc138\uc158 \uc2dc\uc791"
     },
     {
      "pointer": "/frames/2/elements/4/marks",
@@ -1438,7 +1664,7 @@
     },
     {
      "pointer": "/frames/2/elements/5/label",
-     "value": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로"
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
     },
     {
      "pointer": "/frames/2/elements/5/marks",
@@ -1462,7 +1688,7 @@
     },
     {
      "pointer": "/frames/3/elements/0/label",
-     "value": "저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 "
+     "value": "\uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 "
     },
     {
      "pointer": "/frames/3/elements/0/refers_to/scope/repository_id",
@@ -1478,7 +1704,7 @@
     },
     {
      "pointer": "/frames/3/elements/1/label",
-     "value": "지침 · AGENTS.md"
+     "value": "\uc9c0\uce68 \u00b7 AGENTS.md"
     },
     {
      "pointer": "/frames/3/elements/1/marks",
@@ -1520,7 +1746,7 @@
     },
     {
      "pointer": "/frames/3/elements/2/label",
-     "value": "지식 · docs/retry.md"
+     "value": "\uc9c0\uc2dd \u00b7 docs/retry.md"
     },
     {
      "pointer": "/frames/3/elements/2/marks",
@@ -1554,12 +1780,12 @@
     },
     {
      "pointer": "/frames/3/elements/3/label",
-     "value": "메모 · 시작 요청에 함께 기록"
+     "value": "\uba54\ubaa8 \u00b7 \uc2dc\uc791 \uc694\uccad\uc5d0 \ud568\uaed8 \uae30\ub85d"
     },
     {
      "pointer": "/frames/3/elements/3/marks",
      "value": [
-      "›"
+      "\u203a"
      ]
     },
     {
@@ -1568,7 +1794,7 @@
     },
     {
      "pointer": "/frames/3/elements/3/value",
-     "value": "q 종료 s 시작첫 줄\n둘째 줄"
+     "value": "q \uc885\ub8cc s \uc2dc\uc791\uccab \uc904\n\ub458\uc9f8 \uc904"
     },
     {
      "pointer": "/frames/3/elements/4/element_id",
@@ -1580,7 +1806,7 @@
     },
     {
      "pointer": "/frames/3/elements/4/label",
-     "value": "Claude Code 새 세션 시작"
+     "value": "Claude Code \uc0c8 \uc138\uc158 \uc2dc\uc791"
     },
     {
      "pointer": "/frames/3/elements/4/marks",
@@ -1611,7 +1837,7 @@
     },
     {
      "pointer": "/frames/3/elements/5/label",
-     "value": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로"
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
     },
     {
      "pointer": "/frames/3/elements/5/marks",
@@ -1635,7 +1861,7 @@
     },
     {
      "pointer": "/frames/4/elements/0/label",
-     "value": "저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 "
+     "value": "\uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 "
     },
     {
      "pointer": "/frames/4/elements/0/refers_to/scope/repository_id",
@@ -1651,7 +1877,7 @@
     },
     {
      "pointer": "/frames/4/elements/1/label",
-     "value": "지침 · AGENTS.md"
+     "value": "\uc9c0\uce68 \u00b7 AGENTS.md"
     },
     {
      "pointer": "/frames/4/elements/1/marks",
@@ -1693,7 +1919,7 @@
     },
     {
      "pointer": "/frames/4/elements/2/label",
-     "value": "지식 · docs/retry.md"
+     "value": "\uc9c0\uc2dd \u00b7 docs/retry.md"
     },
     {
      "pointer": "/frames/4/elements/2/marks",
@@ -1727,12 +1953,12 @@
     },
     {
      "pointer": "/frames/4/elements/3/label",
-     "value": "메모 · 시작 요청에 함께 기록"
+     "value": "\uba54\ubaa8 \u00b7 \uc2dc\uc791 \uc694\uccad\uc5d0 \ud568\uaed8 \uae30\ub85d"
     },
     {
      "pointer": "/frames/4/elements/3/marks",
      "value": [
-      "›"
+      "\u203a"
      ]
     },
     {
@@ -1741,7 +1967,7 @@
     },
     {
      "pointer": "/frames/4/elements/3/value",
-     "value": "q 종료 s 시작첫 줄\n둘째 줄\u001b[31m빨강\u001b[0m"
+     "value": "q \uc885\ub8cc s \uc2dc\uc791\uccab \uc904\n\ub458\uc9f8 \uc904\u001b[31m\ube68\uac15\u001b[0m"
     },
     {
      "pointer": "/frames/4/elements/4/element_id",
@@ -1753,7 +1979,7 @@
     },
     {
      "pointer": "/frames/4/elements/4/label",
-     "value": "Claude Code 새 세션 시작"
+     "value": "Claude Code \uc0c8 \uc138\uc158 \uc2dc\uc791"
     },
     {
      "pointer": "/frames/4/elements/4/marks",
@@ -1784,7 +2010,7 @@
     },
     {
      "pointer": "/frames/4/elements/5/label",
-     "value": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로"
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
     },
     {
      "pointer": "/frames/4/elements/5/marks",
@@ -1860,7 +2086,7 @@
     },
     {
      "pointer": "/frames/5/elements/0/label",
-     "value": "저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 "
+     "value": "\uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 "
     },
     {
      "pointer": "/frames/5/elements/0/marks",
@@ -1904,7 +2130,7 @@
     },
     {
      "pointer": "/frames/5/elements/1/label",
-     "value": "지침 · AGENTS.md"
+     "value": "\uc9c0\uce68 \u00b7 AGENTS.md"
     },
     {
      "pointer": "/frames/5/elements/1/marks",
@@ -1962,7 +2188,7 @@
     },
     {
      "pointer": "/frames/5/elements/2/label",
-     "value": "지식 · docs/retry.md"
+     "value": "\uc9c0\uc2dd \u00b7 docs/retry.md"
     },
     {
      "pointer": "/frames/5/elements/2/marks",
@@ -2020,12 +2246,12 @@
     },
     {
      "pointer": "/frames/5/elements/3/label",
-     "value": "메모 · 시작 요청에 함께 기록"
+     "value": "\uba54\ubaa8 \u00b7 \uc2dc\uc791 \uc694\uccad\uc5d0 \ud568\uaed8 \uae30\ub85d"
     },
     {
      "pointer": "/frames/5/elements/3/marks",
      "value": [
-      "›"
+      "\u203a"
      ]
     },
     {
@@ -2046,7 +2272,7 @@
     },
     {
      "pointer": "/frames/5/elements/3/value",
-     "value": "q 종료 s 시작첫 줄\n둘째 줄\u001b[31m빨강\u001b[0m작업 환경 선택"
+     "value": "q \uc885\ub8cc s \uc2dc\uc791\uccab \uc904\n\ub458\uc9f8 \uc904\u001b[31m\ube68\uac15\u001b[0m\u110c\u1161\u11a8\u110b\u1165\u11b8 \u1112\u116a\u11ab\u1100\u1167\u11bc \u1109\u1165\u11ab\u1110\u1162\u11a8"
     },
     {
      "pointer": "/frames/5/elements/4/element_id",
@@ -2058,7 +2284,7 @@
     },
     {
      "pointer": "/frames/5/elements/4/label",
-     "value": "Claude Code 새 세션 시작"
+     "value": "Claude Code \uc0c8 \uc138\uc158 \uc2dc\uc791"
     },
     {
      "pointer": "/frames/5/elements/4/marks",
@@ -2105,7 +2331,7 @@
     },
     {
      "pointer": "/frames/5/elements/5/label",
-     "value": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로"
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
     },
     {
      "pointer": "/frames/5/elements/5/marks",
@@ -2193,7 +2419,7 @@
     },
     {
      "pointer": "/frames/6/elements/0/label",
-     "value": "저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 "
+     "value": "\uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 "
     },
     {
      "pointer": "/frames/6/elements/0/marks",
@@ -2237,7 +2463,7 @@
     },
     {
      "pointer": "/frames/6/elements/1/label",
-     "value": "지침 · AGENTS.md"
+     "value": "\uc9c0\uce68 \u00b7 AGENTS.md"
     },
     {
      "pointer": "/frames/6/elements/1/marks",
@@ -2295,7 +2521,7 @@
     },
     {
      "pointer": "/frames/6/elements/2/label",
-     "value": "지식 · docs/retry.md"
+     "value": "\uc9c0\uc2dd \u00b7 docs/retry.md"
     },
     {
      "pointer": "/frames/6/elements/2/marks",
@@ -2353,12 +2579,12 @@
     },
     {
      "pointer": "/frames/6/elements/3/label",
-     "value": "메모 · 시작 요청에 함께 기록"
+     "value": "\uba54\ubaa8 \u00b7 \uc2dc\uc791 \uc694\uccad\uc5d0 \ud568\uaed8 \uae30\ub85d"
     },
     {
      "pointer": "/frames/6/elements/3/marks",
      "value": [
-      "›"
+      "\u203a"
      ]
     },
     {
@@ -2379,7 +2605,7 @@
     },
     {
      "pointer": "/frames/6/elements/3/value",
-     "value": "q 종료 s 시작첫 줄\n둘째 줄\u001b[31m빨강\u001b[0m작업 환경 선택"
+     "value": "q \uc885\ub8cc s \uc2dc\uc791\uccab \uc904\n\ub458\uc9f8 \uc904\u001b[31m\ube68\uac15\u001b[0m\u110c\u1161\u11a8\u110b\u1165\u11b8 \u1112\u116a\u11ab\u1100\u1167\u11bc \u1109\u1165\u11ab\u1110\u1162\u11a8"
     },
     {
      "pointer": "/frames/6/elements/4/element_id",
@@ -2391,7 +2617,7 @@
     },
     {
      "pointer": "/frames/6/elements/4/label",
-     "value": "Claude Code 새 세션 시작"
+     "value": "Claude Code \uc0c8 \uc138\uc158 \uc2dc\uc791"
     },
     {
      "pointer": "/frames/6/elements/4/marks",
@@ -2438,7 +2664,7 @@
     },
     {
      "pointer": "/frames/6/elements/5/label",
-     "value": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로"
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
     },
     {
      "pointer": "/frames/6/elements/5/marks",
@@ -2526,7 +2752,7 @@
     },
     {
      "pointer": "/frames/7/elements/0/label",
-     "value": "저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 "
+     "value": "\uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 "
     },
     {
      "pointer": "/frames/7/elements/0/marks",
@@ -2570,7 +2796,7 @@
     },
     {
      "pointer": "/frames/7/elements/1/label",
-     "value": "Instructions · AGENTS.md"
+     "value": "Instructions \u00b7 AGENTS.md"
     },
     {
      "pointer": "/frames/7/elements/1/marks",
@@ -2628,7 +2854,7 @@
     },
     {
      "pointer": "/frames/7/elements/2/label",
-     "value": "Knowledge · docs/retry.md"
+     "value": "Knowledge \u00b7 docs/retry.md"
     },
     {
      "pointer": "/frames/7/elements/2/marks",
@@ -2686,12 +2912,12 @@
     },
     {
      "pointer": "/frames/7/elements/3/label",
-     "value": "Note · recorded with the start"
+     "value": "Note \u00b7 recorded with the start"
     },
     {
      "pointer": "/frames/7/elements/3/marks",
      "value": [
-      "›"
+      "\u203a"
      ]
     },
     {
@@ -2712,7 +2938,7 @@
     },
     {
      "pointer": "/frames/7/elements/3/value",
-     "value": "q 종료 s 시작첫 줄\n둘째 줄\u001b[31m빨강\u001b[0m작업 환경 선택"
+     "value": "q \uc885\ub8cc s \uc2dc\uc791\uccab \uc904\n\ub458\uc9f8 \uc904\u001b[31m\ube68\uac15\u001b[0m\u110c\u1161\u11a8\u110b\u1165\u11b8 \u1112\u116a\u11ab\u1100\u1167\u11bc \u1109\u1165\u11ab\u1110\u1162\u11a8"
     },
     {
      "pointer": "/frames/7/elements/4/element_id",
@@ -2771,7 +2997,7 @@
     },
     {
      "pointer": "/frames/7/elements/5/label",
-     "value": "Tab move · Enter open · Space select · Esc back"
+     "value": "Tab move \u00b7 Enter open \u00b7 Space select \u00b7 Esc back"
     },
     {
      "pointer": "/frames/7/elements/5/marks",
@@ -2859,7 +3085,7 @@
     },
     {
      "pointer": "/frames/8/elements/0/label",
-     "value": "저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 "
+     "value": "\uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 "
     },
     {
      "pointer": "/frames/8/elements/0/marks",
@@ -2903,7 +3129,7 @@
     },
     {
      "pointer": "/frames/8/elements/1/label",
-     "value": "Instructions · AGENTS.md"
+     "value": "Instructions \u00b7 AGENTS.md"
     },
     {
      "pointer": "/frames/8/elements/1/marks",
@@ -2961,7 +3187,7 @@
     },
     {
      "pointer": "/frames/8/elements/2/label",
-     "value": "Knowledge · docs/retry.md"
+     "value": "Knowledge \u00b7 docs/retry.md"
     },
     {
      "pointer": "/frames/8/elements/2/marks",
@@ -3019,7 +3245,7 @@
     },
     {
      "pointer": "/frames/8/elements/3/label",
-     "value": "Note · recorded with the start"
+     "value": "Note \u00b7 recorded with the start"
     },
     {
      "pointer": "/frames/8/elements/3/marks",
@@ -3043,7 +3269,7 @@
     },
     {
      "pointer": "/frames/8/elements/3/value",
-     "value": "q 종료 s 시작첫 줄\n둘째 줄\u001b[31m빨강\u001b[0m작업 환경 선택"
+     "value": "q \uc885\ub8cc s \uc2dc\uc791\uccab \uc904\n\ub458\uc9f8 \uc904\u001b[31m\ube68\uac15\u001b[0m\u110c\u1161\u11a8\u110b\u1165\u11b8 \u1112\u116a\u11ab\u1100\u1167\u11bc \u1109\u1165\u11ab\u1110\u1162\u11a8"
     },
     {
      "pointer": "/frames/8/elements/4/element_id",
@@ -3060,7 +3286,7 @@
     {
      "pointer": "/frames/8/elements/4/marks",
      "value": [
-      "›"
+      "\u203a"
      ]
     },
     {
@@ -3104,7 +3330,7 @@
     },
     {
      "pointer": "/frames/8/elements/5/label",
-     "value": "Tab move · Enter open · Space select · Esc back"
+     "value": "Tab move \u00b7 Enter open \u00b7 Space select \u00b7 Esc back"
     },
     {
      "pointer": "/frames/8/elements/5/marks",
@@ -3192,7 +3418,7 @@
     },
     {
      "pointer": "/frames/9/elements/0/label",
-     "value": "저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 저장소 · 개인 · 팀 "
+     "value": "\uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 \uc800\uc7a5\uc18c \u00b7 \uac1c\uc778 \u00b7 \ud300 "
     },
     {
      "pointer": "/frames/9/elements/0/marks",
@@ -3236,7 +3462,7 @@
     },
     {
      "pointer": "/frames/9/elements/1/label",
-     "value": "Instructions · AGENTS.md"
+     "value": "Instructions \u00b7 AGENTS.md"
     },
     {
      "pointer": "/frames/9/elements/1/marks",
@@ -3294,7 +3520,7 @@
     },
     {
      "pointer": "/frames/9/elements/2/label",
-     "value": "Knowledge · docs/retry.md"
+     "value": "Knowledge \u00b7 docs/retry.md"
     },
     {
      "pointer": "/frames/9/elements/2/marks",
@@ -3352,7 +3578,7 @@
     },
     {
      "pointer": "/frames/9/elements/3/label",
-     "value": "Note · recorded with the start"
+     "value": "Note \u00b7 recorded with the start"
     },
     {
      "pointer": "/frames/9/elements/3/marks",
@@ -3376,7 +3602,7 @@
     },
     {
      "pointer": "/frames/9/elements/3/value",
-     "value": "q 종료 s 시작첫 줄\n둘째 줄\u001b[31m빨강\u001b[0m작업 환경 선택"
+     "value": "q \uc885\ub8cc s \uc2dc\uc791\uccab \uc904\n\ub458\uc9f8 \uc904\u001b[31m\ube68\uac15\u001b[0m\u110c\u1161\u11a8\u110b\u1165\u11b8 \u1112\u116a\u11ab\u1100\u1167\u11bc \u1109\u1165\u11ab\u1110\u1162\u11a8"
     },
     {
      "pointer": "/frames/9/elements/4/element_id",
@@ -3393,7 +3619,7 @@
     {
      "pointer": "/frames/9/elements/4/marks",
      "value": [
-      "›"
+      "\u203a"
      ]
     },
     {
@@ -3441,7 +3667,7 @@
     },
     {
      "pointer": "/frames/9/elements/5/label",
-     "value": "Tab move · Enter open · Space select · Esc back"
+     "value": "Tab move \u00b7 Enter open \u00b7 Space select \u00b7 Esc back"
     },
     {
      "pointer": "/frames/9/elements/5/marks",
@@ -3473,7 +3699,7 @@
     },
     {
      "pointer": "/frames/9/elements/6/label",
-     "value": "Start sent · checking the result"
+     "value": "Start sent \u00b7 checking the result"
     },
     {
      "pointer": "/frames/9/elements/6/marks",
@@ -3602,7 +3828,7 @@
     },
     {
      "pointer": "/rationale",
-     "value": "q 종료 s 시작첫 줄\n둘째 줄\u001b[31m빨강\u001b[0m작업 환경 선택"
+     "value": "q \uc885\ub8cc s \uc2dc\uc791\uccab \uc904\n\ub458\uc9f8 \uc904\u001b[31m\ube68\uac15\u001b[0m\u110c\u1161\u11a8\u110b\u1165\u11b8 \u1112\u116a\u11ab\u1100\u1167\u11bc \u1109\u1165\u11ab\u1110\u1162\u11a8"
     },
     {
      "pointer": "/effect_class",
@@ -3870,6 +4096,24 @@
    }
   },
   {
+   "name": "register_instr",
+   "request": "register_instr_request",
+   "carries": [
+    "instr_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "instr_home_stored"
+    ],
+    "head": "instr_h0"
+   }
+  },
+  {
    "name": "commit_instr",
    "request": "instr_commit_request",
    "carries": [
@@ -3905,6 +4149,24 @@
    }
   },
   {
+   "name": "register_know",
+   "request": "register_know_request",
+   "carries": [
+    "know_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "know_home_stored"
+    ],
+    "head": "know_h0"
+   }
+  },
+  {
    "name": "commit_know",
    "request": "know_commit_request",
    "carries": [
@@ -3935,7 +4197,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "read_probe_stored"
+     "read_probe_stored",
+     "read_probe_host_configuration"
     ]
    }
   },

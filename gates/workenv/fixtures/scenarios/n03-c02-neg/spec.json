@@ -1,6 +1,6 @@
 {
  "case": "N03-C02-NEG",
- "says": "Alice's laptop reads its fresh profile (active, generation 1), binds her key and founds a Team; as the Team's issuing authority she records on the Team a permit that lets the laptop read the Team's state offline for a week. The decision CLI is issued a handle at generation 1. Under generation 1 she renames her profile, which commits, and the CLI issues a Team read under its handle. She locks the profile (generation 2); the process is killed after the lock commits and restarted, and the lock is still what the owner answers. The read issued under the old handle arrives late, after the restart: it is not admitted, with access_locked and access_generation_moved. A silent token refresh offered as a transition is refused at admission, and nothing changes. After an explicit unlock at a terminal (still generation 2) the same old read is still refused with access_generation_moved; the unlock reopens nothing issued before the lock, and the CLI is issued a new handle at generation 2. A query for the rename that was committed before the lock answers with its original result. Eight days later the permit's offline limit has passed: a fresh read under the new handle naming the permit is not admitted, with credential_expired and fresh_auth_required. What must not happen: a restart, a refresh, a late answer or the later unlock admitting the old handle; expired offline evidence admitting a read; or the query answering with anything but the rename's original result.",
+ "says": "Alice's laptop reads its fresh profile (active, generation 1), binds her key and founds a Team; as the Team's issuing authority she records on the Team a permit that lets the laptop read the Team's state offline for a week, and the Team has a configured provider connection. The decision CLI is issued a handle at generation 1. Under generation 1 she renames her profile, which commits, and the CLI issues a Team read under its handle. She locks the profile (generation 2); a second Team read is admitted under generation 1 and held in flight while the lock runs, and the process is killed after the lock commits and restarted, with the lock still what the owner answers. The in-flight read is rechecked before its result is shown and is not admitted, with access_locked and access_generation_moved. The read issued under the old handle arrives late, after the restart: not admitted, with access_locked and access_generation_moved. The provider delivers a refreshed token with no local transition; a read of the profile's own state right after shows it is still the same locked state, so the refresh reopened nothing. After an explicit unlock at a terminal (still generation 2, real device key) the same old read is still refused with access_generation_moved; the unlock reopens nothing issued before the lock, and the CLI is issued a new handle at generation 2. A query for the rename committed before the lock answers with its original result. Eight days later the permit's offline limit has passed: a fresh read under the new handle naming the permit is not admitted, with credential_expired. What must not happen: a restart, a refresh, a late answer or the later unlock admitting the old handle; an in-flight response presented after the generation moved; expired offline evidence admitting a read; or the query answering with anything but the rename's original result.",
  "ids": [
   {
    "name": "alice",
@@ -84,6 +84,14 @@
   },
   {
    "name": "issue_new_cli_handle_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "in_flight_request_id",
+   "prefix": "req"
+  },
+  {
+   "name": "in_flight_decide_request_id",
    "prefix": "req"
   }
  ],
@@ -637,6 +645,24 @@
    ]
   },
   {
+   "name": "team_provider_connection",
+   "from": "c02/connection_submitted_with_what_the_runtime_writes.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/connection_id",
+     "value": "$con:team_connection"
+    },
+    {
+     "pointer": "/configured_at",
+     "value": "$instant:connection_configured_at"
+    }
+   ]
+  },
+  {
    "name": "laptop_label",
    "from": "c02/label_for_a_rename.json",
    "set": [
@@ -963,30 +989,90 @@
    ]
   },
   {
-   "name": "refresh_change",
-   "from": "c02/silent_refresh_is_not_a_transition.json",
+   "name": "read_admitted_before_lock",
+   "from": "c02/lock_request.json",
+   "drop": [
+    "/owner/principal_id",
+    "/payload_digest"
+   ],
    "set": [
     {
-     "pointer": "/profile_id",
+     "pointer": "/request_id",
+     "value": "@in_flight_request_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.state.read"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
      "value": "@alice_profile"
     },
     {
-     "pointer": "/expected_generation",
-     "value": 2
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "team"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head_permit"
+    },
+    {
+     "pointer": "/control_digests",
+     "value": [
+      "#offline_permit"
+     ]
+    },
+    {
+     "pointer": "/proof_digests",
+     "value": [
+      "#cli_handle"
+     ]
     }
    ]
   },
   {
-   "name": "refresh_request",
+   "name": "read_in_flight_admission_request",
    "from": "c02/lock_request.json",
    "set": [
     {
      "pointer": "/request_id",
-     "value": "@refresh_request_id"
+     "value": "@in_flight_decide_request_id"
     },
     {
      "pointer": "/operation",
-     "value": "access.transition"
+     "value": "access.admission.decide"
     },
     {
      "pointer": "/action",
@@ -994,7 +1080,71 @@
     },
     {
      "pointer": "/effect_class",
-     "value": "owner_commit"
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/local_access_generation",
+     "value": 1
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#read_admitted_before_lock"
+    }
+   ]
+  },
+  {
+   "name": "read_in_flight_admission",
+   "from": "c02/old_handle_after_sign_out.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@in_flight_decide_request_id"
+    },
+    {
+     "pointer": "/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/access_generation",
+     "value": 2
+    },
+    {
+     "pointer": "/outcome/material_gaps/0/code",
+     "value": "access_locked"
+    },
+    {
+     "pointer": "/outcome/material_gaps/1/code",
+     "value": "access_generation_moved"
+    }
+   ]
+  },
+  {
+   "name": "read_state_after_refresh_request",
+   "from": "c02/profile_read_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@refresh_request_id"
     },
     {
      "pointer": "/actor/principal_id",
@@ -1019,10 +1169,6 @@
     {
      "pointer": "/target/resource_id",
      "value": "@alice_profile"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#refresh_change"
     }
    ]
   },
@@ -1071,6 +1217,10 @@
     {
      "pointer": "/changed_at",
      "value": "$instant:unlock_at_terminal_at"
+    },
+    {
+     "pointer": "/state/key_mode/runs",
+     "value": "real"
     }
    ]
   },
@@ -1332,7 +1482,7 @@
   },
   {
    "name": "read_after_offline_limit_admission",
-   "from": "c02/old_handle_after_sign_out.json",
+   "from": "c02/sign_after_lock.json",
    "set": [
     {
      "pointer": "/request_id",
@@ -1349,10 +1499,6 @@
     {
      "pointer": "/outcome/material_gaps/0/code",
      "value": "credential_expired"
-    },
-    {
-     "pointer": "/outcome/material_gaps/1/code",
-     "value": "fresh_auth_required"
     }
    ]
   },
@@ -1720,6 +1866,23 @@
    "advance_seconds": 600
   },
   {
+   "name": "read_admitted_during_lock",
+   "request": "read_in_flight_admission_request",
+   "carries": [
+    "read_admitted_before_lock"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "read_in_flight_admission"
+    ]
+   }
+  },
+  {
    "name": "late_read_after_restart",
    "request": "late_read_after_restart_request",
    "carries": [
@@ -1738,17 +1901,18 @@
   },
   {
    "name": "silent_refresh",
-   "request": "refresh_request",
-   "carries": [
-    "refresh_change"
-   ],
-   "refused": [
-    {
-     "record": "refresh_change",
-     "code": "variant_mismatch",
-     "pointer": "/change"
-    }
-   ]
+   "request": "read_state_after_refresh_request",
+   "carries": [],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "lock_state"
+    ]
+   }
   },
   {
    "name": "unlock_at_terminal",
@@ -1845,6 +2009,19 @@
    {
     "step": "lock",
     "point": "after_commit_before_return"
+   }
+  ],
+  "during": [
+   {
+    "step": "read_admitted_during_lock",
+    "runs": "lock"
+   }
+  ],
+  "events": [
+   {
+    "kind": "provider_refresh",
+    "before": "silent_refresh",
+    "connection": "team_provider_connection"
    }
   ]
  }

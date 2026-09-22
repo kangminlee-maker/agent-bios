@@ -85,6 +85,10 @@
   {
    "name": "read_closed_request_id",
    "prefix": "req"
+  },
+  {
+   "name": "open_workstream_request_id",
+   "prefix": "req"
   }
  ],
  "records": [
@@ -891,6 +895,84 @@
    ]
   },
   {
+   "name": "bora_workstream_submitted",
+   "from": "c05/workstream_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/home/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/name",
+     "value": "Review process"
+    },
+    {
+     "pointer": "/purpose",
+     "value": "How reviews are shared in this repository."
+    }
+   ]
+  },
+  {
+   "name": "open_workstream_request",
+   "from": "c05/workstream_open_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@open_workstream_request_id"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@bora"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@desktop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@bora_profile"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#bora_workstream_submitted"
+    }
+   ]
+  },
+  {
+   "name": "bora_workstream",
+   "from": "c05/workstream.json",
+   "set": [
+    {
+     "pointer": "/home/repository_id",
+     "value": "@work_repo"
+    },
+    {
+     "pointer": "/name",
+     "value": "Review process"
+    },
+    {
+     "pointer": "/purpose",
+     "value": "How reviews are shared in this repository."
+    },
+    {
+     "pointer": "/workstream_id",
+     "value": "$wst:bora_workstream"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:workstream_opened_at"
+    }
+   ]
+  },
+  {
    "name": "archival",
    "from": "c08/archive.json",
    "set": [
@@ -971,7 +1053,7 @@
     {
      "pointer": "/action/continues",
      "value": [
-      "#bora_draft"
+      "#bora_workstream"
      ]
     },
     {
@@ -1388,6 +1470,32 @@
    ]
   },
   {
+   "name": "purge_outcome",
+   "from": "c10/every_copy_confirmed.json",
+   "set": [
+    {
+     "pointer": "/for_request_id",
+     "value": "@purging_request_id"
+    },
+    {
+     "pointer": "/object_digest",
+     "value": "#first_profile"
+    },
+    {
+     "pointer": "/per_copy/0/holder/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/per_copy/0/tombstone_digest",
+     "value": "$digest:purge_tombstone"
+    },
+    {
+     "pointer": "/at",
+     "value": "$instant:purged_at"
+    }
+   ]
+  },
+  {
    "name": "closed_state",
    "from": "c08/team_closed_for_good.json",
    "set": [
@@ -1689,6 +1797,23 @@
    }
   },
   {
+   "name": "open_workstream",
+   "request": "open_workstream_request",
+   "carries": [
+    "bora_workstream_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "bora_workstream"
+    ]
+   }
+  },
+  {
    "name": "archive",
    "request": "archival_request",
    "carries": [
@@ -1788,7 +1913,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "restored_state"
+     "restored_state",
+     "purge_outcome"
     ],
     "head": "purged"
    }

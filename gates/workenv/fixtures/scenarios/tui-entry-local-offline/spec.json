@@ -1,6 +1,6 @@
 {
  "case": "TUI-ENTRY-LOCAL-OFFLINE",
- "says": "On their desktop the same person registers two personal sources (notes/retry.md as knowledge, notes/decisions.md as decision memory), commits each on the head its registration made, and selects them in their personal knowledge and memory positions. They enroll the laptop's key and, while both devices are reachable, the desktop stages a personal package carrying the two homes and the two positions but not the bodies, trusted by the desktop's own binding, and the laptop accepts it; from then on the laptop cannot reach the desktop. On the laptop they bind the same repository, commit an instructions and a knowledge source, and found a Team 'Platform'. One read of the selected knowledge and memory (reader.body.read) checks the repository knowledge and finds nothing for the question, and names the desktop note as remote_unknown and the desktop decisions as missing here, with carrier_unreachable and retry of the same request; a read of the Team's instructions is refused with access_not_established and returns a result whose standing is denied, which is not an empty answer. The entry (surface.drive) shows each position with its own state — installed, checked_empty, remote_unknown, missing, denied and not_checked — every selected one still selected, and a start that uses this device's material. Enter dispatches one preparation.compose over the repository, personal and Team scopes that states only local reach, carries the instructions unit, names both personal positions at the heads the package brought (the note's unit by its revision and home, with no body) and names the decision memory as omitted because no frontier of it was observed here; route.select answers for it. Negative: the unreachable desktop and Team empty no selection and are never shown as empty or current, no step signs in, refreshes access or syncs, and the preparation claims no reach it did not have.",
+ "says": "On their desktop the same person registers two personal sources (notes/retry.md as knowledge, notes/decisions.md as decision memory), commits each on the head its registration made, and selects them in their personal knowledge and memory positions. They enroll the laptop's key and, while both devices are reachable, the desktop stages a personal package carrying the two homes and the two positions but not the bodies, trusted by the desktop's own binding, and the laptop accepts it; from then on the laptop cannot reach the desktop. On the laptop they bind the same repository, commit an instructions and a knowledge source, and found a Team 'Platform'. One read of the selected knowledge and memory (reader.body.read) checks the repository knowledge and finds nothing for the question, and names the desktop note as remote_unknown and the desktop decisions as missing here, with carrier_unreachable and retry of the same request; a read of the Team's instructions is refused with access_not_established and returns a result whose standing is denied, which is not an empty answer. The entry (surface.drive) shows each position with its own state \u2014 installed, checked_empty, remote_unknown, missing, denied and not_checked \u2014 every selected one still selected, and a start that uses this device's material. Enter dispatches one preparation.compose over the repository, personal and Team scopes that states only local reach, carries the instructions unit, names both personal positions at the heads the package brought (the note's unit by its revision and home, with no body) and names the decision memory as omitted because no frontier of it was observed here; route.select answers for it. Negative: the unreachable desktop and Team empty no selection and are never shown as empty or current, no step signs in, refreshes access or syncs, and the preparation claims no reach it did not have.",
  "ids": [
   {
    "name": "me",
@@ -161,6 +161,14 @@
   {
    "name": "my_mem",
    "prefix": "col"
+  },
+  {
+   "name": "register_instr_rid",
+   "prefix": "req"
+  },
+  {
+   "name": "register_know_rid",
+   "prefix": "req"
   }
  ],
  "records": [
@@ -1589,6 +1597,106 @@
    ]
   },
   {
+   "name": "instr_home",
+   "from": "sources/home_of_a_repository_document.json",
+   "drop": [
+    "/registered_at"
+   ],
+   "set": [
+    {
+     "pointer": "/acceptance_authority/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/document_root",
+     "value": "AGENTS.md"
+    },
+    {
+     "pointer": "/home/binding_evidence_digest",
+     "value": "#repo_bound"
+    },
+    {
+     "pointer": "/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@instr"
+    }
+   ]
+  },
+  {
+   "name": "register_instr_request",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#instr_home"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@register_instr_rid"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@instr"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    }
+   ],
+   "drop": [
+    "/owner/principal_id"
+   ]
+  },
+  {
+   "name": "instr_home_stored",
+   "from": "instr_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:instr_registered_at"
+    }
+   ]
+  },
+  {
    "name": "instr_commit_request",
    "from": "c01/link_request.json",
    "drop": [
@@ -1637,7 +1745,11 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:instr_h0"
     }
    ]
   },
@@ -1782,6 +1894,106 @@
    ]
   },
   {
+   "name": "know_home",
+   "from": "sources/home_of_a_repository_document.json",
+   "drop": [
+    "/registered_at"
+   ],
+   "set": [
+    {
+     "pointer": "/acceptance_authority/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/home/document_root",
+     "value": "docs"
+    },
+    {
+     "pointer": "/home/binding_evidence_digest",
+     "value": "#repo_bound"
+    },
+    {
+     "pointer": "/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@know"
+    }
+   ]
+  },
+  {
+   "name": "register_know_request",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "source.home.register"
+    },
+    {
+     "pointer": "/action",
+     "value": "contribute"
+    },
+    {
+     "pointer": "/owner/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/owner/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#know_home"
+    },
+    {
+     "pointer": "/request_id",
+     "value": "@register_know_rid"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@know"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "absent"
+    }
+   ],
+   "drop": [
+    "/owner/principal_id"
+   ]
+  },
+  {
+   "name": "know_home_stored",
+   "from": "know_home",
+   "set": [
+    {
+     "pointer": "/registered_at",
+     "value": "$instant:know_registered_at"
+    }
+   ]
+  },
+  {
    "name": "know_commit_request",
    "from": "c01/link_request.json",
    "drop": [
@@ -1830,7 +2042,11 @@
     },
     {
      "pointer": "/target/base/expects",
-     "value": "absent"
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:know_h0"
     }
    ]
   },
@@ -2187,6 +2403,16 @@
     {
      "pointer": "/probe_id",
      "value": "$prb:read_probe"
+    }
+   ]
+  },
+  {
+   "name": "read_probe_host_configuration",
+   "from": "c12/host_configuration_is_never_submitted.json",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:probe_measured_at"
     }
    ]
   },
@@ -2583,7 +2809,7 @@
     },
     {
      "pointer": "/frames/0/elements/0/label",
-     "value": "payments · 로컬 레포 · main · 오프라인"
+     "value": "payments \u00b7 \ub85c\uceec \ub808\ud3ec \u00b7 main \u00b7 \uc624\ud504\ub77c\uc778"
     },
     {
      "pointer": "/frames/0/elements/0/refers_to/scope/repository_id",
@@ -2599,7 +2825,7 @@
     },
     {
      "pointer": "/frames/0/elements/1/label",
-     "value": "데스크톱과 팀에 닿지 않음 · 이 기기의 자료로 시작 가능"
+     "value": "\ub370\uc2a4\ud06c\ud1b1\uacfc \ud300\uc5d0 \ub2ff\uc9c0 \uc54a\uc74c \u00b7 \uc774 \uae30\uae30\uc758 \uc790\ub8cc\ub85c \uc2dc\uc791 \uac00\ub2a5"
     },
     {
      "pointer": "/frames/0/elements/1/state",
@@ -2607,7 +2833,7 @@
     },
     {
      "pointer": "/frames/0/elements/2/label",
-     "value": "지침 · AGENTS.md"
+     "value": "\uc9c0\uce68 \u00b7 AGENTS.md"
     },
     {
      "pointer": "/frames/0/elements/2/marks",
@@ -2629,7 +2855,7 @@
     },
     {
      "pointer": "/frames/0/elements/3/label",
-     "value": "지식 · docs/retry.md · 확인함, 해당 없음"
+     "value": "\uc9c0\uc2dd \u00b7 docs/retry.md \u00b7 \ud655\uc778\ud568, \ud574\ub2f9 \uc5c6\uc74c"
     },
     {
      "pointer": "/frames/0/elements/3/state",
@@ -2645,7 +2871,7 @@
     },
     {
      "pointer": "/frames/0/elements/4/label",
-     "value": "개인 지식 · notes/retry.md · 데스크톱 상태 모름"
+     "value": "\uac1c\uc778 \uc9c0\uc2dd \u00b7 notes/retry.md \u00b7 \ub370\uc2a4\ud06c\ud1b1 \uc0c1\ud0dc \ubaa8\ub984"
     },
     {
      "pointer": "/frames/0/elements/4/marks",
@@ -2679,7 +2905,7 @@
     },
     {
      "pointer": "/frames/0/elements/5/label",
-     "value": "개인 결정 기록 · notes/decisions.md · 이 기기에 없음"
+     "value": "\uac1c\uc778 \uacb0\uc815 \uae30\ub85d \u00b7 notes/decisions.md \u00b7 \uc774 \uae30\uae30\uc5d0 \uc5c6\uc74c"
     },
     {
      "pointer": "/frames/0/elements/5/marks",
@@ -2725,7 +2951,7 @@
     },
     {
      "pointer": "/frames/0/elements/6/label",
-     "value": "Platform 팀 지침 · 접근 확인 안 됨"
+     "value": "Platform \ud300 \uc9c0\uce68 \u00b7 \uc811\uadfc \ud655\uc778 \uc548 \ub428"
     },
     {
      "pointer": "/frames/0/elements/6/marks",
@@ -2771,7 +2997,7 @@
     },
     {
      "pointer": "/frames/0/elements/7/label",
-     "value": "레포 결정 기록 · 아직 확인 안 함"
+     "value": "\ub808\ud3ec \uacb0\uc815 \uae30\ub85d \u00b7 \uc544\uc9c1 \ud655\uc778 \uc548 \ud568"
     },
     {
      "pointer": "/frames/0/elements/7/marks",
@@ -2813,7 +3039,7 @@
     },
     {
      "pointer": "/frames/0/elements/8/label",
-     "value": "Claude Code 새 세션 시작"
+     "value": "Claude Code \uc0c8 \uc138\uc158 \uc2dc\uc791"
     },
     {
      "pointer": "/frames/0/elements/8/marks",
@@ -2860,7 +3086,7 @@
     },
     {
      "pointer": "/frames/0/elements/9/label",
-     "value": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로"
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
     },
     {
      "pointer": "/frames/0/elements/9/marks",
@@ -2883,36 +3109,12 @@
      "value": "whole"
     },
     {
-     "pointer": "/frames/0/calls/0/operation",
-     "value": "reader.body.read"
-    },
-    {
-     "pointer": "/frames/0/calls/0/reads",
-     "value": "bodies"
-    },
-    {
-     "pointer": "/frames/0/calls/0/request_digest",
-     "value": "#selected_read"
-    },
-    {
-     "pointer": "/frames/0/calls/1/operation",
-     "value": "reader.body.read"
-    },
-    {
-     "pointer": "/frames/0/calls/1/reads",
-     "value": "bodies"
-    },
-    {
-     "pointer": "/frames/0/calls/1/request_digest",
-     "value": "#team_read"
-    },
-    {
      "pointer": "/frames/1/view/selected_scope/repository_id",
      "value": "@repo"
     },
     {
      "pointer": "/frames/1/elements/0/label",
-     "value": "payments · 로컬 레포 · main · 오프라인"
+     "value": "payments \u00b7 \ub85c\uceec \ub808\ud3ec \u00b7 main \u00b7 \uc624\ud504\ub77c\uc778"
     },
     {
      "pointer": "/frames/1/elements/0/refers_to/scope/repository_id",
@@ -2928,7 +3130,7 @@
     },
     {
      "pointer": "/frames/1/elements/1/label",
-     "value": "데스크톱과 팀에 닿지 않음 · 이 기기의 자료로 시작 가능"
+     "value": "\ub370\uc2a4\ud06c\ud1b1\uacfc \ud300\uc5d0 \ub2ff\uc9c0 \uc54a\uc74c \u00b7 \uc774 \uae30\uae30\uc758 \uc790\ub8cc\ub85c \uc2dc\uc791 \uac00\ub2a5"
     },
     {
      "pointer": "/frames/1/elements/1/state",
@@ -2936,7 +3138,7 @@
     },
     {
      "pointer": "/frames/1/elements/2/label",
-     "value": "지침 · AGENTS.md"
+     "value": "\uc9c0\uce68 \u00b7 AGENTS.md"
     },
     {
      "pointer": "/frames/1/elements/2/state",
@@ -2948,7 +3150,7 @@
     },
     {
      "pointer": "/frames/1/elements/3/label",
-     "value": "지식 · docs/retry.md · 확인함, 해당 없음"
+     "value": "\uc9c0\uc2dd \u00b7 docs/retry.md \u00b7 \ud655\uc778\ud568, \ud574\ub2f9 \uc5c6\uc74c"
     },
     {
      "pointer": "/frames/1/elements/3/marks",
@@ -2974,7 +3176,7 @@
     },
     {
      "pointer": "/frames/1/elements/4/label",
-     "value": "개인 지식 · notes/retry.md · 데스크톱 상태 모름"
+     "value": "\uac1c\uc778 \uc9c0\uc2dd \u00b7 notes/retry.md \u00b7 \ub370\uc2a4\ud06c\ud1b1 \uc0c1\ud0dc \ubaa8\ub984"
     },
     {
      "pointer": "/frames/1/elements/4/marks",
@@ -3008,7 +3210,7 @@
     },
     {
      "pointer": "/frames/1/elements/5/label",
-     "value": "개인 결정 기록 · notes/decisions.md · 이 기기에 없음"
+     "value": "\uac1c\uc778 \uacb0\uc815 \uae30\ub85d \u00b7 notes/decisions.md \u00b7 \uc774 \uae30\uae30\uc5d0 \uc5c6\uc74c"
     },
     {
      "pointer": "/frames/1/elements/5/marks",
@@ -3054,7 +3256,7 @@
     },
     {
      "pointer": "/frames/1/elements/6/label",
-     "value": "Platform 팀 지침 · 접근 확인 안 됨"
+     "value": "Platform \ud300 \uc9c0\uce68 \u00b7 \uc811\uadfc \ud655\uc778 \uc548 \ub428"
     },
     {
      "pointer": "/frames/1/elements/6/marks",
@@ -3100,7 +3302,7 @@
     },
     {
      "pointer": "/frames/1/elements/7/label",
-     "value": "레포 결정 기록 · 아직 확인 안 함"
+     "value": "\ub808\ud3ec \uacb0\uc815 \uae30\ub85d \u00b7 \uc544\uc9c1 \ud655\uc778 \uc548 \ud568"
     },
     {
      "pointer": "/frames/1/elements/7/marks",
@@ -3142,12 +3344,12 @@
     },
     {
      "pointer": "/frames/1/elements/8/label",
-     "value": "Claude Code 새 세션 시작"
+     "value": "Claude Code \uc0c8 \uc138\uc158 \uc2dc\uc791"
     },
     {
      "pointer": "/frames/1/elements/8/marks",
      "value": [
-      "›"
+      "\u203a"
      ]
     },
     {
@@ -3191,7 +3393,7 @@
     },
     {
      "pointer": "/frames/1/elements/9/label",
-     "value": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로"
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
     },
     {
      "pointer": "/frames/1/elements/9/marks",
@@ -3219,7 +3421,7 @@
     },
     {
      "pointer": "/frames/2/elements/0/label",
-     "value": "payments · 로컬 레포 · main · 오프라인"
+     "value": "payments \u00b7 \ub85c\uceec \ub808\ud3ec \u00b7 main \u00b7 \uc624\ud504\ub77c\uc778"
     },
     {
      "pointer": "/frames/2/elements/0/refers_to/scope/repository_id",
@@ -3235,7 +3437,7 @@
     },
     {
      "pointer": "/frames/2/elements/1/label",
-     "value": "데스크톱과 팀에 닿지 않음 · 이 기기의 자료로 시작 가능"
+     "value": "\ub370\uc2a4\ud06c\ud1b1\uacfc \ud300\uc5d0 \ub2ff\uc9c0 \uc54a\uc74c \u00b7 \uc774 \uae30\uae30\uc758 \uc790\ub8cc\ub85c \uc2dc\uc791 \uac00\ub2a5"
     },
     {
      "pointer": "/frames/2/elements/1/state",
@@ -3243,7 +3445,7 @@
     },
     {
      "pointer": "/frames/2/elements/2/label",
-     "value": "지침 · AGENTS.md"
+     "value": "\uc9c0\uce68 \u00b7 AGENTS.md"
     },
     {
      "pointer": "/frames/2/elements/2/state",
@@ -3255,7 +3457,7 @@
     },
     {
      "pointer": "/frames/2/elements/3/label",
-     "value": "지식 · docs/retry.md · 확인함, 해당 없음"
+     "value": "\uc9c0\uc2dd \u00b7 docs/retry.md \u00b7 \ud655\uc778\ud568, \ud574\ub2f9 \uc5c6\uc74c"
     },
     {
      "pointer": "/frames/2/elements/3/marks",
@@ -3285,7 +3487,7 @@
     },
     {
      "pointer": "/frames/2/elements/4/label",
-     "value": "개인 지식 · notes/retry.md · 데스크톱 상태 모름"
+     "value": "\uac1c\uc778 \uc9c0\uc2dd \u00b7 notes/retry.md \u00b7 \ub370\uc2a4\ud06c\ud1b1 \uc0c1\ud0dc \ubaa8\ub984"
     },
     {
      "pointer": "/frames/2/elements/4/marks",
@@ -3319,7 +3521,7 @@
     },
     {
      "pointer": "/frames/2/elements/5/label",
-     "value": "개인 결정 기록 · notes/decisions.md · 이 기기에 없음"
+     "value": "\uac1c\uc778 \uacb0\uc815 \uae30\ub85d \u00b7 notes/decisions.md \u00b7 \uc774 \uae30\uae30\uc5d0 \uc5c6\uc74c"
     },
     {
      "pointer": "/frames/2/elements/5/marks",
@@ -3365,7 +3567,7 @@
     },
     {
      "pointer": "/frames/2/elements/6/label",
-     "value": "Platform 팀 지침 · 접근 확인 안 됨"
+     "value": "Platform \ud300 \uc9c0\uce68 \u00b7 \uc811\uadfc \ud655\uc778 \uc548 \ub428"
     },
     {
      "pointer": "/frames/2/elements/6/marks",
@@ -3411,7 +3613,7 @@
     },
     {
      "pointer": "/frames/2/elements/7/label",
-     "value": "레포 결정 기록 · 아직 확인 안 함"
+     "value": "\ub808\ud3ec \uacb0\uc815 \uae30\ub85d \u00b7 \uc544\uc9c1 \ud655\uc778 \uc548 \ud568"
     },
     {
      "pointer": "/frames/2/elements/7/marks",
@@ -3453,12 +3655,12 @@
     },
     {
      "pointer": "/frames/2/elements/8/label",
-     "value": "Claude Code 새 세션 시작"
+     "value": "Claude Code \uc0c8 \uc138\uc158 \uc2dc\uc791"
     },
     {
      "pointer": "/frames/2/elements/8/marks",
      "value": [
-      "›"
+      "\u203a"
      ]
     },
     {
@@ -3506,7 +3708,7 @@
     },
     {
      "pointer": "/frames/2/elements/9/label",
-     "value": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로"
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
     },
     {
      "pointer": "/frames/2/elements/9/marks",
@@ -3538,7 +3740,7 @@
     },
     {
      "pointer": "/frames/2/elements/10/label",
-     "value": "시작 요청을 보냈습니다 · 이 기기 자료로 준비"
+     "value": "\uc2dc\uc791 \uc694\uccad\uc744 \ubcf4\ub0c8\uc2b5\ub2c8\ub2e4 \u00b7 \uc774 \uae30\uae30 \uc790\ub8cc\ub85c \uc900\ube44"
     },
     {
      "pointer": "/frames/2/elements/10/marks",
@@ -4206,6 +4408,25 @@
    "process": "laptop"
   },
   {
+   "name": "register_instr",
+   "request": "register_instr_request",
+   "carries": [
+    "instr_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "instr_home_stored"
+    ],
+    "head": "instr_h0"
+   },
+   "process": "laptop"
+  },
+  {
    "name": "commit_instr",
    "request": "instr_commit_request",
    "carries": [
@@ -4239,6 +4460,25 @@
     "returns": [
      "know_observation"
     ]
+   },
+   "process": "laptop"
+  },
+  {
+   "name": "register_know",
+   "request": "register_know_request",
+   "carries": [
+    "know_home"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "know_home_stored"
+    ],
+    "head": "know_h0"
    },
    "process": "laptop"
   },
@@ -4303,7 +4543,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "read_probe_stored"
+     "read_probe_stored",
+     "read_probe_host_configuration"
     ]
    },
    "process": "laptop"

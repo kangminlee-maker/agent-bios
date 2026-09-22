@@ -1,6 +1,6 @@
 {
  "case": "CAP-11",
- "says": "A person binds this device's key and the checkout and registers the repository's decisions source, founds a Team alone (team.found) whose founding grants them what the Team allows, registers the Team's decision source, and selects one transcript span whose selection permits results in the repository and the Team (source.observe). Before the extraction is saved, the owner decides admission for the capture under the current session (access.admission.decide, allowed at access generation 7), and the capture is then saved as a draft for the Team decision source it named, stating its widening from the repository with the founder's grant as authority, at the head that source's registration committed (source.capture.record). Four later changes must each stop a late extraction from being saved or redirected, and none writes anything: an extraction for the repository's source still executing is cancelled by its request id (operation.cancel), and querying that id (operation.query) returns its result withdrawn with no output; the selected bytes change, a second observation of the same selection reads other bytes, and a capture of those bytes under the first observation is refused with input_not_observed; the Team is archived (team.lifecycle.apply on the head the founding committed), and the same capture for that Team sealed again is refused with team_archived; and a capture admitted at generation 7 arrives after the person signs out (access.transition sign_out, generation 8): it is refused with access_signed_out and access_generation_moved and points at sign-in, and deciding its admission again now answers not_admitted with the same two gaps. No late result is attached to another request, another target or the changed bytes.",
+ "says": "A person binds this device's key and the checkout and registers the repository's decisions source, founds a Team alone (team.found) whose founding grants them what the Team allows, registers the Team's decision source, and selects one transcript span whose selection permits results in the repository and the Team (source.observe). Before the extraction is saved, the owner decides admission for the capture under the current session (access.admission.decide, allowed at access generation 7), and the capture is then saved as a draft for the Team decision source it named, stating its widening from the repository with the founder's grant as authority, at the head that source's registration committed (source.capture.record). Five later changes must each stop a late extraction from being saved or redirected, and none writes anything: an extraction for the repository's source still executing is cancelled by its request id (operation.cancel), and querying that id (operation.query) returns its result withdrawn with no output; the selected bytes change, a second observation of the same selection reads other bytes, and the same capture that truthfully named the first, now-superseded observation is refused with working_bytes_moved when it is sealed again; the Team's policy is moved to version 2 (team.policy.set), and the same capture sealed again still naming the version 1 policy digest is refused with policy_superseded; the Team is archived (team.lifecycle.apply on the head the policy change committed), and the same capture for that Team sealed again is refused with team_archived; and a capture admitted at generation 7 arrives after the person signs out (access.transition sign_out, generation 8): it is refused with access_signed_out and access_generation_moved and points at sign-in, and deciding its admission again now answers not_admitted with the same two gaps. No late result is attached to another request, another target, the changed bytes or the superseded policy.",
  "ids": [
   {
    "name": "me",
@@ -84,6 +84,14 @@
   },
   {
    "name": "moved_request",
+   "prefix": "req"
+  },
+  {
+   "name": "policy_request",
+   "prefix": "req"
+  },
+  {
+   "name": "late_policy_request",
    "prefix": "req"
   },
   {
@@ -1119,16 +1127,6 @@
    ]
   },
   {
-   "name": "moved_capture",
-   "from": "repo_capture",
-   "set": [
-    {
-     "pointer": "/processing/inputs/0/evidence_digest",
-     "value": "$digest:changed_bytes"
-    }
-   ]
-  },
-  {
    "name": "moved_submit",
    "from": "slow_submit",
    "set": [
@@ -1138,7 +1136,101 @@
     },
     {
      "pointer": "/payload_digest",
-     "value": "#moved_capture"
+     "value": "#repo_capture"
+    }
+   ]
+  },
+  {
+   "name": "revised_policy_submitted",
+   "from": "team_policy_submitted",
+   "set": [
+    {
+     "pointer": "/threshold",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "name": "team_policy_v2",
+   "from": "revised_policy_submitted",
+   "set": [
+    {
+     "pointer": "/policy_id",
+     "value": "$pol:team_policy"
+    },
+    {
+     "pointer": "/policy_version",
+     "value": 2
+    },
+    {
+     "pointer": "/committed_at",
+     "value": "$instant:team_policy_v2_at"
+    }
+   ]
+  },
+  {
+   "name": "policy_submit",
+   "from": "c08/governed_change_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@policy_request"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@local_profile"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.policy.set"
+    },
+    {
+     "pointer": "/action",
+     "value": "policy"
+    },
+    {
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/policy_digests",
+     "value": [
+      "#team_policy"
+     ]
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#revised_policy_submitted"
+    }
+   ]
+  },
+  {
+   "name": "late_capture_after_policy_change",
+   "from": "capture_submit",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@late_policy_request"
     }
    ]
   },
@@ -1194,12 +1286,12 @@
     },
     {
      "pointer": "/target/base/head_digest",
-     "value": "$digest:team_head"
+     "value": "$digest:policy_head"
     },
     {
      "pointer": "/policy_digests",
      "value": [
-      "#team_policy"
+      "#team_policy_v2"
      ]
     },
     {
@@ -1578,7 +1670,7 @@
    "name": "capture_moved_bytes",
    "request": "moved_submit",
    "carries": [
-    "moved_capture"
+    "repo_capture"
    ],
    "answer": {
     "stage": "refused",
@@ -1586,8 +1678,44 @@
     "provider_effect": "not_applicable",
     "gaps": [
      {
-      "code": "input_not_observed",
-      "pointer": "/processing/inputs/0/evidence_digest"
+      "code": "working_bytes_moved"
+     }
+    ],
+    "recovery": [],
+    "returns": []
+   }
+  },
+  {
+   "name": "change_team_policy",
+   "request": "policy_submit",
+   "carries": [
+    "revised_policy_submitted"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "team_policy_v2"
+    ],
+    "head": "policy_head"
+   }
+  },
+  {
+   "name": "capture_after_policy_changed",
+   "request": "late_capture_after_policy_change",
+   "carries": [
+    "team_capture"
+   ],
+   "answer": {
+    "stage": "refused",
+    "local_effect": "none",
+    "provider_effect": "not_applicable",
+    "gaps": [
+     {
+      "code": "policy_superseded"
      }
     ],
     "recovery": [],
