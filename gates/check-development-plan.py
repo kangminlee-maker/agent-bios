@@ -39,6 +39,11 @@ POINTERS = (("Design SSOT", SSOT_SELECTOR, "ssot"),
             ("bound acceptance regressions", REGRESSION_SELECTOR, "regression_tests"))
 BASENAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 DIGEST = re.compile(r"[a-f0-9]{64}")
+# Test-family and integration-profile ids as the entry point spells them. Node ids are
+# left out on purpose: the pointer and binding checks already hold the plan's own nodes,
+# and prose about the prototype repairs P01-P03 spells node-shaped ids that mean
+# something else.
+IDENTIFIER = re.compile(r"\b([NM]\d{1,2})\b")
 VALIDATOR_STATUS = "plan-valid-not-runtime-qualified"
 
 
@@ -119,6 +124,29 @@ def one_selector(prose: str, pattern: str, label: str) -> str:
     return basename(selected[0], label)
 
 
+def retired_names(prose: str, plan: dict, catalog_path: Path) -> list[str]:
+    """Ids the entry point states as current that the selected bundle no longer defines.
+
+    The pointers above hold CURRENT.md to naming the right files. They say nothing about
+    what it claims those files require, and a trim that retires a test family leaves that
+    claim behind: the entry point is the one document a resuming session reads as current,
+    so a retired family surviving in its prose is read as a live obligation. Naming an id
+    the bundle defines is decidable; whether a sentence about it is true is not, so only
+    the identifier is judged."""
+    catalog = json_object(catalog_path.read_text(encoding="utf-8"), "selected catalog")
+    cases = catalog.get("cases")
+    if not isinstance(cases, list) or not cases:
+        raise GateError("selected catalog: missing nonempty case list")
+    defined = {row.get("id") for row in cases if isinstance(row, dict)}
+    nodes = plan.get("nodes")
+    if isinstance(nodes, list):
+        defined |= {node.get("id") for node in nodes if isinstance(node, dict)}
+    defined.discard(None)
+    if not defined:
+        raise GateError("selected catalog: no identifiers to judge the entry point against")
+    return sorted({name for name in IDENTIFIER.findall(prose) if name not in defined})
+
+
 def load_bundle(root: Path) -> Bundle:
     root = Path(root).resolve()
     directory = root
@@ -145,6 +173,10 @@ def load_bundle(root: Path) -> Bundle:
         selected = regular(directory, one_selector(prose, pattern, label), label)
         if identity(selected) != members[field]:
             raise GateError(f"{label}: selected path differs from plan.{field}")
+    retired = retired_names(prose, plan, paths["test_catalog"])
+    if retired:
+        raise GateError("CURRENT: states " + ", ".join(retired)
+                        + " as current, which the selected plan and catalog do not define")
     bindings = plan.get("document_bindings")
     if not isinstance(bindings, list) or not bindings:
         raise GateError("document_bindings: missing nonempty binding list")
@@ -283,7 +315,10 @@ def self_test() -> dict:
         directory.mkdir(parents=True)
         names = {field: member(field) for field in MEMBERS}
         for field, name in names.items():
-            (directory / name).write_text("bound fixture for " + field + "\n", encoding="utf-8")
+            # The catalog is read, not only pointed at, so the fixture's is a real one.
+            body = (json.dumps({"cases": [{"id": "N01"}, {"id": "N02"}]})
+                    if field == "test_catalog" else "bound fixture for " + field + "\n")
+            (directory / name).write_text(body, encoding="utf-8")
         # A superseded sibling of every cross-checked pointer. A stale pointer has to
         # fail as a disagreement, which needs a file that exists and is the wrong one.
         for field in ("ssot", "test_catalog", "regression_tests"):
@@ -297,7 +332,10 @@ def self_test() -> dict:
                  "- **Intermediate tests:** [Test families and phase scopes](" + names["test_catalog"] + ")"
                  " [Static plan checker](" + names["validator"] + ")\n"
                  "- **Live author gate:** [Current bundle gateway](../../gates/check-development-plan.py)"
-                 " runs the selected validator and [bound acceptance regressions](" + names["regression_tests"] + ")\n")
+                 " runs the selected validator and [bound acceptance regressions](" + names["regression_tests"] + ")\n"
+                 # A family the catalog does hold, so the positive control exercises the
+                 # identifier check rather than passing it on an empty subject.
+                 "\nFrozen contract conformance remains N01 evidence.\n")
         (directory / "CURRENT.md").write_text(entry, encoding="utf-8")
         (directory / plan_name).write_text(json.dumps(plan), encoding="utf-8")
         return directory, plan_name, plan, entry
@@ -376,6 +414,12 @@ def self_test() -> dict:
                        ("inline code", lambda s: "`" + s.replace("\n", " ") + "`"),
                        ("indented code", lambda s: "\n".join("    " + line for line in s.splitlines()))):
         run_case("selectors only in " + kind, replace_entry(wrap), "expected exactly one live selector")
+    run_case("a retired family stated as current", replace_entry(
+        lambda e: e + "\nTerminal comprehension remains required N26 evidence.\n"),
+        "CURRENT: states N26 as current")
+    run_case("a catalog that defines no case", lambda d, n, p, e: (
+        d / p["test_catalog"]).write_text(json.dumps({"cases": []})),
+        "selected catalog: missing nonempty case list")
     run_case("missing CURRENT", lambda d,n,p,e: (d / "CURRENT.md").unlink(), "CURRENT: missing regular file")
     run_case("symlinked initiative directory", lambda d,n,p,e: (
         d.rename(d.parent / "real-initiative"), d.symlink_to(d.parent / "real-initiative", target_is_directory=True)),

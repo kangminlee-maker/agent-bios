@@ -38,36 +38,8 @@
         },
         {
           "$ref": "#/$defs/author_here_route"
-        },
-        {
-          "$ref": "#/$defs/extend_supplied_route"
         }
       ]
-    },
-    "extend_supplied_route": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "An extension names its base exactly and has one value to state about the installed bytes, so editing them in place cannot be requested.",
-      "required": [
-        "route",
-        "base_source_id",
-        "base_revision_digest",
-        "base_bytes"
-      ],
-      "properties": {
-        "route": {
-          "const": "extend_supplied"
-        },
-        "base_source_id": {
-          "$ref": "#/$defs/source_id"
-        },
-        "base_revision_digest": {
-          "$ref": "#/$defs/digest"
-        },
-        "base_bytes": {
-          "const": "unmodified"
-        }
-      }
     },
     "digest": {
       "type": "string",
