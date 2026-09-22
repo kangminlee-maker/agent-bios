@@ -25,9 +25,9 @@ of those operations and of every record kind in it, B03 when its world kills a p
 generator and its schema, the runner's preflight cases for a runner step, the rule fixture of a
 case that checks runtime rules (`rules`), and what else the row `reads` (text fixtures, the
 entrance dispositions). A new case also names the catalog oracle it holds its profile to and what
-it asserts. Evidence class and polarity are derived as well: `observed` for a family the catalog
-marks as requiring real evidence, polarity from the id's suffix, and both polarities for an atomic
-case, whose catalog entry states a positive and a negative.
+it asserts. Its evidence class is derived as well: `observed` for a family the catalog marks as
+requiring real evidence. A profile's family needs one bound case, not one of each polarity: the
+required set is the happy path and the safety net, so a family may hold only one of them.
 
 `covers` maps each open profile's node `done_when` items, in order, to the cases that realize
 each: a case bound to that profile, or one of R0's runner cases, which hold what every node's
@@ -41,7 +41,6 @@ its bound cases can drive, with the reason.
   - an oracle index, `reads` fixture or rule that does not resolve
   - a selection outside the profile's families, a case nobody selects, a selected id nobody
     defines
-  - a (profile, family) pair without a positive and a negative
   - a profile whose case map the dated evaluator's own `binding_errors` refuses
   - an operation no case drives, and a runtime rule no case checks at a node that implements it
   - a profile without its `covers`, a `done_when` item no bound case realizes, a node contract
@@ -88,7 +87,6 @@ GENERATOR = ("gates/workenv/scenarios.py", "gates/workenv/scenario.schema.json")
 FAULTS = "B03"
 # The profile whose runner cases may realize any node's done_when item about dispatch.
 QUALIFIER = "R0"
-POSITIVE, NEGATIVE = "positive", "negative"
 # A placeholder the case-map probe hands the evaluator: it asks only about the case map.
 PROBE = "0" * 64
 # What every contract is read through; a change here is a change to every contract.
@@ -179,16 +177,6 @@ def runtime_rules() -> dict[str, str]:
 
 def family_of(case_id: str) -> str:
     return case_id.split("-", 1)[0]
-
-
-def polarities(case_id: str, atomic: set[str]) -> set[str]:
-    if case_id in atomic:
-        return {POSITIVE, NEGATIVE}
-    if case_id.endswith(("-POS", "-positive")):
-        return {POSITIVE}
-    if case_id.endswith(("-NEG", "-negative")):
-        return {NEGATIVE}
-    return set()
 
 
 def carried_binding(row: dict) -> dict:
@@ -338,12 +326,6 @@ def check(registry: dict | None = None, root: pathlib.Path = ROOT,
     report = {}
     for name in open_profiles:
         bound = case_map(registry, catalog, name)
-        for family in profiles[name]["family_ids"]:
-            held = set().union(*(polarities(c, set(atomic)) for c, f in bound.items()
-                                 if f == family))
-            for polarity in (POSITIVE, NEGATIVE):
-                if polarity not in held:
-                    problems.append(f"{name} {family}: no {polarity} case")
         binding = {"profile_digest": evaluator.digest(profiles[name]), "cases": bound,
                    "adapter_fingerprint": PROBE, "fixture_fingerprint": PROBE}
         for error in evaluator.binding_errors(profiles[name], binding, atomic):

@@ -29,11 +29,9 @@ Joining is four records and one governed change: the Team's `membership_invitati
 `membership_verification` that the actual participant holds the device credential they proved,
 the invitee's `membership_consent` bound to both, and the membership change that names the
 invitation and the consent. A cancelled or expired invitation admits nobody. A provider claim
-admits a member only through an `admission` rule in the Team's policy, and a group's membership is
-either an approved member set with current evidence or dynamic membership delegated to one named
-provider connection. A policy's `fresh_checks` name the Team actions that also need sign-in
-evidence from a provider in the current access session. A grant change names the exact revision
-it replaces; the grant keeps its id.
+admits a member only through an `admission` rule in the Team's policy. A policy's `fresh_checks`
+name the Team actions that also need sign-in evidence from a provider in the current access
+session. A grant change names the exact revision it replaces; the grant keeps its id.
 
 Every Team commit is sequenced by the Team's one finalizer and moves the Team head, the value its
 receipt states; a request that changes the Team expects that head. An approval moves no head,
@@ -122,7 +120,7 @@ OPERATIONS = {
 # authority a request needs, so one operation per authority.
 LIFECYCLE_ACTIONS = {
     "team.lifecycle.apply": ("archive", "restore", "close", "cancel_founding"),
-    "team.retention.apply": ("purge", "recover_evidence"),
+    "team.retention.apply": ("purge",),
     "team.continuation.record": ("continue_archived",),
     "team.membership.leave": ("leave",),
     "team.device.forget": ("forget_here",),
@@ -159,7 +157,6 @@ PROPOSAL_SELF_AUTHORIZED = "proposal_self_authorized"
 APPROVER_NOT_INDEPENDENT = "approver_not_independent"
 APPROVAL_THRESHOLD_UNMET = "approval_threshold_unmet"
 DELEGATION_CEILING_EXCEEDED = "delegation_ceiling_exceeded"
-GROUP_MEMBERSHIP_ESCALATION = "group_membership_escalation"
 SOURCE_RIGHT_NOT_OVERRIDABLE = "source_right_not_overridable"
 LAST_OWNER_REMOVAL_REFUSED = "last_owner_removal_refused"
 ACCEPTANCES_VOID_AFTER_REVISION = "acceptances_void_after_revision"
@@ -182,7 +179,6 @@ ERRORS = {
                               "acting under their sponsorship",
     APPROVAL_THRESHOLD_UNMET: "fewer distinct accountable people than the policy requires",
     DELEGATION_CEILING_EXCEEDED: "a grant beyond the scope, actions or depth its parent allows",
-    GROUP_MEMBERSHIP_ESCALATION: "privilege widened by adding to a group nobody delegated",
     SOURCE_RIGHT_NOT_OVERRIDABLE: "an action a source's own rights, or a carried base's, do not "
                                   "allow: a derivation, export or use, or a Team grant or policy "
                                   "applied past them; reading alone allows neither derivation nor "
@@ -203,11 +199,9 @@ ERRORS = {
     TEAM_ARCHIVED: "a new mutation, adoption or piece of work on an archived Team; the "
                    "continuation its policy names and a governed restore are what proceed",
     TEAM_TERMINAL: "an operation on a Team whose closure or cancelled founding is terminal; "
-                   "nothing reopens it, evidence recovery does not revive it, and the same name "
-                   "needs a new Team id",
+                   "nothing reopens it, and the same name needs a new Team id",
     GRANT_NOT_HELD: "an action the actor holds no current grant for in that scope: never issued, "
-                    "expired, revoked or suspended, or held through a group whose membership "
-                    "evidence no longer covers them",
+                    "expired, revoked or suspended",
     CLAIM_NOT_ADMITTED: "a verified provider claim that no admission rule in the Team's policy "
                         "names; a login, an e-mail address or a workspace membership admits "
                         "nobody by itself",

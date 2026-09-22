@@ -1,6 +1,6 @@
 {
  "case": "N11-C08-NEG",
- "says": "Ana owns a personal instructions source, registers it, commits its first revision and sets its rights to read and use only. She founds a Team whose policy needs one independent review to publish; Ben and Cho join by invitation, their own key binding, Ana's in-person verification of that key recorded on the Team, and consent. Ana grants Ben read, use, contribute and publish, and grants a 'reviewers' group review with Cho as its approved member. Each of the following is refused by the owner's operation result and commits nothing: Ben revising the reviewers grant to add himself (group_membership_escalation); Ben approving his own sealed publication request (approver_not_independent); Ben publishing a changed edition while offering Cho's approval of the first request (request_mismatch); Ben approving a publication Ana seals that names him among its accountable_authors (approver_not_independent); Cho approving after Ana revoked the reviewers grant by its next revision (grant_not_held); after Ana moves the policy to version 2, a grant for Cho sealed on the current head but still naming version 1 (policy_superseded), and a grant for Ben sealed naming version 2 on the head that the resealed grant for Cho has since moved (stale_base, reseal on the current head). Cho's approval of the first request, recorded while she held the grant, is the one approval that stands, and the revocation keeps the reviewers grant's id, Team and holder as its next revision. Finally Ana's grant request for Ben is sent again under the same request id with other bytes and refused with request_id_conflict, and sent again with its identical bytes, which returns the original committed result and receipt and commits nothing new.",
+ "says": "Ana owns a personal instructions source, registers it, commits its first revision and sets its rights to read and use only. She founds a Team whose policy needs one independent review to publish; Ben and Cho join by invitation, their own key binding, Ana's in-person verification of that key recorded on the Team, and consent. Ana grants Ben read, use, contribute and publish, and grants Cho her own grant for review. Each of the following is refused by the owner's operation result and commits nothing: Ben revising his own grant to add himself review (grant_not_held); Ben approving his own sealed publication request (approver_not_independent); Ben publishing a changed edition while offering Cho's approval of the first request (request_mismatch); Ben approving a publication Ana seals that names him among its accountable_authors (approver_not_independent); Cho approving after Ana revoked her grant by its next revision (grant_not_held); after Ana moves the policy to version 2, a grant for Cho sealed on the current head but still naming version 1 (policy_superseded), and a grant for Ben sealed naming version 2 on the head that the resealed grant for Cho has since moved (stale_base, reseal on the current head). Cho's approval of the first request, recorded while she held the grant, is the one approval that stands, and the revocation keeps Cho's grant's id, Team and holder as its next revision. Finally Ana's grant request for Ben is sent again under the same request id with other bytes and refused with request_id_conflict, and sent again with its identical bytes, which returns the original committed result and receipt and commits nothing new.",
  "ids": [
   {
    "name": "ana",
@@ -105,10 +105,6 @@
   {
    "name": "issue_ben_grant_request",
    "prefix": "req"
-  },
-  {
-   "name": "reviewers",
-   "prefix": "grp"
   },
   {
    "name": "issue_reviewers_grant_request",
@@ -1940,21 +1936,15 @@
   },
   {
    "name": "reviewers_grant_submitted",
-   "from": "c08/group_grant_under_an_approved_member_set.json",
-   "drop": [
-    "/grant_id",
-    "/issuer_principal_id",
-    "/grant_revision",
-    "/created_at"
-   ],
+   "from": "c08/grant_as_submitted.json",
    "set": [
     {
      "pointer": "/team_id",
      "value": "@team"
     },
     {
-     "pointer": "/holder/group_id",
-     "value": "@reviewers"
+     "pointer": "/holder/principal_id",
+     "value": "@cho"
     },
     {
      "pointer": "/actions",
@@ -1974,18 +1964,6 @@
     {
      "pointer": "/parent_grant_id",
      "value": "$gra:team_founder_grant_id"
-    },
-    {
-     "pointer": "/holder/membership/members",
-     "value": [
-      "@cho"
-     ]
-    },
-    {
-     "pointer": "/holder/membership/evidence_digests",
-     "value": [
-      "#cho_membership"
-     ]
     }
    ]
   },
@@ -2085,26 +2063,23 @@
   },
   {
    "name": "reviewers_with_ben_submitted",
-   "from": "c08/group_grant_under_an_approved_member_set.json",
-   "drop": [
-    "/grant_id",
-    "/issuer_principal_id",
-    "/grant_revision",
-    "/created_at"
-   ],
+   "from": "c08/grant_as_submitted.json",
    "set": [
     {
      "pointer": "/team_id",
      "value": "@team"
     },
     {
-     "pointer": "/holder/group_id",
-     "value": "@reviewers"
+     "pointer": "/holder/principal_id",
+     "value": "@ben"
     },
     {
      "pointer": "/actions",
      "value": [
       "read",
+      "use",
+      "contribute",
+      "publish",
       "review"
      ]
     },
@@ -2121,22 +2096,8 @@
      "value": "$gra:team_founder_grant_id"
     },
     {
-     "pointer": "/holder/membership/members",
-     "value": [
-      "@cho",
-      "@ben"
-     ]
-    },
-    {
-     "pointer": "/holder/membership/evidence_digests",
-     "value": [
-      "#cho_membership",
-      "#ben_membership"
-     ]
-    },
-    {
      "pointer": "/revises_digest",
-     "value": "#reviewers_grant"
+     "value": "#ben_grant"
     }
    ]
   },
@@ -2732,21 +2693,15 @@
   },
   {
    "name": "reviewers_revoked_submitted",
-   "from": "c08/group_grant_under_an_approved_member_set.json",
-   "drop": [
-    "/grant_id",
-    "/issuer_principal_id",
-    "/grant_revision",
-    "/created_at"
-   ],
+   "from": "c08/grant_as_submitted.json",
    "set": [
     {
      "pointer": "/team_id",
      "value": "@team"
     },
     {
-     "pointer": "/holder/group_id",
-     "value": "@reviewers"
+     "pointer": "/holder/principal_id",
+     "value": "@cho"
     },
     {
      "pointer": "/actions",
@@ -2766,18 +2721,6 @@
     {
      "pointer": "/parent_grant_id",
      "value": "$gra:team_founder_grant_id"
-    },
-    {
-     "pointer": "/holder/membership/members",
-     "value": [
-      "@cho"
-     ]
-    },
-    {
-     "pointer": "/holder/membership/evidence_digests",
-     "value": [
-      "#cho_membership"
-     ]
     },
     {
      "pointer": "/standing",
@@ -3668,7 +3611,7 @@
     "provider_effect": "not_applicable",
     "gaps": [
      {
-      "code": "group_membership_escalation"
+      "code": "grant_not_held"
      }
     ],
     "recovery": [

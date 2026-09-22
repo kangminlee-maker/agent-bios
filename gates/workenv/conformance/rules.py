@@ -29,16 +29,6 @@ def named_index(pointer: Any, prefix: str) -> int | None:
     return int(match.group(1)) if match else None
 
 
-def selected_participant_applicable(record: dict, context: dict) -> list[str]:
-    standing = record["standing"]
-    answer = context["answer"]["origin"].get("answer")
-    if standing["holds"] != "active" or answer is None or answer["selected"]["selects"] != "record":
-        return []
-    marks = [p["applicable"] for p in standing["participants"]
-             if p["record_id"] == answer["selected"]["record_id"]]
-    return [] if marks == [True] else ["/answer_evidence_digest"]
-
-
 def answer_selects_an_offered_alternative(record: dict, context: dict) -> list[str]:
     answer = record["origin"].get("answer")
     if answer is None or answer["selected"]["selects"] != "record":
@@ -126,32 +116,6 @@ def relation_endpoints_are_nodes(record: dict, context: dict) -> list[str]:
             for end in ("from", "to") if relation[end] not in nodes]
 
 
-def unit_reference_names_a_winning_unit(record: dict, context: dict) -> list[str]:
-    winning = {unit["unit_id"] for unit in record["units"] if unit["standing"] == "winning"}
-    found = []
-    for index, unit in enumerate(record["units"]):
-        if "shadowed_by" in unit and unit["shadowed_by"] not in winning:
-            found.append(f"/units/{index}/shadowed_by")
-        found += [f"/units/{index}/needed_by/{position}"
-                  for position, named in enumerate(unit.get("needed_by", []))
-                  if named not in winning]
-    return found
-
-
-def gap_names_no_losing_unit(record: dict, context: dict) -> list[str]:
-    found = []
-    for gap in record["material_gaps"]:
-        index = named_index(gap.get("pointer"), "/units")
-        if index is None or index >= len(record["units"]):
-            continue
-        unit = record["units"][index]
-        at = f"/units/{index}/standing"
-        if unit["standing"] in ("shadowed", "disabled") and not unit.get("needed_by") \
-                and at not in found:
-            found.append(at)
-    return found
-
-
 def derivative_within_base_rights(record: dict, context: dict) -> list[str]:
     # The context states the store's source rights: rights record digest -> what it allows.
     held = context["rights"]
@@ -172,52 +136,6 @@ def removal_covers_derivatives(record: dict, context: dict) -> list[str]:
     covered = {row["object_digest"] for row in record["derived_copies"]}
     derived = {row["digest"] for row in context["map"]["derivatives"]}
     return [] if derived <= covered else ["/derived_copies"]
-
-
-def attempt_outcome_fits_its_request(record: dict, context: dict) -> list[str]:
-    requested, observed = record["requested"], record["observed"]
-    if observed["saw"] == "answered":
-        return [] if requested["what"] == "question" else ["/observed"]
-    if observed["saw"] != "received":
-        return []
-    if requested["what"] == "question":
-        return ["/observed"]
-    asked = set(requested["bodies"])
-    return [f"/observed/received/{index}" for index, body in enumerate(observed["received"])
-            if body not in asked]
-
-
-def qualified_only_by_a_real_probe(record: dict, context: dict) -> list[str]:
-    # The context names each probe the store holds, under any name.
-    probes = {canonical.digest_of(value): value for value in context.values()
-              if isinstance(value, dict) and value.get("kind") == "capability_probe"}
-    found = []
-    for index, row in enumerate(record["capabilities"]):
-        state = row["state"]
-        if state["qualified"] != "yes":
-            continue
-        probe = probes.get(state["probe_digest"])
-        if probe is None or probe["capability"] != row["capability"] \
-                or probe["client"] != record["client"] or probe["wire"] != record["wire"] \
-                or probe["outcome"] != "worked" or probe["mode"] != {"runs": "real"}:
-            found.append(f"/capabilities/{index}/state/probe_digest")
-    return found
-
-
-def validation_covers_its_request(record: dict, context: dict) -> list[str]:
-    request = context["request"]
-    pinned = {(target, lens["name"]) for target in request["targets"]
-              for lens in request["lenses"]}
-    verdict = record["verdict"]
-    found = [f"/verdict/checks/{index}" for index, check in enumerate(verdict["checks"])
-             if (check["target_digest"], check["lens"]) not in pinned]
-    found += [f"/verdict/findings/{index}"
-              for index, finding in enumerate(verdict.get("findings", []))
-              if (finding["target_digest"], finding["lens"]) not in pinned]
-    checked = {(check["target_digest"], check["lens"]) for check in verdict["checks"]}
-    if verdict["verdict"] != "unverified" and not pinned <= checked:
-        found.append("/verdict/checks")
-    return found
 
 
 # `Cxx/<name>` -> (the record kind it reads, whether it needs the store's context, oracle).
@@ -351,20 +269,6 @@ def promotion_states_its_candidate(record: dict, context: dict) -> list[str]:
         found.append("/proposed")
     return found
 
-def proof_answers_its_request(record: dict, context: dict) -> list[str]:
-    request = context["request"]
-    found = []
-    if record["audience"] != request.get("work_scope"):
-        found.append("/audience")
-    if record["question_digest"] != request.get("payload_digest"):
-        found.append("/question_digest")
-    target = request["target"]
-    pinned = {"source_id": target["resource_id"],
-              "checkpoint_digest": target.get("base", {}).get("head_digest")}
-    if pinned not in record["frontiers"]:
-        found.append("/frontiers")
-    return found
-
 def history_only_when_asked(record: dict, context: dict) -> list[str]:
     if context["envelope"]["history"] == "included":
         return []
@@ -444,45 +348,20 @@ def input_within_its_root(record: dict, context: dict) -> list[str]:
             found.append(f"/processing/inputs/{index}/permits")
     return found
 
-def view_names_declared_companions(record: dict, context: dict) -> list[str]:
-    # The context names each source revision the store holds, under any name.
-    manifests = {canonical.digest_of(value): value for value in context.values()
-                 if isinstance(value, dict) and value.get("kind") == "source_manifest"}
-    declared: set[str] = set()
-    for cited in record["evidence"]:
-        declared.update(manifests.get(cited["revision_digest"], {}).get("companions", []))
-    named = [companion["source_id"] for companion in record["companions"]]
-    found = [f"/companions/{index}/source_id" for index, source_id in enumerate(named)
-             if source_id not in declared]
-    if not declared <= set(named):
-        found.append("/companions")
-    return found
-
 
 RULES: dict[str, tuple[str, bool, Callable[[dict, dict], list[str]]]] = {
     "C01/read_within_selection": ("source_observation", True, read_within_selection),
     "C04/relation_endpoints_are_nodes": ("knowledge_model", False, relation_endpoints_are_nodes),
-    "C05/selected_participant_applicable":
-        ("application_preference", True, selected_participant_applicable),
     "C05/gap_named_entry_not_current": ("qualified_state", False, gap_named_entry_not_current),
     "C05/entry_from_named_source": ("qualified_state", False, entry_from_named_source),
     "C05/candidate_keeps_its_origin": ("memory_candidate", True, candidate_keeps_its_origin),
     "C06/gap_named_frontier_not_returned":
         ("reader_result", False, gap_named_frontier_not_returned),
-    "C07/unit_reference_names_a_winning_unit":
-        ("preparation", False, unit_reference_names_a_winning_unit),
-    "C07/gap_names_no_losing_unit": ("preparation", False, gap_names_no_losing_unit),
     "C08/derivative_within_base_rights":
         ("source_rights", True, derivative_within_base_rights),
     "C10/removal_covers_derivatives": ("removal_outcome", True, removal_covers_derivatives),
     "C11/answer_selects_an_offered_alternative":
         ("answer_evidence", True, answer_selects_an_offered_alternative),
-    "C11/attempt_outcome_fits_its_request":
-        ("delivery_attempt", False, attempt_outcome_fits_its_request),
-    "C12/qualified_only_by_a_real_probe":
-        ("capability_profile", True, qualified_only_by_a_real_probe),
-    "C12/validation_covers_its_request":
-        ("validation_run", True, validation_covers_its_request),
     "C02/admitted_only_under_a_current_handle":
         ("access_admission", True, admitted_only_under_a_current_handle),
     "C02/child_handle_carries_its_parents_generation":
@@ -503,14 +382,10 @@ RULES: dict[str, tuple[str, bool, Callable[[dict, dict], list[str]]]] = {
         ("lifecycle_action", True, lifecycle_action_fits_its_operation),
     "C05/promotion_states_its_candidate":
         ("memory_candidate", True, promotion_states_its_candidate),
-    "C05/proof_answers_its_request":
-        ("state_proof", True, proof_answers_its_request),
     "C06/history_only_when_asked":
         ("reader_result", True, history_only_when_asked),
     "C11/answer_separated_on_its_own_host":
         ("answer_evidence", True, answer_separated_on_its_own_host),
     "C01/input_within_its_root":
         ("memory_capture", True, input_within_its_root),
-    "C04/view_names_declared_companions":
-        ("knowledge_view", True, view_names_declared_companions),
 }

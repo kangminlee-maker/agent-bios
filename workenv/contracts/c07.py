@@ -114,12 +114,3 @@ ERRORS = {
                           "precedence between them; the concern stays unresolved for the query "
                           "that needs it, and nothing else is held back",
 }
-
-# Rules that relate one element of a record to another, which a schema cannot state. The
-# runtime owner keeps each; a case in the registry (gates/workenv/case-index.json) checks it.
-RUNTIME_RULES = {
-    "unit_reference_names_a_winning_unit": "every `shadowed_by` and `needed_by` of a preparation "
-                                           "names a unit of that preparation that won",
-    "gap_names_no_losing_unit": "no gap of a preparation names a shadowed or switched-off unit "
-                                "that no winning unit needs, so such a unit never holds a start",
-}

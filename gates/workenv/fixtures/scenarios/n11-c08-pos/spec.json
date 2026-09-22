@@ -1,6 +1,6 @@
 {
  "case": "N11-C08-POS",
- "says": "Ana owns a personal instructions source, commits its first revision and sets its rights to read and use only, each commit on the source expecting the head the previous one moved to. She founds a Team whose policy requires one independent review for publication, and Ben and Cho join it by invitation, their own key binding, Ana's in-person verification of that key recorded on the Team, and consent. Ana issues Ben a scoped grant (read, use, contribute, publish, adopt) that names her founder grant as its parent, and a group grant for review to a 'reviewers' group whose approved member set is Cho with her membership as evidence. Ben contributes the Team's instructions collection pinning Ana's source at that exact revision, then seals a publication of an edition that pins the same revision; the owner assesses that request and finds Ben may publish on his current grant. Cho, who is neither the requester nor an author, approves that exact request; Ben's publication then commits and the edition's environment head moves, and Ben adopts that exact edition into the Team. What must come back: the collection, an eligible assessment, Cho's approval, the published edition and the Team's adoption of it. Nothing is derived from or exported out of the source, whose own rights allow neither.",
+ "says": "Ana owns a personal instructions source, commits its first revision and sets its rights to read and use only, each commit on the source expecting the head the previous one moved to. She founds a Team whose policy requires one independent review for publication, and Ben and Cho join it by invitation, their own key binding, Ana's in-person verification of that key recorded on the Team, and consent. Ana issues Ben a scoped grant (read, use, contribute, publish, adopt) that names her founder grant as its parent, and issues Cho her own grant for review, naming the same parent. Ben contributes the Team's instructions collection pinning Ana's source at that exact revision, then seals a publication of an edition that pins the same revision; the owner assesses that request and finds Ben may publish on his current grant. Cho, who is neither the requester nor an author, approves that exact request; Ben's publication then commits and the edition's environment head moves, and Ben adopts that exact edition into the Team. What must come back: the collection, an eligible assessment, Cho's approval, the published edition and the Team's adoption of it. Nothing is derived from or exported out of the source, whose own rights allow neither.",
  "ids": [
   {
    "name": "ana",
@@ -105,10 +105,6 @@
   {
    "name": "issue_ben_grant_request",
    "prefix": "req"
-  },
-  {
-   "name": "reviewers",
-   "prefix": "grp"
   },
   {
    "name": "issue_reviewers_grant_request",
@@ -1913,21 +1909,15 @@
   },
   {
    "name": "reviewers_grant_submitted",
-   "from": "c08/group_grant_under_an_approved_member_set.json",
-   "drop": [
-    "/grant_id",
-    "/issuer_principal_id",
-    "/grant_revision",
-    "/created_at"
-   ],
+   "from": "c08/grant_as_submitted.json",
    "set": [
     {
      "pointer": "/team_id",
      "value": "@team"
     },
     {
-     "pointer": "/holder/group_id",
-     "value": "@reviewers"
+     "pointer": "/holder/principal_id",
+     "value": "@cho"
     },
     {
      "pointer": "/actions",
@@ -1947,18 +1937,6 @@
     {
      "pointer": "/parent_grant_id",
      "value": "$gra:team_founder_grant_id"
-    },
-    {
-     "pointer": "/holder/membership/members",
-     "value": [
-      "@cho"
-     ]
-    },
-    {
-     "pointer": "/holder/membership/evidence_digests",
-     "value": [
-      "#cho_membership"
-     ]
     }
    ]
   },

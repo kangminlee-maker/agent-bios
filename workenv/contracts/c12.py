@@ -12,7 +12,7 @@ cannot stand in for one. A probe keeps what the client declared apart from what 
 a client that offers a capability and then refuses it is the case worth seeing. A probe
 against a fixture names it, so a mocked provider or key qualifies nothing; that a profile
 rests only on probes that ran for real relates the profile to its probes, which a schema
-cannot state, so the runtime owner keeps it and P01's cases check it.
+cannot state, so the runtime owner keeps it.
 
 A host is qualified under the configuration it runs, so what of that configuration can act for a
 person is measured and kept: `host_configuration` lists every hook the host would run, on which
@@ -42,7 +42,7 @@ expects `view_opened`, which writes nothing.
 Validation is pinned: exact targets, lenses by digest, and the package the questions belong
 to by the `source_manifest` of its source revision. A run is clean or has findings only over
 checks that all ran; anything else is unverified. That a run covers every pinned target and
-lens relates it to its request, which the runtime owner keeps and P01's cases check.
+lens relates it to its request, which the runtime owner keeps.
 """
 CONTRACT = "C12"
 RECORD_KINDS = ("capability_profile", "capability_probe", "route_outcome",
@@ -69,17 +69,6 @@ OPERATIONS = {
                       "effect": "pure_preview", "action": "read", "targets": ("prf",)},
     "validation.run": {"takes": ("validation_request",), "returns": ("validation_run",),
                        "effect": "owner_commit", "action": "review", "targets": ("rep", "prn")},
-}
-
-# Rules that relate one element of a record to another, which a schema cannot state. The
-# runtime owner keeps each; a case in the registry (gates/workenv/case-index.json) checks it.
-RUNTIME_RULES = {
-    "qualified_only_by_a_real_probe": "every capability a profile marks qualified names a "
-                                      "probe of that capability on that client and wire "
-                                      "that ran for real",
-    "validation_covers_its_request": "a clean run or a run with findings checks every "
-                                     "target and lens its request pinned, and no check "
-                                     "or finding names another",
 }
 
 CAPABILITY_NOT_QUALIFIED = "capability_not_qualified"

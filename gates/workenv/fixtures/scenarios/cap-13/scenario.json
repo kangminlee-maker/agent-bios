@@ -50,8 +50,8 @@
    "name": "publish_request"
   },
   {
-   "id": "req_c6a03e6f1a09a5936d6e678b79cedcf0",
-   "name": "prove_request"
+   "id": "req_b84e7c04e2f8f9cf127180ba37b6c41c",
+   "name": "me_grant_request"
   },
   {
    "id": "req_9b898a9c001ceb9e05748568346d65b2",
@@ -60,14 +60,6 @@
   {
    "id": "req_270830046d7323f952d86ee76de7977c",
    "name": "candidate_request"
-  },
-  {
-   "id": "req_315f389404d4d15d3f6e9090e0207503",
-   "name": "other_prove_request"
-  },
-  {
-   "id": "req_ccb8b7b10afa419cb0d19354db2f539a",
-   "name": "wrong_resolve_request"
   },
   {
    "id": "req_60628717e538b0469b57610d92676ff7",
@@ -575,79 +567,79 @@
    "record": "register_my_decisions_result"
   },
   {
-   "minted": "decisions_head",
-   "pointer": "/target/base/head_digest",
-   "record": "prove_submit"
-  },
-  {
    "digest_of": "team_policy",
    "pointer": "/policy_digests/0",
-   "record": "prove_submit"
+   "record": "issue_me_grant"
   },
   {
-   "digest_of": "question",
+   "minted": "team_head",
+   "pointer": "/target/base/head_digest",
+   "record": "issue_me_grant"
+  },
+  {
+   "minted": "team_founder_grant",
+   "pointer": "/parent_grant_id",
+   "record": "me_grant_submitted"
+  },
+  {
+   "digest_of": "me_grant_submitted",
    "pointer": "/payload_digest",
-   "record": "prove_submit"
+   "record": "issue_me_grant"
   },
   {
-   "digest_of": "question",
-   "pointer": "/question_digest",
-   "record": "proof"
-  },
-  {
-   "minted": "decisions_head",
-   "pointer": "/frontiers/0/checkpoint_digest",
-   "record": "proof"
-  },
-  {
-   "minted": "journal_choice",
-   "pointer": "/disclosed/0/record_id",
-   "record": "proof"
-  },
-  {
-   "minted": "proof_valid_until",
-   "pointer": "/valid_until",
-   "record": "proof"
-  },
-  {
-   "minted": "proof_issued_at",
-   "pointer": "/issued_at",
-   "record": "proof"
-  },
-  {
-   "digest_of": "proof",
-   "pointer": "/signed_digest",
-   "record": "proof_signature"
-  },
-  {
-   "minted": "steward_key",
-   "pointer": "/signer_binding_id",
-   "record": "proof_signature"
-  },
-  {
-   "digest_of": "prove_submit",
+   "digest_of": "issue_me_grant",
    "pointer": "/request_digest",
-   "record": "prove_state_for_me_result"
+   "record": "issue_me_grant_receipt"
   },
   {
-   "digest_of": "proof",
+   "minted": "issue_me_grant_head",
+   "pointer": "/head_digest",
+   "record": "issue_me_grant_receipt"
+  },
+  {
+   "minted": "issue_me_grant_sequence",
+   "pointer": "/sequence",
+   "record": "issue_me_grant_receipt"
+  },
+  {
+   "minted": "issue_me_grant_committed_at",
+   "pointer": "/committed_at",
+   "record": "issue_me_grant_receipt"
+  },
+  {
+   "minted": "team_head",
+   "pointer": "/target/base/head_digest",
+   "record": "issue_me_grant_receipt"
+  },
+  {
+   "minted": "team_founder_grant",
+   "pointer": "/parent_grant_id",
+   "record": "me_grant"
+  },
+  {
+   "minted": "me_grant_id",
+   "pointer": "/grant_id",
+   "record": "me_grant"
+  },
+  {
+   "minted": "me_grant_at",
+   "pointer": "/created_at",
+   "record": "me_grant"
+  },
+  {
+   "digest_of": "issue_me_grant_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "issue_me_grant_result"
+  },
+  {
+   "digest_of": "issue_me_grant",
+   "pointer": "/request_digest",
+   "record": "issue_me_grant_result"
+  },
+  {
+   "digest_of": "me_grant",
    "pointer": "/outputs/0/digest",
-   "record": "prove_state_for_me_result"
-  },
-  {
-   "digest_of": "proof_signature",
-   "pointer": "/outputs/1/digest",
-   "record": "prove_state_for_me_result"
-  },
-  {
-   "digest_of": "proof",
-   "pointer": "/proof_digests/0",
-   "record": "resolve_submit"
-  },
-  {
-   "digest_of": "proof_signature",
-   "pointer": "/proof_digests/1",
-   "record": "resolve_submit"
+   "record": "issue_me_grant_result"
   },
   {
    "digest_of": "question",
@@ -677,12 +669,12 @@
   {
    "digest_of": "resolve_submit",
    "pointer": "/request_digest",
-   "record": "resolve_with_the_proof_result"
+   "record": "resolve_the_question_result"
   },
   {
    "digest_of": "state",
    "pointer": "/outputs/0/digest",
-   "record": "resolve_with_the_proof_result"
+   "record": "resolve_the_question_result"
   },
   {
    "minted": "journal_choice",
@@ -718,111 +710,6 @@
    "digest_of": "stored_candidate",
    "pointer": "/outputs/0/digest",
    "record": "store_bounded_candidate_result"
-  },
-  {
-   "minted": "decisions_head",
-   "pointer": "/target/base/head_digest",
-   "record": "other_prove_submit"
-  },
-  {
-   "digest_of": "team_policy",
-   "pointer": "/policy_digests/0",
-   "record": "other_prove_submit"
-  },
-  {
-   "digest_of": "other_question",
-   "pointer": "/payload_digest",
-   "record": "other_prove_submit"
-  },
-  {
-   "minted": "decisions_head",
-   "pointer": "/frontiers/0/checkpoint_digest",
-   "record": "other_proof"
-  },
-  {
-   "digest_of": "other_question",
-   "pointer": "/question_digest",
-   "record": "other_proof"
-  },
-  {
-   "minted": "other_valid_until",
-   "pointer": "/valid_until",
-   "record": "other_proof"
-  },
-  {
-   "minted": "other_issued_at",
-   "pointer": "/issued_at",
-   "record": "other_proof"
-  },
-  {
-   "minted": "steward_key",
-   "pointer": "/signer_binding_id",
-   "record": "other_signature"
-  },
-  {
-   "digest_of": "other_proof",
-   "pointer": "/signed_digest",
-   "record": "other_signature"
-  },
-  {
-   "digest_of": "other_prove_submit",
-   "pointer": "/request_digest",
-   "record": "prove_another_question_result"
-  },
-  {
-   "digest_of": "other_proof",
-   "pointer": "/outputs/0/digest",
-   "record": "prove_another_question_result"
-  },
-  {
-   "digest_of": "other_signature",
-   "pointer": "/outputs/1/digest",
-   "record": "prove_another_question_result"
-  },
-  {
-   "digest_of": "question",
-   "pointer": "/payload_digest",
-   "record": "wrong_resolve_submit"
-  },
-  {
-   "digest_of": "other_proof",
-   "pointer": "/proof_digests/0",
-   "record": "wrong_resolve_submit"
-  },
-  {
-   "digest_of": "other_signature",
-   "pointer": "/proof_digests/1",
-   "record": "wrong_resolve_submit"
-  },
-  {
-   "digest_of": "question",
-   "pointer": "/question_digest",
-   "record": "unresolved_state"
-  },
-  {
-   "minted": "journal_choice",
-   "pointer": "/entries/0/record_id",
-   "record": "unresolved_state"
-  },
-  {
-   "minted": "decisions_head",
-   "pointer": "/frontiers/0/checkpoint_digest",
-   "record": "unresolved_state"
-  },
-  {
-   "minted": "unresolved_at",
-   "pointer": "/prepared_at",
-   "record": "unresolved_state"
-  },
-  {
-   "digest_of": "wrong_resolve_submit",
-   "pointer": "/request_digest",
-   "record": "resolve_with_a_proof_about_something_else_result"
-  },
-  {
-   "digest_of": "unresolved_state",
-   "pointer": "/outputs/0/digest",
-   "record": "resolve_with_a_proof_about_something_else_result"
   },
   {
    "digest_of": "envelope",
@@ -1057,19 +944,34 @@
    "step": "register_my_decisions"
   },
   {
-   "name": "proof_issued_at",
+   "name": "issue_me_grant_committed_at",
    "shape": "instant",
-   "step": "prove_state_for_me"
+   "step": "issue_me_grant"
   },
   {
-   "name": "proof_valid_until",
+   "name": "issue_me_grant_head",
+   "shape": "digest",
+   "step": "issue_me_grant"
+  },
+  {
+   "name": "issue_me_grant_sequence",
+   "shape": "integer",
+   "step": "issue_me_grant"
+  },
+  {
+   "name": "me_grant_at",
    "shape": "instant",
-   "step": "prove_state_for_me"
+   "step": "issue_me_grant"
+  },
+  {
+   "name": "me_grant_id",
+   "shape": "gra",
+   "step": "issue_me_grant"
   },
   {
    "name": "resolved_at",
    "shape": "instant",
-   "step": "resolve_with_the_proof"
+   "step": "resolve_the_question"
   },
   {
    "name": "candidate",
@@ -1080,21 +982,6 @@
    "name": "candidate_at",
    "shape": "instant",
    "step": "store_bounded_candidate"
-  },
-  {
-   "name": "other_issued_at",
-   "shape": "instant",
-   "step": "prove_another_question"
-  },
-  {
-   "name": "other_valid_until",
-   "shape": "instant",
-   "step": "prove_another_question"
-  },
-  {
-   "name": "unresolved_at",
-   "shape": "instant",
-   "step": "resolve_with_a_proof_about_something_else"
   },
   {
    "name": "denied_at",
@@ -2230,6 +2117,139 @@
    }
   },
   {
+   "digest": "9f3b027442b3f7b5b2f66254ebfb1564e31abab92af9ecba87e960a928cb0a7c",
+   "name": "me_grant_submitted",
+   "record": {
+    "actions": [
+     "read"
+    ],
+    "delegation_ceiling": 0,
+    "holder": {
+     "principal_id": "prn_21980c2f1045b65acb6681e309945dd7",
+     "to": "principal"
+    },
+    "kind": "grant_record",
+    "parent_grant_id": "gra_f7be77177fb417e3809e9e35b274564f",
+    "schema": 1,
+    "scope": {
+     "layer": "team",
+     "team_id": "tem_a0ca70bfc40c60e38bf52aa9b082d2f1"
+    },
+    "standing": "current",
+    "team_id": "tem_a0ca70bfc40c60e38bf52aa9b082d2f1"
+   }
+  },
+  {
+   "digest": "593852c340d8b8c34f3101cb784553d9e64e12b4c6b638874641f9411863ba20",
+   "name": "issue_me_grant",
+   "record": {
+    "action": "grant",
+    "actor": {
+     "device_id": "dev_3b44e7c27a7f08902d5f4f06d9879b3b",
+     "principal_id": "prn_93509b943ad96ea33f01066c597981bf",
+     "profile_id": "prf_03b0a5ab8c1572c50f6864191f899f19"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "team.grant.change",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_a0ca70bfc40c60e38bf52aa9b082d2f1"
+    },
+    "payload_digest": "9f3b027442b3f7b5b2f66254ebfb1564e31abab92af9ecba87e960a928cb0a7c",
+    "policy_digests": [
+     "95adcd636cfd8623b84a5ea567dc6aa3da6439025c17a0d077a301fc5d3286aa"
+    ],
+    "proof_digests": [],
+    "request_id": "req_b84e7c04e2f8f9cf127180ba37b6c41c",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "80449415d8993913c522a9becb8c755fc0285b51680a0d2efd515e558d8c8660"
+     },
+     "resource_id": "tem_a0ca70bfc40c60e38bf52aa9b082d2f1"
+    }
+   }
+  },
+  {
+   "digest": "7603d2314e5f84243e97cadde301f459311403b1be32584bf7f9f78c0eb6de10",
+   "name": "issue_me_grant_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "0329261351a4de91b8d3559b111434f1be2e19933ad0c63b5e2fadb549bba91a",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_a0ca70bfc40c60e38bf52aa9b082d2f1"
+    },
+    "request_digest": "593852c340d8b8c34f3101cb784553d9e64e12b4c6b638874641f9411863ba20",
+    "request_id": "req_b84e7c04e2f8f9cf127180ba37b6c41c",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "80449415d8993913c522a9becb8c755fc0285b51680a0d2efd515e558d8c8660"
+     },
+     "resource_id": "tem_a0ca70bfc40c60e38bf52aa9b082d2f1"
+    }
+   }
+  },
+  {
+   "digest": "4da0bc526702d4a2dff404b77947ab86276dd882860266e52fc5d11ca76c4d46",
+   "name": "me_grant",
+   "record": {
+    "actions": [
+     "read"
+    ],
+    "created_at": "2000-01-01T00:00:00Z",
+    "delegation_ceiling": 0,
+    "grant_id": "gra_49df62579959ee447f93ffb4df5ff4ad",
+    "grant_revision": 1,
+    "holder": {
+     "principal_id": "prn_21980c2f1045b65acb6681e309945dd7",
+     "to": "principal"
+    },
+    "issuer_principal_id": "prn_93509b943ad96ea33f01066c597981bf",
+    "kind": "grant_record",
+    "parent_grant_id": "gra_f7be77177fb417e3809e9e35b274564f",
+    "schema": 1,
+    "scope": {
+     "layer": "team",
+     "team_id": "tem_a0ca70bfc40c60e38bf52aa9b082d2f1"
+    },
+    "standing": "current",
+    "team_id": "tem_a0ca70bfc40c60e38bf52aa9b082d2f1"
+   }
+  },
+  {
+   "digest": "ce1daf4e3d38a31a00cb9419fe32ee56d46e0164448ff939a32525db285df3d1",
+   "name": "issue_me_grant_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "7603d2314e5f84243e97cadde301f459311403b1be32584bf7f9f78c0eb6de10",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "4da0bc526702d4a2dff404b77947ab86276dd882860266e52fc5d11ca76c4d46",
+      "kind": "grant_record"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "593852c340d8b8c34f3101cb784553d9e64e12b4c6b638874641f9411863ba20",
+    "request_id": "req_b84e7c04e2f8f9cf127180ba37b6c41c",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
    "digest": "f40c6bcbf2ece013599ecccbf579a3dd328e883ca4ffdc6e05e4aa90fdb343e9",
    "name": "question",
    "record": {
@@ -2254,127 +2274,7 @@
    }
   },
   {
-   "digest": "72b743238d64694b2c94657547debbaa4feea8df615db40b3fceb97b3556380f",
-   "name": "prove_submit",
-   "record": {
-    "action": "read",
-    "actor": {
-     "device_id": "dev_3b44e7c27a7f08902d5f4f06d9879b3b",
-     "principal_id": "prn_93509b943ad96ea33f01066c597981bf",
-     "profile_id": "prf_03b0a5ab8c1572c50f6864191f899f19"
-    },
-    "control_digests": [],
-    "effect_class": "pure_preview",
-    "kind": "operation_request",
-    "local_access_generation": 7,
-    "operation": "memory.state.prove",
-    "owner": {
-     "layer": "team",
-     "team_id": "tem_a0ca70bfc40c60e38bf52aa9b082d2f1"
-    },
-    "payload_digest": "f40c6bcbf2ece013599ecccbf579a3dd328e883ca4ffdc6e05e4aa90fdb343e9",
-    "policy_digests": [
-     "95adcd636cfd8623b84a5ea567dc6aa3da6439025c17a0d077a301fc5d3286aa"
-    ],
-    "proof_digests": [],
-    "request_id": "req_c6a03e6f1a09a5936d6e678b79cedcf0",
-    "schema": 1,
-    "target": {
-     "base": {
-      "expects": "head",
-      "head_digest": "3ae9ce41c64fffb4fc0dcf03ff3e1c8ac828bc41a2f49a81ad33071d313b8272"
-     },
-     "resource_id": "src_a3169817872f0c32ae64142add64ef54"
-    },
-    "work_scope": {
-     "layer": "personal",
-     "principal_id": "prn_21980c2f1045b65acb6681e309945dd7"
-    }
-   }
-  },
-  {
-   "digest": "33f52751db69c2659ae3e1de58c4ce61bad3f9630963680c166ad5eabf596d85",
-   "name": "proof",
-   "record": {
-    "audience": {
-     "layer": "personal",
-     "principal_id": "prn_21980c2f1045b65acb6681e309945dd7"
-    },
-    "control_digests": [],
-    "coverage": {
-     "compared": 1,
-     "unreachable": 0
-    },
-    "disclosed": [
-     {
-      "record_id": "rec_8242f88d9fa57f1b8adc88dd3f0a5aab",
-      "source_id": "src_a3169817872f0c32ae64142add64ef54",
-      "standing": "current"
-     }
-    ],
-    "frontiers": [
-     {
-      "checkpoint_digest": "3ae9ce41c64fffb4fc0dcf03ff3e1c8ac828bc41a2f49a81ad33071d313b8272",
-      "source_id": "src_a3169817872f0c32ae64142add64ef54"
-     }
-    ],
-    "interpretation": "qualified_state/1",
-    "issued_at": "2000-01-01T00:00:00Z",
-    "issuer": {
-     "authority": {
-      "layer": "team",
-      "team_id": "tem_a0ca70bfc40c60e38bf52aa9b082d2f1"
-     },
-     "principal_id": "prn_93509b943ad96ea33f01066c597981bf"
-    },
-    "kind": "state_proof",
-    "material_gaps": [],
-    "question_digest": "f40c6bcbf2ece013599ecccbf579a3dd328e883ca4ffdc6e05e4aa90fdb343e9",
-    "schema": 1,
-    "valid_until": "2000-01-01T00:00:00Z"
-   }
-  },
-  {
-   "digest": "883be4eca2fac544a6fb68ea0d2e5572d2da16d62a10279cefbc68b5fff48f87",
-   "name": "proof_signature",
-   "record": {
-    "kind": "signature_envelope",
-    "namespace": "agent-bios/state_proof",
-    "schema": 1,
-    "signed_digest": "33f52751db69c2659ae3e1de58c4ce61bad3f9630963680c166ad5eabf596d85",
-    "signer_binding_id": "bnd_6ee38fb73308eb0d06a7cfca062f35b7",
-    "sshsig": "U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-   }
-  },
-  {
-   "digest": "2495f23e1c1b59ea19bc7a7742904fb4ef9b13c754752fed4a961a8fed2301b2",
-   "name": "prove_state_for_me_result",
-   "record": {
-    "kind": "operation_result",
-    "local_effect": "none",
-    "outcome": {
-     "material_gaps": [],
-     "stage": "previewed"
-    },
-    "outputs": [
-     {
-      "digest": "33f52751db69c2659ae3e1de58c4ce61bad3f9630963680c166ad5eabf596d85",
-      "kind": "state_proof"
-     },
-     {
-      "digest": "883be4eca2fac544a6fb68ea0d2e5572d2da16d62a10279cefbc68b5fff48f87",
-      "kind": "signature_envelope"
-     }
-    ],
-    "provider_effect": "not_applicable",
-    "request_digest": "72b743238d64694b2c94657547debbaa4feea8df615db40b3fceb97b3556380f",
-    "request_id": "req_c6a03e6f1a09a5936d6e678b79cedcf0",
-    "schema": 1,
-    "supported_recovery": []
-   }
-  },
-  {
-   "digest": "a91fd1dad1fceb94376dd36c8227e1440ab7346f0c566a55d298a1d24f22aba0",
+   "digest": "acad450a5ac8312c847b7cc2adce47e24b00f2b899cdc7b6be40d560db9679d3",
    "name": "resolve_submit",
    "record": {
     "action": "read",
@@ -2394,10 +2294,7 @@
     },
     "payload_digest": "f40c6bcbf2ece013599ecccbf579a3dd328e883ca4ffdc6e05e4aa90fdb343e9",
     "policy_digests": [],
-    "proof_digests": [
-     "33f52751db69c2659ae3e1de58c4ce61bad3f9630963680c166ad5eabf596d85",
-     "883be4eca2fac544a6fb68ea0d2e5572d2da16d62a10279cefbc68b5fff48f87"
-    ],
+    "proof_digests": [],
     "request_id": "req_9b898a9c001ceb9e05748568346d65b2",
     "schema": 1,
     "target": {
@@ -2434,8 +2331,8 @@
    }
   },
   {
-   "digest": "a3e7a2d1f402e6d51bdcb7a8bd41ebe6b29f357fe22a35d86f567e2fda7d2079",
-   "name": "resolve_with_the_proof_result",
+   "digest": "fa9f0493ecb296f4addfc532130bbf2681ccfd53de4531206d85c3644862c256",
+   "name": "resolve_the_question_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "none",
@@ -2450,14 +2347,14 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "a91fd1dad1fceb94376dd36c8227e1440ab7346f0c566a55d298a1d24f22aba0",
+    "request_digest": "acad450a5ac8312c847b7cc2adce47e24b00f2b899cdc7b6be40d560db9679d3",
     "request_id": "req_9b898a9c001ceb9e05748568346d65b2",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "d1c0a665797348390a1e098c47e583f5ccf9cc1adb40bc85a0794ecf0736a2c3",
+   "digest": "ab8ddf97a5907f8ec8b3c7ed1831278273cab782c8f209c9edb3582b02c33261",
    "name": "candidate",
    "record": {
     "destination_source_id": "src_410d8452d1e7f7a306a6ecc2bccb1c73",
@@ -2480,7 +2377,7 @@
      },
      "basis": [
       {
-       "as_stated": "Current in the Team decisions source, as the Team's state proof for me discloses.",
+       "as_stated": "Current in the Team decisions source, as the qualified state resolved for me discloses.",
        "record_id": "rec_8242f88d9fa57f1b8adc88dd3f0a5aab",
        "relies_on": "record"
       }
@@ -2501,7 +2398,7 @@
    }
   },
   {
-   "digest": "ed936a7e30dec8c002ead224b79853972350af78b173d4ef370fbb80c78e2f71",
+   "digest": "7a21ff23811c7939a1bb424e593763e3957b362d00b39e33984ec697131755b0",
    "name": "candidate_submit",
    "record": {
     "action": "contribute",
@@ -2519,7 +2416,7 @@
      "layer": "personal",
      "principal_id": "prn_21980c2f1045b65acb6681e309945dd7"
     },
-    "payload_digest": "d1c0a665797348390a1e098c47e583f5ccf9cc1adb40bc85a0794ecf0736a2c3",
+    "payload_digest": "ab8ddf97a5907f8ec8b3c7ed1831278273cab782c8f209c9edb3582b02c33261",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_270830046d7323f952d86ee76de7977c",
@@ -2530,7 +2427,7 @@
    }
   },
   {
-   "digest": "dbf40e40e5aaee424433b9636da2d26f51e9667f2cbd5f9235d0601295348a20",
+   "digest": "6faf75e63c935177bc03b03cedd69e1ef4d29b718aa0c507414fbe0cb25db52c",
    "name": "stored_candidate",
    "record": {
     "candidate_id": "cnd_0525408397d3c34a29db45fa347fb42c",
@@ -2555,7 +2452,7 @@
      },
      "basis": [
       {
-       "as_stated": "Current in the Team decisions source, as the Team's state proof for me discloses.",
+       "as_stated": "Current in the Team decisions source, as the qualified state resolved for me discloses.",
        "record_id": "rec_8242f88d9fa57f1b8adc88dd3f0a5aab",
        "relies_on": "record"
       }
@@ -2580,7 +2477,7 @@
    }
   },
   {
-   "digest": "08ae461ebe8634b2ad69a32cdbdd7b91d0aefebb9dd0668ebf1f7986c03cb296",
+   "digest": "fab16c768c25a3ef969d41dc62745ad80e5e4613a5d7aa26503a479b87d712de",
    "name": "store_bounded_candidate_result",
    "record": {
     "kind": "operation_result",
@@ -2591,242 +2488,13 @@
     },
     "outputs": [
      {
-      "digest": "dbf40e40e5aaee424433b9636da2d26f51e9667f2cbd5f9235d0601295348a20",
+      "digest": "6faf75e63c935177bc03b03cedd69e1ef4d29b718aa0c507414fbe0cb25db52c",
       "kind": "memory_candidate"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "ed936a7e30dec8c002ead224b79853972350af78b173d4ef370fbb80c78e2f71",
+    "request_digest": "7a21ff23811c7939a1bb424e593763e3957b362d00b39e33984ec697131755b0",
     "request_id": "req_270830046d7323f952d86ee76de7977c",
-    "schema": 1,
-    "supported_recovery": []
-   }
-  },
-  {
-   "digest": "81f31f9e0a81ce34427e9a6823acc921e6bb7510265389be5a843636bda0ed1e",
-   "name": "other_question",
-   "record": {
-    "concern": {
-     "conditions": [
-      {
-       "dimension": "repository",
-       "value": "the shared workspace"
-      }
-     ],
-     "question": "Which backup volume does the Team's shared workspace use?"
-    },
-    "include_superseded": false,
-    "kind": "state_question",
-    "schema": 1,
-    "scopes": [
-     {
-      "layer": "team",
-      "team_id": "tem_a0ca70bfc40c60e38bf52aa9b082d2f1"
-     }
-    ]
-   }
-  },
-  {
-   "digest": "b612257b8951d958664f4481a97829a594e1a48e897b23d373271bb0f121869b",
-   "name": "other_prove_submit",
-   "record": {
-    "action": "read",
-    "actor": {
-     "device_id": "dev_3b44e7c27a7f08902d5f4f06d9879b3b",
-     "principal_id": "prn_93509b943ad96ea33f01066c597981bf",
-     "profile_id": "prf_03b0a5ab8c1572c50f6864191f899f19"
-    },
-    "control_digests": [],
-    "effect_class": "pure_preview",
-    "kind": "operation_request",
-    "local_access_generation": 7,
-    "operation": "memory.state.prove",
-    "owner": {
-     "layer": "team",
-     "team_id": "tem_a0ca70bfc40c60e38bf52aa9b082d2f1"
-    },
-    "payload_digest": "81f31f9e0a81ce34427e9a6823acc921e6bb7510265389be5a843636bda0ed1e",
-    "policy_digests": [
-     "95adcd636cfd8623b84a5ea567dc6aa3da6439025c17a0d077a301fc5d3286aa"
-    ],
-    "proof_digests": [],
-    "request_id": "req_315f389404d4d15d3f6e9090e0207503",
-    "schema": 1,
-    "target": {
-     "base": {
-      "expects": "head",
-      "head_digest": "3ae9ce41c64fffb4fc0dcf03ff3e1c8ac828bc41a2f49a81ad33071d313b8272"
-     },
-     "resource_id": "src_a3169817872f0c32ae64142add64ef54"
-    },
-    "work_scope": {
-     "layer": "personal",
-     "principal_id": "prn_21980c2f1045b65acb6681e309945dd7"
-    }
-   }
-  },
-  {
-   "digest": "51c77e5104f9e89d34c3ce64ca10347bcc4ac3c510c0a79911227ebf972107a1",
-   "name": "other_proof",
-   "record": {
-    "audience": {
-     "layer": "personal",
-     "principal_id": "prn_21980c2f1045b65acb6681e309945dd7"
-    },
-    "control_digests": [],
-    "coverage": {
-     "compared": 1,
-     "unreachable": 0
-    },
-    "disclosed": [],
-    "frontiers": [
-     {
-      "checkpoint_digest": "3ae9ce41c64fffb4fc0dcf03ff3e1c8ac828bc41a2f49a81ad33071d313b8272",
-      "source_id": "src_a3169817872f0c32ae64142add64ef54"
-     }
-    ],
-    "interpretation": "qualified_state/1",
-    "issued_at": "2000-01-01T00:00:00Z",
-    "issuer": {
-     "authority": {
-      "layer": "team",
-      "team_id": "tem_a0ca70bfc40c60e38bf52aa9b082d2f1"
-     },
-     "principal_id": "prn_93509b943ad96ea33f01066c597981bf"
-    },
-    "kind": "state_proof",
-    "material_gaps": [],
-    "question_digest": "81f31f9e0a81ce34427e9a6823acc921e6bb7510265389be5a843636bda0ed1e",
-    "schema": 1,
-    "valid_until": "2000-01-01T00:00:00Z"
-   }
-  },
-  {
-   "digest": "acc2d3a9eb09d6b195231f8f6e7049fc3fb13b28f424e311176467c3454aa47a",
-   "name": "other_signature",
-   "record": {
-    "kind": "signature_envelope",
-    "namespace": "agent-bios/state_proof",
-    "schema": 1,
-    "signed_digest": "51c77e5104f9e89d34c3ce64ca10347bcc4ac3c510c0a79911227ebf972107a1",
-    "signer_binding_id": "bnd_6ee38fb73308eb0d06a7cfca062f35b7",
-    "sshsig": "U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-   }
-  },
-  {
-   "digest": "29a8aabdcb7ff8f618142908fde7d1862efe55f7db4d5674f35c7f53240819ec",
-   "name": "prove_another_question_result",
-   "record": {
-    "kind": "operation_result",
-    "local_effect": "none",
-    "outcome": {
-     "material_gaps": [],
-     "stage": "previewed"
-    },
-    "outputs": [
-     {
-      "digest": "51c77e5104f9e89d34c3ce64ca10347bcc4ac3c510c0a79911227ebf972107a1",
-      "kind": "state_proof"
-     },
-     {
-      "digest": "acc2d3a9eb09d6b195231f8f6e7049fc3fb13b28f424e311176467c3454aa47a",
-      "kind": "signature_envelope"
-     }
-    ],
-    "provider_effect": "not_applicable",
-    "request_digest": "b612257b8951d958664f4481a97829a594e1a48e897b23d373271bb0f121869b",
-    "request_id": "req_315f389404d4d15d3f6e9090e0207503",
-    "schema": 1,
-    "supported_recovery": []
-   }
-  },
-  {
-   "digest": "ded30f8b3410ccc31ba3e50d9e08ec56d12c84d1003b6f2dc2201cde8304b30f",
-   "name": "wrong_resolve_submit",
-   "record": {
-    "action": "read",
-    "actor": {
-     "device_id": "dev_ef70e0a923ddaff548cf14a48bb6bc37",
-     "principal_id": "prn_21980c2f1045b65acb6681e309945dd7",
-     "profile_id": "prf_9fbc1258aa406b382990933b875f7514"
-    },
-    "control_digests": [],
-    "effect_class": "pure_preview",
-    "kind": "operation_request",
-    "local_access_generation": 7,
-    "operation": "memory.state.resolve",
-    "owner": {
-     "layer": "personal",
-     "principal_id": "prn_21980c2f1045b65acb6681e309945dd7"
-    },
-    "payload_digest": "f40c6bcbf2ece013599ecccbf579a3dd328e883ca4ffdc6e05e4aa90fdb343e9",
-    "policy_digests": [],
-    "proof_digests": [
-     "51c77e5104f9e89d34c3ce64ca10347bcc4ac3c510c0a79911227ebf972107a1",
-     "acc2d3a9eb09d6b195231f8f6e7049fc3fb13b28f424e311176467c3454aa47a"
-    ],
-    "request_id": "req_ccb8b7b10afa419cb0d19354db2f539a",
-    "schema": 1,
-    "target": {
-     "resource_id": "cnc_f7ad58f263ac7d2d08745260856f35b3"
-    }
-   }
-  },
-  {
-   "digest": "90d1577a89cfe9ecfcfcb9cdeb58e4c9096ed917fa4abaeb0602e844bd477f20",
-   "name": "unresolved_state",
-   "record": {
-    "comparison": {
-     "compared": 1,
-     "unreachable": 0
-    },
-    "entries": [
-     {
-      "record_id": "rec_8242f88d9fa57f1b8adc88dd3f0a5aab",
-      "source_id": "src_a3169817872f0c32ae64142add64ef54",
-      "standing": "unresolved"
-     }
-    ],
-    "frontiers": [
-     {
-      "checkpoint_digest": "3ae9ce41c64fffb4fc0dcf03ff3e1c8ac828bc41a2f49a81ad33071d313b8272",
-      "source_id": "src_a3169817872f0c32ae64142add64ef54"
-     }
-    ],
-    "kind": "qualified_state",
-    "material_gaps": [
-     {
-      "code": "state_proof_out_of_scope"
-     }
-    ],
-    "prepared_at": "2000-01-01T00:00:00Z",
-    "question_digest": "f40c6bcbf2ece013599ecccbf579a3dd328e883ca4ffdc6e05e4aa90fdb343e9",
-    "schema": 1
-   }
-  },
-  {
-   "digest": "9143fdf7205aab5acf153303bbe89809ed9d84eb24637d8581a84aafab19a073",
-   "name": "resolve_with_a_proof_about_something_else_result",
-   "record": {
-    "kind": "operation_result",
-    "local_effect": "none",
-    "outcome": {
-     "material_gaps": [
-      {
-       "code": "state_proof_out_of_scope"
-      }
-     ],
-     "stage": "previewed"
-    },
-    "outputs": [
-     {
-      "digest": "90d1577a89cfe9ecfcfcb9cdeb58e4c9096ed917fa4abaeb0602e844bd477f20",
-      "kind": "qualified_state"
-     }
-    ],
-    "provider_effect": "not_applicable",
-    "request_digest": "ded30f8b3410ccc31ba3e50d9e08ec56d12c84d1003b6f2dc2201cde8304b30f",
-    "request_id": "req_ccb8b7b10afa419cb0d19354db2f539a",
     "schema": 1,
     "supported_recovery": []
    }
@@ -2943,8 +2611,8 @@
    }
   }
  ],
- "says": "A steward binds their device key, founds a Team (team.found), registers the Team's decision source and publishes one journal-mode choice into it (memory.record.publish), which the person working in a repository may not read. The person binds their own key and checkout and registers their repository's decisions source. For that person's question the steward issues a state proof (memory.state.prove) to the person's own scope, over the Team source at the head the publication committed: it discloses only that record's id and that it is current, with no reason, body or alternatives, and comes with the signature the steward's key binding made over it. The person resolves the question about that concern with the proof and its signature (memory.state.resolve) and gets a qualified state whose one entry is that record, current, at that frontier; from it they store a candidate for their own repository that relies on the record by id, states only what the proof disclosed, and lists its reason as unrecorded (memory.candidate.store). Two things must not disclose more: resolving the same question with a signed proof the steward issued for another question leaves the entry unresolved with state_proof_out_of_scope, and reading the Team source's bodies (reader.body.read) is answered denied with access_not_established - no source, unit, count, continuation or waiting use is named, which is not the same as an empty answer. No step infers a withheld reason, names another record, or claims the person received any Team event.",
- "spec_sha256": "4fe3fe752c0a17d52c372dc20e4e408f4f695d54006163ee0c1b3915b137cf01",
+ "says": "A steward binds their device key, founds a Team (team.found), registers the Team's decision source and publishes one journal-mode choice into it (memory.record.publish), which the person working in a repository may not read. The person binds their own key and checkout and registers their repository's decisions source. The steward grants that person read alone on the Team, naming the founder grant as its parent (team.grant.change): no use, contribute, publish or wider action. On that grant the person resolves their question about the concern (memory.state.resolve) and gets a qualified state whose one entry is that record, current, at the frontier the publication committed, with no reason, body or alternatives named; from it they store a candidate for their own repository that relies on the record by id, states only what the state disclosed, and lists its reason as unrecorded (memory.candidate.store). What must not disclose more: reading the Team source's bodies (reader.body.read) is still answered denied with access_not_established - a read grant over the concern is not access to the source's bodies - and no source, unit, count, continuation or waiting use is named, which is not the same as an empty answer. No step infers a withheld reason, names another record, or claims the person received any Team event.",
+ "spec_sha256": "a462e572c020650cc4234dbb7ea54886e1a9eb2b4464c7339713164169643150",
  "steps": [
   {
    "carries": [
@@ -3038,23 +2706,22 @@
   },
   {
    "carries": [
-    "question"
+    "me_grant_submitted"
    ],
-   "name": "prove_state_for_me",
-   "request": "prove_submit",
-   "result": "prove_state_for_me_result",
+   "name": "issue_me_grant",
+   "request": "issue_me_grant",
+   "result": "issue_me_grant_result",
    "returns": [
-    "proof",
-    "proof_signature"
+    "me_grant"
    ]
   },
   {
    "carries": [
     "question"
    ],
-   "name": "resolve_with_the_proof",
+   "name": "resolve_the_question",
    "request": "resolve_submit",
-   "result": "resolve_with_the_proof_result",
+   "result": "resolve_the_question_result",
    "returns": [
     "state"
    ]
@@ -3068,29 +2735,6 @@
    "result": "store_bounded_candidate_result",
    "returns": [
     "stored_candidate"
-   ]
-  },
-  {
-   "carries": [
-    "other_question"
-   ],
-   "name": "prove_another_question",
-   "request": "other_prove_submit",
-   "result": "prove_another_question_result",
-   "returns": [
-    "other_proof",
-    "other_signature"
-   ]
-  },
-  {
-   "carries": [
-    "question"
-   ],
-   "name": "resolve_with_a_proof_about_something_else",
-   "request": "wrong_resolve_submit",
-   "result": "resolve_with_a_proof_about_something_else_result",
-   "returns": [
-    "unresolved_state"
    ]
   },
   {

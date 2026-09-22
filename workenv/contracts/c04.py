@@ -106,7 +106,4 @@ ERRORS = {
 RUNTIME_RULES = {
     "relation_endpoints_are_nodes": "both ends of every knowledge_model relation name a node of "
                                     "that model",
-    "view_names_declared_companions": "a knowledge_view's `companions` name every companion the "
-                                      "source revisions in its `evidence` declare, and no other "
-                                      "source",
 }

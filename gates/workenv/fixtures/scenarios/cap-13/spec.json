@@ -50,7 +50,7 @@
    "prefix": "req"
   },
   {
-   "name": "prove_request",
+   "name": "me_grant_request",
    "prefix": "req"
   },
   {
@@ -59,14 +59,6 @@
   },
   {
    "name": "candidate_request",
-   "prefix": "req"
-  },
-  {
-   "name": "other_prove_request",
-   "prefix": "req"
-  },
-  {
-   "name": "wrong_resolve_request",
    "prefix": "req"
   },
   {
@@ -870,12 +862,56 @@
    ]
   },
   {
-   "name": "prove_submit",
-   "from": "c05/prove_request.json",
+   "name": "me_grant_submitted",
+   "from": "c08/grant_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/holder/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/actions",
+     "value": [
+      "read"
+     ]
+    },
+    {
+     "pointer": "/scope/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/delegation_ceiling",
+     "value": 0
+    },
+    {
+     "pointer": "/parent_grant_id",
+     "value": "$gra:team_founder_grant"
+    }
+   ]
+  },
+  {
+   "name": "issue_me_grant",
+   "from": "c08/governed_change_request.json",
    "set": [
     {
      "pointer": "/request_id",
-     "value": "@prove_request"
+     "value": "@me_grant_request"
+    },
+    {
+     "pointer": "/operation",
+     "value": "team.grant.change"
+    },
+    {
+     "pointer": "/action",
+     "value": "grant"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
     },
     {
      "pointer": "/actor/principal_id",
@@ -890,98 +926,60 @@
      "value": "@steward_profile"
     },
     {
-     "pointer": "/owner/team_id",
-     "value": "@team"
-    },
-    {
-     "pointer": "/target/resource_id",
-     "value": "@team_decisions"
-    },
-    {
-     "pointer": "/target/base/head_digest",
-     "value": "$digest:decisions_head"
-    },
-    {
-     "pointer": "/work_scope/principal_id",
-     "value": "@me"
-    },
-    {
      "pointer": "/policy_digests",
      "value": [
       "#team_policy"
      ]
     },
     {
-     "pointer": "/payload_digest",
-     "value": "#question"
-    }
-   ]
-  },
-  {
-   "name": "proof",
-   "from": "c05/proof_of_state_for_one_audience.json",
-   "set": [
-    {
-     "pointer": "/audience/principal_id",
-     "value": "@me"
-    },
-    {
-     "pointer": "/issuer/principal_id",
-     "value": "@steward"
-    },
-    {
-     "pointer": "/issuer/authority/team_id",
-     "value": "@team"
-    },
-    {
-     "pointer": "/question_digest",
-     "value": "#question"
-    },
-    {
-     "pointer": "/frontiers/0/source_id",
-     "value": "@team_decisions"
-    },
-    {
-     "pointer": "/frontiers/0/checkpoint_digest",
-     "value": "$digest:decisions_head"
-    },
-    {
-     "pointer": "/disclosed/0/record_id",
-     "value": "$rec:journal_choice"
-    },
-    {
-     "pointer": "/disclosed/0/source_id",
-     "value": "@team_decisions"
-    },
-    {
-     "pointer": "/coverage/compared",
-     "value": 1
-    },
-    {
      "pointer": "/control_digests",
      "value": []
     },
     {
-     "pointer": "/valid_until",
-     "value": "$instant:proof_valid_until"
+     "pointer": "/proof_digests",
+     "value": []
     },
     {
-     "pointer": "/issued_at",
-     "value": "$instant:proof_issued_at"
+     "pointer": "/owner/team_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@team"
+    },
+    {
+     "pointer": "/target/base/expects",
+     "value": "head"
+    },
+    {
+     "pointer": "/target/base/head_digest",
+     "value": "$digest:team_head"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#me_grant_submitted"
     }
    ]
   },
   {
-   "name": "proof_signature",
-   "from": "c05/proof_signed_by_its_issuer.json",
+   "name": "me_grant",
+   "from": "me_grant_submitted",
    "set": [
     {
-     "pointer": "/signed_digest",
-     "value": "#proof"
+     "pointer": "/grant_id",
+     "value": "$gra:me_grant_id"
     },
     {
-     "pointer": "/signer_binding_id",
-     "value": "$bnd:steward_key"
+     "pointer": "/issuer_principal_id",
+     "value": "@steward"
+    },
+    {
+     "pointer": "/grant_revision",
+     "value": 1
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:me_grant_at"
     }
    ]
   },
@@ -1027,10 +1025,7 @@
     },
     {
      "pointer": "/proof_digests",
-     "value": [
-      "#proof",
-      "#proof_signature"
-     ]
+     "value": []
     },
     {
      "pointer": "/payload_digest",
@@ -1120,7 +1115,7 @@
     },
     {
      "pointer": "/proposed/basis/0/as_stated",
-     "value": "Current in the Team decisions source, as the Team's state proof for me discloses."
+     "value": "Current in the Team decisions source, as the qualified state resolved for me discloses."
     },
     {
      "pointer": "/proposed/applicability/conditions/0/dimension",
@@ -1195,116 +1190,6 @@
     {
      "pointer": "/created_at",
      "value": "$instant:candidate_at"
-    }
-   ]
-  },
-  {
-   "name": "other_question",
-   "from": "question",
-   "set": [
-    {
-     "pointer": "/concern/question",
-     "value": "Which backup volume does the Team's shared workspace use?"
-    },
-    {
-     "pointer": "/concern/conditions/0/value",
-     "value": "the shared workspace"
-    }
-   ]
-  },
-  {
-   "name": "other_prove_submit",
-   "from": "prove_submit",
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@other_prove_request"
-    },
-    {
-     "pointer": "/payload_digest",
-     "value": "#other_question"
-    }
-   ]
-  },
-  {
-   "name": "other_proof",
-   "from": "proof",
-   "drop": [
-    "/disclosed/0"
-   ],
-   "set": [
-    {
-     "pointer": "/question_digest",
-     "value": "#other_question"
-    },
-    {
-     "pointer": "/valid_until",
-     "value": "$instant:other_valid_until"
-    },
-    {
-     "pointer": "/issued_at",
-     "value": "$instant:other_issued_at"
-    }
-   ]
-  },
-  {
-   "name": "other_signature",
-   "from": "proof_signature",
-   "set": [
-    {
-     "pointer": "/signed_digest",
-     "value": "#other_proof"
-    }
-   ]
-  },
-  {
-   "name": "wrong_resolve_submit",
-   "from": "resolve_submit",
-   "set": [
-    {
-     "pointer": "/request_id",
-     "value": "@wrong_resolve_request"
-    },
-    {
-     "pointer": "/proof_digests",
-     "value": [
-      "#other_proof",
-      "#other_signature"
-     ]
-    }
-   ]
-  },
-  {
-   "name": "unresolved_state",
-   "from": "c05/state_from_a_proof_about_other_subjects.json",
-   "set": [
-    {
-     "pointer": "/question_digest",
-     "value": "#question"
-    },
-    {
-     "pointer": "/entries/0/record_id",
-     "value": "$rec:journal_choice"
-    },
-    {
-     "pointer": "/entries/0/source_id",
-     "value": "@team_decisions"
-    },
-    {
-     "pointer": "/frontiers/0/source_id",
-     "value": "@team_decisions"
-    },
-    {
-     "pointer": "/frontiers/0/checkpoint_digest",
-     "value": "$digest:decisions_head"
-    },
-    {
-     "pointer": "/comparison/compared",
-     "value": 1
-    },
-    {
-     "pointer": "/prepared_at",
-     "value": "$instant:unresolved_at"
     }
    ]
   },
@@ -1505,25 +1390,24 @@
    }
   },
   {
-   "name": "prove_state_for_me",
-   "request": "prove_submit",
+   "name": "issue_me_grant",
+   "request": "issue_me_grant",
    "carries": [
-    "question"
+    "me_grant_submitted"
    ],
    "answer": {
-    "stage": "previewed",
-    "local_effect": "none",
+    "stage": "committed",
+    "local_effect": "committed",
     "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
-     "proof",
-     "proof_signature"
+     "me_grant"
     ]
    }
   },
   {
-   "name": "resolve_with_the_proof",
+   "name": "resolve_the_question",
    "request": "resolve_submit",
    "carries": [
     "question"
@@ -1557,45 +1441,6 @@
    }
   },
   {
-   "name": "prove_another_question",
-   "request": "other_prove_submit",
-   "carries": [
-    "other_question"
-   ],
-   "answer": {
-    "stage": "previewed",
-    "local_effect": "none",
-    "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
-    "returns": [
-     "other_proof",
-     "other_signature"
-    ]
-   }
-  },
-  {
-   "name": "resolve_with_a_proof_about_something_else",
-   "request": "wrong_resolve_submit",
-   "carries": [
-    "question"
-   ],
-   "answer": {
-    "stage": "previewed",
-    "local_effect": "none",
-    "provider_effect": "not_applicable",
-    "gaps": [
-     {
-      "code": "state_proof_out_of_scope"
-     }
-    ],
-    "recovery": [],
-    "returns": [
-     "unresolved_state"
-    ]
-   }
-  },
-  {
    "name": "read_the_restricted_bodies",
    "request": "read_submit",
    "carries": [
@@ -1617,5 +1462,5 @@
    }
   }
  ],
- "says": "A steward binds their device key, founds a Team (team.found), registers the Team's decision source and publishes one journal-mode choice into it (memory.record.publish), which the person working in a repository may not read. The person binds their own key and checkout and registers their repository's decisions source. For that person's question the steward issues a state proof (memory.state.prove) to the person's own scope, over the Team source at the head the publication committed: it discloses only that record's id and that it is current, with no reason, body or alternatives, and comes with the signature the steward's key binding made over it. The person resolves the question about that concern with the proof and its signature (memory.state.resolve) and gets a qualified state whose one entry is that record, current, at that frontier; from it they store a candidate for their own repository that relies on the record by id, states only what the proof disclosed, and lists its reason as unrecorded (memory.candidate.store). Two things must not disclose more: resolving the same question with a signed proof the steward issued for another question leaves the entry unresolved with state_proof_out_of_scope, and reading the Team source's bodies (reader.body.read) is answered denied with access_not_established - no source, unit, count, continuation or waiting use is named, which is not the same as an empty answer. No step infers a withheld reason, names another record, or claims the person received any Team event."
+ "says": "A steward binds their device key, founds a Team (team.found), registers the Team's decision source and publishes one journal-mode choice into it (memory.record.publish), which the person working in a repository may not read. The person binds their own key and checkout and registers their repository's decisions source. The steward grants that person read alone on the Team, naming the founder grant as its parent (team.grant.change): no use, contribute, publish or wider action. On that grant the person resolves their question about the concern (memory.state.resolve) and gets a qualified state whose one entry is that record, current, at the frontier the publication committed, with no reason, body or alternatives named; from it they store a candidate for their own repository that relies on the record by id, states only what the state disclosed, and lists its reason as unrecorded (memory.candidate.store). What must not disclose more: reading the Team source's bodies (reader.body.read) is still answered denied with access_not_established - a read grant over the concern is not access to the source's bodies - and no source, unit, count, continuation or waiting use is named, which is not the same as an empty answer. No step infers a withheld reason, names another record, or claims the person received any Team event."
 }

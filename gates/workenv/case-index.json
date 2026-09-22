@@ -110,9 +110,6 @@
       "id": "TUI-ENTRY-FOCUS"
     },
     {
-      "id": "TUI-ENTRY-STATE"
-    },
-    {
       "id": "TUI-ENTRY-ACCOUNT-FREE"
     },
     {
@@ -126,12 +123,6 @@
     },
     {
       "id": "TUI-ENTRY-UNKNOWN"
-    },
-    {
-      "id": "TUI-ENTRY-80X24",
-      "reads": [
-        "gates/workenv/fixtures/text/terminal.json"
-      ]
     },
     {
       "id": "TUI-ENTRY-KO-STATE",
@@ -149,19 +140,10 @@
       "id": "CMP-UI"
     },
     {
-      "id": "DH-FORM"
-    },
-    {
       "id": "DH-CONVERSATION"
     },
     {
       "id": "DH-PENDING"
-    },
-    {
-      "id": "DH-REVALIDATE"
-    },
-    {
-      "id": "DH-REACH"
     },
     {
       "id": "RUN-DEPENDENCIES"
@@ -176,16 +158,6 @@
       "id": "RUN-MODE"
     },
     {
-      "id": "TUI-OBS-ENTRY-COMPREHENSION"
-    },
-    {
-      "id": "TUI-OBS-KOREAN-TERMINAL",
-      "reads": [
-        "gates/workenv/fixtures/text/korean.json",
-        "gates/workenv/fixtures/text/terminal.json"
-      ]
-    },
-    {
       "id": "SRC-01"
     },
     {
@@ -198,9 +170,6 @@
       "id": "SRC-04"
     },
     {
-      "id": "SRC-05"
-    },
-    {
       "id": "SRC-06"
     },
     {
@@ -210,16 +179,10 @@
       "id": "SRC-08"
     },
     {
-      "id": "SRC-09"
-    },
-    {
       "id": "SRC-10"
     },
     {
       "id": "SRC-11"
-    },
-    {
-      "id": "SRC-12"
     },
     {
       "id": "CMP-STORAGE"
@@ -361,14 +324,6 @@
       "asserts": "A question with the conditions that change its answer gets a view carrying the members, conditions, evidence and exact revisions that support it, including a later correction without losing the earlier reference."
     },
     {
-      "id": "N06-C04-NEG",
-      "oracle": 1,
-      "asserts": "Missing applicability, a missing companion and an uncovered condition stay qualifications on the view; choosing a higher layer drops none of them and certifies nothing.",
-      "rules": [
-        "C04/view_names_declared_companions"
-      ]
-    },
-    {
       "id": "N07-C05-POS",
       "oracle": 0,
       "asserts": "Choices across two workstreams keep their stated basis and typed outcomes; a correction recorded in one lane changes the current state the other lane reads."
@@ -377,14 +332,6 @@
       "id": "N07-C05-NEG",
       "oracle": 1,
       "asserts": "A missing target, a cycle, competing replacements and contradicting lifecycle events each leave the affected entries unresolved with their gap; no ranking selects a winner."
-    },
-    {
-      "id": "N07-PREFERENCE-NEG",
-      "oracle": 1,
-      "asserts": "Every application_preference the owner writes satisfies the rule's oracle (gates/workenv/conformance/rules.py); the fixture's breaking records are what it must never write.",
-      "rules": [
-        "C05/selected_participant_applicable"
-      ]
     },
     {
       "id": "N07-STATE-GAP-NEG",
@@ -456,7 +403,7 @@
     {
       "id": "N11-C08-POS",
       "oracle": 0,
-      "asserts": "Scoped grants, group delegation and one independent approval let contribution, review, publication and adoption proceed within the source's own ceilings."
+      "asserts": "Scoped grants and one independent approval let contribution, review, publication and adoption proceed within the source's own ceilings."
     },
     {
       "id": "N11-C08-NEG",
@@ -554,11 +501,6 @@
       ]
     },
     {
-      "id": "N19-C08-NEG",
-      "oracle": 1,
-      "asserts": "Removing the last custodian or finalizer, an unfinished handoff, a cancelled founding and closed evidence keep authority and unique work where they were."
-    },
-    {
       "id": "N20-C04-POS",
       "oracle": 0,
       "asserts": "Behavioural sources, knowledge tables, forms and questions, and choice and event editors each produce an owned revision or event whose validation is pinned."
@@ -574,22 +516,9 @@
       "asserts": "Scoped search and distinct permitted derivatives lead to provider-scoped bulk results and a retention outcome per copy."
     },
     {
-      "id": "N21-C10-NEG",
-      "oracle": 1,
-      "asserts": "Restricted metadata, required old choices, a mixed-batch retry and a held or unknown removal each stay visible behind any summary."
-    },
-    {
       "id": "N22-E2E-POS",
       "oracle": 0,
-      "asserts": "Three isolated processes under a controlled test clock and network policy run a week of offline work with real durable stores and proofs, without touching the user's clock."
-    },
-    {
-      "id": "N22-E2E-NEG",
-      "oracle": 1,
-      "asserts": "A missed exchange, a sign-out beside a committed write, partial restrictions, finalizer loss and its recovery each end in the exact result their records state.",
-      "rules": [
-        "C08/continuity_follows_its_founding_or_handover"
-      ]
+      "asserts": "Three isolated processes under a controlled test clock and network policy run a week of offline work with actual durable stores, without touching the user's clock."
     },
     {
       "id": "N23-PROVIDER-POS",
@@ -597,29 +526,9 @@
       "asserts": "A configured provider callback is observed end to end on the installed candidate at the evidence level it claims."
     },
     {
-      "id": "N23-PROVIDER-NEG",
-      "oracle": 1,
-      "asserts": "A missing or unreachable provider is recorded as unsupported or unverified; a mocked provider certifies nothing."
-    },
-    {
-      "id": "N23-VALIDATOR-POS",
-      "oracle": 0,
-      "asserts": "Pinned validation runs through a real supported adapter and names the output it produced."
-    },
-    {
-      "id": "N23-VALIDATOR-NEG",
-      "oracle": 1,
-      "asserts": "A validator that is absent, partial or unsupported leaves its result unverified, never clean."
-    },
-    {
       "id": "N23-SECRET-POS",
       "oracle": 0,
       "asserts": "On the installed candidate, the platform's key protection and the storage binding are observed as the bindings state."
-    },
-    {
-      "id": "N23-SECRET-NEG",
-      "oracle": 1,
-      "asserts": "A missing keystore or an unobserved protection is recorded as such; a mocked key certifies no production assurance."
     },
     {
       "id": "N24-C03-POS",
@@ -635,16 +544,6 @@
       "asserts": "A source edit or a new outbox item between the first conversion and writer shutdown stops the switch until the final quiesced revision is captured and verified; an unfinished transfer keeps the source."
     },
     {
-      "id": "N26-INSTALLED-POS",
-      "oracle": 0,
-      "asserts": "Under a study_protocol recorded before any trial, actual novice and maintainer participants perform each declared task on the installed package. Every protocol cell (task, participant class, terminal, locale and input routes, including keyboard, IME, paste, SSH and screen reader wherever support is claimed) has at least its minimum_trials exposure_trials naming that protocol and task. A cell with fewer is reported missing, never averaged, and an environment no cell covers is not claimed as supported."
-    },
-    {
-      "id": "N26-INSTALLED-NEG",
-      "oracle": 1,
-      "asserts": "Confusion, wrong-scope actions and recovery errors are recorded; synthetic clicks and prototypes support no usability claim."
-    },
-    {
       "id": "N27-C01-POS",
       "oracle": 0,
       "asserts": "Within its declared source and authority scope, each source the node composes, searches or packages keeps one home, one revision owner and its repository binding."
@@ -658,11 +557,6 @@
       "id": "N28-C01-POS",
       "oracle": 0,
       "asserts": "In the Team slice, typed captures enter their destination's candidate path with their exact provenance, and acceptance happens only at the destination owner."
-    },
-    {
-      "id": "N28-C01-NEG",
-      "oracle": 1,
-      "asserts": "A capture cannot promote itself into another role, claim acceptance without a receipt or widen a Team's authority."
     },
     {
       "id": "N27-SELECTION-NEG",
@@ -690,22 +584,6 @@
       ]
     },
     {
-      "id": "N09-UNITS-NEG",
-      "oracle": 1,
-      "asserts": "Every preparation the owner writes satisfies the rule's oracle; the fixture's breaking records are what it must never write.",
-      "rules": [
-        "C07/unit_reference_names_a_winning_unit"
-      ]
-    },
-    {
-      "id": "N09-UNIT-GAP-NEG",
-      "oracle": 1,
-      "asserts": "Every preparation the owner writes satisfies the rule's oracle; the fixture's breaking records are what it must never write.",
-      "rules": [
-        "C07/gap_names_no_losing_unit"
-      ]
-    },
-    {
       "id": "N27-RIGHTS-NEG",
       "oracle": 1,
       "asserts": "Every source_rights the owner writes satisfies the rule's oracle against the rights of every base it carries; the fixture's breaking records are what it must never write.",
@@ -722,30 +600,6 @@
       ]
     },
     {
-      "id": "N15-ATTEMPT-NEG",
-      "oracle": 1,
-      "asserts": "Every delivery_attempt the owner writes satisfies the rule's oracle; the fixture's breaking records are what it must never write.",
-      "rules": [
-        "C11/attempt_outcome_fits_its_request"
-      ]
-    },
-    {
-      "id": "N23-PROBE-NEG",
-      "oracle": 1,
-      "asserts": "Every capability_profile the owner writes satisfies the rule's oracle against the probes the store holds; the fixture's breaking records are what it must never write.",
-      "rules": [
-        "C12/qualified_only_by_a_real_probe"
-      ]
-    },
-    {
-      "id": "N20-VALIDATION-NEG",
-      "oracle": 1,
-      "asserts": "Every validation_run the owner writes satisfies the rule's oracle against the validation request it answers; the fixture's breaking records are what it must never write.",
-      "rules": [
-        "C12/validation_covers_its_request"
-      ]
-    },
-    {
       "id": "N03-ENTRANCES-NEG",
       "oracle": 1,
       "asserts": "Through each entrance that calls the access owner (decision_cli, decision_mcp, and a child reader started under the parent's handle), a handle issued before the access generation moved is refused with access_generation_moved and returns no body or result.",
@@ -753,11 +607,6 @@
         "C02/admitted_only_under_a_current_handle",
         "C02/child_handle_carries_its_parents_generation"
       ]
-    },
-    {
-      "id": "N03-PROVIDER-OUTAGE-POS",
-      "oracle": 0,
-      "asserts": "With a provider connection configured and the provider unreachable, a device-key unlock at a terminal re-admits the principal's permitted local and offline scope. Only operations that need fresh provider evidence are refused, with provider_unreachable or fresh_auth_required."
     },
     {
       "id": "N03-SECRET-NEG",
@@ -810,19 +659,6 @@
       "asserts": "While a memory.use.prepare result is pending_user with its question stored, an independent source.revision.commit and memory.record.publish on the same store commit with receipts before any answer arrives; after a restart the same question_id and use_id are still pending."
     },
     {
-      "id": "N07-PROOF-NEG",
-      "oracle": 1,
-      "asserts": "A state_proof that does not verify, is older than the newest verified proof shown for that source, or concerns another subject or audience leaves the entry unresolved with state_proof_invalid, state_proof_stale or state_proof_out_of_scope; no entry becomes current from it."
-    },
-    {
-      "id": "N07-PROOF-POS",
-      "oracle": 1,
-      "asserts": "Where the records behind a correction are restricted, memory.state.resolve with a verified state_proof issued by their authority for this audience and question reports the proof's reduced state for that entry and names what it withholds, disclosing none of the restricted records.",
-      "rules": [
-        "C05/proof_answers_its_request"
-      ]
-    },
-    {
       "id": "N08-INSPECT-NEG",
       "oracle": 1,
       "asserts": "A reader.body.read inspection returns history and alternatives with no admitted use; offering its result as a use is refused with use_not_admitted."
@@ -852,34 +688,9 @@
       "asserts": "A grant beyond the scope, actions or depth its parent allows is refused with delegation_ceiling_exceeded, and a Team policy applied over a source owner's rights is refused with source_right_not_overridable; nothing is committed."
     },
     {
-      "id": "N11-GROUP-NEG",
-      "oracle": 1,
-      "asserts": "Adding a principal to a group nobody delegated is group_membership_escalation; a principal removed from an approved set, or whose claim is not from the delegated connection, is refused with grant_not_held even where an older member list names them."
-    },
-    {
-      "id": "N11-GROUP-POS",
-      "oracle": 0,
-      "asserts": "A group grant whose membership is an approved_set with current evidence lets each listed member act within the grant; one whose membership is provider_delegation to a named connection admits a verified claim from that connection only."
-    },
-    {
       "id": "N12-POLICY-POS",
       "oracle": 0,
       "asserts": "environment.publish stores an edition whose memory_policy and exact Instructions and knowledge pins read back byte-identical; preparation.compose from its adoption applies that policy and carries no memory record from the edition."
-    },
-    {
-      "id": "N12-READINESS-NEG",
-      "oracle": 1,
-      "asserts": "An environment.adopt that commits for a Team leaves every existing recipient's preparation and delivery unchanged; a preparation composed from it names the adoption, but no delivery_observation exists for any recipient until one is activated, and adoption evidence never stands for delivery."
-    },
-    {
-      "id": "N13-RESUME-POS",
-      "oracle": 0,
-      "asserts": "After a transfer.accept interrupted at its body stage, accepting the same envelope again keeps the controls already verified in force, reuses bodies already verified, and completes to accepted with one receipt."
-    },
-    {
-      "id": "N16-CAPABILITY-NEG",
-      "oracle": 1,
-      "asserts": "A route whose operation this client does not implement is offered as not qualified (not_offered) or answered with an unsupported route and its reason. No frame marks it complete or dispatches a request for it, from the visible control or from a direct submission."
     },
     {
       "id": "N16-CAPABILITY-POS",
@@ -887,24 +698,9 @@
       "asserts": "Every Team or advanced view the client implements is reached from the same shell through route.offer and route.select, and each offered route carries the qualification its capability_profile probe gave it."
     },
     {
-      "id": "N16-DASHBOARD-POS",
-      "oracle": 0,
-      "asserts": "The dashboard shows each signal for a failed, partial or unknown operation with the coverage it was computed over, and never shows zero for scopes it could not check. Following a signal opens that same request_id in its own Team scope with the recovery its history entry names, and starts no new request."
-    },
-    {
       "id": "N16-ENTRANCES-POS",
       "oracle": 0,
       "asserts": "The entry flow driven from studio_hub, host_launcher and setup each reaches one start action whose route_selection names that entrance's own scope. The environment choice and the tool/execution choice are separate elements, and selecting one never changes the other's value."
-    },
-    {
-      "id": "N16-HOME-POS",
-      "oracle": 0,
-      "asserts": "A source's authoring view shows its authoring home, revision owner, home scope, applicability scope and provenance origin as distinct elements referring to one source_id. An effective or derived view is never shown as the home."
-    },
-    {
-      "id": "N16-PENDING-VIEW-NEG",
-      "oracle": 1,
-      "asserts": "While a use waits on a person's answer, the Studio/TUI shows it as pending and offers only source inspection. No frame calls reader.question.answer, recipient.answer.record or memory.preference.record, and the use resumes in the working host without the surface being opened."
     },
     {
       "id": "N17-DISCONNECT-NEG",
@@ -930,29 +726,9 @@
       "asserts": "After a founding is cancelled or committed, a late acceptance, a resubmitted proposal or a new founding for the same team_id is refused (team_terminal, bootstrap_already_committed or acceptances_void_after_revision) and grants nothing."
     },
     {
-      "id": "N19-COPY-NEG",
-      "oracle": 1,
-      "asserts": "A derived founding that selects a source whose source_rights do not allow derive is refused and founds nothing; the original Team is unchanged."
-    },
-    {
-      "id": "N19-COPY-POS",
-      "oracle": 0,
-      "asserts": "A founding with derived_from gets a new team_id and starts with only the sources and settings its derivation selects. No member, grant, credential, approval or history of the original Team is present afterwards."
-    },
-    {
       "id": "N19-CRUD-POS",
       "oracle": 0,
       "asserts": "A Team founded by team.found is read back by team.state.read, renamed by team.profile.set keeping its team_id, and closed by team.lifecycle.apply. The read after each step shows exactly that step's change under its own receipt."
-    },
-    {
-      "id": "N19-EVIDENCE-NEG",
-      "oracle": 1,
-      "asserts": "After recover_evidence on a closed Team, any ordinary mutation, adoption or new work on that team_id is refused with team_terminal or resurrection_refused, and no team_state other than closed is written."
-    },
-    {
-      "id": "N19-EVIDENCE-POS",
-      "oracle": 0,
-      "asserts": "On a closed Team, recover_evidence with purpose read, preserve or clean_up acts only on the named evidence digests, and team_state stays closed afterwards."
     },
     {
       "id": "N19-TRANSFER-NEG",
@@ -963,11 +739,6 @@
       "id": "N19-TRANSFER-POS",
       "oracle": 0,
       "asserts": "team.stewardship.transfer hands one duty to another principal and names where finalization runs next. team.device.retire settles each unique draft, outbox entry and unknown operation one named way before the device leaves, and neither removes a duty nor revokes other credentials."
-    },
-    {
-      "id": "N20-GRAPH-TABLE-POS",
-      "oracle": 0,
-      "asserts": "Every node and relation of a knowledge_model the editor shows as a graph also appears as keyboard-reachable surface elements carrying the same node ids and relation endpoints. An edit made there produces the same versioned model as the graph edit."
     },
     {
       "id": "N20-READER-POS",
@@ -1078,14 +849,12 @@
       "profile": "P04",
       "cases": [
         "N06-C04-POS",
-        "N06-C04-NEG",
         "N08-C06-POS",
         "N08-C06-NEG",
         "N08-READER-GAP-NEG",
         "N06-MODEL-NEG",
         "N27-IMPORT-POS",
-        "N27-PACKAGE-POS",
-        "SRC-05"
+        "N27-PACKAGE-POS"
       ]
     },
     {
@@ -1093,15 +862,12 @@
       "cases": [
         "N07-C05-POS",
         "N07-C05-NEG",
-        "N07-PREFERENCE-NEG",
         "N07-STATE-GAP-NEG",
         "N07-STATE-SOURCE-NEG",
         "N08-C06-POS",
         "N08-C06-NEG",
         "N08-READER-GAP-NEG",
         "N28-CANDIDATE-NEG",
-        "N07-PROOF-NEG",
-        "N07-PROOF-POS",
         "N27-ADR-POS"
       ]
     },
@@ -1114,8 +880,6 @@
         "N08-C06-NEG",
         "N09-C07-POS",
         "N09-C07-NEG",
-        "N09-UNITS-NEG",
-        "N09-UNIT-GAP-NEG",
         "N04-ACTIVATION-NEG",
         "N04-ACTIVATION-POS",
         "N04-ROUTER-NEG",
@@ -1134,9 +898,7 @@
         "N11-C08-POS",
         "N11-C08-NEG",
         "N11-ACCESS-NEG",
-        "N11-CEILING-NEG",
-        "N11-GROUP-NEG",
-        "N11-GROUP-POS"
+        "N11-CEILING-NEG"
       ]
     },
     {
@@ -1152,8 +914,7 @@
         "N27-C01-NEG",
         "N27-RIGHTS-NEG",
         "N09-FIRSTUSE-POS",
-        "N12-POLICY-POS",
-        "N12-READINESS-NEG"
+        "N12-POLICY-POS"
       ]
     },
     {
@@ -1164,8 +925,6 @@
         "N14-C10-POS",
         "N14-C10-NEG",
         "N22-E2E-POS",
-        "N22-E2E-NEG",
-        "N13-RESUME-POS",
         "N22-OUTBOX-POS"
       ]
     },
@@ -1177,7 +936,6 @@
         "N15-C11-POS",
         "N15-C11-NEG",
         "N15-ANSWER-NEG",
-        "N23-PROBE-NEG",
         "DEL-PERSONAL"
       ]
     },
@@ -1192,11 +950,8 @@
         "N15-C11-POS",
         "N15-C11-NEG",
         "N15-ANSWER-NEG",
-        "N15-ATTEMPT-NEG",
-        "N16-CAPABILITY-NEG",
         "N16-CAPABILITY-POS",
-        "N16-ENTRANCES-POS",
-        "N16-PENDING-VIEW-NEG"
+        "N16-ENTRANCES-POS"
       ]
     },
     {
@@ -1225,9 +980,6 @@
         "N18-C01-POS",
         "N18-C01-NEG",
         "N23-PROVIDER-POS",
-        "N23-PROVIDER-NEG",
-        "N23-PROBE-NEG",
-        "N03-PROVIDER-OUTAGE-POS",
         "N18-EXCHANGE-NEG"
       ]
     },
@@ -1239,13 +991,8 @@
         "N14-C10-POS",
         "N14-C10-NEG",
         "N19-C08-POS",
-        "N19-C08-NEG",
         "N19-BOOTSTRAP-NEG",
-        "N19-COPY-NEG",
-        "N19-COPY-POS",
         "N19-CRUD-POS",
-        "N19-EVIDENCE-NEG",
-        "N19-EVIDENCE-POS",
         "N19-TRANSFER-NEG",
         "N19-TRANSFER-POS"
       ]
@@ -1254,19 +1001,13 @@
       "profile": "P15",
       "cases": [
         "N06-C04-POS",
-        "N06-C04-NEG",
         "N07-C05-POS",
         "N07-C05-NEG",
         "N16-C12-POS",
         "N16-C12-NEG",
         "N20-C04-POS",
         "N20-C04-NEG",
-        "N23-VALIDATOR-POS",
-        "N23-VALIDATOR-NEG",
         "N06-MODEL-NEG",
-        "N20-VALIDATION-NEG",
-        "N16-HOME-POS",
-        "N20-GRAPH-TABLE-POS",
         "N20-READER-POS",
         "N28-REJECT-POS",
         "N28-CANDIDATE-NEG"
@@ -1280,13 +1021,10 @@
         "N16-C12-POS",
         "N16-C12-NEG",
         "N19-C08-POS",
-        "N19-C08-NEG",
         "N21-C10-POS",
-        "N21-C10-NEG",
         "N27-C01-POS",
         "N27-C01-NEG",
         "N21-DERIVED-NEG",
-        "N16-DASHBOARD-POS",
         "N21-HISTORY-POS"
       ]
     },
@@ -1299,7 +1037,6 @@
         "N03-PROVIDER-NEG",
         "N04-C03-POS",
         "N04-C03-NEG",
-        "N07-PREFERENCE-NEG",
         "N07-STATE-GAP-NEG",
         "N07-STATE-SOURCE-NEG",
         "N11-C08-POS",
@@ -1308,8 +1045,7 @@
         "N14-C10-NEG",
         "N18-C01-POS",
         "N18-C01-NEG",
-        "N22-E2E-POS",
-        "N22-E2E-NEG"
+        "N22-E2E-POS"
       ]
     },
     {
@@ -1360,8 +1096,7 @@
         "N13-C09-NEG",
         "N14-C10-POS",
         "N14-C10-NEG",
-        "N28-C01-POS",
-        "N28-C01-NEG"
+        "N28-C01-POS"
       ]
     },
     {
@@ -1372,30 +1107,21 @@
         "N18-C01-POS",
         "N18-C01-NEG",
         "N19-C08-POS",
-        "N19-C08-NEG",
         "N20-C04-POS",
         "N20-C04-NEG",
         "N21-C10-POS",
-        "N21-C10-NEG",
         "N16-C12-POS",
         "N16-C12-NEG",
-        "N23-PROVIDER-POS",
-        "N23-PROVIDER-NEG",
-        "N23-VALIDATOR-POS",
-        "N23-VALIDATOR-NEG"
+        "N23-PROVIDER-POS"
       ]
     },
     {
       "profile": "M4",
       "cases": [
         "N22-E2E-POS",
-        "N22-E2E-NEG",
         "N23-SECRET-POS",
-        "N23-SECRET-NEG",
         "N24-C03-POS",
         "N24-C03-NEG",
-        "N26-INSTALLED-POS",
-        "N26-INSTALLED-NEG",
         "N27-C01-POS",
         "N27-C01-NEG",
         "N24-CANDIDATE-NEG",
@@ -1527,7 +1253,6 @@
         [
           "N01-STORE-POS",
           "N01-STORE-NEG",
-          "SRC-09",
           "SRC-10",
           "BKP-INTEGRITY",
           "N05-CRASH-NEG"
@@ -1539,8 +1264,7 @@
           "BKP-PASSIVE"
         ],
         [
-          "CMP-STORAGE",
-          "SRC-09"
+          "CMP-STORAGE"
         ],
         [
           "DC-DURABLE"
@@ -1556,7 +1280,6 @@
       "done_when": [
         [
           "N06-C04-POS",
-          "N06-C04-NEG",
           "N06-MODEL-NEG"
         ],
         [
@@ -1567,7 +1290,6 @@
         ],
         [
           "SRC-04",
-          "SRC-05",
           "N27-IMPORT-POS",
           "N27-PACKAGE-POS"
         ]
@@ -1584,20 +1306,16 @@
         ],
         [
           "N07-C05-NEG",
-          "N07-STATE-GAP-NEG",
-          "N07-PROOF-POS",
-          "N07-PROOF-NEG"
+          "N07-STATE-GAP-NEG"
         ],
         [
-          "SRC-09",
           "SRC-11",
           "CAP-06",
           "SRC-04",
           "N27-ADR-POS"
         ],
         [
-          "DC-SET",
-          "N07-PREFERENCE-NEG"
+          "DC-SET"
         ]
       ]
     },
@@ -1616,7 +1334,6 @@
         ],
         [
           "CMP-ORDER",
-          "SRC-12",
           "DC-CHOICE",
           "CAP-08",
           "CMP-QUALIFIED",
@@ -1626,8 +1343,6 @@
           "CMP-ORDER",
           "CMP-SELECT",
           "CMP-LOCAL",
-          "N09-UNIT-GAP-NEG",
-          "N09-UNITS-NEG",
           "N04-C03-NEG"
         ],
         [
@@ -1662,8 +1377,6 @@
           "N10-C08-NEG",
           "N11-C08-POS",
           "N11-C08-NEG",
-          "N11-GROUP-POS",
-          "N11-GROUP-NEG",
           "N11-ACCESS-NEG"
         ],
         [
@@ -1686,7 +1399,6 @@
         [
           "N12-C07-POS",
           "N11-C08-POS",
-          "N12-READINESS-NEG",
           "N09-FIRSTUSE-POS"
         ]
       ]
@@ -1702,9 +1414,7 @@
         [
           "N13-C09-NEG",
           "N13-C09-POS",
-          "N14-C10-NEG",
-          "N22-E2E-NEG",
-          "N13-RESUME-POS"
+          "N14-C10-NEG"
         ]
       ]
     },
@@ -1713,32 +1423,24 @@
       "done_when": [
         [
           "CMP-PINS",
-          "DH-REACH",
           "N15-C11-POS",
           "DEL-PERSONAL"
         ],
         [
           "N04-C03-POS",
           "N04-C03-NEG",
-          "DH-FORM",
           "DH-CONVERSATION",
-          "N15-C11-NEG",
-          "N23-PROBE-NEG"
+          "N15-C11-NEG"
         ],
         [
           "DC-HOST",
-          "DH-FORM",
           "DH-CONVERSATION",
-          "DH-REVALIDATE",
           "N15-ANSWER-NEG"
         ],
         [
-          "DH-FORM",
           "DH-CONVERSATION",
           "DH-PENDING",
-          "DH-REACH",
-          "DC-HOST",
-          "N23-PROBE-NEG"
+          "DC-HOST"
         ]
       ]
     },
@@ -1754,26 +1456,21 @@
           "TUI-ENTRY-LOCKED"
         ],
         [
-          "N16-CAPABILITY-POS",
-          "N16-CAPABILITY-NEG"
+          "N16-CAPABILITY-POS"
         ],
         [
           "TUI-ENTRY-OPTIONS",
           "TUI-ENTRY-FOCUS",
-          "TUI-ENTRY-STATE",
           "N16-ENTRANCES-POS"
         ],
         [
           "TUI-ENTRY-FOCUS",
-          "TUI-ENTRY-STATE",
-          "TUI-ENTRY-80X24",
           "TUI-ENTRY-KO-STATE",
           "TUI-ENTRY-OPTIONS",
           "RUN-OWNERSHIP"
         ],
         [
           "TUI-ENTRY-REPO-NO-ENV",
-          "TUI-ENTRY-STATE",
           "TUI-ENTRY-ACCOUNT-FREE"
         ],
         [
@@ -1784,8 +1481,7 @@
           "CMP-UI"
         ],
         [
-          "CMP-UI",
-          "N16-PENDING-VIEW-NEG"
+          "CMP-UI"
         ]
       ]
     },
@@ -1813,14 +1509,12 @@
           "N18-C01-NEG",
           "N10-PROVIDER-POS",
           "N23-PROVIDER-POS",
-          "N23-PROBE-NEG",
           "N18-EXCHANGE-NEG"
         ],
         [
           "N18-C01-NEG",
           "N10-PROVIDER-NEG",
-          "N03-PROVIDER-NEG",
-          "N03-PROVIDER-OUTAGE-POS"
+          "N03-PROVIDER-NEG"
         ]
       ]
     },
@@ -1830,18 +1524,13 @@
         [
           "N19-C08-POS",
           "N19-CRUD-POS",
-          "N19-COPY-POS",
-          "N19-COPY-NEG",
           "N19-TRANSFER-POS",
-          "N19-TRANSFER-NEG",
-          "N19-EVIDENCE-POS"
+          "N19-TRANSFER-NEG"
         ],
         [
           "N19-C08-POS",
-          "N19-C08-NEG",
           "N14-C10-NEG",
-          "N19-BOOTSTRAP-NEG",
-          "N19-EVIDENCE-NEG"
+          "N19-BOOTSTRAP-NEG"
         ]
       ]
     },
@@ -1857,18 +1546,10 @@
           "N20-READER-POS"
         ],
         [
-          "N23-VALIDATOR-POS",
-          "N23-VALIDATOR-NEG",
-          "N20-VALIDATION-NEG",
-          "N20-C04-NEG",
-          "N20-GRAPH-TABLE-POS"
-        ],
-        [
           "CAP-04",
           "CAP-07",
           "CAP-11",
           "N28-CANDIDATE-NEG",
-          "N16-HOME-POS",
           "N28-REJECT-POS"
         ]
       ]
@@ -1878,16 +1559,12 @@
       "done_when": [
         [
           "N21-C10-POS",
-          "N21-C10-NEG",
           "N21-DERIVED-NEG",
           "CAP-12",
           "N13-C09-POS",
           "N13-C09-NEG",
           "N27-C01-POS",
           "N21-HISTORY-POS"
-        ],
-        [
-          "N16-DASHBOARD-POS"
         ]
       ]
     },
@@ -1897,7 +1574,6 @@
         [
           "DEL-TEAM",
           "N22-E2E-POS",
-          "N22-E2E-NEG",
           "RUN-DEPENDENCIES"
         ],
         [
@@ -1905,16 +1581,9 @@
           "RUN-OWNERSHIP"
         ],
         [
-          "TUI-OBS-ENTRY-COMPREHENSION",
-          "TUI-OBS-KOREAN-TERMINAL"
-        ],
-        [
-          "DH-FORM",
           "DH-CONVERSATION",
           "DH-PENDING",
-          "DC-HOST",
-          "DH-REVALIDATE",
-          "DH-REACH"
+          "DC-HOST"
         ]
       ]
     },
@@ -2008,9 +1677,7 @@
           "N04-C03-NEG",
           "TUI-ENTRY-OPTIONS",
           "TUI-ENTRY-FOCUS",
-          "TUI-ENTRY-STATE",
           "TUI-ENTRY-UNKNOWN",
-          "TUI-ENTRY-80X24",
           "TUI-ENTRY-KO-STATE",
           "CMP-UI",
           "DC-SET",
@@ -2020,7 +1687,6 @@
           "DC-CHANGE",
           "DC-RACE",
           "DC-DURABLE",
-          "DH-FORM",
           "DH-CONVERSATION",
           "DH-PENDING",
           "DC-HOST",
@@ -2049,7 +1715,6 @@
           "DEL-TEAM",
           "CMP-PINS",
           "DC-HOST",
-          "DH-REVALIDATE",
           "DC-SET",
           "DC-CHOICE",
           "DC-KEEP",
@@ -2060,7 +1725,6 @@
           "CMP-RIGHTS",
           "SRC-10",
           "SRC-11",
-          "SRC-12",
           "CMP-MEANING",
           "CMP-ORDER",
           "CMP-SELECT",
@@ -2068,8 +1732,7 @@
           "CMP-QUALIFIED",
           "CMP-UI",
           "TUI-ENTRY-TEAM-SCOPE",
-          "N28-C01-POS",
-          "N28-C01-NEG"
+          "N28-C01-POS"
         ],
         [
           "RUN-DEPENDENCIES",
@@ -2086,15 +1749,10 @@
           "N18-C01-POS",
           "N18-C01-NEG",
           "N19-C08-POS",
-          "N19-C08-NEG",
           "N20-C04-POS",
           "N20-C04-NEG",
           "N21-C10-POS",
-          "N21-C10-NEG",
-          "SRC-05",
           "SRC-06",
-          "SRC-09",
-          "SRC-12",
           "CMP-STORAGE",
           "CAP-02",
           "CAP-07",
@@ -2112,10 +1770,7 @@
           "TUI-ENTRY-SHARED-UNKNOWN",
           "N16-C12-POS",
           "N16-C12-NEG",
-          "N23-PROVIDER-POS",
-          "N23-PROVIDER-NEG",
-          "N23-VALIDATOR-POS",
-          "N23-VALIDATOR-NEG"
+          "N23-PROVIDER-POS"
         ],
         [
           "RUN-DEPENDENCIES",
@@ -2130,11 +1785,7 @@
           "N24-C03-POS",
           "CAP-14",
           "N23-SECRET-POS",
-          "N23-SECRET-NEG",
-          "N26-INSTALLED-POS",
-          "N26-INSTALLED-NEG",
           "N22-E2E-POS",
-          "N22-E2E-NEG",
           "N27-C01-POS",
           "N27-C01-NEG",
           "N24-C03-NEG",

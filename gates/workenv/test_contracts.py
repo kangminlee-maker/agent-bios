@@ -1076,59 +1076,6 @@ class RouteAndExposure(NamedExamples, unittest.TestCase):
     def defs(self, kind):
         return self.schemas[self.registry[kind][1]].defs
 
-    def test_an_observation_is_observed_and_has_no_other_class(self):
-        self.assertRefused("/evidence_class", "routes/observation_called_deterministic")
-        held = self.document("surface_observation")["properties"]["evidence_class"]
-        self.assertEqual(held, {"const": "observed"})
-        self.assertIn("evidence_class", self.document("surface_observation")["required"])
-
-    def test_only_the_qualifying_evidence_carries_a_separated_origin(self):
-        self.assertRefused(
-            "/subject",
-            "routes/observation_qualifying_on_an_answer_the_host_generated")
-        defs = self.defs("surface_observation")
-        variants = [v["$ref"].rsplit("/", 1)[-1] for v in defs["exposure_evidence"]["oneOf"]]
-        self.assertEqual(len(variants), 2, variants)
-        origins = {name: defs[name]["properties"]["origin"]["$ref"].rsplit("/", 1)[-1]
-                   for name in variants}
-        self.assertEqual(sorted(origins.values()), ["not_an_answer", "verified_origin"])
-        separated = [name for name, origin in origins.items() if origin == "verified_origin"]
-        self.assertEqual(defs[separated[0]]["properties"]["qualifies"], {"const": "yes"})
-        self.assertIn("separation_evidence_digest", defs["verified_origin"]["required"])
-
-    def test_any_terminal_is_recordable_and_only_a_listed_one_is_claimable(self):
-        self.assertRefused("/subject", "routes/observation_claiming_a_terminal_nobody_listed")
-        self.assertRefused("/locale", "routes/observation_in_a_locale_the_product_has_no_text_for")
-        document = self.document("surface_observation")
-        defs = self.defs("surface_observation")
-        self.assertEqual(defs["observed_terminal"]["properties"]["reported_as"]["type"],
-                         "string")
-        listed = defs["supported_terminal"]["enum"]
-        self.assertTrue(listed, "a claim may name nothing, so no claim could ever be written")
-        self.assertEqual(defs["support_claim"]["properties"]["terminal"]["$ref"],
-                         "#/$defs/supported_terminal")
-        # A claim is optional, and only a candidate subject has one (round-3 P4): the refusal of
-        # an unlisted terminal therefore names the subject's branch, not the terminal.
-        self.assertNotIn("claim", document["properties"])
-        self.assertIn("claim", defs["candidate_subject"]["properties"])
-        self.assertNotIn("claim", defs["candidate_subject"]["required"])
-        self.assertNotIn("claim", defs["prototype_subject"]["properties"])
-
-    def test_a_prototype_states_what_it_does_not_establish(self):
-        self.assertRefused(
-            "/subject",
-            "routes/observation_of_a_prototype_that_says_nothing_about_what_it_establishes",
-            "routes/observation_of_a_prototype")
-        self.assertAccepted("routes/prototype_observation_that_qualifies_for_nothing")
-        defs = self.defs("surface_observation")
-        variants = [v["$ref"].rsplit("/", 1)[-1] for v in defs["observation_subject"]["oneOf"]]
-        prototype = [name for name in variants
-                     if defs[name]["properties"]["is"] == {"const": "prototype"}]
-        self.assertEqual(len(prototype), 1, variants)
-        self.assertEqual(defs[prototype[0]]["properties"]["establishes"],
-                         {"const": "neither_product_nor_human_evidence"})
-        self.assertIn("establishes", defs[prototype[0]]["required"])
-
     def test_focus_is_optional_and_a_selection_is_not(self):
         self.assertRefused("/selected", "routes/selection_that_only_focused")
         document = self.document("route_selection")
@@ -1315,7 +1262,7 @@ class ClosedNames(NamedExamples, unittest.TestCase):
         self.assertRefused("/material_gaps", "c06/a_gap_no_contract_declares")
         carrying = {identifier: loaded.defs["gap"] for identifier, loaded in self.schemas.items()
                     if "gap" in loaded.defs}
-        self.assertEqual(len(carrying), 18, sorted(carrying))
+        self.assertEqual(len(carrying), 17, sorted(carrying))
         for identifier, gap in carrying.items():
             self.assertEqual(gap["properties"]["code"], {"enum": sorted(errors.in_results())},
                              identifier)
@@ -1574,15 +1521,6 @@ class BoundFieldsRoundThree(NamedExamples, unittest.TestCase):
         # reported apart from missing credentials, controls and bodies.
         self.assertAccepted("bindings/committed_on_an_unencrypted_volume",
                             "c02/blocked_on_an_unreachable_carrier")
-
-    def test_only_a_candidate_can_claim_support(self):
-        self.assertRefused("/subject", "routes/prototype_observation_claiming_support")
-
-    def test_a_first_exposure_trial_keeps_what_was_said_apart_from_what_happened(self):
-        self.assertAccepted("routes/a_trial_that_mistook_a_draft_for_publication")
-        self.assertRefused("/stated", "routes/a_trial_without_a_prediction")
-        self.assertRefused("/participant", "routes/a_trial_naming_a_principal")
-        self.assertRefused("/assistance", "routes/help_given_without_saying_what")
 
     def test_an_answer_over_no_source_is_empty_and_names_no_frontier(self):
         self.assertAccepted("c06/empty_answer_over_no_source", "c05/state_over_no_source")

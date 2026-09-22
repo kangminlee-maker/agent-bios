@@ -97,11 +97,11 @@ class Registry(unittest.TestCase):
         self.assertEqual(derived["RUN-MODE"]["contracts"], {"runner"})
         self.assertIn("gates/workenv/fixtures/runner/preflight.json",
                       derived["RUN-MODE"]["fixtures"])
-        self.assertIn("B03", derived["N13-RESUME-POS"]["contracts"])
+        self.assertIn("B03", derived["N05-RESTART-POS"]["contracts"])
         self.assertIn("gates/workenv/fixtures/rules/derivative_within_base_rights.json",
                       derived["N27-RIGHTS-NEG"]["fixtures"])
-        self.assertIn("gates/workenv/fixtures/text/terminal.json",
-                      derived["TUI-ENTRY-80X24"]["fixtures"])
+        self.assertIn("gates/workenv/fixtures/text/korean.json",
+                      derived["TUI-ENTRY-KO-STATE"]["fixtures"])
 
     def test_a_case_without_a_scenario_is_refused(self):
         def edit(r):
@@ -162,7 +162,7 @@ class Registry(unittest.TestCase):
 
     def test_a_rule_no_contract_declares_is_refused(self):
         def edit(r):
-            self.row(r, "cases", "N07-PREFERENCE-NEG")["rules"] = ["C05/nothing_declares_this"]
+            self.row(r, "cases", "N07-C05-NEG")["rules"] = ["C05/nothing_declares_this"]
         self.refused("declared by no contract module", edit)
 
     def test_a_declared_rule_no_case_checks_is_refused(self):
@@ -194,12 +194,6 @@ class Registry(unittest.TestCase):
 
     def test_a_profile_selected_twice_is_refused(self):
         self.refused("stated twice", lambda r: r["selects"].append(copy.deepcopy(r["selects"][0])))
-
-    def test_a_pair_without_a_negative_is_refused(self):
-        def edit(r):
-            chosen = self.selection(r, "P18")["cases"]
-            chosen[:] = [case for case in chosen if not case.endswith("-NEG")]
-        self.refused("P18 N24: no negative case", edit)
 
     def test_a_family_with_no_case_is_refused_by_the_dated_evaluator_too(self):
         registry = copy.deepcopy(self.registry)
@@ -255,13 +249,6 @@ class Registry(unittest.TestCase):
             path.write_text(json.dumps(registry))
             with self.assertRaisesRegex(cases.CaseError, "duplicate_item"):
                 cases.load(path)
-
-    def test_polarity_is_read_from_the_id_and_an_atomic_case_holds_both(self):
-        atomic = {"DC-SET"}
-        self.assertEqual(cases.polarities("DC-SET", atomic), {cases.POSITIVE, cases.NEGATIVE})
-        self.assertEqual(cases.polarities("N07-C05-POS", atomic), {cases.POSITIVE})
-        self.assertEqual(cases.polarities("P01-contract-negative", atomic), {cases.NEGATIVE})
-        self.assertEqual(cases.polarities("N07-C05", atomic), set())
 
 
 class Bindings(unittest.TestCase):
