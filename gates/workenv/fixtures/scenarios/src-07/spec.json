@@ -1,6 +1,6 @@
 {
   "case": "SRC-07",
-  "says": "Ana founds a Team on her desktop, which runs its finalizer, and registers and commits two Team knowledge sources there: a rate guide disclosed as published (jurisdiction KR, tax year 2026 and later) and a glossary disclosed to the Team. Her laptop is enrolled, and the desktop stages for Ana under the Team scope the guide's revision, its member bytes and its home, and the glossary's home only; the laptop accepts it. Then the laptop cannot reach the desktop. Offline, the laptop resolves the exact cached revision (reference.resolve) to the same manifest and its home. A read of the guide and the glossary (reader.body.read) delivers the guide's rates member from local bytes at the head it was committed at and names the glossary remote_unknown: bytes that are not here are never reported empty. Ana composes Team work pinning that revision (preparation.compose), and its unit names the revision and the home it was composed under. Bob, another person on the same laptop, asks for the Team-only glossary and is denied with access_not_established, naming no source, unit or frontier: a denial is not an empty answer. The published guide he may use, and his own composition pinning it succeeds. Meanwhile the desktop registers the guide's home again with a new exception (the reduced small-enterprise rate is under correction) and narrows its disclosure to the Team. That moves the source head and changes no revision byte. Once reach returns, the new home travels to the laptop beside the unchanged revision. Resolving the same revision returns the same manifest with the new home, and Ana's same composition request, sent again, returns a preparation whose unit keeps the revision digest and names the new home. Bob's same composition is now refused with source_not_authorized. Unchanged bytes must not cancel the new qualification: neither the old home nor the old permission is answered for the new head.",
+  "says": "Ana founds a Team on her desktop, which runs its finalizer, and registers and commits two Team knowledge sources there: a rate guide disclosed as published (jurisdiction KR, tax year 2026 and later) and a glossary disclosed to the Team. Her laptop is enrolled and issued an offline control permit attesting her grant, and the desktop stages for Ana under the Team scope the guide's revision, its member bytes and its home, and the glossary's home only; the laptop accepts it. Then the laptop cannot reach the desktop. Offline, the laptop resolves the exact cached revision (reference.resolve) to the same manifest and its home. A read of the guide and the glossary (reader.body.read) delivers the guide's rates member from local bytes at the head it was committed at and names the glossary remote_unknown: bytes that are not here are never reported empty. Ana composes Team work pinning that revision (preparation.compose), and its unit names the revision and the home it was composed under. Bob, another person on the same laptop, asks for the Team-only glossary and is denied with access_not_established, naming no source, unit or frontier: a denial is not an empty answer. The published guide he may use, and his own composition pinning it succeeds. Meanwhile the desktop registers the guide's home again with a new exception (the reduced small-enterprise rate is under correction) and narrows its disclosure to the Team. That moves the source head and changes no revision byte. Once reach returns, the new home travels to the laptop beside the unchanged revision. Resolving the same revision returns the same manifest with the new home, and Ana's same composition request, sent again, returns a preparation whose unit keeps the revision digest and names the new home. Bob's same composition is now refused with source_not_authorized. Unchanged bytes must not cancel the new qualification: neither the old home nor the old permission is answered for the new head.",
   "world": {
     "processes": [
       "desktop",
@@ -93,6 +93,14 @@
     {
       "name": "bind_laptop_request",
       "prefix": "req"
+    },
+    {
+      "name": "record_permit_request",
+      "prefix": "req"
+    },
+    {
+      "name": "laptop_permit_id",
+      "prefix": "ctl"
     },
     {
       "name": "stage_first_request",
@@ -1031,6 +1039,120 @@
       ]
     },
     {
+      "name": "laptop_permit",
+      "from": "c02/offline_permit_for_one_device.json",
+      "set": [
+        {
+          "pointer": "/evidence_id",
+          "value": "@laptop_permit_id"
+        },
+        {
+          "pointer": "/holder/device_id",
+          "value": "@laptop"
+        },
+        {
+          "pointer": "/holder/principal_id",
+          "value": "@ana"
+        },
+        {
+          "pointer": "/issuer/authority_principal_id",
+          "value": "@ana"
+        },
+        {
+          "pointer": "/issuer/team_id",
+          "value": "@team"
+        },
+        {
+          "pointer": "/scope/layer",
+          "value": "team"
+        },
+        {
+          "pointer": "/scope/team_id",
+          "value": "@team"
+        },
+        {
+          "pointer": "/statement/attests",
+          "value": [
+            "#team_founder_grant"
+          ]
+        },
+        {
+          "pointer": "/statement/offline/until",
+          "value": "2026-12-31T00:00:00Z"
+        },
+        {
+          "pointer": "/statement/valid_until",
+          "value": "2027-03-20T09:00:00Z"
+        },
+        {
+          "pointer": "/issued_at",
+          "value": "2026-09-20T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "name": "record_permit",
+      "from": "bindings/storing_request.json",
+      "drop": [
+        "/owner",
+        "/target"
+      ],
+      "set": [
+        {
+          "pointer": "/request_id",
+          "value": "@record_permit_request"
+        },
+        {
+          "pointer": "/operation",
+          "value": "access.control.record"
+        },
+        {
+          "pointer": "/action",
+          "value": "grant"
+        },
+        {
+          "pointer": "/effect_class",
+          "value": "owner_commit"
+        },
+        {
+          "pointer": "/actor/principal_id",
+          "value": "@ana"
+        },
+        {
+          "pointer": "/actor/device_id",
+          "value": "@desktop"
+        },
+        {
+          "pointer": "/actor/profile_id",
+          "value": "@ana_desktop"
+        },
+        {
+          "pointer": "/owner/layer",
+          "value": "team"
+        },
+        {
+          "pointer": "/owner/team_id",
+          "value": "@team"
+        },
+        {
+          "pointer": "/target/resource_id",
+          "value": "@team"
+        },
+        {
+          "pointer": "/target/base/expects",
+          "value": "head"
+        },
+        {
+          "pointer": "/target/base/head_digest",
+          "value": "$digest:team_head"
+        },
+        {
+          "pointer": "/payload_digest",
+          "value": "#laptop_permit"
+        }
+      ]
+    },
+    {
       "name": "first_envelope",
       "from": "c09/complete_transfer.json",
       "drop": [
@@ -1158,6 +1280,22 @@
         {
           "pointer": "/inventory/5/object_kind",
           "value": "authority_continuity"
+        },
+        {
+          "pointer": "/inventory/6/path",
+          "value": "objects/0003.json"
+        },
+        {
+          "pointer": "/inventory/6/digest",
+          "value": "#laptop_permit"
+        },
+        {
+          "pointer": "/inventory/6/size",
+          "value": 654
+        },
+        {
+          "pointer": "/inventory/6/object_kind",
+          "value": "control_evidence"
         }
       ]
     },
@@ -1215,7 +1353,7 @@
         },
         {
           "pointer": "/target/base/head_digest",
-          "value": "$digest:team_head"
+          "value": "$digest:team_head_2"
         },
         {
           "pointer": "/payload_digest",
@@ -1332,7 +1470,8 @@
         {
           "pointer": "/stage/controls_applied",
           "value": [
-            "#founding_epoch"
+            "#founding_epoch",
+            "#laptop_permit"
           ]
         },
         {
@@ -1557,6 +1696,12 @@
         {
           "pointer": "/payload_digest",
           "value": "#cached_envelope"
+        },
+        {
+          "pointer": "/control_digests",
+          "value": [
+            "#laptop_permit"
+          ]
         }
       ]
     },
@@ -1871,6 +2016,12 @@
         {
           "pointer": "/payload_digest",
           "value": "#ana_pin"
+        },
+        {
+          "pointer": "/control_digests",
+          "value": [
+            "#laptop_permit"
+          ]
         }
       ]
     },
@@ -2255,7 +2406,7 @@
         },
         {
           "pointer": "/target/base/head_digest",
-          "value": "$digest:team_head"
+          "value": "$digest:team_head_2"
         },
         {
           "pointer": "/payload_digest",
@@ -2612,6 +2763,25 @@
         "returns": [
           "stored_laptop_key"
         ]
+      }
+    },
+    {
+      "name": "issue_the_laptop_offline_permit",
+      "request": "record_permit",
+      "carries": [
+        "laptop_permit"
+      ],
+      "process": "desktop",
+      "answer": {
+        "stage": "committed",
+        "local_effect": "committed",
+        "provider_effect": "not_applicable",
+        "gaps": [],
+        "recovery": [],
+        "returns": [
+          "laptop_permit"
+        ],
+        "head": "team_head_2"
       }
     },
     {

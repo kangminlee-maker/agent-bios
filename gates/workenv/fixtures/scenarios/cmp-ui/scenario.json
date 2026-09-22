@@ -1831,11 +1831,6 @@
    "record": "tour_script_request"
   },
   {
-   "digest_of": "team_instr_revision",
-   "pointer": "/frames/4/elements/2/refers_to/digest",
-   "record": "tour_trace"
-  },
-  {
    "digest_of": "delivery_seen",
    "pointer": "/frames/0/elements/11/refers_to/digest",
    "record": "tour_trace"
@@ -1968,6 +1963,11 @@
   {
    "minted": "work_link",
    "pointer": "/frames/24/view/recipient_link_id",
+   "record": "tour_trace"
+  },
+  {
+   "minted": "work_link",
+   "pointer": "/frames/25/view/recipient_link_id",
    "record": "tour_trace"
   },
   {
@@ -7968,7 +7968,7 @@
    }
   },
   {
-   "digest": "d9247318a209cd4d22accf0fb131bb1ef91bc46185eb74cb53d3cafeb9274e94",
+   "digest": "cac0646498540c50f3553513ef67e388d48cde0d40a1fdb8dfb21ec615ffde94",
    "name": "tour_script",
    "record": {
     "entrance": {
@@ -8071,6 +8071,10 @@
      {
       "input": "key",
       "key": "escape"
+     },
+     {
+      "input": "key",
+      "key": "space"
      }
     ],
     "kind": "surface_script",
@@ -8083,7 +8087,7 @@
    }
   },
   {
-   "digest": "0d4c332e12ea6856452b51fda209c7a7d1babb879f181a7d00755c9f8f8597dc",
+   "digest": "b4fea553286a6e11459cf01fbd87787313adefc3aeafac749d268c4725c3c49f",
    "name": "tour_script_request",
    "record": {
     "action": "read",
@@ -8101,7 +8105,7 @@
      "layer": "personal",
      "principal_id": "prn_8d081ce4391edd02fcd02c986079cb6d"
     },
-    "payload_digest": "d9247318a209cd4d22accf0fb131bb1ef91bc46185eb74cb53d3cafeb9274e94",
+    "payload_digest": "cac0646498540c50f3553513ef67e388d48cde0d40a1fdb8dfb21ec615ffde94",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_b5d2f0fe6f28e5c84cdc449a3d935e14",
@@ -8112,7 +8116,7 @@
    }
   },
   {
-   "digest": "70b2da0a0d859e9e0b4b8f9a6e6b2f8b7d1deaddd14b2b0be52867629baea4b5",
+   "digest": "e2a6271d7e8d537fabc4bb97c315670bc3428701196461c17e30c2eedd3863eb",
    "name": "tour_trace",
    "record": {
     "at": "2000-01-01T00:00:00Z",
@@ -9034,21 +9038,6 @@
         "role": "help",
         "selection": "none",
         "shown": "whole"
-       },
-       {
-        "element_id": "original.team_instructions.body",
-        "executing": false,
-        "focused": false,
-        "label": "본문 · team/platform.md · 이 적용에서는 가려짐",
-        "marks": [],
-        "refers_to": {
-         "digest": "da833eba78704f70fb88a070e5255b1b1368e9d550e5d0109914c35fd91d339e",
-         "ref": "record"
-        },
-        "role": "detail",
-        "selection": "none",
-        "shown": "whole",
-        "value": "# Team platform instructions\n\n## response.style\n\nKeep answers direct. State the recommended option first, then the reasoning\nbehind it. Avoid hedging language when the evidence already supports one\nconclusion, and say plainly when it does not.\n\n## review.approval\n\nA change to a shared interface needs one platform reviewer's approval before\nit merges, recorded against the exact revision reviewed. A reviewer checks\nthe change against the interface's own contract, not against personal taste.\n\n## escalation\n\nWhen a decision affects more than one repository, raise it in the platform\nchannel before committing, and record the outcome against the concern it\nresolved so a later reader can find why the choice was made.\n\n## formatting\n\nPrefer short paragraphs over long ones, and prefer a worked example over an\nabstract description when both are available. Code samples should compile\nagainst the platform's current pinned toolchain version, not an older one.\n\n## journal mode\n\nThe platform's shared volume does not honour fullfsync, so a rollback\njournal is the safe default there; write-ahead logging is fine on a volume\nthat does honour it, and each repository states which volume it runs on.\n\n## incident handling\n\nOpen an incident record the moment a shared service degrades, even before\nthe cause is known. Close it only after the fix is verified in the same\nenvironment the incident was observed in, and link the record it resolved.\n\n## onboarding\n\nA new team member reads this file and the repository's own instructions\nbefore their first change, and asks in the platform channel when the two\ndisagree, rather than guessing which one applies. A short pairing session\nin the first week answers most questions, and the buddy stays reachable\nfor that month, available for anything left unclear.\n"
        }
       ],
       "locale": "ko",
@@ -10865,7 +10854,7 @@
         "ref": "position",
         "view": "original"
        },
-       "view": "w07"
+       "view": "w03"
       }
      },
      {
@@ -13187,6 +13176,269 @@
        "recipient_link_id": "lnk_94d0a80f38c52af3555705b11f818ead",
        "view": "hub"
       }
+     },
+     {
+      "access": "active",
+      "after": 25,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "positions.repository.instructions",
+        "executing": false,
+        "focused": false,
+        "label": "레포 지침 · AGENTS.md",
+        "marks": [
+         "[x]"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "instructions",
+          "scope": {
+           "layer": "repository",
+           "repository_id": "rep_b3431ec49ef42b32279c6d26037daf90"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "selected",
+        "shown": "whole",
+        "state": "installed"
+       },
+       {
+        "element_id": "positions.repository.knowledge",
+        "executing": false,
+        "focused": false,
+        "label": "레포 지식 · 없음",
+        "marks": [
+         "[ ]"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "knowledge",
+          "scope": {
+           "layer": "repository",
+           "repository_id": "rep_b3431ec49ef42b32279c6d26037daf90"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.repository.memory",
+        "executing": false,
+        "focused": false,
+        "label": "레포 결정 · 저널 모드 · 팀과 충돌, 선택 대기",
+        "marks": [
+         "[x]"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "memory",
+          "scope": {
+           "layer": "repository",
+           "repository_id": "rep_b3431ec49ef42b32279c6d26037daf90"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "selected",
+        "shown": "whole",
+        "state": "pending"
+       },
+       {
+        "element_id": "positions.personal.instructions",
+        "executing": false,
+        "focused": false,
+        "label": "개인 지침 · 없음",
+        "marks": [
+         "[ ]"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "instructions",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_8d081ce4391edd02fcd02c986079cb6d"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.knowledge",
+        "executing": false,
+        "focused": false,
+        "label": "개인 지식 · 없음",
+        "marks": [
+         "[ ]"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "knowledge",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_8d081ce4391edd02fcd02c986079cb6d"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.memory",
+        "executing": false,
+        "focused": false,
+        "label": "개인 결정 · 없음",
+        "marks": [
+         "[ ]"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "memory",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_8d081ce4391edd02fcd02c986079cb6d"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.team.instructions",
+        "executing": false,
+        "focused": false,
+        "label": "Platform 팀 지침 · 원본",
+        "marks": [
+         "[x]"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "instructions",
+          "scope": {
+           "layer": "team",
+           "team_id": "tem_598a6050a1dce72d9bdf63e695dded1c"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "selected",
+        "shown": "whole",
+        "state": "installed"
+       },
+       {
+        "element_id": "positions.team.knowledge",
+        "executing": false,
+        "focused": false,
+        "label": "Platform 팀 지식 · 없음",
+        "marks": [
+         "[ ]"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "knowledge",
+          "scope": {
+           "layer": "team",
+           "team_id": "tem_598a6050a1dce72d9bdf63e695dded1c"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.team.memory",
+        "executing": false,
+        "focused": true,
+        "label": "Platform 팀 결정 · 저널 모드 · 레포와 충돌, 선택 대기",
+        "marks": [
+         "›",
+         "[ ]"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "memory",
+          "scope": {
+           "layer": "team",
+           "team_id": "tem_598a6050a1dce72d9bdf63e695dded1c"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "pending"
+       },
+       {
+        "element_id": "action.effective",
+        "executing": false,
+        "focused": false,
+        "label": "적용 결과 보기 (지침)",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_f7bdd80d5aeaffd49d6b80b9d1fa867c"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "missing_bodies": [],
+       "origin": {
+        "name": "studio_hub",
+        "root_origin": "owner"
+       },
+       "recipient_link_id": "lnk_94d0a80f38c52af3555705b11f818ead",
+       "view": "hub"
+      }
      }
     ],
     "kind": "surface_trace",
@@ -13194,11 +13446,11 @@
      "runs": "real"
     },
     "schema": 1,
-    "script_digest": "d9247318a209cd4d22accf0fb131bb1ef91bc46185eb74cb53d3cafeb9274e94"
+    "script_digest": "cac0646498540c50f3553513ef67e388d48cde0d40a1fdb8dfb21ec615ffde94"
    }
   },
   {
-   "digest": "c6cdaf6072f49f42aeac678ed6ac5634cc7e2d97aebbbc95f627fa33131bdec6",
+   "digest": "5371ec3bc2c1e580159ef004878757183b498133fefaf495fe292a2e4a195b57",
    "name": "tour_original_positions_result",
    "record": {
     "kind": "operation_result",
@@ -13209,12 +13461,12 @@
     },
     "outputs": [
      {
-      "digest": "70b2da0a0d859e9e0b4b8f9a6e6b2f8b7d1deaddd14b2b0be52867629baea4b5",
+      "digest": "e2a6271d7e8d537fabc4bb97c315670bc3428701196461c17e30c2eedd3863eb",
       "kind": "surface_trace"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "0d4c332e12ea6856452b51fda209c7a7d1babb879f181a7d00755c9f8f8597dc",
+    "request_digest": "b4fea553286a6e11459cf01fbd87787313adefc3aeafac749d268c4725c3c49f",
     "request_id": "req_b5d2f0fe6f28e5c84cdc449a3d935e14",
     "schema": 1,
     "supported_recovery": []
@@ -14745,7 +14997,7 @@
   }
  ],
  "says": "One person has a bound repository and a Team 'Platform'. Repository and Team instructions sources are committed, and each scope's decision source receives a published choice for the same question (memory.record.publish): WAL in the repository, a rollback journal in the Team. memory.state.resolve leaves both entries unresolved with choice_conflict_unresolved; role.project over repository, personal and Team applies the repository unit and names the Team unit as shadowed by it under one concern key; reader.body.read of the Team original returns that unit's own body. The studio hub (surface.drive) lists all nine scope and role positions as separate elements, each with its own selection and state, both decision positions pending. Tab and Enter open the effective view (target the repository instructions position, effective), which names the applied unit, the shadowed Team unit with its Team original unchanged, and the decision conflict as waiting for the person; Down and Enter open the Team original with its body; Esc twice returns to the hub with every position as it was. Negative: no frame merges the three scopes into one list or shows the effective result as the Team original; the conflict is never resolved to the repository's choice; and navigating dispatches nothing and changes no other scope's selection or any recipient. A recipient link opened earlier, with a delivery already observed for it, names the same recipient_link_id in every frame while navigation proceeds. Further scripts open each of the other eight original positions in turn and return, each frame showing that position's own target and state. The person then resolves the journal-mode conflict through a probed real user event, memory.use.prepare, recipient.answer.record and reader.use.resume naming the Team's rollback journal, and memory.preference.record against the whole participant set; a further script's effective view then names the resolved application, not an automatic repository winner.",
- "spec_sha256": "fb51fb1fadaea45e615df5d76f07ccbe3f20dcd8f4bc2abce83c2ae6e620df41",
+ "spec_sha256": "d7c981af0e9645f0c371eb2c55ffdc92534ec467e65ba48035930cd0f3d96099",
  "steps": [
   {
    "carries": [

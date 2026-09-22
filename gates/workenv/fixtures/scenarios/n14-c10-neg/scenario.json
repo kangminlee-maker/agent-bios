@@ -493,6 +493,11 @@
    "record": "desktop_backup"
   },
   {
+   "minted": "desktop_backup_control_state",
+   "pointer": "/members/0/digest",
+   "record": "desktop_backup"
+  },
+  {
    "digest_of": "desktop_takes_a_backup_receipt",
    "pointer": "/outcome/receipt_digest",
    "record": "desktop_takes_a_backup_result"
@@ -983,11 +988,6 @@
    "record": "second_full_envelope"
   },
   {
-   "digest_of": "stored_desktop_revision",
-   "pointer": "/inventory/0/digest",
-   "record": "second_full_envelope"
-  },
-  {
    "digest_of": "second_full_envelope",
    "pointer": "/payload_digest",
    "record": "accept_missing"
@@ -1357,6 +1357,11 @@
   {
    "name": "backup_taken_at",
    "shape": "instant",
+   "step": "desktop_takes_a_backup"
+  },
+  {
+   "name": "desktop_backup_control_state",
+   "shape": "digest",
    "step": "desktop_takes_a_backup"
   },
   {
@@ -2415,7 +2420,7 @@
    }
   },
   {
-   "digest": "27f888139037b1ac1a6ae4a80312bba096fc6ff9f1d4dd8a319fae7b4976edd6",
+   "digest": "19a216d710bff288b5e57f6ea49a3ab21c81397e06adf7e67e0e0b7a8eb22b2a",
    "name": "desktop_backup",
    "record": {
     "access_generation": 7,
@@ -2428,25 +2433,7 @@
     "kind": "backup_set",
     "members": [
      {
-      "digest": "2222222222222222222222222222222222222222222222222222222222222222",
-      "holds": "draft",
-      "path": "drafts/0001.json",
-      "size": 812
-     },
-     {
-      "digest": "3333333333333333333333333333333333333333333333333333333333333333",
-      "holds": "outbox",
-      "path": "outbox/0001.json",
-      "size": 1204
-     },
-     {
-      "digest": "4444444444444444444444444444444444444444444444444444444444444444",
-      "holds": "unknown_operation",
-      "path": "operations/unknown.json",
-      "size": 96
-     },
-     {
-      "digest": "5555555555555555555555555555555555555555555555555555555555555555",
+      "digest": "074ffb459e7f0d5a3bb36df0f4e1c32997b9f28ae822e84e71bd3cd10f82fe48",
       "holds": "control_state",
       "path": "control/sequence.json",
       "size": 64
@@ -2458,7 +2445,7 @@
    }
   },
   {
-   "digest": "1382965aed1c68057d46cfd7599f567066d60112dd80dec28dc9429f3d2cb326",
+   "digest": "ffb707e8e9f9af02b47fe221dadc3c022569c7b18325d2d9ca23b21a5133bc8a",
    "name": "desktop_takes_a_backup_result",
    "record": {
     "kind": "operation_result",
@@ -2470,7 +2457,7 @@
     },
     "outputs": [
      {
-      "digest": "27f888139037b1ac1a6ae4a80312bba096fc6ff9f1d4dd8a319fae7b4976edd6",
+      "digest": "19a216d710bff288b5e57f6ea49a3ab21c81397e06adf7e67e0e0b7a8eb22b2a",
       "kind": "backup_set"
      }
     ],
@@ -3305,7 +3292,7 @@
    }
   },
   {
-   "digest": "7172ff0374d9f3a5a3c254a40a92f23ee651d36c3919bf1fe34eae1459c436eb",
+   "digest": "bfb364a51e6dd3d1b45112e00a085d51fa3f488c335e5423bb7e577daf6bdf1e",
    "name": "second_full_envelope",
    "record": {
     "authority": {
@@ -3321,7 +3308,7 @@
     ],
     "inventory": [
      {
-      "digest": "c2a51d5c339b2b984e01a800ab939e7f8623ef67d0eaafffdfa3c4f653c3e7b9",
+      "digest": "10f47b6487b045221a1ccdfff7d995feccf3ff38872a89a78bfbdd99f77e0da5",
       "object_kind": "source_manifest",
       "path": "objects/0000.json",
       "size": 382
@@ -3350,7 +3337,7 @@
    }
   },
   {
-   "digest": "338ff9822166f129d2641dff28f78e5538555c0326e026bfe3795b29852a0c6e",
+   "digest": "7d60014279ca116af0656f109a6dceb42b6d59b12f3740ed66368226c870346e",
    "name": "accept_missing",
    "record": {
     "action": "transfer",
@@ -3368,7 +3355,7 @@
      "layer": "team",
      "team_id": "tem_4890dbaad8d756e9cb995a8b7dcc8b46"
     },
-    "payload_digest": "7172ff0374d9f3a5a3c254a40a92f23ee651d36c3919bf1fe34eae1459c436eb",
+    "payload_digest": "bfb364a51e6dd3d1b45112e00a085d51fa3f488c335e5423bb7e577daf6bdf1e",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_79a0a8409981158e74c3592aa692d1c5",
@@ -3383,11 +3370,11 @@
    }
   },
   {
-   "digest": "4b1ea184c9c0e9be88a8657844014f2b043509a7c4cf1a26db3d36cc6efcb6d3",
+   "digest": "8631ccadc44345cddc10f4dcbfe5b4003b87bc0cccaa454759180e37b2c7f70b",
    "name": "missing_received",
    "record": {
     "at": "2000-01-01T00:00:00Z",
-    "envelope_digest": "7172ff0374d9f3a5a3c254a40a92f23ee651d36c3919bf1fe34eae1459c436eb",
+    "envelope_digest": "bfb364a51e6dd3d1b45112e00a085d51fa3f488c335e5423bb7e577daf6bdf1e",
     "kind": "transfer_stage_record",
     "schema": 1,
     "stage": {
@@ -3405,7 +3392,7 @@
    }
   },
   {
-   "digest": "260040da589f79a82d35d93eb8cdfc7f30d0e15f98790299cc3dea78651ccfa0",
+   "digest": "994bd19b14347b3812146b66a4b0f3965c33900eef757d126f6cc0e42e9c59cd",
    "name": "accept_package_missing_its_body_result",
    "record": {
     "kind": "operation_result",
@@ -3420,12 +3407,12 @@
     },
     "outputs": [
      {
-      "digest": "4b1ea184c9c0e9be88a8657844014f2b043509a7c4cf1a26db3d36cc6efcb6d3",
+      "digest": "8631ccadc44345cddc10f4dcbfe5b4003b87bc0cccaa454759180e37b2c7f70b",
       "kind": "transfer_stage_record"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "338ff9822166f129d2641dff28f78e5538555c0326e026bfe3795b29852a0c6e",
+    "request_digest": "7d60014279ca116af0656f109a6dceb42b6d59b12f3740ed66368226c870346e",
     "request_id": "req_79a0a8409981158e74c3592aa692d1c5",
     "schema": 1,
     "supported_recovery": [
@@ -3779,7 +3766,7 @@
    }
   },
   {
-   "digest": "3c7bf5948ebe163336c98304d610aede9895be5bc5d88db1ea9daab80c66bf37",
+   "digest": "eb076b14a7849e9427a347eeec0939371fd428163fd5d9a03465f04a37c947fc",
    "name": "restore_old_disk",
    "record": {
     "action": "local_profile",
@@ -3797,7 +3784,7 @@
      "layer": "personal",
      "principal_id": "prn_896f42ec8f47efec2999527149439b6a"
     },
-    "payload_digest": "27f888139037b1ac1a6ae4a80312bba096fc6ff9f1d4dd8a319fae7b4976edd6",
+    "payload_digest": "19a216d710bff288b5e57f6ea49a3ab21c81397e06adf7e67e0e0b7a8eb22b2a",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_83b3914202754504f391f874f2ff72ed",
@@ -3808,7 +3795,7 @@
    }
   },
   {
-   "digest": "6003ebd4340f453221354ff300857c68de164b8580cea25c5bc1ce746e521b77",
+   "digest": "229cb0ae0e2737022327b8b7456cdadca0a2e63fa5f9ff81736047e0973b38bb",
    "name": "restore_the_old_disk_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -3818,7 +3805,7 @@
      "layer": "personal",
      "principal_id": "prn_896f42ec8f47efec2999527149439b6a"
     },
-    "request_digest": "3c7bf5948ebe163336c98304d610aede9895be5bc5d88db1ea9daab80c66bf37",
+    "request_digest": "eb076b14a7849e9427a347eeec0939371fd428163fd5d9a03465f04a37c947fc",
     "request_id": "req_83b3914202754504f391f874f2ff72ed",
     "schema": 1,
     "sequence": 1,
@@ -3828,12 +3815,12 @@
    }
   },
   {
-   "digest": "f8f00d607c245e320cd7ada3c45fe37c10219209e50a6dcddfd28c05f3db216f",
+   "digest": "ff1928a4a74a2554d6690f868bac23c607040fb428f886b8433f025c882cfcec",
    "name": "old_disk_report",
    "record": {
     "after_backup": "not_known",
     "authority": "passive",
-    "backup_digest": "27f888139037b1ac1a6ae4a80312bba096fc6ff9f1d4dd8a319fae7b4976edd6",
+    "backup_digest": "19a216d710bff288b5e57f6ea49a3ab21c81397e06adf7e67e0e0b7a8eb22b2a",
     "covered_through": 1,
     "kind": "restore_report",
     "recovery_objective_seconds": 3600,
@@ -3843,24 +3830,24 @@
    }
   },
   {
-   "digest": "389839e921e66b7ae35827c5a96d0af3b4939830b46b497f3b120008e1a4319c",
+   "digest": "4e76d3596cfbb5c12fd287ba315c86edab4982139514db913bbb456612193692",
    "name": "restore_the_old_disk_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "6003ebd4340f453221354ff300857c68de164b8580cea25c5bc1ce746e521b77",
+     "receipt_digest": "229cb0ae0e2737022327b8b7456cdadca0a2e63fa5f9ff81736047e0973b38bb",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "f8f00d607c245e320cd7ada3c45fe37c10219209e50a6dcddfd28c05f3db216f",
+      "digest": "ff1928a4a74a2554d6690f868bac23c607040fb428f886b8433f025c882cfcec",
       "kind": "restore_report"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "3c7bf5948ebe163336c98304d610aede9895be5bc5d88db1ea9daab80c66bf37",
+    "request_digest": "eb076b14a7849e9427a347eeec0939371fd428163fd5d9a03465f04a37c947fc",
     "request_id": "req_83b3914202754504f391f874f2ff72ed",
     "schema": 1,
     "supported_recovery": []
@@ -3924,8 +3911,8 @@
    }
   }
  ],
- "says": "Alice's Team is founded on her laptop, which is also its finalizer, and the founding returns the Team's founding continuity epoch; her enrolled desktop takes a backup of its own store, then imports and keeps a complete package — staged by the laptop as a draft with no receipt, carrying the founding epoch as a member — and acknowledges custody of it at storage generation 1. While the two cannot reach each other, the desktop's commit to the Team's source is blocked with finalizer_unavailable and is not finalized on the desktop; retried by the same request once the laptop is reachable, the laptop finalizes it once. The desktop's storage is then reset: its acknowledgment at generation 2 states storage_generation_reset. A second complete package whose body never arrived stops at received with body_missing. A package whose continuity runs from the founding epoch to two successors of it, both carried as members, stops at received with fork_evidence. A package whose successor epoch carries the key it copied is refused at admission. Restoring the desktop's old backup reports passive authority and names nothing after the backup as known; a commit then attempted on the restored disk is blocked with access_locked and writes nothing, so the passive label is never exercised into a write. What must not happen: a shared commit finalized anywhere but the finalizer, the reset holder counted as still keeping its promise, an incomplete package or two successors producing a complete copy or authority, a copied key accepted as continuity, or the rolled-back disk becoming active authority.",
- "spec_sha256": "6b39a9fd776f1afd5020324786ea0c6c8d75669bd7934d6fed822f8b822538fd",
+ "says": "Alice's Team is founded on her laptop, which is also its finalizer, and the founding returns the Team's founding continuity epoch; her enrolled desktop takes a backup of its own store, then imports and keeps a complete package — staged by the laptop as a draft with no receipt, carrying the founding epoch as a member — and acknowledges custody of it at storage generation 1. While the two cannot reach each other, the desktop's commit to the Team's source is blocked with finalizer_unavailable and is not finalized on the desktop; retried by the same request once the laptop is reachable, the laptop finalizes it once. The desktop's storage is then reset: its acknowledgment at generation 2 states storage_generation_reset. A second complete package whose body never arrived stops at received with body_missing. A package whose continuity runs from the founding epoch to two successors of it, both carried as members, stops at received with fork_evidence. A package whose successor epoch carries the key it copied stops at received with trust_continuity_unverified. Restoring the desktop's old backup reports passive authority and names nothing after the backup as known; a commit then attempted on the restored disk is blocked with access_locked and writes nothing, so the passive label is never exercised into a write. What must not happen: a shared commit finalized anywhere but the finalizer, the reset holder counted as still keeping its promise, an incomplete package or two successors producing a complete copy or authority, a copied key accepted as continuity, or the rolled-back disk becoming active authority.",
+ "spec_sha256": "50abd73cb3eb47ddb0e9155f3b18b5d3e82321ee8673ca96c35d7a5f46ddad9a",
  "steps": [
   {
    "at": "2026-09-21T09:00:00Z",

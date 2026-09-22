@@ -318,12 +318,12 @@
    "record": "rollback_journal_stored"
   },
   {
-   "digest_of": "rollback_journal_stored",
+   "digest_of": "rollback_choice_body",
    "pointer": "/members/0/digest",
    "record": "decisions_rev1_written"
   },
   {
-   "digest_of": "rollback_journal_stored",
+   "digest_of": "rollback_choice_body",
    "pointer": "/members/0/digest",
    "record": "decisions_rev1"
   },
@@ -418,22 +418,22 @@
    "record": "wal_stored"
   },
   {
-   "digest_of": "rollback_journal_stored",
+   "digest_of": "rollback_choice_body",
    "pointer": "/members/0/digest",
    "record": "decisions_rev2_written"
   },
   {
-   "digest_of": "wal_stored",
+   "digest_of": "wal_choice_body",
    "pointer": "/members/1/digest",
    "record": "decisions_rev2_written"
   },
   {
-   "digest_of": "rollback_journal_stored",
+   "digest_of": "rollback_choice_body",
    "pointer": "/members/0/digest",
    "record": "decisions_rev2"
   },
   {
-   "digest_of": "wal_stored",
+   "digest_of": "wal_choice_body",
    "pointer": "/members/1/digest",
    "record": "decisions_rev2"
   },
@@ -1893,7 +1893,7 @@
   }
  ],
  "says": "The reader binds their device key and their checkout of the repository, opens a workstream and registers a repository memory source named by that checkout binding, and two choices on the local journal mode are published there: first a rollback journal, then WAL, which replaces the first whole. An inspection (reader.body.read, role memory, reviewer view, history included) returns the current WAL choice as the winning required unit and the replaced choice as an optional unit marked superseded, each body carrying the alternatives its choice weighed, and its result carries no use: reading it admitted nothing. The reader then offers what it inspected as a use by resuming a use id and question id no admission ever created (reader.use.resume, its answer evidence the inspected body). The owner refuses it with use_not_admitted: no pending question, qualified state or admitted use is returned, no use is started, and nothing is written.",
- "spec_sha256": "54a0f20039584cd0ea32c79344383d2665d481907687965498ce6547b21dfb40",
+ "spec_sha256": "867b2c1ef76d924bd3f06a8d22a982480a6410e0273484fdad4276a3e8ba2df6",
  "steps": [
   {
    "carries": [

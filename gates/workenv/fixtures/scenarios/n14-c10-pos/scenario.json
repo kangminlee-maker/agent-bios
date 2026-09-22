@@ -96,6 +96,14 @@
   {
    "id": "req_7b54596a573d5e33b46e560c2e010cae",
    "name": "desktop_resolve_request"
+  },
+  {
+   "id": "req_c117ad62200789a31e3afba854edeaf6",
+   "name": "desktop_resolve_first_request"
+  },
+  {
+   "id": "req_d2f2c7443d511fb62f65fdd83e0ab445",
+   "name": "desktop_resolve_second_request"
   }
  ],
  "joins": [
@@ -768,6 +776,71 @@
    "digest_of": "concepts_body",
    "pointer": "/outputs/1/digest",
    "record": "desktop_resolves_the_received_source_result"
+  },
+  {
+   "minted": "source_head_2",
+   "pointer": "/target/base/head_digest",
+   "record": "desktop_resolve_first"
+  },
+  {
+   "digest_of": "stored_revision",
+   "pointer": "/revision_digest",
+   "record": "desktop_resolve_first_ref"
+  },
+  {
+   "digest_of": "rates_v1_body",
+   "pointer": "/member/digest",
+   "record": "desktop_resolve_first_ref"
+  },
+  {
+   "digest_of": "desktop_resolve_first_ref",
+   "pointer": "/payload_digest",
+   "record": "desktop_resolve_first"
+  },
+  {
+   "digest_of": "desktop_resolve_first",
+   "pointer": "/request_digest",
+   "record": "desktop_resolves_the_first_revision_result"
+  },
+  {
+   "digest_of": "stored_revision",
+   "pointer": "/outputs/0/digest",
+   "record": "desktop_resolves_the_first_revision_result"
+  },
+  {
+   "digest_of": "rates_v1_body",
+   "pointer": "/outputs/1/digest",
+   "record": "desktop_resolves_the_first_revision_result"
+  },
+  {
+   "minted": "source_head_2",
+   "pointer": "/target/base/head_digest",
+   "record": "desktop_resolve_second"
+  },
+  {
+   "digest_of": "stored_second",
+   "pointer": "/revision_digest",
+   "record": "desktop_resolve_second_ref"
+  },
+  {
+   "digest_of": "rates_v2_body",
+   "pointer": "/member/digest",
+   "record": "desktop_resolve_second_ref"
+  },
+  {
+   "digest_of": "desktop_resolve_second_ref",
+   "pointer": "/payload_digest",
+   "record": "desktop_resolve_second"
+  },
+  {
+   "digest_of": "desktop_resolve_second",
+   "pointer": "/request_digest",
+   "record": "desktop_resolves_the_second_rate_table_result"
+  },
+  {
+   "digest_of": "rates_v2_body",
+   "pointer": "/outputs/0/digest",
+   "record": "desktop_resolves_the_second_rate_table_result"
   },
   {
    "digest_of": "stored_revision",
@@ -2990,6 +3063,162 @@
    }
   },
   {
+   "digest": "ec28f6537b4bea1c21d09f291ba57b86c45b9f5a5f549f89a57b219f7c7bd22c",
+   "name": "desktop_resolve_first_ref",
+   "record": {
+    "kind": "source_ref",
+    "member": {
+     "digest": "488f41257c3ec5b844242fb242b7a5d88084f98e177e9b08ab7cd6b9cea51067",
+     "path": "tables/rates.csv",
+     "size": 918
+    },
+    "revision_digest": "d935141e4f81d517173c46aaa6a3b6fe14f91cc5c95c12ecf04b0bf157570935",
+    "role": "knowledge",
+    "schema": 1,
+    "scope": {
+     "layer": "team",
+     "team_id": "tem_0c2ec203ca022c3fbceefc193af81618"
+    },
+    "source_id": "src_8c917b83db5a35c7e3875849cac86907"
+   }
+  },
+  {
+   "digest": "6cd466295921c87521ab4aecb725f90d9c640eda39644a7dbd97aac42572e472",
+   "name": "desktop_resolve_first",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_65a1feeb5fdb6f0d2531d93247acd4c1",
+     "principal_id": "prn_32ae33abf3cae39d861d06671b032018",
+     "profile_id": "prf_b338d37c72b1283ae3bf83baf8657693"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "reference.resolve",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_0c2ec203ca022c3fbceefc193af81618"
+    },
+    "payload_digest": "ec28f6537b4bea1c21d09f291ba57b86c45b9f5a5f549f89a57b219f7c7bd22c",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_c117ad62200789a31e3afba854edeaf6",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "2ce1bef4d3523e05d37b71cd3177a3d76ba0d92f68ea9f229caa9cf2ab5e5865"
+     },
+     "resource_id": "src_8c917b83db5a35c7e3875849cac86907"
+    }
+   }
+  },
+  {
+   "digest": "4af6b5ad79c21f56d74c8072b0089cb2d2e188eb51c6d5f12321c395daebea24",
+   "name": "desktop_resolves_the_first_revision_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "d935141e4f81d517173c46aaa6a3b6fe14f91cc5c95c12ecf04b0bf157570935",
+      "kind": "source_manifest"
+     },
+     {
+      "digest": "488f41257c3ec5b844242fb242b7a5d88084f98e177e9b08ab7cd6b9cea51067",
+      "kind": "source_member"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "6cd466295921c87521ab4aecb725f90d9c640eda39644a7dbd97aac42572e472",
+    "request_id": "req_c117ad62200789a31e3afba854edeaf6",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "c88929dfb1a086e0b311f338d52958b55582f7f249a3f66b770688af4be2c42a",
+   "name": "desktop_resolve_second_ref",
+   "record": {
+    "kind": "source_ref",
+    "member": {
+     "digest": "e01a11ce735e09c3c3a8c80d8e2f04a94780efba5f559987b03c90f5b388c56d",
+     "path": "tables/rates.csv",
+     "size": 1024
+    },
+    "revision_digest": "e014f9596ea5ac77243e20a7bdbf30aec13966cca3fc4c5bfe9a347ea93a1c8e",
+    "role": "knowledge",
+    "schema": 1,
+    "scope": {
+     "layer": "team",
+     "team_id": "tem_0c2ec203ca022c3fbceefc193af81618"
+    },
+    "source_id": "src_8c917b83db5a35c7e3875849cac86907"
+   }
+  },
+  {
+   "digest": "cea7f07c24341626e5afd53848f47d55ef86bf06c765afd3119fb5d72d92c169",
+   "name": "desktop_resolve_second",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_65a1feeb5fdb6f0d2531d93247acd4c1",
+     "principal_id": "prn_32ae33abf3cae39d861d06671b032018",
+     "profile_id": "prf_b338d37c72b1283ae3bf83baf8657693"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "reference.resolve",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_0c2ec203ca022c3fbceefc193af81618"
+    },
+    "payload_digest": "c88929dfb1a086e0b311f338d52958b55582f7f249a3f66b770688af4be2c42a",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_d2f2c7443d511fb62f65fdd83e0ab445",
+    "schema": 1,
+    "target": {
+     "base": {
+      "expects": "head",
+      "head_digest": "2ce1bef4d3523e05d37b71cd3177a3d76ba0d92f68ea9f229caa9cf2ab5e5865"
+     },
+     "resource_id": "src_8c917b83db5a35c7e3875849cac86907"
+    }
+   }
+  },
+  {
+   "digest": "214f84cd54a1557281d3b526bd592d21875dca0048b7314bcbd9f31775a0ea2f",
+   "name": "desktop_resolves_the_second_rate_table_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "e01a11ce735e09c3c3a8c80d8e2f04a94780efba5f559987b03c90f5b388c56d",
+      "kind": "source_member"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "cea7f07c24341626e5afd53848f47d55ef86bf06c765afd3119fb5d72d92c169",
+    "request_id": "req_d2f2c7443d511fb62f65fdd83e0ab445",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
    "digest": "041e3beb1f9194a33f6ec44ff9f1f0df160077da032f15b1c53ef958baaa837a",
    "name": "desktop_commitment",
    "record": {
@@ -3881,8 +4110,8 @@
    }
   }
  ],
- "says": "Two isolated stores, Alice's laptop and her enrolled desktop, with no carrier bound: the Team is founded with local and peer carriers only, and the founding returns the Team's founding continuity epoch. The laptop founds the Team, registers its knowledge source and commits two revisions, then stages a complete package of both by peer — a draft in its outbox with no receipt — carrying the founding epoch as a member because the desktop does not hold it yet; the desktop verifies controls then bodies and commits it, the committed stage naming the accept's receipt; resolving the source now on the desktop reads back the manifest and the concepts.md body it never held before, byte for byte what the laptop sent. The desktop undertakes custody of exactly that inventory for storage generation 1 and acknowledges holding each object at generation 1; the laptop records the desktop, as its peer, undertaking the same objects at generation 1. The desktop then stages the same inventory back as a complete package and the laptop, which already holds the epoch, accepts it: it verifies and commits, moving the laptop's Team head, reconstructing exactly the permitted inventory from the peer alone. What must not happen: any provider or network effect beyond the peer route, a commitment that omits the storage generation it assumes, an acknowledgment of objects that were not promised, or a reconstruction holding more or less than the inventory.",
- "spec_sha256": "5646402615436711abf52c56982b00221b9a3f120558deb614aa1c7827acefff",
+ "says": "Two isolated stores, Alice's laptop and her enrolled desktop, with no carrier bound: the Team is founded with local and peer carriers only, and the founding returns the Team's founding continuity epoch. The laptop founds the Team, registers its knowledge source and commits two revisions, then stages a complete package of both by peer — a draft in its outbox with no receipt — carrying the founding epoch as a member because the desktop does not hold it yet; the desktop verifies controls then bodies and commits it, the committed stage naming the accept's receipt; resolving the source now on the desktop reads back the manifest and the concepts.md body it never held before, byte for byte what the laptop sent, and further reads confirm the first revision's manifest and rate table and the second revision's rate table, each byte for byte, completing the reconstructed inventory. The desktop undertakes custody of exactly that inventory for storage generation 1 and acknowledges holding each object at generation 1; the laptop records the desktop, as its peer, undertaking the same objects at generation 1. The desktop then stages the same inventory back as a complete package and the laptop, which already holds the epoch, accepts it: it verifies and commits, moving the laptop's Team head, reconstructing exactly the permitted inventory from the peer alone. What must not happen: any provider or network effect beyond the peer route, a commitment that omits the storage generation it assumes, an acknowledgment of objects that were not promised, or a reconstruction holding more or less than the inventory.",
+ "spec_sha256": "a5e68356f69ef7d4f9c58d4f289c080aa43f2d2b11a13c6848b5ba97f9ae5d8c",
  "steps": [
   {
    "at": "2026-09-21T09:00:00Z",
@@ -4024,6 +4253,33 @@
   {
    "at": "2026-09-21T09:05:00Z",
    "carries": [
+    "desktop_resolve_first_ref"
+   ],
+   "name": "desktop_resolves_the_first_revision",
+   "process": "desktop",
+   "request": "desktop_resolve_first",
+   "result": "desktop_resolves_the_first_revision_result",
+   "returns": [
+    "stored_revision",
+    "rates_v1_body"
+   ]
+  },
+  {
+   "at": "2026-09-21T09:06:00Z",
+   "carries": [
+    "desktop_resolve_second_ref"
+   ],
+   "name": "desktop_resolves_the_second_rate_table",
+   "process": "desktop",
+   "request": "desktop_resolve_second",
+   "result": "desktop_resolves_the_second_rate_table_result",
+   "returns": [
+    "rates_v2_body"
+   ]
+  },
+  {
+   "at": "2026-09-21T09:07:00Z",
+   "carries": [
     "desktop_commitment"
    ],
    "name": "desktop_undertakes_custody",
@@ -4035,7 +4291,7 @@
    ]
   },
   {
-   "at": "2026-09-21T09:06:00Z",
+   "at": "2026-09-21T09:08:00Z",
    "carries": [
     "desktop_observation"
    ],
@@ -4048,7 +4304,7 @@
    ]
   },
   {
-   "at": "2026-09-21T09:07:00Z",
+   "at": "2026-09-21T09:09:00Z",
    "carries": [
     "peer_commitment"
    ],
@@ -4061,7 +4317,7 @@
    ]
   },
   {
-   "at": "2026-09-21T09:08:00Z",
+   "at": "2026-09-21T09:10:00Z",
    "carries": [
     "inbound_envelope"
    ],
@@ -4074,7 +4330,7 @@
    ]
   },
   {
-   "at": "2026-09-21T09:09:00Z",
+   "at": "2026-09-21T09:11:00Z",
    "carries": [
     "inbound_envelope"
    ],
@@ -4091,7 +4347,7 @@
    ]
   },
   {
-   "at": "2026-09-21T09:10:00Z",
+   "at": "2026-09-21T09:12:00Z",
    "carries": [
     "resolve_ref"
    ],

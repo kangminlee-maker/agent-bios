@@ -2491,18 +2491,88 @@
    "record": "prepare_first_after_restore"
   },
   {
+   "digest_of": "envelope",
+   "pointer": "/envelope_digest",
+   "record": "first_after_restore_waiting"
+  },
+  {
+   "minted": "decisions_head_2",
+   "pointer": "/outcome/frontiers/0/checkpoint_digest",
+   "record": "first_after_restore_waiting"
+  },
+  {
+   "minted": "first_after_restore_question",
+   "pointer": "/outcome/use/question_id",
+   "record": "first_after_restore_waiting"
+  },
+  {
+   "minted": "first_use",
+   "pointer": "/outcome/use/use_id",
+   "record": "first_after_restore_waiting"
+  },
+  {
+   "minted": "first_after_restore_waiting_at",
+   "pointer": "/prepared_at",
+   "record": "first_after_restore_waiting"
+  },
+  {
+   "minted": "choice_a",
+   "pointer": "/alternatives/0/record_id",
+   "record": "first_after_restore_question"
+  },
+  {
+   "minted": "choice_b",
+   "pointer": "/alternatives/1/record_id",
+   "record": "first_after_restore_question"
+  },
+  {
+   "minted": "first_after_restore_question",
+   "pointer": "/question_id",
+   "record": "first_after_restore_question"
+  },
+  {
+   "minted": "first_use",
+   "pointer": "/use_id",
+   "record": "first_after_restore_question"
+  },
+  {
+   "digest_of": "first_basis",
+   "pointer": "/basis_digest",
+   "record": "first_after_restore_question"
+  },
+  {
+   "minted": "first_after_restore_question_at",
+   "pointer": "/created_at",
+   "record": "first_after_restore_question"
+  },
+  {
    "digest_of": "prepare_first_after_restore",
    "pointer": "/request_digest",
    "record": "prepare_the_first_use_after_restore_result"
   },
   {
-   "digest_of": "first_admitted",
+   "digest_of": "first_after_restore_waiting",
    "pointer": "/outputs/0/digest",
    "record": "prepare_the_first_use_after_restore_result"
   },
   {
-   "digest_of": "choice_a_body",
+   "digest_of": "application_unverifiable",
    "pointer": "/outputs/1/digest",
+   "record": "prepare_the_first_use_after_restore_result"
+  },
+  {
+   "digest_of": "first_after_restore_question",
+   "pointer": "/outputs/2/digest",
+   "record": "prepare_the_first_use_after_restore_result"
+  },
+  {
+   "digest_of": "first_basis",
+   "pointer": "/outputs/3/digest",
+   "record": "prepare_the_first_use_after_restore_result"
+  },
+  {
+   "digest_of": "first_state",
+   "pointer": "/outputs/4/digest",
    "record": "prepare_the_first_use_after_restore_result"
   }
  ],
@@ -3114,6 +3184,21 @@
    "name": "early_waiting_at",
    "shape": "instant",
    "step": "prepare_the_concern_after_the_early_restore"
+  },
+  {
+   "name": "first_after_restore_question",
+   "shape": "qst",
+   "step": "prepare_the_first_use_after_restore"
+  },
+  {
+   "name": "first_after_restore_question_at",
+   "shape": "instant",
+   "step": "prepare_the_first_use_after_restore"
+  },
+  {
+   "name": "first_after_restore_waiting_at",
+   "shape": "instant",
+   "step": "prepare_the_first_use_after_restore"
   }
  ],
  "records": [
@@ -7396,35 +7481,131 @@
    }
   },
   {
-   "digest": "f76f961302379fbbb8941a019fff617d85ee82c7e52fd89a758c0ff15a4af638",
+   "digest": "de67ae7ba0a45d6cb00cef340c9cffc95eb3c46d8b73ba8fe85a4626f87cac23",
+   "name": "first_after_restore_waiting",
+   "record": {
+    "ended": true,
+    "envelope_digest": "5674e59ced6859e5403e3b1657be09e4ba3d90fc152a30c736e107697ffbfe6d",
+    "kind": "reader_result",
+    "material_gaps": [],
+    "omissions": [],
+    "outcome": {
+     "consumed": {
+      "bytes": 0,
+      "examined": 12,
+      "units": 0
+     },
+     "frontiers": [
+      {
+       "checkpoint_digest": "7cbc2ea67a194572d98f5bb516e881855164d53251f39d89d6fb7a1b83935861",
+       "source_id": "src_bfbe1392707737a4e3e36aab5d171870"
+      }
+     ],
+     "standing": "unresolved",
+     "units": [],
+     "use": {
+      "question_id": "qst_669b4fb25101da0b9fe5181de7b6bc67",
+      "question_version": 1,
+      "state": "pending_user",
+      "use_id": "use_f2c3a5a214beff4675d09ac0fcf64d02"
+     }
+    },
+    "prepared_at": "2000-01-01T00:00:00Z",
+    "qualifications": [],
+    "schema": 1
+   }
+  },
+  {
+   "digest": "87322195dbcc1e937637a45a26bd81dba78ef18c94e758030563ffeaf888fc40",
+   "name": "first_after_restore_question",
+   "record": {
+    "alternatives": [
+     {
+      "record_id": "rec_53c105c4ec38a727a70adb322872f222",
+      "scope": {
+       "layer": "personal",
+       "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+      },
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870",
+      "summary": "WAL, with synchronous FULL."
+     },
+     {
+      "record_id": "rec_0a3b461becc5b755e58d61335935c1fa",
+      "scope": {
+       "layer": "personal",
+       "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a"
+      },
+      "source_id": "src_bfbe1392707737a4e3e36aab5d171870",
+      "summary": "A rollback journal with EXTRA."
+     }
+    ],
+    "asked_through": {
+     "host": "claude-code 2.1.278",
+     "qualified": true,
+     "route": "conversation"
+    },
+    "basis_digest": "ea2b72f76271a96596c4d094d54d4067fd5f32b958a4019bf47846a3de2cfb60",
+    "concern": {
+     "question": "Which journal mode does the local state database use?"
+    },
+    "created_at": "2000-01-01T00:00:00Z",
+    "kind": "pending_question",
+    "principal_id": "prn_7e75beae822b46b022b55a87e2fc011a",
+    "question_id": "qst_669b4fb25101da0b9fe5181de7b6bc67",
+    "question_version": 1,
+    "schema": 1,
+    "standing": "pending",
+    "use_id": "use_f2c3a5a214beff4675d09ac0fcf64d02"
+   }
+  },
+  {
+   "digest": "97f125359542a6ffe550f803fff06759d1c49659f5496bcfe71a3e80fde0f569",
    "name": "prepare_the_first_use_after_restore_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "private_state_written",
     "outcome": {
-     "material_gaps": [],
-     "stage": "previewed"
+     "material_gaps": [
+      {
+       "code": "preference_invalidated"
+      }
+     ],
+     "stage": "blocked"
     },
     "outputs": [
      {
-      "digest": "61f90a4134df75cbf28c08f426b01892a25477e927ae2afc4150497b51043566",
+      "digest": "de67ae7ba0a45d6cb00cef340c9cffc95eb3c46d8b73ba8fe85a4626f87cac23",
       "kind": "reader_result"
      },
      {
-      "digest": "b0a21eaef2dbdea3a0784eadf8ba72c94c5768a221f7cafa57fdf00272fd45c9",
-      "kind": "source_member"
+      "digest": "cda341fee0936963f1161b83bd4b3316392a902767816706fc40d9a812f123af",
+      "kind": "application_preference"
+     },
+     {
+      "digest": "87322195dbcc1e937637a45a26bd81dba78ef18c94e758030563ffeaf888fc40",
+      "kind": "pending_question"
+     },
+     {
+      "digest": "ea2b72f76271a96596c4d094d54d4067fd5f32b958a4019bf47846a3de2cfb60",
+      "kind": "comparison_basis"
+     },
+     {
+      "digest": "fb8504b23360f232dae94562cd328c97a2fde20bb9f5d7bc549ec3c96a1e92f2",
+      "kind": "qualified_state"
      }
     ],
     "provider_effect": "not_applicable",
     "request_digest": "0784d07d6cbe0b37348b8f4f0ccf1ec85928e43aab241466cbf49577c9f0b3b5",
     "request_id": "req_a3dd67231d6c9b39a573e8856da601be",
     "schema": 1,
-    "supported_recovery": []
+    "supported_recovery": [
+     "new_governed_request"
+    ]
    }
   }
  ],
- "says": "Two choices conflict in her decisions source — A (WAL, synchronous FULL), B (a rollback journal) — and her first use waits on a sealed question over both. She chooses A, keep until the choices change: a verified answer resumes and admits the use. A backup taken right after, while the preference is still active, is later restored independently on a separate runtime: a new use there is blocked with preference_invalidated, basis unverifiable past it — an active, backed-up preference is not silently revived. Recording the application crashes mid-commit; restarted, a same-id query returns it unchanged. A is replaced by A2 (synchronous NORMAL): her next use is blocked with preference_invalidated (a participant changed) and waits on a question over A2 and B. A second backup then covers that invalidated application and its pending question. A2 is replaced by A3, whose words are A's again: preparing that use again seals a new version — matching old words do not revive old consent. The laptop's live database is lost; the second backup, restored on a rebuilt runtime, holds the application invalidated as before. A use there is blocked, locked until Alice unlocks at a terminal (access_locked, access_generation_moved). Querying the answer, the application, the invalidated use, and the first use's own admission — each by its original request id — returns its original result unchanged. Preparing the first use again finds the same admitted result, its chosen body's bytes matching what was recorded: recovery reads the same decision and rewrites none of it. Preparing the second use again finds the same question pending. A separate new use is blocked with preference_invalidated over A2 and B, basis unverifiable past the second backup. Querying the first choice's publication returns its original result. What must not happen: changed-back words, a restored application revived as still valid, invalidation loss, a dropped pending question, or a rewritten decision record.",
- "spec_sha256": "5d73f4b1fdfb3bca1ad5ec81aff8106873d194d6ddb12bca39814f8282dbf498",
+ "says": "Two choices conflict in her decisions source — A (WAL, synchronous FULL), B (a rollback journal) — and her first use waits on a sealed question over both. She chooses A, keep until the choices change: a verified answer resumes and admits the use. A backup taken right after, while the preference is still active, is later restored independently on a separate runtime: a new use there is blocked with preference_invalidated, basis unverifiable past it — an active, backed-up preference is not silently revived. Recording the application crashes mid-commit; restarted, a same-id query returns it unchanged. A is replaced by A2 (synchronous NORMAL): her next use is blocked with preference_invalidated (a participant changed) and waits on a question over A2 and B. A second backup then covers that invalidated application and its pending question. A2 is replaced by A3, whose words are A's again: preparing that use again seals a new version — matching old words do not revive old consent. The laptop's live database is lost; the second backup, restored on a rebuilt runtime, holds the application invalidated as before. A use there is blocked, locked until Alice unlocks at a terminal (access_locked, access_generation_moved). Querying the answer, the application, the invalidated use, and the first use's own admission — each by its original request id — returns its original result unchanged. Preparing the first use again there finds it invalidated too, basis unverifiable, and waits on a new question over the same basis: the restored admission is not revived. Preparing the second use again finds the same question pending. A separate new use is blocked with preference_invalidated over A2 and B, basis unverifiable past the second backup. Querying the first choice's publication returns its original result. What must not happen: changed-back words, a restored application revived as still valid, invalidation loss, a dropped pending question, or a rewritten decision record.",
+ "spec_sha256": "30a76f7a2e5e02ee8c971c691606bb3038a7cf0de36d54b0fe7e4dd6818eaf7b",
  "steps": [
   {
    "carries": [
@@ -7850,8 +8031,11 @@
    "request": "prepare_first_after_restore",
    "result": "prepare_the_first_use_after_restore_result",
    "returns": [
-    "first_admitted",
-    "choice_a_body"
+    "first_after_restore_waiting",
+    "application_unverifiable",
+    "first_after_restore_question",
+    "first_basis",
+    "first_state"
    ]
   }
  ],

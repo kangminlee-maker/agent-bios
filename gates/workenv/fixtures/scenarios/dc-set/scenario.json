@@ -42,6 +42,10 @@
    "name": "register_personal_memory_id"
   },
   {
+   "id": "req_7945671e40e0a59253a630688c28867f",
+   "name": "resolve_before_anything_published_id"
+  },
+  {
    "id": "req_4e77ac2ecd7d487da70e6abd37e5e462",
    "name": "publish_wal_id"
   },
@@ -272,6 +276,41 @@
    "digest_of": "personal_memory_registered",
    "pointer": "/outputs/0/digest",
    "record": "register_personal_memory_result"
+  },
+  {
+   "digest_of": "journal_state_question",
+   "pointer": "/payload_digest",
+   "record": "resolve_before_anything_published"
+  },
+  {
+   "digest_of": "journal_state_question",
+   "pointer": "/question_digest",
+   "record": "state_before_anything_published"
+  },
+  {
+   "minted": "repo_memory_head_1",
+   "pointer": "/frontiers/0/checkpoint_digest",
+   "record": "state_before_anything_published"
+  },
+  {
+   "minted": "personal_memory_head_1",
+   "pointer": "/frontiers/1/checkpoint_digest",
+   "record": "state_before_anything_published"
+  },
+  {
+   "minted": "state_before_anything_published_at",
+   "pointer": "/prepared_at",
+   "record": "state_before_anything_published"
+  },
+  {
+   "digest_of": "resolve_before_anything_published",
+   "pointer": "/request_digest",
+   "record": "resolve_before_anything_published_result"
+  },
+  {
+   "digest_of": "state_before_anything_published",
+   "pointer": "/outputs/0/digest",
+   "record": "resolve_before_anything_published_result"
   },
   {
    "minted": "repo_memory_head_1",
@@ -959,6 +998,11 @@
    "name": "register_personal_memory_sequence",
    "shape": "integer",
    "step": "register_personal_memory"
+  },
+  {
+   "name": "state_before_anything_published_at",
+   "shape": "instant",
+   "step": "resolve_before_anything_published"
   },
   {
    "name": "publish_wal_committed_at",
@@ -1700,6 +1744,112 @@
    }
   },
   {
+   "digest": "b33e857922073f7c39915d9122e5a9e4bcbf71358a48b5a53e3c6e2b6f80cbb7",
+   "name": "journal_state_question",
+   "record": {
+    "concern": {
+     "conditions": [
+      {
+       "dimension": "repository",
+       "value": "this one"
+      }
+     ],
+     "question": "Which journal mode does the local state database use?"
+    },
+    "include_superseded": false,
+    "kind": "state_question",
+    "schema": 1,
+    "scopes": [
+     {
+      "layer": "repository",
+      "repository_id": "rep_f666410396e4b3fd1808598f3f1dd5e9"
+     },
+     {
+      "layer": "personal",
+      "principal_id": "prn_9b40f91182dbec9f3d7ba40f0c6e4286"
+     }
+    ]
+   }
+  },
+  {
+   "digest": "666053a3fce3ec182a7426813a8d606384c7dce0502315a6f31ba40342b85d37",
+   "name": "resolve_before_anything_published",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_839b815b58c2d8e7b330b3650355227f",
+     "principal_id": "prn_9b40f91182dbec9f3d7ba40f0c6e4286",
+     "profile_id": "prf_e2bed5a9dc40e6c9083f5d5f3d1cd555"
+    },
+    "control_digests": [],
+    "effect_class": "pure_preview",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "memory.state.resolve",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_9b40f91182dbec9f3d7ba40f0c6e4286"
+    },
+    "payload_digest": "b33e857922073f7c39915d9122e5a9e4bcbf71358a48b5a53e3c6e2b6f80cbb7",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_7945671e40e0a59253a630688c28867f",
+    "schema": 1,
+    "target": {
+     "resource_id": "cnc_4ac5f86dc88ff96eae3bdf3999224eaa"
+    }
+   }
+  },
+  {
+   "digest": "1c9eaf86714fbcfc4b9f98a1218d03955c1b2ce5d80ed6e4284b13d99833b0b2",
+   "name": "state_before_anything_published",
+   "record": {
+    "comparison": {
+     "compared": 0,
+     "unreachable": 0
+    },
+    "entries": [],
+    "frontiers": [
+     {
+      "checkpoint_digest": "abf1a3d9e83aec25e61181d3dd1a747dc057d48ab78a7c1d4a03787e040a71a2",
+      "source_id": "src_3365bd05f92428c2ab73769e2f82bc83"
+     },
+     {
+      "checkpoint_digest": "e73c88f4964694e7a41226114f0226e675c67694ea13c778f8e3de622428dac9",
+      "source_id": "src_d475cb397710f9c749131826e3b39208"
+     }
+    ],
+    "kind": "qualified_state",
+    "material_gaps": [],
+    "prepared_at": "2000-01-01T00:00:00Z",
+    "question_digest": "b33e857922073f7c39915d9122e5a9e4bcbf71358a48b5a53e3c6e2b6f80cbb7",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "3c68da95973a4180b2193c1c570670414628b0fd5fcfe09c12590b6852290a20",
+   "name": "resolve_before_anything_published_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "none",
+    "outcome": {
+     "material_gaps": [],
+     "stage": "previewed"
+    },
+    "outputs": [
+     {
+      "digest": "1c9eaf86714fbcfc4b9f98a1218d03955c1b2ce5d80ed6e4284b13d99833b0b2",
+      "kind": "qualified_state"
+     }
+    ],
+    "provider_effect": "none",
+    "request_digest": "666053a3fce3ec182a7426813a8d606384c7dce0502315a6f31ba40342b85d37",
+    "request_id": "req_7945671e40e0a59253a630688c28867f",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
    "digest": "1686017a887782e193e5ba966b77086c901714f83f056981defa2d286c498c69",
    "name": "wal_submitted",
    "record": {
@@ -1864,34 +2014,6 @@
     "request_id": "req_4e77ac2ecd7d487da70e6abd37e5e462",
     "schema": 1,
     "supported_recovery": []
-   }
-  },
-  {
-   "digest": "b33e857922073f7c39915d9122e5a9e4bcbf71358a48b5a53e3c6e2b6f80cbb7",
-   "name": "journal_state_question",
-   "record": {
-    "concern": {
-     "conditions": [
-      {
-       "dimension": "repository",
-       "value": "this one"
-      }
-     ],
-     "question": "Which journal mode does the local state database use?"
-    },
-    "include_superseded": false,
-    "kind": "state_question",
-    "schema": 1,
-    "scopes": [
-     {
-      "layer": "repository",
-      "repository_id": "rep_f666410396e4b3fd1808598f3f1dd5e9"
-     },
-     {
-      "layer": "personal",
-      "principal_id": "prn_9b40f91182dbec9f3d7ba40f0c6e4286"
-     }
-    ]
    }
   },
   {
@@ -2902,8 +3024,8 @@
    }
   }
  ],
- "says": "The journal-mode concern is asked over Alice's repository and personal scopes. With WAL recorded in the repository and nothing yet in her personal memory, the qualified state has one current entry and names the empty personal source among its frontiers: empty material is normal, not a gap. A duplicate of the same WAL choice recorded in her personal memory is compatible, and both entries stay current. When a newer, incompatible rollback-journal choice arrives in her personal memory, every applicable entry becomes unresolved with choice_conflict_unresolved: neither the repository scope's place in the order nor the rollback choice's later arrival selects a winner, and no person has answered. When two lifecycle events then assert that the rollback choice was both adopted and withdrawn at the same instant, that entry is also named by lifecycle_contradiction and still nothing is current. No entry a gap names is current.",
- "spec_sha256": "cb46b2fc22309b4ada8c0c9d19ae36c312d04a1fc00850842cdf8ccbeca9684f",
+ "says": "The journal-mode concern is asked over Alice's repository and personal scopes. Resolved before either scope holds a choice, the qualified state has no entries and names both empty sources among its frontiers: empty material is normal there too. With WAL recorded in the repository and nothing yet in her personal memory, the qualified state has one current entry and names the empty personal source among its frontiers: empty material is normal, not a gap. A duplicate of the same WAL choice recorded in her personal memory is compatible, and both entries stay current. When a newer, incompatible rollback-journal choice arrives in her personal memory, every applicable entry becomes unresolved with choice_conflict_unresolved: neither the repository scope's place in the order nor the rollback choice's later arrival selects a winner, and no person has answered. When two lifecycle events then assert that the rollback choice was both adopted and withdrawn at the same instant, that entry is also named by lifecycle_contradiction and still nothing is current. No entry a gap names is current.",
+ "spec_sha256": "6de07ac37a702f7b3c2e54e352ea64d0feec56d8e7e3b9c5075a46864842c701",
  "steps": [
   {
    "carries": [
@@ -2949,6 +3071,17 @@
    "result": "register_personal_memory_result",
    "returns": [
     "personal_memory_registered"
+   ]
+  },
+  {
+   "carries": [
+    "journal_state_question"
+   ],
+   "name": "resolve_before_anything_published",
+   "request": "resolve_before_anything_published",
+   "result": "resolve_before_anything_published_result",
+   "returns": [
+    "state_before_anything_published"
    ]
   },
   {

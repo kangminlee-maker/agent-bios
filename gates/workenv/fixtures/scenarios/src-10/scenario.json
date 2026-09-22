@@ -2772,7 +2772,7 @@
   }
  ],
  "says": "One person has two checkouts of repository W on their laptop: a clone on main at /home/ana/work and a worktree on a feature branch at /home/ana/work-feature-backups; each observation's selection names its own checkout. Each is observed and bound with repository.bind; both bindings name the same repository id W, each with the working_bytes_digest of its own observation. The ADR directory of W is registered as a memory source, a workstream is opened, and memory.record.publish records the journal-mode choice from 0001-journal-mode.md as that source's first revision. A fork of W is observed and bound with its own repository id, naming W as the ancestor it derives new authority from and the clone's binding as its authority evidence, not as an explicit binding to read W through it. Resolving the ADR source from the fork as if it were W is refused with repository_binding_required, and registering a second home for the same source in the fork (a copied manifest taking over as another writer) is refused with source_home_conflict; neither writes anything. Then the clone switches to a branch where 0001-journal-mode.md is absent; a new observation no longer lists it, and rebinding the same repository id now observes branch chore/prune-old-adrs in place of main, still sharing W's identity and this later observation's working_bytes_digest. memory.state.resolve for the workstream still reports the choice as current from the ADR source at the head it was published at: a file missing from a checkout or a branch switch is not a withdrawal.",
- "spec_sha256": "e1d65f4ae2f02f78193985b1e8878357182705ec1882f70c15986ec71cdf478f",
+ "spec_sha256": "9d1014f45474233d6150e6e7bf4c7bd740deed83fb04ee8f26308d3490ee66be",
  "steps": [
   {
    "carries": [
@@ -2943,6 +2943,22 @@
  ],
  "world": {
   "events": [
+   {
+    "before": "observe_after_the_branch_switch",
+    "bytes": "ref: refs/heads/chore/prune-old-adrs\n",
+    "digest": "4ac892f59799160a62f335734efea6a41a28b74bbfd2252fe462ee34c99fe7b8",
+    "kind": "file_edit",
+    "path": ".git/HEAD",
+    "size": 37
+   },
+   {
+    "before": "observe_after_the_branch_switch",
+    "bytes": "fedcba9876543210fedcba9876543210fedcba98\n",
+    "digest": "73bedbbaab84748c69d082f2aa832f36fe0edc826f5a9ab3e172108c021c066b",
+    "kind": "file_edit",
+    "path": ".git/refs/heads/chore/prune-old-adrs",
+    "size": 41
+   },
    {
     "absent": true,
     "before": "observe_after_the_branch_switch",

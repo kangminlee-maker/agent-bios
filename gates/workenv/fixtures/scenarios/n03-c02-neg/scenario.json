@@ -2429,7 +2429,7 @@
    }
   },
   {
-   "digest": "c4396f011896c44c9487b6d02b24f570790f0965a24feb57a8dfe738a26bfc2e",
+   "digest": "4a73c6eee05a8d863133e0d4c54f5e4e098c2b4dfff7719f8a3f04aaafb8441a",
    "name": "refresh_read_admission",
    "record": {
     "access_generation": 2,
@@ -2446,12 +2446,12 @@
      ]
     },
     "profile_id": "prf_a78d727a80aec91d98c265505876ecae",
-    "request_id": "req_3b845a0b3ff66ec6e741b3e6e822ddd1",
+    "request_id": "req_a24dfbfde679d718ec3217f5919b59a7",
     "schema": 1
    }
   },
   {
-   "digest": "6e1d502f421141a1b5ab58e8bb3c70f678a9083f638f5ad811ac82db5c7498dd",
+   "digest": "ae5e409edc03704189a6248b02d423ea19dddadd4ec58ef1878626b8e7340ba7",
    "name": "decide_after_refresh_result",
    "record": {
     "kind": "operation_result",
@@ -2462,7 +2462,7 @@
     },
     "outputs": [
      {
-      "digest": "c4396f011896c44c9487b6d02b24f570790f0965a24feb57a8dfe738a26bfc2e",
+      "digest": "4a73c6eee05a8d863133e0d4c54f5e4e098c2b4dfff7719f8a3f04aaafb8441a",
       "kind": "access_admission"
      }
     ],
@@ -2919,7 +2919,7 @@
   }
  ],
  "says": "Alice's laptop reads its fresh profile (active, generation 1), binds her key and founds a Team; as the Team's issuing authority she records on the Team a permit that lets the laptop read the Team's state offline for a week, and the Team has a configured provider connection. The decision CLI is issued a handle at generation 1. Under generation 1 she renames her profile, which commits, and the CLI issues a Team read under its handle. She locks the profile (generation 2); a second Team read is admitted under generation 1 and held in flight while the lock runs, and the process is killed after the lock commits and restarted, with the lock still what the owner answers. The in-flight read is rechecked before its result is shown and is not admitted, with access_locked and access_generation_moved. The read issued under the old handle arrives late, after the restart: not admitted, with access_locked and access_generation_moved. The provider delivers a refreshed token with no local transition; a read of the profile's own state right after shows it is still the same locked state, so the refresh reopened nothing, and deciding the old read again right after still refuses it with access_locked and access_generation_moved. After an explicit unlock at a terminal (still generation 2, real device key) the same old read is still refused with access_generation_moved; the unlock reopens nothing issued before the lock, and the CLI is issued a new handle at generation 2. A query for the rename committed before the lock answers with its original result. Eight days later the permit's offline limit has passed: a fresh read under the new handle naming the permit is not admitted, with credential_expired. What must not happen: a restart, a refresh, a late answer or the later unlock admitting the old handle; an in-flight response presented after the generation moved; expired offline evidence admitting a read; or the query answering with anything but the rename's original result.",
- "spec_sha256": "c90cbbc0a39cea8948851885dd80880e4a4e81670acb1811599d5323026e9d00",
+ "spec_sha256": "dc4c95e489332220dd77110a84efe260850a4f61b2a7fee95b1ae04a72d448cb",
  "steps": [
   {
    "at": "2026-09-21T09:00:00Z",

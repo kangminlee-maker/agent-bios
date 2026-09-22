@@ -1,6 +1,6 @@
 {
  "case": "DC-SET",
- "says": "The journal-mode concern is asked over Alice's repository and personal scopes. With WAL recorded in the repository and nothing yet in her personal memory, the qualified state has one current entry and names the empty personal source among its frontiers: empty material is normal, not a gap. A duplicate of the same WAL choice recorded in her personal memory is compatible, and both entries stay current. When a newer, incompatible rollback-journal choice arrives in her personal memory, every applicable entry becomes unresolved with choice_conflict_unresolved: neither the repository scope's place in the order nor the rollback choice's later arrival selects a winner, and no person has answered. When two lifecycle events then assert that the rollback choice was both adopted and withdrawn at the same instant, that entry is also named by lifecycle_contradiction and still nothing is current. No entry a gap names is current.",
+ "says": "The journal-mode concern is asked over Alice's repository and personal scopes. Resolved before either scope holds a choice, the qualified state has no entries and names both empty sources among its frontiers: empty material is normal there too. With WAL recorded in the repository and nothing yet in her personal memory, the qualified state has one current entry and names the empty personal source among its frontiers: empty material is normal, not a gap. A duplicate of the same WAL choice recorded in her personal memory is compatible, and both entries stay current. When a newer, incompatible rollback-journal choice arrives in her personal memory, every applicable entry becomes unresolved with choice_conflict_unresolved: neither the repository scope's place in the order nor the rollback choice's later arrival selects a winner, and no person has answered. When two lifecycle events then assert that the rollback choice was both adopted and withdrawn at the same instant, that entry is also named by lifecycle_contradiction and still nothing is current. No entry a gap names is current.",
  "ids": [
   {
    "name": "alice",
@@ -40,6 +40,10 @@
   },
   {
    "name": "register_personal_memory_id",
+   "prefix": "req"
+  },
+  {
+   "name": "resolve_before_anything_published_id",
    "prefix": "req"
   },
   {
@@ -434,6 +438,82 @@
     {
      "pointer": "/payload_digest",
      "value": "#personal_memory_home"
+    }
+   ]
+  },
+  {
+   "name": "resolve_before_anything_published",
+   "from": "c01/link_request.json",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@resolve_before_anything_published_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "memory.state.resolve"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "pure_preview"
+    },
+    {
+     "pointer": "/actor/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/actor/device_id",
+     "value": "@laptop"
+    },
+    {
+     "pointer": "/actor/profile_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/action",
+     "value": "read"
+    },
+    {
+     "pointer": "/owner/principal_id",
+     "value": "@alice"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@journal_concern"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#journal_state_question"
+    }
+   ]
+  },
+  {
+   "name": "state_before_anything_published",
+   "from": "c05/state_over_no_source.json",
+   "set": [
+    {
+     "pointer": "/question_digest",
+     "value": "#journal_state_question"
+    },
+    {
+     "pointer": "/frontiers/0/source_id",
+     "value": "@repo_memory"
+    },
+    {
+     "pointer": "/frontiers/0/checkpoint_digest",
+     "value": "$digest:repo_memory_head_1"
+    },
+    {
+     "pointer": "/frontiers/1/source_id",
+     "value": "@personal_memory"
+    },
+    {
+     "pointer": "/frontiers/1/checkpoint_digest",
+     "value": "$digest:personal_memory_head_1"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:state_before_anything_published_at"
     }
    ]
   },
@@ -1661,6 +1741,23 @@
      "personal_memory_registered"
     ],
     "head": "personal_memory_head_1"
+   }
+  },
+  {
+   "name": "resolve_before_anything_published",
+   "request": "resolve_before_anything_published",
+   "carries": [
+    "journal_state_question"
+   ],
+   "answer": {
+    "stage": "previewed",
+    "local_effect": "none",
+    "provider_effect": "none",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "state_before_anything_published"
+    ]
    }
   },
   {

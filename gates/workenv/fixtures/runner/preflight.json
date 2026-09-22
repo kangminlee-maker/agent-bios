@@ -659,6 +659,9 @@
               "check": "applied_at_most_once",
               "node_id": "P02",
               "path": "workenv/identity.py"
+            },
+            {
+              "check": "run_identity_preserved"
             }
           ]
         },
@@ -725,6 +728,9 @@
             {
               "check": "recorded_passed",
               "node_id": "P02"
+            },
+            {
+              "check": "run_identity_preserved"
             }
           ]
         },
@@ -787,6 +793,9 @@
             {
               "check": "evidence_kept",
               "node_id": "P02"
+            },
+            {
+              "check": "run_identity_preserved"
             }
           ]
         }
@@ -977,7 +986,7 @@
         },
         {
           "name": "own_path",
-          "says": "P03's change to a path it owns is applied once and P03 is recorded as passed.",
+          "says": "P03's change to a path it owns is applied once and P03 is recorded as passed, and the file holds what it submitted and nothing else.",
           "given": {
             "base": "coordinator",
             "changes": [
@@ -1022,6 +1031,11 @@
             {
               "check": "recorded_passed",
               "node_id": "P03"
+            },
+            {
+              "check": "applied_bytes_are_the_submission",
+              "node_id": "P02",
+              "path": "workenv/storage.py"
             }
           ]
         }

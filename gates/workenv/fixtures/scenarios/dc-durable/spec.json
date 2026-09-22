@@ -1,6 +1,6 @@
 {
  "case": "DC-DURABLE",
- "says": "Two choices conflict in her decisions source — A (WAL, synchronous FULL), B (a rollback journal) — and her first use waits on a sealed question over both. She chooses A, keep until the choices change: a verified answer resumes and admits the use. A backup taken right after, while the preference is still active, is later restored independently on a separate runtime: a new use there is blocked with preference_invalidated, basis unverifiable past it — an active, backed-up preference is not silently revived. Recording the application crashes mid-commit; restarted, a same-id query returns it unchanged. A is replaced by A2 (synchronous NORMAL): her next use is blocked with preference_invalidated (a participant changed) and waits on a question over A2 and B. A second backup then covers that invalidated application and its pending question. A2 is replaced by A3, whose words are A's again: preparing that use again seals a new version — matching old words do not revive old consent. The laptop's live database is lost; the second backup, restored on a rebuilt runtime, holds the application invalidated as before. A use there is blocked, locked until Alice unlocks at a terminal (access_locked, access_generation_moved). Querying the answer, the application, the invalidated use, and the first use's own admission — each by its original request id — returns its original result unchanged. Preparing the first use again finds the same admitted result, its chosen body's bytes matching what was recorded: recovery reads the same decision and rewrites none of it. Preparing the second use again finds the same question pending. A separate new use is blocked with preference_invalidated over A2 and B, basis unverifiable past the second backup. Querying the first choice's publication returns its original result. What must not happen: changed-back words, a restored application revived as still valid, invalidation loss, a dropped pending question, or a rewritten decision record.",
+ "says": "Two choices conflict in her decisions source — A (WAL, synchronous FULL), B (a rollback journal) — and her first use waits on a sealed question over both. She chooses A, keep until the choices change: a verified answer resumes and admits the use. A backup taken right after, while the preference is still active, is later restored independently on a separate runtime: a new use there is blocked with preference_invalidated, basis unverifiable past it — an active, backed-up preference is not silently revived. Recording the application crashes mid-commit; restarted, a same-id query returns it unchanged. A is replaced by A2 (synchronous NORMAL): her next use is blocked with preference_invalidated (a participant changed) and waits on a question over A2 and B. A second backup then covers that invalidated application and its pending question. A2 is replaced by A3, whose words are A's again: preparing that use again seals a new version — matching old words do not revive old consent. The laptop's live database is lost; the second backup, restored on a rebuilt runtime, holds the application invalidated as before. A use there is blocked, locked until Alice unlocks at a terminal (access_locked, access_generation_moved). Querying the answer, the application, the invalidated use, and the first use's own admission — each by its original request id — returns its original result unchanged. Preparing the first use again there finds it invalidated too, basis unverifiable, and waits on a new question over the same basis: the restored admission is not revived. Preparing the second use again finds the same question pending. A separate new use is blocked with preference_invalidated over A2 and B, basis unverifiable past the second backup. Querying the first choice's publication returns its original result. What must not happen: changed-back words, a restored application revived as still valid, invalidation loss, a dropped pending question, or a rewritten decision record.",
  "ids": [
   {
    "name": "alice",
@@ -4335,6 +4335,46 @@
    ]
   },
   {
+   "name": "first_after_restore_waiting",
+   "from": "first_waiting",
+   "set": [
+    {
+     "pointer": "/outcome/use/question_id",
+     "value": "$qst:first_after_restore_question"
+    },
+    {
+     "pointer": "/outcome/use/use_id",
+     "value": "$use:first_use"
+    },
+    {
+     "pointer": "/prepared_at",
+     "value": "$instant:first_after_restore_waiting_at"
+    }
+   ]
+  },
+  {
+   "name": "first_after_restore_question",
+   "from": "first_question",
+   "set": [
+    {
+     "pointer": "/question_id",
+     "value": "$qst:first_after_restore_question"
+    },
+    {
+     "pointer": "/use_id",
+     "value": "$use:first_use"
+    },
+    {
+     "pointer": "/basis_digest",
+     "value": "#first_basis"
+    },
+    {
+     "pointer": "/created_at",
+     "value": "$instant:first_after_restore_question_at"
+    }
+   ]
+  },
+  {
    "name": "ask_admission",
    "from": "bindings/storing_request.json",
    "drop": [
@@ -5123,14 +5163,23 @@
     "envelope"
    ],
    "answer": {
-    "stage": "previewed",
+    "stage": "blocked",
     "local_effect": "private_state_written",
     "provider_effect": "not_applicable",
-    "gaps": [],
-    "recovery": [],
+    "gaps": [
+     {
+      "code": "preference_invalidated"
+     }
+    ],
+    "recovery": [
+     "new_governed_request"
+    ],
     "returns": [
-     "first_admitted",
-     "choice_a_body"
+     "first_after_restore_waiting",
+     "application_unverifiable",
+     "first_after_restore_question",
+     "first_basis",
+     "first_state"
     ]
    },
    "process": "rebuilt"

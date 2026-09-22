@@ -1,6 +1,6 @@
 {
  "case": "N14-C10-NEG",
- "says": "Alice's Team is founded on her laptop, which is also its finalizer, and the founding returns the Team's founding continuity epoch; her enrolled desktop takes a backup of its own store, then imports and keeps a complete package — staged by the laptop as a draft with no receipt, carrying the founding epoch as a member — and acknowledges custody of it at storage generation 1. While the two cannot reach each other, the desktop's commit to the Team's source is blocked with finalizer_unavailable and is not finalized on the desktop; retried by the same request once the laptop is reachable, the laptop finalizes it once. The desktop's storage is then reset: its acknowledgment at generation 2 states storage_generation_reset. A second complete package whose body never arrived stops at received with body_missing. A package whose continuity runs from the founding epoch to two successors of it, both carried as members, stops at received with fork_evidence. A package whose successor epoch carries the key it copied is refused at admission. Restoring the desktop's old backup reports passive authority and names nothing after the backup as known; a commit then attempted on the restored disk is blocked with access_locked and writes nothing, so the passive label is never exercised into a write. What must not happen: a shared commit finalized anywhere but the finalizer, the reset holder counted as still keeping its promise, an incomplete package or two successors producing a complete copy or authority, a copied key accepted as continuity, or the rolled-back disk becoming active authority.",
+ "says": "Alice's Team is founded on her laptop, which is also its finalizer, and the founding returns the Team's founding continuity epoch; her enrolled desktop takes a backup of its own store, then imports and keeps a complete package — staged by the laptop as a draft with no receipt, carrying the founding epoch as a member — and acknowledges custody of it at storage generation 1. While the two cannot reach each other, the desktop's commit to the Team's source is blocked with finalizer_unavailable and is not finalized on the desktop; retried by the same request once the laptop is reachable, the laptop finalizes it once. The desktop's storage is then reset: its acknowledgment at generation 2 states storage_generation_reset. A second complete package whose body never arrived stops at received with body_missing. A package whose continuity runs from the founding epoch to two successors of it, both carried as members, stops at received with fork_evidence. A package whose successor epoch carries the key it copied stops at received with trust_continuity_unverified. Restoring the desktop's old backup reports passive authority and names nothing after the backup as known; a commit then attempted on the restored disk is blocked with access_locked and writes nothing, so the passive label is never exercised into a write. What must not happen: a shared commit finalized anywhere but the finalizer, the reset holder counted as still keeping its promise, an incomplete package or two successors producing a complete copy or authority, a copied key accepted as continuity, or the rolled-back disk becoming active authority.",
  "ids": [
   {
    "name": "desktop_peer",
@@ -825,6 +825,11 @@
   {
    "name": "desktop_backup",
    "from": "c03/backup_taken_before_the_loss.json",
+   "drop": [
+    "/members/2",
+    "/members/1",
+    "/members/0"
+   ],
    "set": [
     {
      "pointer": "/profile_id",
@@ -837,6 +842,10 @@
     {
      "pointer": "/covered_through",
      "value": "$integer:backup_sequence"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:desktop_backup_control_state"
     }
    ]
   },
@@ -1534,7 +1543,7 @@
     },
     {
      "pointer": "/inventory/0/digest",
-     "value": "#stored_desktop_revision"
+     "value": "10f47b6487b045221a1ccdfff7d995feccf3ff38872a89a78bfbdd99f77e0da5"
     },
     {
      "pointer": "/inventory/0/size",

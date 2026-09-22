@@ -638,6 +638,12 @@
         },
         {
           "$ref": "#/$defs/recorded_passed_is_the_applied_one"
+        },
+        {
+          "$ref": "#/$defs/applied_bytes_are_the_submission"
+        },
+        {
+          "$ref": "#/$defs/run_identity_preserved"
         }
       ]
     },
@@ -802,6 +808,19 @@
         }
       }
     },
+    "run_identity_preserved": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The run the restart resumes is the run the interrupted round was part of: the run file's `run_id` after the restart is the one the earlier round's report and packets named. A restart that keeps every attempt id while moving the run to another identity fails here.",
+      "required": [
+        "check"
+      ],
+      "properties": {
+        "check": {
+          "const": "run_identity_preserved"
+        }
+      }
+    },
     "evidence_kept": {
       "type": "object",
       "additionalProperties": false,
@@ -927,6 +946,27 @@
       "properties": {
         "check": {
           "const": "applied_once"
+        },
+        "node_id": {
+          "$ref": "#/$defs/node_id"
+        },
+        "path": {
+          "$ref": "#/$defs/tree_path"
+        }
+      }
+    },
+    "applied_bytes_are_the_submission": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The path's final bytes are its bytes at the round's base plus exactly the content the node's worker result submitted for it, and nothing else: an accepted file carrying the expected line once and an unproposed line beside it fails here, although the marker count and the report's hashes are both right.",
+      "required": [
+        "check",
+        "node_id",
+        "path"
+      ],
+      "properties": {
+        "check": {
+          "const": "applied_bytes_are_the_submission"
         },
         "node_id": {
           "$ref": "#/$defs/node_id"
