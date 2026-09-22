@@ -585,6 +585,7 @@ def generate(spec_bytes: bytes, schemas: dict | None = None) -> dict:
     idle = sorted(set(built.members) - named)
     if idle:
         built.fail("members", f"{idle} are named by no record and returned by no step")
+    delivered(built, table)
     sized(built)
     return {"case": spec["case"], "says": spec["says"],
             **({"world": stated(world)} if world else {}),
@@ -596,6 +597,39 @@ def generate(spec_bytes: bytes, schemas: dict | None = None) -> dict:
                              "size": len(data)} for n, data in built.members.items()]}
                if built.members else {}),
             "steps": steps, "minted": definitions, "joins": built.joins}
+
+
+def _bodies(value, pointer: str):
+    """Every body_digest a record states, with the pointer it sits at."""
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if key == "body_digest" and isinstance(item, str):
+                yield f"{pointer}/{key}", item
+            else:
+                yield from _bodies(item, f"{pointer}/{key}")
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            yield from _bodies(item, f"{pointer}/{index}")
+
+
+def delivered(built: _Scenario, table: dict) -> None:
+    """Hold a read that returns bodies to returning them: a delivered unit's body_digest is the
+    digest of a member the same step returns, so the reader hands back bytes and not only their
+    name. Only an operation whose row returns `source_member` delivers a body; a body_digest a
+    record merely states (a revision's member, a capture's inputs) stands for bytes no step read.
+    """
+    for step, row in built.results.items():
+        operation = built.built[row["request"]].get("operation")
+        if "source_member" not in table.get(operation, {}).get("returns", ()):
+            continue
+        members = {built.digests[n] for n in row["returns"] if n in built.members}
+        for name in row["returns"]:
+            if name in built.members:
+                continue
+            for pointer, digest in _bodies(built.built[name], ""):
+                if digest not in members:
+                    built.fail(step, f"{name}{pointer} delivers a body, and the step returns no "
+                                     f"member whose bytes that digest is of")
 
 
 def sized(built: _Scenario) -> None:

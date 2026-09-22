@@ -589,6 +589,47 @@ class World(unittest.TestCase):
         self.refused("no runner situation", spec)
 
 
+class Delivered(unittest.TestCase):
+    """A read that returns bodies returns their bytes, shown on the committed corpus itself.
+
+    The spec is located rather than named, so the control survives a case being renamed or
+    retired and states aloud when it has nothing left to judge."""
+
+    def located(self):
+        table = scenarios.operations()
+        returns_member = {name for name, row in table.items()
+                          if "source_member" in row.get("returns", ())}
+        for path in scenarios.specs():
+            spec = json.loads(path.read_bytes())
+            by_name = {row["name"]: row for row in spec["records"]}
+            for step in spec["steps"]:
+                request = by_name.get(step.get("request"))
+                if not request:
+                    continue
+                operation = next((e["value"] for e in request.get("set", [])
+                                  if e["pointer"] == "/operation"), None)
+                if operation not in returns_member:
+                    continue
+                for name in step.get("answer", {}).get("returns", []):
+                    record = by_name.get(name)
+                    for edit in (record or {}).get("set", []):
+                        if (edit["pointer"].endswith("/body_digest")
+                                and str(edit["value"]).startswith("#")):
+                            return spec, edit
+        return None, None
+
+    def test_a_delivered_body_names_bytes_the_step_returns(self):
+        spec, edit = self.located()
+        self.assertIsNotNone(spec, "no committed spec delivers a body from a read that returns "
+                                   "one, so this rule is judging nothing")
+        schemas = examples.load_schemas()
+        scenarios.generate(spec_bytes(spec), schemas)      # positive control: it generates
+        edit["value"] = "$digest:bytes_nothing_returns"    # the one change
+        with self.assertRaises(scenarios.ScenarioError) as caught:
+            scenarios.generate(spec_bytes(spec), schemas)
+        self.assertIn("delivers a body, and the step returns no member", str(caught.exception))
+
+
 class Committed(unittest.TestCase):
     def test_every_generated_scenario_is_what_its_spec_generates(self):
         schemas = examples.load_schemas()
