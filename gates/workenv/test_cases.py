@@ -217,6 +217,28 @@ class Registry(unittest.TestCase):
             self.selection(registry, "P04")["joined"][0]["predecessor"] = "P02"
         self.refused("is joined to P02, which P04 does not depend on as an implementation", edit)
 
+    def test_the_bindings_artifact_covers_every_profile_the_plan_names(self):
+        artifact = cases.bindings(self.registry, loaded=self.loaded, paths=self.paths)
+        self.assertEqual(set(artifact), {"bindings"})
+        self.assertEqual(set(artifact["bindings"]),
+                         {node["test_profile"] for node in self.loaded[0]["nodes"]})
+
+    def test_every_binding_in_the_artifact_satisfies_the_dated_evaluator(self):
+        # The evaluator reads this artifact as the frozen registry, so a binding it would
+        # refuse must not reach it as one this module emitted.
+        plan, catalog, evaluator = self.loaded
+        atomic = {a["id"]: f["id"] for f in catalog["cases"] for a in f.get("atomic_cases", [])}
+        artifact = cases.bindings(self.registry, loaded=self.loaded, paths=self.paths)
+        for name, binding in sorted(artifact["bindings"].items()):
+            self.assertEqual(evaluator.binding_errors(catalog["profiles"][name], binding, atomic),
+                             [], name)
+
+    def test_the_artifact_carries_an_accepted_binding_verbatim(self):
+        artifact = cases.bindings(self.registry, loaded=self.loaded, paths=self.paths)
+        carried = next(r for r in self.registry["carried"] if r["profile"] == "P00")
+        self.assertEqual(artifact["bindings"]["P00"],
+                         cases.carried_binding(carried))
+
     def test_a_profile_selected_twice_is_refused(self):
         self.refused("stated twice", lambda r: r["selects"].append(copy.deepcopy(r["selects"][0])))
 

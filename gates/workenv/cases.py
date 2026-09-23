@@ -58,6 +58,7 @@ with the bytes of every fixture its cases read, each example's expectation besid
 definitions themselves. An implementation, a host version or a unit test is in neither.
 
   python3 gates/workenv/cases.py            # check, and print each profile's bound counts
+  python3 gates/workenv/cases.py --bindings # the case-bindings artifact P01 freezes
 """
 from __future__ import annotations
 
@@ -496,7 +497,26 @@ def binding(registry: dict, profile: str, loaded: tuple | None = None,
             "fixture_fingerprint": evaluator.digest(fixture)}
 
 
+def bindings(registry: dict | None = None, loaded: tuple | None = None,
+             root: pathlib.Path = ROOT, paths: list[str] | None = None) -> dict:
+    """Every profile's case binding, in the shape the dated evaluator reads.
+
+    P01 freezes this as its `case-bindings` artifact, and the evaluator holds the artifact
+    against the bindings the run states, so both come from here rather than from two
+    derivations that agree until one of them moves.
+    """
+    registry = load() if registry is None else registry
+    loaded = bundle(root) if loaded is None else loaded
+    paths = subjects.tracked(root) if paths is None else paths
+    profiles = sorted({node["test_profile"] for node in loaded[0]["nodes"]})
+    return {"bindings": {name: binding(registry, name, loaded=loaded, root=root, paths=paths)
+                         for name in profiles}}
+
+
 def main(argv: list[str]) -> int:
+    if argv == ["--bindings"]:
+        print(json.dumps(bindings(), ensure_ascii=False, sort_keys=True))
+        return 0
     if argv:
         print(__doc__.strip().splitlines()[-1], file=sys.stderr)
         return 2
