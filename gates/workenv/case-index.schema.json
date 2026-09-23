@@ -262,10 +262,23 @@
           "minItems": 1,
           "uniqueItems": true,
           "items": {
-            "type": "string",
-            "pattern": "^(?:N[0-9]{2}(?:-[A-Z0-9]+)+-(?:POS|NEG)|[A-Z]+(?:-[A-Z0-9]+)+)$"
+            "$ref": "#/$defs/selected_case"
+          }
+        },
+        "joined": {
+          "description": "The cases this profile runs against an accepted predecessor. An implementation profile states it either way: the ones with an implementation predecessor name at least one, and the ones without state an empty list rather than leaving the key out, so silence is not a third answer.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/joined_case"
           }
         }
+      },
+      "x-unique-by": {
+        "key": "case",
+        "across": [
+          "joined"
+        ]
       }
     },
     "coverage": {
@@ -317,6 +330,30 @@
           }
         }
       }
+    },
+    "joined_case": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One case this profile runs against an accepted predecessor's real files, rather than against anything this repository can stand in for. The predecessor is a node the selecting profile's node depends on and which implements something; gates/workenv/cases.py holds both ends against the plan, because neither is decidable from this document alone.",
+      "required": [
+        "case",
+        "predecessor"
+      ],
+      "properties": {
+        "case": {
+          "description": "One of this row's selected cases.",
+          "$ref": "#/$defs/selected_case"
+        },
+        "predecessor": {
+          "description": "The plan node whose accepted files the case runs against.",
+          "$ref": "#/$defs/profile"
+        }
+      }
+    },
+    "selected_case": {
+      "description": "A case a profile may select: a new case's id, or a catalog atomic case's.",
+      "type": "string",
+      "pattern": "^(?:N[0-9]{2}(?:-[A-Z0-9]+)+-(?:POS|NEG)|[A-Z]+(?:-[A-Z0-9]+)+)$"
     }
   }
 }

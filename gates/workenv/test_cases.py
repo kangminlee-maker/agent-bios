@@ -192,6 +192,31 @@ class Registry(unittest.TestCase):
         self.refused("is defined nowhere",
                      lambda r: self.selection(r, "P02")["cases"].append("N02-GHOST-POS"))
 
+    def test_an_implementation_profile_that_states_no_joined_cases_is_refused(self):
+        # Silence and "I have none" read alike in a document, and only one of them is correct.
+        self.refused("P04 implements something and the row states no joined cases",
+                     lambda r: self.selection(r, "P04").pop("joined"))
+
+    def test_an_implementation_profile_joining_nothing_to_its_predecessor_is_refused(self):
+        self.refused("P04 depends on P03, which implement, and no case is joined to any of them",
+                     lambda r: self.selection(r, "P04").__setitem__("joined", []))
+
+    def test_a_profile_with_no_implementation_predecessor_that_joins_one_is_refused(self):
+        def edit(registry):
+            self.selection(registry, "P02")["joined"] = [{"case": "N02-C01-POS",
+                                                          "predecessor": "P03"}]
+        self.refused("P02 depends on no node that implements", edit)
+
+    def test_a_joined_case_the_profile_does_not_select_is_refused(self):
+        def edit(registry):
+            self.selection(registry, "P04")["joined"][0]["case"] = "N27-ADR-POS"
+        self.refused("selects P04: N27-ADR-POS is joined and not selected", edit)
+
+    def test_a_case_joined_to_a_node_the_profile_does_not_depend_on_is_refused(self):
+        def edit(registry):
+            self.selection(registry, "P04")["joined"][0]["predecessor"] = "P02"
+        self.refused("is joined to P02, which P04 does not depend on as an implementation", edit)
+
     def test_a_profile_selected_twice_is_refused(self):
         self.refused("stated twice", lambda r: r["selects"].append(copy.deepcopy(r["selects"][0])))
 

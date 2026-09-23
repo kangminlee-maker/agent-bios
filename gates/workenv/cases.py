@@ -43,6 +43,9 @@ its bound cases can drive, with the reason.
     defines
   - a profile whose case map the dated evaluator's own `binding_errors` refuses
   - an operation no case drives, and a runtime rule no case checks at a node that implements it
+  - an implementation profile that joins no case to a predecessor that implements, one that
+    joins a case it does not select or joins it to a node it does not depend on, and one that
+    states nothing at all — the two profiles with no such predecessor say so with an empty list
   - a profile without its `covers`, a `done_when` item no bound case realizes, a node contract
     no bound case drives and `elsewhere` does not name, and an `elsewhere` its cases do drive
 
@@ -78,6 +81,8 @@ SCHEMA = pathlib.Path(__file__).with_name("case-index.schema.json")
 # file, fixed by the plan bundle, and the invocation, packet, worker result and report the
 # schemas beside its preflight cases state.
 RUNNER = "runner"
+# The plan kind whose nodes build product, and so can have a predecessor that built some.
+IMPLEMENTATION = "implementation"
 RUNNER_FIXTURES = "gates/workenv/fixtures/runner"
 PREFLIGHT = f"{RUNNER_FIXTURES}/preflight.json"
 RULE_FIXTURES = "gates/workenv/fixtures/rules"
@@ -142,6 +147,47 @@ def derive(registry: dict, root: pathlib.Path = ROOT) -> tuple[dict[str, dict], 
                     + row.get("reads", []))
         derived[case] = {"operations": operations, "contracts": contracts, "fixtures": fixtures}
     return derived, problems
+
+
+def implementation_predecessors(node: dict, nodes: dict[str, dict]) -> list[str]:
+    """The nodes this one depends on that implement something."""
+    return [name for name in node.get("depends_on", [])
+            if nodes.get(name, {}).get("kind") == IMPLEMENTATION]
+
+
+def joined_problems(rows: dict[str, dict], nodes: dict[str, dict]) -> list[str]:
+    """A joined case is one an implementation profile runs against an accepted predecessor's
+    real files rather than against anything stood in for it. Every implementation profile
+    states its own either way, because a profile that says nothing and a profile with nothing
+    to say read alike, and only one of them is correct."""
+    found = []
+    for identifier in sorted(nodes):
+        node = nodes[identifier]
+        if node["kind"] != IMPLEMENTATION:
+            continue
+        row = rows.get(node["test_profile"])
+        if row is None:
+            continue  # an unbound or miswritten profile is already reported by its own rule
+        name, joined = node["test_profile"], row.get("joined")
+        predecessors = implementation_predecessors(node, nodes)
+        if joined is None:
+            found.append(f"selects {name}: {identifier} implements something and the row states "
+                         f"no joined cases, not even that it has none")
+            continue
+        if predecessors and not joined:
+            found.append(f"selects {name}: {identifier} depends on {', '.join(predecessors)}, "
+                         f"which implement, and no case is joined to any of them")
+        if not predecessors and joined:
+            found.append(f"selects {name}: {identifier} depends on no node that implements, and "
+                         f"{len(joined)} case(s) are joined to one")
+        for entry in joined:
+            case, predecessor = entry["case"], entry["predecessor"]
+            if case not in row["cases"]:
+                found.append(f"selects {name}: {case} is joined and not selected")
+            if predecessor not in predecessors:
+                found.append(f"selects {name}: {case} is joined to {predecessor}, which "
+                             f"{identifier} does not depend on as an implementation")
+    return found
 
 
 def load(path: pathlib.Path = REGISTRY) -> dict:
@@ -303,6 +349,7 @@ def check(registry: dict | None = None, root: pathlib.Path = ROOT,
                 problems.append(f"selects {name}: {case} is outside its families")
     for case in sorted({row["id"] for row in registry["cases"]} - set(selected)):
         problems.append(f"{case}: defined and selected by no profile")
+    problems.extend(joined_problems({row["profile"]: row for row in registry["selects"]}, nodes))
 
     all_operations = {op for module in modules.values() for op in getattr(module, "OPERATIONS", ())}
     for operation in sorted(all_operations - driven):
