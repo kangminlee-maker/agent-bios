@@ -33,8 +33,11 @@ Reading is not applying. An inspection returns history and alternatives and admi
 them; when an actual use needs a person's answer, the question is sealed and stored first and
 the result carries a `pending_user` use, the question and use it waits on, which is never a
 first option chosen on their behalf. A result that admits a use names that use and the state it
-was admitted on; a later use or a child recipient is admitted on its own. A question is sealed
-against a `comparison_basis`.
+was admitted on, and covers that use alone: a later use, or a session started under this one, is
+admitted by a record of its own rather than by this one. Admitting one is not the same as asking
+for it again — whether the person is asked follows the mode they chose with their answer (C11),
+so a new session, a new link, or a session started under another is not by itself a reason to
+ask. A question is sealed against a `comparison_basis`.
 
 A use is what an answer applies to. `memory.use.prepare` targeting a concern starts a new use of
 it, whose id the owner mints; targeting a use prepares that same use again — a retry under a new
