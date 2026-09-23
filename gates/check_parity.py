@@ -15275,9 +15275,23 @@ def shell_wrapper(fx):
         PATH=f"{shell_bin}{os.pathsep}{shell_env.get('PATH', '')}",
         FAKE_DISPATCH_ARGV=str(dispatch_log),
     )
+    # The six verbs Claude Code dispatches only from the first argument. The rows are
+    # written out here rather than read from the wrapper, so emptying the wrapper's list
+    # fails them instead of leaving nothing to compare against.
+    session_verbs = [
+        (f"claude {verb} probe-id", ["claude", verb, "probe-id"])
+        for verb in ("logs", "attach", "stop", "kill", "respawn", "rm")
+    ]
     for command, expected in (
         ("codex exec probe", ["codex", "exec", "probe"]),
         ("claude --no-tui -p probe", ["claude", "--dangerously-skip-permissions", "-p", "probe"]),
+        *session_verbs,
+        ("claude --no-tui attach probe-id", ["claude", "attach", "probe-id"]),
+        # Only the exact verb passes through. A prompt that merely begins with one keeps the
+        # default, and so does a subcommand Claude Code parses with the flag in front — `mcp`
+        # is one of the fifteen that do, which is why the list above is six and not all of them.
+        ("claude 'attach the file'", ["claude", "--dangerously-skip-permissions", "attach the file"]),
+        ("claude mcp list", ["claude", "--dangerously-skip-permissions", "mcp", "list"]),
         ("codex", ["codex"]),
     ):
         shell_result = invoke([
