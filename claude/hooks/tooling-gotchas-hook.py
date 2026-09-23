@@ -18,7 +18,29 @@ GUIDE = "guides/tooling-gotchas.md"
 # Both hosts receive the same command payload and additionalContext response.
 # The guide remains available when native hooks are disabled, untrusted, or do
 # not cover a tool path. --self-test checks every anchor against both guide trees.
+_SECRET_FILE = (r"(?:\.env(?:\.\w+)?|\.netrc|\.pgpass|\.npmrc|\.pypirc|credentials(?:\.json)?"
+                r"|auth\.json|secrets?\.(?:ya?ml|json|toml))\b")
 RULES = [
+    # First because it is the one reminder whose miss is not re-work but exposure. Each
+    # branch is a command whose ordinary output IS the value: a keychain read with -w/-g,
+    # printenv or a bare env, a token-printing CLI, an echo of a credential-named variable
+    # (`\w*TOKEN\b` leaves $MAX_TOKENS alone), and a display or match over a secret-bearing
+    # file. A grep with -l/-L/-c/-q prints names, counts or nothing, so it stays quiet.
+    ("credential-print",
+     re.compile(r"(?i)\bsecurity\s+find-(?:generic|internet)-password\b[^|;&]*\s-[a-z]*[wg]\b"
+                r"|\bprintenv\b(?!\s+(?:PATH|HOME|SHELL|USER|PWD|LANG|TERM|TMPDIR)\b)"
+                r"|(?:^|[|;&]\s*)env\s*(?:$|[|;&])"
+                r"|\bgcloud\s+auth\s+(?:application-default\s+)?print-(?:access|identity)-token\b"
+                r"|\bgh\s+auth\s+token\b"
+                r"|\bkubectl\s+get\s+secrets?\b[^|;&]*-o\s*=?\s*(?:ya?ml|json|jsonpath)"
+                r"|\b(?:echo|printf)\b[^|;&]*\$\{?\w*(?:TOKEN|SECRET|PASSWORD|PASSWD|API_?KEY"
+                r"|PRIVATE_?KEY|ACCESS_?KEY|CREDENTIALS?)\b"
+                r"|\b(?:cat|head|tail|less|more|bat)\b[^|;&]*" + _SECRET_FILE +
+                r"|\b(?:grep|rg)\b(?![^|;&]*\s-[a-zA-Z]*[lLcq])[^|;&]*" + _SECRET_FILE),
+     "Checking where a credential lives or that it is set must not print it — test "
+     "existence, length, or shape without emitting secret characters; a value that "
+     f"reached the transcript is exposed, rotate it ({GUIDE}).",
+     "Locating a credential must not print it"),
     ("reserved-shell-names",
      re.compile(r"\b(UID|EUID|GID|PPID)="),
      "Assigning reserved shell names (UID/EUID/GID/PPID) can invoke the bound "
@@ -280,6 +302,7 @@ def self_test() -> int:
     # matches() never reaches the caller either — both leave the rule inert while this file
     # goes on reporting that all of them fire.
     FIXTURES = {
+        "credential-print":      "cat .env",
         "reserved-shell-names":  "UID=0 echo hi",
         "git-diff-two-dot":      "git diff main..HEAD",
         "git-pull-dirty":        "git pull origin main",
@@ -417,6 +440,24 @@ def self_test() -> int:
     if "grep-binary-heuristic" in [h for h, _ in matches("(grep -a needle payload)", limit=None)]:
         problems.append("grep-binary-heuristic: fired although the subshell-grouped "
                         "grep carries its own text-mode flag")
+    # Every branch of credential-print is a separate way the value reaches the transcript,
+    # so each gets its own firing case — a regex that loses one alternative still fires on
+    # `cat .env` and would pass the fixture above. The quiet cases are the look-alikes the
+    # rule must leave alone: existence and length checks, name-only and count-only greps,
+    # a variable named for LLM token counts, a keychain lookup without -w, and a printenv
+    # of a non-secret variable.
+    for cmd in ("printenv", "env | grep KEY", "echo $GITHUB_TOKEN", 'echo "${OPENAI_API_KEY}"',
+                "printf '%s' $DB_PASSWORD", "security find-generic-password -s svc -w",
+                "gcloud auth print-access-token", "gh auth token", "grep API_KEY .env",
+                "kubectl get secret db -o yaml", "head -3 credentials.json", "tail ~/.netrc"):
+        if "credential-print" not in [h for h, _ in matches(cmd, limit=None)]:
+            problems.append(f"credential-print: does not fire on a value-printing command ({cmd!r})")
+    for cmd in ('[ -n "${GH_TOKEN:-}" ]', "wc -c < .env", "grep -c API_KEY .env", "grep -l token .env",
+                "echo $MAX_TOKENS", "security find-generic-password -s svc", "gh auth status",
+                "gcloud auth list", "cat README.md", "env FOO=1 python3 x.py", "printenv PATH",
+                "grep -rn token src/"):
+        if "credential-print" in [h for h, _ in matches(cmd, limit=None)]:
+            problems.append(f"credential-print: fired on a command that prints no secret ({cmd!r})")
     for envcmd in ("LC_ALL=C grep needle payload", "cat payload | LC_ALL=C grep needle"):
         if "grep-binary-heuristic" not in [h for h, _ in matches(envcmd, limit=None)]:
             problems.append(f"grep-binary-heuristic: an env-assignment prefix hid the "
