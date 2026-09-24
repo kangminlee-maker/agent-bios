@@ -75,6 +75,7 @@ format, schema·config validation, graph validation, workbook 구조 검사, imp
 - A/B 또는 on/off measurement: null result를 받아들이기 전에, 검증 대상 메커니즘에서 두 arm이 실제로 다른 treatment를 받았는지 확인한다 — 공유된 default나 무조건적인 upstream step이 두 arm 모두에 조용히 treatment를 적용할 수 있다.
 - nondeterministic stage가 있는 multi-stage pipeline: final-output diff로는 효과나 regression을 특정 stage에 귀속시킬 수 없다 — 변경과 run 간 분산이 뒤섞인다. 모든 stage의 출력을 persist하고, 각 stage가 무엇을 만들고, 무엇을 편집할 수 있고, 무엇만 guard하는지 표로 정리하고, 문제의 콘텐츠를 편집하는 stage로 용의자를 좁히고, 의도한 효과가 사라지거나 결함이 나타나는 첫 stage를 찾는다. 거기서 고치되, 이미 실패한 prompt-level instruction을 하나 더 얹기보다 구조적 재확인을 택한다.
 - before/after 비교: 입력을 immutable copy — snapshot이나 versioned artifact — 로 고정하고 두 arm 모두 그것에 대해 돌린다. live artifact(자라는 로그, 다시 생성되는 upstream stage)는 run 사이에 drift하므로 그 위의 어떤 diff도, 일치하는 diff까지 포함해, 아무 근거가 아니기 때문이다; arm이 metered면 baseline의 upstream 입력을 정확히 복원하고 바뀐 stage만 다시 돌린다. 이것은 input identity의 문제이지, 별개인 단위·분모 기준 규칙이 아니다.
+- provider usage record의 비용 수치: pricing하기 전에 모든 provider의 token 필드를 하나의 schema — uncached input, cache read, cache write, output — 위에 매핑한다. 일부 provider는 input을 이미 cached token을 포함한 총합으로 보고한다: 그 총합을 uncached input으로 취급한 뒤 cache-read 필드를 다시 더하면 cached 부분을 두 번 세게 되고, 반대로 그 inclusive 총합을 한 번에 full rate로 청구하면 그 부분의 가격을 잘못 매기게 된다. 다른 provider는 input 필드에서 cached token을 제외한다. provider가 cache write를 따로 보고하거나 가격을 매기면 그것을 자기 필드에 그대로 둔다. 각 provider의 필드 의미는 — 다른 provider와의 유추가 아니라 — 그 provider 자신의 usage 문서나 알려진 sample에 대조해 확인하고, cache hit rate는 normalize된 필드에서 도출한다.
 - Model-behavior guardrail: recitation이 아니라 바뀐 동작으로 검증한다 — named-trigger case부터 disguised, deconfounded, category-wide, single-variable framing까지 이어지는 staged battery를 쓴다; clean pass는 "known defect 없음"을 뜻하므로 model이 바뀌면 battery를 다시 돌린다.
 - Real data에 대한 branch/version test build: 앱이 건드리는 모든 state sink(파일, DB, env override를 무시하는 OS-level store)를 명시적으로 분리하고, launch path가 그 isolation을 child process까지 전파하는지 확인하고, 첫 실행 전에 live data를 백업한다 — write 시 unknown field를 버리는 mismatched schema는 no-op이 아니라 data loss다.
 - production에서 파생된 config로 도는 sandbox·replay·재판정 실행: 그 stage가 도달할 수 있는 모든 outbound channel — publish, upload, notify, external write — 을 열거하고, 실행 전에 각각을 끄거나 다른 곳으로 돌리며, path guard를 증명하듯 각 disarm이 실제로 발동함을 증명한다; 입력이나 target path에만 건 guard는 egress를 무장한 채로 남긴다. 실행 전에 모든 external destination을 fingerprint하고 실행 후 diff해서, 빠져나간 write가 수신자가 아니라 그 실행에서 잡히게 한다.
@@ -142,6 +143,11 @@ format, schema·config validation, graph validation, workbook 구조 검사, imp
 - **수상하게 빠르거나 빈 실행.** 검사가 예상보다 빨리 green이 되거나 아무것도 보고하지 않으면,
   믿기 전에 그것이 실제로 무엇을 대상으로 돌았는지 덤프한다. 일찍 죽은 harness와 아무것도 못
   찾은 harness는 같은 exit code를 낸다.
+- **자기 검사가 끝나기 전에 나온 판정.** runner가 모든 검사가 끝나기 전에 전체 판정을 계산하거나
+  출력하면, 그 뒤에 나오는 실패는 판정을 바꿀 수 없다. 모든 검사에 걸쳐 실패 개수를 하나로
+  누적한 뒤, 마지막 검사가 끝난 다음에야 판정과 exit status를 한 번만 계산한다. multi-check
+  run은 그 최종 개수와, 거기서 도출됨이 확인된 exit status로 읽는다 — 앞서 출력된 실패를
+  가리는 `tail`이나 뭉개진 마지막 줄로는 절대 읽지 않는다.
 - **crash로 실패한 통제.** negative control은 자기가 이름 붙인 assertion을 통해 실패할 때에만
   evidence다: traceback과 붙잡힌 위반은 같은 exit code를 내고, 이른 crash는 그 뒤의 모든
   통제를 선점해버릴 수 있다. control run에 나온 traceback은, 심은 위반마다 이름 붙은 실패가
@@ -163,9 +169,11 @@ format, schema·config validation, graph validation, workbook 구조 검사, imp
 - **돌지 않은 mutant.** mutation 판정은 mutant가 valid할 때에만 값어치가 있다: 컴파일되었고,
   실행되는 test가 지나는 경로 위에 있고, guard된 동작을 실제로 바꾼다 — downstream에서
   치유되지도, default와 우연히 일치하지도 않는다. runner는 build failure, unreachable,
-  equivalent를 KILLED·SURVIVED와 구분해서 보고하고, anchor가 옮겨졌으면 멈춰야 한다. 그
-  mutation이 건드릴 범위보다 더 많은 test가 빨개지면 그것은 mutant 자체를 고발하는
-  신호다; survivor는 test를 쓰기 전에 분류한다(재작성, 폐기, 진짜 gap).
+  equivalent, timed out을 KILLED·SURVIVED와 구분해서 보고하고, anchor가 옮겨졌으면 멈춰야
+  한다. timeout은 kill이 아니다: machine load에 따라 움직이므로, limit을 mutation하지 않은
+  suite의 실행 시간보다 충분히 위에 두고, 반복 실행이 어떤 mutant가 timeout됐는지에 합의할
+  때에만 판정을 받아들인다. 그 mutation이 건드릴 범위보다 더 많은 test가 빨개지면 그것은
+  mutant 자체를 고발하는 신호다; survivor는 test를 쓰기 전에 분류한다(재작성, 폐기, 진짜 gap).
   **equivalent는 mutant만큼이나 probe에 대한 판정이다**: 죽었거나 상수를 반환하는 probe는
   모든 mutant를 equivalent로 보고하고, mutant가 건드리지 않는 입력을 겨눈 probe도 똑같이
   보고한다. probe가 **mutation하지 않은 코드에서** 구별력을 보이고 mutant가 겨눈 입력을

@@ -256,7 +256,26 @@ depends on it, pin it explicitly instead of trusting the environment.
   and check for a front-side cache/CDN separately. Aim the probe at an
   in-unit sentinel the app answers without credentials: a denial the app
   produces anyway passes with the control off, and a redirect into it is a
-  bypass.
+  bypass. The address an IP-based rule compares is the one selected at its
+  enforcement point, and configuration alone may not establish which: behind
+  a proxy or CDN it can be the client address the configured forwarded-header
+  trust chain hands the app, and a managed platform can route particular
+  destinations outside an otherwise configured NAT path — on GCP, Google API
+  traffic did not use the Cloud NAT address despite
+  `privateIpGoogleAccess: false`. Before writing or editing an allowlist or
+  perimeter rule, observe the address for the real workload and destination
+  at the enforcement point, with a control path that should show a different
+  one.
+- **Locating a credential must not print it**: a command meant only to find
+  where a secret lives, or to check that it is set, exposes the value if it
+  emits it into the transcript — `cat` of an env file, `printenv`,
+  `echo $TOKEN`, a keychain read with `-w`, or a grep whose match is the
+  secret line. Check existence, length, or shape without emitting any secret
+  characters (`[ -n "${X:-}" ]`, `wc -c < file`, a key-name-only listing, a
+  nonprinting format check), and let the consumer read the value directly
+  from the environment or credential store only when it needs it. Do not
+  print even a partial prefix. A value that reached the transcript is
+  exposed: rotate it.
 - **Tightening exposure is a behavior change for external clients**: switching
   ingress mode, adding an allowlist, or requiring auth is not safe when
   callers live outside your redeploy. Enumerate which clients reach the
