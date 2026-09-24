@@ -32,10 +32,12 @@ Signing is the person's side, and the driver acts for the person: a key binding'
 a signature envelope's `sshsig` stand for what the driver's own key for that binding makes. The
 driver holds one key per bound key and signs each envelope's `signed_digest` with it at run time,
 so a signature verifies exactly when the bytes it names are the bytes it was made over.
-A profile runs a case against the real files of its node and of the nodes its node depends on. A
-step whose operation belongs to any other node (team.found in a case M1 runs, when M1 depends on
-no Team node) is given: the driver answers it with the step's stated answer and places the
+A profile runs a case against the real files of its node and of every node its node depends on,
+directly or through another. A step whose operation another node serves
+(`conformance/serving.json` names who serves each; team.found in a case M1 runs, when M1 depends
+on no Team node) is given: the driver answers it with the step's stated answer and places the
 records it returns as given state, and a given step is never evidence about its own owner. The
+layers in scope, access admission and the request journal, still run on a given step. The
 profile a scenario runs on starts at the access generation its first request states: before the
 first step the driver brings a new profile there through restrictions and re-entries of its own,
 which are given. From there the generation moves only as the scenario's own steps move it.

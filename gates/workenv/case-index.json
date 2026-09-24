@@ -899,7 +899,11 @@
         "N04-ROUTER-NEG",
         "N04-ROUTER-POS",
         "N08-INSPECT-NEG",
-        "N08-PENDING-NEG"
+        "N08-PENDING-NEG",
+        "N08-READER-GAP-NEG",
+        "N27-IMPORT-POS",
+        "N27-PACKAGE-POS",
+        "N27-SELECTION-NEG"
       ],
       "joined": [
         {
@@ -918,7 +922,11 @@
         "N11-C08-POS",
         "N11-C08-NEG",
         "N11-ACCESS-NEG",
-        "N11-CEILING-NEG"
+        "N11-CEILING-NEG",
+        "BKP-INTEGRITY",
+        "BKP-PASSIVE",
+        "N05-CRASH-NEG",
+        "N05-RESTART-POS"
       ],
       "joined": [
         {
@@ -974,7 +982,11 @@
         "N15-C11-POS",
         "N15-C11-NEG",
         "N15-ANSWER-NEG",
-        "DEL-PERSONAL"
+        "DEL-PERSONAL",
+        "N04-ACTIVATION-NEG",
+        "N04-ACTIVATION-POS",
+        "N04-ROUTER-NEG",
+        "N04-ROUTER-POS"
       ],
       "joined": [
         {
@@ -1036,7 +1048,9 @@
         "N18-C01-POS",
         "N18-C01-NEG",
         "N23-PROVIDER-POS",
-        "N18-EXCHANGE-NEG"
+        "N18-EXCHANGE-NEG",
+        "N03-ENTRANCES-NEG",
+        "N03-SECRET-NEG"
       ],
       "joined": [
         {
@@ -1078,7 +1092,8 @@
         "N06-MODEL-NEG",
         "N20-READER-POS",
         "N28-REJECT-POS",
-        "N28-CANDIDATE-NEG"
+        "N28-CANDIDATE-NEG",
+        "N28-C01-POS"
       ],
       "joined": [
         {
@@ -1125,7 +1140,10 @@
         "N14-C10-NEG",
         "N18-C01-POS",
         "N18-C01-NEG",
-        "N22-E2E-POS"
+        "N22-E2E-POS",
+        "BKP-RESTORE",
+        "N05-AVAILABLE-NEG",
+        "N05-LINEAGE-NEG"
       ]
     },
     {
@@ -1166,7 +1184,9 @@
         "N03-C02-NEG",
         "N04-C03-POS",
         "N04-C03-NEG",
-        "N27-C01-POS"
+        "N27-C01-POS",
+        "BKP-COVERAGE",
+        "N05-WAIT-POS"
       ]
     },
     {
@@ -1182,7 +1202,9 @@
         "N13-C09-NEG",
         "N14-C10-POS",
         "N14-C10-NEG",
-        "N28-C01-POS"
+        "N28-C01-POS",
+        "N16-CAPABILITY-POS",
+        "N16-ENTRANCES-POS"
       ]
     },
     {
@@ -1198,7 +1220,8 @@
         "N21-C10-POS",
         "N16-C12-POS",
         "N16-C12-NEG",
-        "N23-PROVIDER-POS"
+        "N23-PROVIDER-POS",
+        "N18-EXCHANGE-NEG"
       ]
     },
     {
@@ -1905,6 +1928,43 @@
           "RUN-MODE"
         ]
       ]
+    }
+  ],
+  "given": [
+    {
+      "case": "N01-STORE-NEG",
+      "steps": [
+        "bind_device_key",
+        "bind_a_key_naming_its_own_id",
+        "stage_a_package_carrying_its_key"
+      ],
+      "reason": "N01 is held by P01 and P03 alone in the catalog, and neither scope holds P02 or P09. What N01 asserts is admission and sealed storage, which P03's journal layer runs on every one of these steps; the steps' own semantics are exercised where P02 and P09 are in scope."
+    },
+    {
+      "case": "N01-STORE-POS",
+      "steps": [
+        "bind_device_key",
+        "found_the_team"
+      ],
+      "reason": "N01 is held by P01 and P03 alone in the catalog, and neither scope holds P02 or P07. Both steps are setup for the records whose storage the case asserts, and P03's journal layer runs on them."
+    },
+    {
+      "case": "N02-C01-NEG",
+      "steps": [
+        "found_team",
+        "ask_to_grant_bob",
+        "approve_from_second_key"
+      ],
+      "reason": "N02 is held by P02 and M1, and neither scope holds P07, which serves Team founding, grants and approvals. That a second key of one person cannot approve as an independent reviewer is P07's to show in its own families; the identity refusals this case asserts are P02's and run at both profiles."
+    },
+    {
+      "case": "N08-PENDING-NEG",
+      "steps": [
+        "link_the_conversation",
+        "deliver_the_question",
+        "record_the_cancellation"
+      ],
+      "reason": "N08 is held by profiles none of whose scopes holds P10, which serves recipient links, delivery and answers. The pending question and its unchosen state are P06's and run at P06; delivering and cancelling it through a host is P10's, exercised where P10 is in scope."
     }
   ]
 }

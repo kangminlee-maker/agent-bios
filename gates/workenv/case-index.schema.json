@@ -11,7 +11,8 @@
     "atomic",
     "cases",
     "selects",
-    "covers"
+    "covers",
+    "given"
   ],
   "properties": {
     "schema": {
@@ -65,6 +66,13 @@
       "minItems": 1,
       "items": {
         "$ref": "#/$defs/coverage"
+      }
+    },
+    "given": {
+      "description": "Steps whose answer is the driver's at every profile that binds their case, accepted with the reason no profile holding the case's family can run them (D-20260924-f80d5c). Anything else such a step would be is bound at a later profile instead. gates/workenv/cases.py refuses a row that no longer matches.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/given_case"
       }
     }
   },
@@ -354,6 +362,34 @@
       "description": "A case a profile may select: a new case's id, or a catalog atomic case's.",
       "type": "string",
       "pattern": "^(?:N[0-9]{2}(?:-[A-Z0-9]+)+-(?:POS|NEG)|[A-Z]+(?:-[A-Z0-9]+)+)$"
+    },
+    "given_case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case",
+        "steps",
+        "reason"
+      ],
+      "properties": {
+        "case": {
+          "type": "string",
+          "minLength": 1
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
     }
   }
 }

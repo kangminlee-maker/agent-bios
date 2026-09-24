@@ -48,14 +48,27 @@ its bound cases can drive, with the reason.
     states nothing at all — the two profiles with no such predecessor say so with an empty list
   - a profile without its `covers`, a `done_when` item no bound case realizes, a node contract
     no bound case drives and `elsewhere` does not name, and an `elsewhere` its cases do drive
+  - a serving table (`conformance/serving.json`, which node answers each operation and at which
+    entry, and the layers every request passes through) that misses a declared operation, names
+    a node that does not implement its contract, or an entry outside that node's owned paths
+  - a step addressing a request no step of its scenario submits
+  - a profile binding a case on which no code in its scope runs, and a `given` row that no
+    longer matches a step the driver answers at every profile binding its case
+
+Every other step the driver answers at every profile binding its case is printed as a NOTE: it
+is either setup, or the point of a case that must be bound at a later profile too
+(D-20260924-f80d5c), and telling those apart is a judgement.
 
 `binding` is what a profile's case binding is, in the evaluator's own shape. Its two
-fingerprints move with what they name and nothing else: the adapter fingerprint with the driver
-path, the command each family or bootstrap case runs, the bytes of every contract module and
-record schema its cases drive (the runner's dated evaluator, regression suite and interface
-schemas for `runner`), and the reader every contract is read through; the fixture fingerprint
-with the bytes of every fixture its cases read, each example's expectation beside it, and the case
-definitions themselves. An implementation, a host version or a unit test is in neither.
+fingerprints move with what they name and nothing else: the adapter fingerprint with the bytes of
+the driver and every command each family or bootstrap case runs, the bytes of every contract
+module and record schema its cases drive (the runner's dated evaluator, regression suite and
+interface schemas for `runner`), and the reader every contract is read through, and — for a
+profile whose cases the driver runs — the driver's core, each feature module its cases use (null
+until written), the layers in its scope and the serving rows its steps reach; the fixture
+fingerprint with the bytes of every fixture its cases read, each example's expectation beside
+it, and the case definitions themselves. An implementation, a host version or a unit test is in
+neither: an implementation is measured in its node's subject when that node runs.
 
   python3 gates/workenv/cases.py            # check, and print each profile's bound counts
   python3 gates/workenv/cases.py --bindings # the case-bindings artifact P01 freezes
@@ -100,6 +113,25 @@ READER = ("workenv/contracts/canonical.py", "workenv/contracts/schema.py",
           "workenv/contracts/records.py", "workenv/contracts/errors.py",
           "workenv/contracts/errors.json")
 EXPECTATION = ".expect.json"
+# Which node answers each operation, and at which entry: the adapter selectors P01 freezes.
+SERVING = "gates/workenv/conformance/serving.json"
+# What decides a family case's verdict besides the driver path, so it is in the adapter
+# fingerprint of every profile whose cases the driver runs: the rule oracles, and the resolver
+# that verifies a joined predecessor.
+CORE = ("gates/workenv/conformance/rules.py", "gates/workenv/subjects.py")
+FEATURES = "gates/workenv/conformance/features"
+# What a scenario states beyond one answered step. Each is a module under FEATURES; a case uses
+# the ones its scenario does, and a profile's fingerprint holds only those.
+WORLD_FEATURES = ("processes", "clock", "partitions", "faults", "during")
+STEP_FEATURES = ("replays", "receipt_of", "runner", "route")
+SIGNING = "signing"
+# A step the driver exercises itself rather than an owner, which is never given.
+DRIVER = "driver"
+# The id prefix an addressed operation targets: a request.
+ADDRESSED_TARGET = "req"
+# The layer that holds every request and result, and so answers an addressed operation when it
+# is in scope (D-20260925-3f21bb).
+JOURNAL = "journal"
 
 
 class CaseError(ValueError):
@@ -117,10 +149,199 @@ def owners() -> tuple[dict[str, str], dict[str, str]]:
             {kind: c for c, m in modules.items() for kind in getattr(m, "RECORD_KINDS", ())})
 
 
-def derive(registry: dict, root: pathlib.Path = ROOT) -> tuple[dict[str, dict], list[str]]:
-    """case -> {"operations", "contracts", "fixtures"} read from its scenario, and the problems
-    that kept a case from having one."""
+def load_serving(root: pathlib.Path = ROOT) -> dict:
+    return json.loads((root / SERVING).read_bytes())
+
+
+def module_files(module: str) -> tuple[str, str]:
+    """The two paths a dotted module can live at: a file, or a package's __init__.py."""
+    base = module.replace(".", "/")
+    return f"{base}.py", f"{base}/__init__.py"
+
+
+def scope(node: str, nodes: dict[str, dict]) -> set[str]:
+    """The node and every node it depends on, directly or through another (D-20260924-3bb074)."""
+    found, pending = {node}, list(nodes.get(node, {}).get("depends_on", []))
+    while pending:
+        name = pending.pop()
+        if name not in found:
+            found.add(name)
+            pending.extend(nodes.get(name, {}).get("depends_on", []))
+    return found
+
+
+def features_of(built: dict) -> set[str]:
+    """The features a generated scenario uses beyond answered steps."""
+    world = built.get("world", {})
+    found = {name for name in WORLD_FEATURES if world.get(name)}
+    found |= {f"event_{event['kind']}" for event in world.get("events", [])}
+    found |= {name for step in built["steps"] for name in STEP_FEATURES if name in step}
+
+    def keyed(value, key: str) -> bool:
+        if isinstance(value, dict):
+            return key in value or any(keyed(v, key) for v in value.values())
+        if isinstance(value, list):
+            return any(keyed(v, key) for v in value)
+        return False
+    if any(keyed(r["record"], "sshsig") or keyed(r["record"], "public_key")
+           for r in built["records"]):
+        found.add(SIGNING)
+    return found
+
+
+def served_steps(built: dict, serving: dict) -> tuple[list[dict], list[str]]:
+    """Each step's name and the node that answers it, and the steps that cannot be routed.
+
+    A step without a request (a runner situation) is the driver's. An addressed operation is
+    answered by the node serving the operation of the step whose request carries the id it
+    targets, wherever that step sits (D-20260924-7e9a10)."""
+    held = {r["name"]: r["record"] for r in built["records"]}
+    rows = serving["operations"]
+    by_request = {held[s["request"]].get("request_id"): held[s["request"]].get("operation")
+                  for s in built["steps"] if "request" in s}
+    steps, problems = [], []
+    for step in built["steps"]:
+        if "request" not in step:
+            steps.append({"name": step["name"], "node": DRIVER})
+            continue
+        operation = held[step["request"]].get("operation")
+        row = rows.get(operation, {})
+        if row.get("addressed"):
+            target = held[step["request"]].get("target", {}).get("resource_id")
+            addressed = by_request.get(target)
+            if addressed not in rows or rows[addressed].get("addressed"):
+                problems.append(f"step {step['name']}: {operation} addresses {target}, and no "
+                                f"step of this scenario submits a request under that id")
+                continue
+            steps.append({"name": step["name"], "operation": operation,
+                          "node": rows[addressed]["node"], "addresses": addressed})
+            continue
+        if "node" not in row:
+            problems.append(f"step {step['name']}: {operation} has no serving row")
+            continue
+        steps.append({"name": step["name"], "operation": operation, "node": row["node"]})
+    return steps, problems
+
+
+def serving_problems(serving: dict, plan: dict) -> list[str]:
+    """The serving table held against the contracts and the plan. Whether an entry exists is
+    not asked: a node that has not been built has not written it, and running a case that
+    reaches it answers `blocked` by name."""
+    by_operation = owners()[0]
+    declared = scenarios.operations()
+    nodes = {n["id"]: n for n in plan["nodes"]}
+    rows = serving.get("operations", {})
+    problems = [f"serving {operation}: the contracts declare it and no row serves it"
+                for operation in sorted(set(by_operation) - set(rows))]
+    problems += [f"serving {operation}: no contract declares it"
+                 for operation in sorted(set(rows) - set(by_operation))]
+
+    def held(where: str, node: str, entry: str, contract: str | None) -> None:
+        row = nodes.get(node)
+        if row is None or row["kind"] != IMPLEMENTATION:
+            problems.append(f"serving {where}: {node} is not an implementation node")
+            return
+        if contract is not None and contract not in row.get("contracts", []):
+            problems.append(f"serving {where}: {node} does not implement {contract}")
+        module, _, name = entry.partition(":")
+        owned = row.get("owned_paths", [])
+        if not name or not any(path == own or (own.endswith("/") and path.startswith(own))
+                               for path in module_files(module) for own in owned):
+            problems.append(f"serving {where}: {entry} is not under {node}'s owned paths")
+
+    for operation, row in sorted(rows.items()):
+        if operation not in by_operation:
+            continue
+        if row.get("addressed"):
+            if ADDRESSED_TARGET not in declared[operation]["targets"]:
+                problems.append(f"serving {operation}: marked addressed and it targets no request")
+            continue
+        held(operation, row.get("node", "?"), row.get("entry", ""), by_operation[operation])
+    names = [layer.get("name") for layer in serving.get("layers", [])]
+    if JOURNAL not in names:
+        problems.append(f"serving layers: no {JOURNAL} layer, so no one holds requests and results")
+    for name in sorted({n for n in names if names.count(n) > 1}):
+        problems.append(f"serving layers: {name} is stated twice")
+    for layer in serving.get("layers", []):
+        held(f"layer {layer.get('name')}", layer.get("node", "?"), layer.get("entry", ""),
+             layer.get("contract", "?"))
+    for node, entry in sorted(serving.get("places", {}).items()):
+        held(f"places {node}", node, entry, None)
+    for kind, row in sorted(serving.get("events", {}).items()):
+        held(f"events {kind}", row.get("node", "?"), row.get("entry", ""), None)
+    return problems
+
+
+def answered_in(step: dict, reach: set[str], layers: dict[str, str]) -> bool:
+    """Whether code in this scope, not the driver's stated answer, gives the step's answer: its
+    serving node, or for an addressed operation the journal that holds the request."""
+    if step["node"] == DRIVER or step["node"] in reach:
+        return True
+    return "addresses" in step and layers.get(JOURNAL) in reach
+
+
+def unexercised(registry: dict, catalog: dict, nodes: dict[str, dict], open_profiles: list[str],
+                derived: dict[str, dict], serving: dict) -> tuple[list[str], list[str]]:
+    """(problems, disclosures) about given steps (D-20260924-f80d5c, D-20260925-3768a8).
+
+    A problem: a profile binds a case on which no code in its scope runs, neither a step's
+    serving node nor a layer, so running it there is evidence of nothing. A disclosure: a step
+    whose answer is the driver's at every profile that binds its case, though a layer may still
+    run on it; whether that step is setup or the point of its case is a judgement this does not
+    make. A step the registry's `given` rows accept is not disclosed, and a row that accepts a
+    step no longer answered by the driver everywhere, or a step or case that does not exist, is
+    a problem: an exemption that outlived its reason would excuse whatever took its place."""
+    accepted: dict[str, set[str]] = {}
+    twice = []
+    for row in registry.get("given", []):
+        if row["case"] in accepted:
+            twice.append(f"given {row['case']}: stated twice")
+        accepted.setdefault(row["case"], set()).update(row["steps"])
+    by_profile = {n["test_profile"]: n["id"] for n in nodes.values() if n.get("test_profile")}
+    layers = {layer["name"]: layer["node"] for layer in serving.get("layers", [])}
+    binders: dict[str, list[str]] = {}
+    problems = twice
+    for name in open_profiles:
+        if name not in by_profile:
+            continue
+        reach = scope(by_profile[name], nodes)
+        layered = any(node in reach for node in layers.values())
+        for case in sorted(case_map(registry, catalog, name)):
+            steps = derived.get(case, {}).get("steps")
+            if not steps:
+                continue
+            binders.setdefault(case, []).append(name)
+            if not layered and not any(answered_in(s, reach, layers) for s in steps):
+                problems.append(f"{name}: {case} runs no code in its scope, neither a serving "
+                                f"node nor a layer, so nothing in it is evidence there")
+    disclosures = []
+    for case, profiles in sorted(binders.items()):
+        reaches = [scope(by_profile[p], nodes) for p in profiles]
+        names = {step["name"] for step in derived[case]["steps"]}
+        for step in derived[case]["steps"]:
+            always = not any(answered_in(step, r, layers) for r in reaches)
+            excused = step["name"] in accepted.get(case, set())
+            if always and not excused:
+                disclosures.append(f"{case} {step['name']} ({step['operation']}, served by "
+                                   f"{step['node']}) is answered by the driver at every profile "
+                                   f"that binds it: {', '.join(profiles)}")
+            elif excused and not always:
+                problems.append(f"given {case}: {step['name']} is answered by code at some "
+                                f"profile that binds the case, so the row no longer excuses it")
+        for missing in sorted(accepted.get(case, set()) - names):
+            problems.append(f"given {case}: {missing} is not a step of its scenario")
+    for case in sorted(set(accepted) - set(binders)):
+        problems.append(f"given {case}: no profile binds a case by that id with a scenario")
+    return problems, disclosures
+
+
+def derive(registry: dict, root: pathlib.Path = ROOT,
+           serving: dict | None = None) -> tuple[dict[str, dict], list[str]]:
+    """case -> {"operations", "contracts", "fixtures", "features", "steps"} read from its
+    scenario, and the problems that kept a case from having one. `steps` routes each step by the
+    serving table under `root` unless one is handed in."""
     by_operation, by_kind = owners()
+    serving = load_serving(root) if serving is None else serving
     derived, problems = {}, []
     for row in registry["atomic"] + registry["cases"]:
         case = row["id"]
@@ -146,7 +367,10 @@ def derive(registry: dict, root: pathlib.Path = ROOT) -> tuple[dict[str, dict], 
                     + [f"{RULE_FIXTURES}/{rule.split('/')[1]}.json"
                        for rule in row.get("rules", [])]
                     + row.get("reads", []))
-        derived[case] = {"operations": operations, "contracts": contracts, "fixtures": fixtures}
+        steps, routing = served_steps(built, serving)
+        problems.extend(f"{case}: {problem}" for problem in routing)
+        derived[case] = {"operations": operations, "contracts": contracts, "fixtures": fixtures,
+                         "features": features_of(built), "steps": steps}
     return derived, problems
 
 
@@ -370,6 +594,9 @@ def check(registry: dict | None = None, root: pathlib.Path = ROOT,
                             f"implements {contract}")
 
     problems.extend(coverage(registry, catalog, nodes, open_profiles, derived))
+    serving = load_serving(root)
+    problems.extend(serving_problems(serving, plan))
+    problems.extend(unexercised(registry, catalog, nodes, open_profiles, derived, serving)[0])
 
     report = {}
     for name in open_profiles:
@@ -451,6 +678,41 @@ def contract_files(contract: str, plan: dict) -> list[str]:
             + [f"workenv/contracts/schemas/{identifier}.schema.json" for identifier in schemas])
 
 
+def executed(plan: dict, profile: str, bound: dict[str, str], derived: dict[str, dict],
+             serving: dict, paths: list[str], sha) -> dict:
+    """What the driver executes a profile's family cases with, beyond its own path: the core,
+    each feature module its cases use (null until it is written, which is itself a fact the
+    fingerprint holds), and the serving rows its steps reach, each row by its content. So adding
+    a feature moves only the profiles that use it, and a row edit moves only the profiles whose
+    steps reach that row."""
+    nodes = {n["id"]: n for n in plan["nodes"]}
+    node = next((n["id"] for n in plan["nodes"] if n.get("test_profile") == profile), None)
+    reach = scope(node, nodes) if node else set()
+    features, operations, gives = set(), {}, False
+    for case in bound:
+        drives = derived.get(case, {})
+        features |= drives.get("features", set())
+        for step in drives.get("steps", []):
+            if step["node"] == DRIVER:
+                continue
+            for operation in (step["operation"], step.get("addresses")):
+                if operation:
+                    operations[operation] = serving["operations"][operation]
+            gives = gives or step["node"] not in reach
+    events = {kind: serving["events"][kind] for kind in sorted(
+        f[len("event_"):] for f in features if f.startswith("event_"))
+        if kind in serving.get("events", {})}
+    places = {name: entry for name, entry in sorted(serving.get("places", {}).items())
+              if gives and name in reach}
+    modules = {name: f"{FEATURES}/{name}.py" for name in sorted(features)}
+    layers = [layer for layer in serving.get("layers", []) if layer["node"] in reach]
+    return {"core": {path: sha(path) for path in CORE}, "layers": layers,
+            "features": {name: sha(path) if path in paths else None
+                         for name, path in modules.items()},
+            "serving": {"operations": dict(sorted(operations.items())), "events": events,
+                        "places": places}}
+
+
 def binding(registry: dict, profile: str, loaded: tuple | None = None,
             root: pathlib.Path = ROOT, paths: list[str] | None = None,
             derived: dict[str, dict] | None = None) -> dict:
@@ -491,6 +753,8 @@ def binding(registry: dict, profile: str, loaded: tuple | None = None,
                "contracts": {contract: {path: sha(path) for path in contract_files(contract, plan)}
                              for contract in sorted(used)},
                "reader": {path: sha(path) for path in READER}}
+    if registry["driver"] in ran:
+        adapter.update(executed(plan, profile, bound, derived, load_serving(root), paths, sha))
     fixture = {"files": fixtures, "cases": {case: rows[case] for case in sorted(bound)}}
     return {"profile_digest": evaluator.digest(catalog["profiles"][profile]), "cases": bound,
             "adapter_fingerprint": evaluator.digest(adapter),
@@ -525,6 +789,14 @@ def main(argv: list[str]) -> int:
         print(f"{name:4} {line}")
     for problem in problems:
         print(f"FAIL {problem}")
+    if not problems:
+        registry, (plan, catalog, _) = load(), bundle()
+        nodes = {n["id"]: n for n in plan["nodes"]}
+        carried = {row["profile"] for row in registry["carried"]}
+        for line in unexercised(registry, catalog, nodes,
+                                sorted(set(catalog["profiles"]) - carried),
+                                derive(registry)[0], load_serving())[1]:
+            print(f"NOTE {line}")
     print("CASES OK" if not problems else f"CASES FAIL ({len(problems)})")
     return 1 if problems else 0
 

@@ -1,0 +1,409 @@
+{
+ "schema": 1,
+ "layers": [
+  {
+   "name": "admission",
+   "node": "P02",
+   "contract": "C02",
+   "entry": "workenv.access:layer_admission"
+  },
+  {
+   "name": "journal",
+   "node": "P03",
+   "contract": "C03",
+   "entry": "workenv.journal:layer_journal"
+  }
+ ],
+ "operations": {
+  "access.admission.decide": {
+   "node": "P02",
+   "entry": "workenv.access:access_admission_decide"
+  },
+  "access.bridge.serve": {
+   "node": "P11",
+   "entry": "workenv.studio.bridge:access_bridge_serve"
+  },
+  "access.connection.configure": {
+   "node": "P13",
+   "entry": "workenv.auth:access_connection_configure"
+  },
+  "access.control.record": {
+   "node": "P02",
+   "entry": "workenv.access:access_control_record"
+  },
+  "access.handle.issue": {
+   "node": "P02",
+   "entry": "workenv.access:access_handle_issue"
+  },
+  "access.profile.read": {
+   "node": "P02",
+   "entry": "workenv.access:access_profile_read"
+  },
+  "access.profile.rename": {
+   "node": "P02",
+   "entry": "workenv.access:access_profile_rename"
+  },
+  "access.sign_in.begin": {
+   "node": "P13",
+   "entry": "workenv.auth:access_sign_in_begin"
+  },
+  "access.sign_in.complete": {
+   "node": "P13",
+   "entry": "workenv.auth:access_sign_in_complete"
+  },
+  "access.transition": {
+   "node": "P02",
+   "entry": "workenv.access:access_transition"
+  },
+  "capability.probe": {
+   "node": "P10",
+   "entry": "workenv.hosts:capability_probe"
+  },
+  "carrier.bind": {
+   "node": "P03",
+   "entry": "workenv.sources:carrier_bind"
+  },
+  "carrier.disconnect": {
+   "node": "P12",
+   "entry": "workenv.transports.github:carrier_disconnect"
+  },
+  "carrier.provision": {
+   "node": "P12",
+   "entry": "workenv.transports.github:carrier_provision"
+  },
+  "collection.change": {
+   "node": "P06",
+   "entry": "workenv.preparation:collection_change"
+  },
+  "collection.read": {
+   "node": "P06",
+   "entry": "workenv.preparation:collection_read"
+  },
+  "contribution.return": {
+   "node": "P09",
+   "entry": "workenv.exchange:contribution_return"
+  },
+  "custody.acknowledge": {
+   "node": "P09",
+   "entry": "workenv.custody:custody_acknowledge"
+  },
+  "custody.commit": {
+   "node": "P09",
+   "entry": "workenv.custody:custody_commit"
+  },
+  "delivery.observe": {
+   "node": "P10",
+   "entry": "workenv.delivery:delivery_observe"
+  },
+  "entrance.cutover.commit": {
+   "node": "P06",
+   "entry": "workenv.admission:entrance_cutover_commit"
+  },
+  "entrance.disposition.record": {
+   "node": "P06",
+   "entry": "workenv.admission:entrance_disposition_record"
+  },
+  "environment.adopt": {
+   "node": "P08",
+   "entry": "workenv.environments:environment_adopt"
+  },
+  "environment.publish": {
+   "node": "P08",
+   "entry": "workenv.environments:environment_publish"
+  },
+  "identity.binding.add": {
+   "node": "P02",
+   "entry": "workenv.identity:identity_binding_add"
+  },
+  "identity.binding.revoke": {
+   "node": "P02",
+   "entry": "workenv.identity:identity_binding_revoke"
+  },
+  "knowledge.member.prepare": {
+   "node": "P04",
+   "entry": "workenv.knowledge:knowledge_member_prepare"
+  },
+  "knowledge.question.ask": {
+   "node": "P04",
+   "entry": "workenv.knowledge:knowledge_question_ask"
+  },
+  "knowledge.view.open": {
+   "node": "P04",
+   "entry": "workenv.knowledge:knowledge_view_open"
+  },
+  "memory.candidate.read": {
+   "node": "P05",
+   "entry": "workenv.memory:memory_candidate_read"
+  },
+  "memory.candidate.reject": {
+   "node": "P05",
+   "entry": "workenv.memory:memory_candidate_reject"
+  },
+  "memory.candidate.store": {
+   "node": "P05",
+   "entry": "workenv.memory:memory_candidate_store"
+  },
+  "memory.lifecycle.apply": {
+   "node": "P05",
+   "entry": "workenv.memory:memory_lifecycle_apply"
+  },
+  "memory.preference.record": {
+   "node": "P06",
+   "entry": "workenv.decision_use:memory_preference_record"
+  },
+  "memory.record.publish": {
+   "node": "P05",
+   "entry": "workenv.memory:memory_record_publish"
+  },
+  "memory.state.resolve": {
+   "node": "P05",
+   "entry": "workenv.memory:memory_state_resolve"
+  },
+  "memory.use.prepare": {
+   "node": "P06",
+   "entry": "workenv.decision_use:memory_use_prepare"
+  },
+  "operation.batch.submit": {
+   "node": "P16",
+   "entry": "workenv.operations:operation_batch_submit"
+  },
+  "operation.cancel": {
+   "addressed": true
+  },
+  "operation.history.read": {
+   "node": "P03",
+   "entry": "workenv.journal:operation_history_read"
+  },
+  "operation.query": {
+   "addressed": true
+  },
+  "package.candidate.register": {
+   "node": "P06",
+   "entry": "workenv.admission:package_candidate_register"
+  },
+  "preparation.assess": {
+   "node": "P06",
+   "entry": "workenv.preparation:preparation_assess"
+  },
+  "preparation.compose": {
+   "node": "P06",
+   "entry": "workenv.preparation:preparation_compose"
+  },
+  "reader.body.read": {
+   "node": "P06",
+   "entry": "workenv.reading:reader_body_read"
+  },
+  "reader.question.answer": {
+   "node": "P06",
+   "entry": "workenv.reading:reader_question_answer"
+  },
+  "reader.use.resume": {
+   "node": "P06",
+   "entry": "workenv.reading:reader_use_resume"
+  },
+  "recipient.answer.record": {
+   "node": "P10",
+   "entry": "workenv.delivery:recipient_answer_record"
+  },
+  "recipient.delivery.attempt": {
+   "node": "P10",
+   "entry": "workenv.delivery:recipient_delivery_attempt"
+  },
+  "recipient.link.open": {
+   "node": "P10",
+   "entry": "workenv.delivery:recipient_link_open"
+  },
+  "reference.resolve": {
+   "node": "P03",
+   "entry": "workenv.sources:reference_resolve"
+  },
+  "removal.execute": {
+   "node": "P16",
+   "entry": "workenv.retention:removal_execute"
+  },
+  "repository.bind": {
+   "node": "P03",
+   "entry": "workenv.sources:repository_bind"
+  },
+  "retention.derivations.read": {
+   "node": "P16",
+   "entry": "workenv.retention:retention_derivations_read"
+  },
+  "retention.plan.set": {
+   "node": "P16",
+   "entry": "workenv.retention:retention_plan_set"
+  },
+  "role.project": {
+   "node": "P06",
+   "entry": "workenv.instructions_adapter:role_project"
+  },
+  "route.offer": {
+   "node": "P11",
+   "entry": "workenv.cli:route_offer"
+  },
+  "route.select": {
+   "node": "P11",
+   "entry": "workenv.cli:route_select"
+  },
+  "session.routing.activate": {
+   "node": "P06",
+   "entry": "workenv.instructions_adapter:session_routing_activate"
+  },
+  "source.capture.record": {
+   "node": "P19",
+   "entry": "workenv.intake:source_capture_record"
+  },
+  "source.home.register": {
+   "node": "P03",
+   "entry": "workenv.sources:source_home_register"
+  },
+  "source.observe": {
+   "node": "P03",
+   "entry": "workenv.sources:source_observe"
+  },
+  "source.revision.admit": {
+   "node": "P03",
+   "entry": "workenv.sources:source_revision_admit"
+  },
+  "source.revision.commit": {
+   "node": "P03",
+   "entry": "workenv.sources:source_revision_commit"
+  },
+  "source.revision.publish": {
+   "node": "P03",
+   "entry": "workenv.sources:source_revision_publish"
+  },
+  "source.rights.set": {
+   "node": "P07",
+   "entry": "workenv.authority:source_rights_set"
+  },
+  "store.backup.create": {
+   "node": "P03",
+   "entry": "workenv.storage:store_backup_create"
+  },
+  "store.backup.restore": {
+   "node": "P03",
+   "entry": "workenv.storage:store_backup_restore"
+  },
+  "surface.drive": {
+   "node": "P11",
+   "entry": "workenv.tui:surface_drive"
+  },
+  "team.approval.record": {
+   "node": "P07",
+   "entry": "workenv.team:team_approval_record"
+  },
+  "team.consent.record": {
+   "node": "P07",
+   "entry": "workenv.team:team_consent_record"
+  },
+  "team.continuation.record": {
+   "node": "P14",
+   "entry": "workenv.lifecycle:team_continuation_record"
+  },
+  "team.device.forget": {
+   "node": "P14",
+   "entry": "workenv.lifecycle:team_device_forget"
+  },
+  "team.device.retire": {
+   "node": "P14",
+   "entry": "workenv.lifecycle:team_device_retire"
+  },
+  "team.found": {
+   "node": "P07",
+   "entry": "workenv.team:team_found"
+  },
+  "team.grant.change": {
+   "node": "P07",
+   "entry": "workenv.team:team_grant_change"
+  },
+  "team.invitation.cancel": {
+   "node": "P07",
+   "entry": "workenv.team:team_invitation_cancel"
+  },
+  "team.invitation.issue": {
+   "node": "P07",
+   "entry": "workenv.team:team_invitation_issue"
+  },
+  "team.lifecycle.apply": {
+   "node": "P14",
+   "entry": "workenv.lifecycle:team_lifecycle_apply"
+  },
+  "team.membership.change": {
+   "node": "P07",
+   "entry": "workenv.team:team_membership_change"
+  },
+  "team.membership.leave": {
+   "node": "P14",
+   "entry": "workenv.lifecycle:team_membership_leave"
+  },
+  "team.policy.set": {
+   "node": "P07",
+   "entry": "workenv.team:team_policy_set"
+  },
+  "team.profile.set": {
+   "node": "P14",
+   "entry": "workenv.lifecycle:team_profile_set"
+  },
+  "team.retention.apply": {
+   "node": "P16",
+   "entry": "workenv.retention:team_retention_apply"
+  },
+  "team.state.read": {
+   "node": "P14",
+   "entry": "workenv.lifecycle:team_state_read"
+  },
+  "team.stewardship.transfer": {
+   "node": "P14",
+   "entry": "workenv.lifecycle:team_stewardship_transfer"
+  },
+  "team.verification.record": {
+   "node": "P07",
+   "entry": "workenv.team:team_verification_record"
+  },
+  "transfer.accept": {
+   "node": "P09",
+   "entry": "workenv.exchange:transfer_accept"
+  },
+  "transfer.stage": {
+   "node": "P09",
+   "entry": "workenv.exchange:transfer_stage"
+  },
+  "validation.run": {
+   "node": "P15",
+   "entry": "workenv.validation:validation_run"
+  },
+  "workstream.open": {
+   "node": "P05",
+   "entry": "workenv.memory:workstream_open"
+  }
+ },
+ "places": {
+  "P02": "workenv.access:place_given",
+  "P03": "workenv.storage:place_given",
+  "P04": "workenv.knowledge:place_given",
+  "P05": "workenv.memory:place_given",
+  "P06": "workenv.preparation:place_given",
+  "P07": "workenv.team:place_given",
+  "P08": "workenv.environments:place_given",
+  "P09": "workenv.exchange:place_given",
+  "P10": "workenv.delivery:place_given",
+  "P11": "workenv.cli:place_given",
+  "P12": "workenv.transports.github:place_given",
+  "P13": "workenv.auth:place_given",
+  "P14": "workenv.lifecycle:place_given",
+  "P15": "workenv.validation:place_given",
+  "P16": "workenv.operations:place_given",
+  "P19": "workenv.intake:place_given"
+ },
+ "events": {
+  "configure": {
+   "node": "P03",
+   "entry": "workenv.storage:event_configure"
+  },
+  "provider_refresh": {
+   "node": "P02",
+   "entry": "workenv.access:event_provider_refresh"
+  }
+ }
+}

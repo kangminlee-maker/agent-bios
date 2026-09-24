@@ -127,7 +127,8 @@ class Registry(unittest.TestCase):
             (pathlib.Path(folder) / place).parent.mkdir(parents=True)
             (pathlib.Path(folder) / place).write_text(json.dumps(built))
             registry = {"atomic": [], "cases": [self.row(self.registry, "cases", "N24-C03-NEG")]}
-            self.assertEqual(cases.derive(registry, pathlib.Path(folder))[1],
+            self.assertEqual(cases.derive(registry, pathlib.Path(folder),
+                                          cases.load_serving())[1],
                              ["N24-C03-NEG: its scenario is written for N24-C03-POS"])
 
     def test_a_family_the_catalog_does_not_hold_is_refused(self):
@@ -298,6 +299,147 @@ class Registry(unittest.TestCase):
                 cases.load(path)
 
 
+class Serving(unittest.TestCase):
+    """Which node answers each step, the layers every request passes through, and what the
+    driver would answer itself (D-20260924-38ef51, -f80d5c, -3bb074, D-20260925-3768a8)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.loaded = cases.bundle()
+        cls.registry = cases.load()
+        cls.serving = cases.load_serving()
+        cls.derived = cases.derive(cls.registry)[0]
+        cls.nodes = {n["id"]: n for n in cls.loaded[0]["nodes"]}
+        carried = {row["profile"] for row in cls.registry["carried"]}
+        cls.open = sorted(set(cls.loaded[1]["profiles"]) - carried)
+
+    def serving_refused(self, fragment, mutate):
+        serving = copy.deepcopy(self.serving)
+        mutate(serving)
+        problems = cases.serving_problems(serving, self.loaded[0])
+        self.assertTrue(any(fragment in p for p in problems), (fragment, problems))
+
+    def unexercised(self, registry=None, serving=None):
+        return cases.unexercised(registry or self.registry, self.loaded[1], self.nodes, self.open,
+                                 self.derived, serving or self.serving)
+
+    def test_the_table_serves_every_declared_operation_and_nothing_else(self):
+        self.assertEqual(cases.serving_problems(self.serving, self.loaded[0]), [])
+        self.assertEqual(set(self.serving["operations"]), set(cases.owners()[0]))
+        self.assertEqual(len(self.serving["operations"]), 91)
+
+    def test_an_operation_without_a_row_is_refused(self):
+        self.serving_refused("serving team.found: the contracts declare it and no row serves it",
+                             lambda s: s["operations"].pop("team.found"))
+
+    def test_a_row_for_no_declared_operation_is_refused(self):
+        self.serving_refused("serving team.dissolve: no contract declares it",
+                             lambda s: s["operations"].__setitem__(
+                                 "team.dissolve", {"node": "P07", "entry": "workenv.team:x"}))
+
+    def test_a_node_that_does_not_implement_the_contract_is_refused(self):
+        self.serving_refused("serving team.found: P02 does not implement C08",
+                             lambda s: s["operations"].__setitem__(
+                                 "team.found", {"node": "P02", "entry": "workenv.access:x"}))
+
+    def test_an_entry_outside_the_nodes_owned_paths_is_refused(self):
+        self.serving_refused("serving team.found: workenv.identity:team_found is not under P07's",
+                             lambda s: s["operations"]["team.found"].__setitem__(
+                                 "entry", "workenv.identity:team_found"))
+
+    def test_a_node_that_builds_nothing_is_refused(self):
+        self.serving_refused("serving team.found: P17 is not an implementation node",
+                             lambda s: s["operations"]["team.found"].__setitem__("node", "P17"))
+
+    def test_an_addressed_operation_must_target_a_request(self):
+        self.serving_refused("serving team.state.read: marked addressed and it targets no request",
+                             lambda s: s["operations"].__setitem__(
+                                 "team.state.read", {"addressed": True}))
+
+    def test_a_table_without_the_journal_layer_is_refused(self):
+        def edit(s):
+            s["layers"] = [layer for layer in s["layers"] if layer["name"] != cases.JOURNAL]
+        self.serving_refused("no journal layer", edit)
+
+    def test_a_layer_stated_twice_is_refused(self):
+        self.serving_refused("serving layers: admission is stated twice",
+                             lambda s: s["layers"].append(copy.deepcopy(s["layers"][0])))
+
+    def test_scope_follows_dependencies_through_other_nodes(self):
+        # P06 depends on P04, which depends on P03: the storage node is in P06's scope.
+        self.assertNotIn("P03", self.nodes["P06"]["depends_on"])
+        self.assertIn("P03", cases.scope("P06", self.nodes))
+        self.assertNotIn("P07", cases.scope("P06", self.nodes))
+
+    def test_a_query_is_routed_to_the_node_that_serves_the_request_it_addresses(self):
+        query = next(s for s in self.derived["N02-C01-POS"]["steps"]
+                     if s.get("operation") == "operation.query")
+        self.assertEqual((query["node"], query["addresses"]), ("P02", "identity.binding.add"))
+
+    def test_a_step_addressing_a_request_no_step_submits_cannot_be_routed(self):
+        built = json.loads((cases.ROOT / cases.scenario_dir("N02-C01-POS")
+                            / cases.scenarios.GENERATED).read_bytes())
+        held = next(r for r in built["records"]
+                    if r["record"].get("operation") == "operation.query")
+        held["record"]["target"]["resource_id"] = "req_" + "0" * 32
+        problems = cases.served_steps(built, self.serving)[1]
+        self.assertTrue(any("no step of this scenario submits a request under that id" in p
+                            for p in problems), problems)
+
+    def test_nothing_is_left_answered_by_the_driver_everywhere_without_a_reason(self):
+        problems, disclosures = self.unexercised()
+        self.assertEqual((problems, disclosures), ([], []))
+        self.assertTrue(self.registry["given"])
+
+    def test_a_case_bound_only_where_its_decisive_steps_are_given_is_disclosed(self):
+        registry = copy.deepcopy(self.registry)
+        row = next(r for r in registry["selects"] if r["profile"] == "P13")
+        row["cases"].remove("N03-SECRET-NEG")
+        disclosures = self.unexercised(registry)[1]
+        self.assertTrue(any(d.startswith("N03-SECRET-NEG sign_while_locked") for d in disclosures),
+                        disclosures)
+
+    def test_an_accepted_given_row_removed_is_disclosed_again(self):
+        registry = copy.deepcopy(self.registry)
+        registry["given"] = [r for r in registry["given"] if r["case"] != "N02-C01-NEG"]
+        disclosures = self.unexercised(registry)[1]
+        self.assertTrue(any(d.startswith("N02-C01-NEG approve_from_second_key")
+                            for d in disclosures), disclosures)
+
+    def test_a_given_row_that_excuses_an_exercised_step_is_refused(self):
+        registry = copy.deepcopy(self.registry)
+        registry["given"].append({"case": "N02-C01-POS", "steps": ["read_profile"],
+                                  "reason": "planted"})
+        problems = self.unexercised(registry)[0]
+        self.assertTrue(any("given N02-C01-POS: read_profile is answered by code" in p
+                            for p in problems), problems)
+
+    def test_a_given_row_naming_no_step_or_no_case_is_refused(self):
+        registry = copy.deepcopy(self.registry)
+        registry["given"].append({"case": "N01-STORE-POS", "steps": ["no_such_step"],
+                                  "reason": "planted"})
+        registry["given"].append({"case": "N99-NONE-POS", "steps": ["x"], "reason": "planted"})
+        problems = self.unexercised(registry)[0]
+        for fragment in ("given N01-STORE-POS: stated twice",
+                         "given N01-STORE-POS: no_such_step is not a step of its scenario",
+                         "given N99-NONE-POS: no profile binds a case by that id"):
+            self.assertTrue(any(fragment in p for p in problems), (fragment, problems))
+
+    def test_a_case_on_which_no_code_in_scope_runs_is_refused(self):
+        # Every operation served outside P02's scope and no layer: the driver would answer every
+        # step of P02's cases, and binding them there is evidence of nothing.
+        serving = copy.deepcopy(self.serving)
+        serving["layers"] = []
+        for row in serving["operations"].values():
+            if not row.get("addressed"):
+                row["node"] = "P16"
+        derived = cases.derive(self.registry, serving=serving)[0]
+        problems = cases.unexercised(self.registry, self.loaded[1], self.nodes, self.open,
+                                     derived, serving)[0]
+        self.assertTrue(any(p.startswith("P02: N02-C01-POS runs no code in its scope")
+                            for p in problems), problems)
+
+
 class Bindings(unittest.TestCase):
     """The fingerprints move with what they name and nothing else. Measured on a copy of the
     tracked tree, so a mutation never touches the checkout."""
@@ -383,6 +525,53 @@ class Bindings(unittest.TestCase):
         after = self.bindings(registry)
         self.assertEqual(self.moved(after, "fixture_fingerprint"), {"P18", "M4"})
         self.assertEqual(self.moved(after, "adapter_fingerprint"), set())
+
+    def reached(self, operation):
+        return {p for p in self.profiles if p != "P00" and any(
+            operation in (s.get("operation"), s.get("addresses"))
+            for c in self.before[p]["cases"] for s in self.derived.get(c, {}).get("steps", []))}
+
+    def test_a_serving_row_moves_exactly_the_profiles_whose_steps_reach_it(self):
+        path = self.root / cases.SERVING
+        original = path.read_bytes()
+        serving = json.loads(original)
+        serving["operations"]["workstream.open"]["entry"] = "workenv.memory:renamed"
+        wanted = self.reached("workstream.open")
+        self.assertTrue(wanted and wanted != set(self.profiles) - {"P00"})
+        try:
+            path.write_text(json.dumps(serving))
+            after = self.bindings(self.registry)
+        finally:
+            path.write_bytes(original)
+        self.assertEqual(self.moved(after, "adapter_fingerprint"), wanted)
+        self.assertEqual(self.moved(after, "fixture_fingerprint"), set())
+
+    def test_writing_a_feature_module_moves_exactly_the_profiles_whose_cases_use_it(self):
+        feature = "during"
+        module = f"{cases.FEATURES}/{feature}.py"
+        wanted = self.readers_of(lambda drives: feature in drives["features"])
+        self.assertTrue(wanted and wanted != set(self.profiles) - {"P00"})
+        target = self.root / module
+        target.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            target.write_text('"""planted"""\n')
+            after = {p: cases.binding(self.registry, p, self.loaded, self.root,
+                                      self.paths + [module]) for p in self.profiles}
+        finally:
+            target.unlink()
+        self.assertEqual(self.moved(after, "adapter_fingerprint"), wanted)
+        self.assertNotIn("P01", wanted)
+
+    def test_the_drivers_core_moves_every_profile_it_runs_and_not_the_freeze_itself(self):
+        path = self.root / cases.CORE[0]
+        original = path.read_bytes()
+        try:
+            path.write_bytes(original + b"\n")
+            after = self.bindings(self.registry)
+        finally:
+            path.write_bytes(original)
+        self.assertEqual(self.moved(after, "adapter_fingerprint"),
+                         set(self.profiles) - {"P00", "P01"})
 
 
 class RunnerInterface(unittest.TestCase):
