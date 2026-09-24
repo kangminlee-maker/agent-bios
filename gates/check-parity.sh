@@ -1400,6 +1400,13 @@ else
   echo "FAIL: gates/workenv/check-workenv.py is missing, so no workenv unit test or static analysis ran"; fail=1
 fi
 
+# A contract freeze keeps every profile's case binding outside the repository, and nothing
+# re-derives it from the tree, so gates/workenv/binding-drift.py compares the two when handed
+# a run's evidence. The comparison needs that evidence and runs where a node is recorded; its
+# controls need nothing and run here, so a tool that stopped telling moved from unmoved fails.
+python3 gates/workenv/binding-drift.py --self-test >/dev/null \
+  || { echo "FAIL: binding-drift self-test missed a negative control (run python3 gates/workenv/binding-drift.py --self-test)"; fail=1; }
+
 # The launcher's Textual preflight UI tests need the managed venv (textual).
 # Provision it if missing; every non-UI check above runs under system python.
 VENV="${AGENT_LAUNCH_VENV:-$HOME/.local/share/agent-launch/venv}"
